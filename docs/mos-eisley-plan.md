@@ -2,6 +2,11 @@
 
 **Working name.** A CLI agentic harness spanning Claude, GPT, and Gemini, with real machine access — filesystem, shell, local git, GitHub — built around adversarial review by competing agents operating without prior context. Interface and sandbox model follow Codex CLI conventions.
 
+This document includes the original design and subsequent amendments. Required
+corrections in §23 and accepted changes in §24 supersede conflicting earlier
+examples and milestone tables. Current implementation status is tracked in
+`docs/ROADMAP.md`; planned modules and commands below are not availability claims.
+
 ---
 
 ## 1. Goals and non-goals
@@ -39,6 +44,12 @@ mos-eisley/
     base.py            # Adapter protocol
     anthropic.py  openai.py  google.py
     conformance.py     # cross-provider test harness
+    credentials.py     # typed credential references; never literal headers
+    endpoints.py       # trusted endpoint policy + capability probes
+  extensions/
+    events.py          # typed lifecycle events and bounded observers
+    subagents.py       # capability-bounded child-agent controller
+    skills.py          # versioned prompt/rubric asset loader
   exec/
     policy.py          # policy-first model: paths, network, approvals
     seatbelt.py        # macOS backend
@@ -58,6 +69,8 @@ mos-eisley/
     brief.py  critic.py  judge.py  findings.py  pipeline.py
   run/
     log.py  store.py  replay.py
+  network/
+    broker.py  cache.py # allowlisted fetch/search + provenance cache
   eval/
     mutate.py  metrics.py  sweep.py
   cli/
@@ -134,6 +147,22 @@ Non-default `temperature`/`top_p`/`top_k` return 400 on Claude 5; temperature mu
 ### 4.4 Conformance suite
 
 Same brief + same tools through all three adapters, asserting: identical canonical `Turn` shape; tool call IDs round-trip a two-hop exchange; reasoning state survives a three-turn loop; every provider error maps to a `HarnessError` with a `retryable` flag; stop reasons normalize to `end_turn | tool_use | max_tokens | filtered | error`. Runs nightly against live APIs.
+
+### 4.5 Endpoints and credentials
+
+Custom and OpenAI-compatible endpoints are an adapter capability, not proof of
+provider equivalence. Each endpoint must be named in trusted user/admin policy,
+use TLS unless it is an explicitly approved loopback service, pass the conformance
+suite, and declare its data-handling policy and supported model capabilities.
+Resolve DNS and redirects through the network broker so a configured public URL
+cannot pivot into a private or link-local address.
+
+Authentication uses typed `CredentialRef` values (`environment`, OS keychain,
+OAuth token store, or provider-native identity), never a free-form header map in a
+project file. Repository configuration cannot add endpoints, choose credential
+references, or inject headers. Login/logout commands modify only the selected
+trusted credential store; tokens and resolved headers never enter manifests,
+events, prompts, or replay artifacts.
 
 ---
 
@@ -417,6 +446,20 @@ sudo log stream --style compact --info \
 
 Denial detection is heuristic on every platform — a command that fails for an unrelated reason can look like a sandbox denial and vice versa. Surface the raw exit code and stderr alongside the harness's guess, never instead of it.
 
+### 9.6 Externally contained profile and devcontainer
+
+Ship a reference devcontainer as a reproducible compatibility and containment-test
+target, not as a security attestation by itself. Pin the base image by digest, avoid
+host Docker/SSH/editor sockets and ambient credentials, use an explicit mount list,
+drop unnecessary Linux capabilities, enable `no-new-privileges`, and apply CPU,
+memory, PID, disk, and output limits in the outer runtime.
+
+At startup, the `none` backend must still print and record which boundary properties
+Mos Eisley could verify and which are merely declared by the caller. Run the complete
+positive and negative sandbox suite inside the reference image. If the runtime cannot
+demonstrate a mandatory property, security-sensitive workflows fail closed rather
+than treating the presence of `.devcontainer.json` as proof.
+
 ---
 
 ## 10. Approval policy and command classification
@@ -552,6 +595,35 @@ tier    = "read_only"
 env     = ["PGHOST", "PGDATABASE"]     # explicit allowlist, not inherited
 ```
 
+### 13.1 Startup, health, and authentication
+
+Start MCP clients lazily and concurrently so an unused or optional server cannot
+block session startup. Report an explicit `starting | ready | degraded | failed`
+state. An optional server failure degrades the advertised tool set; failure of a
+server required by the selected task is an `infrastructure_error`, never a silent
+skip or successful review. Bound startup and tool-call time, cancel descendants,
+and circuit-break repeatedly failing servers.
+
+OAuth and other interactive login flows belong to the trusted controller. Store
+only credential references in configuration and redact protocol traffic at both
+write and display boundaries. Tool annotations from a server are descriptive,
+not authorization; local policy remains authoritative.
+
+### 13.2 Outward service boundary — post-gate
+
+An outward MCP server is useful for invoking narrow Mos Eisley capabilities from
+other clients, but it is not part of the review MVP. The first surface should expose
+read/review status, policy preflight, and replay over versioned schemas—not a general
+`run` endpoint. Caller-supplied `tier`, `sandbox`, `roster`, endpoint, or repository
+identifiers are requests that trusted policy may narrow or reject; they never grant
+authority. Add authenticated sessions, rate limits, cancellation, idempotency, and
+audit records before exposing it beyond loopback.
+
+Do not build an MCP server and a separate app-server protocol in parallel. They
+duplicate authentication, cancellation, session, and schema semantics. Add an app
+server only when a concrete first-party client cannot be served by the chosen
+boundary.
+
 ---
 
 ## 14. Agent loop
@@ -567,6 +639,62 @@ assemble context -> count tokens -> check budget
 Per-agent limits, all enforced: iterations, input tokens, output tokens, wall clock, dollars, tool calls. Cooperative cancellation with cleanup of in-flight subprocesses. Per-provider semaphores plus exponential backoff with jitter on `retryable` errors.
 
 Every request and response written to `runs/<id>/agents/<name>/turns.jsonl` before the next iteration begins, so a crashed run is still analyzable.
+
+### 14.1 Typed lifecycle events
+
+Expose a versioned lifecycle event bus for observability and policy composition:
+`run.started/completed`, `agent.started/completed`, `turn.started/completed`,
+`tool.requested/completed`, `finding.emitted`, `policy.denied`, and
+`artifact.persisted`. Events carry immutable run/agent IDs, sequence numbers,
+policy and brief digests, and bounded typed payloads.
+
+Initial handlers are built-in or explicitly installed, digest-pinned trusted
+components. A handler may
+observe, reject, or further narrow an operation, but cannot enlarge capabilities,
+rewrite trusted identifiers, or execute with the triggering agent's ambient
+environment. Define deterministic ordering, timeout, output cap, backpressure,
+failure mode, and circuit breaking per handler. Log every veto separately so a
+compromised or broken handler cannot silently suppress a finding.
+
+Do **not** run arbitrary shell hooks when `finding.emitted` fires. A finding may
+contain a structured `EvidenceRequest`; the controller validates it and dispatches
+it through the TEST evidence broker under its own policy and budget. External
+command/plugin handlers remain disabled until the same sandbox and supply-chain
+requirements as tools are met.
+
+### 14.2 General subagents
+
+Implement critics, judges, dedupe, and future delegated work on one general child
+agent primitive. A child receives a fresh context built from an allowlisted,
+content-addressed brief—not the parent's transcript—and returns a versioned,
+schema-validated result. Persist its parent ID, task, brief digest, route, policy
+digest, budget, and cancellation outcome.
+
+Effective child authority is the intersection of parent authority, trusted policy,
+role policy, and the child's request. This is a capability lattice, not `min(tier)`:
+filesystem roots, network destinations, tools, credentials, providers, and resource
+limits are independent dimensions. Enforce maximum depth, child count,
+concurrency, cumulative tokens/dollars, wall time, and propagated cancellation.
+
+Repeated compaction is a diagnostic signal, not permission to spawn automatically.
+Replacing a fourth compaction with a child changes task semantics and can multiply
+cost; promote that behavior only if evaluation demonstrates higher task success
+within the same aggregate budget.
+
+### 14.3 Versioned skills and personas
+
+A skill is a progressively disclosed prompt/rubric bundle with a manifest,
+compatibility constraints, source provenance, and content digest. Trusted user/admin
+policy owns the allowlist. Repository-local files are untrusted hints and may select
+only an already-approved skill version; they cannot register executable code,
+request credentials, or enlarge a capability. Skill scripts are inert assets unless
+separately registered and authorized as normal tools.
+
+Move critic personas into skills only after the current inline persona is covered by
+golden and held-out evaluations. Pin every run to skill digests and measure each
+version's detection, false-positive, cost, and calibration effects. “Closest wins”
+discovery is forbidden for authority-bearing fields; configuration still intersects
+with trusted policy as required by §23.1B.
 
 ---
 
@@ -649,10 +777,14 @@ mos review <ref> | --pr <n> [--post]   # the adversarial pipeline
 mos resume [<id> | --last | --all]
 mos replay <run-id> [--agent <name>]
 mos sandbox exec -- <cmd>              # test the active profile
+mos policy check --tool <name> [-- <argv...>] # resolve, explain; never execute
 mos blame <file>:<line>                # run provenance
 mos eval <suite> [--sweep]
 mos models
-mos login
+mos features                            # maturity + effective-policy status
+mos auth login|logout <provider>
+mos mcp login|logout <server>
+mos completion <shell>
 ```
 
 ### 16.2 Flags
@@ -668,7 +800,16 @@ mos login
 | `--cd` / `--add-dir` | working dir / extra writable root |
 | `--network` | opt into network in workspace-write |
 | `--json` | NDJSON events to stdout |
+| `--output-schema <file>` | validate the final result against a bounded schema |
 | `--roster` | named model roster for review roles |
+
+`mos policy check` must use the same resolver and semantic command validators as
+dispatch, print the decision and policy provenance, and perform no model, tool, or
+network action. `--output-schema` constrains only the final typed result; it cannot
+select tools or capabilities, and schema failure exits non-zero after one bounded
+format-repair attempt. Feature flags report `experimental | preview | stable |
+disabled-by-policy` and are maturity gates, never a way for project config to bypass
+trusted policy.
 
 ### 16.3 Config layering
 
@@ -762,6 +903,15 @@ runs/<run_id>/
 
 Emit `token_count` with the full breakdown on **every** turn. Lack of compaction visibility is the standing complaint about long CLI sessions.
 
+Redaction is an egress invariant, not merely a logging helper. Apply the same
+versioned redaction policy before writing logs, indexing, replay display, export,
+notifications, and outward service responses. Persist the redaction-policy digest
+and record that a field changed without retaining the secret. If policy requires a
+byte-exact raw artifact for deterministic cassette replay, keep it separately
+encrypted with tighter access and retention; ordinary replay and display always use
+the redacted form. Data minimization and capability isolation remain primary—the
+redactor is defense in depth.
+
 ---
 
 ## 18. Evaluation harness
@@ -840,6 +990,32 @@ Residual risk: `claim` and `suggested_fix` are model-authored strings that get p
 - **`danger-full-access` requires an explicit CLI flag**, prints a warning, and is never reachable from a profile alone.
 - **Structured-output parsing as defense in depth.** A critic emitting prose instead of findings fails the run rather than passing free text downstream.
 
+### 19.5 Brokered web evidence and cache
+
+Critics and judges retain no NET capability. When a review needs current external
+evidence, the trusted brief builder issues a bounded search/fetch request through the
+network broker, freezes the result into the brief, and records query/URL, provider,
+retrieval time, final resolved URL, response/content hash, media type, license or
+usage metadata when known, and cache policy. Redirects, DNS resolution, private and
+link-local addresses, scheme/port, request size, and response size are enforced by
+the broker.
+
+Cache keys must cover normalized request inputs, search/fetch provider and version,
+policy, and freshness window—not just a query hash. Cache entries remain untrusted
+content and can be stale or poisoned; they never become instructions, credentials,
+or an authority source. A finding must cite the frozen artifact it used. This path
+ships only after the no-NET critic invariant and injection corpus pass end to end.
+
+### 19.6 Multimodal inputs
+
+Support images later as content-addressed brief artifacts for screenshots, rendered
+UI, diagrams, and visual diffs. Validate media type independently of extension,
+decode with resource limits, strip active metadata where possible, and record the
+exact bytes and transformations supplied to each provider. A model without the
+required modality is ineligible for that route. Audio/voice/realtime interaction is
+not required by the review workflow and remains out of scope until a measured use
+case justifies its privacy, storage, and provider-conformance surface.
+
 ---
 
 ## 20. Testing
@@ -855,6 +1031,13 @@ Residual risk: `claim` and `suggested_fix` are model-authored strings that get p
 | Blindness | assert a critic's serialized context contains no author transcript, no sibling critique, no model identity |
 | Injection | corpus of adversarial diffs containing instruction-shaped text; assert no credential use, no network, no write |
 | Pipeline | golden-run replay: fixed brief + cassettes → deterministic verdict |
+| Policy preflight | `policy check` and real dispatch resolve identically; preflight performs no execution |
+| Lifecycle events | ordering, timeout, backpressure, veto audit, and capability non-escalation |
+| Subagents | capability-lattice intersection, depth/concurrency/budget caps, cancellation, cross-agent isolation |
+| Skills | digest pinning, progressive-disclosure budget, untrusted-project non-escalation, inert scripts |
+| Network broker | DNS rebinding, redirects, private IPs, cache poisoning/staleness, response/output limits |
+| Redaction | seeded secrets absent from write, replay, export, notification, and service responses |
+| Service boundary | authentication, caller-request narrowing, rate limits, replay rejection, cancellation |
 
 The sandbox negative tests and the blindness assertions are the two most important suites in the repo.
 
@@ -1050,3 +1233,121 @@ M0 must not execute model-selected machine commands before the sandbox exists. I
 | Which sandbox properties are mandatory? | Read-scope, write-scope, no raw network/host sockets, resource limits, process cleanup |
 
 **Go/no-go criterion:** do not grant WRITE, TEST, NET, Git credentials, or publishing authority until its boundary has a concrete threat model, a backend capability assertion, and adversarial tests that fail closed on every supported deployment target.
+
+---
+
+## 24. Adversarial review of the Arbiter Codex-parity delta
+
+**Review date:** 2026-09-05
+
+**Source:** `arbiter-codex-parity.md` from the local Downloads directory
+
+**Disposition:** **Adopt selectively, with security and evidence gates.** The source
+contains useful product-surface ideas, but “Codex has it” is not a sufficient reason
+to add it. Parity can import mature interaction patterns; it must not import ambient
+authority, duplicate service protocols, or claims that are unsupported or already
+stale.
+
+### 24.1 Source qualification
+
+Current official documentation confirms that Codex has configurable subagents whose
+model and reasoning effort can inherit or be overridden, and a skill system based on
+progressive disclosure. It also documents Codex as an MCP client with stdio/HTTP
+transports and OAuth. Those facts support the general concepts, not the exact Arbiter
+interfaces or security defaults:
+
+- [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
+- [Codex MCP client](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+
+The official [Codex documentation index](https://learn.chatgpt.com/docs/llms.txt)
+currently labels the older “Use Codex with Agents SDK” MCP-server path deprecated
+and points users toward App Server or the Claude Code plugin. Therefore, an outward
+Mos Eisley MCP server can be justified by interoperability, but not by an
+unqualified claim that it is required for current Codex parity. Product-comparison
+claims must carry a verification date and official source; unsupported claims are
+treated as design hypotheses.
+
+### 24.2 Decision matrix
+
+| Proposed parity item | Decision | Adversarial disposition |
+|---|---|---|
+| Lifecycle hooks | **Adopt, narrowed** | Implement typed events and trusted bounded handlers (§14.1). No arbitrary shell hook, ambient environment, or authority increase. A finding requests evidence; it never causes direct execution. |
+| General subagent spawning | **Adopt** | Use the common primitive in §14.2 with a fresh materialized brief, capability-lattice intersection, lineage, aggregate budgets, depth/concurrency caps, and cancellation. |
+| Automatic child after repeated compaction | **Reject pending evaluation** | It changes semantics and can multiply spend. Compaction count is telemetry until a held-out comparison proves a better result under the same total budget. |
+| Skills/personas | **Adopt, staged** | Version and hash prompt/rubric assets (§14.3). Repository skills are untrusted selectors, scripts are inert, and persona migration requires regression and held-out evaluation. |
+| MCP server plus app server | **Split and defer** | Keep the client. Add one narrow outward protocol only after quality/security gates (§13.2); do not maintain two auth/session stacks without distinct users. |
+| Image and audio inputs | **Images later; audio deferred** | Images have a concrete review use case and receive artifact/media controls (§19.6). Audio, voice, and realtime interaction do not yet improve the core review outcome. |
+| Cached web search | **Adopt after containment** | Only the trusted brief builder gets brokered network access. Critics consume frozen, cited, untrusted artifacts; the cache includes provenance and freshness (§19.5). |
+| Endpoint and auth modes | **Adopt, hardened** | Use trusted endpoint records and typed credential references (§4.5), not arbitrary URL/header dictionaries. Require TLS/loopback exception, SSRF controls, conformance, and provider/data policy. |
+| Local open-weight models | **Keep out of v1** | Different branding does not prove independent training lineage. “Free per call” ignores hardware, energy, operations, and latency. Add a local endpoint only if blinded evaluation shows incremental coverage or acceptable cost/quality. |
+| Model-keyed capability defaults | **Reject** | Model labels such as “frontier,” “small,” or “cyber” are mutable and do not determine the OS authority a task needs. Policy is task/role/data based; a provider or model restriction may narrow authority, never raise it. |
+| Policy preflight | **Adopt** | `mos policy check` shares the dispatch resolver, explains provenance, and executes nothing (§16.1–16.2). |
+| Feature flags | **Adopt** | Use maturity gates with explicit policy status. Flags cannot bypass trusted-policy intersection. |
+| Structured final output | **Adopt** | `--output-schema` validates a bounded final object and has no capability-selection effect. |
+| Write/replay redaction | **Adopt and strengthen** | Use one egress invariant across persistence, display, replay, export, notification, and services (§17); isolate any policy-approved encrypted raw cassette. |
+| Nonblocking MCP startup | **Adopt with required-tool semantics** | Lazy/concurrent startup is useful, but a required-server failure is an infrastructure error rather than an invisible skip (§13.1). |
+| MCP login/logout, shell completion, notifications | **Adopt incrementally** | Credential lifecycle belongs to the trusted controller. Completion is low risk. Notifications must use redacted typed events and an allowlisted destination; none belongs on the critical path. |
+| Branching, undo, per-turn checkpoints | **Defer** | Hidden Git refs and metadata writes conflict with the VCS-broker boundary. First implement content-addressed patch snapshots in the disposable run store; add branching only after replay semantics, retention, locking, and recovery are specified. |
+| Devcontainer profile | **Adopt as evidence, not proof** | Pin the image by digest and run positive/negative backend tests inside it. An externally contained profile must attest its properties; a container file alone does not prove namespace, socket, resource, or host isolation. |
+| Hook/subagent milestone reordering | **Do not retroactively reorder** | The implementation already has pipeline/evaluation work. Add the extension substrate after the §23.8 evaluation gate; do not let parity work bypass containment or quality evidence. |
+
+### 24.3 Additional requirements introduced by this review
+
+1. **Extension supply chain.** Every executable extension needs an immutable digest,
+   provenance, compatibility range, capability declaration, signature/allowlist
+   decision, and revocation path. Prompt-only assets still need a digest because a
+   rubric change can alter false-positive rate.
+2. **No authority from configuration vocabulary.** A field named `sandbox`,
+   `tier`, `headers`, `endpoint`, `model`, or `skill` in an untrusted project,
+   MCP call, or service request is only a request. The trusted resolver supplies and
+   intersects actual authority.
+3. **Event safety.** Lifecycle payloads are bounded and redacted, handler order is
+   deterministic, blocking decisions identify a trusted policy owner, and vetoes are
+   auditable. Observability handlers default to fail-open for availability; security
+   policy handlers use an explicit fail-closed mode.
+4. **Child isolation.** A child sees no parent transcript, sibling state, credentials,
+   or spill files unless a content-addressed reference is explicitly mounted.
+   Aggregate limits are reserved before spawn so parallel children cannot each spend
+   the full remaining budget.
+5. **Search-cache integrity.** Cached pages and search snippets are never privileged
+   because they were fetched earlier. Validate redirects on every refresh, retain the
+   resolved-source chain, expire negative and error entries, and make stale use
+   visible in findings.
+6. **Interoperability before breadth.** The outward service begins with narrow,
+   idempotent, schema-versioned operations. A general remote agent runner, caller
+   chosen sandbox, or caller chosen credential context is explicitly excluded.
+
+### 24.4 Evidence gates
+
+These additions are not promoted to stable because they exist. Promotion requires:
+
+- lifecycle and skill non-escalation tests plus a malicious-extension corpus;
+- subagent comparisons against the existing specialized review path, reporting
+  quality, cost, latency, isolation failures, and aggregate-budget violations;
+- network-broker SSRF/DNS-rebinding/redirect/cache-poisoning tests and proof that
+  critics remain unable to open sockets;
+- endpoint conformance and data-policy approval for every new backend;
+- egress tests seeding credentials in prompts, tool output, events, MCP traffic, raw
+  artifacts, and replay paths;
+- service-boundary authentication, rate-limit, cancellation, replay, and
+  caller-request-narrowing tests;
+- image decompression-bomb, malformed-media, metadata, and cross-provider
+  conformance tests before multimodal routing becomes eligible.
+
+**Result:** parity work is post-gate extensibility. It may make Mos Eisley easier to
+integrate and specialize, but it cannot advance ahead of the local review quality
+gate, containment proof, or the trusted/untrusted configuration split in §23.8.
+
+### 24.5 Post-gate delivery order
+
+| Phase | Scope | Exit criteria |
+|---|---|---|
+| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers cannot escalate authority; every endpoint passes conformance and data-policy checks |
+| **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
+| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts | critics remain socketless; broker and cache adversarial suites pass; images pass media/resource and cross-provider conformance |
+| **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
+
+An app server, audio/realtime mode, automatic compaction delegation, local model
+route, and Git-backed turn branching remain unplanned candidates. Each requires a
+separate measured use case and threat-model amendment before receiving a milestone.
