@@ -1,0 +1,29 @@
+# Reproducibility
+
+A clean checkout must reproduce installation, checks, tests, and build artifacts
+using the committed runtime version and `uv.lock`:
+
+```sh
+make setup
+make check
+make audit
+make build
+```
+
+Record external inputs, configuration, tool/runtime versions, and commands needed
+to reproduce material results. Never depend silently on developer-machine state.
+
+The authoritative dependency source is `uv.lock`; `requirements.runtime.txt` is
+its hash-pinned runtime-only export. Update with `uv lock`, `make export-runtime`,
+then run `make check audit container`. Frozen mode is used by all quality commands.
+
+`mos replay RUN` verifies the exact artifact set and SHA-256 digests before parsing
+the brief, policy, cassette and result. It recomputes the pipeline and compares the
+entire result, not only the verdict. Serialization schema 1 is the replay contract;
+no migration or live re-execution is implemented. Retain the code revision and lock
+with exported runs. An unsigned digest is integrity evidence, not authenticity.
+
+The SQLite index is disposable metadata. Copy whole completed run directories for
+backup; verify each with `mos replay` after restore. Do not back up a live SQLite
+file by copying it; use SQLite backup facilities or rebuild its metadata from runs.
+Inputs and recordings can contain proprietary source and must be stored privately.

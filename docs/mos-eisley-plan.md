@@ -1,0 +1,989 @@
+# `mos-eisley` — Multi-Provider Adversarial Review Harness
+
+**Working name.** A CLI agentic harness spanning Claude, GPT, and Gemini, with real machine access — filesystem, shell, local git, GitHub — built around adversarial review by competing agents operating without prior context. Interface and sandbox model follow Codex CLI conventions.
+
+---
+
+## 1. Goals and non-goals
+
+### Goals
+
+1. **One agent loop, three providers.** Anthropic, OpenAI, and Google reachable through a single canonical message/turn type, with no provider's wire format leaking into the core.
+2. **Real machine control, safely.** Kernel-enforced sandboxing with per-OS backends, an approval policy, and capability tiers per role.
+3. **Adversarial review as the primary workflow.** An author produces an artifact; N independent critics on different models review it blind; a judge adjudicates. Blindness enforced structurally, not by prompt.
+4. **Local git and GitHub as first-class integrations.** Worktree-per-agent, structured patch application, PR review posting.
+5. **Codex-style context budgeting.** A hard session cap well below the model ceiling, explicit output reservation, headroom buffer, per-role compaction policy.
+6. **Per-task reasoning effort.** A canonical effort ladder mapped to each provider's parameter, bound to roles, with signal-driven escalation.
+7. **Reproducibility.** Every run replayable from disk; every finding traceable to the exact context that produced it.
+
+### Non-goals
+
+- No custom model hosting, fine-tuning, or local inference in v1.
+- No web UI. TUI plus machine-readable output only.
+- Not a LiteLLM replacement — the provider layer covers only what this harness needs.
+- Windows is not a v1 target. WSL2 works via the Linux backend.
+
+---
+
+## 2. Architecture
+
+```
+mos-eisley/
+  core/
+    types.py           # canonical Turn, Block, ToolCall, ToolResult, Usage
+    loop.py            # agent loop, budgets, cancellation
+    budget.py          # context budget resolution + accounting
+    effort.py          # canonical effort ladder + resolution
+    registry.py        # model registry
+  providers/
+    base.py            # Adapter protocol
+    anthropic.py  openai.py  google.py
+    conformance.py     # cross-provider test harness
+  exec/
+    policy.py          # policy-first model: paths, network, approvals
+    seatbelt.py        # macOS backend
+    bwrap.py           # Linux backend (bubblewrap + seccomp)
+    landlock.py        # Linux fallback
+    none.py            # already-contained mode
+    classify.py        # shell AST -> auto-approve | ask | deny
+  tools/
+    registry.py  schema.py  truncate.py
+    builtin/           # read, grep, list, apply_patch, run_tests, shell
+    mcp.py             # MCP client, tiered
+  vcs/
+    git.py             # worktrees, patch application, protected paths
+    github.py          # gh CLI / REST, scoped tokens
+    publisher.py       # isolated credential holder
+  review/
+    brief.py  critic.py  judge.py  findings.py  pipeline.py
+  run/
+    log.py  store.py  replay.py
+  eval/
+    mutate.py  metrics.py  sweep.py
+  cli/
+    main.py  tui.py  config.py
+```
+
+**Layer rules.** `core` and `review` never import `providers`. `review` never imports `vcs.github` — the credential holder is reachable only from `publisher`, and only through a schema-validated boundary (§19).
+
+**Stack:** Python 3.12+, asyncio, Pydantic v2, Typer, Textual for the TUI, Postgres for the run index.
+
+---
+
+## 3. Canonical domain model
+
+Define your own types. Do not adopt OpenAI's message format internally — it cannot losslessly carry Anthropic signed thinking blocks, Gemini thought signatures, or Anthropic cache breakpoints.
+
+```python
+class ReasoningBlock(Block):
+    kind: Literal["reasoning"] = "reasoning"
+    visible: str | None  # summary text, if exposed
+    opaque: dict  # provider-tagged blob, replayed verbatim
+    provider: str
+
+
+class ToolCallBlock(Block):
+    id: str  # harness-assigned, always present
+    name: str
+    args: dict
+    native_id: str | None  # provider's own id, if any
+
+
+class Turn(BaseModel):
+    role: Literal["user", "assistant"]
+    blocks: list[Block]
+    usage: Usage | None
+    cache_breakpoint: bool = False
+```
+
+**Opaque reasoning state is the critical field.** Anthropic keeps previous thinking blocks in context by default on Opus 4.5+ and Sonnet 4.6+ (counting as input tokens); earlier Opus/Sonnet and all Haiku models strip them automatically. Gemini 3 tightened thought-signature validation specifically to improve multi-turn function calling. Dropping any of these degrades tool use silently or errors outright.
+
+**Tool call IDs are harness-assigned.** Gemini matches `functionCall`/`functionResponse` by name, which breaks on parallel calls to the same tool. Mint your own, map bidirectionally in the adapter, never let a provider ID reach `core`.
+
+---
+
+## 4. Provider adapter layer
+
+### 4.1 Mapping table
+
+| Concern | Anthropic | OpenAI | Google |
+|---|---|---|---|
+| System prompt | separate `system` param | instructions / system message | `systemInstruction` |
+| Tool schema key | `input_schema` | `parameters` | `functionDeclarations[].parameters` |
+| Tool call | `tool_use` block | `tool_calls` / function call item | `functionCall` part |
+| Tool result | `tool_result` on a **user** turn | `role: "tool"` message | `functionResponse` part |
+| Reasoning control | `output_config.effort` | `reasoning.effort` | `thinking_level` |
+| Reasoning state | signed thinking blocks | reasoning items | thought signatures |
+| Sampling | rejected on Claude 5 (400) | mostly rejected on reasoning models | supported |
+
+### 4.2 Tool schema subset
+
+Author once, emit per-provider.
+
+- Allowed: `object`, `string`, `number`, `integer`, `boolean`, `array`, `enum`, `required`, `description`
+- Forbidden: `$ref`, `oneOf`, `allOf`, `anyOf`, `format`, `patternProperties`, recursion, tuple-typed arrays
+
+Gemini's OpenAPI-subset dialect is the binding constraint. Validate at tool-registration time in CI, not on first call. **This applies to MCP-sourced schemas too** (§13) — many servers emit schemas Gemini rejects.
+
+### 4.3 Sampling parameters are gone
+
+Non-default `temperature`/`top_p`/`top_k` return 400 on Claude 5; temperature must be 1 or unset whenever thinking is enabled on any Claude model, and is deprecated entirely on 4.7+. OpenAI reasoning models generally reject sampling too.
+
+**Consequence:** "temperature 0 for reproducible critics" is unavailable. Reproducibility comes from content-addressed briefs, pinned model IDs, and fixed effort — not sampling. Eval variance requires N repeated runs.
+
+### 4.4 Conformance suite
+
+Same brief + same tools through all three adapters, asserting: identical canonical `Turn` shape; tool call IDs round-trip a two-hop exchange; reasoning state survives a three-turn loop; every provider error maps to a `HarnessError` with a `retryable` flag; stop reasons normalize to `end_turn | tool_use | max_tokens | filtered | error`. Runs nightly against live APIs.
+
+---
+
+## 5. Model registry
+
+Versioned data file, printed by `mos models`.
+
+```toml
+[models."claude-opus-5"]
+provider = "anthropic"
+context = 1_000_000
+max_output = 128_000
+efforts = ["low","medium","high","xhigh","max"]
+default_effort = "high"
+thinking_retained = true
+sampling_allowed = false
+price_in = 5.00 ; price_out = 25.00
+
+[models."claude-sonnet-5"]
+provider = "anthropic"
+context = 1_000_000 ; max_output = 128_000
+efforts = ["low","medium","high","xhigh","max"]
+default_effort = "high"
+tokenizer_note = "~30% more tokens than Sonnet 4.6 for the same text"
+price_in = 2.00 ; price_out = 10.00
+
+[models."gpt-5.5"]
+provider = "openai"
+context = 1_050_000 ; max_output = 128_000
+efforts = ["none","low","medium","high","xhigh"]
+default_effort = "medium"
+
+[models."gemini-3-pro"]
+provider = "google"
+context = 1_048_576 ; max_output = 65_536
+efforts = ["low","high"]
+```
+
+Three facts everything downstream must respect:
+
+1. **Gemini 3 Pro caps output at 65,536** — half the others. A flat 128k reserve is impossible there.
+2. **Effort support is per model ID, not per family** on OpenAI. `xhigh` exists on 5.2+ and codex-max but not gpt-5.1; `minimal` only on the original GPT-5 line.
+3. **Sonnet 5's tokenizer is denser** than 4.6's. Any shared cross-model token estimate is wrong; use each provider's counting endpoint.
+
+Pin exact model IDs. Never ship an alias as a default.
+
+---
+
+## 6. Context budget subsystem
+
+### 6.1 The Codex arithmetic
+
+Codex enforces a session cap far below the model ceiling: reportedly 400,000 tokens split into 272,000 input and 128,000 reserved output, then a ~5% headroom buffer leaving roughly 258,400 usable input. Auto-compaction fires at a configurable threshold defaulting near 200,000 (`model_auto_compact_token_limit`, configurable downward only). The rationale given: a tight cap makes compaction fire about once per deep investigation and produce a manageable summary, where a million-token window delays it until the history is too large for the summary to be reliable.
+
+> Verify against your installed `codex --version` before hardcoding. The cap has moved across releases and the public figures come from third-party write-ups, not OpenAI docs.
+
+### 6.2 Resolution
+
+```python
+def resolve_budget(model: ModelSpec, role: RoleConfig, effort: Effort) -> Budget:
+    cap = min(role.session_cap, model.context)
+    reserve = min(role.output_reserve_for(effort), model.max_output)
+    usable = int((cap - reserve) * (1 - role.headroom_pct))
+    return Budget(cap, reserve, usable, compact_at=role.compact_at)
+```
+
+Effort and budget resolve together, in one function, once (§7.4).
+
+### 6.3 Accounting
+
+Five categories tracked separately — the aggregate is useless for diagnosis: system prompt, tool schemas, project instructions (`AGENTS.md`, 32 KiB cap), conversation turns (including retained reasoning), tool outputs (fastest-growing).
+
+Count with each provider's own endpoint, cached on a hash of the serialized prefix.
+
+**Startup assertion:** if the assembled prefix exceeds 25% of `usable`, fail with a diagnostic naming the offending category.
+
+### 6.4 Compaction policy — by role
+
+Codex uses a single-layer handoff summary replacing history. Inherited costs: compounding loss across repeated compactions, and destruction of the prompt-cache prefix so the next turn pays cold-start. Community guidance treats three successive compactions as a restructure signal and prefers subagents, since a fresh agent with a focused prompt preserves full fidelity.
+
+Your critics **are** the subagent pattern:
+
+| Role | Session cap | Compaction |
+|---|---|---|
+| `brief_builder` | 60k | n/a |
+| `critic` | 120k | **none — fail closed** |
+| `judge` | 200k | **none — fail closed** |
+| `dedupe` | 120k | none |
+| `author` | 400k | Codex-style, max 3, then hard stop |
+
+A compaction inside a critic silently summarizes away the evidence under review. Overrun means a bug in brief construction or an untruncated tool result — raise `BudgetExceeded` with the category breakdown attached.
+
+### 6.5 Cache-aware layout
+
+`[stable prefix: system + tools + brief] + [volatile: turns]`, explicit cache breakpoint at the boundary. With N critics on one brief, the prefix is the largest cost lever. Compaction invalidates it — a second reason to keep it off the critic path.
+
+---
+
+## 7. Effort subsystem
+
+### 7.1 The three ladders
+
+| | Parameter | Levels | Default |
+|---|---|---|---|
+| Anthropic | `output_config.effort` | low, medium, high, xhigh, max | Sonnet 5: high |
+| OpenAI | `reasoning.effort` | none, minimal, low, medium, high, xhigh, max (model-dependent) | gpt-5.5: medium |
+| Google | `thinking_level` | low, high | — |
+
+Effort is the control; adaptive thinking is the *mode* — `adaptive` is not a valid effort value. Manual budgets (`thinking: {type:"enabled", budget_tokens:N}`) return 400 on Sonnet 5 and Opus 4.7+. Opus 5 exposes the full ladder with `max` on top and converts additional effort into results more reliably than earlier Opus models, so the level chosen carries more weight. Gemini 3 replaced `thinking_budget` with `thinking_level`.
+
+### 7.2 Canonical ladder and fallback
+
+```python
+LADDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+
+
+def resolve_effort(model: ModelSpec, requested: str) -> str:
+    if requested in model.efforts:
+        return requested
+    for level in reversed(LADDER[: LADDER.index(requested)]):
+        if level in model.efforts:
+            return level  # log the substitution
+    raise UnsupportedEffort(model.id, requested)
+```
+
+**Cross-provider effort is not comparable.** Gemini has two levels where Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different settings. Never read cross-model disagreement as a capability signal when efforts were substituted — the run log must surface that at analysis time.
+
+### 7.3 Selection — bind to role, don't classify
+
+No pre-flight difficulty classifier. It costs a round trip and guesses at what roles already encode.
+
+```toml
+[role.brief_builder] effort = "low"     # mechanical assembly
+[role.author]        effort = "high"
+[role.critic]        effort = "high"    # calibrate — see §18.3
+[role.dedupe]        effort = "medium"  # structured merge
+[role.judge]         effort = "xhigh"   # hardest reasoning step
+```
+
+### 7.4 Effort ↔ max_tokens coupling
+
+At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.
+
+```toml
+[effort_reserve]
+low = 16_000 ; medium = 32_000 ; high = 64_000 ; xhigh = 96_000 ; max = 128_000
+```
+
+Raising a critic's effort shrinks its usable input. Higher effort also inflates context *growth* across a loop, since retained thinking counts as input tokens. Effort is a budget parameter as much as a quality parameter.
+
+### 7.5 Escalation on signal
+
+One retry, one step up. Triggers: structured output fails schema validation; K iterations with no state-changing tool call; judge confidence below threshold; (eval only) zero findings on a known-mutated brief. Both attempts logged. If the eval shows escalation never changes a verdict, delete it.
+
+---
+
+## 8. Tool layer
+
+### 8.1 Registration and tiers
+
+```python
+@tool(tier=Tier.READ_ONLY, timeout=30)
+def grep(pattern: str, path: str = ".", max_matches: int = 100) -> str:
+    """Search for a regex pattern under path."""
+```
+
+| Tier | Tools | Roles |
+|---|---|---|
+| `READ_ONLY` | read, grep, list, git show/diff/log | critic, judge, dedupe |
+| `TEST` | READ_ONLY + run_tests in sandbox | critic (evidence execution) |
+| `WRITE` | TEST + apply_patch, write_file | author |
+| `EXEC` | WRITE + shell | author, opt-in |
+| `NET` | fetch, MCP servers with network | author, explicit allowlist |
+
+**Enforced at dispatch, not by prompt.** A reviewer with write access is not a reviewer. This mirrors what production Codex review setups already do — pinning review profiles to `sandbox_mode = "read-only"` and `approval_policy = "never"` so the invocation cannot modify the filesystem or prompt mid-run regardless of prompt content.
+
+Tier is a property of the *role*, not the request. An agent cannot escalate its own tier mid-run; escalation requires a new agent with a new context.
+
+### 8.2 Output discipline
+
+Truncate to a byte cap with head/tail retention and an explicit `[truncated: N bytes omitted, full output at <path>]` marker. Write the full output to disk, hand the agent a greppable path. Unbounded tool output is the most common way a loop dies and the most common source of budget overrun.
+
+---
+
+## 9. Execution and sandboxing
+
+Policy-first: the policy lives in `exec/policy.py` as data; OS-specific backends enforce it. Same policy, three enforcement mechanisms.
+
+### 9.1 Sandbox modes
+
+| Mode | Filesystem | Network |
+|---|---|---|
+| `read-only` | read anywhere permitted; no writes | denied |
+| `workspace-write` | writes confined to writable roots | denied by default, allowlist opt-in |
+| `danger-full-access` | unrestricted | unrestricted |
+| `none` | no harness sandbox applied | inherited |
+
+`none` is for when the harness is already inside a container or VM — relevant for your Linux boxes. Codex has the same escape hatch: it applies no platform sandbox but still communicates network-access state to tools and MCP servers, so the model knows what it can attempt.
+
+### 9.2 Path policy
+
+Precedence **Deny > Write > Read, most-specific-wins**. Writable roots scoped to the agent's worktree plus `/tmp`. Protected metadata — `.git`, `.mos-eisley`, `.agents` — forced read-only **even inside a writable root**. Read-deny globs expanded at policy-build time and **failing closed on malformed patterns**.
+
+### 9.3 macOS backend — Seatbelt
+
+Commands run via `sandbox-exec` with an `.sbpl` profile generated per mode.
+
+- **Invoke `/usr/bin/sandbox-exec` by hard-coded absolute path**, never resolved from `PATH`. Path resolution is an injection vector and Claude Code/Codex both hardcode it.
+- Profiles are Scheme-like policy files: `allow file-read*`, `deny network-outbound` with loopback and detected proxy ports permitted.
+- For restricted read, append a curated platform policy rather than broadly allowing `/System` — broad allows defeat the point, but a naive deny breaks common toolchains.
+- Seatbelt is formally deprecated by Apple but remains the only kernel-level option; treat it as a supported-but-fragile dependency and keep the `none` + container path viable.
+
+**Bug not to replicate:** Codex's macOS profile blocks network unconditionally, ignoring `network_access = true` in config, so the only workaround users have is `--sandbox danger-full-access` — which drops *all* protections to get network. Make the network rule conditional at profile-generation time so opting into network doesn't cost you filesystem confinement.
+
+### 9.4 Linux backend — bubblewrap + seccomp
+
+Two-stage launch: `bwrap` establishes the filesystem/namespace view, then `PR_SET_NO_NEW_PRIVS` plus a seccomp-BPF filter locks down syscalls, then `execvp` the target.
+
+- seccomp denies `ptrace`, `process_vm_readv`/`writev`, and `io_uring_*` unconditionally.
+- In restricted-network mode it blocks all socket families **except `AF_UNIX`**. The AF_UNIX exemption is mandatory — without it basic shell operations break.
+- **Landlock fallback** (kernel 5.13+) where bwrap is unavailable: read everywhere, write only to whitelisted roots plus `/dev/null`. Weaker, and it cannot restrict reads.
+
+Deployment caveats to document in the README, because both will bite on your VMs:
+
+- Ubuntu 24.04+ and other AppArmor-restricted distros may need `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` for unprivileged user namespaces.
+- Inside Docker, bwrap needs `CLONE_NEWUSER`, which many runtimes block. Running the harness in a container requires `SYS_ADMIN` and an unconfined seccomp profile — or use `--sandbox none` and rely on the container as the boundary, which is the cleaner choice.
+
+### 9.5 Sandbox debugging
+
+Ship `mos sandbox exec -- <command>` to run an arbitrary command through the active profile without a model in the loop. This is how you verify a toolchain passes enforcement before a real session, and it will save hours. On macOS, document the denial log predicate:
+
+```
+sudo log stream --style compact --info \
+  --predicate 'subsystem == "com.apple.sandbox" OR process == "sandboxd"'
+```
+
+Denial detection is heuristic on every platform — a command that fails for an unrelated reason can look like a sandbox denial and vice versa. Surface the raw exit code and stderr alongside the harness's guess, never instead of it.
+
+---
+
+## 10. Approval policy and command classification
+
+### 10.1 Policies
+
+| Policy | Behavior |
+|---|---|
+| `untrusted` | prompt for everything not on the trusted allowlist |
+| `on-failure` | run sandboxed; on sandbox denial, ask whether to retry unsandboxed |
+| `on-request` | model asks when it judges it needs escalation |
+| `never` | no prompts; sandbox denials are hard failures |
+
+Sandbox mode and approval policy are orthogonal. The two combinations that matter:
+
+- `workspace-write` + `on-failure` — the interactive default. Productive, and escalation is explicit.
+- `read-only` + `never` — the review default. No prompts, no writes, safe unattended in CI.
+
+Support a granular form (`approval_policy = { granular = {...} }`) so specific categories — permission requests, skill scripts — can fail closed while others still prompt.
+
+### 10.2 Command classification
+
+Deciding "is this shell command safe to auto-run" is harder than it looks, and heuristics are the weak point in every existing implementation.
+
+Approach: parse with a real shell grammar (`tree-sitter-bash` or `bashlex`) and auto-approve **only** when all of these hold:
+
+1. The AST is a single simple command (no pipes, `&&`, `;`, subshells).
+2. No redirection, no command substitution, no process substitution.
+3. The executable is on the trusted allowlist by absolute path.
+4. Every path argument resolves inside a readable root after symlink resolution.
+5. No argument matches a deny pattern (`--force`, `-rf /`, `sudo`, `curl … | sh`).
+
+**Anything else asks.** Parse failure asks. Unknown executable asks. This trades convenience for a classifier you can actually reason about, and it degrades safely: the worst case is an extra prompt.
+
+Cache approvals per `(command_hash, cwd, session)` so the same command isn't re-prompted, but never persist approvals across sessions — that turns a one-time decision into a standing grant.
+
+---
+
+## 11. Git integration
+
+### 11.1 Worktree isolation
+
+**Never operate on the user's checked-out working tree.** Every agent gets `git worktree add runs/<id>/worktrees/<agent>/` from a pinned base SHA, disposable at run end. Benefits: parallel agents can't collide, the user's uncommitted work is untouched, and cleanup is `git worktree remove`.
+
+### 11.2 `.git` is protected
+
+Read-only in every tier including `WRITE`. This is not tidiness — it closes a code-execution path:
+
+- `.git/hooks/*` — writing a `pre-commit` hook is arbitrary code execution on the user's next commit.
+- `.git/config` — `core.fsmonitor`, `core.sshCommand`, and `alias.*` all execute shell.
+- History rewriting and ref deletion are unrecoverable in ways an agent shouldn't be able to reach.
+
+Blocked by policy regardless of tier: `push --force`, `reset --hard` on non-agent branches, `filter-branch`, `branch -D`, `git config` writes, submodule init from URLs not already in `.gitmodules` at the base SHA.
+
+### 11.3 Structured patch application
+
+Expose `apply_patch(patch: str)` rather than letting the model shell out to `git apply`. The tool:
+
+- validates patch format before touching disk
+- rejects path traversal and any target under a protected path
+- returns structured conflicts the model can act on, instead of raw stderr
+- records the patch verbatim into the run log
+
+### 11.4 Provenance
+
+Agent-authored commits carry trailers so any line traces back to a run:
+
+```
+Mos-Eisley-Run-Id: <run_id>
+Mos-Eisley-Role: author
+Mos-Eisley-Model: claude-opus-5
+Co-Authored-By: mos-eisley <noreply@localhost>
+```
+
+`mos blame <file>:<line>` joins these against the Postgres run index to answer "which run, which model, at what effort, produced this line, and what did the critics say about it."
+
+---
+
+## 12. GitHub integration
+
+### 12.1 Access options
+
+| Option | Best for | Notes |
+|---|---|---|
+| `gh` CLI subprocess | local dev | inherits the user's existing auth; no token handling in the harness |
+| REST/GraphQL + fine-grained PAT | CI | explicit scopes, auditable |
+| GitHub MCP server | extensibility | goes through §13 tiering like any other server |
+
+Default to `gh` locally, fine-grained PAT in CI. Both live behind one `vcs/github.py` interface.
+
+### 12.2 Least-privilege scopes
+
+| Purpose | Scopes |
+|---|---|
+| Fetch PR + diff for review | `contents: read`, `pull_requests: read` |
+| Post review comments | `pull_requests: write` **only** |
+| Author pushes (CI) | `contents: write`, non-protected branches only |
+
+Never a classic PAT. Never `repo` scope. Never `workflow` scope — that lets an agent modify CI definitions, which is a self-granting privilege escalation.
+
+### 12.3 The publisher is a separate process
+
+This is the central control and §19 explains why. The agent that reads the PR diff has **no network and no credentials**. A separate `publisher` process holds the token, accepts a schema-validated `Verdict` object, and posts it. Nothing free-form crosses that boundary.
+
+### 12.4 Workflows
+
+```
+mos review --pr 1234        # fetch PR -> build brief -> pipeline -> verdict
+mos review HEAD~1..HEAD     # local diff, no GitHub involvement
+mos review --pr 1234 --post # ... and hand the verdict to the publisher
+```
+
+Findings already carry `location` as `file:line`, so they map onto GitHub review comments directly. The verdict maps to a check-run conclusion: `accept` → success, `revise` → neutral with annotations, `reject` → failure.
+
+CI shape: a workflow calling `mos exec --json`, uploading `runs/<id>/` as an artifact, and gating the merge on the check run. Use `pull_request_target` only if you understand exactly why it's dangerous here — it grants a write token to a workflow evaluating untrusted code.
+
+---
+
+## 13. MCP client
+
+MCP servers are another tool source and get the same treatment as builtins:
+
+- Classified into a capability tier at registration, in config, by a human. A server is never auto-trusted because it advertises itself as read-only.
+- Their schemas pass through the §4.2 subset validator. Many servers emit schemas Gemini rejects.
+- Untrusted or network-capable servers never enter a critic's tool set.
+- Network-access state is communicated to servers so they can behave correctly under the sandbox.
+- Server responses are **untrusted content** (§19), not privileged instruction.
+
+```toml
+[mcp_servers.postgres]
+command = "mcp-server-postgres"
+tier    = "read_only"
+env     = ["PGHOST", "PGDATABASE"]     # explicit allowlist, not inherited
+```
+
+---
+
+## 14. Agent loop
+
+```
+assemble context -> count tokens -> check budget
+  -> call provider (stream)
+  -> normalize stop reason
+  -> if tool_use: classify -> approve/deny -> dispatch sandboxed -> append results
+  -> repeat until end_turn | budget exhausted | limit hit
+```
+
+Per-agent limits, all enforced: iterations, input tokens, output tokens, wall clock, dollars, tool calls. Cooperative cancellation with cleanup of in-flight subprocesses. Per-provider semaphores plus exponential backoff with jitter on `retryable` errors.
+
+Every request and response written to `runs/<id>/agents/<name>/turns.jsonl` before the next iteration begins, so a crashed run is still analyzable.
+
+---
+
+## 15. Adversarial review pipeline
+
+### 15.1 Brief materialization
+
+The critic's context is built from a directory on disk, never forked from a conversation:
+
+```
+runs/<id>/brief/
+  spec.md  diff.patch  constraints.md  test_output.txt
+  manifest.json         # sha256 of each file -> brief_id
+```
+
+`brief_id` is the content hash; the same brief replays to any model, any time. **The author's transcript never enters a critic's context** — the author's reasoning is precisely what critics must be blind to.
+
+### 15.2 Blindness invariants
+
+Asserted in code, tested in CI:
+
+1. Critics run concurrently and never observe each other.
+2. No critic is told which model authored the artifact.
+3. The judge receives critiques with identity stripped and order randomized.
+4. No critic is told another critic flagged anything.
+5. Personas differ deliberately — correctness, spec mismatch, operational failure modes — so they don't share one blind spot.
+
+### 15.3 Findings schema
+
+```python
+class Finding(BaseModel):
+    location: str  # file:line or symbol
+    claim: str
+    severity: Literal[
+        "correctness", "spec_violation", "security", "performance", "preference"
+    ]
+    evidence: Evidence  # command | failing_test | citation
+    suggested_fix: str | None
+    confidence: float
+```
+
+- **At most 5 findings, ranked.** Uncapped critics produce a wall of style nits.
+- **Executable evidence preferred:** require the test or command that would fail if the claim holds, then run it. Strongest single lever on false-positive rate.
+- **`preference` findings never block.** Unlabeled findings rejected at parse time.
+
+### 15.4 Adjudication
+
+1. **Dedupe** across critics — embedding cluster or an LLM merge at `medium` effort. Preserve which critics contributed to each cluster.
+2. **Score** by agreement × evidence executability × severity, **weighting cross-family agreement above within-family** — three Claude instances agreeing is correlated, not independent.
+3. **Judge** returns `accept | revise(required_changes) | reject`, and is never the model that authored.
+4. **Rotate roles** across runs.
+
+### 15.5 Bias controls
+
+| Bias | Control |
+|---|---|
+| Self-preference | blinding + judge rotation |
+| Verbosity | length cap; judge sees normalized-length summaries |
+| Position | randomized order; periodic permuted re-run to measure |
+| Herding | strict concurrency, no cross-critic visibility |
+| Sycophancy | adversarial persona + executable-evidence requirement |
+
+### 15.6 Rounds
+
+Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is multiplicative in (critics × rounds).
+
+---
+
+## 16. CLI interface
+
+### 16.1 Commands
+
+```
+mos                                    # interactive TUI in cwd
+mos "prompt"                           # TUI with initial prompt
+mos exec "prompt"                      # non-interactive
+mos exec --json "prompt"               # NDJSON events, one per state change
+mos exec resume --last
+mos review <ref> | --pr <n> [--post]   # the adversarial pipeline
+mos resume [<id> | --last | --all]
+mos replay <run-id> [--agent <name>]
+mos sandbox exec -- <cmd>              # test the active profile
+mos blame <file>:<line>                # run provenance
+mos eval <suite> [--sweep]
+mos models
+mos login
+```
+
+### 16.2 Flags
+
+| Flag | Meaning |
+|---|---|
+| `-m, --model` | override model |
+| `-p, --profile` | layer a named profile |
+| `-s, --sandbox` | `read-only \| workspace-write \| danger-full-access \| none` |
+| `-a, --ask-for-approval` | `untrusted \| on-failure \| on-request \| never` |
+| `-e, --effort` | canonical effort level |
+| `-c key=value` | inline config override, repeatable |
+| `--cd` / `--add-dir` | working dir / extra writable root |
+| `--network` | opt into network in workspace-write |
+| `--json` | NDJSON events to stdout |
+| `--roster` | named model roster for review roles |
+
+### 16.3 Config layering
+
+```
+~/.mos-eisley/config.toml                # base
+~/.mos-eisley/<profile>.config.toml      # profile overlay
+<project>/.mos-eisley/config.toml        # project (closest wins)
+AGENTS.md                         # project instructions, 32 KiB cap
+CLI flags and -c overrides        # highest priority
+```
+
+```toml
+# ~/.mos-eisley/config.toml
+model           = "claude-opus-5"
+effort          = "high"
+approval_policy = "on-failure"
+sandbox_mode    = "workspace-write"
+
+[sandbox_workspace_write]
+network_access  = false
+writable_roots  = ["/tmp"]
+
+[budget.default]
+session_cap = 400_000 ; headroom_pct = 0.05 ; compact_at = 200_000
+
+[roster.default]
+author  = { model = "claude-opus-5", effort = "high" }
+critics = [
+  { model = "claude-opus-5", effort = "high", persona = "correctness" },
+  { model = "gpt-5.5",       effort = "high", persona = "spec"        },
+  { model = "gemini-3-pro",  effort = "high", persona = "operational" },
+]
+judge   = { model = "gpt-5.5", effort = "xhigh" }
+```
+
+```toml
+# ~/.mos-eisley/review.config.toml — ship this in the repo
+sandbox_mode    = "read-only"
+approval_policy = "never"
+compaction      = "disabled"
+network_access  = false
+[budget.default]
+session_cap = 120_000
+```
+
+Read-only plus never-approve means a review invocation cannot modify the filesystem or pause for input regardless of what the brief or the model says.
+
+### 16.4 TUI slash commands
+
+```
+/status /context /compact /clear /new /model /effort
+/approvals /sandbox /diff /review /init
+```
+
+`Alt+,` / `Alt+.` steps effort down/up mid-session. Persistent status line: model, effort, sandbox mode, live token count against budget.
+
+### 16.5 Event stream
+
+```
+{"type":"session.started","run_id":"...","sandbox":"read-only","roster":"default"}
+{"type":"agent.started","agent":"critic.spec","model":"gpt-5.5","effort":"high"}
+{"type":"token_count","agent":"critic.spec","system":1200,"tools":3400,
+ "instructions":800,"turns":15200,"tool_output":40100,"budget":110000}
+{"type":"command.classified","cmd":"pytest -q","decision":"auto","reason":"allowlist"}
+{"type":"command.denied","cmd":"curl …","reason":"network_blocked"}
+{"type":"approval.requested","cmd":"npm install","policy":"on-failure"}
+{"type":"finding","agent":"critic.spec","severity":"correctness","location":"src/x.py:44"}
+{"type":"effort.escalated","agent":"judge","from":"xhigh","to":"max"}
+{"type":"verdict","decision":"revise","required_changes":3}
+{"type":"session.completed","cost_usd":4.12,"duration_s":186}
+```
+
+---
+
+## 17. Run artifacts and telemetry
+
+```
+runs/<run_id>/
+  manifest.json     # config snapshot, roster, git sha, brief_id, sandbox policy
+  brief/
+  agents/<name>/
+    turns.jsonl  findings.json  budget.json
+  commands.jsonl    # every classified command + decision + exit code
+  critiques/        # per-critic, blinded
+  verdict.json
+  events.jsonl
+  worktrees/        # disposable
+```
+
+**Postgres index:** `runs`, `agents`, `findings`, `verdicts`, `usage`, `commands`. Raw transcripts on disk; metadata and findings in Postgres so eval queries are SQL. Day-one query: false-positive rate by (model, effort, persona) over the last 30 days. Second query: which commands got approved most often, so you can grow the allowlist from evidence.
+
+Emit `token_count` with the full breakdown on **every** turn. Lack of compaction visibility is the standing complaint about long CLI sessions.
+
+---
+
+## 18. Evaluation harness
+
+### 18.1 Ground truth by mutation
+
+Inject synthetic defects into known-good commits of your own repos — off-by-one, inverted condition, dropped null check, swapped argument order, silently changed default. Each mutation is a labeled defect at a known location, in your domain, for free. Maintain a matched set of **clean** commits.
+
+### 18.2 Metrics
+
+| Metric | Why |
+|---|---|
+| Detection rate on mutants | does it find real bugs |
+| **False-positive rate on clean commits** | **the binding constraint** |
+| Cost per true finding | is it worth running |
+| Cross-family agreement rate | how independent are the critics really |
+| Escalation payoff | did the retry change a verdict |
+| Localization accuracy | file:line correct, not just "something's wrong" |
+
+### 18.3 The (model × effort) sweep
+
+`mos eval --sweep` runs the grid into Postgres. Two expectations worth confirming rather than assuming:
+
+1. **The quality curve flattens early.** Sonnet 5 at xhigh reportedly approaches Opus 4.8 pricing while scoring slightly worse on several benchmarks — the effort dial and model dial trade against each other and must be searched jointly.
+2. **False positives likely rise with effort.** A critic thinking harder on clean code has more time to invent objections. If confirmed, optimal critic effort sits *below* optimal author effort — the opposite of role intuition.
+
+Sampling is unavailable (§4.3), so variance requires N repeated runs per cell. Budget 3 reps minimum.
+
+---
+
+## 19. Trust boundaries and security
+
+Once the harness holds a GitHub token and can write to disk, prompt injection stops being a quality problem and becomes a security one.
+
+### 19.1 Untrusted content sources
+
+Every one of these is attacker-influenced in a normal workflow: PR diffs and titles, issue and comment text, file contents in the repo, dependency manifests, test output, fetched web pages, MCP server responses. **All of it arrives as data, none of it as instruction.**
+
+### 19.2 Capability separation is the primary control
+
+| Role | Reads untrusted input | Credentials | Filesystem write | Network |
+|---|---|---|---|---|
+| critic / judge | **yes** | none | no | **no** |
+| author | via brief only | none | own worktree | allowlist only |
+| publisher | structured `Verdict` only | GitHub token | none | GitHub API only |
+
+The agent that reads the untrusted PR is not the agent that holds the token. A successful injection against a critic controls a process with no credentials, no write access, and no network — the blast radius is a bad finding, which the judge and the executable-evidence requirement are already designed to catch.
+
+### 19.3 The schema airlock
+
+Only typed `Finding` and `Verdict` objects cross from the untrusted side to the credentialed side. Free-form model output can never become an API call argument.
+
+Residual risk: `claim` and `suggested_fix` are model-authored strings that get posted publicly. So the publisher must sanitize markdown and HTML before posting, must never let a finding field determine the endpoint, repo, or PR number, and must reject any finding whose `location` falls outside the diff under review.
+
+### 19.4 Additional controls
+
+- **Env allowlist.** Subprocesses get an explicit env list, never the parent's full environment. Inheriting `GITHUB_TOKEN` into a shell whose output goes back to the model is how tokens leak.
+- **Outbound secret scanning.** Scan briefs and tool outputs for key patterns before they reach a provider. Fail closed on a hit.
+- **Model allowlist.** Assert the resolved model ID against the roster before every call. Repository content never reaches a provider not named in the active roster.
+- **Key storage.** OS keychain or env; never config files; redacted in all logs and event streams.
+- **`danger-full-access` requires an explicit CLI flag**, prints a warning, and is never reachable from a profile alone.
+- **Structured-output parsing as defense in depth.** A critic emitting prose instead of findings fails the run rather than passing free text downstream.
+
+---
+
+## 20. Testing
+
+| Layer | Approach |
+|---|---|
+| Adapters | recorded cassettes + nightly live conformance (§4.4) |
+| Budget | property tests: usable input never negative, never exceeds model context |
+| Effort | table-driven fallback tests against the registry |
+| Tools | schema-subset validation at import |
+| **Sandbox** | **negative tests: write outside root, network from read-only, `.git/hooks` write, symlink escape, `sudo` — all must fail on both backends** |
+| Classifier | corpus of shell commands with expected auto/ask/deny labels; parse failures must ask |
+| Blindness | assert a critic's serialized context contains no author transcript, no sibling critique, no model identity |
+| Injection | corpus of adversarial diffs containing instruction-shaped text; assert no credential use, no network, no write |
+| Pipeline | golden-run replay: fixed brief + cassettes → deterministic verdict |
+
+The sandbox negative tests and the blindness assertions are the two most important suites in the repo.
+
+---
+
+## 21. Delivery milestones
+
+| # | Milestone | Exit criteria |
+|---|---|---|
+| **M0** | Canonical types, agent loop, Anthropic adapter, JSONL run log | One agent completes a tool-using task end to end; full transcript on disk |
+| **M1** | Tool registry, schema subset, capability tiers, truncation | Read-only tier provably cannot write; import-time schema validation in CI |
+| **M2** | **Execution layer: policy model, Seatbelt + bwrap/seccomp backends, `mos sandbox exec`** | Negative test suite passes on macOS and Linux; `none` mode works in a container |
+| **M3** | **Approval policy + command classifier** | Labeled command corpus passes; parse failure asks; approvals cached per session only |
+| **M4** | OpenAI + Google adapters, conformance suite | Same brief through all three, identical canonical shape, reasoning state survives 3-turn loop |
+| **M5** | Registry, budget subsystem, effort subsystem, coupling | `mos models` prints registry; budget assertion fires on oversized prefix; effort fallback logged |
+| **M6** | **Git integration: worktrees, protected `.git`, `apply_patch`, provenance trailers** | Author agent lands a patch in an isolated worktree; hook-write test fails closed |
+| **M7** | Brief materialization + single blind critic + findings schema | Content-addressed brief; blindness assertions pass; ≤5 ranked findings parsed |
+| **M8** | Fan-out to N critics, dedupe, judge, verdict | Full `mos review <ref>` produces a verdict with cross-family agreement scoring |
+| **M9** | **GitHub integration + isolated publisher** | `mos review --pr N --post` posts inline comments; injection corpus shows no credential reach |
+| **M10** | CLI surface: profiles, TUI, `--json` events, resume/replay | `mos exec --json` usable from CI; `review` profile ships read-only |
+| **M11** | MCP client, tiered | An MCP server registers, is tiered, and its schemas pass the subset validator |
+| **M12** | Mutation eval + (model × effort) sweep | FP rate on clean commits measured; defaults set from data |
+
+M2 and M3 moved ahead of the provider work deliberately. Once the harness can touch the machine, everything after it inherits whatever boundary you built — retrofitting a sandbox around an agent loop that already assumes free filesystem access is a rewrite.
+
+---
+
+## 22. Open risks
+
+1. **Sandbox is the highest-consequence subsystem.** Seatbelt is deprecated; bwrap needs privileges many container runtimes withhold; Landlock can't restrict reads. Every backend has a documented gap. Keep `--sandbox none` + container as a supported deployment rather than a fallback, and treat the negative test suite as release-blocking.
+2. **Prompt injection with credentials attached.** Capability separation (§19.2) is the control, but it only holds if no one adds a network tool to the critic tier for convenience. Enforce it with a test, not a convention.
+3. **Provider drift.** Effort ladders, context caps, and reasoning-state formats have all changed within two release cycles across all three vendors. The registry must be data; the conformance suite must run nightly.
+4. **Cost.** N critics × 2 rounds × high effort is multiplicative. Cache-prefix discipline (§6.5) is the mitigation; per-run dollar caps are the backstop.
+5. **Correlated critics.** If the three models share training data, "independent" agreement may be far less independent than the scoring assumes. The cross-family agreement metric exists to measure exactly this.
+6. **False positives dominating.** Above roughly one spurious finding per clean commit, the tool gets ignored regardless of detection rate. Executable evidence is the main lever; be ready to make it mandatory.
+7. **The judge as single point of failure.** One model adjudicating means one model's biases decide. Rotation plus periodic two-judge runs with disagreement tracking is the check.
+8. **Classifier over-trust.** Denial detection is heuristic everywhere; an allowlist that grows from convenience rather than evidence is how a safe default becomes an unsafe one. Grow it from the `commands.jsonl` data, and re-review it quarterly.
+
+---
+
+## 23. Adversarial review
+
+**Review date:** 2026-09-05
+**Disposition:** **Revise before implementation.** The capability-separation direction is strong, but several stated invariants are mutually incompatible or weaker than they appear. The items below should be treated as changes to the plan, not merely implementation notes.
+
+### 23.1 Release-blocking contradictions
+
+#### A. `read-only` currently means “can exfiltrate any readable local file”
+
+The sandbox table permits reads “anywhere permitted.” On a developer machine that can include SSH configuration, cloud credentials, browser state, source trees unrelated to the review, and other private files. Denying network does not solve this: a model can use the read tool and send the content to its model provider in the next inference request. Outbound secret-pattern scanning is bypassable and cannot be the primary boundary.
+
+**Required change:** make filesystem reads allowlist-based. A critic should see only its materialized brief, a minimal runtime/toolchain image, and explicitly mounted evidence paths. Home directories, credential stores, other repositories, host `/proc`, and ambient Unix sockets must be absent rather than covered by deny globs. Record every file supplied to a provider in the run manifest.
+
+#### B. Trusted user policy and untrusted project configuration are merged
+
+`<project>/.mos-eisley/config.toml` and `AGENTS.md` are attacker-controlled when reviewing a PR, yet the layering rules let project configuration select providers, models, MCP servers, writable roots, sandbox behavior, and possibly network access. That lets repository content enlarge its own capabilities or route proprietary code to a new provider.
+
+**Required change:** split configuration into:
+
+- a **trusted policy** from user/admin configuration and explicit CLI grants;
+- **untrusted project hints** that may choose prompts and test commands only within that policy.
+
+Merge permissions by intersection, not “closest wins.” Project files may only reduce capabilities. They must never enable network, add a writable/readable root, register an executable or MCP server, select an unapproved provider, change the publisher target, or weaken approval policy. Print the resolved policy and its provenance before a run.
+
+#### C. The TEST tier executes hostile code without a sufficient containment story
+
+Running tests from an untrusted PR is arbitrary code execution. Read-only source and no Internet are insufficient: tests need scratch writes, can read mounted secrets, consume CPU/RAM/PIDs/disk, inspect processes, talk to Docker/SSH agents over `AF_UNIX`, and encode data into output that is then sent to a provider.
+
+**Required change:** treat TEST as a distinct containment tier, not READ_ONLY plus a command. Use a disposable filesystem/VM or container with read-only source, a private per-agent scratch directory, an empty secret-free environment, no inherited file descriptors, no host sockets, and explicit CPU, memory, PID, disk, output, and wall-clock limits. Do not expose Docker or container-runtime sockets. Test execution should be disabled on a backend that cannot enforce those properties.
+
+#### D. Git commits conflict with the promise that `.git` is always read-only
+
+An author cannot stage or commit without writing the worktree index, object database, refs, and metadata under the repository’s common `.git` directory. A linked worktree also contains a `.git` pointer and mutates the user repository when it is created or removed. M6’s exit criterion is therefore impossible under §11.2 as written.
+
+**Required change:** keep Git metadata outside the agent boundary. The agent edits ordinary files only; a small trusted VCS broker validates the resulting diff and performs allowlisted stage/commit operations. Alternatively, use a disposable clone whose entire Git database can be discarded. Worktree creation, commit, and cleanup belong to the controller, never the model-facing shell. Add locking and crash recovery for concurrent runs.
+
+#### E. A separate publisher process is not automatically a security boundary
+
+If the publisher runs as the same OS user, accepts requests on a discoverable local socket, or shares inherited descriptors/environment, compromised test code may be able to invoke or inspect it. Unrestricted `AF_UNIX` makes this worse. A typed payload prevents endpoint injection only if the endpoint identity is supplied by trusted controller state and the caller is authenticated.
+
+**Required change:** use one-way, authenticated IPC; bind each request to immutable `(run_id, repository_id, PR_number, base_sha, head_sha)` values chosen before untrusted content is read; reject replays; and give the publisher no general-purpose filesystem access. Prefer a separate OS identity/container or a short-lived CI job with a GitHub App installation token. The local `gh` path must run only inside this publisher boundary, since it inherits user credentials.
+
+#### F. “Network allowlist” is not defined at an enforceable layer
+
+Seatbelt/seccomp can permit or deny sockets, but a hostname allowlist requires control of DNS, redirects, proxies, IP changes, and connection targets. Permitting general outbound sockets and asking tools to honor an allowlist is not enforcement.
+
+**Required change:** deny raw outbound networking and route allowed HTTP traffic through a broker/proxy that enforces scheme, host, port, DNS resolution, redirect policy, request size, and response size. Mount only the broker socket into the sandbox. Define whether loopback and Unix sockets are denied by default; they should not be globally exempted.
+
+#### G. The command classifier gives unsafe commands an undeserved “safe” label
+
+A single simple command can still execute arbitrary code (`python -c`, `find -exec`, `git -c`, `make`, package-manager lifecycle hooks), mutate files (`sed -i`), or interpret attacker-controlled configuration. Conversely, reliably identifying every path argument from a generic shell AST is impossible. String deny patterns such as `--force` are not a security model, and parsing Bash does not help if execution uses another shell.
+
+**Required change:** make structured, argv-based tools the default and avoid a shell parser on the auto-approved path. Give each allowed executable a semantic validator for its subcommands, flags, config loading, environment, and path operands. Treat general shell execution as an explicit capability that always remains sandboxed. An approval should authorize a precise capability delta, not declare a command safe. Include the executable hash, argv, cwd, environment-policy digest, sandbox-policy digest, and resolved paths in any approval cache key.
+
+#### H. Backend degradation can silently invalidate the security claims
+
+Landlock cannot provide the proposed read-confidentiality boundary, `none` provides no harness boundary, and enabling user namespaces or `SYS_ADMIN` may materially weaken the host/container posture. A global AppArmor sysctl change is too large a prerequisite for a CLI review tool.
+
+**Required change:** publish a capability matrix and attest the active backend at run start. Security-sensitive workflows must fail closed when their required properties are unavailable. Label `none` as “externally contained/unverified,” require the caller to declare the external boundary, and never report it as equivalent to an enforced Mos Eisley sandbox. Remove the global sysctl recommendation from the default setup path.
+
+### 23.2 Core model and provider-layer issues
+
+1. **Do not replace provider-native tool IDs.** Keep a harness ID for correlation, but replay the provider’s native ID/signature exactly wherever its protocol requires it. The adapter should maintain a per-response mapping and reject ambiguous or missing mappings. “Never let a provider ID reach core” is too strict if lossless replay is a goal.
+2. **The canonical `Turn` is underspecified.** It needs ordered content blocks, tool-result blocks, refusal/filter metadata, attachments or binary references, provider request IDs, and a versioned extension mechanism. Decide whether system/developer instructions are turns or immutable request metadata. Test interleaved reasoning, text, and multiple tool calls—not just shape equality.
+3. **`opaque: dict` is not safely replayable by definition.** Provider state may contain ordered byte strings, signatures, SDK-only types, or fields that must not be persisted. Store a versioned provider envelope as bytes/JSON plus media type, SDK/API version, retention policy, and encryption status. If provider policy forbids persistence, downgrade the claim from replayable to auditable.
+4. **The schema intersection is likely too restrictive for MCP.** Rejecting every `$ref`, union, and format will make many useful servers unregisterable. Add a deterministic schema-lowering layer with a loss report, or expose provider-specific wrappers. Never silently weaken validation. Validate tool *outputs* as well as inputs.
+5. **Token counts are estimates until the provider reports usage.** Counting endpoints may differ from the final serialized request or omit future output/reasoning growth. Use conservative preflight estimates, reconcile with post-call usage, include retry and cache billing, and validate `reserve < cap`, `compact_at <= usable`, and all role/model combinations at configuration load.
+6. **Caching is provider-specific.** A canonical cache breakpoint does not imply equivalent OpenAI, Anthropic, and Google behavior or pricing. Put cache strategy in adapters, log cache hits/writes from returned usage, and make the harness correct when caching is unavailable.
+7. **Registry values are operational data, not source-code truth.** Every entry needs an effective date, API version, price units/currency, feature flags, data-residency eligibility, and provenance. Validate configured models with a low-cost capability probe and pin the resulting registry snapshot into each run. Do not promise that a vendor alias is immutable merely because it looks versioned.
+8. **Escalation triggers are role-confused.** “No state-changing tool call” is expected for critics and judges, and schema failure usually calls for constrained repair rather than more reasoning. Define role-specific triggers and separate a format-repair retry from an effort-escalation retry. Self-reported judge confidence should not be the sole escalation signal.
+9. **Startup failure at 25% prefix usage is arbitrary.** A large but intentional brief may be valid. Make this a warning plus an operator-configured hard maximum; fail on inability to reserve the required output or evidence budget, not on a universal percentage.
+
+### 23.3 Review methodology issues
+
+1. **`severity` mixes impact with category.** `correctness`, `security`, and `performance` are categories; `preference` is a disposition. Add separate fields such as `category`, `impact = blocker|high|medium|low`, and `blocking: bool` derived by policy. Otherwise agreement and verdict scoring are not coherent.
+2. **Evidence needs provenance, not just a label.** Include observed result, expected result, artifact/command hash, exit status, relevant output range, executor identity, and whether the evidence was independently reproduced. Critic-authored commands must be validated and run by the evidence broker; a critic must not receive authority simply by placing a command in JSON.
+3. **A five-finding cap can suppress critical defects.** Cap displayed findings, not collection. Never drop a blocker/security finding because five lower-impact issues ranked above it. Preserve overflow findings in the run artifact and measure how often truncation changes the verdict.
+4. **Agreement is not evidence.** Cross-family agreement can amplify a shared misconception. Make reproduced evidence and spec conflict primary; use agreement only as a calibrated secondary feature. Learn weights on held-out evaluations rather than hard-coding them.
+5. **Dedupe can destroy distinctions.** An embedding or LLM merge may combine defects with different causes or fixes. Preserve every original finding, have dedupe propose clusters, and let the judge split them. Give each finding and cluster a stable fingerprint.
+6. **Blindness is only partial.** Model identity can be inferred from prose, and deliberately different personas confound model-family comparisons. Maintain two modes: heterogeneous coverage for production and same-persona replicated trials for evaluation. Report persona and model effects separately.
+7. **Normalized-length summaries may remove decisive evidence.** The judge should receive bounded structured fields plus referenced evidence artifacts, not lossy prose normalization. Any summarization must retain links to originals.
+8. **Rebuttal flow is unspecified.** Define exactly what the author sees, whether critics can respond, and whether new evidence is allowed. Do not reveal critic/model identities. A rebuttal should be structured per finding and cannot modify the artifact under judgment without creating a new `brief_id`.
+9. **Quorum and outage semantics are missing.** Specify the minimum number and family diversity of successful critics, what happens on provider timeout/filtering, and how CI distinguishes `reject` from `infrastructure_error`. Never silently accept because critics failed. Do not launch a costly judge when quorum is impossible.
+10. **Automated posting needs a human-safety mode.** Default `--post` to a draft/check annotation until false-positive targets are met. Rate-limit comments, make posting idempotent, collapse obsolete findings, and prevent mentions, bidi-control characters, oversized Markdown, or secret-like strings in public text.
+
+### 23.4 Reproducibility, storage, and privacy
+
+- **Replace “every run replayable” with three explicit guarantees:** (1) transcript playback, (2) deterministic pipeline replay using recorded provider/tool responses, and (3) best-effort live re-execution. Live model calls are not reproducible even with fixed effort and model IDs.
+- A `brief_id` alone is insufficient. Pin the base/head blobs, submodules, untracked inputs, tool versions, dependency lockfiles, OS/architecture, environment policy, sandbox image digest, adapter/SDK/API versions, registry snapshot, prompts, schemas, and raw serialized requests. Verify hashes before a replay.
+- Write logs atomically and make the manifest append-only or hash-chained. A crash between tool execution and logging must be detectable. Record controller decisions separately from model-controlled text.
+- Raw transcripts, repository contents, reasoning envelopes, and command output are sensitive. Store under a private directory with restrictive permissions, configurable retention/deletion, encryption where appropriate, and redaction before indexing. Postgres should not receive raw or high-cardinality sensitive fields.
+- Requiring Postgres for a local CLI adds installation, migration, lifecycle, backup, and credential burden before it provides value. Use SQLite for the default local index and make Postgres an optional team/CI sink behind the same interface.
+- Multi-provider review sends proprietary code to three vendors. Add an explicit provider/data policy: repository allowlist, consent, retention/zero-data-retention eligibility, region, maximum classification, and per-provider exclusions. Secret scanning is defense in depth, not authorization to upload.
+
+### 23.5 Sandbox test gaps
+
+The negative suite should additionally cover symlink races and replacement after validation, hard links, bind mounts, `/proc` and `/sys`, device files, inherited file descriptors, environment-variable loaders, dynamic linker variables, Git filters/hooks/config includes, Unix sockets (SSH agent, Docker, editor services), loopback listeners, DNS and redirects, process signaling, fork bombs, disk exhaustion, output floods, orphaned grandchildren, cancellation, and concurrent-agent cross-read/write. Run the suite on every supported OS/kernel combination; a mocked backend is not release evidence.
+
+The plan also needs positive compatibility tests for compilers, package managers, language caches, and test runners. A sandbox that is secure but breaks normal builds will drive users toward `danger-full-access`.
+
+### 23.6 GitHub-specific changes
+
+- Prefer a GitHub App with short-lived installation tokens in CI over a long-lived PAT when feasible. Pin repository and permission scope in trusted controller state.
+- `file:line` is not enough for review comments. Store base/head side, diff hunk/position, rename status, and blob SHA; gracefully fall back to a summary for deleted, binary, generated, or out-of-diff lines.
+- Confirm the merge-gating semantics of verdict conclusions. A neutral conclusion may satisfy a required check and therefore fail to enforce `revise`. Map policy outcomes deliberately and keep `infrastructure_error` distinct from a code verdict.
+- Prohibit `pull_request_target` in shipped examples for untrusted checkout/test execution; a warning leaves a predictable unsafe copy-paste path.
+- Add idempotency keys, retry/rate-limit handling, stale-head rejection, and a dry-run payload preview before publishing.
+
+### 23.7 Resource and lifecycle controls
+
+Per-agent “limits” need enforcement below the Python loop. Put subprocesses in their own process group/container/cgroup, close inherited descriptors, apply rlimits/cgroup quotas, stream through a bounded spool, and kill descendants on timeout or cancellation. Reserve disk space for logs and fail cleanly when it is exhausted. Use private per-agent temp directories rather than shared `/tmp`, and ensure one agent cannot read another agent’s full-output spill files.
+
+Cost caps are necessarily predictive before a provider response. Estimate the maximum next-call cost—including retained reasoning, retry, and cache writes—before dispatch; do not begin a call that can exceed the remaining cap. Define rate-limit fairness so one fan-out does not starve unrelated runs.
+
+### 23.8 Recommended scope and milestone changes
+
+The current plan attempts a multi-provider agent framework, two OS sandboxes, a policy engine, Git/GitHub automation, MCP, a TUI, provenance, and an evaluation platform before demonstrating that adversarial review beats a simpler baseline. Reduce the first usable release:
+
+1. **Security/design gate:** threat model, trusted/untrusted config split, capability lattice, provider data policy, run-state machine, and backend capability matrix.
+2. **Offline core:** canonical types and pipeline against recorded fixtures/fake providers; no shell and no live machine writes.
+3. **Local review MVP:** local diff/brief, read-scoped critics, structured findings, deterministic dedupe, judge, SQLite, JSON output. No author agent, test execution, MCP, network, TUI, commits, or posting.
+4. **Evaluation gate:** compare one critic, N critics, and N critics plus judge on blinded clean/defective sets. Set explicit detection, false-positive, latency, and cost thresholds before expanding authority.
+5. **Containment spike:** prove TEST isolation and resource controls on each supported backend. If a property cannot be enforced, remove it from that backend’s advertised capabilities.
+6. **Write path:** add an author worktree plus trusted VCS broker only after containment tests pass.
+7. **Publish path:** add authenticated isolated publisher, dry run, then GitHub posting.
+8. **Convenience features:** resume/live replay, TUI, MCP, blame/provenance, and Postgres export after the security and quality gates.
+
+M0 must not execute model-selected machine commands before the sandbox exists. Its “tool-using task” should use inert fixture tools or run inside an already verified external container. Move the threat model and config-policy tests ahead of every live provider milestone.
+
+### 23.9 Evaluation corrections
+
+- Mutation testing provides seeded positives, not complete ground truth. Equivalent/trivial mutants must be filtered, and “clean” commits can contain real defects. Use human adjudication, held-out repositories, real historical bugs, and periodically audited clean samples.
+- Three repetitions are enough for a smoke test, not for choosing defaults across a large model × effort grid. Pre-register primary metrics, report confidence intervals, control for multiple comparisons, and use sequential stopping/power analysis to manage cost.
+- Prevent benchmark leakage: critics must not see mutation labels, mutation-generator templates, expected locations, or prior verdicts. Separate calibration and final holdout sets.
+- Measure end-to-end utility: accepted true findings, developer override rate, time-to-resolution, review latency, and cost. Detection rate without developer trust is not a sufficient success criterion.
+- A cassette-backed golden test can assert deterministic orchestration, but it says nothing about current live-model quality. Keep conformance, safety, and quality suites separate.
+
+### 23.10 Decisions required before coding
+
+| Decision | Recommended default |
+|---|---|
+| Is private source allowed to reach all three providers? | Deny unless repository policy explicitly allows each provider |
+| What may project config change? | Prompts and commands within a trusted allowlist; capabilities only narrow |
+| Is host test execution supported? | No; disposable contained executor only |
+| Who writes Git metadata? | Trusted VCS broker, never the agent sandbox |
+| What is the local database? | SQLite; optional Postgres export |
+| What happens without critic quorum? | `infrastructure_error`, never `accept` |
+| Can a review post automatically in v1? | Dry-run/draft only until quality gates pass |
+| What does “replay” mean? | Explicit playback, cassette replay, or best-effort live re-execution |
+| Which sandbox properties are mandatory? | Read-scope, write-scope, no raw network/host sockets, resource limits, process cleanup |
+
+**Go/no-go criterion:** do not grant WRITE, TEST, NET, Git credentials, or publishing authority until its boundary has a concrete threat model, a backend capability assertion, and adversarial tests that fail closed on every supported deployment target.

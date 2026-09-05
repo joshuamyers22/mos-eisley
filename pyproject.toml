@@ -1,0 +1,44 @@
+[project]
+name = "mos-eisley"
+version = "0.1.0"
+description = "Offline foundations for reproducible adversarial code review"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LicenseRef-Proprietary"
+dependencies = ["pydantic>=2.12,<3"]
+
+[project.urls]
+Repository = "https://github.com/joshuamyers22/mos-eisley"
+Issues = "https://github.com/joshuamyers22/mos-eisley/issues"
+Changelog = "https://github.com/joshuamyers22/mos-eisley/blob/main/CHANGELOG.md"
+
+[project.scripts]
+"mos-eisley" = "mos_eisley.cli:main"
+"mos" = "mos_eisley.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pyright==1.1.411", "ruff==0.16.5", "coverage>=7.10,<8", "hatchling==1.32.0"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+
+[tool.coverage.run]
+source = ["mos_eisley"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 85
