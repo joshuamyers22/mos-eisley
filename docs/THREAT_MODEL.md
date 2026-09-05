@@ -33,7 +33,7 @@ in the live command.
 | Model spend grows unexpectedly | Bounded requests, reviewed prices and transactional shared reservations | Participating local runs only; operator rates/provider caps trusted; not an invoice ceiling |
 | Concurrent runs overdraw shared capacity | Atomic admission and conservative unresolved charges | Same ledger/local filesystem required; copied or rolled-back databases bypass accounting |
 | Recorded evaluation worker reads host labels/secrets | No host mounts, blinded stdin job, no inherited API key, offline container probes | Reviewed image/daemon trusted; input content itself may leak labels |
-| Isolated worker consumes resources or outlives attached client | Cgroup limits, bounded pipes, deadline and exact-container removal | Abrupt host death or daemon outage requires orphan investigation; no watchdog yet |
+| Isolated worker consumes resources or outlives attached client | Cgroup limits, bounded pipes, exact-ID removal and detached lease watchdog | Host/guardian death or daemon outage can still require orphan investigation |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially

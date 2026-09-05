@@ -100,6 +100,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   report that preserves disagreement and unresolved findings.
 - [Container-isolated recorded evaluation](docs/ISOLATED_EVALUATION.md), with no
   host mounts/network, bounded pipes/resources and real containment probes in CI.
+- [Detached cleanup watchdog](docs/CONTAINER_LIFECYCLE.md) with a readiness gate,
+  independent lifetime, private receipts and launcher-SIGKILL recovery tests.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

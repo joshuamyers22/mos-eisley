@@ -183,6 +183,12 @@ def parser() -> argparse.ArgumentParser:
     isolated.add_argument(
         "--image", required=True, help="Locally built sha256 image ID"
     )
+    isolated.add_argument(
+        "--lifecycle-root",
+        type=Path,
+        default=Path(".mos-eisley/container-lifecycles"),
+        help="Private watchdog lease and cleanup records",
+    )
     eval_grade = subcommands.add_parser(
         "eval-grade-packet", help="Export route-blind material for an adjudicator"
     )
@@ -345,15 +351,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             cassette = EvaluationCassette.model_validate_json(
                 read_bounded(cast(Path, args.cassette), 16_000_000)
             )
-            raw_results = (
-                run_isolated_recorded(
-                    batch,
-                    cassette,
-                    OfflineContainer(cast(Path, args.docker), cast(str, args.image)),
+            container: OfflineContainer | None = None
+            if args.command == "eval-run-isolated":
+                container = OfflineContainer(
+                    cast(Path, args.docker),
+                    cast(str, args.image),
+                    cast(Path, args.lifecycle_root),
                 )
-                if args.command == "eval-run-isolated"
-                else run_recorded_evaluation(batch, cassette)
-            )
+                raw_results = run_isolated_recorded(batch, cassette, container)
+            else:
+                raw_results = run_recorded_evaluation(batch, cassette)
             output = cast(Path, args.output)
             _write_contract(output, raw_results)
             print(
@@ -369,6 +376,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if args.command == "eval-run-isolated"
                         else None,
                         "path": str(output),
+                        "lifecycle_path": str(container.lifecycle_path)
+                        if container
+                        else None,
                         "raw_results_sha256": raw_results.raw_results_sha256,
                         "completed": sum(
                             result.status == "completed"

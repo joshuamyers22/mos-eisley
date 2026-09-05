@@ -50,7 +50,8 @@ secrets are not copied into the Docker client's environment either; only explici
 Docker connection configuration and basic PATH/HOME are retained.
 
 The attached execution deadline is 30 seconds. Image inspection, creation and exit
-inspection have separate bounded deadlines; cleanup has a 10-second deadline.
+inspection have separate bounded deadlines; cleanup uses the bounded
+[independent watchdog lifecycle](CONTAINER_LIFECYCLE.md).
 Thus the whole command can take longer than 30 seconds. Failure/cancellation kills
 the attached client and attempts force-removal of the specifically named container.
 A cleanup failure is an error, never success. Container exit status and returned
@@ -81,12 +82,13 @@ flags are verified in smoke tests, not dynamically attested before each request.
 The caller controls the execution environment; production deployment must run the
 probes against that same reviewed image and daemon configuration.
 
-An abrupt host kill, machine failure or unreachable daemon can prevent cleanup and
-leave an orphan, even though its CPU/memory/PID limits remain. There is no independent
-watchdog yet. List candidates with `docker ps -a --filter name=mos-eval-` and inspect
+Launcher termination is now covered by a detached watchdog and tested with SIGKILL.
+Host/watchdog loss, machine failure or an unreachable daemon can still leave an
+orphan, even though its CPU/memory/PID limits remain. List candidates with
+`docker ps -a --filter name=mos-eval-` and inspect
 ownership before removing an exact container; do not remove other runs by prefix.
 
 Next: an authenticated, bounded request broker that holds credentials and the
-shared spending ledger outside the worker, plus watchdog/cleanup recovery. Only
+shared spending ledger outside the worker, plus persistent orphan recovery. Only
 after that boundary and credentialed conformance pass should paid sweeps be enabled.
 Automatic difficulty routing remains disabled pending held-out empirical gates.
