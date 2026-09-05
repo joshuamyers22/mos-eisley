@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Compile fully validated broker responses into assignment/audit/spend-bound
+  conformance artifacts with usage and hash-linked latency; keep them non-scoreable.
+
 - Bound decoded non-streaming OpenAI HTTP response bodies before SDK model parsing;
   reject compressed/chunked oversize bodies and streaming operations.
 

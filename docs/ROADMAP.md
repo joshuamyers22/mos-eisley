@@ -22,9 +22,11 @@
    shared spending admission are fixture-tested in real containers;
    see `PROVIDER_BROKER.md` for limits. Assignment-bound private audit chains and
    crash-conservative ledger recovery inventory are also implemented. Next bind
-   validated responses into evaluation provenance; the explicit read-only recovery
-   CLI and bounded decoded OpenAI HTTP client are implemented, while streaming and
-   automatic retry/release remain prohibited. Next add
+   validated responses now produce non-scoreable, assignment-bound conformance
+   artifacts containing usage, latency and settled spend. The explicit read-only
+   recovery CLI and bounded decoded OpenAI HTTP client are implemented, while
+   streaming and automatic retry/release remain prohibited. Next run explicitly
+   authorized credentialed conformance, then add
    authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,

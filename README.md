@@ -107,6 +107,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Request-bound provider grants and private IPC](docs/PROVIDER_BROKER.md), with
   fixture-tested container roundtrips, host-only spending, disconnect cancellation,
   assignment audit chains and read-only crash inventory.
+- [Brokered evaluation conformance artifacts](docs/BROKERED_EVALUATION.md) binding
+  strict critiques to response, audit, assignment, usage, latency and settled spend;
+  these artifacts are explicitly non-scoreable.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

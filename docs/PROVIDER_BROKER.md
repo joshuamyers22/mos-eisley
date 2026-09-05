@@ -89,10 +89,11 @@ guardians are no longer active before investigating incomplete states.
 
 ## Remaining gates
 
-- Integrate assignment-bound conformance records into live evaluation result
-  provenance only after response validation; grants remain process-local and
-  cannot be resumed. Add deliberate multi-audit inventory only if it retains an
-  independently trusted expected-authorization set.
+- Strict response validation now produces a separate, non-scoreable
+  [brokered conformance artifact](BROKERED_EVALUATION.md). Promote it into live
+  evaluation provenance only after credentialed conformance passes; grants remain
+  process-local and cannot be resumed. Add deliberate multi-audit inventory only
+  if it retains an independently trusted expected-authorization set.
 - Run explicitly authorized credentialed conformance. Decoded upstream HTTP bodies
   are now independently bounded for non-streaming SDK operations, but async
   cancellation cannot stop blocking

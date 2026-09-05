@@ -36,6 +36,7 @@ in the live command.
 | Isolated worker consumes resources or outlives attached client | Cgroup limits, bounded pipes, exact-ID removal and detached lease watchdog | Host/guardian death or daemon outage can still require orphan investigation |
 | Worker substitutes or replays provider requests | Host snapshots exact request; expiring single-use grant; bounded private pipes and mandatory shared spend admission | Fixture-tested IPC only; stolen grant permits its one approved call; no assignment-bound live evidence yet |
 | Host crashes across broker dispatch | Fsynced authorization/admission/outcome chain plus exact shared-ledger entry inventory; incomplete states never authorize retry or release | Operator must prove old process is dead; response may be lost while spend remains charged |
+| Synthetic or partial broker output enters empirical scoring | Separate conformance artifact requires response/audit/assignment/settled-ledger agreement and has literal `promotion_eligible=false` | Credentialed conformance and reviewed conversion to live result provenance are not implemented |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
@@ -43,8 +44,8 @@ written directories lack a valid manifest. The original review pipeline writes a
 event summary after completion. The fixture agent loop fsyncs hash/status boundary
 events during execution, but its journal is not a standalone response transcript.
 
-Before calling this production-ready: complete credentialed conformance, bind the
-isolated spending broker to validated evaluation provenance, then connect the live
+Before calling this production-ready: complete credentialed conformance, convert
+validated broker artifacts into explicitly live evaluation provenance, then connect the live
 adapter to critic/judge policy without weakening quorum failure behavior.
 Before executing code: a tested OS boundary including host reads/sockets, process
 resources and cleanup. Before publishing: authenticated IPC and stale-head checks.

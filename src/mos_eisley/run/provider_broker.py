@@ -105,6 +105,7 @@ class RequestBoundBroker:
             self._used = True
         if self._audit is not None:
             self._audit.admit()
+        started = time.monotonic()
         try:
             async with asyncio.timeout(remaining):
                 response = await self._transport.create_response(
@@ -124,5 +125,6 @@ class RequestBoundBroker:
             self._audit.finish(
                 "response_received",
                 digest(canonical_bytes(BrokerReply(response=response))),
+                min(86_400_000, math.ceil((time.monotonic() - started) * 1000)),
             )
         return response
