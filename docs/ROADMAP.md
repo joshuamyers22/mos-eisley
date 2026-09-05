@@ -31,8 +31,10 @@
    independently supplied public-key policy. The offline dual-grade gate reverifies
    two distinct graders, preserves both signed sources and requires a trust-disjoint
    resolver to sign exact conflict coverage; it remains non-promotable and is not
-   connected to scoring. Next run explicitly authorized credentialed conformance,
-   add the reviewed dual-lineage observation compiler, then run the
+   connected to scoring. The dual-lineage compiler now reverifies the full private
+   artifact chain into a distinct non-scoreable observation schema. Next run
+   explicitly authorized credentialed conformance, add authenticated scoring for
+   this lineage, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

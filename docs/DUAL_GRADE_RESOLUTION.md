@@ -7,8 +7,10 @@ agreement report, the signed resolution set and the derived final judgments.
 Original grades are never overwritten.
 
 This is an offline integrity gate. It makes no provider calls and its output has
-literal `promotion_eligible: false`. `eval-compile` and `eval-score` do not accept
-this artifact yet, so this milestone cannot silently alter model selection.
+literal `promotion_eligible: false`. The legacy `eval-compile` and `eval-score`
+commands do not accept this artifact, so it cannot silently alter model selection.
+The separate [dual-lineage compiler](DUAL_LINEAGE_OBSERVATIONS.md) reverifies it
+into a distinct, still non-scoreable observation schema.
 
 ## Trust separation
 
@@ -84,5 +86,5 @@ revocation log or transparency service.
 
 No statistical promotion claim follows from resolving disagreement. Calibration,
 inter-rater monitoring, held-out scoring and the remaining production gates still
-apply. Until a later reviewed compiler consumes this lineage directly, single-grade
-`eval-compile` remains only an offline rehearsal surface.
+apply. `eval-compile-dual` now consumes this lineage directly without making it
+scoreable. Single-grade `eval-compile` remains only an offline rehearsal surface.

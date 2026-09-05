@@ -18,6 +18,11 @@ from mos_eisley.evaluation.execution import (
     make_execution_batch,
     run_recorded_evaluation,
 )
+from mos_eisley.evaluation.lineage import (
+    DualGradedObservationSet,
+    compile_dual_graded_observations,
+    verify_dual_graded_observations,
+)
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -56,6 +61,7 @@ __all__ = (
     "ExecutionBatch",
     "GradingBatch",
     "ExpectedFinding",
+    "DualGradedObservationSet",
     "Observation",
     "ObservationSet",
     "Judgment",
@@ -71,8 +77,10 @@ __all__ = (
     "make_execution_batch",
     "make_grading_batch",
     "compile_observations",
+    "compile_dual_graded_observations",
     "run_recorded_evaluation",
     "resolve_authenticated_adjudications",
     "score",
     "verify_dual_grading_resolution",
+    "verify_dual_graded_observations",
 )

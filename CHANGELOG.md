@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an offline dual-lineage observation compiler that reconstructs the private
+  execution/grading chain, reverifies the complete authenticated resolution, and
+  emits a distinct non-scoreable contract linked to every source policy and digest.
+
 - Add an offline dual-authenticated grading gate that reverifies two distinct
   Ed25519 graders, preserves both signed originals, and requires a policy-disjoint
   signed resolver to cover every conflict exactly. The resulting lineage remains

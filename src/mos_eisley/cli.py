@@ -45,6 +45,7 @@ from mos_eisley.evaluation.execution import (
     make_execution_batch,
     run_recorded_evaluation,
 )
+from mos_eisley.evaluation.lineage import compile_dual_graded_observations
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvaluationDataset,
@@ -54,6 +55,7 @@ from mos_eisley.evaluation.models import (
     SweepPlan,
 )
 from mos_eisley.evaluation.resolution import (
+    DualGradingResolution,
     ResolutionTrustPolicy,
     SignedResolutionSet,
     resolve_authenticated_adjudications,
@@ -266,6 +268,24 @@ def parser() -> argparse.ArgumentParser:
     eval_compile.add_argument("--grading-batch", type=Path, required=True)
     eval_compile.add_argument("--adjudication", type=Path, required=True)
     eval_compile.add_argument("--output", type=Path, required=True)
+    eval_compile_dual = subcommands.add_parser(
+        "eval-compile-dual",
+        help="Compile observations from reverified dual-grade lineage",
+    )
+    eval_compile_dual.add_argument("--dataset", type=Path, required=True)
+    eval_compile_dual.add_argument("--plan", type=Path, required=True)
+    eval_compile_dual.add_argument("--batch", type=Path, required=True)
+    eval_compile_dual.add_argument("--mapping", type=Path, required=True)
+    eval_compile_dual.add_argument("--raw-results", type=Path, required=True)
+    eval_compile_dual.add_argument("--grading-batch", type=Path, required=True)
+    eval_compile_dual.add_argument(
+        "--dual-grading-resolution", type=Path, required=True
+    )
+    eval_compile_dual.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_compile_dual.add_argument(
+        "--resolution-trust-policy", type=Path, required=True
+    )
+    eval_compile_dual.add_argument("--output", type=Path, required=True)
     eval_agreement = subcommands.add_parser(
         "eval-agreement", help="Compare two grading artifacts and report conflicts"
     )
@@ -453,6 +473,66 @@ def _resolve_adjudications_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compile_dual_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    observations = compile_dual_graded_observations(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, observations)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.dual_graded_observations.compiled",
+                "path": str(output),
+                "dual_graded_observations_sha256": (
+                    observations.dual_graded_observations_sha256
+                ),
+                "dual_grading_resolution_sha256": (
+                    observations.dual_grading_resolution_sha256
+                ),
+                "observations": len(observations.observations),
+                "promotion_eligible": observations.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
@@ -460,6 +540,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _authenticate_adjudication_command(args)
         if args.command == "eval-resolve-adjudications":
             return _resolve_adjudications_command(args)
+        if args.command == "eval-compile-dual":
+            return _compile_dual_command(args)
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")

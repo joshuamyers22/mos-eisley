@@ -118,6 +118,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Dual authenticated grading](docs/DUAL_GRADE_RESOLUTION.md) that preserves both
   signed originals and requires a disjoint signed resolver to exactly cover every
   conflict. Its output remains deliberately disconnected from scoring promotion.
+- [Dual-lineage observation compilation](docs/DUAL_LINEAGE_OBSERVATIONS.md) that
+  reverifies the complete private source chain into a distinct non-scoreable schema.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

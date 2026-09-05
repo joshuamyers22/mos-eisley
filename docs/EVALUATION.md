@@ -177,9 +177,10 @@ two distinct enrolled grader keys, preserves both signed originals and requires 
 separately enrolled resolver key to sign exactly one valid decision for every
 recomputed conflict. It prohibits unnecessary resolution when labels agree. The
 result remains `promotion_eligible: false` and is deliberately not accepted by
-`eval-compile` or `eval-score`. Single-grader compilation is still available only
-for offline rehearsal while the reviewed lineage-to-observation compiler remains
-unimplemented.
+legacy `eval-compile` or `eval-score`. Use the separately reviewed
+[`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) command to reverify the entire
+artifact chain and create a distinct, still non-scoreable observation set.
+Single-grader compilation remains available only for offline rehearsal.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.

@@ -90,8 +90,9 @@ holdout under a pre-registered protocol before promotion.
 Group independence, physical adjudicator identity and labels are operator claims.
 Exact duplicates and split conflicts are detectable; hidden common ancestry and
 semantic duplicates are not. Ed25519 receipts authenticate exact human grading to
-enrolled keys, but downstream comparison and compilation do not yet require them.
-External protocol attestation, holdout access control, authenticated resolution,
+enrolled keys; the separate dual-grade path now requires authenticated comparison,
+resolution and observation compilation. Its distinct observation schema is not yet
+accepted by scoring. External protocol attestation, holdout access control,
 isolated live execution and representative empirical data remain prerequisites for
 routing promotion.
 
