@@ -84,6 +84,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   declarations or cost required by a cost gate prevent eligibility.
 - HMAC-blinded evaluation batches, exact request-bound fixture execution, route-blind
   grading packets and provenance-bound observation compilation.
+- Per-finding adjudication with derived detection counts and a two-grader comparison
+  report that preserves disagreement and unresolved findings.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

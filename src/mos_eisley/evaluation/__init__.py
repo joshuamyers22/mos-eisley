@@ -3,11 +3,13 @@
 from mos_eisley.evaluation.adjudication import (
     AdjudicationSet,
     AdjudicatorProvenance,
+    FindingJudgment,
     GradingBatch,
     Judgment,
     compile_observations,
     make_grading_batch,
 )
+from mos_eisley.evaluation.agreement import AgreementReport, compare_adjudications
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -34,6 +36,9 @@ __all__ = (
     "CandidateGrid",
     "AdjudicationSet",
     "AdjudicatorProvenance",
+    "FindingJudgment",
+    "AgreementReport",
+    "compare_adjudications",
     "BlindingMap",
     "EvalCase",
     "EvaluationDataset",

@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Replace aggregate adjudication with schema-2 per-finding decisions; derive
+  detections and false positives and reject unresolved or incomplete grades.
+- Add `eval-agreement` for source-bound, descriptive two-grader conflict reports.
+
 - Gate offline route scores on independent group means with fixed-design
   Hoeffding/Bonferroni bounds; preserve pooled Wilson metrics as diagnostics.
 - Reject cross-split groups and duplicate briefs; mark missing grouping ineligible.

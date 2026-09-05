@@ -90,8 +90,11 @@ holdout under a pre-registered protocol before promotion.
 Group independence, adjudicator identity and labels are operator claims. Exact
 duplicates and split conflicts are detectable; hidden common ancestry and semantic
 duplicates are not. External protocol attestation, holdout access control,
-per-finding adjudication, agreement measurement, isolated live execution and
+authenticated adjudication/resolution, isolated live execution and
 representative empirical data remain prerequisites for routing promotion.
+
+Per-finding grading and descriptive two-grader agreement are now implemented.
+Neither authenticates graders or provides an inferential agreement guarantee.
 
 ## Artifact compatibility
 

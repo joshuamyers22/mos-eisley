@@ -78,11 +78,15 @@ uv run --frozen mos eval-grade-packet \
 
 The adjudication JSON binds the grading packet digest, an adjudicator ID, method,
 rubric digest, UTC completion time and one judgment for every completed sample.
+Each judgment must cover every emitted finding by zero-based index and content
+hash, with a rationale and a disposition. Detections and false-positive counts are
+derived from those decisions, rather than supplied separately by the grader.
 Failed executions require no content judgment. Compile those judgments only in the
 trusted controller, which verifies the full dataset → plan → batch/map → raw result
 → grading packet → adjudication chain. Export, grading and scoring each recheck the
-complete case × route × repetition matrix. Compilation rejects detection claims for
-empty critiques and false-positive counts larger than the emitted finding count.
+complete case × route × repetition matrix. Compilation rejects missing, extra,
+changed, unknown-label or unresolved finding decisions. Empty critiques require an
+empty finding-decision list.
 
 ```sh
 uv run --frozen mos eval-compile \
@@ -100,7 +104,7 @@ An adjudication file has this top-level shape; all unknown fields are rejected:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "grading_batch_sha256": "<64 lowercase hex characters>",
   "adjudicator": {
     "adjudicator_id": "reviewer-01",
@@ -111,12 +115,65 @@ An adjudication file has this top-level shape; all unknown fields are rejected:
   "judgments": [
     {
       "sample_id": "<sample ID from the grading packet>",
-      "detected_finding_ids": ["expected-finding-id"],
-      "false_positive_count": 0
+      "findings": [
+        {
+          "finding_index": 0,
+          "finding_sha256": "<hash of the emitted finding>",
+          "disposition": "matched",
+          "expected_finding_ids": ["expected-finding-id"],
+          "rationale": "This finding identifies the labeled boundary defect."
+        }
+      ]
     }
   ]
 }
 ```
+
+The supported dispositions are:
+
+- `matched`: requires one or more known expected-defect IDs. Detection counts use
+  their union, so repeated matches do not increase recall.
+- `false_positive`: contributes one false positive and carries no expected IDs.
+- `duplicate`: references an earlier `matched` finding with `duplicate_of`.
+  Chains, cycles and references to false positives are rejected. A repeated false
+  positive must still be graded as a false positive.
+- `unresolved`: records uncertainty or a potentially real defect missing from the
+  dataset. It blocks observation compilation until reviewed. Amending the dataset
+  creates a new artifact chain; it must not silently relabel an existing holdout.
+
+Use the SHA-256 of the canonical emitted `Finding` JSON (the Python
+`Finding.finding_id` property). The enclosing grading-packet hash binds its position,
+brief and expected labels as well.
+
+## Independent grading comparison
+
+Give the same route-blind packet and rubric to two graders separately. Keep their
+results private from one another until both finish. The controller can compare
+their complete artifacts without loading the dataset, routes or private mapping:
+
+```sh
+uv run --frozen mos eval-agreement \
+  --grading-batch .mos-eisley/eval/holdout-grading.json \
+  --left eval/grader-a.json --right eval/grader-b.json \
+  --output .mos-eisley/eval/holdout-agreement.json
+```
+
+The report binds both adjudication digests and the rubric. It counts exact agreement
+on disposition, expected-ID set and duplicate target; wording differences in the
+rationale do not change the label comparison. Conflicts retain both decisions and
+their rationales. Unresolved decisions count as unresolved conflicts even if both
+graders abstain. No emitted findings produces a null agreement rate.
+
+This is a descriptive report, with no confidence interval or quality threshold.
+Distinct grader IDs do not authenticate people or prove independent work. The
+command rejects matching IDs, mismatched rubrics and mixed human/fixture methods,
+but it cannot detect collusion or shared bias. It does not pick a winning grader.
+Review disputes under a pre-registered resolution protocol and preserve the original
+grades; authenticated resolution lineage and enforcement before promotion remain
+future work. Single-grader compilation is still available for offline rehearsal.
+
+Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
+there is no reliable automatic conversion from counts to per-finding decisions.
 
 ```sh
 uv run --frozen mos eval-score \

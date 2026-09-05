@@ -29,6 +29,7 @@ from mos_eisley.evaluation.adjudication import (
     compile_observations,
     make_grading_batch,
 )
+from mos_eisley.evaluation.agreement import compare_adjudications
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -171,6 +172,13 @@ def parser() -> argparse.ArgumentParser:
     eval_compile.add_argument("--grading-batch", type=Path, required=True)
     eval_compile.add_argument("--adjudication", type=Path, required=True)
     eval_compile.add_argument("--output", type=Path, required=True)
+    eval_agreement = subcommands.add_parser(
+        "eval-agreement", help="Compare two grading artifacts and report conflicts"
+    )
+    eval_agreement.add_argument("--grading-batch", type=Path, required=True)
+    eval_agreement.add_argument("--left", type=Path, required=True)
+    eval_agreement.add_argument("--right", type=Path, required=True)
+    eval_agreement.add_argument("--output", type=Path, required=True)
     eval_score = subcommands.add_parser(
         "eval-score", help="Score one exactly covered evaluation split"
     )
@@ -220,6 +228,32 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "eval-agreement":
+            grading = GradingBatch.model_validate_json(
+                read_bounded(cast(Path, args.grading_batch), 16_000_000)
+            )
+            left = AdjudicationSet.model_validate_json(
+                read_bounded(cast(Path, args.left), 16_000_000)
+            )
+            right = AdjudicationSet.model_validate_json(
+                read_bounded(cast(Path, args.right), 16_000_000)
+            )
+            agreement = compare_adjudications(grading, left, right)
+            output = cast(Path, args.output)
+            _write_contract(output, agreement)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.agreement.completed",
+                        "path": str(output),
+                        "report_sha256": agreement.report_sha256,
+                        "compared_findings": agreement.compared_findings,
+                        "conflicts": len(agreement.conflicts),
+                        "promotion_ready": agreement.promotion_ready,
+                    }
+                )
+            )
+            return 0
         if args.command == "eval-blind":
             dataset = EvaluationDataset.model_validate_json(
                 read_bounded(cast(Path, args.dataset), 16_000_000)
