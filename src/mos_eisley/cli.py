@@ -32,6 +32,7 @@ from mos_eisley.evaluation.adjudication import (
 )
 from mos_eisley.evaluation.agreement import compare_adjudications
 from mos_eisley.evaluation.authentication import (
+    AuthenticatedAdjudication,
     GradingTrustPolicy,
     SignedAdjudication,
     authenticate_adjudication,
@@ -51,6 +52,11 @@ from mos_eisley.evaluation.models import (
     ObservationSet,
     Split,
     SweepPlan,
+)
+from mos_eisley.evaluation.resolution import (
+    ResolutionTrustPolicy,
+    SignedResolutionSet,
+    resolve_authenticated_adjudications,
 )
 from mos_eisley.evaluation.scoring import make_plan, score
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
@@ -275,6 +281,17 @@ def parser() -> argparse.ArgumentParser:
     eval_authenticate.add_argument("--signed-adjudication", type=Path, required=True)
     eval_authenticate.add_argument("--trust-policy", type=Path, required=True)
     eval_authenticate.add_argument("--output", type=Path, required=True)
+    eval_resolve = subcommands.add_parser(
+        "eval-resolve-adjudications",
+        help="Verify two authenticated grades and independently resolve conflicts",
+    )
+    eval_resolve.add_argument("--grading-batch", type=Path, required=True)
+    eval_resolve.add_argument("--left-authenticated", type=Path, required=True)
+    eval_resolve.add_argument("--right-authenticated", type=Path, required=True)
+    eval_resolve.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_resolve.add_argument("--resolution-trust-policy", type=Path, required=True)
+    eval_resolve.add_argument("--signed-resolution", type=Path)
+    eval_resolve.add_argument("--output", type=Path, required=True)
     eval_score = subcommands.add_parser(
         "eval-score", help="Score one exactly covered evaluation split"
     )
@@ -378,11 +395,71 @@ def _authenticate_adjudication_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_adjudications_command(args: argparse.Namespace) -> int:
+    grading = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    left = AuthenticatedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.left_authenticated), 16_000_000)
+    )
+    right = AuthenticatedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.right_authenticated), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    resolution_path = cast(Path | None, args.signed_resolution)
+    signed_resolution = (
+        SignedResolutionSet.model_validate_json(
+            read_bounded(resolution_path, 16_000_000)
+        )
+        if resolution_path is not None
+        else None
+    )
+    artifact = resolve_authenticated_adjudications(
+        grading,
+        left,
+        right,
+        grading_policy,
+        resolution_policy,
+        signed_resolution,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.dual_grading.resolved",
+                "path": str(output),
+                "dual_grading_resolution_sha256": (
+                    artifact.dual_grading_resolution_sha256
+                ),
+                "grading_batch_sha256": artifact.grading_batch_sha256,
+                "left_adjudicator_id": left.signed_adjudication.signature.signer_id,
+                "right_adjudicator_id": right.signed_adjudication.signature.signer_id,
+                "resolver_id": (
+                    signed_resolution.signature.signer_id
+                    if signed_resolution is not None
+                    else None
+                ),
+                "conflicts": len(artifact.agreement.conflicts),
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         if args.command == "eval-authenticate-adjudication":
             return _authenticate_adjudication_command(args)
+        if args.command == "eval-resolve-adjudications":
+            return _resolve_adjudications_command(args)
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")

@@ -21,16 +21,18 @@
    Request-bound single-use host grants and private worker/broker IPC with mandatory
    shared spending admission are fixture-tested in real containers;
    see `PROVIDER_BROKER.md` for limits. Assignment-bound private audit chains and
-   crash-conservative ledger recovery inventory are also implemented. Next bind
-   validated responses now produce non-scoreable, assignment-bound conformance
+   crash-conservative ledger recovery inventory are also implemented. Validated
+   responses now produce non-scoreable, assignment-bound conformance
    artifacts containing usage, latency and settled spend. The explicit read-only
    recovery CLI and bounded decoded OpenAI HTTP client are implemented, while
    streaming and automatic retry/release remain prohibited. A blinded strict-schema
    OpenAI conformance request and fail-closed one-assignment CLI lifecycle are
    fixture-tested. Ed25519 authentication now binds exact human adjudication to an
-   independently supplied public-key policy. Next run explicitly authorized
-   credentialed conformance and add mandatory dual-grade resolution controls, then
-   run the
+   independently supplied public-key policy. The offline dual-grade gate reverifies
+   two distinct graders, preserves both signed sources and requires a trust-disjoint
+   resolver to sign exact conflict coverage; it remains non-promotable and is not
+   connected to scoring. Next run explicitly authorized credentialed conformance,
+   add the reviewed dual-lineage observation compiler, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

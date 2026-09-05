@@ -168,12 +168,18 @@ This is a descriptive report, with no confidence interval or quality threshold.
 Distinct grader IDs alone do not authenticate people or prove independent work.
 The command rejects matching IDs, mismatched rubrics and mixed human/fixture
 methods, but it cannot detect collusion or shared bias. It does not pick a winning
-grader. The separate [adjudication authentication](ADJUDICATION_AUTHENTICATION.md)
-command verifies an exact human grade against an Ed25519 trust policy, but this
-descriptive agreement command does not yet require those receipts. Review disputes
-under a pre-registered resolution protocol and preserve the original grades;
-authenticated resolution lineage and enforcement before promotion remain future
-work. Single-grader compilation is still available for offline rehearsal.
+grader. It remains useful for fixture diagnostics, but it is not the authenticated
+gate.
+
+For human grading, authenticate both exact adjudications and use
+[`eval-resolve-adjudications`](DUAL_GRADE_RESOLUTION.md). That command reverifies
+two distinct enrolled grader keys, preserves both signed originals and requires a
+separately enrolled resolver key to sign exactly one valid decision for every
+recomputed conflict. It prohibits unnecessary resolution when labels agree. The
+result remains `promotion_eligible: false` and is deliberately not accepted by
+`eval-compile` or `eval-score`. Single-grader compilation is still available only
+for offline rehearsal while the reviewed lineage-to-observation compiler remains
+unimplemented.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.

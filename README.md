@@ -114,8 +114,10 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   using blinded input and strict structured `Critique` output, plus an explicit
   one-assignment CLI whose provider and container boundaries are fixture-substituted.
 - [Ed25519 adjudication authentication](docs/ADJUDICATION_AUTHENTICATION.md)
-  binding exact human grades to an independently supplied public-key trust policy;
-  dual-grade resolution and promotion remain disabled.
+  binding exact human grades to an independently supplied public-key trust policy.
+- [Dual authenticated grading](docs/DUAL_GRADE_RESOLUTION.md) that preserves both
+  signed originals and requires a disjoint signed resolver to exactly cover every
+  conflict. Its output remains deliberately disconnected from scoring promotion.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

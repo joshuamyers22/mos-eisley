@@ -30,6 +30,14 @@ from mos_eisley.evaluation.models import (
     StatisticalDesign,
     SweepPlan,
 )
+from mos_eisley.evaluation.resolution import (
+    DualGradingResolution,
+    ResolutionSet,
+    ResolutionTrustPolicy,
+    SignedResolutionSet,
+    resolve_authenticated_adjudications,
+    verify_dual_grading_resolution,
+)
 from mos_eisley.evaluation.scoring import EvaluationReport, make_plan, score
 
 __all__ = (
@@ -53,6 +61,10 @@ __all__ = (
     "Judgment",
     "RawResultSet",
     "RouteCandidate",
+    "DualGradingResolution",
+    "ResolutionSet",
+    "ResolutionTrustPolicy",
+    "SignedResolutionSet",
     "StatisticalDesign",
     "SweepPlan",
     "make_plan",
@@ -60,5 +72,7 @@ __all__ = (
     "make_grading_batch",
     "compile_observations",
     "run_recorded_evaluation",
+    "resolve_authenticated_adjudications",
     "score",
+    "verify_dual_grading_resolution",
 )

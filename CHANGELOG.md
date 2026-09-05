@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an offline dual-authenticated grading gate that reverifies two distinct
+  Ed25519 graders, preserves both signed originals, and requires a policy-disjoint
+  signed resolver to cover every conflict exactly. The resulting lineage remains
+  explicitly non-promotable and disconnected from compilation and scoring.
+
 - Add Ed25519 authentication for exact route-blind human adjudications, with unique
   public-key trust policies, domain-separated signatures, reverifiable receipts,
   and a verification-only CLI that never accepts grader private keys.
