@@ -19,9 +19,11 @@ then run `make check audit container`. Frozen mode is used by all quality comman
 
 `mos replay RUN` verifies the exact artifact set and SHA-256 digests before parsing
 the brief, policy, cassette and result. It recomputes the pipeline and compares the
-entire result, not only the verdict. Serialization schema 1 is the replay contract;
-no migration or live re-execution is implemented. Retain the code revision and lock
-with exported runs. An unsigned digest is integrity evidence, not authenticity.
+entire result, not only the verdict. Serialization schema 1 is the replay contract.
+New optional provider fields preserve legacy fixture request hashes, and agent replay
+accepts schema-1 results recorded before full response capture; no general migration
+or live re-execution is implemented. Retain the code revision and lock with exported
+runs. An unsigned digest is integrity evidence, not authenticity.
 
 The SQLite index is disposable metadata. Copy whole completed run directories for
 backup; verify each with `mos replay` after restore. Do not back up a live SQLite
@@ -34,3 +36,10 @@ result. It reruns the loop, compares every result and journal event, and require
 all recorded exchanges to be consumed. A manifest is written only after the live
 journal is closed and the result is durable; partial runs are intentionally not
 replayable or resumable.
+
+`mos openai-run` is deliberately not reproducible as a model execution. It stores
+the exact config, canonical response sequence, aggregate token usage and boundary
+journal under a manifest. `load_live_run` verifies artifact hashes, provider/model
+identity, initial-turn prefix, response count and journal response hashes. Retain
+the code revision and lockfile with a live run. The API key is never an artifact.
+There is no command that silently resends a stored live prompt.

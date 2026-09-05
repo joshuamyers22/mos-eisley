@@ -14,6 +14,7 @@ from mos_eisley.core.protocol import (
     Effort,
     JournalEvent,
     ModelRequest,
+    ModelResponse,
     TextBlock,
     ToolCallBlock,
     ToolResultBlock,
@@ -47,7 +48,7 @@ class AgentConfig(Contract):
 
 
 class AgentUsage(Contract):
-    unit: Literal["bytes"] = "bytes"
+    unit: Literal["bytes", "tokens"] = "bytes"
     requests: Annotated[int, Field(ge=0)]
     tools: Annotated[int, Field(ge=0)]
     billed_input: Annotated[int, Field(ge=0)]
@@ -60,6 +61,8 @@ class AgentResult(Contract):
     resolved_model: ResolvedModel
     budget: Budget
     turns: tuple[Turn, ...]
+    # Optional only to keep schema-1 fixture runs recorded before this field replayable.
+    responses: tuple[ModelResponse, ...] = ()
     final_text: str
     usage: AgentUsage
 
@@ -79,6 +82,7 @@ def build_request(
         tools=dispatcher.definitions,
         turns=turns,
         max_output=budget.output_reserve,
+        max_output_tokens=budget.max_output_tokens,
     )
 
 
@@ -94,6 +98,7 @@ async def run_agent(
         raise AgentFailure("selected model does not support tools")
     budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
     turns = config.initial_turns
+    responses: tuple[ModelResponse, ...] = ()
     used_call_ids = {
         block.id
         for turn in turns
@@ -104,6 +109,7 @@ async def run_agent(
     billed_output = 0
     largest_request = 0
     tool_count = 0
+    usage_unit: Literal["bytes", "tokens"] | None = None
     sequence = 0
 
     def record(
@@ -152,13 +158,30 @@ async def run_agent(
             record("model.request.failed", request_id, request, "client_exception")
             raise AgentFailure("model client failed unexpectedly") from error
         record("model.response.completed", request_id, response)
+        responses += (response,)
         response_size = len(canonical_bytes(response.turn))
         if response_size > budget.output_reserve:
             raise AgentFailure("model response exceeds output reserve")
-        if response.usage.input > budget.usable_input:
-            raise AgentFailure("provider reported input usage above budget")
-        if response.usage.output > budget.output_reserve:
-            raise AgentFailure("provider reported output usage above budget")
+        if usage_unit is not None and response.usage.unit != usage_unit:
+            raise AgentFailure("provider changed usage units during the run")
+        usage_unit = response.usage.unit
+        if response.usage.unit == "bytes":
+            if response.usage.input > budget.usable_input:
+                raise AgentFailure("provider reported input usage above budget")
+            if response.usage.output > budget.output_reserve:
+                raise AgentFailure("provider reported output usage above budget")
+        else:
+            context_tokens = resolved.spec.context_tokens
+            if (
+                context_tokens is not None
+                and response.usage.input + response.usage.output > context_tokens
+            ):
+                raise AgentFailure("provider reported token usage above context")
+            if (
+                budget.max_output_tokens is not None
+                and response.usage.output > budget.max_output_tokens
+            ):
+                raise AgentFailure("provider reported output tokens above budget")
         billed_input += response.usage.input
         billed_output += response.usage.output
         turns += (response.turn,)
@@ -174,8 +197,10 @@ async def run_agent(
                 resolved_model=resolved,
                 budget=budget,
                 turns=turns,
+                responses=responses,
                 final_text=text,
                 usage=AgentUsage(
+                    unit=usage_unit,
                     requests=iteration,
                     tools=tool_count,
                     billed_input=billed_input,

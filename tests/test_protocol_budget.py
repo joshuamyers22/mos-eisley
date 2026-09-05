@@ -19,7 +19,12 @@ from mos_eisley.core.protocol import (
     Turn,
     Usage,
 )
-from mos_eisley.core.registry import ModelRegistry, ModelSpec, fixture_registry
+from mos_eisley.core.registry import (
+    ModelRegistry,
+    ModelSpec,
+    fixture_registry,
+    openai_registry,
+)
 
 
 class ProtocolTests(TestCase):
@@ -27,6 +32,18 @@ class ProtocolTests(TestCase):
         left = ToolCallBlock(id="call", name="tool", args={"b": 2, "a": 1})
         right = ToolCallBlock(id="call", name="tool", args={"a": 1, "b": 2})
         self.assertEqual(canonical_bytes(left), canonical_bytes(right))
+
+    def test_new_provider_fields_do_not_change_legacy_fixture_hashes(self) -> None:
+        request = ModelRequest(
+            provider="fixture",
+            model="model",
+            effort="low",
+            turns=(Turn(role="user", blocks=(TextBlock(text="hello"),)),),
+            max_output=100,
+        )
+        self.assertNotIn(b"max_output_tokens", canonical_bytes(request))
+        call = ToolCallBlock(id="call", name="tool", args={})
+        self.assertNotIn(b"provider_call_id", canonical_bytes(call))
 
     def test_tool_schema_rejects_unsupported_shapes(self) -> None:
         invalid = (
@@ -145,6 +162,8 @@ class RegistryBudgetTests(TestCase):
             {"efforts": ("low", "low")},
             {"default_effort": "max"},
             {"max_output_bytes": model.context_bytes},
+            {"context_tokens": 1000},
+            {"context_tokens": 1000, "max_output_tokens": 1000},
         ):
             with self.assertRaises(ValidationError):
                 ModelSpec.model_validate(model.model_copy(update=update).model_dump())
@@ -160,6 +179,9 @@ class RegistryBudgetTests(TestCase):
         self.assertEqual(budget.output_reserve, 12_000)
         self.assertEqual(budget.usable_input, 7_200)
         self.assertEqual(budget.headroom, 800)
+        openai = openai_registry().models[0]
+        openai_budget = resolve_budget(openai, "medium", BudgetPolicy())
+        self.assertEqual(openai_budget.max_output_tokens, 4096)
         tiny = model.model_copy(update={"context_bytes": 100, "max_output_bytes": 99})
         with self.assertRaisesRegex(ValueError, "reserve"):
             resolve_budget(

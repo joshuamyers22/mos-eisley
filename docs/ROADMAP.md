@@ -4,9 +4,10 @@
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
    registry, deterministic effort resolution, byte budgets and boundary journal.
-3. **Next — live read-only review:** one provider first, explicit
-   repository/provider data
-   permissions, bounded requests/responses, contract tests, then other providers.
+3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
+   one-prompt command implemented with documented capabilities, data-transfer
+   acknowledgement, bounded I/O and contract tests. Next: credentialed conformance,
+   cost limits, then wire OpenAI into critic/judge review before other providers.
 4. **Quality gate:** single-critic baseline versus fan-out/judge, held-out clean and
    defective samples, human labels, latency/cost/false-positive thresholds.
 5. **Execution:** threat model and capability matrix; macOS/Linux negative tests,

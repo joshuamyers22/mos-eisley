@@ -3,7 +3,7 @@
 import asyncio
 from unittest import IsolatedAsyncioTestCase
 
-from mos_eisley.core.agent import AgentFailure, run_agent
+from mos_eisley.core.agent import AgentConfig, AgentFailure, run_agent
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import (
     ModelRequest,
@@ -15,7 +15,7 @@ from mos_eisley.core.protocol import (
     Turn,
     Usage,
 )
-from mos_eisley.core.registry import fixture_registry
+from mos_eisley.core.registry import fixture_registry, openai_registry
 from mos_eisley.demo_agent import agent_demo_inputs
 from mos_eisley.providers.agent_recorded import (
     AgentCassette,
@@ -24,6 +24,7 @@ from mos_eisley.providers.agent_recorded import (
 )
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.tools.fixture import FixtureDispatcher
+from mos_eisley.tools.none import NoToolsDispatcher
 
 
 class AgentLoopTests(IsolatedAsyncioTestCase):
@@ -274,3 +275,30 @@ class AgentLoopTests(IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.CancelledError):
             await task
         self.assertTrue(cancelled.is_set())
+
+    async def test_provider_token_usage_cannot_exceed_resolved_budget(self) -> None:
+        config = AgentConfig(
+            provider="openai",
+            model="gpt-6-astra",
+            initial_turns=(
+                Turn(role="user", blocks=(TextBlock(text="Bound this request."),)),
+            ),
+        )
+
+        class OverBudgetClient:
+            async def complete(self, request: ModelRequest) -> ModelResponse:
+                return ModelResponse(
+                    turn=Turn(
+                        role="assistant", blocks=(TextBlock(text="Too expensive."),)
+                    ),
+                    stop_reason="end_turn",
+                    usage=Usage(unit="tokens", input=10, output=4097),
+                )
+
+        with self.assertRaisesRegex(AgentFailure, "output tokens"):
+            await run_agent(
+                config,
+                openai_registry(),
+                OverBudgetClient(),
+                NoToolsDispatcher(),
+            )

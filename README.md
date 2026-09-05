@@ -1,9 +1,9 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: offline agent foundation.** All responses and tool values come
-from explicit recorded fixtures. This version cannot assess new code using a live
-model or touch the host through model-selected tools.
+**Current maturity: live-provider preview.** Recorded review remains the default;
+an explicit one-prompt OpenAI command is available. This version does not yet run
+the adversarial critic/judge workflow live or expose host tools to a model.
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -12,7 +12,7 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 ## Quick start
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
-No credentials or external services are required at runtime.
+The recorded commands require no credentials or external services.
 
 ```sh
 make setup
@@ -32,6 +32,23 @@ uv run --frozen mos review \
   --brief .mos-eisley/runs/<run-id>/brief.json \
   --cassette .mos-eisley/runs/<run-id>/cassette.json --json
 ```
+
+The first live provider uses OpenAI's Responses API with the documented default
+`gpt-6-astra` model. The command reads only the named files, requires an environment
+credential and explicit acknowledgement, sends `store=false`, exposes no tools, and
+writes private local artifacts:
+
+```sh
+export OPENAI_API_KEY="..."
+uv run --frozen mos openai-run \
+  --prompt prompt.txt \
+  --instructions instructions.txt \
+  --allow-data-transfer --json
+```
+
+The acknowledgement means the prompt and optional instructions will leave the
+machine. The request sends `store=false`; your OpenAI organization and data
+retention settings still govern provider-side handling.
 
 Review exit codes: **0** accept; **1** revise/reject; **2** invalid input or
 infrastructure failure. Replay exits **0** when the recorded result reproduces,
@@ -55,16 +72,21 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   cancellation. Unexpected adapter failures are reported without their raw detail.
 - Append-and-fsync request/tool boundary journals and exact, request-hash-bound
   replay for a pure in-memory fixture tool.
+- OpenAI Responses adapter with strict function schemas, provider call-ID mapping,
+  stateless encrypted-reasoning carry-forward and token usage accounting.
+- Opt-in `openai-run` with a 64,000-byte prompt bound, 4,096-token output ceiling,
+  one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
 
-There is no live provider, machine-capable tool, sandbox backend, shell, Git
-checkout, test execution, publisher, MCP, or TUI yet. The only agent tool reads a
-bounded in-memory fixture. Provider names in fixtures are labels, not proof of real
-model diversity. Judge order is deterministic by finding hash; randomized bias
-experiments are deferred. Byte accounting is a conservative serialization bound,
-not provider token, price, or context-window accounting.
+The OpenAI adapter is tested against captured response shapes but has not completed
+a credentialed conformance run in this repository. Model availability depends on
+account access. Live critic fan-out and judging are not wired yet. There is no
+machine-capable tool, sandbox backend, shell, Git checkout, test execution,
+publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
+Byte and provider-token accounting are separate; price and dollar budgets remain
+unimplemented.
 
 Only user-supplied input files are opened. Unknown schema fields are rejected;
 repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this milestone.
@@ -75,9 +97,11 @@ Run files contain the supplied brief and recorded responses. Keep the output roo
 private. File hashes detect accidental changes, not a malicious owner who can
 replace the manifest. Recorded agent runs fsync boundary events as they happen, but
 the journal contains hashes and status—not a standalone full transcript. Incomplete
-runs lack a valid manifest and cannot be replayed. Retention is manual.
+runs lack a valid manifest and cannot be replayed. Live runs preserve full canonical
+responses for inspection but cannot replay a provider execution. Retention is manual.
 
-See the [project brief](PROJECT_BRIEF.md), [agent protocol ADR](docs/adr/0002-canonical-agent-protocol.md),
+See the [project brief](PROJECT_BRIEF.md),
+[OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery
