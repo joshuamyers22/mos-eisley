@@ -6,8 +6,9 @@
    registry, deterministic effort resolution, byte budgets and boundary journal.
 3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
-   acknowledgement, bounded I/O and contract tests. Next: credentialed conformance,
-   cost limits, then wire OpenAI into critic/judge review before other providers.
+   acknowledgement, bounded I/O, reviewed-price per-response spending reservations
+   and contract tests. Next: credentialed conformance and aggregate cost limits,
+   then wire OpenAI into critic/judge review before other providers.
 4. **In progress — quality and routing gate:** deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.

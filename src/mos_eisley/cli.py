@@ -13,10 +13,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from pydantic import ValidationError
 
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
+from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
 from mos_eisley.core.ports import Journal
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
@@ -52,6 +53,7 @@ from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
 )
+from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
@@ -112,6 +114,11 @@ def parser() -> argparse.ArgumentParser:
     )
     openai_run.add_argument("--prompt", type=Path, required=True)
     openai_run.add_argument("--instructions", type=Path)
+    openai_run.add_argument(
+        "--spend-policy",
+        type=Path,
+        help="Required reviewed pricing and spending policy JSON",
+    )
     openai_run.add_argument("--model", default="gpt-6-astra")
     openai_run.add_argument(
         "--effort",
@@ -209,17 +216,27 @@ def _write_contract(path: Path, value: Contract) -> None:
 
 
 async def _openai_run(
-    config: AgentConfig, api_key: str, journal: Journal
+    config: AgentConfig,
+    api_key: str,
+    journal: Journal,
+    spend_policy: SpendPolicy,
+    directory: Path,
 ) -> AgentResult:
     async with AsyncOpenAI(
         api_key=api_key,
         timeout=config.request_timeout_seconds,
         max_retries=0,
+        base_url="https://api.openai.com/v1",
+        http_client=DefaultAsyncHttpxClient(trust_env=False, follow_redirects=False),
     ) as sdk:
         return await run_agent(
             config,
             openai_registry(),
-            OpenAIResponsesClient(SDKOpenAITransport(sdk)),
+            OpenAIResponsesClient(
+                BudgetedOpenAITransport(
+                    SDKOpenAITransport(sdk), spend_policy, directory
+                )
+            ),
             NoToolsDispatcher(),
             journal,
         )
@@ -455,6 +472,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not configured")
+            policy_path = cast(Path | None, args.spend_policy)
+            if policy_path is None:
+                raise ValueError("an explicit spending policy is required")
+            spend_policy = SpendPolicy.model_validate_json(read_bounded(policy_path))
+            spend_policy.check_current()
+            if spend_policy.model != args.model:
+                raise ValueError("spending policy model mismatch")
             prompt = _utf8_file(cast(Path, args.prompt), 64_000)
             instructions_path = cast(Path | None, args.instructions)
             instructions = (
@@ -478,10 +502,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 max_iterations=1,
                 max_tool_calls=0,
+                budget=BudgetPolicy(max_output_tokens=spend_policy.max_output_tokens),
             )
-            session = begin_live_run(cast(Path, args.output), config)
+            session = begin_live_run(cast(Path, args.output), config, spend_policy)
             try:
-                result = asyncio.run(_openai_run(config, api_key, session.journal))
+                result = asyncio.run(
+                    _openai_run(
+                        config, api_key, session.journal, spend_policy, session.path
+                    )
+                )
                 session.complete(result)
             except BaseException:
                 session.abort()
@@ -492,6 +521,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "model": result.resolved_model.spec.id,
                 "input_tokens": result.usage.billed_input,
                 "output_tokens": result.usage.billed_output,
+                "cost_upper_bound_microusd": spend_policy.cost(
+                    result.usage.billed_input, result.usage.billed_output
+                ),
+                "spend_policy_sha256": spend_policy.policy_sha256,
                 "text": result.final_text,
             }
             if args.json:

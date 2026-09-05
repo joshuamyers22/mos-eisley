@@ -30,7 +30,7 @@ in the live command.
 | Provider retains sensitive input | Responses request sets `store=false` | Organization policy and provider retention controls still apply |
 | Provider response violates expected shape | Narrow validation; unknown items fail closed; byte ceiling | SDK receives the body before canonical size validation |
 | Reasoning/tool state corrupts across turns | Preserve encrypted reasoning and native call IDs; pair results exactly | Credentialed conformance has not run |
-| Model spend grows unexpectedly | One request, 64KB input, 4,096 output tokens and deadline | No dollar budget or price enforcement |
+| Model spend grows unexpectedly | One request, bounded input/output, reviewed pricing policy and pre-generation reservation | Operator rates/provider caps are trusted; no aggregate or invoice ceiling |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
@@ -39,7 +39,7 @@ event summary after completion. The fixture agent loop fsyncs hash/status bounda
 events during execution, but its journal is not a standalone response transcript.
 
 Before calling this production-ready: complete credentialed conformance, add a
-dollar ceiling and independently bounded response transport, then connect the live
+aggregate spending ledger and independently bounded response transport, then connect the live
 adapter to critic/judge policy without weakening quorum failure behavior.
 Before executing code: a tested OS boundary including host reads/sockets, process
 resources and cleanup. Before publishing: authenticated IPC and stale-head checks.
