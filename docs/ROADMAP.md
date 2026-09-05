@@ -8,9 +8,11 @@
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O and contract tests. Next: credentialed conformance,
    cost limits, then wire OpenAI into critic/judge review before other providers.
-4. **Quality and routing gate:** single-critic baseline versus fan-out/judge; run a
-   repeated backend × model × effort sweep on blinded clean and defective samples.
-   Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
+4. **In progress — quality and routing gate:** deterministic, content-addressed
+   sweep plans and exact-coverage split scoring are implemented offline. Next add a
+   label-isolating executor and adjudication provenance, then run the repeated
+   backend × model × effort sweep on blinded clean and defective samples. Learn and
+   freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
 5. **Execution:** threat model and capability matrix; macOS/Linux negative tests,

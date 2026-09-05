@@ -16,12 +16,21 @@ from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
-from mos_eisley.core.models import Brief, ReviewPolicy
+from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
 from mos_eisley.core.ports import Journal
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
+from mos_eisley.evaluation.models import (
+    CandidateGrid,
+    EvaluationDataset,
+    EvaluationGate,
+    ObservationSet,
+    Split,
+    SweepPlan,
+)
+from mos_eisley.evaluation.scoring import make_plan, score
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
@@ -33,7 +42,7 @@ from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
-from mos_eisley.run.store import index_run, load_run, save_run
+from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
 from mos_eisley.tools.none import NoToolsDispatcher
 
@@ -44,7 +53,8 @@ def parser() -> argparse.ArgumentParser:
     command = argparse.ArgumentParser(
         prog="mos-eisley",
         description=(
-            "Mos Eisley: recorded adversarial review with an opt-in OpenAI preview."
+            "Mos Eisley: recorded adversarial review, offline evals, and an opt-in "
+            "OpenAI preview."
         ),
     )
     command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
@@ -101,6 +111,25 @@ def parser() -> argparse.ArgumentParser:
         help="Acknowledge that prompt content will be sent to OpenAI",
     )
     openai_run.add_argument("--json", action="store_true")
+    eval_plan = subcommands.add_parser(
+        "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
+    )
+    eval_plan.add_argument("--dataset", type=Path, required=True)
+    eval_plan.add_argument("--candidates", type=Path, required=True)
+    eval_plan.add_argument("--gate", type=Path, required=True)
+    eval_plan.add_argument("--repetitions", type=int, required=True)
+    eval_plan.add_argument("--seed", type=int, required=True)
+    eval_plan.add_argument("--output", type=Path, required=True)
+    eval_score = subcommands.add_parser(
+        "eval-score", help="Score one exactly covered evaluation split"
+    )
+    eval_score.add_argument("--dataset", type=Path, required=True)
+    eval_score.add_argument("--plan", type=Path, required=True)
+    eval_score.add_argument("--observations", type=Path, required=True)
+    eval_score.add_argument(
+        "--split", choices=("calibration", "holdout"), required=True
+    )
+    eval_score.add_argument("--output", type=Path, required=True)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -113,6 +142,11 @@ def _utf8_file(path: Path, limit: int) -> str:
     if not value:
         raise ValueError("input file must not be empty")
     return value
+
+
+def _write_contract(path: Path, value: Contract) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    private_write(path, canonical_bytes(value))
 
 
 async def _openai_run(
@@ -135,6 +169,61 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "eval-plan":
+            dataset = EvaluationDataset.model_validate_json(
+                read_bounded(cast(Path, args.dataset), 16_000_000)
+            )
+            candidates = CandidateGrid.model_validate_json(
+                read_bounded(cast(Path, args.candidates))
+            )
+            gate = EvaluationGate.model_validate_json(
+                read_bounded(cast(Path, args.gate))
+            )
+            plan = make_plan(
+                dataset,
+                candidates,
+                cast(int, args.repetitions),
+                cast(int, args.seed),
+                gate,
+            )
+            output = cast(Path, args.output)
+            _write_contract(output, plan)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.plan.created",
+                        "path": str(output),
+                        "plan_sha256": plan.plan_sha256,
+                        "assignments": len(plan.assignments),
+                    }
+                )
+            )
+            return 0
+        if args.command == "eval-score":
+            dataset = EvaluationDataset.model_validate_json(
+                read_bounded(cast(Path, args.dataset), 16_000_000)
+            )
+            plan = SweepPlan.model_validate_json(
+                read_bounded(cast(Path, args.plan), 16_000_000)
+            )
+            observations = ObservationSet.model_validate_json(
+                read_bounded(cast(Path, args.observations), 16_000_000)
+            )
+            split = cast(Split, args.split)
+            report = score(plan, dataset, observations, split)
+            output = cast(Path, args.output)
+            _write_contract(output, report)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.score.created",
+                        "path": str(output),
+                        "split": split,
+                        "eligible": sum(item.eligible for item in report.scores),
+                    }
+                )
+            )
+            return 0
         if args.command == "models":
             for model in default_registry().models:
                 print(model.model_dump_json())

@@ -15,3 +15,4 @@ Notable changes are recorded here using semantic versioning.
 - Add an explicitly acknowledged, no-tools OpenAI prompt command and live artifacts.
 - Track provider tokens separately from local canonical byte safety limits.
 - Specify evaluation-gated prompt-difficulty routing across backend, model and effort.
+- Add content-addressed offline sweep planning and exact-coverage split scoring.

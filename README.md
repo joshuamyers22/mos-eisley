@@ -3,7 +3,8 @@
 A foundation for independent, multi-provider adversarial review of code changes.
 **Current maturity: live-provider preview.** Recorded review remains the default;
 an explicit one-prompt OpenAI command is available. This version does not yet run
-the adversarial critic/judge workflow live or expose host tools to a model.
+the adversarial critic/judge workflow live or expose host tools to a model. It can
+plan and score offline model/effort evaluations, but automatic routing is disabled.
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -76,6 +77,10 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   stateless encrypted-reasoning carry-forward and token usage accounting.
 - Opt-in `openai-run` with a 64,000-byte prompt bound, 4,096-token output ceiling,
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
+- Content-addressed backend × model × effort sweep plans with pre-registered gates,
+  deterministic assignment order and exact-coverage calibration/holdout scoring.
+- Conservative Wilson-bound detection, clean false-positive and completion gates;
+  failures remain in the denominator and missing cost cannot pass a cost gate.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -103,6 +108,7 @@ responses for inspection but cannot replay a provider execution. Retention is ma
 See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
+[evaluation foundation](docs/EVALUATION.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery
