@@ -57,6 +57,10 @@ from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPoli
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
+from mos_eisley.run.broker_audit import (
+    AssignmentAuthorization,
+    inspect_broker_recovery,
+)
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
@@ -148,6 +152,13 @@ def parser() -> argparse.ArgumentParser:
         "spend-ledger-status", help="Inspect charges and unresolved reservations"
     )
     ledger_status.add_argument("path", type=Path)
+    broker_status = subcommands.add_parser(
+        "broker-audit-status",
+        help="Validate one broker audit against trusted authorization and ledger",
+    )
+    broker_status.add_argument("--audit-dir", type=Path, required=True)
+    broker_status.add_argument("--expected-authorization", type=Path, required=True)
+    broker_status.add_argument("--spend-ledger", type=Path, required=True)
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -276,6 +287,33 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "broker-audit-status":
+            audit_directory = cast(Path, args.audit_dir)
+            expected_path = cast(Path, args.expected_authorization)
+            if (
+                expected_path.resolve()
+                == (audit_directory / "authorization.json").resolve()
+            ):
+                raise ValueError(
+                    "expected authorization must be independently supplied"
+                )
+            expected = AssignmentAuthorization.model_validate_json(
+                read_bounded(expected_path, 4096)
+            )
+            state = inspect_broker_recovery(
+                audit_directory,
+                expected,
+                SpendLedger(cast(Path, args.spend_ledger)),
+            )
+            print(
+                json.dumps(
+                    {
+                        "type": "broker.audit.status",
+                        **state.model_dump(mode="json"),
+                    }
+                )
+            )
+            return 0
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(

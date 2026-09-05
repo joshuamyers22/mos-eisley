@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add `broker-audit-status` for explicit, independently anchored, read-only crash
+  inventory; reject self-attestation and never retry or release spend.
+
 - Add crash-conservative broker recovery inventory that cross-checks assignment
   audit phases with exact shared-ledger entry state and never authorizes retry.
 

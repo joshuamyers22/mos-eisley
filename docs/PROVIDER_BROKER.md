@@ -70,11 +70,29 @@ if spend settled: the response may have been lost. Every recovery state sets
 `retry_permitted=false`; recovery is inventory, not replay or budget release.
 Corrupt, substituted, partial, or incorrectly chained records fail closed.
 
+The read-only CLI exposes that single-audit inspection without directory scanning:
+
+```console
+mos broker-audit-status \
+  --audit-dir .mos-eisley/broker-audits/RUN \
+  --expected-authorization trusted/RUN-authorization.json \
+  --spend-ledger .mos-eisley/spend.sqlite
+```
+
+The expected authorization must be a separately supplied regular file; the CLI
+rejects using the audit's own `authorization.json` as its trust anchor. Output is
+one JSON event containing phase, ledger state, hashes, and
+`retry_permitted: false`. The command does not scan for audits, contact a provider,
+write recovery files, settle ledger entries, remove containers, or authorize a
+replacement call. Operators must separately establish that old processes and
+guardians are no longer active before investigating incomplete states.
+
 ## Remaining gates
 
 - Integrate assignment-bound conformance records into live evaluation result
   provenance only after response validation; grants remain process-local and
-  cannot be resumed. Add an operator recovery CLI over explicitly selected audits.
+  cannot be resumed. Add deliberate multi-audit inventory only if it retains an
+  independently trusted expected-authorization set.
 - Independently bound upstream HTTP response buffering and run explicitly
   authorized credentialed conformance. Async cancellation cannot stop blocking
   adapters, guarantee remote cancellation, or establish invoice-level cost caps.

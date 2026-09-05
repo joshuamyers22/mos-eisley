@@ -22,7 +22,8 @@
    shared spending admission are fixture-tested in real containers;
    see `PROVIDER_BROKER.md` for limits. Assignment-bound private audit chains and
    crash-conservative ledger recovery inventory are also implemented. Next bind
-   validated responses into evaluation provenance, add an operator recovery CLI and
+   validated responses into evaluation provenance; the explicit read-only recovery
+   CLI is implemented, while automatic retry/release remains prohibited. Next add
    authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
