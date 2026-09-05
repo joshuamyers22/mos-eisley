@@ -7,6 +7,11 @@
   inert fixture tool. Both paths produce private, content-verified offline replays.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   capabilities are documented but not credential-conformance verified.
+- Routing target: choose model and reasoning effort from prompt difficulty using a
+  versioned policy learned from blinded backend × model × effort evaluations. Role
+  defaults provide hard minimums and conservative fallbacks; uncalibrated or
+  out-of-distribution prompts never silently receive a weaker route. Automatic
+  routing remains disabled until data supports it.
 - Success criteria: documented CLI works from the built wheel; missing quorum,
   malformed evidence and malformed tool histories fail closed; identical recordings
   reproduce identical results; strict typing, tests, >=85% branch-inclusive coverage,
@@ -26,5 +31,6 @@
   call IDs, adapter/tool timeouts, iteration/tool exhaustion and cancellation.
 - Owner: Josh Myers. Production rollout and quality calibration remain future work.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
-  `docs/adr/0002-canonical-agent-protocol.md` and
-  `docs/adr/0003-openai-first-provider.md`.
+  `docs/adr/0002-canonical-agent-protocol.md`,
+  `docs/adr/0003-openai-first-provider.md` and the proposed
+  `docs/adr/0004-empirical-difficulty-routing.md`.

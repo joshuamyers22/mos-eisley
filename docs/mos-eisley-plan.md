@@ -240,7 +240,7 @@ A compaction inside a critic silently summarizes away the evidence under review.
 |---|---|---|---|
 | Anthropic | `output_config.effort` | low, medium, high, xhigh, max | Sonnet 5: high |
 | OpenAI | `reasoning.effort` | none, minimal, low, medium, high, xhigh, max (model-dependent) | gpt-5.5: medium |
-| Google | `thinking_level` | low, high | — |
+| Google | `thinking_level` | low, medium, high (model-dependent) | — |
 
 Effort is the control; adaptive thinking is the *mode* — `adaptive` is not a valid effort value. Manual budgets (`thinking: {type:"enabled", budget_tokens:N}`) return 400 on Sonnet 5 and Opus 4.7+. Opus 5 exposes the full ladder with `max` on top and converts additional effort into results more reliably than earlier Opus models, so the level chosen carries more weight. Gemini 3 replaced `thinking_budget` with `thinking_level`.
 
@@ -259,19 +259,58 @@ def resolve_effort(model: ModelSpec, requested: str) -> str:
     raise UnsupportedEffort(model.id, requested)
 ```
 
-**Cross-provider effort is not comparable.** Gemini has two levels where Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different settings. Never read cross-model disagreement as a capability signal when efforts were substituted — the run log must surface that at analysis time.
+**Cross-provider effort is not comparable.** Gemini has three common levels where
+Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different
+settings. API and subscription-backed clients for the same nominal model are also
+distinct routes because their harnesses and entitlement behavior can differ. Never
+read cross-route disagreement as a capability signal when settings were substituted;
+the run log must surface that at analysis time.
 
-### 7.3 Selection — bind to role, don't classify
+### 7.3 Selection — empirically calibrated difficulty routing
 
-No pre-flight difficulty classifier. It costs a round trip and guesses at what roles already encode.
+Roles define a hard minimum and a conservative fallback, not a permanent route. The
+normal path selects the least expensive eligible `(model, effort)` pair whose
+held-out evaluation results satisfy the role's quality constraints for prompts with
+the same observable difficulty profile. Manual model and effort selection remains
+an explicit override.
+
+Do not ship a hand-written score that equates prompt length with difficulty. Start
+with an interpretable, versioned policy trained from the sweep in §18.3. Candidate
+features must be known before dispatch and must not contain evaluation labels:
+
+- role and requested output contract;
+- input tokens/bytes, changed lines, files and language count;
+- tool and structured-output requirements;
+- deterministic risk tags such as authentication, concurrency, cryptography,
+  migrations and public-API changes;
+- whether the feature vector is outside the calibration distribution.
+
+Each routing policy pins its feature-schema version, calibration-set digest,
+candidate registry snapshot, provider backend and client version, primary metrics,
+confidence method and decision thresholds. The run artifact records the requested
+route, every eligible candidate, the resolved route and the reason. Subscription
+routes intersect the calibrated candidates with the official client's current
+entitlements; an unavailable cell is ineligible, not silently substituted. Missing,
+stale or out-of-distribution policy data uses the conservative fallback or fails;
+no route may fall below the role minimum.
 
 ```toml
-[role.brief_builder] effort = "low"     # mechanical assembly
-[role.author]        effort = "high"
-[role.critic]        effort = "high"    # calibrate — see §18.3
-[role.dedupe]        effort = "medium"  # structured merge
-[role.judge]         effort = "xhigh"   # hardest reasoning step
+[role.critic]
+minimum = { model_tier = "economy", effort = "low" }
+fallback = { model_tier = "balanced", effort = "high" }
+min_detection_lcb = 0.90
+max_false_positive_ucb = 0.05
+
+[routing]
+policy = "routing-policy-v1.json"
+on_uncalibrated = "role_fallback" # or "fail"
+allow_model_substitution = false
 ```
+
+An extra model-based difficulty classifier is not the initial implementation. Add
+one only if a held-out comparison shows that its incremental routing benefit exceeds
+its latency, cost and new failure modes. Until the first calibrated policy exists,
+automatic routing is unavailable rather than intuition-backed.
 
 ### 7.4 Effort ↔ max_tokens coupling
 
@@ -286,7 +325,13 @@ Raising a critic's effort shrinks its usable input. Higher effort also inflates 
 
 ### 7.5 Escalation on signal
 
-One retry, one step up. Triggers: structured output fails schema validation; K iterations with no state-changing tool call; judge confidence below threshold; (eval only) zero findings on a known-mutated brief. Both attempts logged. If the eval shows escalation never changes a verdict, delete it.
+At most one retry, one empirically selected step up. Triggers are role-specific and
+externally observable: failed executable evidence for an author, unresolved critic
+disagreement for a judge, or an evaluation-only miss on a labeled defect. Schema
+failure gets a bounded format-repair attempt at the same route; it is not evidence
+that harder reasoning is required. A model's self-reported confidence never triggers
+escalation by itself. Both attempts and the trigger are logged. Keep an escalation
+only when held-out evaluation shows positive payoff after added cost and latency.
 
 ---
 
@@ -734,16 +779,31 @@ Inject synthetic defects into known-good commits of your own repos — off-by-on
 | Cost per true finding | is it worth running |
 | Cross-family agreement rate | how independent are the critics really |
 | Escalation payoff | did the retry change a verdict |
+| Under-routing rate | did the selected route fail a task-quality criterion that an eligible stronger route passed |
+| Routing regret | extra cost/latency versus the cheapest adequate route in hindsight |
+| Calibration/OOD coverage | how often can the learned policy route rather than use its fallback |
 | Localization accuracy | file:line correct, not just "something's wrong" |
 
-### 18.3 The (model × effort) sweep
+### 18.3 The (backend × model × effort) sweep
 
-`mos eval --sweep` runs the grid into Postgres. Two expectations worth confirming rather than assuming:
+`mos eval --sweep` runs the backend × model × effort grid into the evaluation store.
+Repeated, blinded results define the cheapest adequate route for each task under
+pre-registered detection, false-positive, latency and cost constraints. API and
+subscription-backed routes are separate cells even when their nominal model matches.
+Fit an interpretable prompt-difficulty policy on the calibration split, freeze it as
+a content-addressed artifact, then measure routing quality once on a final holdout.
+Never tune thresholds on that holdout. Report confidence intervals and under-routing
+separately for each role, backend, provider, repository domain and risk tag.
+
+Two expectations worth confirming rather than assuming:
 
 1. **The quality curve flattens early.** Sonnet 5 at xhigh reportedly approaches Opus 4.8 pricing while scoring slightly worse on several benchmarks — the effort dial and model dial trade against each other and must be searched jointly.
 2. **False positives likely rise with effort.** A critic thinking harder on clean code has more time to invent objections. If confirmed, optimal critic effort sits *below* optimal author effort — the opposite of role intuition.
 
-Sampling is unavailable (§4.3), so variance requires N repeated runs per cell. Budget 3 reps minimum.
+Sampling is unavailable (§4.3), so variance requires repeated runs per cell. Three
+repetitions are a smoke test only; use sequential stopping or a pre-registered power
+target before promoting a routing policy. If no cheaper route meets the quality
+constraint with adequate confidence, retain the role fallback.
 
 ---
 
@@ -816,7 +876,7 @@ The sandbox negative tests and the blindness assertions are the two most importa
 | **M9** | **GitHub integration + isolated publisher** | `mos review --pr N --post` posts inline comments; injection corpus shows no credential reach |
 | **M10** | CLI surface: profiles, TUI, `--json` events, resume/replay | `mos exec --json` usable from CI; `review` profile ships read-only |
 | **M11** | MCP client, tiered | An MCP server registers, is tiered, and its schemas pass the subset validator |
-| **M12** | Mutation eval + (model × effort) sweep | FP rate on clean commits measured; defaults set from data |
+| **M12** | Mutation eval + (backend × model × effort) sweep | FP rate on clean commits measured; routing policy set from data |
 
 M2 and M3 moved ahead of the provider work deliberately. Once the harness can touch the machine, everything after it inherits whatever boundary you built — retrofitting a sandbox around an agent loop that already assumes free filesystem access is a rewrite.
 
@@ -967,7 +1027,10 @@ M0 must not execute model-selected machine commands before the sandbox exists. I
 ### 23.9 Evaluation corrections
 
 - Mutation testing provides seeded positives, not complete ground truth. Equivalent/trivial mutants must be filtered, and “clean” commits can contain real defects. Use human adjudication, held-out repositories, real historical bugs, and periodically audited clean samples.
-- Three repetitions are enough for a smoke test, not for choosing defaults across a large model × effort grid. Pre-register primary metrics, report confidence intervals, control for multiple comparisons, and use sequential stopping/power analysis to manage cost.
+- Three repetitions are enough for a smoke test, not for choosing defaults across a
+  large backend × model × effort grid. Pre-register primary metrics, report confidence
+  intervals, control for multiple comparisons, and use sequential stopping/power
+  analysis to manage cost.
 - Prevent benchmark leakage: critics must not see mutation labels, mutation-generator templates, expected locations, or prior verdicts. Separate calibration and final holdout sets.
 - Measure end-to-end utility: accepted true findings, developer override rate, time-to-resolution, review latency, and cost. Detection rate without developer trust is not a sufficient success criterion.
 - A cassette-backed golden test can assert deterministic orchestration, but it says nothing about current live-model quality. Keep conformance, safety, and quality suites separate.

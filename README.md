@@ -102,6 +102,7 @@ responses for inspection but cannot replay a provider execution. Retention is ma
 
 See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
+[empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery

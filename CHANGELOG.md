@@ -14,3 +14,4 @@ Notable changes are recorded here using semantic versioning.
 - Add the official OpenAI Python SDK and a Responses API canonical adapter.
 - Add an explicitly acknowledged, no-tools OpenAI prompt command and live artifacts.
 - Track provider tokens separately from local canonical byte safety limits.
+- Specify evaluation-gated prompt-difficulty routing across backend, model and effort.

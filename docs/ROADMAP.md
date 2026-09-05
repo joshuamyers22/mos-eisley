@@ -8,8 +8,11 @@
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O and contract tests. Next: credentialed conformance,
    cost limits, then wire OpenAI into critic/judge review before other providers.
-4. **Quality gate:** single-critic baseline versus fan-out/judge, held-out clean and
-   defective samples, human labels, latency/cost/false-positive thresholds.
+4. **Quality and routing gate:** single-critic baseline versus fan-out/judge; run a
+   repeated backend × model × effort sweep on blinded clean and defective samples.
+   Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
+   false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
+   conservative role fallback or fail closed.
 5. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 6. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
