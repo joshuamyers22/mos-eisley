@@ -9,6 +9,14 @@ from mos_eisley.core.models import (
     JudgeDecision,
     JudgeRequest,
 )
+from mos_eisley.core.protocol import (
+    JournalEvent,
+    ModelRequest,
+    ModelResponse,
+    ToolCallBlock,
+    ToolDefinition,
+    ToolResultBlock,
+)
 
 
 class ProviderError(Exception):
@@ -21,3 +29,18 @@ class Reviewer(Protocol):
     ) -> Critique: ...
 
     async def judge(self, request: JudgeRequest) -> JudgeDecision: ...
+
+
+class ModelClient(Protocol):
+    async def complete(self, request: ModelRequest) -> ModelResponse: ...
+
+
+class ToolDispatcher(Protocol):
+    @property
+    def definitions(self) -> tuple[ToolDefinition, ...]: ...
+
+    async def dispatch(self, call: ToolCallBlock) -> ToolResultBlock: ...
+
+
+class Journal(Protocol):
+    def record(self, event: JournalEvent) -> None: ...

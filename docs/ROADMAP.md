@@ -2,9 +2,10 @@
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
-2. **Next:** canonical multi-turn/tool protocol, inert fixture tools, model registry
-   with verified capabilities, budget/effort accounting and per-request journaling.
-3. **Live read-only review:** one provider first, explicit repository/provider data
+2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
+   registry, deterministic effort resolution, byte budgets and boundary journal.
+3. **Next — live read-only review:** one provider first, explicit
+   repository/provider data
    permissions, bounded requests/responses, contract tests, then other providers.
 4. **Quality gate:** single-critic baseline versus fan-out/judge, held-out clean and
    defective samples, human labels, latency/cost/false-positive thresholds.

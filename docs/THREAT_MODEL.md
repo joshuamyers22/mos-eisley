@@ -1,11 +1,11 @@
-# Threat model: offline foundation
+# Threat model: offline agent foundation
 
-Owner: Josh Myers. Scope: initial recorded-review CLI, macOS/Linux.
+Owner: Josh Myers. Scope: recorded review and fixture agent-loop CLI, macOS/Linux.
 
 Assets: user files, supplied private source, run integrity, verdict correctness.
 Untrusted inputs: brief content, cassette JSON, citation text, restored artifacts.
 Trusted components: installed code and dependencies, CLI arguments, parent/output
-directories, OS user, recorded adapter. No credentials or external services exist.
+directories, OS user, recorded adapters. No credentials or external services exist.
 
 | Abuse case | Implemented control | Remaining limit |
 |---|---|---|
@@ -18,11 +18,17 @@ directories, OS user, recorded adapter. No credentials or external services exis
 | Run artifact changes | Fixed artifact set, schema and hashes, result replay | No signatures/authentication |
 | Log leaks rejected values | Generic boundary errors | Artifacts intentionally retain user inputs |
 | Index fails after saving | Index is optional, completed run remains usable | No automatic index rebuild command yet |
+| Malformed model tool history is replayed | Role, alternation, call-ID and result-pair invariants | Canonical contracts are not vendor conformance |
+| Model loops or stalls | Iteration/tool ceilings and asyncio provider/tool deadlines | Blocking adapter code can still block the event loop |
+| Tool returns excessive output | Canonical result byte bound before another request | No disk spool or token-aware truncation yet |
+| Agent adapter leaks exception content | Generic public failure with hashed journal boundary | Artifacts intentionally retain configured fixtures/responses |
+| Partial agent run is mistaken for complete | Append-and-fsync journal; manifest written last | Partial runs are forensic inputs, not resumable runs |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
-written directories lack a valid manifest. Event summaries are written only after
-review completion, so crash-time partial transcripts are not promised.
+written directories lack a valid manifest. The original review pipeline writes an
+event summary after completion. The fixture agent loop fsyncs hash/status boundary
+events during execution, but its journal is not a standalone response transcript.
 
 Before live providers: explicit provider/data policy, conservative token/cost
 limits, bounded response reading, redacted request logs and capability conformance.

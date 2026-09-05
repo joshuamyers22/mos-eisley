@@ -1,4 +1,4 @@
-"""Install the built wheel in a fresh environment and exercise demo/replay."""
+"""Install the wheel and exercise both deterministic replay paths."""
 
 import json
 import subprocess
@@ -42,6 +42,23 @@ def main() -> int:
             raise ValueError("wheel demo did not return expected revise status")
         event = json.loads(demo.stdout.splitlines()[0])
         subprocess.run([command, "replay", event["path"]], cwd=root, check=True)
+        agent = subprocess.run(
+            [
+                command,
+                "agent-demo",
+                "--output",
+                str(root / "agent-runs"),
+                "--json",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        agent_event = json.loads(agent.stdout)
+        subprocess.run(
+            [command, "agent-replay", agent_event["path"]], cwd=root, check=True
+        )
     return 0
 
 

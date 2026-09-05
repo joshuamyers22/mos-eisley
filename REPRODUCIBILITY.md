@@ -27,3 +27,10 @@ The SQLite index is disposable metadata. Copy whole completed run directories fo
 backup; verify each with `mos replay` after restore. Do not back up a live SQLite
 file by copying it; use SQLite backup facilities or rebuild its metadata from runs.
 Inputs and recordings can contain proprietary source and must be stored privately.
+
+`mos agent-replay RUN` separately verifies the canonical agent-loop artifact set,
+including config, fixture values, request-bound cassette, journal and complete
+result. It reruns the loop, compares every result and journal event, and requires
+all recorded exchanges to be consumed. A manifest is written only after the live
+journal is closed and the result is durable; partial runs are intentionally not
+replayable or resumable.

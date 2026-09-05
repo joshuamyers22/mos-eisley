@@ -1,4 +1,4 @@
-"""Exercise review and replay in one ephemeral, unprivileged container."""
+"""Exercise both replay paths in one ephemeral, unprivileged container."""
 
 import subprocess
 
@@ -15,6 +15,12 @@ with TemporaryDirectory() as root:
     run = next(path for path in Path(root).iterdir() if path.is_dir())
     if main(['replay', str(run)]) != 0:
         raise RuntimeError('replay failed')
+    agent_root = str(Path(root) / 'agent-runs')
+    if main(['agent-demo', '--output', agent_root]) != 0:
+        raise RuntimeError('agent demo failed')
+    agent_run = next(path for path in Path(agent_root).iterdir() if path.is_dir())
+    if main(['agent-replay', str(agent_run)]) != 0:
+        raise RuntimeError('agent replay failed')
 """
 
 

@@ -1,8 +1,9 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: offline walking skeleton.** All responses come from explicit
-recorded fixtures. This version cannot assess new code using a live model.
+**Current maturity: offline agent foundation.** All responses and tool values come
+from explicit recorded fixtures. This version cannot assess new code using a live
+model or touch the host through model-selected tools.
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -18,6 +19,10 @@ make setup
 uv run --frozen mos demo --json
 # Expected exit 1: the synthetic fixture contains a discount-boundary defect.
 uv run --frozen mos replay .mos-eisley/runs/<run-id>
+
+# Separate canonical agent-loop demonstration (expected exit 0).
+uv run --frozen mos agent-demo --output .mos-eisley/agent-runs --json
+uv run --frozen mos agent-replay .mos-eisley/agent-runs/<run-id>
 ```
 
 `demo` saves an explicit brief and cassette, which can also exercise `review`:
@@ -43,15 +48,23 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   does not establish that the claim is true. No commands are executed as evidence.
 - Cassettes bound to exact critic/judge request hashes.
 - Private run artifacts, hash verification, deterministic replay, and SQLite index.
+- Provider-neutral multi-turn content blocks and strict tool-call/result sequencing.
+- Explicit model capability registry with deterministic effort fallback and byte
+  budgets that reserve model output and safety headroom.
+- Bounded agent iterations, tool calls, provider/tool deadlines, and cooperative
+  cancellation. Unexpected adapter failures are reported without their raw detail.
+- Append-and-fsync request/tool boundary journals and exact, request-hash-bound
+  replay for a pure in-memory fixture tool.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
 
-There is no live provider, agent tool loop, sandbox backend, shell, Git checkout,
-test execution, publisher, MCP, or TUI yet. Provider names in fixtures are labels,
-not proof of real model diversity. Judge order is deterministic by finding hash;
-randomized bias experiments are deferred. The byte budget is an input bound,
-not a provider token or cost budget.
+There is no live provider, machine-capable tool, sandbox backend, shell, Git
+checkout, test execution, publisher, MCP, or TUI yet. The only agent tool reads a
+bounded in-memory fixture. Provider names in fixtures are labels, not proof of real
+model diversity. Judge order is deterministic by finding hash; randomized bias
+experiments are deferred. Byte accounting is a conservative serialization bound,
+not provider token, price, or context-window accounting.
 
 Only user-supplied input files are opened. Unknown schema fields are rejected;
 repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this milestone.
@@ -60,10 +73,11 @@ the final file component, not to every ancestor; this is not a host sandbox.
 
 Run files contain the supplied brief and recorded responses. Keep the output root
 private. File hashes detect accidental changes, not a malicious owner who can
-replace the manifest. Events are a completed-run summary, not a live crash journal.
-Incomplete runs lack a valid manifest and cannot be replayed. Retention is manual.
+replace the manifest. Recorded agent runs fsync boundary events as they happen, but
+the journal contains hashes and status—not a standalone full transcript. Incomplete
+runs lack a valid manifest and cannot be replayed. Retention is manual.
 
-See [project brief](PROJECT_BRIEF.md), [architecture decision](docs/adr/0001-offline-foundation.md),
+See the [project brief](PROJECT_BRIEF.md), [agent protocol ADR](docs/adr/0002-canonical-agent-protocol.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery
