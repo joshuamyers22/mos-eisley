@@ -25,6 +25,7 @@ from mos_eisley.evaluation.models import (
     Observation,
     ObservationSet,
     RouteCandidate,
+    StatisticalDesign,
     SweepPlan,
 )
 from mos_eisley.evaluation.scoring import EvaluationReport, make_plan, score
@@ -47,6 +48,7 @@ __all__ = (
     "Judgment",
     "RawResultSet",
     "RouteCandidate",
+    "StatisticalDesign",
     "SweepPlan",
     "make_plan",
     "make_execution_batch",

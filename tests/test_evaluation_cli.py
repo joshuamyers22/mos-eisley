@@ -151,7 +151,13 @@ class EvaluationCliTests(TestCase):
                     ]
                 )
             self.assertEqual(result, 0)
-            self.assertEqual(json.loads(output.getvalue())["eligible"], 1)
+            self.assertEqual(json.loads(output.getvalue())["eligible"], 0)
+            report = json.loads(report_path.read_bytes())
+            self.assertFalse(report["promotion_ready"])
+            self.assertEqual(
+                report["scores"][0]["statistical_assessment"]["issues"],
+                ["missing_independence_groups"],
+            )
             self.assertEqual(stat.S_IMODE(report_path.stat().st_mode), 0o600)
 
             with (

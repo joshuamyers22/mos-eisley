@@ -11,7 +11,9 @@
 4. **In progress — quality and routing gate:** deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.
-   Next complete the statistical design and isolated live executor, then run the
+   Fixed-matrix group-mean bounds and comparison-family correction are implemented;
+   group independence remains an operator assertion. Next complete per-finding
+   adjudication/agreement and an isolated live executor, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

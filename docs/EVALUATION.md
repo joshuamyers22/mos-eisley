@@ -131,9 +131,11 @@ Scoring rejects a changed dataset or plan, duplicate rows, unknown ground-truth
 IDs, incomplete matrix coverage and observations from the wrong split. For every
 candidate it reports:
 
-- defect detection and completion with 95% Wilson intervals;
-- the proportion of clean runs containing one or more false positives, also with
-  a 95% Wilson interval;
+- pooled defect detection, completion and observed clean false positives with
+  Wilson intervals as diagnostics only;
+- group-mean Hoeffding bounds with a Bonferroni correction across all planned
+  routes, three metrics and both splits;
+- group counts, insufficient-evidence reasons and an explicit promotion status;
 - mean observed cost, cost coverage and nearest-rank p95 latency;
 - each individual gate result and overall eligibility.
 
@@ -145,6 +147,13 @@ cost must be recorded for every trial. Cost is stored as integer micro-US dollar
 subscription quota or opportunity cost is not yet comparable and must not be
 invented as dollar cost.
 
+Eligibility now requires declared independent case groups, enough groups for each
+metric, and passing the simultaneous group confidence bounds. Repetitions never
+increase the independent sample count. Failed clean reviews contribute worst-case
+risk in the group gate. See [statistical design](STATISTICAL_DESIGN.md) for the
+estimand, formulas, assumptions, sample-size example and schema-2 migration.
+Every report returns `promotion_ready: false`.
+
 ## What this does not prove
 
 The CLI opens only the explicitly named files, and the recorded execution command
@@ -153,8 +162,9 @@ filesystem isolation: a future in-process live adapter could read unrelated file
 unless it runs inside the planned sandbox. The tool also cannot prove that a human
 judgment is correct, that thresholds were authored before results were seen, or
 that adjudicator identity and timestamps are authentic. It does not seal a holdout
-set against repeated analyst access, correct for multiple comparisons or correlated
-cases, stratify by prompt profile, or detect provider drift. These controls remain
+set against repeated analyst access, verify independence of the declared groups,
+correct for comparisons across separately authored plans, stratify by prompt
+profile, or detect provider drift. These controls remain
 required before a report can promote a routing policy.
 
 Observation sets and reports now require raw-result and adjudication digests.

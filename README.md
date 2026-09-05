@@ -79,8 +79,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Content-addressed backend × model × effort sweep plans with pre-registered gates,
   deterministic assignment order and exact-coverage calibration/holdout scoring.
-- Conservative Wilson-bound detection, clean false-positive and completion gates;
-  failures remain in the denominator and missing cost cannot pass a cost gate.
+- Group-aware detection, clean-review risk and completion gates with simultaneous
+  confidence bounds; repetitions never add independent evidence. Missing group
+  declarations or cost required by a cost gate prevent eligibility.
 - HMAC-blinded evaluation batches, exact request-bound fixture execution, route-blind
   grading packets and provenance-bound observation compilation.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
@@ -112,6 +113,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
+[statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery

@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Gate offline route scores on independent group means with fixed-design
+  Hoeffding/Bonferroni bounds; preserve pooled Wilson metrics as diagnostics.
+- Reject cross-split groups and duplicate briefs; mark missing grouping ineligible.
+- Version dataset/gate/plan/report schemas to 2 and report promotion readiness false.
+
 - Generate the production Python CLI baseline from template commit 3d467040.
 - Add recorded blind review, quorum, citation validation and policy verdicts.
 - Add private artifacts, request-bound cassettes, SQLite metadata and verified replay.

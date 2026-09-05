@@ -406,6 +406,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "path": str(output),
                         "split": split,
                         "eligible": sum(item.eligible for item in report.scores),
+                        "promotion_ready": report.promotion_ready,
                     }
                 )
             )

@@ -285,6 +285,7 @@ class EvaluationExecutionTests(TestCase):
             b"secret-defect-label",
             b"private expected description",
             b"private-risk-tag",
+            b"independence_group",
             b"holdout",
         ):
             self.assertNotIn(secret, exposed)
@@ -337,7 +338,7 @@ class EvaluationExecutionTests(TestCase):
             observations.adjudication_sha256, adjudication.adjudication_sha256
         )
         report = score(plan, data, observations, "holdout")
-        self.assertTrue(report.scores[0].eligible)
+        self.assertFalse(report.scores[0].eligible)
         self.assertEqual(report.raw_results_sha256, raw_results.raw_results_sha256)
         self.assertEqual(report.adjudication_sha256, adjudication.adjudication_sha256)
 

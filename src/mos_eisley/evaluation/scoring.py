@@ -20,6 +20,7 @@ from mos_eisley.evaluation.models import (
     Split,
     SweepPlan,
 )
+from mos_eisley.evaluation.statistics import StatisticalAssessment, assess_groups
 
 Z_95 = 1.959963984540054
 
@@ -39,6 +40,7 @@ class RouteScore(Contract):
     detection: RateInterval
     clean_false_positive_runs: RateInterval
     completion: RateInterval
+    statistical_assessment: StatisticalAssessment
     mean_cost_microusd: float | None
     cost_coverage: Annotated[float, Field(ge=0.0, le=1.0)]
     p95_latency_ms: Annotated[int, Field(ge=0)]
@@ -57,7 +59,8 @@ class RouteScore(Contract):
 
 
 class EvaluationReport(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
+    promotion_ready: Literal[False] = False
     plan_sha256: Digest
     dataset_sha256: Digest
     observations_sha256: Digest
@@ -194,6 +197,9 @@ def _score_route(
     completion = _wilson(
         sum(item.status == "completed" for item in selected), len(selected)
     )
+    assessment = assess_groups(
+        cases, selected, plan.gate.statistical_design, len(plan.routes)
+    )
     costs = [item.cost_microusd for item in selected if item.cost_microusd is not None]
     mean_cost = sum(costs) / len(costs) if costs else None
     cost_coverage = len(costs) / len(selected)
@@ -208,9 +214,13 @@ def _score_route(
         gate.max_p95_latency_ms is None or p95_latency <= gate.max_p95_latency_ms
     )
     checks = (
-        detection.lower >= gate.min_detection_lower_bound,
-        false_positives.upper <= gate.max_false_positive_upper_bound,
-        completion.lower >= gate.min_completion_lower_bound,
+        assessment.detection is not None
+        and assessment.detection.lower >= gate.min_detection_lower_bound,
+        assessment.clean_false_positive_runs is not None
+        and assessment.clean_false_positive_runs.upper
+        <= gate.max_false_positive_upper_bound,
+        assessment.completion is not None
+        and assessment.completion.lower >= gate.min_completion_lower_bound,
         passes_cost,
         passes_latency,
     )
@@ -220,6 +230,7 @@ def _score_route(
         detection=detection,
         clean_false_positive_runs=false_positives,
         completion=completion,
+        statistical_assessment=assessment,
         mean_cost_microusd=mean_cost,
         cost_coverage=cost_coverage,
         p95_latency_ms=p95_latency,
@@ -228,7 +239,7 @@ def _score_route(
         passes_completion=checks[2],
         passes_cost=checks[3],
         passes_latency=checks[4],
-        eligible=all(checks),
+        eligible=assessment.sufficient_groups and all(checks),
     )
 
 
