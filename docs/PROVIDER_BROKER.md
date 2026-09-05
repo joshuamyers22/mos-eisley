@@ -93,8 +93,9 @@ guardians are no longer active before investigating incomplete states.
   provenance only after response validation; grants remain process-local and
   cannot be resumed. Add deliberate multi-audit inventory only if it retains an
   independently trusted expected-authorization set.
-- Independently bound upstream HTTP response buffering and run explicitly
-  authorized credentialed conformance. Async cancellation cannot stop blocking
+- Run explicitly authorized credentialed conformance. Decoded upstream HTTP bodies
+  are now independently bounded for non-streaming SDK operations, but async
+  cancellation cannot stop blocking
   adapters, guarantee remote cancellation, or establish invoice-level cost caps.
 - Retain explicit data-transfer consent and reviewed shared-spend admission when
   introducing any paid entry point. No automatic retries or paid sweeps yet.

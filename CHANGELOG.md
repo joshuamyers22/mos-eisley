@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bound decoded non-streaming OpenAI HTTP response bodies before SDK model parsing;
+  reject compressed/chunked oversize bodies and streaming operations.
+
 - Add `broker-audit-status` for explicit, independently anchored, read-only crash
   inventory; reject self-attestation and never retry or release spend.
 

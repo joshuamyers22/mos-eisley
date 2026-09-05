@@ -28,7 +28,7 @@ in the live command.
 | Prompt is sent unintentionally | Named file plus required `--allow-data-transfer` | Acknowledgement cannot classify confidentiality |
 | API credential leaks into output | Key only from environment; generic errors; regression scan | Same-UID processes and inherited environments are trusted |
 | Provider retains sensitive input | Responses request sets `store=false` | Organization policy and provider retention controls still apply |
-| Provider response violates expected shape | Narrow validation; unknown items fail closed; byte ceiling | SDK receives the body before canonical size validation |
+| Provider response violates expected shape or size | Decoded HTTP body capped before SDK JSON construction; narrow schema validation; canonical response ceiling | Headers remain transport-owned; accepted body still buffers up to 1 MB; streaming disabled |
 | Reasoning/tool state corrupts across turns | Preserve encrypted reasoning and native call IDs; pair results exactly | Credentialed conformance has not run |
 | Model spend grows unexpectedly | Bounded requests, reviewed prices and transactional shared reservations | Participating local runs only; operator rates/provider caps trusted; not an invoice ceiling |
 | Concurrent runs overdraw shared capacity | Atomic admission and conservative unresolved charges | Same ledger/local filesystem required; copied or rolled-back databases bypass accounting |
@@ -44,8 +44,7 @@ event summary after completion. The fixture agent loop fsyncs hash/status bounda
 events during execution, but its journal is not a standalone response transcript.
 
 Before calling this production-ready: complete credentialed conformance, bind the
-isolated spending broker to evaluation provenance and independently bound upstream
-response transport, then connect the live
+isolated spending broker to validated evaluation provenance, then connect the live
 adapter to critic/judge policy without weakening quorum failure behavior.
 Before executing code: a tested OS boundary including host reads/sockets, process
 resources and cleanup. Before publishing: authenticated IPC and stale-head checks.

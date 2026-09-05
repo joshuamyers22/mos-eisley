@@ -87,6 +87,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Reviewed pricing policies, pre-generation token-count reservations and private
   spending receipts; uncertain outcomes retain the full reservation without retry.
+- A non-streaming OpenAI HTTP client that bounds decoded response bodies before SDK
+  JSON construction, including compressed and chunked responses.
 - Transactional shared spending ledger with cross-process admission, conservative
   crash handling and a scope-wide block after recorded pricing violations.
 - Content-addressed backend × model × effort sweep plans with pre-registered gates,

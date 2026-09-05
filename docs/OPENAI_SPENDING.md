@@ -68,8 +68,10 @@ not supported by this preview.
    rates. Do not assume cache discounts or add reasoning a second time.
 
 This follows OpenAI's [token counting guide](https://developers.openai.com/api/docs/guides/token-counting)
-and the installed SDK's input-token count contract. The documented output cap
-covers visible and reasoning tokens. The guard relies on the provider honoring
+and the installed SDK's input-token count contract. The documented
+[output cap](https://developers.openai.com/api/reference/cli/resources/responses/methods/create#responses-create-max-output-tokens)
+covers visible and reasoning tokens. It is not a byte limit, so the application
+also bounds decoded HTTP bodies before SDK JSON construction. The guard relies on the provider honoring
 those contracts; a returned violation is detected after generation and cannot
 undo charges. An alias resolving to a different returned model name fails closed
 until credentialed conformance establishes an explicitly supported contract.
@@ -98,6 +100,16 @@ resume, budget top-up, tax/fee accounting or total-invoice guarantee. Each new C
 invocation requests new admission against that ledger. Provider errors are intentionally
 generic; inspect private artifacts for completion state without disclosing secrets.
 
-Before live empirical sweeps: an isolated executor that cannot read labels or host
-secrets, integration with the shared ledger through a trusted broker, bounded HTTP response buffering, and
-credentialed conformance remain required. A plain subprocess is not label isolation.
+`BoundedOpenAIHttpClient` is the only HTTP client constructed by `openai-run`.
+It forces non-streaming responses through a 1,000,000-byte decoded-body ceiling,
+counts chunks incrementally, closes rejected bodies, and rejects a declared encoded
+`Content-Length` above the ceiling early. Counting decoded chunks also rejects a
+compressed body that expands beyond the limit. The same bound covers token-count
+and error responses. Streaming SDK operations are disabled on this client; adding
+streaming later requires a separate bounded event protocol and cancellation design.
+The cap does not limit response headers, provider-side work, or charges already
+incurred, and an accepted body still occupies up to the configured limit in memory.
+
+Before live empirical sweeps: connect validated broker responses to live evaluation
+provenance and complete explicitly authorized credentialed conformance. The bounded
+HTTP client is synthetic-tested, not proof of provider behavior or invoice limits.

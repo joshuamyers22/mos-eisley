@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
-from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
@@ -49,6 +49,7 @@ from mos_eisley.evaluation.models import (
 )
 from mos_eisley.evaluation.scoring import make_plan, score
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
+from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
@@ -269,7 +270,7 @@ async def _openai_run(
         timeout=config.request_timeout_seconds,
         max_retries=0,
         base_url="https://api.openai.com/v1",
-        http_client=DefaultAsyncHttpxClient(trust_env=False, follow_redirects=False),
+        http_client=BoundedOpenAIHttpClient(trust_env=False, follow_redirects=False),
     ) as sdk:
         return await run_agent(
             config,
