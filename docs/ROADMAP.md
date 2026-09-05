@@ -18,9 +18,10 @@
    descriptive two-grader agreement are implemented offline. Recorded evaluation
    now has a no-mount, network-disabled container boundary with negative probes.
    A detached cleanup watchdog handles launcher death and bounded worker lifetimes.
-   A request-bound, single-use host grant library with mandatory shared spending
-   admission is implemented; see `PROVIDER_BROKER.md` for its limits.
-   Next integrate private worker/broker IPC, persistent recovery and
+   Request-bound single-use host grants and private worker/broker IPC with mandatory
+   shared spending admission are fixture-tested in real containers;
+   see `PROVIDER_BROKER.md` for limits. Next bind evaluation provenance, add
+   persistent recovery and
    authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,

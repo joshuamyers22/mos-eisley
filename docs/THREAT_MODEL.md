@@ -34,6 +34,7 @@ in the live command.
 | Concurrent runs overdraw shared capacity | Atomic admission and conservative unresolved charges | Same ledger/local filesystem required; copied or rolled-back databases bypass accounting |
 | Recorded evaluation worker reads host labels/secrets | No host mounts, blinded stdin job, no inherited API key, offline container probes | Reviewed image/daemon trusted; input content itself may leak labels |
 | Isolated worker consumes resources or outlives attached client | Cgroup limits, bounded pipes, exact-ID removal and detached lease watchdog | Host/guardian death or daemon outage can still require orphan investigation |
+| Worker substitutes or replays provider requests | Host snapshots exact request; expiring single-use grant; bounded private pipes and mandatory shared spend admission | Fixture-tested IPC only; stolen grant permits its one approved call; no assignment-bound live evidence yet |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
@@ -41,8 +42,9 @@ written directories lack a valid manifest. The original review pipeline writes a
 event summary after completion. The fixture agent loop fsyncs hash/status boundary
 events during execution, but its journal is not a standalone response transcript.
 
-Before calling this production-ready: complete credentialed conformance, add a
-isolated spending/credential broker and independently bounded response transport, then connect the live
+Before calling this production-ready: complete credentialed conformance, bind the
+isolated spending broker to evaluation provenance and independently bound upstream
+response transport, then connect the live
 adapter to critic/judge policy without weakening quorum failure behavior.
 Before executing code: a tested OS boundary including host reads/sockets, process
 resources and cleanup. Before publishing: authenticated IPC and stale-head checks.

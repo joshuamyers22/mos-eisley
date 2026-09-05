@@ -1,4 +1,4 @@
-"""Host-owned, single-use request grants; no network listener or worker IPC yet."""
+"""Host-owned, single-use request grants; private IPC lives in isolated_broker."""
 
 from __future__ import annotations
 

@@ -102,6 +102,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   host mounts/network, bounded pipes/resources and real containment probes in CI.
 - [Detached cleanup watchdog](docs/CONTAINER_LIFECYCLE.md) with a readiness gate,
   independent lifetime, private receipts and launcher-SIGKILL recovery tests.
+- [Request-bound provider grants and private IPC](docs/PROVIDER_BROKER.md), with
+  fixture-tested container roundtrips, host-only spending and disconnect cancellation.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

@@ -4,8 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Connect request-bound grants to offline containers through bounded private pipes;
+  test tampering, replay, framing, disconnect cancellation and exact cleanup.
+
 - Add host-owned, exact-request single-use provider grants with mandatory shared
-  spending admission and adversarial fixture tests; worker IPC remains gated.
+  spending admission and adversarial fixture tests; live evaluation remains gated.
 
 - Replace aggregate adjudication with schema-2 per-finding decisions; derive
   detections and false positives and reject unresolved or incomplete grades.

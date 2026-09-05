@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 from uuid import uuid4
@@ -15,6 +16,7 @@ from mos_eisley.evaluation.execution import (
     RawResultSet,
     run_recorded_evaluation,
 )
+from mos_eisley.run.duplex import ExchangeHandler, bounded_exchange
 from mos_eisley.run.process import MAX_WIRE_BYTES as MAX_WIRE_BYTES
 from mos_eisley.run.process import bounded_process as bounded_process
 from mos_eisley.run.watchdog import WatchdogHandle, arm_watchdog, remove_exact
@@ -46,7 +48,12 @@ class OfflineContainer:
         self.lifecycle_path: Path | None = None
 
     def execute(
-        self, arguments: tuple[str, ...], payload: bytes, timeout: float = 30
+        self,
+        arguments: tuple[str, ...],
+        payload: bytes,
+        timeout: float = 30,
+        *,
+        exchange_handler: ExchangeHandler | None = None,
     ) -> bytes:
         if len(payload) > MAX_WIRE_BYTES or not 0 < timeout <= 60:
             raise ValueError("invalid isolated execution bounds")
@@ -119,11 +126,13 @@ class OfflineContainer:
                 timeout + 5,
             )
             self.lifecycle_path = watchdog.directory
-            output = bounded_process(
-                [self.docker, "start", "--attach", "--interactive", container_id],
-                payload,
-                timeout,
-            )
+            command = [self.docker, "start", "--attach", "--interactive", container_id]
+            if exchange_handler is None:
+                output = bounded_process(command, payload, timeout)
+            else:
+                output = asyncio.run(
+                    bounded_exchange(command, payload, exchange_handler, timeout)
+                )
             exit_code = bounded_process(
                 [
                     self.docker,

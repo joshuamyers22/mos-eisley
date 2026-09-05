@@ -88,7 +88,8 @@ orphan, even though its CPU/memory/PID limits remain. List candidates with
 `docker ps -a --filter name=mos-eval-` and inspect
 ownership before removing an exact container; do not remove other runs by prefix.
 
-Next: an authenticated, bounded request broker that holds credentials and the
-shared spending ledger outside the worker, plus persistent orphan recovery. Only
-after that boundary and credentialed conformance pass should paid sweeps be enabled.
+The [private request broker](PROVIDER_BROKER.md) now has fixture-tested container
+IPC with host-owned requests and shared spending. Next: evaluation provenance,
+host audit boundaries, persistent orphan recovery and bounded upstream transport.
+These gates and credentialed conformance must pass before enabling paid sweeps.
 Automatic difficulty routing remains disabled pending held-out empirical gates.
