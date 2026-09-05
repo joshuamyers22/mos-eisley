@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add host-owned, exact-request single-use provider grants with mandatory shared
+  spending admission and adversarial fixture tests; worker IPC remains gated.
+
 - Replace aggregate adjudication with schema-2 per-finding decisions; derive
   detections and false positives and reject unresolved or incomplete grades.
 - Add `eval-agreement` for source-bound, descriptive two-grader conflict reports.
