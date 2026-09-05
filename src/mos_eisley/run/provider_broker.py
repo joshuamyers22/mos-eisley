@@ -14,6 +14,8 @@ from pydantic import Field, JsonValue
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
+from mos_eisley.run.broker_audit import BrokerAudit
+from mos_eisley.run.broker_wire import BrokerReply
 
 MAX_REQUEST_BYTES = 1_048_576
 
@@ -26,6 +28,7 @@ class BrokerClaim(Contract):
     schema_version: Literal[1] = 1
     capability: Digest = Field(repr=False)
     request_sha256: Digest
+    authorization_sha256: Digest | None = None
 
 
 class RequestBoundBroker:
@@ -41,6 +44,7 @@ class RequestBoundBroker:
         transport: BudgetedOpenAITransport,
         *,
         lifetime_seconds: float = 30,
+        audit: BrokerAudit | None = None,
     ) -> None:
         if not math.isfinite(lifetime_seconds) or not 0 < lifetime_seconds <= 60:
             raise ValueError("broker lifetime must be between zero and 60 seconds")
@@ -54,6 +58,19 @@ class RequestBoundBroker:
         self._transport = transport
         self._capability = secrets.token_hex(32)
         self._request_sha256 = digest(encoded)
+        if audit is not None:
+            binding = audit.authorization
+            if (
+                binding.provider_request_sha256 != self._request_sha256
+                or binding.spend_policy_sha256 != transport.policy.policy_sha256
+                or binding.ledger_id != transport.ledger.policy.ledger_id
+                or binding.ledger_entry_id != transport.ledger_entry_id
+            ):
+                raise ValueError("broker audit authorization mismatch")
+        self._audit = audit
+        self._authorization_sha256 = (
+            audit.authorization_sha256 if audit is not None else None
+        )
         self._expires = time.monotonic() + lifetime_seconds
         self._lock = threading.Lock()
         self._used = False
@@ -61,7 +78,9 @@ class RequestBoundBroker:
     def claim(self) -> BrokerClaim:
         """Trusted host delivers this once over a private channel; never log it."""
         return BrokerClaim(
-            capability=self._capability, request_sha256=self._request_sha256
+            capability=self._capability,
+            request_sha256=self._request_sha256,
+            authorization_sha256=self._authorization_sha256,
         )
 
     async def redeem(self, wire: bytes) -> dict[str, JsonValue]:
@@ -79,16 +98,31 @@ class RequestBoundBroker:
                 or remaining <= 0
                 or not secrets.compare_digest(claim.capability, self._capability)
                 or claim.request_sha256 != self._request_sha256
+                or claim.authorization_sha256 != self._authorization_sha256
             ):
                 raise ProviderError("broker grant rejected")
             # Consume before any await, token counting, reservation, or dispatch.
             self._used = True
+        if self._audit is not None:
+            self._audit.admit()
         try:
             async with asyncio.timeout(remaining):
-                return await self._transport.create_response(
+                response = await self._transport.create_response(
                     ApprovedRequest.model_validate_json(self._request).payload
                 )
+        except asyncio.CancelledError:
+            if self._audit is not None:
+                self._audit.finish("cancelled")
+            raise
         except Exception:
+            if self._audit is not None:
+                self._audit.finish("failed")
             # Cancellation propagates; the grant stays consumed in every case.
             # Spending controller retains uncertain reservations after dispatch.
             raise ProviderError("broker response unavailable") from None
+        if self._audit is not None:
+            self._audit.finish(
+                "response_received",
+                digest(canonical_bytes(BrokerReply(response=response))),
+            )
+        return response
