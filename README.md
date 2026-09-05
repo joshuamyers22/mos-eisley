@@ -111,13 +111,15 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   strict critiques to response, audit, assignment, usage, latency and settled spend;
   these artifacts are explicitly non-scoreable.
 - A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
-  using blinded input and strict structured `Critique` output; no live command yet.
+  using blinded input and strict structured `Critique` output, plus an explicit
+  one-assignment CLI whose provider and container boundaries are fixture-substituted.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
 
-The OpenAI adapter is tested against captured response shapes but has not completed
-a credentialed conformance run in this repository. Model availability depends on
+The OpenAI adapter and paid-capable conformance CLI are tested against captured
+response shapes but have not completed a credentialed conformance run in this
+repository. Model availability depends on
 account access. Live critic fan-out and judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.

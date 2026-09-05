@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an explicitly acknowledged, one-assignment `openai-conformance` command with
+  loop-local SDK clients, immutable offline worker isolation, independent trusted
+  authorization, crash-conservative audit/spend records, and non-scoreable output.
+
 - Add a deterministic blinded OpenAI conformance request with strict structured
   `Critique` output, verified through the installed SDK using synthetic transport.
 

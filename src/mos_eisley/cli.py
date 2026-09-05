@@ -19,7 +19,7 @@ from pydantic import ValidationError
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
-from mos_eisley.core.ports import Journal
+from mos_eisley.core.ports import Journal, ProviderError
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
 from mos_eisley.demo import demo_inputs
@@ -50,6 +50,7 @@ from mos_eisley.evaluation.models import (
 from mos_eisley.evaluation.scoring import make_plan, score
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
+from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
@@ -62,10 +63,17 @@ from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
     inspect_broker_recovery,
 )
+from mos_eisley.run.brokered_evaluation import compile_brokered_evaluation
+from mos_eisley.run.evaluation_broker import (
+    authorize_assignment,
+    make_assignment_broker,
+)
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
+from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
@@ -160,6 +168,32 @@ def parser() -> argparse.ArgumentParser:
     broker_status.add_argument("--audit-dir", type=Path, required=True)
     broker_status.add_argument("--expected-authorization", type=Path, required=True)
     broker_status.add_argument("--spend-ledger", type=Path, required=True)
+    conformance = subcommands.add_parser(
+        "openai-conformance",
+        help="Run one explicitly authorized blinded OpenAI conformance assignment",
+    )
+    conformance.add_argument("--batch", type=Path, required=True)
+    conformance.add_argument("--sample-id", required=True)
+    conformance.add_argument("--spend-policy", type=Path, required=True)
+    conformance.add_argument("--spend-ledger", type=Path, required=True)
+    conformance.add_argument("--docker", type=Path, required=True)
+    conformance.add_argument(
+        "--image", required=True, help="Locally built immutable sha256 image ID"
+    )
+    conformance.add_argument("--audit-dir", type=Path, required=True)
+    conformance.add_argument("--authorization-output", type=Path, required=True)
+    conformance.add_argument("--artifact-output", type=Path, required=True)
+    conformance.add_argument(
+        "--lifecycle-root",
+        type=Path,
+        default=Path(".mos-eisley/container-lifecycles"),
+    )
+    conformance.add_argument("--timeout", type=float, default=30.0)
+    conformance.add_argument(
+        "--allow-data-transfer",
+        action="store_true",
+        help="Acknowledge that the blinded brief will be sent to OpenAI",
+    )
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -257,6 +291,20 @@ def _write_contract(path: Path, value: Contract) -> None:
     private_write(path, canonical_bytes(value))
 
 
+def _paths_overlap(left: Path, right: Path) -> bool:
+    left_resolved = left.resolve()
+    right_resolved = right.resolve()
+    return (
+        left_resolved == right_resolved
+        or left_resolved.is_relative_to(right_resolved)
+        or right_resolved.is_relative_to(left_resolved)
+    )
+
+
+def _openai_api_key() -> str | None:
+    return os.environ.get("OPENAI_API_KEY")
+
+
 async def _openai_run(
     config: AgentConfig,
     api_key: str,
@@ -288,6 +336,101 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "openai-conformance":
+            if not cast(bool, args.allow_data_transfer):
+                raise ValueError("OpenAI data transfer was not acknowledged")
+            batch = ExecutionBatch.model_validate_json(
+                read_bounded(cast(Path, args.batch), 16_000_000)
+            )
+            spend_policy = SpendPolicy.model_validate_json(
+                read_bounded(cast(Path, args.spend_policy), 64_000)
+            )
+            spend_policy.check_current()
+            ledger = SpendLedger(cast(Path, args.spend_ledger))
+            if ledger.snapshot().blocked:
+                raise ValueError("shared spending ledger is blocked")
+            sample_id = cast(str, args.sample_id)
+            payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
+            timeout = cast(float, args.timeout)
+            container = OfflineContainer(
+                cast(Path, args.docker),
+                cast(str, args.image),
+                cast(Path, args.lifecycle_root),
+            )
+            # Broker construction independently enforces this bound, but preflight
+            # it before credential access or any output is created.
+            if not 0 < timeout <= 60:
+                raise ValueError("conformance timeout must be between zero and 60")
+            audit_directory = cast(Path, args.audit_dir)
+            authorization_output = cast(Path, args.authorization_output)
+            artifact_output = cast(Path, args.artifact_output)
+            if (
+                audit_directory.exists()
+                or authorization_output.exists()
+                or artifact_output.exists()
+            ):
+                raise ValueError("conformance output already exists")
+            if not audit_directory.parent.is_dir():
+                raise ValueError("trusted audit parent must already exist")
+            if any(
+                _paths_overlap(left, right)
+                for left, right in (
+                    (audit_directory, authorization_output),
+                    (audit_directory, artifact_output),
+                    (authorization_output, artifact_output),
+                )
+            ):
+                raise ValueError("conformance output paths must not overlap")
+            api_key = _openai_api_key()
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is not configured")
+            budgeted = BudgetedOpenAITransport(
+                EphemeralOpenAITransport(api_key, timeout),
+                spend_policy,
+                audit_directory,
+                ledger,
+            )
+            authorization = authorize_assignment(batch, sample_id, payload, budgeted)
+            # This trusted copy is outside the broker-created audit directory and
+            # exists before the worker can redeem its single-use capability.
+            _write_contract(authorization_output, authorization)
+            broker = make_assignment_broker(
+                batch,
+                sample_id,
+                payload,
+                budgeted,
+                audit_directory,
+                lifetime_seconds=timeout,
+            )
+            reply = run_isolated_broker(broker, container, timeout=timeout)
+            artifact = compile_brokered_evaluation(
+                reply, authorization, audit_directory, ledger
+            )
+            _write_contract(artifact_output, artifact)
+            print(
+                json.dumps(
+                    {
+                        "type": "openai.conformance.completed",
+                        "mode": artifact.mode,
+                        "authorization_path": str(authorization_output),
+                        "audit_path": str(audit_directory),
+                        "artifact_path": str(artifact_output),
+                        "lifecycle_path": (
+                            str(container.lifecycle_path)
+                            if container.lifecycle_path is not None
+                            else None
+                        ),
+                        "artifact_sha256": artifact.artifact_sha256,
+                        "provider_request_id": artifact.provider_request_id,
+                        "input_tokens": artifact.usage.input,
+                        "output_tokens": artifact.usage.output,
+                        "latency_ms": artifact.latency_ms,
+                        "cost_microusd": artifact.cost_microusd,
+                        "promotion_eligible": artifact.promotion_eligible,
+                    }
+                )
+            )
+            return 0
         if args.command == "broker-audit-status":
             audit_directory = cast(Path, args.audit_dir)
             expected_path = cast(Path, args.expected_authorization)
@@ -569,7 +712,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "openai-run":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")
-            api_key = os.environ.get("OPENAI_API_KEY")
+            api_key = _openai_api_key()
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not configured")
             policy_path = cast(Path | None, args.spend_policy)
@@ -786,7 +929,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Pydantic diagnostics include raw rejected values; do not echo inputs.
         print("mos-eisley: invalid input schema", file=sys.stderr)
         return 2
-    except (AgentFailure, OSError, ValueError) as error:
+    except (AgentFailure, OSError, ProviderError, ValueError) as error:
         print(
             f"mos-eisley: {type(error).__name__}: input or artifact validation failed",
             file=sys.stderr,
