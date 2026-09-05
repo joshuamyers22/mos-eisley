@@ -4,9 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a dual-lineage scorer that reverifies every private source and authenticated
+  grading artifact, uses the existing fixed-matrix statistical engine, retains all
+  provenance digests, and emits only literal non-promotable reports.
+
 - Add an offline dual-lineage observation compiler that reconstructs the private
   execution/grading chain, reverifies the complete authenticated resolution, and
-  emits a distinct non-scoreable contract linked to every source policy and digest.
+  emits a distinct legacy-incompatible contract linked to every source policy and
+  digest.
 
 - Add an offline dual-authenticated grading gate that reverifies two distinct
   Ed25519 graders, preserves both signed originals, and requires a policy-disjoint

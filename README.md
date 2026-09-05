@@ -119,7 +119,10 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   signed originals and requires a disjoint signed resolver to exactly cover every
   conflict. Its output remains deliberately disconnected from scoring promotion.
 - [Dual-lineage observation compilation](docs/DUAL_LINEAGE_OBSERVATIONS.md) that
-  reverifies the complete private source chain into a distinct non-scoreable schema.
+  reverifies the complete private source chain into a distinct schema rejected by
+  legacy scoring.
+- [Dual-lineage scoring](docs/DUAL_LINEAGE_SCORING.md) that recomputes provenance,
+  shares the registered statistical formulas, and always denies promotion.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

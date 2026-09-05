@@ -15,6 +15,7 @@ from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvaluationDataset,
     EvaluationGate,
+    Observation,
     ObservationSet,
     RouteCandidate,
     Split,
@@ -150,18 +151,18 @@ def _expected_assignments(
     }
 
 
-def _validate_inputs(
+def _validate_observation_matrix(
     plan: SweepPlan,
     dataset: EvaluationDataset,
-    observations: ObservationSet,
+    observations: tuple[Observation, ...],
     split: Split,
 ) -> None:
     plan.validate_dataset(dataset)
-    if observations.plan_sha256 != plan.plan_sha256:
-        raise ValueError("observations do not match the sweep plan")
     expected = _expected_assignments(plan, dataset, split)
-    actual = {observation.key for observation in observations.observations}
-    if actual != expected:
+    keys = tuple(observation.key for observation in observations)
+    if len(keys) != len(set(keys)):
+        raise ValueError("observations must have unique assignment keys")
+    if set(keys) != expected:
         raise ValueError("observations do not exactly cover the requested split")
 
 
@@ -169,13 +170,13 @@ def _score_route(
     route: RouteCandidate,
     plan: SweepPlan,
     dataset: EvaluationDataset,
-    observations: ObservationSet,
+    observations: tuple[Observation, ...],
     split: Split,
 ) -> RouteScore:
     cases = {case.id: case for case in dataset.cases if case.split == split}
     selected = [
         observation
-        for observation in observations.observations
+        for observation in observations
         if observation.candidate_id == route.candidate_id
     ]
     defect_trials = sum(len(cases[item.case_id].expected_findings) for item in selected)
@@ -243,6 +244,19 @@ def _score_route(
     )
 
 
+def score_observation_matrix(
+    plan: SweepPlan,
+    dataset: EvaluationDataset,
+    observations: tuple[Observation, ...],
+    split: Split,
+) -> tuple[RouteScore, ...]:
+    """Score one exact split after source-specific provenance validation."""
+    _validate_observation_matrix(plan, dataset, observations, split)
+    return tuple(
+        _score_route(route, plan, dataset, observations, split) for route in plan.routes
+    )
+
+
 def score(
     plan: SweepPlan,
     dataset: EvaluationDataset,
@@ -250,7 +264,9 @@ def score(
     split: Split,
 ) -> EvaluationReport:
     """Score one split exactly; omissions and cross-split leakage are rejected."""
-    _validate_inputs(plan, dataset, observations, split)
+    if observations.plan_sha256 != plan.plan_sha256:
+        raise ValueError("observations do not match the sweep plan")
+    scores = score_observation_matrix(plan, dataset, observations.observations, split)
     return EvaluationReport(
         plan_sha256=plan.plan_sha256,
         dataset_sha256=dataset.dataset_sha256,
@@ -259,8 +275,5 @@ def score(
         adjudication_sha256=observations.adjudication_sha256,
         split=split,
         gate=plan.gate,
-        scores=tuple(
-            _score_route(route, plan, dataset, observations, split)
-            for route in plan.routes
-        ),
+        scores=scores,
     )

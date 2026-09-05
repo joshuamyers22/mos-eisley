@@ -179,8 +179,11 @@ recomputed conflict. It prohibits unnecessary resolution when labels agree. The
 result remains `promotion_eligible: false` and is deliberately not accepted by
 legacy `eval-compile` or `eval-score`. Use the separately reviewed
 [`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) command to reverify the entire
-artifact chain and create a distinct, still non-scoreable observation set.
-Single-grader compilation remains available only for offline rehearsal.
+artifact chain and create a distinct observation set rejected by legacy scoring.
+The dedicated [`eval-score-dual`](DUAL_LINEAGE_SCORING.md) command accepts that
+schema only after full-chain reverification, while every resulting report retains
+`promotion_ready: false`. Single-grader compilation remains available only for
+offline rehearsal.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.

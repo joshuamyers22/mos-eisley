@@ -23,6 +23,11 @@ from mos_eisley.evaluation.lineage import (
     compile_dual_graded_observations,
     verify_dual_graded_observations,
 )
+from mos_eisley.evaluation.lineage_scoring import (
+    DualLineageEvaluationReport,
+    score_dual_graded_observations,
+    verify_dual_lineage_evaluation_report,
+)
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -62,6 +67,7 @@ __all__ = (
     "GradingBatch",
     "ExpectedFinding",
     "DualGradedObservationSet",
+    "DualLineageEvaluationReport",
     "Observation",
     "ObservationSet",
     "Judgment",
@@ -81,6 +87,8 @@ __all__ = (
     "run_recorded_evaluation",
     "resolve_authenticated_adjudications",
     "score",
+    "score_dual_graded_observations",
     "verify_dual_grading_resolution",
     "verify_dual_graded_observations",
+    "verify_dual_lineage_evaluation_report",
 )

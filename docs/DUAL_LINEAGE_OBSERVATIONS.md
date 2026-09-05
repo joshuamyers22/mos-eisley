@@ -29,7 +29,10 @@ mos eval-compile-dual \
 
 The output is exclusively created with mode 0600 and reports literal
 `promotion_eligible: false`. It deliberately uses a different schema from the
-legacy `ObservationSet`; `eval-score` rejects it. Use
+legacy `ObservationSet`; `eval-score` rejects it.
+
+The dedicated [`eval-score-dual`](DUAL_LINEAGE_SCORING.md) path accepts it only
+while reverifying every source artifact and still cannot promote. Use
 `verify_dual_graded_observations` with every independently supplied source artifact
 to rederive and compare a stored result.
 
@@ -41,7 +44,7 @@ artifact does not change the hash, but makes independent revalidation impossible
 
 This step establishes authenticated grading lineage through observation
 compilation. It does not establish that the human labels are correct, that graders
-were independent, or that the evaluation sample is representative. It also does
-not authorize scoring or routing changes. A later scorer must accept this distinct
-contract explicitly, retain its lineage digests in the report, and remain
-non-promotable until the empirical and operational release gates are satisfied.
+were independent, or that the evaluation sample is representative. It does not
+authorize routing changes. The dedicated scorer accepts this distinct contract
+explicitly and retains its lineage digests, but remains non-promotable until the
+empirical and operational release gates are satisfied.

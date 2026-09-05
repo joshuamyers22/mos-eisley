@@ -91,10 +91,10 @@ Group independence, physical adjudicator identity and labels are operator claims
 Exact duplicates and split conflicts are detectable; hidden common ancestry and
 semantic duplicates are not. Ed25519 receipts authenticate exact human grading to
 enrolled keys; the separate dual-grade path now requires authenticated comparison,
-resolution and observation compilation. Its distinct observation schema is not yet
-accepted by scoring. External protocol attestation, holdout access control,
-isolated live execution and representative empirical data remain prerequisites for
-routing promotion.
+resolution, observation compilation and full-chain scoring. The resulting report
+still has literal `promotion_ready: false`. External protocol attestation, holdout
+access control, isolated live execution and representative empirical data remain
+prerequisites for routing promotion.
 
 Per-finding grading and descriptive two-grader agreement are now implemented.
 Separate authentication receipts prove key possession, but neither those receipts

@@ -30,12 +30,14 @@
    fixture-tested. Ed25519 authentication now binds exact human adjudication to an
    independently supplied public-key policy. The offline dual-grade gate reverifies
    two distinct graders, preserves both signed sources and requires a trust-disjoint
-   resolver to sign exact conflict coverage; it remains non-promotable and is not
-   connected to scoring. The dual-lineage compiler now reverifies the full private
-   artifact chain into a distinct non-scoreable observation schema. Next run
-   explicitly authorized credentialed conformance, add authenticated scoring for
-   this lineage, then run the
-   repeated backend × model × effort sweep on clean and defective samples. Learn and
+   resolver to sign exact conflict coverage; it remains non-promotable. The
+   dual-lineage compiler now reverifies the full private artifact chain into a
+   distinct observation schema. Authenticated scoring
+   reverifies that complete lineage and calculates the registered metrics while
+   retaining literal promotion denial. Next run explicitly authorized credentialed
+   conformance, define the pre-registered routing-policy derivation/holdout
+   protocol, then run the repeated backend × model × effort sweep on clean and
+   defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
