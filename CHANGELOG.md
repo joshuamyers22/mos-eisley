@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add Ed25519 authentication for exact route-blind human adjudications, with unique
+  public-key trust policies, domain-separated signatures, reverifiable receipts,
+  and a verification-only CLI that never accepts grader private keys.
+
 - Add an explicitly acknowledged, one-assignment `openai-conformance` command with
   loop-local SDK clients, immutable offline worker isolation, independent trusted
   authorization, crash-conservative audit/spend records, and non-scoreable output.

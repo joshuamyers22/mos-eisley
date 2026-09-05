@@ -87,14 +87,17 @@ stopping, adaptive candidate selection and family-wide tracking across multiple
 plans are not implemented. Freeze selection on calibration, then test once on
 holdout under a pre-registered protocol before promotion.
 
-Group independence, adjudicator identity and labels are operator claims. Exact
-duplicates and split conflicts are detectable; hidden common ancestry and semantic
-duplicates are not. External protocol attestation, holdout access control,
-authenticated adjudication/resolution, isolated live execution and
-representative empirical data remain prerequisites for routing promotion.
+Group independence, physical adjudicator identity and labels are operator claims.
+Exact duplicates and split conflicts are detectable; hidden common ancestry and
+semantic duplicates are not. Ed25519 receipts authenticate exact human grading to
+enrolled keys, but downstream comparison and compilation do not yet require them.
+External protocol attestation, holdout access control, authenticated resolution,
+isolated live execution and representative empirical data remain prerequisites for
+routing promotion.
 
 Per-finding grading and descriptive two-grader agreement are now implemented.
-Neither authenticates graders or provides an inferential agreement guarantee.
+Separate authentication receipts prove key possession, but neither those receipts
+nor agreement establish independence or an inferential reliability guarantee.
 
 ## Artifact compatibility
 

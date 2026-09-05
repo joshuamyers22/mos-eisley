@@ -31,6 +31,11 @@ from mos_eisley.evaluation.adjudication import (
     make_grading_batch,
 )
 from mos_eisley.evaluation.agreement import compare_adjudications
+from mos_eisley.evaluation.authentication import (
+    GradingTrustPolicy,
+    SignedAdjudication,
+    authenticate_adjudication,
+)
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -262,6 +267,14 @@ def parser() -> argparse.ArgumentParser:
     eval_agreement.add_argument("--left", type=Path, required=True)
     eval_agreement.add_argument("--right", type=Path, required=True)
     eval_agreement.add_argument("--output", type=Path, required=True)
+    eval_authenticate = subcommands.add_parser(
+        "eval-authenticate-adjudication",
+        help="Verify one human adjudication against a trusted Ed25519 identity",
+    )
+    eval_authenticate.add_argument("--grading-batch", type=Path, required=True)
+    eval_authenticate.add_argument("--signed-adjudication", type=Path, required=True)
+    eval_authenticate.add_argument("--trust-policy", type=Path, required=True)
+    eval_authenticate.add_argument("--output", type=Path, required=True)
     eval_score = subcommands.add_parser(
         "eval-score", help="Score one exactly covered evaluation split"
     )
@@ -333,9 +346,43 @@ async def _openai_run(
         )
 
 
+def _authenticate_adjudication_command(args: argparse.Namespace) -> int:
+    grading = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    signed = SignedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.signed_adjudication), 16_000_000)
+    )
+    trust_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.trust_policy), 64_000)
+    )
+    authenticated = authenticate_adjudication(grading, signed, trust_policy)
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.adjudication.authenticated",
+                "path": str(output),
+                "authenticated_adjudication_sha256": (
+                    authenticated.authenticated_adjudication_sha256
+                ),
+                "grading_batch_sha256": authenticated.grading_batch_sha256,
+                "trust_policy_sha256": authenticated.trust_policy_sha256,
+                "adjudicator_id": (
+                    authenticated.signed_adjudication.signature.signer_id
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "eval-authenticate-adjudication":
+            return _authenticate_adjudication_command(args)
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")

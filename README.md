@@ -113,6 +113,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
   using blinded input and strict structured `Critique` output, plus an explicit
   one-assignment CLI whose provider and container boundaries are fixture-substituted.
+- [Ed25519 adjudication authentication](docs/ADJUDICATION_AUTHENTICATION.md)
+  binding exact human grades to an independently supplied public-key trust policy;
+  dual-grade resolution and promotion remain disabled.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

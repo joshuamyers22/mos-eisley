@@ -27,8 +27,10 @@
    recovery CLI and bounded decoded OpenAI HTTP client are implemented, while
    streaming and automatic retry/release remain prohibited. A blinded strict-schema
    OpenAI conformance request and fail-closed one-assignment CLI lifecycle are
-   fixture-tested. Next run explicitly authorized credentialed conformance and add
-   authenticated grading/resolution controls, then run the
+   fixture-tested. Ed25519 authentication now binds exact human adjudication to an
+   independently supplied public-key policy. Next run explicitly authorized
+   credentialed conformance and add mandatory dual-grade resolution controls, then
+   run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

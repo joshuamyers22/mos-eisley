@@ -165,12 +165,15 @@ their rationales. Unresolved decisions count as unresolved conflicts even if bot
 graders abstain. No emitted findings produces a null agreement rate.
 
 This is a descriptive report, with no confidence interval or quality threshold.
-Distinct grader IDs do not authenticate people or prove independent work. The
-command rejects matching IDs, mismatched rubrics and mixed human/fixture methods,
-but it cannot detect collusion or shared bias. It does not pick a winning grader.
-Review disputes under a pre-registered resolution protocol and preserve the original
-grades; authenticated resolution lineage and enforcement before promotion remain
-future work. Single-grader compilation is still available for offline rehearsal.
+Distinct grader IDs alone do not authenticate people or prove independent work.
+The command rejects matching IDs, mismatched rubrics and mixed human/fixture
+methods, but it cannot detect collusion or shared bias. It does not pick a winning
+grader. The separate [adjudication authentication](ADJUDICATION_AUTHENTICATION.md)
+command verifies an exact human grade against an Ed25519 trust policy, but this
+descriptive agreement command does not yet require those receipts. Review disputes
+under a pre-registered resolution protocol and preserve the original grades;
+authenticated resolution lineage and enforcement before promotion remain future
+work. Single-grader compilation is still available for offline rehearsal.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.
@@ -218,7 +221,9 @@ does not accept a dataset or mapping. This is a structural boundary, not process
 filesystem isolation: a future in-process live adapter could read unrelated files
 unless it runs inside the planned sandbox. The tool also cannot prove that a human
 judgment is correct, that thresholds were authored before results were seen, or
-that adjudicator identity and timestamps are authentic. It does not seal a holdout
+that the person holding an enrolled signing key is independent. Signed receipts
+bind claimed identity and timestamps but do not attest physical identity or time.
+It does not seal a holdout
 set against repeated analyst access, verify independence of the declared groups,
 correct for comparisons across separately authored plans, stratify by prompt
 profile, or detect provider drift. These controls remain
@@ -227,4 +232,5 @@ required before a report can promote a routing policy.
 Observation sets and reports now require raw-result and adjudication digests.
 Recompile older offline observations through the artifact chain; do not insert
 placeholder hashes to make an old file validate. A digest records content integrity,
-not an authenticated execution or adjudicator identity.
+not an authenticated execution. An Ed25519 adjudication receipt authenticates key
+possession and exact content only under its independently supplied trust policy.

@@ -38,6 +38,7 @@ in the live command.
 | Host crashes across broker dispatch | Fsynced authorization/admission/outcome chain plus exact shared-ledger entry inventory; incomplete states never authorize retry or release | Operator must prove old process is dead; response may be lost while spend remains charged |
 | Synthetic or partial broker output enters empirical scoring | Separate conformance artifact requires response/audit/assignment/settled-ledger agreement and has literal `promotion_eligible=false` | Credentialed conformance has not run; reviewed conversion to live result provenance is not implemented |
 | Conformance request leaks private labels or expands authority | Payload is deterministically built from one blinded brief/route plus reviewed policy; strict schema, exact-request binding and explicit consent | Brief content leaves the host when the paid-capable command is separately authorized and run |
+| Grader identity is substituted after review | Domain-separated Ed25519 signature binds exact adjudication, declared human ID, rubric and enrolled public key; receipt binds trusted policy and batch | Policy enrollment/key custody are operator-controlled; signatures do not prove physical identity, independence, timestamp accuracy or judgment quality |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
