@@ -2,6 +2,10 @@
 
 Date: 2026-09-05. Status: proposed; blocked on evaluation data.
 
+Implementation note: the offline routing-study protocol and feature-partition
+sealing boundary are implemented. Calibration fitting, holdout evaluation,
+promotion, and runtime routing remain disabled.
+
 ## Decision
 
 Mos Eisley will select model and reasoning effort per task using a versioned policy

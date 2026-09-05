@@ -48,10 +48,23 @@ from mos_eisley.evaluation.resolution import (
     resolve_authenticated_adjudications,
     verify_dual_grading_resolution,
 )
+from mos_eisley.evaluation.routing_protocol import (
+    CaseFeatureAssignment,
+    DifficultyProfile,
+    FeaturePartition,
+    ObservablePromptFeatures,
+    PromptFeatureManifest,
+    RoleRouteConstraint,
+    RoutingStudyProtocol,
+    SealedRoutingStudy,
+    seal_routing_study,
+    verify_sealed_routing_study,
+)
 from mos_eisley.evaluation.scoring import EvaluationReport, make_plan, score
 
 __all__ = (
     "CandidateGrid",
+    "CaseFeatureAssignment",
     "AdjudicationSet",
     "AdjudicatorProvenance",
     "FindingJudgment",
@@ -68,11 +81,18 @@ __all__ = (
     "ExpectedFinding",
     "DualGradedObservationSet",
     "DualLineageEvaluationReport",
+    "DifficultyProfile",
+    "FeaturePartition",
     "Observation",
     "ObservationSet",
+    "ObservablePromptFeatures",
+    "PromptFeatureManifest",
     "Judgment",
     "RawResultSet",
     "RouteCandidate",
+    "RoleRouteConstraint",
+    "RoutingStudyProtocol",
+    "SealedRoutingStudy",
     "DualGradingResolution",
     "ResolutionSet",
     "ResolutionTrustPolicy",
@@ -88,7 +108,9 @@ __all__ = (
     "resolve_authenticated_adjudications",
     "score",
     "score_dual_graded_observations",
+    "seal_routing_study",
     "verify_dual_grading_resolution",
     "verify_dual_graded_observations",
     "verify_dual_lineage_evaluation_report",
+    "verify_sealed_routing_study",
 )

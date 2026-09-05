@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a non-activating, content-addressed routing-study protocol that binds exact
+  label-free prompt features, pre-registered numeric partitions, role candidate
+  floors and fallbacks, a cost-first objective, and freeze-before-holdout rules.
+
 - Add a dual-lineage scorer that reverifies every private source and authenticated
   grading artifact, uses the existing fixed-matrix statistical engine, retains all
   provenance digests, and emits only literal non-promotable reports.

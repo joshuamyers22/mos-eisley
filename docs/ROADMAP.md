@@ -34,10 +34,13 @@
    dual-lineage compiler now reverifies the full private artifact chain into a
    distinct observation schema. Authenticated scoring
    reverifies that complete lineage and calculates the registered metrics while
-   retaining literal promotion denial. Next run explicitly authorized credentialed
-   conformance, define the pre-registered routing-policy derivation/holdout
-   protocol, then run the repeated backend × model × effort sweep on clean and
-   defective samples. Learn and
+   retaining literal promotion denial. A content-addressed routing-study protocol
+   now seals label-free feature partitions, role candidate floors and fallbacks,
+   the cost-first objective, and freeze-before-holdout discipline; it cannot inspect
+   results or authorize activation. Next run explicitly authorized credentialed
+   conformance, implement profile-aware calibration scoring and policy freezing,
+   then run the repeated backend × model × effort sweep on clean and defective
+   samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

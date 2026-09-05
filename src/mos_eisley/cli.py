@@ -66,6 +66,11 @@ from mos_eisley.evaluation.resolution import (
     SignedResolutionSet,
     resolve_authenticated_adjudications,
 )
+from mos_eisley.evaluation.routing_protocol import (
+    PromptFeatureManifest,
+    RoutingStudyProtocol,
+    seal_routing_study,
+)
 from mos_eisley.evaluation.scoring import make_plan, score
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
@@ -346,6 +351,15 @@ def parser() -> argparse.ArgumentParser:
         "--split", choices=("calibration", "holdout"), required=True
     )
     eval_score_dual.add_argument("--output", type=Path, required=True)
+    eval_seal_routing = subcommands.add_parser(
+        "eval-seal-routing-study",
+        help="Validate and seal a pre-registered difficulty-routing study",
+    )
+    eval_seal_routing.add_argument("--dataset", type=Path, required=True)
+    eval_seal_routing.add_argument("--plan", type=Path, required=True)
+    eval_seal_routing.add_argument("--feature-manifest", type=Path, required=True)
+    eval_seal_routing.add_argument("--protocol", type=Path, required=True)
+    eval_seal_routing.add_argument("--output", type=Path, required=True)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -622,6 +636,37 @@ def _score_dual_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _seal_routing_study_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    protocol = RoutingStudyProtocol.model_validate_json(
+        read_bounded(cast(Path, args.protocol), 1_000_000)
+    )
+    artifact = seal_routing_study(dataset, plan, manifest, protocol)
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_study.sealed",
+                "path": str(output),
+                "sealed_study_sha256": artifact.sealed_study_sha256,
+                "protocol_sha256": artifact.protocol_sha256,
+                "profiles": len(artifact.profile_ids),
+                "activation_authorized": artifact.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
@@ -633,6 +678,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _compile_dual_command(args)
         if args.command == "eval-score-dual":
             return _score_dual_command(args)
+        if args.command == "eval-seal-routing-study":
+            return _seal_routing_study_command(args)
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")

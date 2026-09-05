@@ -123,6 +123,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   legacy scoring.
 - [Dual-lineage scoring](docs/DUAL_LINEAGE_SCORING.md) that recomputes provenance,
   shares the registered statistical formulas, and always denies promotion.
+- A [pre-registered routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md) that
+  seals label-free feature bins, role floors, fallbacks, selection rules, and
+  holdout discipline without reading outcomes or granting activation authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -154,6 +157,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
+[routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

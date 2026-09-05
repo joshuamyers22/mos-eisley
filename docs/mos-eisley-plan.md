@@ -341,6 +341,14 @@ one only if a held-out comparison shows that its incremental routing benefit exc
 its latency, cost and new failure modes. Until the first calibrated policy exists,
 automatic routing is unavailable rather than intuition-backed.
 
+Implementation boundary: seal the label-free feature manifest, numeric partition
+boundaries, exact categorical fields, role allowlists, fallbacks, selection
+objective and freeze-before-holdout rule before scoring. Every resulting profile
+must have comparable clean and defective cases in both splits; sparse profiles fail
+closed instead of being pooled after outcomes are visible. A content digest fixes
+the design but does not prove when it was authored, so promotion also requires an
+external append-only pre-registration attestation.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.
