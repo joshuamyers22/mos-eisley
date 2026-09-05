@@ -60,6 +60,7 @@ from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -121,6 +122,9 @@ def parser() -> argparse.ArgumentParser:
     )
     openai_run.add_argument("--model", default="gpt-6-astra")
     openai_run.add_argument(
+        "--spend-ledger", type=Path, help="Required existing shared spending ledger"
+    )
+    openai_run.add_argument(
         "--effort",
         choices=("low", "medium", "high", "xhigh", "max"),
         default="medium",
@@ -134,6 +138,15 @@ def parser() -> argparse.ArgumentParser:
         help="Acknowledge that prompt content will be sent to OpenAI",
     )
     openai_run.add_argument("--json", action="store_true")
+    ledger_create = subcommands.add_parser(
+        "spend-ledger-create", help="Create a new local spending scope; never overwrite"
+    )
+    ledger_create.add_argument("path", type=Path)
+    ledger_create.add_argument("--ceiling-microusd", type=int, required=True)
+    ledger_status = subcommands.add_parser(
+        "spend-ledger-status", help="Inspect charges and unresolved reservations"
+    )
+    ledger_status.add_argument("path", type=Path)
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -221,6 +234,7 @@ async def _openai_run(
     journal: Journal,
     spend_policy: SpendPolicy,
     directory: Path,
+    ledger: SpendLedger,
 ) -> AgentResult:
     async with AsyncOpenAI(
         api_key=api_key,
@@ -234,7 +248,7 @@ async def _openai_run(
             openai_registry(),
             OpenAIResponsesClient(
                 BudgetedOpenAITransport(
-                    SDKOpenAITransport(sdk), spend_policy, directory
+                    SDKOpenAITransport(sdk), spend_policy, directory, ledger
                 )
             ),
             NoToolsDispatcher(),
@@ -245,6 +259,16 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in ("spend-ledger-create", "spend-ledger-status"):
+            ledger = (
+                SpendLedger.create(
+                    cast(Path, args.path), cast(int, args.ceiling_microusd)
+                )
+                if args.command == "spend-ledger-create"
+                else SpendLedger(cast(Path, args.path))
+            )
+            print(ledger.snapshot().model_dump_json())
+            return 0
         if args.command == "eval-agreement":
             grading = GradingBatch.model_validate_json(
                 read_bounded(cast(Path, args.grading_batch), 16_000_000)
@@ -479,6 +503,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             spend_policy.check_current()
             if spend_policy.model != args.model:
                 raise ValueError("spending policy model mismatch")
+            ledger_path = cast(Path | None, args.spend_ledger)
+            if ledger_path is None:
+                raise ValueError("an explicit shared spending ledger is required")
+            ledger = SpendLedger(ledger_path)
+            if ledger.snapshot().blocked:
+                raise ValueError("shared spending ledger is blocked")
             prompt = _utf8_file(cast(Path, args.prompt), 64_000)
             instructions_path = cast(Path | None, args.instructions)
             instructions = (
@@ -508,7 +538,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 result = asyncio.run(
                     _openai_run(
-                        config, api_key, session.journal, spend_policy, session.path
+                        config,
+                        api_key,
+                        session.journal,
+                        spend_policy,
+                        session.path,
+                        ledger,
                     )
                 )
                 session.complete(result)
@@ -525,6 +560,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     result.usage.billed_input, result.usage.billed_output
                 ),
                 "spend_policy_sha256": spend_policy.policy_sha256,
+                "spend_ledger_id": ledger.policy.ledger_id,
                 "text": result.final_text,
             }
             if args.json:

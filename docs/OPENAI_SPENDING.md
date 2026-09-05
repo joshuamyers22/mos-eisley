@@ -1,6 +1,7 @@
 # OpenAI preview spending control
 
-`openai-run` requires `--spend-policy PATH` in addition to an API key and explicit
+`openai-run` requires `--spend-policy PATH` and an existing `--spend-ledger PATH`
+([shared spending](SHARED_SPENDING.md)) in addition to an API key and explicit
 data-transfer consent. This is a one-response generation-token cost admission
 control, not an account-wide or invoice spending cap. No live evaluation sweep is
 enabled by this change. Tests use synthetic rates and fake transports, not credits.
@@ -39,7 +40,8 @@ most 200,000 input tokens and 4,096 output tokens. Output includes reasoning.
 
 ```sh
 uv run --frozen mos openai-run --prompt prompt.txt \
-  --spend-policy spend-policy.json --allow-data-transfer --json
+  --spend-policy spend-policy.json --spend-ledger spending.sqlite \
+  --allow-data-transfer --json
 ```
 
 The API key still comes only from `OPENAI_API_KEY`. Subscription-backed providers
@@ -90,11 +92,12 @@ Policy provenance and rates are operator assertions, not authenticated pricing.
 Checksums are integrity checks, not signatures against someone who can rewrite all
 artifacts. The local directory and its ancestors must be trusted. File fsync does
 not provide a transactional ledger across arbitrary filesystem/power failures.
-There is no cross-process/shared-account reservation ledger, automatic retry,
+The CLI additionally uses a transactional cross-process ledger for participating
+local runs. It is not shared-account enforcement; there is no automatic retry,
 resume, budget top-up, tax/fee accounting or total-invoice guarantee. Each new CLI
-invocation is a new spending authorization. Provider errors are intentionally
+invocation requests new admission against that ledger. Provider errors are intentionally
 generic; inspect private artifacts for completion state without disclosing secrets.
 
 Before live empirical sweeps: an isolated executor that cannot read labels or host
-secrets, an aggregate reservation ledger, bounded HTTP response buffering, and
+secrets, integration with the shared ledger through a trusted broker, bounded HTTP response buffering, and
 credentialed conformance remain required. A plain subprocess is not label isolation.

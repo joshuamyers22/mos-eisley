@@ -41,10 +41,12 @@ writes private local artifacts:
 
 ```sh
 export OPENAI_API_KEY="..."
+uv run --frozen mos spend-ledger-create spending.sqlite --ceiling-microusd 5000000
 uv run --frozen mos openai-run \
   --prompt prompt.txt \
   --instructions instructions.txt \
   --spend-policy spend-policy.json \
+  --spend-ledger spending.sqlite \
   --allow-data-transfer --json
 ```
 
@@ -54,6 +56,8 @@ retention settings still govern provider-side handling.
 Create a reviewed, expiring [spending policy](docs/OPENAI_SPENDING.md) first. Input
 counting also sends prompt data; generation starts only after its maximum token
 cost fits the per-invocation ceiling. This is not an account-wide invoice cap.
+Reuse the same [shared ledger](docs/SHARED_SPENDING.md) to bound participating runs
+collectively. Missing ledgers fail closed; creation never overwrites an existing scope.
 
 Review exit codes: **0** accept; **1** revise/reject; **2** invalid input or
 infrastructure failure. Replay exits **0** when the recorded result reproduces,
@@ -83,6 +87,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Reviewed pricing policies, pre-generation token-count reservations and private
   spending receipts; uncertain outcomes retain the full reservation without retry.
+- Transactional shared spending ledger with cross-process admission, conservative
+  crash handling and a scope-wide block after recorded pricing violations.
 - Content-addressed backend × model × effort sweep plans with pre-registered gates,
   deterministic assignment order and exact-coverage calibration/holdout scoring.
 - Group-aware detection, clean-review risk and completion gates with simultaneous
@@ -103,7 +109,8 @@ machine-capable tool, sandbox backend, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only
 to the explicit one-prompt command, relies on operator-reviewed rates and provider
-limits, and does not provide aggregate sweep or account-wide budget enforcement.
+limits, and bounds participating runs sharing one local ledger. It does not provide
+account-wide enforcement or enable the unimplemented live evaluation executor.
 
 Only user-supplied input files are opened. Unknown schema fields are rejected;
 repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this milestone.

@@ -1,6 +1,7 @@
 """Spend is reserved before generation and never released on an unknown outcome."""
 
 import asyncio
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,6 +20,7 @@ from mos_eisley.providers.openai_spend import (
     SpendReceipt,
     SpendReservation,
 )
+from mos_eisley.run.spend_ledger import SpendLedger
 
 
 def policy() -> SpendPolicy:
@@ -76,6 +78,92 @@ class FakeTransport:
 
 
 class SpendingTests(IsolatedAsyncioTestCase):
+    async def test_shared_budget_is_committed_before_generation_and_settles(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = SpendLedger.create(root / "spend.sqlite", 300)
+            transport = FakeTransport(root)
+            original_create = transport.create_response
+
+            async def check_reservation(
+                payload: dict[str, JsonValue],
+            ) -> dict[str, JsonValue]:
+                self.assertEqual(
+                    SpendLedger(ledger.path).snapshot().charged_microusd, 210
+                )
+                return await original_create(payload)
+
+            with patch.object(
+                transport, "create_response", side_effect=check_reservation
+            ):
+                await BudgetedOpenAITransport(
+                    transport, policy(), root, ledger
+                ).create_response(request())
+            snapshot = ledger.snapshot()
+            self.assertEqual(snapshot.charged_microusd, 20)
+            self.assertEqual(snapshot.available_microusd, 280)
+            self.assertEqual(snapshot.unresolved_entries, 0)
+            receipt = SpendReceipt.model_validate_json(
+                (root / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(receipt.ledger_id, ledger.policy.ledger_id)
+            self.assertIsNotNone(receipt.ledger_entry_id)
+
+    async def test_shared_limit_denial_prevents_generation(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = SpendLedger.create(root / "spend.sqlite", 209)
+            transport = FakeTransport(root)
+            with self.assertRaises(ValueError):
+                await BudgetedOpenAITransport(
+                    transport, policy(), root, ledger
+                ).create_response(request())
+            self.assertEqual(transport.calls, [])
+            self.assertEqual(ledger.snapshot().entries, 0)
+
+    async def test_shared_failure_retains_exposure_and_violation_blocks(self) -> None:
+        for violation in (False, True):
+            with self.subTest(violation=violation), TemporaryDirectory() as directory:
+                root = Path(directory)
+                ledger = SpendLedger.create(root / "spend.sqlite", 500)
+                transport = FakeTransport(root)
+                if violation:
+                    transport.response["model"] = "wrong-model"
+                else:
+                    transport.error = RuntimeError("private failure")
+                with self.assertRaises((RuntimeError, ProviderError)):
+                    await BudgetedOpenAITransport(
+                        transport, policy(), root, ledger
+                    ).create_response(request())
+                snapshot = ledger.snapshot()
+                self.assertEqual(snapshot.charged_microusd, 210)
+                self.assertEqual(snapshot.unresolved_entries, 1)
+                self.assertEqual(snapshot.blocked, violation)
+
+    async def test_ledger_write_failures_do_not_erase_or_retry_exposure(self) -> None:
+        for operation in ("reserve", "settle"):
+            with self.subTest(operation=operation), TemporaryDirectory() as directory:
+                root = Path(directory)
+                ledger = SpendLedger.create(root / "spend.sqlite", 500)
+                transport = FakeTransport(root)
+                controller = BudgetedOpenAITransport(transport, policy(), root, ledger)
+                with (
+                    patch.object(
+                        ledger, operation, side_effect=sqlite3.OperationalError
+                    ),
+                    self.assertRaises(sqlite3.OperationalError),
+                ):
+                    await controller.create_response(request())
+                self.assertEqual(len(transport.calls), int(operation == "settle"))
+                self.assertEqual(
+                    ledger.snapshot().charged_microusd,
+                    210 if operation == "settle" else 0,
+                )
+                with self.assertRaises(ProviderError):
+                    await controller.create_response(request())
+
     async def test_concurrent_caller_cannot_share_reservation(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -269,6 +357,15 @@ class SpendingTests(IsolatedAsyncioTestCase):
 
 
 class PolicyTests(TestCase):
+    def test_receipt_ledger_identity_must_be_complete(self) -> None:
+        with self.assertRaises(ValidationError):
+            SpendReceipt(
+                reservation_sha256="a" * 64,
+                status="uncertain",
+                retained_microusd=1,
+                ledger_id="b" * 64,
+            )
+
     def test_dates_rounding_and_round_trip(self) -> None:
         original = policy()
         self.assertEqual(

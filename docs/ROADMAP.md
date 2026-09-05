@@ -7,7 +7,8 @@
 3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
-   and contract tests. Next: credentialed conformance and aggregate cost limits,
+   and contract tests. Shared local cross-process spending admission is implemented.
+   Next: credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
 4. **In progress — quality and routing gate:** deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
