@@ -58,6 +58,7 @@ from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -172,6 +173,16 @@ def parser() -> argparse.ArgumentParser:
     eval_run.add_argument("--batch", type=Path, required=True)
     eval_run.add_argument("--cassette", type=Path, required=True)
     eval_run.add_argument("--output", type=Path, required=True)
+    isolated = subcommands.add_parser(
+        "eval-run-isolated", help="Run recorded evaluation in an offline container"
+    )
+    isolated.add_argument("--batch", type=Path, required=True)
+    isolated.add_argument("--cassette", type=Path, required=True)
+    isolated.add_argument("--output", type=Path, required=True)
+    isolated.add_argument("--docker", type=Path, required=True)
+    isolated.add_argument(
+        "--image", required=True, help="Locally built sha256 image ID"
+    )
     eval_grade = subcommands.add_parser(
         "eval-grade-packet", help="Export route-blind material for an adjudicator"
     )
@@ -327,20 +338,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
             return 0
-        if args.command == "eval-run-recorded":
+        if args.command in ("eval-run-recorded", "eval-run-isolated"):
             batch = ExecutionBatch.model_validate_json(
                 read_bounded(cast(Path, args.batch), 16_000_000)
             )
             cassette = EvaluationCassette.model_validate_json(
                 read_bounded(cast(Path, args.cassette), 16_000_000)
             )
-            raw_results = run_recorded_evaluation(batch, cassette)
+            raw_results = (
+                run_isolated_recorded(
+                    batch,
+                    cassette,
+                    OfflineContainer(cast(Path, args.docker), cast(str, args.image)),
+                )
+                if args.command == "eval-run-isolated"
+                else run_recorded_evaluation(batch, cassette)
+            )
             output = cast(Path, args.output)
             _write_contract(output, raw_results)
             print(
                 json.dumps(
                     {
                         "type": "evaluation.execution.completed",
+                        "execution_boundary": (
+                            "offline_container"
+                            if args.command == "eval-run-isolated"
+                            else "in_process"
+                        ),
+                        "image_id": args.image
+                        if args.command == "eval-run-isolated"
+                        else None,
                         "path": str(output),
                         "raw_results_sha256": raw_results.raw_results_sha256,
                         "completed": sum(

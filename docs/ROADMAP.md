@@ -15,8 +15,10 @@
    provenance-bound adjudication and exact-coverage scoring are implemented offline.
    Fixed-matrix group-mean bounds and comparison-family correction are implemented;
    group independence remains an operator assertion. Per-finding decisions and
-   descriptive two-grader agreement are implemented offline. Next add an isolated
-   live executor and authenticated grading/resolution controls, then run the
+   descriptive two-grader agreement are implemented offline. Recorded evaluation
+   now has a no-mount, network-disabled container boundary with negative probes.
+   Next add an authenticated live provider/spending broker, watchdog recovery and
+   authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

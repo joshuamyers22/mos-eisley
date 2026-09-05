@@ -98,6 +98,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   grading packets and provenance-bound observation compilation.
 - Per-finding adjudication with derived detection counts and a two-grader comparison
   report that preserves disagreement and unresolved findings.
+- [Container-isolated recorded evaluation](docs/ISOLATED_EVALUATION.md), with no
+  host mounts/network, bounded pipes/resources and real containment probes in CI.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -105,7 +107,7 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 The OpenAI adapter is tested against captured response shapes but has not completed
 a credentialed conformance run in this repository. Model availability depends on
 account access. Live critic fan-out and judging are not wired yet. There is no
-machine-capable tool, sandbox backend, shell, Git checkout, test execution,
+machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only
 to the explicit one-prompt command, relies on operator-reviewed rates and provider
