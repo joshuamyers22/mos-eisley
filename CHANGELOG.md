@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a deterministic blinded OpenAI conformance request with strict structured
+  `Critique` output, verified through the installed SDK using synthetic transport.
+
 - Compile fully validated broker responses into assignment/audit/spend-bound
   conformance artifacts with usage and hash-linked latency; keep them non-scoreable.
 

@@ -25,8 +25,9 @@
    validated responses now produce non-scoreable, assignment-bound conformance
    artifacts containing usage, latency and settled spend. The explicit read-only
    recovery CLI and bounded decoded OpenAI HTTP client are implemented, while
-   streaming and automatic retry/release remain prohibited. Next run explicitly
-   authorized credentialed conformance, then add
+   streaming and automatic retry/release remain prohibited. A blinded strict-schema
+   OpenAI conformance request is SDK-fixture-tested. Next add its fail-closed CLI
+   lifecycle, then run explicitly authorized credentialed conformance and add
    authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,

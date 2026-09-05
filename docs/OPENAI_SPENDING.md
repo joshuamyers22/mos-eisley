@@ -110,6 +110,11 @@ streaming later requires a separate bounded event protocol and cancellation desi
 The cap does not limit response headers, provider-side work, or charges already
 incurred, and an accepted body still occupies up to the configured limit in memory.
 
+The host-built [conformance request](OPENAI_CONFORMANCE.md) may add a strict
+`text.format` JSON Schema. This output constraint is included in input-token counting
+and in the exact request snapshot; it does not let the isolated worker alter the
+schema or bypass output-token and cost ceilings.
+
 Before live empirical sweeps: connect validated broker responses to live evaluation
 provenance and complete explicitly authorized credentialed conformance. The bounded
 HTTP client is synthetic-tested, not proof of provider behavior or invoice limits.

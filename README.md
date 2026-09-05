@@ -110,6 +110,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Brokered evaluation conformance artifacts](docs/BROKERED_EVALUATION.md) binding
   strict critiques to response, audit, assignment, usage, latency and settled spend;
   these artifacts are explicitly non-scoreable.
+- A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
+  using blinded input and strict structured `Critique` output; no live command yet.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

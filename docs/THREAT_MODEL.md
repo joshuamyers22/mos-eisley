@@ -37,6 +37,7 @@ in the live command.
 | Worker substitutes or replays provider requests | Host snapshots exact request; expiring single-use grant; bounded private pipes and mandatory shared spend admission | Fixture-tested IPC only; stolen grant permits its one approved call; no assignment-bound live evidence yet |
 | Host crashes across broker dispatch | Fsynced authorization/admission/outcome chain plus exact shared-ledger entry inventory; incomplete states never authorize retry or release | Operator must prove old process is dead; response may be lost while spend remains charged |
 | Synthetic or partial broker output enters empirical scoring | Separate conformance artifact requires response/audit/assignment/settled-ledger agreement and has literal `promotion_eligible=false` | Credentialed conformance and reviewed conversion to live result provenance are not implemented |
+| Conformance request leaks private labels or expands authority | Payload is deterministically built from one blinded brief/route plus reviewed policy; strict schema and exact-request capability binding | Brief content still leaves the host once a future live command is explicitly authorized |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
