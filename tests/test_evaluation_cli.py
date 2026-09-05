@@ -111,6 +111,8 @@ class EvaluationCliTests(TestCase):
             route_id = plan.routes[0].candidate_id
             observations = ObservationSet(
                 plan_sha256=plan.plan_sha256,
+                raw_results_sha256="d" * 64,
+                adjudication_sha256="e" * 64,
                 observations=(
                     Observation(
                         case_id="hold-defect",

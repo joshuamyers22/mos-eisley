@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import secrets
 import sqlite3
 import sys
 from collections.abc import Sequence
@@ -22,6 +23,20 @@ from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
+from mos_eisley.evaluation.adjudication import (
+    AdjudicationSet,
+    GradingBatch,
+    compile_observations,
+    make_grading_batch,
+)
+from mos_eisley.evaluation.execution import (
+    BlindingMap,
+    EvaluationCassette,
+    ExecutionBatch,
+    RawResultSet,
+    make_execution_batch,
+    run_recorded_evaluation,
+)
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvaluationDataset,
@@ -120,6 +135,42 @@ def parser() -> argparse.ArgumentParser:
     eval_plan.add_argument("--repetitions", type=int, required=True)
     eval_plan.add_argument("--seed", type=int, required=True)
     eval_plan.add_argument("--output", type=Path, required=True)
+    eval_blind = subcommands.add_parser(
+        "eval-blind", help="Export a label-blind execution batch and private mapping"
+    )
+    eval_blind.add_argument("--dataset", type=Path, required=True)
+    eval_blind.add_argument("--plan", type=Path, required=True)
+    eval_blind.add_argument(
+        "--split", choices=("calibration", "holdout"), required=True
+    )
+    eval_blind.add_argument("--batch-output", type=Path, required=True)
+    eval_blind.add_argument("--mapping-output", type=Path, required=True)
+    eval_run = subcommands.add_parser(
+        "eval-run-recorded", help="Execute a blinded batch from request-bound fixtures"
+    )
+    eval_run.add_argument("--batch", type=Path, required=True)
+    eval_run.add_argument("--cassette", type=Path, required=True)
+    eval_run.add_argument("--output", type=Path, required=True)
+    eval_grade = subcommands.add_parser(
+        "eval-grade-packet", help="Export route-blind material for an adjudicator"
+    )
+    eval_grade.add_argument("--dataset", type=Path, required=True)
+    eval_grade.add_argument("--plan", type=Path, required=True)
+    eval_grade.add_argument("--batch", type=Path, required=True)
+    eval_grade.add_argument("--mapping", type=Path, required=True)
+    eval_grade.add_argument("--raw-results", type=Path, required=True)
+    eval_grade.add_argument("--output", type=Path, required=True)
+    eval_compile = subcommands.add_parser(
+        "eval-compile", help="Compile provenance-bound judgments into observations"
+    )
+    eval_compile.add_argument("--dataset", type=Path, required=True)
+    eval_compile.add_argument("--plan", type=Path, required=True)
+    eval_compile.add_argument("--batch", type=Path, required=True)
+    eval_compile.add_argument("--mapping", type=Path, required=True)
+    eval_compile.add_argument("--raw-results", type=Path, required=True)
+    eval_compile.add_argument("--grading-batch", type=Path, required=True)
+    eval_compile.add_argument("--adjudication", type=Path, required=True)
+    eval_compile.add_argument("--output", type=Path, required=True)
     eval_score = subcommands.add_parser(
         "eval-score", help="Score one exactly covered evaluation split"
     )
@@ -169,6 +220,141 @@ async def _openai_run(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "eval-blind":
+            dataset = EvaluationDataset.model_validate_json(
+                read_bounded(cast(Path, args.dataset), 16_000_000)
+            )
+            plan = SweepPlan.model_validate_json(
+                read_bounded(cast(Path, args.plan), 16_000_000)
+            )
+            split = cast(Split, args.split)
+            batch, mapping = make_execution_batch(
+                plan, dataset, split, secrets.token_bytes(32)
+            )
+            batch_output = cast(Path, args.batch_output)
+            mapping_output = cast(Path, args.mapping_output)
+            if batch_output == mapping_output:
+                raise ValueError("batch and mapping outputs must be different files")
+            if batch_output.exists() or mapping_output.exists():
+                raise ValueError("evaluation output already exists")
+            _write_contract(batch_output, batch)
+            _write_contract(mapping_output, mapping)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.batch.created",
+                        "batch_path": str(batch_output),
+                        "mapping_path": str(mapping_output),
+                        "batch_sha256": batch.batch_sha256,
+                        "mapping_sha256": mapping.mapping_sha256,
+                        "requests": len(batch.requests),
+                    }
+                )
+            )
+            return 0
+        if args.command == "eval-run-recorded":
+            batch = ExecutionBatch.model_validate_json(
+                read_bounded(cast(Path, args.batch), 16_000_000)
+            )
+            cassette = EvaluationCassette.model_validate_json(
+                read_bounded(cast(Path, args.cassette), 16_000_000)
+            )
+            raw_results = run_recorded_evaluation(batch, cassette)
+            output = cast(Path, args.output)
+            _write_contract(output, raw_results)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.execution.completed",
+                        "path": str(output),
+                        "raw_results_sha256": raw_results.raw_results_sha256,
+                        "completed": sum(
+                            result.status == "completed"
+                            for result in raw_results.results
+                        ),
+                        "errors": sum(
+                            result.status == "error" for result in raw_results.results
+                        ),
+                    }
+                )
+            )
+            return 0
+        if args.command == "eval-grade-packet":
+            dataset = EvaluationDataset.model_validate_json(
+                read_bounded(cast(Path, args.dataset), 16_000_000)
+            )
+            plan = SweepPlan.model_validate_json(
+                read_bounded(cast(Path, args.plan), 16_000_000)
+            )
+            batch = ExecutionBatch.model_validate_json(
+                read_bounded(cast(Path, args.batch), 16_000_000)
+            )
+            mapping = BlindingMap.model_validate_json(
+                read_bounded(cast(Path, args.mapping), 16_000_000)
+            )
+            raw_results = RawResultSet.model_validate_json(
+                read_bounded(cast(Path, args.raw_results), 16_000_000)
+            )
+            grading_batch = make_grading_batch(
+                dataset, plan, batch, mapping, raw_results
+            )
+            output = cast(Path, args.output)
+            _write_contract(output, grading_batch)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.grading_batch.created",
+                        "path": str(output),
+                        "grading_batch_sha256": grading_batch.grading_batch_sha256,
+                        "items": len(grading_batch.items),
+                    }
+                )
+            )
+            return 0
+        if args.command == "eval-compile":
+            dataset = EvaluationDataset.model_validate_json(
+                read_bounded(cast(Path, args.dataset), 16_000_000)
+            )
+            plan = SweepPlan.model_validate_json(
+                read_bounded(cast(Path, args.plan), 16_000_000)
+            )
+            batch = ExecutionBatch.model_validate_json(
+                read_bounded(cast(Path, args.batch), 16_000_000)
+            )
+            mapping = BlindingMap.model_validate_json(
+                read_bounded(cast(Path, args.mapping), 16_000_000)
+            )
+            raw_results = RawResultSet.model_validate_json(
+                read_bounded(cast(Path, args.raw_results), 16_000_000)
+            )
+            grading_batch = GradingBatch.model_validate_json(
+                read_bounded(cast(Path, args.grading_batch), 16_000_000)
+            )
+            adjudication = AdjudicationSet.model_validate_json(
+                read_bounded(cast(Path, args.adjudication), 16_000_000)
+            )
+            observations = compile_observations(
+                dataset,
+                plan,
+                batch,
+                mapping,
+                raw_results,
+                grading_batch,
+                adjudication,
+            )
+            output = cast(Path, args.output)
+            _write_contract(output, observations)
+            print(
+                json.dumps(
+                    {
+                        "type": "evaluation.observations.compiled",
+                        "path": str(output),
+                        "observations_sha256": observations.observations_sha256,
+                        "observations": len(observations.observations),
+                    }
+                )
+            )
+            return 0
         if args.command == "eval-plan":
             dataset = EvaluationDataset.model_validate_json(
                 read_bounded(cast(Path, args.dataset), 16_000_000)

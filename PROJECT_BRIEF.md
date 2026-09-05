@@ -13,7 +13,9 @@
   out-of-distribution prompts never silently receive a weaker route. Automatic
   routing remains disabled until data supports it. The offline foundation now
   creates content-addressed sweep plans and exact-coverage calibration/holdout
-  reports; it does not execute candidates or learn a policy.
+  reports. Recorded execution now separates backend-visible briefs from labels and
+  grader-visible content from route identity, then binds adjudicator provenance. It
+  does not call a live provider or learn a policy.
 - Success criteria: documented CLI works from the built wheel; missing quorum,
   malformed evidence and malformed tool histories fail closed; identical recordings
   reproduce identical results; strict typing, tests, >=85% branch-inclusive coverage,

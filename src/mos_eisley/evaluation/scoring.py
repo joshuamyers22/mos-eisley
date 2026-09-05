@@ -61,6 +61,8 @@ class EvaluationReport(Contract):
     plan_sha256: Digest
     dataset_sha256: Digest
     observations_sha256: Digest
+    raw_results_sha256: Digest
+    adjudication_sha256: Digest
     split: Split
     gate: EvaluationGate
     scores: tuple[RouteScore, ...]
@@ -145,38 +147,15 @@ def _expected_assignments(
     }
 
 
-def _expected_plan_assignments(
-    plan: SweepPlan, dataset: EvaluationDataset
-) -> set[tuple[str, Split, str, int]]:
-    return {
-        (case.id, case.split, route.candidate_id, repetition)
-        for case in dataset.cases
-        for route in plan.routes
-        for repetition in range(plan.repetitions)
-    }
-
-
 def _validate_inputs(
     plan: SweepPlan,
     dataset: EvaluationDataset,
     observations: ObservationSet,
     split: Split,
 ) -> None:
-    if plan.dataset_sha256 != dataset.dataset_sha256:
-        raise ValueError("plan does not match the evaluation dataset")
+    plan.validate_dataset(dataset)
     if observations.plan_sha256 != plan.plan_sha256:
         raise ValueError("observations do not match the sweep plan")
-    actual_plan = {
-        (
-            assignment.case_id,
-            assignment.split,
-            assignment.candidate_id,
-            assignment.repetition,
-        )
-        for assignment in plan.assignments
-    }
-    if actual_plan != _expected_plan_assignments(plan, dataset):
-        raise ValueError("plan does not contain the complete evaluation matrix")
     expected = _expected_assignments(plan, dataset, split)
     actual = {observation.key for observation in observations.observations}
     if actual != expected:
@@ -265,6 +244,8 @@ def score(
         plan_sha256=plan.plan_sha256,
         dataset_sha256=dataset.dataset_sha256,
         observations_sha256=observations.observations_sha256,
+        raw_results_sha256=observations.raw_results_sha256,
+        adjudication_sha256=observations.adjudication_sha256,
         split=split,
         gate=plan.gate,
         scores=tuple(

@@ -100,6 +100,8 @@ class EvaluationTests(TestCase):
         route_id = plan.routes[0].candidate_id
         observations = ObservationSet(
             plan_sha256=plan.plan_sha256,
+            raw_results_sha256="d" * 64,
+            adjudication_sha256="e" * 64,
             observations=tuple(
                 Observation(
                     case_id=case_id,
@@ -154,6 +156,8 @@ class EvaluationTests(TestCase):
         route_id = plan.routes[0].candidate_id
         observations = ObservationSet(
             plan_sha256=plan.plan_sha256,
+            raw_results_sha256="d" * 64,
+            adjudication_sha256="e" * 64,
             observations=(
                 Observation(
                     case_id="holdout-defective",
@@ -233,6 +237,8 @@ class EvaluationTests(TestCase):
         with self.assertRaises(ValidationError):
             ObservationSet(
                 plan_sha256="c" * 64,
+                raw_results_sha256="d" * 64,
+                adjudication_sha256="e" * 64,
                 observations=(observation, observation),
             )
 
@@ -242,6 +248,8 @@ class EvaluationTests(TestCase):
         route_id = plan.routes[0].candidate_id
         observations = ObservationSet(
             plan_sha256=plan.plan_sha256,
+            raw_results_sha256="d" * 64,
+            adjudication_sha256="e" * 64,
             observations=(
                 Observation(
                     case_id="holdout-defective",
@@ -295,6 +303,11 @@ class EvaluationTests(TestCase):
             score(
                 tampered,
                 data,
-                ObservationSet(plan_sha256=tampered.plan_sha256, observations=selected),
+                ObservationSet(
+                    plan_sha256=tampered.plan_sha256,
+                    raw_results_sha256="d" * 64,
+                    adjudication_sha256="e" * 64,
+                    observations=selected,
+                ),
                 selected_split,
             )

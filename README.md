@@ -81,6 +81,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   deterministic assignment order and exact-coverage calibration/holdout scoring.
 - Conservative Wilson-bound detection, clean false-positive and completion gates;
   failures remain in the denominator and missing cost cannot pass a cost gate.
+- HMAC-blinded evaluation batches, exact request-bound fixture execution, route-blind
+  grading packets and provenance-bound observation compilation.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -109,6 +111,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
+[blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
 
 ## Development and delivery

@@ -16,3 +16,6 @@ Notable changes are recorded here using semantic versioning.
 - Track provider tokens separately from local canonical byte safety limits.
 - Specify evaluation-gated prompt-difficulty routing across backend, model and effort.
 - Add content-addressed offline sweep planning and exact-coverage split scoring.
+- Add blinded recorded evaluation execution and provenance-bound adjudication.
+- Reject incomplete grading matrices and judgments inconsistent with empty outputs.
+- Incorporate the Codex-parity adversarial review and gated extension delivery plan.

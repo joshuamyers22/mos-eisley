@@ -152,6 +152,26 @@ class SweepPlan(Contract):
     def plan_sha256(self) -> str:
         return digest(canonical_bytes(self))
 
+    def validate_dataset(self, dataset: EvaluationDataset) -> None:
+        """Verify full matrix coverage before any dataset-dependent operation."""
+        if self.dataset_sha256 != dataset.dataset_sha256:
+            raise ValueError("plan does not match the evaluation dataset")
+        count = len(dataset.cases) * len(self.routes) * self.repetitions
+        if count > MAX_ASSIGNMENTS:
+            raise ValueError("evaluation matrix exceeds the assignment limit")
+        expected = {
+            (case.id, case.split, route.candidate_id, repetition)
+            for case in dataset.cases
+            for route in self.routes
+            for repetition in range(self.repetitions)
+        }
+        actual = {
+            (item.case_id, item.split, item.candidate_id, item.repetition)
+            for item in self.assignments
+        }
+        if actual != expected:
+            raise ValueError("plan does not contain the complete evaluation matrix")
+
 
 class Observation(Contract):
     case_id: Identifier
@@ -187,6 +207,8 @@ class Observation(Contract):
 class ObservationSet(Contract):
     schema_version: Literal[1] = 1
     plan_sha256: Digest
+    raw_results_sha256: Digest
+    adjudication_sha256: Digest
     observations: Annotated[tuple[Observation, ...], Field(min_length=1)]
 
     @model_validator(mode="after")

@@ -9,9 +9,10 @@
    acknowledgement, bounded I/O and contract tests. Next: credentialed conformance,
    cost limits, then wire OpenAI into critic/judge review before other providers.
 4. **In progress — quality and routing gate:** deterministic, content-addressed
-   sweep plans and exact-coverage split scoring are implemented offline. Next add a
-   label-isolating executor and adjudication provenance, then run the repeated
-   backend × model × effort sweep on blinded clean and defective samples. Learn and
+   sweep plans, structurally blinded recorded execution, route-blind grading packets,
+   provenance-bound adjudication and exact-coverage scoring are implemented offline.
+   Next complete the statistical design and isolated live executor, then run the
+   repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
@@ -19,7 +20,11 @@
    isolated test runner, scoped filesystem and network policy, cancellation.
 6. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
 7. **Publisher:** authenticated isolated credential process, dry run, idempotency.
-8. **Convenience:** TUI, MCP, resume, provenance and optional Postgres export.
+8. **Extensions after the quality/security gates:** policy preflight, redaction,
+   typed lifecycle events and trusted endpoint/credential contracts; then bounded
+   subagents and versioned skills; then brokered web/image evidence; finally one
+   narrow outward MCP interface. See plan §24.5 for acceptance criteria.
+9. **Convenience:** TUI, resume, provenance and optional Postgres export.
 
 The saved `docs/mos-eisley-plan.md` is design history including its adversarial review.
 Current implemented behavior is defined by the project brief, ADR and tests.
