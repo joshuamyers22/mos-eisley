@@ -35,6 +35,7 @@ in the live command.
 | Recorded evaluation worker reads host labels/secrets | No host mounts, blinded stdin job, no inherited API key, offline container probes | Reviewed image/daemon trusted; input content itself may leak labels |
 | Isolated worker consumes resources or outlives attached client | Cgroup limits, bounded pipes, exact-ID removal and detached lease watchdog | Host/guardian death or daemon outage can still require orphan investigation |
 | Worker substitutes or replays provider requests | Host snapshots exact request; expiring single-use grant; bounded private pipes and mandatory shared spend admission | Fixture-tested IPC only; stolen grant permits its one approved call; no assignment-bound live evidence yet |
+| Host crashes across broker dispatch | Fsynced authorization/admission/outcome chain plus exact shared-ledger entry inventory; incomplete states never authorize retry or release | Operator must prove old process is dead; response may be lost while spend remains charged |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially

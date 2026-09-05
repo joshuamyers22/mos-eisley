@@ -7,6 +7,7 @@ from pydantic import model_validator
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
 
@@ -39,6 +40,26 @@ class BrokerOutcome(Contract):
     def response_matches_status(self) -> Self:
         if (self.status == "response_received") != (self.response_sha256 is not None):
             raise ValueError("broker outcome response hash mismatch")
+        return self
+
+
+class BrokerRecoveryState(Contract):
+    schema_version: Literal[1] = 1
+    authorization_sha256: Digest
+    phase: Literal["prepared", "admitted", "finished"]
+    ledger_status: Literal["absent", "held", "settled", "uncertain", "violation"]
+    outcome_status: Literal["response_received", "failed", "cancelled"] | None = None
+    response_sha256: Digest | None = None
+    retry_permitted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def consistent_phase(self) -> Self:
+        if (self.phase == "finished") != (self.outcome_status is not None):
+            raise ValueError("finished recovery state requires an outcome")
+        if (self.outcome_status == "response_received") != (
+            self.response_sha256 is not None
+        ):
+            raise ValueError("recovery response hash mismatch")
         return self
 
 
@@ -94,3 +115,59 @@ def verify_broker_audit(
     ):
         raise ValueError("broker audit chain mismatch")
     return outcome
+
+
+def _optional(path: Path) -> bytes | None:
+    try:
+        return read_bounded(path, 4096)
+    except FileNotFoundError:
+        return None
+
+
+def inspect_broker_recovery(
+    directory: Path,
+    expected: AssignmentAuthorization,
+    ledger: SpendLedger,
+) -> BrokerRecoveryState:
+    """Classify a crash artifact without mutating spend or authorizing a retry.
+
+    The caller supplies trusted expected assignment and ledger identities. An absent
+    outcome remains incomplete even if the ledger settled; response bytes may be lost.
+    """
+    authorization = AssignmentAuthorization.model_validate_json(
+        read_bounded(directory / "authorization.json", 4096)
+    )
+    if authorization != expected or ledger.policy.ledger_id != expected.ledger_id:
+        raise ValueError("broker recovery identity mismatch")
+    admission_bytes = _optional(directory / "admission.json")
+    outcome_bytes = _optional(directory / "outcome.json")
+    if outcome_bytes is not None and admission_bytes is None:
+        raise ValueError("broker outcome exists without admission")
+
+    admission: BrokerAdmission | None = None
+    if admission_bytes is not None:
+        admission = BrokerAdmission.model_validate_json(admission_bytes)
+        if admission.authorization_sha256 != digest(canonical_bytes(authorization)):
+            raise ValueError("broker recovery admission chain mismatch")
+
+    outcome: BrokerOutcome | None = None
+    if outcome_bytes is not None:
+        assert admission is not None
+        outcome = BrokerOutcome.model_validate_json(outcome_bytes)
+        if outcome.admission_sha256 != digest(canonical_bytes(admission)):
+            raise ValueError("broker recovery outcome chain mismatch")
+
+    entry = ledger.entry_status(expected.ledger_entry_id)
+    return BrokerRecoveryState(
+        authorization_sha256=digest(canonical_bytes(authorization)),
+        phase=(
+            "finished"
+            if outcome is not None
+            else "admitted"
+            if admission is not None
+            else "prepared"
+        ),
+        ledger_status="absent" if entry is None else entry.status,
+        outcome_status=None if outcome is None else outcome.status,
+        response_sha256=None if outcome is None else outcome.response_sha256,
+    )

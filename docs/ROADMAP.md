@@ -20,8 +20,9 @@
    A detached cleanup watchdog handles launcher death and bounded worker lifetimes.
    Request-bound single-use host grants and private worker/broker IPC with mandatory
    shared spending admission are fixture-tested in real containers;
-   see `PROVIDER_BROKER.md` for limits. Next bind evaluation provenance, add
-   persistent recovery and
+   see `PROVIDER_BROKER.md` for limits. Assignment-bound private audit chains and
+   crash-conservative ledger recovery inventory are also implemented. Next bind
+   validated responses into evaluation provenance, add an operator recovery CLI and
    authenticated grading/resolution controls, then run the
    repeated backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,

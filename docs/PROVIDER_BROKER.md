@@ -51,10 +51,30 @@ cancellation and oversized frames alongside existing confinement/crash probes.
 Subprocess tests additionally cover pipelining, extra/partial output, stderr
 flooding, invalid host frames, caller cancellation, deadlines and nonzero exits.
 
+## Assignment audit and crash inventory
+
+Trusted host code binds each conformance grant to a blinded batch, sample,
+candidate, evaluation-request hash, exact provider-request hash, reviewed spending
+policy, ledger identity and ledger-entry identity. The claim includes the resulting
+authorization hash, so a claim cannot move between otherwise similar assignments.
+Private `authorization.json`, `admission.json`, and `outcome.json` files form a
+hash-linked sequence. Admission is fsynced before token counting or spending
+reservation; outcomes record only a generic status and an optional response hash.
+They contain neither bearer capabilities nor raw provider errors.
+
+`inspect_broker_recovery` compares one audit with an independently trusted expected
+authorization and the named shared ledger. It classifies `prepared`, `admitted`,
+and `finished` phases alongside `absent`, `held`, `settled`, `uncertain`, or
+`violation` ledger state. Missing outcomes never become successful evidence, even
+if spend settled: the response may have been lost. Every recovery state sets
+`retry_permitted=false`; recovery is inventory, not replay or budget release.
+Corrupt, substituted, partial, or incorrectly chained records fail closed.
+
 ## Remaining gates
 
-- Bind grants to evaluation assignment/provenance and persist host audit boundaries
-  without capability secrets. Grants are process-local and cannot be resumed.
+- Integrate assignment-bound conformance records into live evaluation result
+  provenance only after response validation; grants remain process-local and
+  cannot be resumed. Add an operator recovery CLI over explicitly selected audits.
 - Independently bound upstream HTTP response buffering and run explicitly
   authorized credentialed conformance. Async cancellation cannot stop blocking
   adapters, guarantee remote cancellation, or establish invoice-level cost caps.

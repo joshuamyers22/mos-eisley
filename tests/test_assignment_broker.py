@@ -7,12 +7,16 @@ from unittest import IsolatedAsyncioTestCase
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
-from mos_eisley.run.broker_audit import verify_broker_audit
+from mos_eisley.run.broker_audit import (
+    BrokerAudit,
+    inspect_broker_recovery,
+    verify_broker_audit,
+)
 from mos_eisley.run.evaluation_broker import (
     authorize_assignment,
     make_assignment_broker,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from tests.test_evaluation_execution import inputs, make_plan
 from tests.test_openai_spend import FakeTransport, policy, request
 
@@ -95,3 +99,80 @@ class AssignmentBrokerTests(IsolatedAsyncioTestCase):
             (root / "audit" / "authorization.json").write_bytes(b"{}")
             with self.assertRaises(ValueError):
                 verify_broker_audit(root / "audit", broker._audit.authorization)  # type: ignore[union-attr]
+
+    def test_recovery_classifies_prepared_admitted_and_held(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, transport = self._transport(root)
+            assert transport.ledger is not None
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            binding = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            audit = BrokerAudit(root / "audit", binding)
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual((state.phase, state.ledger_status), ("prepared", "absent"))
+            self.assertFalse(state.retry_permitted)
+
+            audit.admit()
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual((state.phase, state.ledger_status), ("admitted", "absent"))
+            transport.ledger.reserve(
+                LedgerEntry(
+                    entry_id=binding.ledger_entry_id,
+                    reservation_sha256="b" * 64,
+                    reserved_microusd=25,
+                )
+            )
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual((state.phase, state.ledger_status), ("admitted", "held"))
+
+    async def test_recovery_verifies_finished_response_and_identity(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, transport = self._transport(root)
+            assert transport.ledger is not None
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            binding = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            broker = make_assignment_broker(
+                self.batch,
+                self.request.sample_id,
+                payload,
+                transport,
+                root / "audit",
+            )
+            await broker.redeem(canonical_bytes(broker.claim()))
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual(
+                (state.phase, state.ledger_status), ("finished", "settled")
+            )
+            self.assertEqual(state.outcome_status, "response_received")
+            self.assertIsNotNone(state.response_sha256)
+
+            other_root = root / "other"
+            other_root.mkdir()
+            other = SpendLedger.create(other_root / "ledger.sqlite", 500)
+            with self.assertRaises(ValueError):
+                inspect_broker_recovery(root / "audit", binding, other)
+
+    def test_recovery_rejects_outcome_without_admission(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, transport = self._transport(root)
+            assert transport.ledger is not None
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            binding = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            audit = BrokerAudit(root / "audit", binding)
+            audit.finish("failed")
+            with self.assertRaises(ValueError):
+                inspect_broker_recovery(root / "audit", binding, transport.ledger)

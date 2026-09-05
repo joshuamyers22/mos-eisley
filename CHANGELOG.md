@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add crash-conservative broker recovery inventory that cross-checks assignment
+  audit phases with exact shared-ledger entry state and never authorizes retry.
+
 - Connect request-bound grants to offline containers through bounded private pipes;
   test tampering, replay, framing, disconnect cancellation and exact cleanup.
 
