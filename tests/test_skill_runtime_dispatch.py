@@ -30,6 +30,7 @@ from mos_eisley.run.skill_runtime_grant import SkillRuntimeBrokerGrantStorePolic
 from mos_eisley.run.skill_runtime_provider import (
     SkillRuntimeProviderTransactionStorePolicy,
 )
+from mos_eisley.run.skill_runtime_response import SkillRuntimeResponseStorePolicy
 from mos_eisley.run.spend_ledger import LedgerSettlement
 from mos_eisley.run.store import private_write
 from tests import test_skill_runtime_admission as admission_module
@@ -62,6 +63,10 @@ class SkillRuntimeDispatchTests(TestCase):
             ),
             spend_ledger_id=self.runtime.ledger.policy.ledger_id,
         )
+        self.response_policy = SkillRuntimeResponseStorePolicy(
+            store_id="d" * 64,
+            provider_transaction_store_id="c" * 64,
+        )
         self.transaction_policy = SkillRuntimeProviderTransactionStorePolicy(
             store_id="c" * 64,
             broker_grant_store_id="b" * 64,
@@ -75,6 +80,7 @@ class SkillRuntimeDispatchTests(TestCase):
                 self.runtime.sources.default_store.policy.policy_sha256
             ),
             spend_ledger_id=self.runtime.ledger.policy.ledger_id,
+            response_store_policy_sha256=self.response_policy.policy_sha256,
             max_provider_wait_seconds=1,
         )
         self.grant_policy = SkillRuntimeBrokerGrantStorePolicy(

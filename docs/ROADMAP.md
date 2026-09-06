@@ -84,8 +84,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    append-only local control anchor and read-only preflight now reject older-message
    replay, preserve revocations, and reverify the full source chain without dispatch
    authority. Whole-database rollback still needs an external monotonic witness.
-   Next design a one-use brokered dispatch transaction, then run explicitly authorized
-   credentialed conformance and the repeated
+   The one-use admission, dispatch, ephemeral grant, provider transaction, and
+   content-verified response publication path is now implemented. Next run explicitly
+   authorized credentialed conformance and the repeated
    backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
@@ -133,8 +134,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    separately pinned provider-owning transaction now burns that bearer into an fsynced
    before-send marker, invokes one exact bounded zero-retry OpenAI request, and settles
    the existing reservation. Missing or ambiguous outcomes retain full exposure and
-   never permit retry or automatic release. Next: run credentialed conformance against
-   this exact boundary and durably publish a content-verified response/result artifact.
+   never permit retry or automatic release. A pinned private response store now
+   atomically retains exact provider bytes and publishes a freshly reverified,
+   reasoning-free result with complete settled lineage. Next: run separately
+   authorized credentialed conformance against this exact boundary and add external
+   billing or monotonic witnesses before stronger finality claims.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

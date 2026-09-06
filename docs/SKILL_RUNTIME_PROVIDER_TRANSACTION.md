@@ -9,8 +9,9 @@ worst-case exposure, and execution can only settle that exact ledger entry.
 
 Broker-grant policy schema version 2 pins one pre-created provider-transaction-store
 policy. That policy pins the grant-store identity, both control anchors, current
-default store, spend ledger, transaction capacity, and a provider wait of at most 60
-seconds. A different local store cannot accept the bearer lineage.
+default store, spend ledger, transaction capacity, response-publication policy, and a
+provider wait of at most 60 seconds. A different local store cannot accept the bearer
+lineage.
 
 Before redemption, execution checks the exact prepared request, provider and broker
 request hashes, model, spend policy, reservation, issuance, OpenAI provider identity,
@@ -85,5 +86,6 @@ Transport declarations and Python module privacy are controls against accidental
 composition, not containment of malicious code already running in the trusted host.
 Credentials, process memory, same-UID inspection, clocks, database rollback/cloning,
 filesystem durability, provider idempotency, and external billing reconciliation
-remain trust boundaries. Credentialed OpenAI conformance and durable response/result
-publication remain future work.
+remain trust boundaries. Durable content-verified response/result publication is
+implemented as a separately pinned store; credentialed OpenAI conformance remains
+future work.
