@@ -125,6 +125,7 @@ class BudgetedOpenAITransport:
             "parallel_tool_calls",
             "include",
             "store",
+            "text",
             "truncation",
         }
         if set(request) - permitted or request.get("tools"):

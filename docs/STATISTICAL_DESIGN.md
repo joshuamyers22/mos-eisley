@@ -67,6 +67,12 @@ Flawless results therefore give detection lower bound 0.83446 and clean-risk upp
 bound 0.16554. One group repeated 100 times still has a [0, 1] interval. Adding
 candidate routes increases the family size and widens the interval.
 
+For a sealed prompt-profile study, the additive protocol expands the family to
+`profile_count * route_count * 3 metrics * 2 splits`. The calibration report records
+that scope, profile count, and resulting family size on every profile and checks the
+value against each route assessment. This reserves confidence error for the later
+holdout evaluation before any calibration outcome is scored.
+
 ## Decisions and remaining limits
 
 `eligible` means group coverage, the three group confidence gates, and the
@@ -80,21 +86,34 @@ targets. Plan sample size from the formula and the chosen thresholds before buyi
 a sweep; a minimum count alone is insufficient. Statistical power analysis and
 less conservative methods require a separately reviewed protocol.
 
-Only one fixed matrix is covered. Repeated inspection of unchanged data does not
-add evidence; adding cases, changing thresholds, trying new candidate grids or
-stopping as soon as a gate passes invalidates the original guarantee. Sequential
-stopping, adaptive candidate selection and family-wide tracking across multiple
-plans are not implemented. Freeze selection on calibration, then test once on
-holdout under a pre-registered protocol before promotion.
+Only one fixed matrix is covered. The frozen-policy holdout command consumes an
+exclusive policy-keyed claim before scoring, but this is only a local guard; copied
+data, another claim directory, or other software can bypass it. Repeated inspection
+of unchanged data does not add evidence; adding cases, changing thresholds, trying
+new candidate grids or stopping as soon as a gate passes invalidates the original
+guarantee. Sequential stopping, adaptive candidate selection and family-wide
+tracking across multiple plans are not implemented. Freeze selection on calibration,
+then test once on holdout under a pre-registered protocol before promotion.
 
-Group independence, adjudicator identity and labels are operator claims. Exact
-duplicates and split conflicts are detectable; hidden common ancestry and semantic
-duplicates are not. External protocol attestation, holdout access control,
-authenticated adjudication/resolution, isolated live execution and
-representative empirical data remain prerequisites for routing promotion.
+Policy-level acceptance thresholds must also be fixed before holdout. The holdout
+claim and report now pin their exact promotion-policy digest. Promotion recomputes
+the report and every threshold comparison; absent regret evidence fails rather than
+silently skipping its comparisons. This does not add population bounds for cost or
+latency.
+
+Group independence, physical adjudicator identity and labels are operator claims.
+Exact duplicates and split conflicts are detectable; hidden common ancestry and
+semantic duplicates are not. Ed25519 receipts authenticate exact human grading to
+enrolled keys; the separate dual-grade path now requires authenticated comparison,
+resolution, observation compilation and full-chain scoring. The resulting report
+still has literal `promotion_ready: false`. External protocol attestation,
+independently enforced holdout access control, isolated live execution and
+representative empirical data remain
+prerequisites for routing promotion.
 
 Per-finding grading and descriptive two-grader agreement are now implemented.
-Neither authenticates graders or provides an inferential agreement guarantee.
+Separate authentication receipts prove key possession, but neither those receipts
+nor agreement establish independence or an inferential reliability guarantee.
 
 ## Artifact compatibility
 
