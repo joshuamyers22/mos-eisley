@@ -11,7 +11,7 @@ class ArchitectureTests(TestCase):
     def test_inner_layers_do_not_import_adapters_or_io(self) -> None:
         root = Path(mos_eisley.__file__).parent
         forbidden = {"os", "subprocess", "socket", "sqlite3", "pathlib", "httpx"}
-        for folder in ("core", "review"):
+        for folder in ("core", "review", "evaluation"):
             for path in (root / folder).glob("*.py"):
                 for node in ast.walk(ast.parse(path.read_text())):
                     names: list[str] = []

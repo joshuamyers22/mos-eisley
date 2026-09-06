@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -13,11 +14,18 @@ Identifier = Annotated[str, Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$")]
 
 
 class Contract(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, strict=True, allow_inf_nan=False
+    )
 
 
 def canonical_bytes(value: Contract) -> bytes:
-    return value.model_dump_json().encode("utf-8")
+    return json.dumps(
+        value.model_dump(mode="json"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def digest(value: bytes) -> str:

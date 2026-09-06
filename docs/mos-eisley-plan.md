@@ -2,6 +2,11 @@
 
 **Working name.** A CLI agentic harness spanning Claude, GPT, and Gemini, with real machine access — filesystem, shell, local git, GitHub — built around adversarial review by competing agents operating without prior context. Interface and sandbox model follow Codex CLI conventions.
 
+This document includes the original design and subsequent amendments. Required
+corrections in §23 and accepted changes in §24 supersede conflicting earlier
+examples and milestone tables. Current implementation status is tracked in
+`docs/ROADMAP.md`; planned modules and commands below are not availability claims.
+
 ---
 
 ## 1. Goals and non-goals
@@ -39,6 +44,12 @@ mos-eisley/
     base.py            # Adapter protocol
     anthropic.py  openai.py  google.py
     conformance.py     # cross-provider test harness
+    credentials.py     # typed credential references; never literal headers
+    endpoints.py       # trusted endpoint policy + capability probes
+  extensions/
+    events.py          # typed lifecycle events and bounded observers
+    subagents.py       # capability-bounded child-agent controller
+    skills.py          # versioned prompt/rubric asset loader
   exec/
     policy.py          # policy-first model: paths, network, approvals
     seatbelt.py        # macOS backend
@@ -58,6 +69,8 @@ mos-eisley/
     brief.py  critic.py  judge.py  findings.py  pipeline.py
   run/
     log.py  store.py  replay.py
+  network/
+    broker.py  cache.py # allowlisted fetch/search + provenance cache
   eval/
     mutate.py  metrics.py  sweep.py
   cli/
@@ -134,6 +147,22 @@ Non-default `temperature`/`top_p`/`top_k` return 400 on Claude 5; temperature mu
 ### 4.4 Conformance suite
 
 Same brief + same tools through all three adapters, asserting: identical canonical `Turn` shape; tool call IDs round-trip a two-hop exchange; reasoning state survives a three-turn loop; every provider error maps to a `HarnessError` with a `retryable` flag; stop reasons normalize to `end_turn | tool_use | max_tokens | filtered | error`. Runs nightly against live APIs.
+
+### 4.5 Endpoints and credentials
+
+Custom and OpenAI-compatible endpoints are an adapter capability, not proof of
+provider equivalence. Each endpoint must be named in trusted user/admin policy,
+use TLS unless it is an explicitly approved loopback service, pass the conformance
+suite, and declare its data-handling policy and supported model capabilities.
+Resolve DNS and redirects through the network broker so a configured public URL
+cannot pivot into a private or link-local address.
+
+Authentication uses typed `CredentialRef` values (`environment`, OS keychain,
+OAuth token store, or provider-native identity), never a free-form header map in a
+project file. Repository configuration cannot add endpoints, choose credential
+references, or inject headers. Login/logout commands modify only the selected
+trusted credential store; tokens and resolved headers never enter manifests,
+events, prompts, or replay artifacts.
 
 ---
 
@@ -240,7 +269,7 @@ A compaction inside a critic silently summarizes away the evidence under review.
 |---|---|---|---|
 | Anthropic | `output_config.effort` | low, medium, high, xhigh, max | Sonnet 5: high |
 | OpenAI | `reasoning.effort` | none, minimal, low, medium, high, xhigh, max (model-dependent) | gpt-5.5: medium |
-| Google | `thinking_level` | low, high | — |
+| Google | `thinking_level` | low, medium, high (model-dependent) | — |
 
 Effort is the control; adaptive thinking is the *mode* — `adaptive` is not a valid effort value. Manual budgets (`thinking: {type:"enabled", budget_tokens:N}`) return 400 on Sonnet 5 and Opus 4.7+. Opus 5 exposes the full ladder with `max` on top and converts additional effort into results more reliably than earlier Opus models, so the level chosen carries more weight. Gemini 3 replaced `thinking_budget` with `thinking_level`.
 
@@ -259,19 +288,119 @@ def resolve_effort(model: ModelSpec, requested: str) -> str:
     raise UnsupportedEffort(model.id, requested)
 ```
 
-**Cross-provider effort is not comparable.** Gemini has two levels where Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different settings. Never read cross-model disagreement as a capability signal when efforts were substituted — the run log must surface that at analysis time.
+**Cross-provider effort is not comparable.** Gemini has three common levels where
+Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different
+settings. API and subscription-backed clients for the same nominal model are also
+distinct routes because their harnesses and entitlement behavior can differ. Never
+read cross-route disagreement as a capability signal when settings were substituted;
+the run log must surface that at analysis time.
 
-### 7.3 Selection — bind to role, don't classify
+### 7.3 Selection — empirically calibrated difficulty routing
 
-No pre-flight difficulty classifier. It costs a round trip and guesses at what roles already encode.
+Roles define a hard minimum and a conservative fallback, not a permanent route. The
+normal path selects the least expensive eligible `(model, effort)` pair whose
+held-out evaluation results satisfy the role's quality constraints for prompts with
+the same observable difficulty profile. Manual model and effort selection remains
+an explicit override.
+
+Do not ship a hand-written score that equates prompt length with difficulty. Start
+with an interpretable, versioned policy trained from the sweep in §18.3. Candidate
+features must be known before dispatch and must not contain evaluation labels:
+
+- role and requested output contract;
+- input tokens/bytes, changed lines, files and language count;
+- tool and structured-output requirements;
+- deterministic risk tags such as authentication, concurrency, cryptography,
+  migrations and public-API changes;
+- whether the feature vector is outside the calibration distribution.
+
+Each routing policy pins its feature-schema version, calibration-set digest,
+candidate registry snapshot, provider backend and client version, primary metrics,
+confidence method and decision thresholds. The run artifact records the requested
+route, every eligible candidate, the resolved route and the reason. Subscription
+routes intersect the calibrated candidates with the official client's current
+entitlements; an unavailable cell is ineligible, not silently substituted. Missing,
+stale or out-of-distribution policy data uses the conservative fallback or fails;
+no route may fall below the role minimum.
 
 ```toml
-[role.brief_builder] effort = "low"     # mechanical assembly
-[role.author]        effort = "high"
-[role.critic]        effort = "high"    # calibrate — see §18.3
-[role.dedupe]        effort = "medium"  # structured merge
-[role.judge]         effort = "xhigh"   # hardest reasoning step
+[role.critic]
+minimum = { model_tier = "economy", effort = "low" }
+fallback = { model_tier = "balanced", effort = "high" }
+min_detection_lcb = 0.90
+max_false_positive_ucb = 0.05
+
+[routing]
+policy = "routing-policy-v1.json"
+on_uncalibrated = "role_fallback" # or "fail"
+allow_model_substitution = false
 ```
+
+An extra model-based difficulty classifier is not the initial implementation. Add
+one only if a held-out comparison shows that its incremental routing benefit exceeds
+its latency, cost and new failure modes. Until the first calibrated policy exists,
+automatic routing is unavailable rather than intuition-backed.
+
+Implementation boundary: seal the label-free feature manifest, numeric partition
+boundaries, exact categorical fields, role allowlists, fallbacks, selection
+objective and freeze-before-holdout rule before scoring. Every resulting profile
+must have comparable clean and defective cases in both splits; sparse profiles fail
+closed instead of being pooled after outcomes are visible. A content digest fixes
+the design but does not prove when it was authored, so promotion also requires an
+external append-only pre-registration attestation.
+
+Profile calibration scoring must reverify the sealed study and authenticated grading
+lineage, accept only the exact calibration observation matrix, and allocate confidence
+across `profiles × routes × metrics × splits`. It emits no route selection and grants
+neither promotion nor activation authority.
+
+The freezer then applies the sealed role allowlist and cost-first objective to that
+reverified calibration evidence. Any missing cost among quality-eligible permitted
+routes makes the profile uncalibrated; use the sealed fallback or fail closed. The
+frozen candidate policy records that holdout is unevaluated and cannot activate a
+runtime route.
+
+The implemented holdout boundary consumes a policy-keyed exclusive claim in an
+existing private directory before scoring. It reverifies the frozen calibration
+chain and the complete independent holdout chain, preserves every profile/route
+score, and reports selected-route adequacy, under-routing, missed adequate
+alternatives, fallback/fail-closed coverage, and cost/latency regret. Incomplete cost
+coverage suppresses hindsight-cheapest and regret claims. This local claim is
+crash-conservative but cannot prevent an analyst from copying data, selecting a new
+claim directory, deleting state, or reading holdout outcomes elsewhere; independent
+custody is still required. The report grants neither promotion nor activation.
+
+Policy-level holdout acceptance thresholds are a separate pre-registered artifact
+whose digest is pinned into the holdout claim and report. The unsigned deterministic
+comparison cannot claim promotion readiness. A verification-only gate recomputes
+both source chains and every threshold, requires a domain-separated Ed25519 signature
+from an authority disjoint from graders and resolvers, and emits the only promotion-
+ready receipt. That receipt still cannot authorize runtime activation.
+Policy-level rates explicitly weight sealed profiles equally; they do not claim to
+estimate the production traffic mix without a separately registered distribution.
+
+The implemented activation-eligibility boundary then consumes only that authenticated
+promotion. Three mutually distinct operational authorities, all disjoint from the
+evaluation and promotion signers, sign: (1) exact route, cost, freshness, and control
+requirements; (2) route-specific catalog, price, conformance, and drift assertions;
+and (3) emergency-stop and revocation state. The readiness snapshot binds the signed
+policy context, every selected route, and every required fallback without model or
+effort substitution. The resulting receipt expires at the earliest input deadline
+and grants neither runtime activation nor configuration mutation. These operational
+values are signed attestations—Mos Eisley does not query or validate their sources—and
+a still-valid older control sequence remains replayable without an external monotonic
+latest-state anchor. Runtime preflight, atomic installation, rollback, and traffic
+monitoring remain separate future gates.
+
+The implemented runtime preflight adds a private append-only local control anchor.
+Its pre-registered policy fixes a unique identity, activation trust-policy digest,
+and the identities allowed to sign control state; that policy digest is bound by the
+activation signer. Every update has a greater sequence and issuance time, hash-links
+the prior entry, and may not remove revocations. Preflight reconstructs every earlier
+evaluation and authorization gate and requires the exact latest anchored state within
+a signed maximum age. It remains non-dispatching because first-state bootstrap,
+whole-database rollback by the owner, and a state change after the check require an
+external monotonic witness and atomic one-use dispatch protocol.
 
 ### 7.4 Effort ↔ max_tokens coupling
 
@@ -286,7 +415,13 @@ Raising a critic's effort shrinks its usable input. Higher effort also inflates 
 
 ### 7.5 Escalation on signal
 
-One retry, one step up. Triggers: structured output fails schema validation; K iterations with no state-changing tool call; judge confidence below threshold; (eval only) zero findings on a known-mutated brief. Both attempts logged. If the eval shows escalation never changes a verdict, delete it.
+At most one retry, one empirically selected step up. Triggers are role-specific and
+externally observable: failed executable evidence for an author, unresolved critic
+disagreement for a judge, or an evaluation-only miss on a labeled defect. Schema
+failure gets a bounded format-repair attempt at the same route; it is not evidence
+that harder reasoning is required. A model's self-reported confidence never triggers
+escalation by itself. Both attempts and the trigger are logged. Keep an escalation
+only when held-out evaluation shows positive payoff after added cost and latency.
 
 ---
 
@@ -371,6 +506,20 @@ sudo log stream --style compact --info \
 ```
 
 Denial detection is heuristic on every platform — a command that fails for an unrelated reason can look like a sandbox denial and vice versa. Surface the raw exit code and stderr alongside the harness's guess, never instead of it.
+
+### 9.6 Externally contained profile and devcontainer
+
+Ship a reference devcontainer as a reproducible compatibility and containment-test
+target, not as a security attestation by itself. Pin the base image by digest, avoid
+host Docker/SSH/editor sockets and ambient credentials, use an explicit mount list,
+drop unnecessary Linux capabilities, enable `no-new-privileges`, and apply CPU,
+memory, PID, disk, and output limits in the outer runtime.
+
+At startup, the `none` backend must still print and record which boundary properties
+Mos Eisley could verify and which are merely declared by the caller. Run the complete
+positive and negative sandbox suite inside the reference image. If the runtime cannot
+demonstrate a mandatory property, security-sensitive workflows fail closed rather
+than treating the presence of `.devcontainer.json` as proof.
 
 ---
 
@@ -507,6 +656,35 @@ tier    = "read_only"
 env     = ["PGHOST", "PGDATABASE"]     # explicit allowlist, not inherited
 ```
 
+### 13.1 Startup, health, and authentication
+
+Start MCP clients lazily and concurrently so an unused or optional server cannot
+block session startup. Report an explicit `starting | ready | degraded | failed`
+state. An optional server failure degrades the advertised tool set; failure of a
+server required by the selected task is an `infrastructure_error`, never a silent
+skip or successful review. Bound startup and tool-call time, cancel descendants,
+and circuit-break repeatedly failing servers.
+
+OAuth and other interactive login flows belong to the trusted controller. Store
+only credential references in configuration and redact protocol traffic at both
+write and display boundaries. Tool annotations from a server are descriptive,
+not authorization; local policy remains authoritative.
+
+### 13.2 Outward service boundary — post-gate
+
+An outward MCP server is useful for invoking narrow Mos Eisley capabilities from
+other clients, but it is not part of the review MVP. The first surface should expose
+read/review status, policy preflight, and replay over versioned schemas—not a general
+`run` endpoint. Caller-supplied `tier`, `sandbox`, `roster`, endpoint, or repository
+identifiers are requests that trusted policy may narrow or reject; they never grant
+authority. Add authenticated sessions, rate limits, cancellation, idempotency, and
+audit records before exposing it beyond loopback.
+
+Do not build an MCP server and a separate app-server protocol in parallel. They
+duplicate authentication, cancellation, session, and schema semantics. Add an app
+server only when a concrete first-party client cannot be served by the chosen
+boundary.
+
 ---
 
 ## 14. Agent loop
@@ -522,6 +700,74 @@ assemble context -> count tokens -> check budget
 Per-agent limits, all enforced: iterations, input tokens, output tokens, wall clock, dollars, tool calls. Cooperative cancellation with cleanup of in-flight subprocesses. Per-provider semaphores plus exponential backoff with jitter on `retryable` errors.
 
 Every request and response written to `runs/<id>/agents/<name>/turns.jsonl` before the next iteration begins, so a crashed run is still analyzable.
+
+### 14.1 Typed lifecycle events
+
+Expose a versioned lifecycle event bus for observability and policy composition:
+`run.started/completed`, `agent.started/completed`, `turn.started/completed`,
+`tool.requested/completed`, `finding.emitted`, `policy.denied`, and
+`artifact.persisted`. Events carry immutable run/agent IDs, sequence numbers,
+policy and brief digests, and bounded typed payloads.
+
+Initial handlers are built-in or explicitly installed, digest-pinned trusted
+components. A handler may
+observe, reject, or further narrow an operation, but cannot enlarge capabilities,
+rewrite trusted identifiers, or execute with the triggering agent's ambient
+environment. Define deterministic ordering, timeout, output cap, backpressure,
+failure mode, and circuit breaking per handler. Log every veto separately so a
+compromised or broken handler cannot silently suppress a finding.
+
+Do **not** run arbitrary shell hooks when `finding.emitted` fires. A finding may
+contain a structured `EvidenceRequest`; the controller validates it and dispatches
+it through the TEST evidence broker under its own policy and budget. External
+command/plugin handlers remain disabled until the same sandbox and supply-chain
+requirements as tools are met.
+
+### 14.2 General subagents
+
+Implement critics, judges, dedupe, and future delegated work on one general child
+agent primitive. A child receives a fresh context built from an allowlisted,
+content-addressed brief—not the parent's transcript—and returns a versioned,
+schema-validated result. Persist its parent ID, task, brief digest, route, policy
+digest, budget, and cancellation outcome.
+
+Effective child authority is the intersection of parent authority, trusted policy,
+role policy, and the child's request. This is a capability lattice, not `min(tier)`:
+filesystem roots, network destinations, tools, credentials, providers, and resource
+limits are independent dimensions. Enforce maximum depth, child count,
+concurrency, cumulative tokens/dollars, wall time, and propagated cancellation.
+
+Repeated compaction is a diagnostic signal, not permission to spawn automatically.
+Replacing a fourth compaction with a child changes task semantics and can multiply
+cost; promote that behavior only if evaluation demonstrates higher task success
+within the same aggregate budget.
+
+### 14.3 Versioned skills and personas
+
+A skill is a progressively disclosed prompt/rubric bundle with a manifest,
+compatibility constraints, source provenance, and content digest. Trusted user/admin
+policy owns the allowlist. Repository-local files are untrusted hints and may select
+only an already-approved skill version; they cannot register executable code,
+request credentials, or enlarge a capability. Skill scripts are inert assets unless
+separately registered and authorized as normal tools.
+
+Move critic personas into skills only after the current inline persona is covered by
+golden and held-out evaluations. Pin every run to skill digests and measure each
+version's detection, false-positive, cost, and calibration effects. “Closest wins”
+discovery is forbidden for authority-bearing fields; configuration still intersects
+with trusted policy as required by §23.1B.
+
+The initial implementation is intentionally narrower: standards-compatible
+`SKILL.md`, optional `mos.yaml` containing only `version` and `kind`, prompt-only
+persona/procedure packages, explicit discovery roots, and exact
+`source:name@sha256:digest` activation. It rejects scripts, executable files,
+toolbundles, `allowed-tools`, name-only precedence, and implicit project activation.
+Discovery snapshots the complete bounded package once; model-context disclosure is
+progressive from that immutable snapshot. Recorded reviews may bind persona skills
+only when the activated, outer-trimmed body is byte-for-byte equal to the existing
+request-bound cassette,
+and schema-2 runs record the exact source, version, package digest, and instruction
+digest. See `docs/SKILLS.md` and the disposition in §25.
 
 ---
 
@@ -604,10 +850,14 @@ mos review <ref> | --pr <n> [--post]   # the adversarial pipeline
 mos resume [<id> | --last | --all]
 mos replay <run-id> [--agent <name>]
 mos sandbox exec -- <cmd>              # test the active profile
+mos policy check --tool <name> [-- <argv...>] # resolve, explain; never execute
 mos blame <file>:<line>                # run provenance
 mos eval <suite> [--sweep]
 mos models
-mos login
+mos features                            # maturity + effective-policy status
+mos auth login|logout <provider>
+mos mcp login|logout <server>
+mos completion <shell>
 ```
 
 ### 16.2 Flags
@@ -623,7 +873,16 @@ mos login
 | `--cd` / `--add-dir` | working dir / extra writable root |
 | `--network` | opt into network in workspace-write |
 | `--json` | NDJSON events to stdout |
+| `--output-schema <file>` | validate the final result against a bounded schema |
 | `--roster` | named model roster for review roles |
+
+`mos policy check` must use the same resolver and semantic command validators as
+dispatch, print the decision and policy provenance, and perform no model, tool, or
+network action. `--output-schema` constrains only the final typed result; it cannot
+select tools or capabilities, and schema failure exits non-zero after one bounded
+format-repair attempt. Feature flags report `experimental | preview | stable |
+disabled-by-policy` and are maturity gates, never a way for project config to bypass
+trusted policy.
 
 ### 16.3 Config layering
 
@@ -717,6 +976,15 @@ runs/<run_id>/
 
 Emit `token_count` with the full breakdown on **every** turn. Lack of compaction visibility is the standing complaint about long CLI sessions.
 
+Redaction is an egress invariant, not merely a logging helper. Apply the same
+versioned redaction policy before writing logs, indexing, replay display, export,
+notifications, and outward service responses. Persist the redaction-policy digest
+and record that a field changed without retaining the secret. If policy requires a
+byte-exact raw artifact for deterministic cassette replay, keep it separately
+encrypted with tighter access and retention; ordinary replay and display always use
+the redacted form. Data minimization and capability isolation remain primary—the
+redactor is defense in depth.
+
 ---
 
 ## 18. Evaluation harness
@@ -734,16 +1002,37 @@ Inject synthetic defects into known-good commits of your own repos — off-by-on
 | Cost per true finding | is it worth running |
 | Cross-family agreement rate | how independent are the critics really |
 | Escalation payoff | did the retry change a verdict |
+| Under-routing rate | did the selected route fail a task-quality criterion that an eligible stronger route passed |
+| Routing regret | extra cost/latency versus the cheapest adequate route in hindsight |
+| Calibration/OOD coverage | how often can the learned policy route rather than use its fallback |
 | Localization accuracy | file:line correct, not just "something's wrong" |
 
-### 18.3 The (model × effort) sweep
+### 18.3 The (backend × model × effort) sweep
 
-`mos eval --sweep` runs the grid into Postgres. Two expectations worth confirming rather than assuming:
+`mos eval --sweep` runs the backend × model × effort grid into the evaluation store.
+Repeated, blinded results define the cheapest adequate route for each task under
+pre-registered detection, false-positive, latency and cost constraints. API and
+subscription-backed routes are separate cells even when their nominal model matches.
+Fit an interpretable prompt-difficulty policy on the calibration split, freeze it as
+a content-addressed artifact, then measure routing quality once on a final holdout.
+Never tune thresholds on that holdout. Report confidence intervals and under-routing
+separately for each role, backend, provider, repository domain and risk tag.
+
+Current implementation evaluates each sealed prompt profile, preserves all candidate
+scores, and reports route adequacy, fallback/fail-closed coverage and cost/latency
+regret. Its exclusive local claim prevents an accidental second CLI attempt for the
+same frozen policy in one trusted directory; it is not a substitute for independently
+controlled holdout access.
+
+Two expectations worth confirming rather than assuming:
 
 1. **The quality curve flattens early.** Sonnet 5 at xhigh reportedly approaches Opus 4.8 pricing while scoring slightly worse on several benchmarks — the effort dial and model dial trade against each other and must be searched jointly.
 2. **False positives likely rise with effort.** A critic thinking harder on clean code has more time to invent objections. If confirmed, optimal critic effort sits *below* optimal author effort — the opposite of role intuition.
 
-Sampling is unavailable (§4.3), so variance requires N repeated runs per cell. Budget 3 reps minimum.
+Sampling is unavailable (§4.3), so variance requires repeated runs per cell. Three
+repetitions are a smoke test only; use sequential stopping or a pre-registered power
+target before promoting a routing policy. If no cheaper route meets the quality
+constraint with adequate confidence, retain the role fallback.
 
 ---
 
@@ -780,6 +1069,32 @@ Residual risk: `claim` and `suggested_fix` are model-authored strings that get p
 - **`danger-full-access` requires an explicit CLI flag**, prints a warning, and is never reachable from a profile alone.
 - **Structured-output parsing as defense in depth.** A critic emitting prose instead of findings fails the run rather than passing free text downstream.
 
+### 19.5 Brokered web evidence and cache
+
+Critics and judges retain no NET capability. When a review needs current external
+evidence, the trusted brief builder issues a bounded search/fetch request through the
+network broker, freezes the result into the brief, and records query/URL, provider,
+retrieval time, final resolved URL, response/content hash, media type, license or
+usage metadata when known, and cache policy. Redirects, DNS resolution, private and
+link-local addresses, scheme/port, request size, and response size are enforced by
+the broker.
+
+Cache keys must cover normalized request inputs, search/fetch provider and version,
+policy, and freshness window—not just a query hash. Cache entries remain untrusted
+content and can be stale or poisoned; they never become instructions, credentials,
+or an authority source. A finding must cite the frozen artifact it used. This path
+ships only after the no-NET critic invariant and injection corpus pass end to end.
+
+### 19.6 Multimodal inputs
+
+Support images later as content-addressed brief artifacts for screenshots, rendered
+UI, diagrams, and visual diffs. Validate media type independently of extension,
+decode with resource limits, strip active metadata where possible, and record the
+exact bytes and transformations supplied to each provider. A model without the
+required modality is ineligible for that route. Audio/voice/realtime interaction is
+not required by the review workflow and remains out of scope until a measured use
+case justifies its privacy, storage, and provider-conformance surface.
+
 ---
 
 ## 20. Testing
@@ -795,6 +1110,13 @@ Residual risk: `claim` and `suggested_fix` are model-authored strings that get p
 | Blindness | assert a critic's serialized context contains no author transcript, no sibling critique, no model identity |
 | Injection | corpus of adversarial diffs containing instruction-shaped text; assert no credential use, no network, no write |
 | Pipeline | golden-run replay: fixed brief + cassettes → deterministic verdict |
+| Policy preflight | `policy check` and real dispatch resolve identically; preflight performs no execution |
+| Lifecycle events | ordering, timeout, backpressure, veto audit, and capability non-escalation |
+| Subagents | capability-lattice intersection, depth/concurrency/budget caps, cancellation, cross-agent isolation |
+| Skills | digest pinning, progressive-disclosure budget, untrusted-project non-escalation, inert scripts |
+| Network broker | DNS rebinding, redirects, private IPs, cache poisoning/staleness, response/output limits |
+| Redaction | seeded secrets absent from write, replay, export, notification, and service responses |
+| Service boundary | authentication, caller-request narrowing, rate limits, replay rejection, cancellation |
 
 The sandbox negative tests and the blindness assertions are the two most important suites in the repo.
 
@@ -816,7 +1138,7 @@ The sandbox negative tests and the blindness assertions are the two most importa
 | **M9** | **GitHub integration + isolated publisher** | `mos review --pr N --post` posts inline comments; injection corpus shows no credential reach |
 | **M10** | CLI surface: profiles, TUI, `--json` events, resume/replay | `mos exec --json` usable from CI; `review` profile ships read-only |
 | **M11** | MCP client, tiered | An MCP server registers, is tiered, and its schemas pass the subset validator |
-| **M12** | Mutation eval + (model × effort) sweep | FP rate on clean commits measured; defaults set from data |
+| **M12** | Mutation eval + (backend × model × effort) sweep | FP rate on clean commits measured; routing policy set from data |
 
 M2 and M3 moved ahead of the provider work deliberately. Once the harness can touch the machine, everything after it inherits whatever boundary you built — retrofitting a sandbox around an agent loop that already assumes free filesystem access is a rewrite.
 
@@ -967,7 +1289,10 @@ M0 must not execute model-selected machine commands before the sandbox exists. I
 ### 23.9 Evaluation corrections
 
 - Mutation testing provides seeded positives, not complete ground truth. Equivalent/trivial mutants must be filtered, and “clean” commits can contain real defects. Use human adjudication, held-out repositories, real historical bugs, and periodically audited clean samples.
-- Three repetitions are enough for a smoke test, not for choosing defaults across a large model × effort grid. Pre-register primary metrics, report confidence intervals, control for multiple comparisons, and use sequential stopping/power analysis to manage cost.
+- Three repetitions are enough for a smoke test, not for choosing defaults across a
+  large backend × model × effort grid. Pre-register primary metrics, report confidence
+  intervals, control for multiple comparisons, and use sequential stopping/power
+  analysis to manage cost.
 - Prevent benchmark leakage: critics must not see mutation labels, mutation-generator templates, expected locations, or prior verdicts. Separate calibration and final holdout sets.
 - Measure end-to-end utility: accepted true findings, developer override rate, time-to-resolution, review latency, and cost. Detection rate without developer trust is not a sufficient success criterion.
 - A cassette-backed golden test can assert deterministic orchestration, but it says nothing about current live-model quality. Keep conformance, safety, and quality suites separate.
@@ -987,3 +1312,252 @@ M0 must not execute model-selected machine commands before the sandbox exists. I
 | Which sandbox properties are mandatory? | Read-scope, write-scope, no raw network/host sockets, resource limits, process cleanup |
 
 **Go/no-go criterion:** do not grant WRITE, TEST, NET, Git credentials, or publishing authority until its boundary has a concrete threat model, a backend capability assertion, and adversarial tests that fail closed on every supported deployment target.
+
+---
+
+## 24. Adversarial review of the Arbiter Codex-parity delta
+
+**Review date:** 2026-09-05
+
+**Source:** `arbiter-codex-parity.md` from the local Downloads directory
+
+**Disposition:** **Adopt selectively, with security and evidence gates.** The source
+contains useful product-surface ideas, but “Codex has it” is not a sufficient reason
+to add it. Parity can import mature interaction patterns; it must not import ambient
+authority, duplicate service protocols, or claims that are unsupported or already
+stale.
+
+### 24.1 Source qualification
+
+Current official documentation confirms that Codex has configurable subagents whose
+model and reasoning effort can inherit or be overridden, and a skill system based on
+progressive disclosure. It also documents Codex as an MCP client with stdio/HTTP
+transports and OAuth. Those facts support the general concepts, not the exact Arbiter
+interfaces or security defaults:
+
+- [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
+- [Codex MCP client](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+
+The official [Codex documentation index](https://learn.chatgpt.com/docs/llms.txt)
+currently labels the older “Use Codex with Agents SDK” MCP-server path deprecated
+and points users toward App Server or the Claude Code plugin. Therefore, an outward
+Mos Eisley MCP server can be justified by interoperability, but not by an
+unqualified claim that it is required for current Codex parity. Product-comparison
+claims must carry a verification date and official source; unsupported claims are
+treated as design hypotheses.
+
+### 24.2 Decision matrix
+
+| Proposed parity item | Decision | Adversarial disposition |
+|---|---|---|
+| Lifecycle hooks | **Adopt, narrowed** | Implement typed events and trusted bounded handlers (§14.1). No arbitrary shell hook, ambient environment, or authority increase. A finding requests evidence; it never causes direct execution. |
+| General subagent spawning | **Adopt** | Use the common primitive in §14.2 with a fresh materialized brief, capability-lattice intersection, lineage, aggregate budgets, depth/concurrency caps, and cancellation. |
+| Automatic child after repeated compaction | **Reject pending evaluation** | It changes semantics and can multiply spend. Compaction count is telemetry until a held-out comparison proves a better result under the same total budget. |
+| Skills/personas | **Adopt, staged** | Version and hash prompt/rubric assets (§14.3). Repository skills are untrusted selectors, scripts are inert, and persona migration requires regression and held-out evaluation. |
+| MCP server plus app server | **Split and defer** | Keep the client. Add one narrow outward protocol only after quality/security gates (§13.2); do not maintain two auth/session stacks without distinct users. |
+| Image and audio inputs | **Images later; audio deferred** | Images have a concrete review use case and receive artifact/media controls (§19.6). Audio, voice, and realtime interaction do not yet improve the core review outcome. |
+| Cached web search | **Adopt after containment** | Only the trusted brief builder gets brokered network access. Critics consume frozen, cited, untrusted artifacts; the cache includes provenance and freshness (§19.5). |
+| Endpoint and auth modes | **Adopt, hardened** | Use trusted endpoint records and typed credential references (§4.5), not arbitrary URL/header dictionaries. Require TLS/loopback exception, SSRF controls, conformance, and provider/data policy. |
+| Local open-weight models | **Keep out of v1** | Different branding does not prove independent training lineage. “Free per call” ignores hardware, energy, operations, and latency. Add a local endpoint only if blinded evaluation shows incremental coverage or acceptable cost/quality. |
+| Model-keyed capability defaults | **Reject** | Model labels such as “frontier,” “small,” or “cyber” are mutable and do not determine the OS authority a task needs. Policy is task/role/data based; a provider or model restriction may narrow authority, never raise it. |
+| Policy preflight | **Adopt** | `mos policy check` shares the dispatch resolver, explains provenance, and executes nothing (§16.1–16.2). |
+| Feature flags | **Adopt** | Use maturity gates with explicit policy status. Flags cannot bypass trusted-policy intersection. |
+| Structured final output | **Adopt** | `--output-schema` validates a bounded final object and has no capability-selection effect. |
+| Write/replay redaction | **Adopt and strengthen** | Use one egress invariant across persistence, display, replay, export, notification, and services (§17); isolate any policy-approved encrypted raw cassette. |
+| Nonblocking MCP startup | **Adopt with required-tool semantics** | Lazy/concurrent startup is useful, but a required-server failure is an infrastructure error rather than an invisible skip (§13.1). |
+| MCP login/logout, shell completion, notifications | **Adopt incrementally** | Credential lifecycle belongs to the trusted controller. Completion is low risk. Notifications must use redacted typed events and an allowlisted destination; none belongs on the critical path. |
+| Branching, undo, per-turn checkpoints | **Defer** | Hidden Git refs and metadata writes conflict with the VCS-broker boundary. First implement content-addressed patch snapshots in the disposable run store; add branching only after replay semantics, retention, locking, and recovery are specified. |
+| Devcontainer profile | **Adopt as evidence, not proof** | Pin the image by digest and run positive/negative backend tests inside it. An externally contained profile must attest its properties; a container file alone does not prove namespace, socket, resource, or host isolation. |
+| Hook/subagent milestone reordering | **Do not retroactively reorder** | The implementation already has pipeline/evaluation work. Add the extension substrate after the §23.8 evaluation gate; do not let parity work bypass containment or quality evidence. |
+
+### 24.3 Additional requirements introduced by this review
+
+1. **Extension supply chain.** Every executable extension needs an immutable digest,
+   provenance, compatibility range, capability declaration, signature/allowlist
+   decision, and revocation path. Prompt-only assets still need a digest because a
+   rubric change can alter false-positive rate.
+2. **No authority from configuration vocabulary.** A field named `sandbox`,
+   `tier`, `headers`, `endpoint`, `model`, or `skill` in an untrusted project,
+   MCP call, or service request is only a request. The trusted resolver supplies and
+   intersects actual authority.
+3. **Event safety.** Lifecycle payloads are bounded and redacted, handler order is
+   deterministic, blocking decisions identify a trusted policy owner, and vetoes are
+   auditable. Observability handlers default to fail-open for availability; security
+   policy handlers use an explicit fail-closed mode.
+4. **Child isolation.** A child sees no parent transcript, sibling state, credentials,
+   or spill files unless a content-addressed reference is explicitly mounted.
+   Aggregate limits are reserved before spawn so parallel children cannot each spend
+   the full remaining budget.
+5. **Search-cache integrity.** Cached pages and search snippets are never privileged
+   because they were fetched earlier. Validate redirects on every refresh, retain the
+   resolved-source chain, expire negative and error entries, and make stale use
+   visible in findings.
+6. **Interoperability before breadth.** The outward service begins with narrow,
+   idempotent, schema-versioned operations. A general remote agent runner, caller
+   chosen sandbox, or caller chosen credential context is explicitly excluded.
+
+### 24.4 Evidence gates
+
+These additions are not promoted to stable because they exist. Promotion requires:
+
+- lifecycle and skill non-escalation tests plus a malicious-extension corpus;
+- subagent comparisons against the existing specialized review path, reporting
+  quality, cost, latency, isolation failures, and aggregate-budget violations;
+- network-broker SSRF/DNS-rebinding/redirect/cache-poisoning tests and proof that
+  critics remain unable to open sockets;
+- endpoint conformance and data-policy approval for every new backend;
+- egress tests seeding credentials in prompts, tool output, events, MCP traffic, raw
+  artifacts, and replay paths;
+- service-boundary authentication, rate-limit, cancellation, replay, and
+  caller-request-narrowing tests;
+- image decompression-bomb, malformed-media, metadata, and cross-provider
+  conformance tests before multimodal routing becomes eligible.
+
+**Result:** parity work is post-gate extensibility. It may make Mos Eisley easier to
+integrate and specialize, but it cannot advance ahead of the local review quality
+gate, containment proof, or the trusted/untrusted configuration split in §23.8.
+
+### 24.5 Post-gate delivery order
+
+| Phase | Scope | Exit criteria |
+|---|---|---|
+| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers cannot escalate authority; every endpoint passes conformance and data-policy checks |
+| **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
+| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts | critics remain socketless; broker and cache adversarial suites pass; images pass media/resource and cross-provider conformance |
+| **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
+
+An app server, audio/realtime mode, automatic compaction delegation, local model
+route, and Git-backed turn branching remain unplanned candidates. Each requires a
+separate measured use case and threat-model amendment before receiving a milestone.
+
+---
+
+## 25. Adversarial review of Skills, SecretRef, and Doctor
+
+**Review date:** 2026-09-05
+
+**Source:** `mos-eisley-skills-secrets-doctor.md` from the local Downloads directory
+
+**Disposition:** **Adopt the prompt-only skills foundation now; split and defer the
+authority-bearing subsystems.** The proposal correctly identifies provenance,
+shadowing, validation/use races, secret exposure, and diagnostic drift. It combines
+three independently risky systems, however, and assumes a configuration substrate
+that this implementation intentionally does not yet have. Shipping them together
+would turn a prompt-asset feature into new host-code and credential paths.
+
+### 25.1 Decision matrix
+
+| Proposal | Decision | Required narrowing |
+|---|---|---|
+| Portable `SKILL.md` | **Adopt now** | Follow the Agent Skills frontmatter shape; keep Mos-only structure in an optional sidecar. |
+| `mos.yaml` | **Adopt narrowly** | Only `version` and `kind = persona | procedure`; extra fields fail. It grants no capability. |
+| Progressive loading | **Adopt now** | Snapshot the whole bounded package once, disclose metadata/body/resources progressively from that immutable snapshot. |
+| Source precedence | **Reject project-wins** | Preserve source-qualified identities, report collisions, and require exact references. A project package never shadows a user package. |
+| Skill trust/tiering | **Defer persistence** | Project activation requires an explicit invocation-local opt-in. Structural validity is never trust. Add durable approvals only after trusted config provenance exists. |
+| Scripts/toolbundles/check code | **Reject in this phase** | Reject `scripts/`, executable bits, `toolbundle`, and `allowed-tools`; do not import package code. |
+| Persona migration | **Observe now; promote later** | Bind only bodies exactly matching request-bound recorded personas. Change personas only after paired golden/held-out evaluation. |
+| Per-skill provenance | **Adopt now** | Record source, name, version, whole-package digest, instruction digest, byte count, and critic binding in a hashed run artifact. |
+| SecretRef | **Defer as a separate security program** | First implement config provenance, child-environment isolation, read denial, audited transport substitution, and seeded-secret egress tests. |
+| Opaque secret handles | **Useful defense, not a boundary** | The transport necessarily sees plaintext. Never claim handles solve SDK/proxy/log leakage. |
+| Secret migration | **Defer** | Requires crash-safe journaling and scoped residual-secret verification without plaintext backups. |
+| Doctor diagnostics | **Defer executable/fix surface** | A future read-only typed check registry can land separately. No skill code imports; online and billable probes are explicit. |
+| `doctor --fix` | **Defer** | Automatic mutation needs per-remedy idempotence, re-verification, collision handling, and a permanently non-secret/non-sudo boundary. |
+
+### 25.2 Implemented foundation and invariants
+
+The first slice is implemented in `run/skills.py`, `core/skills.py`, the `mos skills`
+CLI, and schema-2 recorded-run artifacts. It enforces:
+
+1. only explicitly supplied roots are read; there is no ambient home, repository,
+   config, or `AGENTS.md` discovery;
+2. activation uses `source:name@sha256:whole-package-digest`, never a mutable name or
+   version alone;
+3. project packages require explicit activation and never win a collision;
+4. all package bytes are bounded and snapshotted before use; later filesystem edits
+   cannot change the activated body or lazy resource;
+5. YAML aliases, anchors, tags, and duplicate keys plus symlinks, special files,
+   executable bits, scripts, and capability vocabulary fail closed;
+6. validation and discovery explicitly grant no authority;
+7. recorded skill bindings exactly cover critics and their activated instructions
+   must reproduce each cassette persona byte for byte; replay verifies their hashed
+   provenance artifact.
+
+### 25.3 Evidence and remaining gates
+
+The implementation has malicious-package and integration tests, but it does not
+establish that any persona improves review quality. Before a persona revision replaces
+an inline default, pre-register a paired comparison on identical clean and defective
+samples and report detection, clean false-positive risk, calibration, completion,
+latency, tokens, and cost. Freeze the package digest before holdout and apply the same
+family-wise correction and independent-group rules as the routing study.
+
+Before SecretRef, land read-denial and child-environment isolation across every
+supported containment backend. Seed secrets through config, provider errors, HTTP
+diagnostics, tool output, events, run/replay/export, and crash paths. Before doctor,
+define a versioned result contract and prove offline mode opens no network path;
+mandatory security checks cannot succeed by skipping.
+
+The package snapshot prevents ordinary post-validation drift but not a malicious
+same-UID process racing trusted ancestor directories. Package signatures and archives
+are absent, so historical reconstruction depends on retaining the exact digest-named
+package. These limits are explicit in `docs/SKILLS.md` and milestone review 22.
+
+### 25.4 Implemented paired evidence gate
+
+Evaluation routes now bind an exact inline or persona-skill prompt asset. A separate
+two-arm protocol seals the dataset, full plan, prompt identities, non-inferiority
+margins, paired equal-group estimand, fixed stopping rule, and six-comparison family
+before results are inspected. The arms must be identical except for their prompt,
+and the candidate must be a digest-identified persona skill.
+
+Scoring reverifies the complete dual-authenticated human-grading lineage, averages
+repetitions within cases, pairs candidate-minus-baseline case outcomes, then weights
+declared independence groups equally. Holdout CLI use consumes an atomic private
+claim before validation so failed or repeated attempts cannot be selectively rerun
+without explicit local-control tampering. Cost and latency deltas are reported.
+
+This closes the recommended evidence-foundation slice, not persona promotion. Every
+artifact denies activation and each report denies promotion. A later milestone must
+define independent signed promotion, retained package archives, rollback, expiry,
+and drift monitoring before a skill can replace a default.
+
+### 25.5 Implemented independent promotion-readiness gate
+
+An authority policy now enrolls sorted unique Ed25519 release keys and bounds both
+its own validity and the maximum lifetime of a decision. The only signable decision
+is deterministically derived from the exact sealed comparison plus matching
+calibration and holdout reports; both registered gates must pass. The signature
+domain binds the authority policy, exact skill and prompt identities, both reports,
+and UTC decision window.
+
+Authentication recomputes both reports from their complete dual-human-grade source
+chains, rejects authority overlap with any grader or resolver, checks expiry, derives
+the decision again, and verifies the signature. A signed failed experiment remains
+a denial. The resulting receipt can claim promotion readiness but literally denies
+configuration mutation and activation.
+
+This is an evidence-authorization boundary, not installation. The next retained-byte
+archive slice is documented below; author signatures, rollback, revocation,
+transactional default changes, and drift monitoring remain mandatory future work.
+
+### 25.6 Implemented deterministic package retention
+
+A retained skill archive now serializes every path and exact byte from the loader's
+immutable validated snapshot. Canonical base64, per-file byte counts and digests,
+canonical path ordering, collision checks, and the existing domain-separated package
+digest make the archive deterministic and content addressed. Retention never
+reopens the package, so a post-discovery filesystem mutation cannot change the
+archive selected by its exact qualified reference.
+
+Archive verification is deliberately semantic as well as structural: it reparses
+the retained `SKILL.md` and optional `mos.yaml`, re-applies the prompt-only rules,
+and rebuilds the complete descriptor and normalized instruction-body digest from
+the retained bytes. It performs no extraction or materialization. Project-source
+retention requires invocation-local approval, and the archive schema fixes
+installation, activation, and configuration mutation authority to false.
+
+This closes byte retention, not deployment. The archive does not prove authorship
+or safety and is not yet bound to a current promotion receipt. Revocation, rollback,
+transactional installation/default changes, and post-install drift monitoring remain
+separate mandatory gates.
