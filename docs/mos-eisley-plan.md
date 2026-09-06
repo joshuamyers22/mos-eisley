@@ -370,6 +370,15 @@ crash-conservative but cannot prevent an analyst from copying data, selecting a 
 claim directory, deleting state, or reading holdout outcomes elsewhere; independent
 custody is still required. The report grants neither promotion nor activation.
 
+Policy-level holdout acceptance thresholds are a separate pre-registered artifact
+whose digest is pinned into the holdout claim and report. The unsigned deterministic
+comparison cannot claim promotion readiness. A verification-only gate recomputes
+both source chains and every threshold, requires a domain-separated Ed25519 signature
+from an authority disjoint from graders and resolvers, and emits the only promotion-
+ready receipt. That receipt still cannot authorize runtime activation.
+Policy-level rates explicitly weight sealed profiles equally; they do not claim to
+estimate the production traffic mix without a separately registered distribution.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.

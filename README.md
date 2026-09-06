@@ -135,6 +135,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [One-attempt frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md) with an
   exclusive local claim, full calibration and holdout lineage recomputation,
   under-routing and cost/latency-regret measurement, and literal promotion denial.
+- [Independently authenticated routing promotion](docs/ROUTING_PROMOTION.md) with
+  pre-holdout policy-level thresholds, full evidence recomputation, signer separation,
+  and continued runtime-activation denial.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -170,6 +173,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [routing calibration](docs/ROUTING_CALIBRATION.md),
 [candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),
 [frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md),
+[routing promotion](docs/ROUTING_PROMOTION.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

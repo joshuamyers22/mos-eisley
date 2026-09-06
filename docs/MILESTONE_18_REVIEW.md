@@ -13,8 +13,10 @@ promotion, activation, or publishing is included.
 | A stronger-route narrative is invented after results | Define under-routing only as selected failure plus another permitted adequate route; do not infer an unregistered strength order | The role floor itself remains reviewed human judgment |
 | Missing prices create false regret precision | Suppress cheapest-route and cost/latency regret claims if any adequate candidate lacks complete cost evidence | Meter correctness and current prices need operational validation |
 | Fail-closed is hidden as quality success | Report calibrated, fallback, fail-closed, served, adequate, under-routed, and missed-alternative counts separately | Product policy must decide whether coverage is acceptable |
-| A passing report becomes production policy | Literal promotion and activation denial; no runtime consumer accepts the report schema | Signed promotion, drift gates, runtime health handling, and rollback remain future controls |
+| A passing report becomes production policy | Literal promotion and activation denial; no runtime consumer accepts the report schema | A separate signed promotion exists; drift gates, runtime health handling, and rollback remain future controls |
 
 The next gate is an independently authorized promotion contract with explicit
 acceptance thresholds for the already-produced holdout report. It must not add a
-second holdout look or reinterpret thresholds after outcomes are known.
+second holdout look or reinterpret thresholds after outcomes are known. That gate is
+implemented with the thresholds pinned before holdout; see
+[routing promotion](ROUTING_PROMOTION.md).

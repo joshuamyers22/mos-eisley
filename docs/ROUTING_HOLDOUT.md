@@ -20,6 +20,7 @@ mos eval-evaluate-routing-holdout \
   --sealed-study private/sealed-routing-study.json \
   --calibration-report private/routing-calibration-report.json \
   --candidate-policy private/frozen-candidate-policy.json \
+  --promotion-policy trusted/routing-promotion-policy.json \
   --calibration-batch private/calibration-batch.json \
   --calibration-mapping private/calibration-map.json \
   --calibration-raw-results private/calibration-raw.json \
@@ -40,7 +41,8 @@ mos eval-evaluate-routing-holdout \
   --output private/routing-holdout-report.json
 ```
 
-The evaluator fully reconstructs the frozen policy from calibration sources, then
+The evaluator pins the pre-registered promotion-policy digest into both the use
+claim and report. It fully reconstructs the frozen policy from calibration sources, then
 reverifies the separate holdout execution and dual-grade lineage. It requires exact
 holdout assignment coverage and uses the pre-registered confidence family across
 all profiles, routes, metrics, and both splits.
@@ -71,6 +73,7 @@ archive the claim beside the report. The content digest proves exact bytes, not 
 the protocol or claim was created.
 
 The report has literal `promotion_ready: false` and
-`activation_authorized: false`; no runtime router accepts it. Promotion still needs
-independent authorization, operational availability and pricing validation, drift
-controls, and representative credentialed evaluation.
+`activation_authorized: false`; no runtime router accepts it. The next independent
+authorization boundary is documented in [routing promotion](ROUTING_PROMOTION.md).
+Operational availability and pricing validation, drift controls, and representative
+credentialed evaluation remain separate requirements.

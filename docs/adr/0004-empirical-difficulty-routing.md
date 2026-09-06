@@ -3,8 +3,9 @@
 Date: 2026-09-05. Status: proposed; blocked on evaluation data.
 
 Implementation note: the offline routing-study protocol, feature-partition sealing,
-profile-aware calibration scorer, and deterministic candidate-policy freezer are
-implemented. Holdout evaluation, promotion, and runtime routing remain disabled.
+profile-aware calibration scorer, deterministic candidate-policy freezer, one-attempt
+holdout evaluator, and independently authenticated promotion gate are implemented.
+Runtime routing and activation remain disabled.
 
 ## Decision
 

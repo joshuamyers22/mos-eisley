@@ -71,6 +71,8 @@ from mos_eisley.evaluation.routing_calibration import (
     score_routing_calibration,
 )
 from mos_eisley.evaluation.routing_holdout import (
+    FrozenPolicyHoldoutReport,
+    HoldoutUseClaim,
     evaluate_frozen_routing_policy,
     make_holdout_use_claim,
 )
@@ -78,6 +80,13 @@ from mos_eisley.evaluation.routing_policy import (
     FrozenCandidateRoutingPolicy,
     freeze_candidate_routing_policy,
 )
+from mos_eisley.evaluation.routing_promotion import (
+    RoutingPromotionAuthorityPolicy,
+    SignedRoutingPromotionDecision,
+    authenticate_routing_promotion,
+    make_routing_promotion_decision,
+)
+from mos_eisley.evaluation.routing_promotion_policy import RoutingPromotionPolicy
 from mos_eisley.evaluation.routing_protocol import (
     PromptFeatureManifest,
     RoutingStudyProtocol,
@@ -429,6 +438,7 @@ def parser() -> argparse.ArgumentParser:
         "sealed-study",
         "calibration-report",
         "candidate-policy",
+        "promotion-policy",
         "holdout-use-directory",
         "output",
     ):
@@ -445,6 +455,48 @@ def parser() -> argparse.ArgumentParser:
             "resolution-trust-policy",
         ):
             eval_holdout_routing.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_derive_promotion = subcommands.add_parser(
+        "eval-derive-routing-promotion",
+        help="Apply pre-pinned promotion thresholds without authorizing promotion",
+    )
+    eval_derive_promotion.add_argument("--promotion-policy", type=Path, required=True)
+    eval_derive_promotion.add_argument("--holdout-report", type=Path, required=True)
+    eval_derive_promotion.add_argument("--output", type=Path, required=True)
+    eval_authenticate_promotion = subcommands.add_parser(
+        "eval-authenticate-routing-promotion",
+        help="Reverify holdout lineage and authenticate an independent promotion",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "signed-promotion",
+        "authority-policy",
+        "output",
+    ):
+        eval_authenticate_promotion.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_authenticate_promotion.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
     subcommands.add_parser("models", help="Print the configured model registry")
@@ -968,6 +1020,9 @@ def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
     policy = FrozenCandidateRoutingPolicy.model_validate_json(
         read_bounded(cast(Path, args.candidate_policy), 16_000_000)
     )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
     output = cast(Path, args.output)
     use_directory = cast(Path, args.holdout_use_directory)
     if output.exists():
@@ -977,7 +1032,7 @@ def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
     if _paths_overlap(output, use_directory):
         raise ValueError("holdout report and use directory must not overlap")
 
-    claim = make_holdout_use_claim(policy, *holdout)
+    claim = make_holdout_use_claim(policy, promotion_policy, *holdout)
     claim_path = claim_holdout_use(use_directory, claim)
     report = evaluate_frozen_routing_policy(
         dataset,
@@ -988,6 +1043,7 @@ def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
         sealed_study,
         calibration_report,
         policy,
+        promotion_policy,
         claim,
     )
     _write_contract(output, report)
@@ -1008,6 +1064,100 @@ def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _derive_routing_promotion_command(args: argparse.Namespace) -> int:
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    decision = make_routing_promotion_decision(report, promotion_policy)
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_promotion.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "threshold_result": decision.threshold_result,
+                "criteria_satisfied": decision.criteria_satisfied,
+                "authenticated": False,
+                "activation_authorized": decision.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_routing_promotion_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    signed = SignedRoutingPromotionDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_promotion), 64_000)
+    )
+    authority_policy = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.authority_policy), 64_000)
+    )
+    authenticated = authenticate_routing_promotion(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        policy,
+        claim,
+        report,
+        promotion_policy,
+        signed,
+        authority_policy,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_promotion.authenticated",
+                "path": str(output),
+                "promotion_receipt_sha256": authenticated.promotion_receipt_sha256,
+                "signer_id": signed.signature.signer_id,
+                "promotion_ready": authenticated.promotion_ready,
+                "activation_authorized": authenticated.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
@@ -1018,6 +1168,10 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
         "eval-evaluate-routing-holdout": _evaluate_routing_holdout_command,
+        "eval-derive-routing-promotion": _derive_routing_promotion_command,
+        "eval-authenticate-routing-promotion": (
+            _authenticate_routing_promotion_command
+        ),
     }
     handler = handlers.get(args.command)
     return handler(args) if handler is not None else None

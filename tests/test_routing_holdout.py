@@ -21,6 +21,7 @@ from mos_eisley.evaluation.routing_holdout import (
     verify_frozen_policy_holdout_report,
 )
 from mos_eisley.evaluation.routing_policy import freeze_candidate_routing_policy
+from mos_eisley.evaluation.routing_promotion_policy import RoutingPromotionPolicy
 from mos_eisley.evaluation.routing_protocol import seal_routing_study
 from mos_eisley.run.holdout_use import claim_holdout_use
 from mos_eisley.run.store import private_write
@@ -57,10 +58,23 @@ class FrozenPolicyHoldoutTests(TestCase):
             self.sealed,
             self.calibration_report,
         )
+        self.promotion_policy = RoutingPromotionPolicy(
+            policy_id="routing-promotion-v1",
+            candidate_policy_sha256=self.policy.candidate_policy_sha256,
+            sealed_study_sha256=self.sealed.sealed_study_sha256,
+            min_calibrated_policy_coverage=1,
+            min_selected_adequacy_rate=1,
+            max_under_routing_rate=0,
+            max_fail_closed_rate=0,
+            max_missed_adequate_alternative_rate=0,
+            min_regret_observation_rate=1,
+            max_mean_cost_regret_microusd=0,
+            max_mean_latency_regret_ms=0,
+        )
         self.holdout = self.source.make_lineage("holdout")
 
     def claim(self, holdout: RoutingLineage) -> HoldoutUseClaim:
-        return make_holdout_use_claim(self.policy, *holdout)
+        return make_holdout_use_claim(self.policy, self.promotion_policy, *holdout)
 
     def evaluate(
         self, holdout: RoutingLineage | None = None
@@ -75,6 +89,7 @@ class FrozenPolicyHoldoutTests(TestCase):
             self.sealed,
             self.calibration_report,
             self.policy,
+            self.promotion_policy,
             self.claim(selected),
         )
 
@@ -105,6 +120,7 @@ class FrozenPolicyHoldoutTests(TestCase):
             self.sealed,
             self.calibration_report,
             self.policy,
+            self.promotion_policy,
             self.claim(self.holdout),
             report,
         )
@@ -176,6 +192,7 @@ class FrozenPolicyHoldoutTests(TestCase):
                 self.sealed,
                 self.calibration_report,
                 self.policy,
+                self.promotion_policy,
                 changed_claim,
             )
         report = self.evaluate()
@@ -190,8 +207,26 @@ class FrozenPolicyHoldoutTests(TestCase):
                 self.sealed,
                 self.calibration_report,
                 self.policy,
+                self.promotion_policy,
                 claim,
                 changed_report,
+            )
+
+        changed_promotion_policy = self.promotion_policy.model_copy(
+            update={"max_mean_cost_regret_microusd": 1}
+        )
+        with self.assertRaisesRegex(ValueError, "claim provenance"):
+            evaluate_frozen_routing_policy(
+                self.dataset,
+                self.plan,
+                *self.calibration,
+                *self.holdout,
+                self.manifest,
+                self.sealed,
+                self.calibration_report,
+                self.policy,
+                changed_promotion_policy,
+                claim,
             )
 
     def test_calibration_matrix_cannot_be_substituted_for_holdout(self) -> None:
@@ -206,6 +241,7 @@ class FrozenPolicyHoldoutTests(TestCase):
                 self.sealed,
                 self.calibration_report,
                 self.policy,
+                self.promotion_policy,
                 claim,
             )
 
@@ -265,6 +301,7 @@ class FrozenPolicyHoldoutTests(TestCase):
                 "sealed": self.sealed,
                 "report": self.calibration_report,
                 "policy": self.policy,
+                "promotion_policy": self.promotion_policy,
             }
             lineage_names = (
                 "batch",
@@ -305,6 +342,8 @@ class FrozenPolicyHoldoutTests(TestCase):
                 str(paths["report"]),
                 "--candidate-policy",
                 str(paths["policy"]),
+                "--promotion-policy",
+                str(paths["promotion_policy"]),
                 "--holdout-use-directory",
                 str(claim_directory),
             ]
