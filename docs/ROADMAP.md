@@ -69,8 +69,10 @@
    promotion-readiness receipt only after both split lineages are recomputed, while
    configuration and activation remain denied. Deterministic retained package
    archives now preserve and semantically reverify every validated byte without
-   extraction or authority. Next: bind archives to current receipts, then rollback,
-   revocation, transactional installation, and post-promotion drift evidence.
+   extraction or authority. Current release evidence now recomputes both split
+   lineages and binds those exact bytes to a still-valid promotion receipt. Next:
+   authenticated revocation and rollback, then transactional installation and
+   post-promotion drift evidence.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

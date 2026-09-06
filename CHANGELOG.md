@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add current skill-release evidence that semantically reverifies a retained package,
+  recomputes both authenticated evaluation lineages, and binds the exact archive to
+  its signed promotion receipt while literally denying installation, activation,
+  and configuration mutation.
+- Add a host-clock CLI gate and adversarial tests for package substitution, receipt
+  expiry, evidence tampering, full-lineage verification, and private output.
+
 - Add deterministic retained skill-package archives containing every immutable
   validated byte, per-file and whole-package commitments, semantic descriptor and
   instruction revalidation, explicit project opt-in, and literal denial of

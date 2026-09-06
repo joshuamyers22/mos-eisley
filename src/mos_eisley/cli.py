@@ -115,6 +115,7 @@ from mos_eisley.evaluation.skill_comparison import (
     seal_skill_comparison,
 )
 from mos_eisley.evaluation.skill_promotion import (
+    AuthenticatedSkillPromotion,
     SignedSkillPromotionDecision,
     SkillPromotionAuthorityPolicy,
     authenticate_skill_promotion,
@@ -152,6 +153,7 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
+from mos_eisley.run.skill_release import bind_skill_release_evidence
 from mos_eisley.run.skills import (
     bind_skill_roster,
     discover_skills,
@@ -548,6 +550,37 @@ def parser() -> argparse.ArgumentParser:
             "resolution-trust-policy",
         ):
             eval_authenticate_skill_promotion.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_bind_skill_release = subcommands.add_parser(
+        "eval-bind-skill-release-evidence",
+        help="Bind retained skill bytes to current authenticated promotion evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "authority-policy",
+        "archive",
+        "output",
+    ):
+        eval_bind_skill_release.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_bind_skill_release.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
     eval_seal_routing = subcommands.add_parser(
@@ -1298,6 +1331,74 @@ def _authenticate_skill_promotion_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _bind_skill_release_evidence_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    sealed = SealedSkillComparison.model_validate_json(
+        read_bounded(cast(Path, args.sealed_comparison), 2_000_000)
+    )
+    claim = SkillHoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    calibration_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 2_000_000)
+    )
+    holdout_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 2_000_000)
+    )
+    promotion = AuthenticatedSkillPromotion.model_validate_json(
+        read_bounded(cast(Path, args.promotion_receipt), 128_000)
+    )
+    authority_policy = SkillPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.authority_policy), 64_000)
+    )
+    archive = SkillPackageArchive.model_validate_json(
+        read_bounded(cast(Path, args.archive), 6_000_000)
+    )
+    evidence = bind_skill_release_evidence(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        authority_policy,
+        archive,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, evidence)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_evidence.bound",
+                "path": str(output),
+                "release_evidence_sha256": evidence.release_evidence_sha256,
+                "archive_sha256": evidence.archive_sha256,
+                "promotion_receipt_sha256": evidence.promotion_receipt_sha256,
+                "valid_until": evidence.valid_until.isoformat(),
+                "package_retained": evidence.package_retained,
+                "promotion_ready": evidence.promotion_ready,
+                "installation_authorized": evidence.installation_authorized,
+                "activation_authorized": evidence.activation_authorized,
+                "configuration_mutation_authorized": (
+                    evidence.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -1983,6 +2084,7 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-score-skill-comparison": _score_skill_comparison_command,
         "eval-derive-skill-promotion": _derive_skill_promotion_command,
         "eval-authenticate-skill-promotion": (_authenticate_skill_promotion_command),
+        "eval-bind-skill-release-evidence": (_bind_skill_release_evidence_command),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

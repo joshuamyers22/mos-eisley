@@ -1557,7 +1557,26 @@ the retained bytes. It performs no extraction or materialization. Project-source
 retention requires invocation-local approval, and the archive schema fixes
 installation, activation, and configuration mutation authority to false.
 
-This closes byte retention, not deployment. The archive does not prove authorship
-or safety and is not yet bound to a current promotion receipt. Revocation, rollback,
-transactional installation/default changes, and post-install drift monitoring remain
-separate mandatory gates.
+This closes byte retention alone, not deployment. The next subsection adds a current
+promotion-evidence binding; authorship, revocation, rollback, transactional
+installation/default changes, and post-install drift monitoring remain separate
+mandatory gates.
+
+### 25.7 Implemented current archive-to-promotion binding
+
+A `SkillReleaseEvidence` artifact now joins one semantically reverified retained
+archive to one authenticated promotion receipt. Creation recomputes both complete
+dual-human-grade lineages, the signed promotion decision, and the archive's parsed
+descriptor before requiring exact `SkillIdentity` equality. The CLI supplies the
+host UTC clock and rejects a receipt at its expiration boundary.
+
+The artifact embeds both sources and commits their canonical digests, exact candidate
+identity, check time, and receipt-bounded expiration. It can only represent a passing,
+retained evidence state; literal schema fields continue to deny installation,
+activation, and configuration mutation. Reverification rebuilds the artifact and can
+also require that it remains current at a separately supplied time.
+
+This closes package substitution between evaluated identity and retained bytes. It
+does not authenticate the package author, establish an external timestamp, consult a
+revocation witness, select a rollback target, materialize files, change defaults, or
+monitor post-install drift. Those remain independent prerequisites for deployment.
