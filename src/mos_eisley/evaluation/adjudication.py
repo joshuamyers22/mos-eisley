@@ -286,8 +286,26 @@ def compile_observations(
     if grading_batch != expected_grading_batch:
         raise ValueError("grading batch does not match its source artifacts")
     validate_adjudication(grading_batch, adjudication)
+    observations = join_validated_judgments(
+        mapping, raw_results, adjudication.judgments, adjudication.adjudicator.method
+    )
+    return ObservationSet(
+        plan_sha256=plan.plan_sha256,
+        raw_results_sha256=raw_results.raw_results_sha256,
+        adjudication_sha256=adjudication.adjudication_sha256,
+        observations=observations,
+    )
+
+
+def join_validated_judgments(
+    mapping: BlindingMap,
+    raw_results: RawResultSet,
+    source_judgments: tuple[Judgment, ...],
+    method: Literal["fixture", "human"],
+) -> tuple[Observation, ...]:
+    """Join already validated judgments to their private assignment identities."""
     entries = {entry.sample_id: entry for entry in mapping.entries}
-    judgments = {judgment.sample_id: judgment for judgment in adjudication.judgments}
+    judgments = {judgment.sample_id: judgment for judgment in source_judgments}
     observations: list[Observation] = []
     for result in raw_results.results:
         entry = entries[result.sample_id]
@@ -300,7 +318,7 @@ def compile_observations(
                     status="error",
                     latency_ms=result.latency_ms,
                     cost_microusd=result.cost_microusd,
-                    adjudication=adjudication.adjudicator.method,
+                    adjudication=method,
                     error=result.error,
                 )
             )
@@ -316,12 +334,7 @@ def compile_observations(
                 false_positive_count=judgment.false_positive_count,
                 latency_ms=result.latency_ms,
                 cost_microusd=result.cost_microusd,
-                adjudication=adjudication.adjudicator.method,
+                adjudication=method,
             )
         )
-    return ObservationSet(
-        plan_sha256=plan.plan_sha256,
-        raw_results_sha256=raw_results.raw_results_sha256,
-        adjudication_sha256=adjudication.adjudication_sha256,
-        observations=tuple(observations),
-    )
+    return tuple(observations)

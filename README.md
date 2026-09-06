@@ -34,6 +34,10 @@ uv run --frozen mos review \
   --cassette .mos-eisley/runs/<run-id>/cassette.json --json
 ```
 
+Prompt-only [skills](docs/SKILLS.md) can bind exact, digest-pinned personas to a
+recorded cassette without changing its requests. Discovery roots and project-source
+approval are always explicit; validation grants no trust or authority.
+
 The first live provider uses OpenAI's Responses API with the documented default
 `gpt-6-astra` model. The command reads only the named files, requires an environment
 credential and explicit acknowledgement, sends `store=false`, exposes no tools, and
@@ -87,6 +91,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Reviewed pricing policies, pre-generation token-count reservations and private
   spending receipts; uncertain outcomes retain the full reservation without retry.
+- A non-streaming OpenAI HTTP client that bounds decoded response bodies before SDK
+  JSON construction, including compressed and chunked responses.
 - Transactional shared spending ledger with cross-process admission, conservative
   crash handling and a scope-wide block after recorded pricing violations.
 - Content-addressed backend × model × effort sweep plans with pre-registered gates,
@@ -102,12 +108,65 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   host mounts/network, bounded pipes/resources and real containment probes in CI.
 - [Detached cleanup watchdog](docs/CONTAINER_LIFECYCLE.md) with a readiness gate,
   independent lifetime, private receipts and launcher-SIGKILL recovery tests.
+- [Request-bound provider grants and private IPC](docs/PROVIDER_BROKER.md), with
+  fixture-tested container roundtrips, host-only spending, disconnect cancellation,
+  assignment audit chains and read-only crash inventory.
+- [Brokered evaluation conformance artifacts](docs/BROKERED_EVALUATION.md) binding
+  strict critiques to response, audit, assignment, usage, latency and settled spend;
+  these artifacts are explicitly non-scoreable.
+- A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
+  using blinded input and strict structured `Critique` output, plus an explicit
+  one-assignment CLI whose provider and container boundaries are fixture-substituted.
+- [Ed25519 adjudication authentication](docs/ADJUDICATION_AUTHENTICATION.md)
+  binding exact human grades to an independently supplied public-key trust policy.
+- [Dual authenticated grading](docs/DUAL_GRADE_RESOLUTION.md) that preserves both
+  signed originals and requires a disjoint signed resolver to exactly cover every
+  conflict. Its output remains deliberately disconnected from scoring promotion.
+- [Dual-lineage observation compilation](docs/DUAL_LINEAGE_OBSERVATIONS.md) that
+  reverifies the complete private source chain into a distinct schema rejected by
+  legacy scoring.
+- [Dual-lineage scoring](docs/DUAL_LINEAGE_SCORING.md) that recomputes provenance,
+  shares the registered statistical formulas, and always denies promotion.
+- A [pre-registered routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md) that
+  seals label-free feature bins, role floors, fallbacks, selection rules, and
+  holdout discipline without reading outcomes or granting activation authority.
+- [Profile-aware calibration scoring](docs/ROUTING_CALIBRATION.md) from fully
+  reverified dual-grade lineage, with confidence correction across all sealed
+  profiles and no holdout outcome or route-selection input.
+- [Calibration-only candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md) that
+  enforces role floors and complete-cost evidence before applying the sealed
+  cost/latency/digest objective, while remaining unusable for runtime activation.
+- [One-attempt frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md) with an
+  exclusive local claim, full calibration and holdout lineage recomputation,
+  under-routing and cost/latency-regret measurement, and literal promotion denial.
+- [Independently authenticated routing promotion](docs/ROUTING_PROMOTION.md) with
+  pre-holdout policy-level thresholds, full evidence recomputation, signer separation,
+  and continued runtime-activation denial.
+- [Short-lived routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md)
+  from three distinct signatures over exact route policy, operational attestations,
+  and revocation control, with no model substitution or runtime/configuration power.
+- A pinned [monotonic routing-control anchor and read-only runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md)
+  that reject older-message replay and preserve revocations while granting no
+  dispatch, activation, or configuration authority.
+- [Prompt-only Agent Skills packages](docs/SKILLS.md) with bounded YAML parsing,
+  whole-package digests, immutable progressive loading, non-shadowing source
+  identities, explicit project opt-in, and replay-verified run provenance.
+- [Paired persona-skill evaluation](docs/SKILL_EVALUATION.md) that seals exact
+  prompt-only controls, consumes holdout once, reverifies dual-human-grade lineage,
+  and reports simultaneous group bounds without promotion or activation authority.
+- [Independently signed persona-skill promotion](docs/SKILL_PROMOTION.md) that
+  recomputes both split lineages, enforces evaluator/authority separation and expiry,
+  and issues evidence readiness without configuration or runtime authority.
+- [Deterministic retained skill-package archives](docs/SKILL_ARCHIVES.md) that
+  preserve every validated byte, rebuild semantic identity without extraction, and
+  literally deny installation, activation, and configuration authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
 
-The OpenAI adapter is tested against captured response shapes but has not completed
-a credentialed conformance run in this repository. Model availability depends on
+The OpenAI adapter and paid-capable conformance CLI are tested against captured
+response shapes but have not completed a credentialed conformance run in this
+repository. Model availability depends on
 account access. Live critic fan-out and judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
@@ -121,6 +180,12 @@ repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this m
 The controller and parent directories are trusted. Symlink rejection applies to
 the final file component, not to every ancestor; this is not a host sandbox.
 
+Skills are inert prompt content. Scripts, tool bundles, `allowed-tools`, remote
+registries, persistent trust, automatic discovery, SecretRef, and doctor fixes are
+not implemented. Archives retain exact bytes but provide no authorship, extraction,
+installation, configuration, or activation authority. Skill quality and persona
+changes remain evaluation-gated.
+
 Run files contain the supplied brief and recorded responses. Keep the output root
 private. File hashes detect accidental changes, not a malicious owner who can
 replace the manifest. Recorded agent runs fsync boundary events as they happen, but
@@ -132,6 +197,17 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
+[routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
+[routing calibration](docs/ROUTING_CALIBRATION.md),
+[candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),
+[frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md),
+[routing promotion](docs/ROUTING_PROMOTION.md),
+[routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md),
+[routing runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md),
+[prompt-only skills](docs/SKILLS.md),
+[retained skill archives](docs/SKILL_ARCHIVES.md),
+[prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
+[retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
