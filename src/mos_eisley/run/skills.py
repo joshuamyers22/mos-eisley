@@ -476,6 +476,12 @@ def _load_package(skill_path: Path, source: SkillSource) -> _SkillSnapshot:
 def verify_skill_archive(archive: SkillPackageArchive) -> None:
     """Rebuild all semantic metadata from retained bytes without materializing them."""
 
+    if (
+        archive.activation_authorized
+        or archive.installation_authorized
+        or archive.configuration_mutation_authorized
+    ):
+        raise ValueError("archived skill grants deployment authority")
     files = tuple((item.path, item.payload) for item in archive.files)
     identity = archive.descriptor.identity
     descriptor, _ = _describe_package(files, identity.source, identity.name)

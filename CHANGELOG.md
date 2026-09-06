@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add independent, expiring Ed25519 skill-release allow/revoke decisions that
+  reverify complete release provenance, enforce separation from promotion and
+  evaluation authorities, and optionally bind exact retained rollback bytes.
+- Add a release-scoped private append-only anchor with a pinned bootstrap floor,
+  increasing sequence/time, irreversible revocation, exact latest-state checks, and
+  literal denial of installation, activation, and configuration mutation.
+- Harden semantic archive verification so in-process objects with copied deployment
+  authority fail closed as JSON-loaded archives already did.
+
 - Add current skill-release evidence that semantically reverifies a retained package,
   recomputes both authenticated evaluation lineages, and binds the exact archive to
   its signed promotion receipt while literally denying installation, activation,

@@ -70,9 +70,13 @@
    configuration and activation remain denied. Deterministic retained package
    archives now preserve and semantically reverify every validated byte without
    extraction or authority. Current release evidence now recomputes both split
-   lineages and binds those exact bytes to a still-valid promotion receipt. Next:
-   authenticated revocation and rollback, then transactional installation and
-   post-promotion drift evidence.
+   lineages and binds those exact bytes to a still-valid promotion receipt.
+   Independent, expiring release control now authenticates exact allow/revoke state,
+   can nominate exact retained rollback bytes, and uses a release-scoped append-only
+   local anchor to reject older-message replay. It grants no install authority and
+   whole-anchor rollback still needs an external witness. Next: transactional
+   installation, atomic default changes, crash recovery, and post-promotion drift
+   evidence.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

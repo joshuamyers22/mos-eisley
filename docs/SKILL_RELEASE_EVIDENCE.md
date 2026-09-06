@@ -63,7 +63,9 @@ Positive `package_retained` and `promotion_ready` fields describe evidence only.
 materialization, default-persona mutation, or runtime consumer.
 
 The host clock is not externally trusted. The artifact does not prove package
-authorship or safety and cannot detect a later revocation. An owner who replaces all
-local trust roots and expected hashes can replace local evidence. Authenticated
-revocation, rollback selection, a transactional installer, and post-install drift
-monitoring remain required before any deployment authority can exist.
+authorship or safety and cannot detect a later revocation by itself. The follow-on
+[authenticated release-control gate](SKILL_RELEASE_CONTROL.md) adds independent
+allow/revoke evidence, exact rollback nomination, and a local monotonic anchor, but
+still grants no deployment authority. Transactional installation, atomic default
+changes, an external anti-rollback witness, and post-install drift monitoring remain
+required before deployment can exist.

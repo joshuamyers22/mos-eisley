@@ -12,7 +12,7 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from openai import AsyncOpenAI
 from pydantic import ValidationError
@@ -117,6 +117,7 @@ from mos_eisley.evaluation.skill_comparison import (
 from mos_eisley.evaluation.skill_promotion import (
     AuthenticatedSkillPromotion,
     SignedSkillPromotionDecision,
+    SkillEvaluationLineage,
     SkillPromotionAuthorityPolicy,
     authenticate_skill_promotion,
     make_skill_promotion_decision,
@@ -153,7 +154,18 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
-from mos_eisley.run.skill_release import bind_skill_release_evidence
+from mos_eisley.run.skill_release import (
+    SkillReleaseEvidence,
+    bind_skill_release_evidence,
+)
+from mos_eisley.run.skill_release_control import (
+    SignedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillReleaseControlAnchorPolicy,
+    SkillReleaseControlAuthorityPolicy,
+    authenticate_skill_release_control,
+    make_skill_release_control_decision,
+)
 from mos_eisley.run.skills import (
     bind_skill_roster,
     discover_skills,
@@ -583,6 +595,108 @@ def parser() -> argparse.ArgumentParser:
             eval_bind_skill_release.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
+    eval_derive_skill_release_control = subcommands.add_parser(
+        "eval-derive-skill-release-control",
+        help="Derive exact expiring skill release control for external signing",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "output",
+    ):
+        eval_derive_skill_release_control.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    eval_derive_skill_release_control.add_argument("--rollback-archive", type=Path)
+    eval_derive_skill_release_control.add_argument(
+        "--sequence", type=int, required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--disposition", choices=("allowed", "revoked"), required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_skill_release_control = subcommands.add_parser(
+        "eval-authenticate-skill-release-control",
+        help="Reverify release lineage and authenticate signed release control",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "signed-control",
+        "control-authority-policy",
+        "output",
+    ):
+        eval_authenticate_skill_release_control.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    eval_authenticate_skill_release_control.add_argument(
+        "--rollback-archive", type=Path
+    )
+    for control_parser in (
+        eval_derive_skill_release_control,
+        eval_authenticate_skill_release_control,
+    ):
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                control_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    for control_command, help_text in (
+        (
+            "skill-release-control-anchor-create",
+            "Create a private monotonic anchor for one exact skill release",
+        ),
+        (
+            "skill-release-control-anchor-advance",
+            "Append a current signed state to a skill release anchor",
+        ),
+        (
+            "skill-release-control-anchor-status",
+            "Verify and inspect a complete skill release control anchor",
+        ),
+    ):
+        control_anchor = subcommands.add_parser(control_command, help=help_text)
+        if control_command.endswith("create"):
+            control_anchor.add_argument("path", type=Path)
+            control_anchor.add_argument("--anchor-policy", type=Path, required=True)
+        else:
+            control_anchor.add_argument("--anchor", type=Path, required=True)
+        control_anchor.add_argument(
+            "--control-authority-policy", type=Path, required=True
+        )
+        if control_command.endswith("advance"):
+            control_anchor.add_argument("--signed-control", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -1399,6 +1513,227 @@ def _bind_skill_release_evidence_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _derive_skill_release_control_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    decision = make_skill_release_control_decision(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        cast(int, args.sequence),
+        cast(Literal["allowed", "revoked"], args.disposition),
+        rollback_archive,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "release_evidence_sha256": decision.release_evidence_sha256,
+                "sequence": decision.sequence,
+                "disposition": decision.disposition,
+                "rollback_nominated": decision.rollback is not None,
+                "authenticated": False,
+                "installation_authorized": decision.installation_authorized,
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_release_control_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    signed = SignedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control), 256_000)
+    )
+    receipt = authenticate_skill_release_control(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        signed,
+        control_authorities,
+        rollback_archive,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, receipt)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.authenticated",
+                "path": str(output),
+                "control_receipt_sha256": receipt.control_receipt_sha256,
+                "release_evidence_sha256": receipt.release_evidence_sha256,
+                "sequence": signed.decision.sequence,
+                "signer_id": signed.signature.signer_id,
+                "release_allowed": receipt.release_allowed,
+                "release_revoked": receipt.release_revoked,
+                "rollback_nominated": receipt.rollback_archive is not None,
+                "installation_authorized": receipt.installation_authorized,
+                "activation_authorized": receipt.activation_authorized,
+                "configuration_mutation_authorized": (
+                    receipt.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_create_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    policy = SkillReleaseControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    anchor = SkillReleaseControlAnchor.create(
+        cast(Path, args.path),
+        policy,
+        control_authorities,
+    )
+    snapshot = anchor.snapshot(control_authorities)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_created",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "release_evidence_sha256": (snapshot.policy.release_evidence_sha256),
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_advance_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    signed = SignedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control), 256_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.advance(signed, control_authorities, datetime.now(UTC))
+    latest = snapshot.latest
+    if latest is None:
+        raise ValueError("skill release control anchor advance produced no state")
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_advanced",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_entry_sha256": latest.anchor_entry_sha256,
+                "sequence": latest.signed_control.decision.sequence,
+                "disposition": latest.signed_control.decision.disposition,
+                "entries": snapshot.entries,
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_status_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.snapshot(control_authorities)
+    latest = snapshot.latest
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_status",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "release_evidence_sha256": (snapshot.policy.release_evidence_sha256),
+                "entries": snapshot.entries,
+                "latest_entry_sha256": (
+                    latest.anchor_entry_sha256 if latest is not None else None
+                ),
+                "latest_sequence": (
+                    latest.signed_control.decision.sequence
+                    if latest is not None
+                    else None
+                ),
+                "latest_disposition": (
+                    latest.signed_control.decision.disposition
+                    if latest is not None
+                    else None
+                ),
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -1619,6 +1954,63 @@ def _load_routing_lineage(args: argparse.Namespace, prefix: str) -> RoutingLinea
         ),
         DualGradedObservationSet.model_validate_json(
             read_bounded(path("dual_graded_observations"), 16_000_000)
+        ),
+    )
+
+
+type SkillReleaseControlSources = tuple[
+    EvaluationDataset,
+    SweepPlan,
+    SkillEvaluationLineage,
+    SkillEvaluationLineage,
+    SealedSkillComparison,
+    SkillHoldoutUseClaim,
+    SkillComparisonReport,
+    SkillComparisonReport,
+    AuthenticatedSkillPromotion,
+    SkillPromotionAuthorityPolicy,
+    SkillPackageArchive,
+    SkillReleaseEvidence,
+    SkillReleaseControlAuthorityPolicy,
+    SkillPackageArchive | None,
+]
+
+
+def _load_skill_release_control_sources(
+    args: argparse.Namespace,
+) -> SkillReleaseControlSources:
+    def load(path_name: str, limit: int) -> bytes:
+        return read_bounded(cast(Path, getattr(args, path_name)), limit)
+
+    rollback_path = cast(Path | None, args.rollback_archive)
+    return (
+        EvaluationDataset.model_validate_json(load("dataset", 16_000_000)),
+        SweepPlan.model_validate_json(load("plan", 16_000_000)),
+        _load_routing_lineage(args, "calibration"),
+        _load_routing_lineage(args, "holdout"),
+        SealedSkillComparison.model_validate_json(load("sealed_comparison", 2_000_000)),
+        SkillHoldoutUseClaim.model_validate_json(load("holdout_use_claim", 64_000)),
+        SkillComparisonReport.model_validate_json(
+            load("calibration_report", 2_000_000)
+        ),
+        SkillComparisonReport.model_validate_json(load("holdout_report", 2_000_000)),
+        AuthenticatedSkillPromotion.model_validate_json(
+            load("promotion_receipt", 128_000)
+        ),
+        SkillPromotionAuthorityPolicy.model_validate_json(
+            load("promotion_authority_policy", 64_000)
+        ),
+        SkillPackageArchive.model_validate_json(load("archive", 6_000_000)),
+        SkillReleaseEvidence.model_validate_json(load("release_evidence", 8_000_000)),
+        SkillReleaseControlAuthorityPolicy.model_validate_json(
+            load("control_authority_policy", 64_000)
+        ),
+        (
+            SkillPackageArchive.model_validate_json(
+                read_bounded(rollback_path, 6_000_000)
+            )
+            if rollback_path is not None
+            else None
         ),
     )
 
@@ -2085,6 +2477,19 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-derive-skill-promotion": _derive_skill_promotion_command,
         "eval-authenticate-skill-promotion": (_authenticate_skill_promotion_command),
         "eval-bind-skill-release-evidence": (_bind_skill_release_evidence_command),
+        "eval-derive-skill-release-control": (_derive_skill_release_control_command),
+        "eval-authenticate-skill-release-control": (
+            _authenticate_skill_release_control_command
+        ),
+        "skill-release-control-anchor-create": (
+            _skill_release_control_anchor_create_command
+        ),
+        "skill-release-control-anchor-advance": (
+            _skill_release_control_anchor_advance_command
+        ),
+        "skill-release-control-anchor-status": (
+            _skill_release_control_anchor_status_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
