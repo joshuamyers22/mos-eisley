@@ -5,6 +5,7 @@ from unittest import TestCase
 from pydantic import ValidationError
 
 from mos_eisley.core.models import Brief
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -65,6 +66,7 @@ def candidates() -> CandidateGrid:
                 effort="low",
                 client_version="mos-eisley-test/1",
                 registry_sha256="a" * 64,
+                prompt=PromptAsset(mode="inline", instructions="Review carefully."),
             ),
         )
     )

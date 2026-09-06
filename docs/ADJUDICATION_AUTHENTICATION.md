@@ -1,7 +1,7 @@
 # Adjudication authentication
 
-Mos Eisley can authenticate one route-blind human adjudication before it enters a
-future disagreement-resolution workflow. This replaces a self-asserted grader ID
+Mos Eisley can authenticate one route-blind human adjudication before it enters the
+dual-grade disagreement-resolution workflow. This replaces a self-asserted grader ID
 with proof that the exact canonical `AdjudicationSet` was signed by the private key
 corresponding to an independently trusted Ed25519 public key.
 
@@ -49,8 +49,12 @@ rotation, revocation, secure hardware and policy distribution remain operator
 responsibilities. Python cannot guarantee erasure of private-key bytes supplied to
 the signing helper.
 
-Authentication receipts are not yet accepted by `eval-agreement` or
-`eval-compile`; those commands remain offline rehearsal surfaces and every score
-still reports `promotion_ready: false`. The next gate is a mandatory dual-signed
-comparison and separately authenticated resolution artifact that preserves both
-original grades before any observation can become promotion-eligible.
+Authentication receipts are consumed by
+[`eval-resolve-adjudications`](DUAL_GRADE_RESOLUTION.md), which requires two
+authenticated graders and a disjoint signed resolver for any conflicts. The older
+`eval-agreement` and `eval-compile` commands remain offline rehearsal surfaces;
+the dual-grade artifact is accepted only by the dedicated
+[`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) path, whose distinct observation
+schema is rejected by legacy scoring and explicitly reports
+`promotion_eligible: false`. The dedicated dual-lineage scorer reverifies all
+sources and still reports `promotion_ready: false`.
