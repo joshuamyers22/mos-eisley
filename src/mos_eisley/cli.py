@@ -164,6 +164,12 @@ from mos_eisley.run.skill_default import (
     make_skill_default_decision,
     select_authenticated_skill_default,
 )
+from mos_eisley.run.skill_health import (
+    SignedSkillHealthObservation,
+    SignedSkillHealthPolicy,
+    SkillHealthAuthorityPolicy,
+    issue_skill_health_eligibility,
+)
 from mos_eisley.run.skill_installation import (
     AuthenticatedSkillInstallation,
     SignedSkillInstallationDecision,
@@ -1016,6 +1022,49 @@ def parser() -> argparse.ArgumentParser:
         "installation-authority-policy",
     ):
         default_store_status.add_argument(f"--{option}", type=Path, required=True)
+    eval_issue_skill_health = subcommands.add_parser(
+        "eval-issue-skill-health-eligibility",
+        help="Issue non-executing eligibility from signed post-selection evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "installed-store",
+        "installation-authority-policy",
+        "default-store",
+        "default-authority-policy",
+        "signed-health-policy",
+        "signed-health-observation",
+        "health-authority-policy",
+        "output",
+    ):
+        eval_issue_skill_health.add_argument(f"--{option}", type=Path, required=True)
+    eval_issue_skill_health.add_argument("--rollback-archive", type=Path)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_issue_skill_health.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -2853,6 +2902,57 @@ def _select_skill_default_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _issue_skill_health_eligibility_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    signed_policy = SignedSkillHealthPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_policy), 256_000)
+    )
+    signed_observation = SignedSkillHealthObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_observation), 256_000)
+    )
+    authorities = SkillHealthAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.health_authority_policy), 64_000)
+    )
+    eligibility = issue_skill_health_eligibility(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        default_policy,
+        signed_policy,
+        signed_observation,
+        authorities,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, eligibility)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_health.eligible",
+                "path": str(output),
+                "eligibility_sha256": eligibility.eligibility_sha256,
+                "default_pointer_sha256": eligibility.default_pointer_sha256,
+                "archive_sha256": eligibility.archive_sha256,
+                "evidence_bundle_sha256": eligibility.evidence_bundle_sha256,
+                "valid_until": eligibility.valid_until.isoformat(),
+                "health_passed": eligibility.health_passed,
+                "drift_passed": eligibility.drift_passed,
+                "runtime_preflight_eligible": (eligibility.runtime_preflight_eligible),
+                "runtime_dispatch_authorized": (
+                    eligibility.runtime_dispatch_authorized
+                ),
+                "activation_authorized": eligibility.activation_authorized,
+                "configuration_mutation_authorized": (
+                    eligibility.configuration_mutation_authorized
+                ),
+                "automatic_rollback_authorized": (
+                    eligibility.automatic_rollback_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -3631,6 +3731,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-default-store-create": _skill_default_store_create_command,
         "skill-default-store-status": _skill_default_store_status_command,
         "eval-select-skill-default": _select_skill_default_command,
+        "eval-issue-skill-health-eligibility": (
+            _issue_skill_health_eligibility_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

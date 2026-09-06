@@ -115,8 +115,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    locked, private content-addressed store with completion-marker-last durability,
    full reconstruction, and read-only crash correlation. An independently signed,
    state-bound decision can now atomically consume one use and change a private default
-   pointer with exact sequence/prior-pointer compare-and-swap. No runtime reads that
-   pointer. Next: add post-promotion drift and health evidence before runtime use.
+   pointer with exact sequence/prior-pointer compare-and-swap. Signed post-selection
+   evidence now binds that exact pointer and recomputes objective health and drift
+   thresholds against the authenticated promotion holdout under two independent
+   authorities. The expiring result remains non-executing. Next: design a one-use
+   brokered runtime preflight binding health, current control, route, spend, and exact
+   prompt bytes before any model request.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
