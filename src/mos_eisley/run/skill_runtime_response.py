@@ -35,6 +35,7 @@ from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
 _PUBLICATION_DOMAIN = b"mos-eisley/skill-runtime-response-publication/v1\x00"
+_HISTORY_DOMAIN = b"mos-eisley/skill-runtime-response-history/v1\x00"
 _STORE_WRITER = object()
 _RESPONSE = TypeAdapter(dict[str, JsonValue])
 UtcTimestamp = Annotated[datetime, Field()]
@@ -48,7 +49,7 @@ def _require_utc(value: datetime) -> datetime:
 
 
 class SkillRuntimeResponseStorePolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["skill_runtime_response_store_policy"] = (
         "skill_runtime_response_store_policy"
     )
@@ -161,6 +162,27 @@ class SkillRuntimeResponseStoreStatus(Contract):
     provider_retry_permitted: Literal[False] = False
     automatic_budget_release_authorized: Literal[False] = False
     raw_response_export_authorized: Literal[False] = False
+
+
+class SkillRuntimeResponseHistory(Contract):
+    schema_version: Literal[1] = 1
+    mode: Literal["skill_runtime_response_history"] = "skill_runtime_response_history"
+    response_store_policy_sha256: Digest
+    publications: Annotated[int, Field(ge=0)]
+    history_sha256: Digest
+    latest_publication_id: Digest | None
+    latest_publication_sha256: Digest | None
+    raw_responses_included: Literal[False] = False
+    published_results_included: Literal[False] = False
+
+    @model_validator(mode="after")
+    def consistent_latest(self) -> Self:
+        empty = self.publications == 0
+        if empty != (self.latest_publication_id is None) or empty != (
+            self.latest_publication_sha256 is None
+        ):
+            raise ValueError("runtime response history latest entry is inconsistent")
+        return self
 
 
 def _validate_private_database(path: Path) -> None:
@@ -310,7 +332,8 @@ class SkillRuntimeResponseStore:
                 "INSERT INTO store_policy VALUES (1, ?)", (canonical_bytes(policy),)
             )
             connection.execute(
-                "CREATE TABLE publications (publication_id TEXT PRIMARY KEY, "
+                "CREATE TABLE publications (sequence INTEGER NOT NULL UNIQUE "
+                "CHECK(sequence >= 1), publication_id TEXT PRIMARY KEY, "
                 "transaction_id TEXT NOT NULL UNIQUE, outcome_sha256 TEXT NOT NULL "
                 "UNIQUE, provider_request_id TEXT NOT NULL UNIQUE, "
                 "raw_response_sha256 TEXT NOT NULL, result_sha256 TEXT NOT NULL "
@@ -344,10 +367,10 @@ class SkillRuntimeResponseStore:
         ):
             raise ValueError("runtime response store exceeds policy")
         rows = connection.execute(
-            "SELECT publication_id, transaction_id, outcome_sha256, "
+            "SELECT sequence, publication_id, transaction_id, outcome_sha256, "
             "provider_request_id, raw_response_sha256, result_sha256, "
             "publication_sha256, raw_response_json, result_json, publication_json, "
-            "intent_json, outcome_json FROM publications ORDER BY rowid"
+            "intent_json, outcome_json FROM publications ORDER BY sequence"
         ).fetchall()
         records: list[
             tuple[
@@ -359,28 +382,29 @@ class SkillRuntimeResponseStore:
             ]
         ] = []
         for row in rows:
-            raw_response = bytes(row[7])
-            result = PublishedSkillRuntimeResult.model_validate_json(row[8])
-            publication = SkillRuntimeResponsePublication.model_validate_json(row[9])
-            intent = SkillRuntimeProviderSendIntent.model_validate_json(row[10])
-            outcome = SkillRuntimeProviderOutcome.model_validate_json(row[11])
+            raw_response = bytes(row[8])
+            result = PublishedSkillRuntimeResult.model_validate_json(row[9])
+            publication = SkillRuntimeResponsePublication.model_validate_json(row[10])
+            intent = SkillRuntimeProviderSendIntent.model_validate_json(row[11])
+            outcome = SkillRuntimeProviderOutcome.model_validate_json(row[12])
             try:
                 response = _RESPONSE.validate_json(raw_response, strict=True)
             except ValueError:
                 raise ValueError("runtime response store payload is invalid") from None
             if (
-                row[0] != publication.publication_id
-                or row[1] != publication.transaction_id
-                or row[2] != publication.outcome_sha256
-                or row[3] != result.provider_request_id
-                or row[4] != publication.raw_response_sha256
-                or row[5] != publication.result_sha256
-                or row[6] != publication.publication_sha256
-                or row[7] != skill_runtime_provider_response_bytes(response)
-                or row[8] != canonical_bytes(result)
-                or row[9] != canonical_bytes(publication)
-                or row[10] != canonical_bytes(intent)
-                or row[11] != canonical_bytes(outcome)
+                row[0] != len(records) + 1
+                or row[1] != publication.publication_id
+                or row[2] != publication.transaction_id
+                or row[3] != publication.outcome_sha256
+                or row[4] != result.provider_request_id
+                or row[5] != publication.raw_response_sha256
+                or row[6] != publication.result_sha256
+                or row[7] != publication.publication_sha256
+                or row[8] != skill_runtime_provider_response_bytes(response)
+                or row[9] != canonical_bytes(result)
+                or row[10] != canonical_bytes(publication)
+                or row[11] != canonical_bytes(intent)
+                or row[12] != canonical_bytes(outcome)
                 or not _publication_matches(
                     self.policy,
                     publication,
@@ -446,8 +470,10 @@ class SkillRuntimeResponseStore:
             ):
                 raise ValueError("runtime response was already published")
             connection.execute(
-                "INSERT INTO publications VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO publications VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
+                    len(records) + 1,
                     publication.publication_id,
                     publication.transaction_id,
                     publication.outcome_sha256,
@@ -478,6 +504,70 @@ class SkillRuntimeResponseStore:
             if len(matches) != 1:
                 raise ValueError("runtime response publication is absent")
             return matches[0][0], matches[0][1]
+
+    def _history(
+        self,
+        records: tuple[
+            tuple[
+                SkillRuntimeResponsePublication,
+                PublishedSkillRuntimeResult,
+                SkillRuntimeProviderSendIntent,
+                SkillRuntimeProviderOutcome,
+                bytes,
+            ],
+            ...,
+        ],
+        publications: int | None = None,
+    ) -> SkillRuntimeResponseHistory:
+        count = len(records) if publications is None else publications
+        if not 0 <= count <= len(records):
+            raise ValueError("runtime response history prefix is unavailable")
+        state = digest(_HISTORY_DOMAIN)
+        selected = records[:count]
+        for publication, _, _, _, _ in selected:
+            state = digest(
+                _HISTORY_DOMAIN
+                + bytes.fromhex(state)
+                + bytes.fromhex(publication.publication_sha256)
+            )
+        latest = selected[-1][0] if selected else None
+        return SkillRuntimeResponseHistory(
+            response_store_policy_sha256=self.policy.policy_sha256,
+            publications=count,
+            history_sha256=state,
+            latest_publication_id=(
+                latest.publication_id if latest is not None else None
+            ),
+            latest_publication_sha256=(
+                latest.publication_sha256 if latest is not None else None
+            ),
+        )
+
+    def history(self) -> SkillRuntimeResponseHistory:
+        """Return a hash-only commitment to the fully revalidated ordered history."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("runtime response store identity changed")
+            return self._history(self._records(connection))
+
+    def verify_history_prefix(
+        self, expected: SkillRuntimeResponseHistory
+    ) -> SkillRuntimeResponseHistory:
+        """Require an exact committed prefix and return the verified current head."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("runtime response store identity changed")
+            records = self._records(connection)
+            if (
+                expected.response_store_policy_sha256 != self.policy.policy_sha256
+                or self._history(records, expected.publications) != expected
+            ):
+                raise ValueError("runtime response history checkpoint does not match")
+            return self._history(records)
 
     def status(self) -> SkillRuntimeResponseStoreStatus:
         with closing(_connect(self.path)) as connection, connection:
