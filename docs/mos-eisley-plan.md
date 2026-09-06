@@ -2057,3 +2057,27 @@ that no grant was issued, direct provider dispatch is unauthorized, no request w
 sent, and retry and automatic budget release are denied. Ephemeral bearer issuance,
 the durable before-send boundary, pre-reserved transport, outcome settlement, external
 monotonic state, and credentialed conformance remain open.
+
+### 25.17 Implemented ephemeral request-bound broker capability
+
+Dispatch-authority policy schema version 2 now pins a pre-created broker-grant-store
+policy, which in turn pins the dispatch-claim and admission stores, both control
+anchors, default store, and spend ledger. Grant issuance reconstructs the entire
+routing and skill evidence graph, exact signed preparation and admission, and exact
+signed and consumed dispatch authority. It holds both control anchors, current
+default, existing held spend, admission, and dispatch claim through one durable unique
+issuance commit.
+
+The issuance store persists only exact provenance and a domain-separated hash of a
+fresh random 256-bit capability. The bearer remains in process memory, is capped at 30
+seconds and by the signed decision, redacts its representation, can be delivered once,
+and can be validly redeemed once under a lock. Redemption returns only issuance
+metadata, never prompt bytes, credentials, or a transport. A committed but lost bearer
+cannot be recreated, and an injected store failure returns no bearer while leaving all
+prior state and spend unchanged.
+
+No CLI path exports the secret. CLI commands create and inspect only the hash-bearing
+durable store. Provider request transmission, pre-reserved settlement, an fsynced
+before-send marker, response handling, cancellation, timeout, crash recovery, and
+credentialed conformance remain open. Missing or ambiguous outcomes must never imply
+retry or budget release.

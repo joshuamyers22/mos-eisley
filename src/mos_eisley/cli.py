@@ -224,6 +224,11 @@ from mos_eisley.run.skill_runtime_dispatch import (
     inspect_skill_runtime_dispatch,
     make_skill_runtime_dispatch_decision,
 )
+from mos_eisley.run.skill_runtime_grant import (
+    SkillRuntimeBrokerGrantStore,
+    SkillRuntimeBrokerGrantStorePolicy,
+    inspect_skill_runtime_broker_grant,
+)
 from mos_eisley.run.skill_runtime_preflight import (
     PreparedSkillRuntimeRequest,
     SignedSkillRuntimeDecision,
@@ -1312,6 +1317,34 @@ def parser() -> argparse.ArgumentParser:
         skill_runtime_dispatch_status.add_argument(
             f"--{option}", type=Path, required=True
         )
+    skill_runtime_grant_store_create = subcommands.add_parser(
+        "skill-runtime-broker-grant-store-create",
+        help="Create a private hash-only ephemeral-grant issuance store",
+    )
+    for option in (
+        "path",
+        "broker-grant-store-policy",
+        "dispatch-claim-store",
+        "admission-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_grant_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_grant_status = subcommands.add_parser(
+        "skill-runtime-broker-grant-status",
+        help="Inspect durable grant issuance without recovering a bearer",
+    )
+    for option in (
+        "signed-dispatch-decision",
+        "dispatch-authority-policy",
+        "broker-grant-store",
+        "spend-ledger",
+    ):
+        skill_runtime_grant_status.add_argument(f"--{option}", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -3694,6 +3727,56 @@ def _skill_runtime_dispatch_status_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _skill_runtime_broker_grant_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillRuntimeBrokerGrantStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.broker_grant_store_policy), 64_000)
+    )
+    store = SkillRuntimeBrokerGrantStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_grant_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_broker_grant_status_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    policy = SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+    )
+    status = inspect_skill_runtime_broker_grant(
+        signed,
+        policy,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_grant_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4493,6 +4576,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
             _skill_runtime_dispatch_claim_store_create_command
         ),
         "skill-runtime-dispatch-status": _skill_runtime_dispatch_status_command,
+        "skill-runtime-broker-grant-store-create": (
+            _skill_runtime_broker_grant_store_create_command
+        ),
+        "skill-runtime-broker-grant-status": (
+            _skill_runtime_broker_grant_status_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

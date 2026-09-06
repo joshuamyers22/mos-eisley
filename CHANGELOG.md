@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a pinned durable broker-grant issuance store that consumes one exact dispatch
+  claim while holding current routing, skill, default, admission, and spend guards.
+- Add a maximum-30-second memory-only 256-bit bearer with redacted representation,
+  one delivery and one hash-bound redemption; it exposes no request bytes and sends
+  nothing.
+
 - Add an independent maximum-60-second Ed25519 authority that binds one exact
   admitted skill-runtime request, route, controls, default, and held spend entry.
 - Add durable at-most-once consumption under fresh local guards while deliberately
