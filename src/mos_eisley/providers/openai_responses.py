@@ -48,6 +48,13 @@ class SDKOpenAITransport:
     def __init__(self, client: AsyncOpenAI) -> None:
         self.client = client
 
+    async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
+        try:
+            count = await self.client.responses.input_tokens.count(**cast(Any, payload))
+        except OpenAIError as error:
+            raise ProviderError("OpenAI token count failed") from error
+        return count.input_tokens
+
     async def create_response(
         self, payload: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
