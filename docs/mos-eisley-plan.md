@@ -1917,3 +1917,33 @@ It never retries, finalizes, deletes, refunds, or changes a default. Local owner
 and cloning, same-UID path replacement, external monotonic state, default selection,
 runtime consumption, and drift monitoring remain open. The next slice requires a
 separate signed default-change authority and an atomic recoverable pointer transaction.
+
+### 25.12 Implemented independent atomic default selection
+
+A default-authority policy now pins independent Ed25519 identities, the exact installed
+store and historical installation-authority policy, latest release-control anchor, one
+private default-store identity, and a bounded decision lifetime. Default authority IDs
+and keys must be disjoint from every evaluator, resolver, promoter, release controller,
+and installer in the reverified source lineage.
+
+Each decision binds the exact installed manifest, historical installation authorization
+and signed installation decision, archive and persona identity, current release-control
+entry, candidate or rollback action, next sequence, expected previous pointer digest,
+and validity window. Authentication rebuilds the complete evaluation through installed
+package provenance and rejects any release-control or default-state advance.
+
+The private default store uses rollback-journal SQLite with `synchronous=EXTRA`. Under
+the latest release-control read guard, one `BEGIN IMMEDIATE` transaction reverifies the
+entire canonical revision chain and installed packages, performs the signed
+sequence/prior-pointer compare-and-swap, inserts the unique decision and immutable
+selection record, and updates the singleton current pointer. Consumption and mutation
+therefore either commit together or both roll back. An ambiguous commit response is
+resolved through read-only status; automatic recovery is unnecessary and absent.
+
+This is a narrow control-plane configuration change. Results record
+`default_changed: true`, while every authority, pointer, result, status, and event denies
+all other configuration mutation, activation, and runtime lookup. No shipped runtime
+reads the pointer. Local database/control rollback or cloning, external monotonic state,
+post-selection health evidence, runtime consumption, drift monitoring, and automatic
+rollback remain open. The next slice adds post-promotion drift and health evidence
+before any selected prompt can reach a model request.

@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add independent Ed25519 authorization for one exact state-bound skill default
+  transition, including installed provenance, latest release control, sequence, and
+  expected prior pointer.
+- Add a private SQLite default store that atomically consumes the decision and updates
+  an immutable revision chain plus current pointer while continuing to deny runtime
+  lookup, activation, and all other configuration mutation.
+
 - Add a private content-addressed installed-skill store that consumes exact one-use
   authority, serializes cross-process commits, reconstructs every written byte, and
   durably publishes only completion-marker-last atomic transactions.

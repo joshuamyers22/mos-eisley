@@ -84,7 +84,9 @@ installer's critical section, and an exception never refunds ambiguous authority
 ## Remaining boundary
 
 The installation target now has a private content-addressed inert package layout and
-completion manifest, but still has no atomic default pointer, uninstaller, automatic
-recovery, runtime consumer, or drift monitor. Owner-driven deletion, rollback, or
-cloning of the claim store or control anchor can defeat local at-most-once and freshness
-guarantees; an external monotonic witness remains necessary for that threat model.
+completion manifest, but still has no uninstaller, automatic recovery, runtime consumer,
+or drift monitor. A separate independent authority and atomic store can now select an
+inert default pointer; installation authority itself still grants no such mutation.
+Owner-driven deletion, rollback, or cloning of local stores can defeat at-most-once and
+freshness guarantees; an external monotonic witness remains necessary for that threat
+model.

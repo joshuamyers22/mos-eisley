@@ -113,9 +113,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    before a side effect and holds release control through the future installer's
    commit window. Exact bytes can now be atomically installed into a separately
    locked, private content-addressed store with completion-marker-last durability,
-   full reconstruction, and read-only crash correlation. No default or runtime reads
-   that store. Next: independently authorize and atomically change a default pointer,
-   then add post-promotion drift evidence.
+   full reconstruction, and read-only crash correlation. An independently signed,
+   state-bound decision can now atomically consume one use and change a private default
+   pointer with exact sequence/prior-pointer compare-and-swap. No runtime reads that
+   pointer. Next: add post-promotion drift and health evidence before runtime use.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
