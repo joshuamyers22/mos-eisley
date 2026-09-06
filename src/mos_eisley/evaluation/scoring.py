@@ -15,11 +15,13 @@ from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvaluationDataset,
     EvaluationGate,
+    Observation,
     ObservationSet,
     RouteCandidate,
     Split,
     SweepPlan,
 )
+from mos_eisley.evaluation.statistics import StatisticalAssessment, assess_groups
 
 Z_95 = 1.959963984540054
 
@@ -39,6 +41,7 @@ class RouteScore(Contract):
     detection: RateInterval
     clean_false_positive_runs: RateInterval
     completion: RateInterval
+    statistical_assessment: StatisticalAssessment
     mean_cost_microusd: float | None
     cost_coverage: Annotated[float, Field(ge=0.0, le=1.0)]
     p95_latency_ms: Annotated[int, Field(ge=0)]
@@ -57,10 +60,13 @@ class RouteScore(Contract):
 
 
 class EvaluationReport(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
+    promotion_ready: Literal[False] = False
     plan_sha256: Digest
     dataset_sha256: Digest
     observations_sha256: Digest
+    raw_results_sha256: Digest
+    adjudication_sha256: Digest
     split: Split
     gate: EvaluationGate
     scores: tuple[RouteScore, ...]
@@ -145,57 +151,57 @@ def _expected_assignments(
     }
 
 
-def _expected_plan_assignments(
-    plan: SweepPlan, dataset: EvaluationDataset
-) -> set[tuple[str, Split, str, int]]:
-    return {
-        (case.id, case.split, route.candidate_id, repetition)
-        for case in dataset.cases
-        for route in plan.routes
-        for repetition in range(plan.repetitions)
-    }
-
-
-def _validate_inputs(
+def validate_observation_matrix(
     plan: SweepPlan,
     dataset: EvaluationDataset,
-    observations: ObservationSet,
+    observations: tuple[Observation, ...],
     split: Split,
 ) -> None:
-    if plan.dataset_sha256 != dataset.dataset_sha256:
-        raise ValueError("plan does not match the evaluation dataset")
-    if observations.plan_sha256 != plan.plan_sha256:
-        raise ValueError("observations do not match the sweep plan")
-    actual_plan = {
-        (
-            assignment.case_id,
-            assignment.split,
-            assignment.candidate_id,
-            assignment.repetition,
-        )
-        for assignment in plan.assignments
-    }
-    if actual_plan != _expected_plan_assignments(plan, dataset):
-        raise ValueError("plan does not contain the complete evaluation matrix")
+    plan.validate_dataset(dataset)
     expected = _expected_assignments(plan, dataset, split)
-    actual = {observation.key for observation in observations.observations}
-    if actual != expected:
+    keys = tuple(observation.key for observation in observations)
+    if len(keys) != len(set(keys)):
+        raise ValueError("observations must have unique assignment keys")
+    if set(keys) != expected:
         raise ValueError("observations do not exactly cover the requested split")
 
 
-def _score_route(
+def score_route_subset(
     route: RouteCandidate,
     plan: SweepPlan,
     dataset: EvaluationDataset,
-    observations: ObservationSet,
+    observations: tuple[Observation, ...],
     split: Split,
+    case_ids: frozenset[str],
+    comparison_strata: int = 1,
 ) -> RouteScore:
-    cases = {case.id: case for case in dataset.cases if case.split == split}
+    """Score one exact route/case subset after or alongside full-matrix checks."""
+    if route.candidate_id not in {item.candidate_id for item in plan.routes}:
+        raise ValueError("route score subset references a route outside the plan")
+    cases = {
+        case.id: case
+        for case in dataset.cases
+        if case.split == split and case.id in case_ids
+    }
+    if set(cases) != set(case_ids):
+        raise ValueError("route score subset contains an unknown or wrong-split case")
     selected = [
         observation
-        for observation in observations.observations
+        for observation in observations
         if observation.candidate_id == route.candidate_id
+        and observation.case_id in case_ids
     ]
+    expected_keys = {
+        (case_id, route.candidate_id, repetition)
+        for case_id in case_ids
+        for repetition in range(plan.repetitions)
+    }
+    selected_keys = tuple(item.key for item in selected)
+    if (
+        len(selected_keys) != len(set(selected_keys))
+        or set(selected_keys) != expected_keys
+    ):
+        raise ValueError("observations do not exactly cover the route score subset")
     defect_trials = sum(len(cases[item.case_id].expected_findings) for item in selected)
     clean = [item for item in selected if not cases[item.case_id].expected_findings]
     if defect_trials == 0 or not clean:
@@ -215,6 +221,13 @@ def _score_route(
     completion = _wilson(
         sum(item.status == "completed" for item in selected), len(selected)
     )
+    assessment = assess_groups(
+        cases,
+        selected,
+        plan.gate.statistical_design,
+        len(plan.routes),
+        comparison_strata,
+    )
     costs = [item.cost_microusd for item in selected if item.cost_microusd is not None]
     mean_cost = sum(costs) / len(costs) if costs else None
     cost_coverage = len(costs) / len(selected)
@@ -229,9 +242,13 @@ def _score_route(
         gate.max_p95_latency_ms is None or p95_latency <= gate.max_p95_latency_ms
     )
     checks = (
-        detection.lower >= gate.min_detection_lower_bound,
-        false_positives.upper <= gate.max_false_positive_upper_bound,
-        completion.lower >= gate.min_completion_lower_bound,
+        assessment.detection is not None
+        and assessment.detection.lower >= gate.min_detection_lower_bound,
+        assessment.clean_false_positive_runs is not None
+        and assessment.clean_false_positive_runs.upper
+        <= gate.max_false_positive_upper_bound,
+        assessment.completion is not None
+        and assessment.completion.lower >= gate.min_completion_lower_bound,
         passes_cost,
         passes_latency,
     )
@@ -241,6 +258,7 @@ def _score_route(
         detection=detection,
         clean_false_positive_runs=false_positives,
         completion=completion,
+        statistical_assessment=assessment,
         mean_cost_microusd=mean_cost,
         cost_coverage=cost_coverage,
         p95_latency_ms=p95_latency,
@@ -249,7 +267,22 @@ def _score_route(
         passes_completion=checks[2],
         passes_cost=checks[3],
         passes_latency=checks[4],
-        eligible=all(checks),
+        eligible=assessment.sufficient_groups and all(checks),
+    )
+
+
+def score_observation_matrix(
+    plan: SweepPlan,
+    dataset: EvaluationDataset,
+    observations: tuple[Observation, ...],
+    split: Split,
+) -> tuple[RouteScore, ...]:
+    """Score one exact split after source-specific provenance validation."""
+    validate_observation_matrix(plan, dataset, observations, split)
+    case_ids = frozenset(case.id for case in dataset.cases if case.split == split)
+    return tuple(
+        score_route_subset(route, plan, dataset, observations, split, case_ids)
+        for route in plan.routes
     )
 
 
@@ -260,15 +293,16 @@ def score(
     split: Split,
 ) -> EvaluationReport:
     """Score one split exactly; omissions and cross-split leakage are rejected."""
-    _validate_inputs(plan, dataset, observations, split)
+    if observations.plan_sha256 != plan.plan_sha256:
+        raise ValueError("observations do not match the sweep plan")
+    scores = score_observation_matrix(plan, dataset, observations.observations, split)
     return EvaluationReport(
         plan_sha256=plan.plan_sha256,
         dataset_sha256=dataset.dataset_sha256,
         observations_sha256=observations.observations_sha256,
+        raw_results_sha256=observations.raw_results_sha256,
+        adjudication_sha256=observations.adjudication_sha256,
         split=split,
         gate=plan.gate,
-        scores=tuple(
-            _score_route(route, plan, dataset, observations, split)
-            for route in plan.routes
-        ),
+        scores=scores,
     )

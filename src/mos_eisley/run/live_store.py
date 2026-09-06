@@ -7,24 +7,34 @@ from uuid import uuid4
 from mos_eisley.core.agent import AgentConfig, AgentResult
 from mos_eisley.core.models import Contract, canonical_bytes, digest
 from mos_eisley.core.protocol import JournalEvent
+from mos_eisley.providers.openai_spend import (
+    SpendPolicy,
+    SpendReceipt,
+    SpendReservation,
+)
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.journal import JsonlJournal
 from mos_eisley.run.store import MAX_ARTIFACT_BYTES, ArtifactHash, private_write
 
 LIVE_ARTIFACTS = ("config.json", "requests.jsonl", "result.json")
+SPEND_ARTIFACTS = ("spend-policy.json", "spend-reservation.json", "spend-receipt.json")
 
 
 class LiveManifest(Contract):
     schema_version: Literal[1] = 1
     run_id: str
     mode: Literal["live_openai"] = "live_openai"
+    spend_control: bool = False
     artifacts: tuple[ArtifactHash, ...]
 
 
 class LiveRunSession:
-    def __init__(self, path: Path, journal: JsonlJournal) -> None:
+    def __init__(
+        self, path: Path, journal: JsonlJournal, spend_control: bool = False
+    ) -> None:
         self.path = path
         self.journal = journal
+        self.spend_control = spend_control
         self._state: Literal["open", "completed", "aborted"] = "open"
 
     def complete(self, result: AgentResult) -> None:
@@ -35,14 +45,25 @@ class LiveRunSession:
         if len(payload) > MAX_ARTIFACT_BYTES:
             raise ValueError("live result exceeds artifact byte limit")
         private_write(self.path / "result.json", payload)
+        names = LIVE_ARTIFACTS + (SPEND_ARTIFACTS if self.spend_control else ())
+        if self.spend_control:
+            _validate_spend(
+                {
+                    name: read_bounded(self.path / name, MAX_ARTIFACT_BYTES)
+                    for name in SPEND_ARTIFACTS
+                },
+                result,
+            )
         artifacts = tuple(
             ArtifactHash(
                 name=name,
                 sha256=digest(read_bounded(self.path / name, MAX_ARTIFACT_BYTES)),
             )
-            for name in LIVE_ARTIFACTS
+            for name in names
         )
-        manifest = LiveManifest(run_id=self.path.name, artifacts=artifacts)
+        manifest = LiveManifest(
+            run_id=self.path.name, artifacts=artifacts, spend_control=self.spend_control
+        )
         private_write(self.path / "manifest.json", canonical_bytes(manifest))
         self._state = "completed"
 
@@ -52,7 +73,9 @@ class LiveRunSession:
             self._state = "aborted"
 
 
-def begin_live_run(root: Path, config: AgentConfig) -> LiveRunSession:
+def begin_live_run(
+    root: Path, config: AgentConfig, spend_policy: SpendPolicy | None = None
+) -> LiveRunSession:
     if config.provider != "openai":
         raise ValueError("live run store currently accepts only OpenAI")
     payload = canonical_bytes(config)
@@ -62,7 +85,40 @@ def begin_live_run(root: Path, config: AgentConfig) -> LiveRunSession:
     path = root / uuid4().hex
     path.mkdir(mode=0o700)
     private_write(path / "config.json", payload)
-    return LiveRunSession(path, JsonlJournal(path / "requests.jsonl"))
+    if spend_policy is not None:
+        private_write(path / "spend-policy.json", canonical_bytes(spend_policy))
+    return LiveRunSession(
+        path, JsonlJournal(path / "requests.jsonl"), spend_policy is not None
+    )
+
+
+def _validate_spend(payloads: dict[str, bytes], result: AgentResult) -> None:
+    policy = SpendPolicy.model_validate_json(payloads["spend-policy.json"])
+    reservation = SpendReservation.model_validate_json(
+        payloads["spend-reservation.json"]
+    )
+    receipt = SpendReceipt.model_validate_json(payloads["spend-receipt.json"])
+    if (
+        reservation.policy_sha256 != policy.policy_sha256
+        or receipt.reservation_sha256 != digest(canonical_bytes(reservation))
+        or receipt.status != "settled"
+        or policy.model != result.resolved_model.spec.id
+        or result.usage.requests != 1
+        or result.usage.tools != 0
+        or receipt.input_tokens != result.usage.billed_input
+        or receipt.output_tokens != result.usage.billed_output
+        or result.usage.billed_input > reservation.input_tokens
+        or result.usage.billed_output > reservation.max_output_tokens
+        or reservation.input_tokens > policy.max_input_tokens
+        or reservation.max_output_tokens > policy.max_output_tokens
+        or reservation.reserved_microusd
+        != policy.cost(reservation.input_tokens, reservation.max_output_tokens)
+        or receipt.retained_microusd
+        != policy.cost(result.usage.billed_input, result.usage.billed_output)
+        or receipt.retained_microusd > reservation.reserved_microusd
+        or reservation.reserved_microusd > policy.max_cost_microusd
+    ):
+        raise ValueError("live spending artifacts do not match the result")
 
 
 def load_live_run(
@@ -74,7 +130,10 @@ def load_live_run(
     if manifest.run_id != path.name:
         raise ValueError("live run identity does not match its directory")
     names = tuple(artifact.name for artifact in manifest.artifacts)
-    if len(names) != len(LIVE_ARTIFACTS) or set(names) != set(LIVE_ARTIFACTS):
+    expected_names = LIVE_ARTIFACTS + (
+        SPEND_ARTIFACTS if manifest.spend_control else ()
+    )
+    if len(names) != len(expected_names) or set(names) != set(expected_names):
         raise ValueError("live manifest artifact set is invalid")
     payloads: dict[str, bytes] = {}
     for artifact in manifest.artifacts:
@@ -90,6 +149,8 @@ def load_live_run(
         raise ValueError("live journal sequence is invalid")
     config = AgentConfig.model_validate_json(payloads["config.json"])
     result = AgentResult.model_validate_json(payloads["result.json"])
+    if manifest.spend_control:
+        _validate_spend(payloads, result)
     if (
         config.provider != "openai"
         or result.resolved_model.spec.provider != "openai"
