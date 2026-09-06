@@ -4,6 +4,16 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add independently signed OpenAI organization usage/cost evidence that
+  reauthenticates exact runtime conformance and publication lineage, requires a
+  complete exclusive one-request aggregate, and rejects token or cost mismatch.
+- Fix request-level attribution, invoice finality, ledger mutation, budget release,
+  retry, quality, promotion, and routing authority to false because documented billing
+  exports are aggregate rather than response-ID-bound.
+- Add verification-only billing evidence CLI commands that accept no OpenAI credential
+  or signing key and expose neither raw evidence, project/API-key identifiers, nor
+  response content.
+
 - Add hash-only rolling response-publication history commitments and policy-pinned
   Ed25519 checkpoints that detect deletion, reordering, or divergent replacement while
   accepting legitimate later publications.

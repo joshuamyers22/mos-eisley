@@ -205,6 +205,10 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Skill runtime publication witness](docs/SKILL_RUNTIME_PUBLICATION_WITNESS.md)
   that signs a rolling hash-only history checkpoint for separately retained rollback
   and divergence detection without exporting response or result content.
+- [Skill runtime aggregate billing evidence](docs/SKILL_RUNTIME_BILLING_EVIDENCE.md)
+  that independently authenticates complete exclusive OpenAI usage/cost aggregates
+  against exact conformance and publication lineage without claiming response-level
+  attribution, invoice finality, refund authority, quality, or activation.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -285,6 +289,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [skill runtime response publication](docs/SKILL_RUNTIME_RESPONSE_PUBLICATION.md),
 [skill runtime OpenAI conformance attestation](docs/SKILL_RUNTIME_CONFORMANCE.md),
 [skill runtime publication witness](docs/SKILL_RUNTIME_PUBLICATION_WITNESS.md),
+[skill runtime aggregate billing evidence](docs/SKILL_RUNTIME_BILLING_EVIDENCE.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [skill-release control adversarial review](docs/MILESTONE_27_REVIEW.md),
@@ -301,6 +306,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [runtime response-publication adversarial review](docs/MILESTONE_38_REVIEW.md),
 [runtime conformance-attestation adversarial review](docs/MILESTONE_39_REVIEW.md),
 [publication-history witness adversarial review](docs/MILESTONE_40_REVIEW.md),
+[aggregate billing-evidence adversarial review](docs/MILESTONE_41_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

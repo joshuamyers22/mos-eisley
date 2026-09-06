@@ -72,3 +72,6 @@ a portable signed prefix commitment but cannot prove external retention or that 
 verifier received the newest checkpoint.
 One separately authorized paid run is conformance evidence only and must never enter
 empirical model-routing promotion as a quality sample.
+The [aggregate billing-evidence layer](SKILL_RUNTIME_BILLING_EVIDENCE.md) can
+independently authenticate complete exclusive usage and cost aggregates against this
+receipt. It still cannot establish request-level attribution or invoice finality.

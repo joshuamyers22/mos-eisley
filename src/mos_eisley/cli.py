@@ -215,7 +215,14 @@ from mos_eisley.run.skill_runtime_admission import (
     inspect_skill_runtime_admission,
     make_skill_runtime_broker_admission,
 )
+from mos_eisley.run.skill_runtime_billing import (
+    SignedSkillRuntimeBillingObservation,
+    SkillRuntimeBillingPolicy,
+    authenticate_skill_runtime_billing_evidence,
+    make_skill_runtime_billing_observation,
+)
 from mos_eisley.run.skill_runtime_conformance import (
+    AuthenticatedSkillRuntimeConformance,
     SignedSkillRuntimeConformanceObservation,
     SkillRuntimeConformancePolicy,
     authenticate_skill_runtime_conformance,
@@ -1462,6 +1469,62 @@ def parser() -> argparse.ArgumentParser:
         "--at", type=_utc_datetime_argument, required=True
     )
     authenticate_runtime_conformance.add_argument("--output", type=Path, required=True)
+    derive_runtime_billing = subcommands.add_parser(
+        "eval-derive-skill-runtime-billing-evidence",
+        help="Derive signable metadata for exclusive aggregate billing evidence",
+    )
+    for option in (
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+        "billing-policy",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", type=Path, required=True)
+    for option in (
+        "external-input-tokens",
+        "external-output-tokens",
+        "external-cost-microusd",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", type=int, required=True)
+    for option in (
+        "usage-bucket-start",
+        "usage-bucket-end",
+        "costs-bucket-start",
+        "costs-bucket-end",
+        "evidence-retrieved-at",
+    ):
+        derive_runtime_billing.add_argument(
+            f"--{option}", type=_utc_datetime_argument, required=True
+        )
+    for option in (
+        "project-id-sha256",
+        "api-key-id-sha256",
+        "usage-evidence-sha256",
+        "costs-evidence-sha256",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", required=True)
+    derive_runtime_billing.add_argument(
+        "--attest-complete-exclusive-billing-evidence", action="store_true"
+    )
+    derive_runtime_billing.add_argument("--output", type=Path, required=True)
+    authenticate_runtime_billing = subcommands.add_parser(
+        "eval-authenticate-skill-runtime-billing-evidence",
+        help="Authenticate aggregate billing evidence against runtime lineage",
+    )
+    for option in (
+        "signed-observation",
+        "billing-policy",
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+    ):
+        authenticate_runtime_billing.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_runtime_billing.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_runtime_billing.add_argument("--output", type=Path, required=True)
     derive_runtime_checkpoint = subcommands.add_parser(
         "eval-derive-skill-runtime-publication-checkpoint",
         help="Derive a hash-only publication-history checkpoint for signing",
@@ -4095,6 +4158,114 @@ def _authenticate_skill_runtime_conformance_command(args: argparse.Namespace) ->
     return 0
 
 
+def _derive_skill_runtime_billing_evidence_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_complete_exclusive_billing_evidence):
+        raise ValueError("complete exclusive runtime billing evidence was not attested")
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_conformance), 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.billing_policy), 128_000)
+    )
+    observation = make_skill_runtime_billing_observation(
+        conformance,
+        conformance_policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        billing_policy,
+        external_input_tokens=cast(int, args.external_input_tokens),
+        external_output_tokens=cast(int, args.external_output_tokens),
+        external_cost_microusd=cast(int, args.external_cost_microusd),
+        usage_bucket_start=cast(datetime, args.usage_bucket_start),
+        usage_bucket_end=cast(datetime, args.usage_bucket_end),
+        costs_bucket_start=cast(datetime, args.costs_bucket_start),
+        costs_bucket_end=cast(datetime, args.costs_bucket_end),
+        project_id_sha256=cast(str, args.project_id_sha256),
+        api_key_id_sha256=cast(str, args.api_key_id_sha256),
+        usage_evidence_sha256=cast(str, args.usage_evidence_sha256),
+        costs_evidence_sha256=cast(str, args.costs_evidence_sha256),
+        evidence_retrieved_at=cast(datetime, args.evidence_retrieved_at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.billing_observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "publication_id": observation.publication_id,
+                "exclusive_one_request_scope_attested": (
+                    observation.exclusive_one_request_scope_attested
+                ),
+                "exact_request_cost_attribution_proven": (
+                    observation.exact_request_cost_attribution_proven
+                ),
+                "invoice_finality_proven": observation.invoice_finality_proven,
+                "ledger_mutation_authorized": observation.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    observation.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_runtime_billing_evidence_command(
+    args: argparse.Namespace,
+) -> int:
+    signed = SignedSkillRuntimeBillingObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_observation), 256_000)
+    )
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.billing_policy), 128_000)
+    )
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_conformance), 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    authenticated = authenticate_skill_runtime_billing_evidence(
+        signed,
+        billing_policy,
+        conformance,
+        conformance_policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.billing_evidence_authenticated",
+                "output": str(output),
+                "authenticated_billing_sha256": (
+                    authenticated.authenticated_billing_sha256
+                ),
+                "publication_id": authenticated.publication_id,
+                "signer_id": authenticated.signer_id,
+                "exclusive_aggregate_billing_reconciled": (
+                    authenticated.exclusive_aggregate_billing_reconciled
+                ),
+                "exact_request_cost_attribution_proven": (
+                    authenticated.exact_request_cost_attribution_proven
+                ),
+                "invoice_finality_proven": authenticated.invoice_finality_proven,
+                "ledger_mutation_authorized": authenticated.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    authenticated.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _derive_skill_runtime_publication_checkpoint_command(
     args: argparse.Namespace,
 ) -> int:
@@ -4990,6 +5161,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         ),
         "eval-authenticate-skill-runtime-conformance": (
             _authenticate_skill_runtime_conformance_command
+        ),
+        "eval-derive-skill-runtime-billing-evidence": (
+            _derive_skill_runtime_billing_evidence_command
+        ),
+        "eval-authenticate-skill-runtime-billing-evidence": (
+            _authenticate_skill_runtime_billing_evidence_command
         ),
         "eval-derive-skill-runtime-publication-checkpoint": (
             _derive_skill_runtime_publication_checkpoint_command
