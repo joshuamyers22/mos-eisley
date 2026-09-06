@@ -53,6 +53,17 @@ from mos_eisley.run.store import private_write
 from tests.test_evaluation_execution import complete_cassette, grade_item
 from tests.test_routing_protocol import study_inputs
 
+type RoutingLineage = tuple[
+    ExecutionBatch,
+    BlindingMap,
+    RawResultSet,
+    GradingBatch,
+    DualGradingResolution,
+    GradingTrustPolicy,
+    ResolutionTrustPolicy,
+    DualGradedObservationSet,
+]
+
 
 class RoutingCalibrationTests(TestCase):
     def setUp(self) -> None:
@@ -63,25 +74,47 @@ class RoutingCalibrationTests(TestCase):
         self.lineage = self.make_lineage("calibration")
 
     def make_lineage(
-        self, split: Split
-    ) -> tuple[
-        ExecutionBatch,
-        BlindingMap,
-        RawResultSet,
-        GradingBatch,
-        DualGradingResolution,
-        GradingTrustPolicy,
-        ResolutionTrustPolicy,
-        DualGradedObservationSet,
-    ]:
+        self,
+        split: Split,
+        missing_cost_model: str | None = None,
+        cost_microusd_by_model: dict[str, int | None] | None = None,
+        latency_ms_by_model: dict[str, int] | None = None,
+    ) -> RoutingLineage:
         batch, mapping = make_execution_batch(self.plan, self.dataset, split, b"n" * 32)
-        raw = run_recorded_evaluation(
-            batch,
-            complete_cassette(
-                batch.batch_sha256,
-                tuple(request.request_sha256 for request in batch.requests),
-            ),
+        cassette = complete_cassette(
+            batch.batch_sha256,
+            tuple(request.request_sha256 for request in batch.requests),
         )
+        cassette = cassette.model_copy(
+            update={
+                "exchanges": tuple(
+                    exchange.model_copy(
+                        update={
+                            "cost_microusd": (
+                                None
+                                if request.route.model == missing_cost_model
+                                else cost_microusd_by_model.get(request.route.model)
+                                if cost_microusd_by_model is not None
+                                else 1
+                                if request.route.model == "economy"
+                                else 5
+                            ),
+                            "latency_ms": (
+                                latency_ms_by_model.get(
+                                    request.route.model, exchange.latency_ms
+                                )
+                                if latency_ms_by_model is not None
+                                else exchange.latency_ms
+                            ),
+                        }
+                    )
+                    for request, exchange in zip(
+                        batch.requests, cassette.exchanges, strict=True
+                    )
+                )
+            }
+        )
+        raw = run_recorded_evaluation(batch, cassette)
         grading = make_grading_batch(self.dataset, self.plan, batch, mapping, raw)
         rubric = "b" * 64
         left_key = Ed25519PrivateKey.generate()

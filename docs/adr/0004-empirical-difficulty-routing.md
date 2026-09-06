@@ -3,8 +3,14 @@
 Date: 2026-09-05. Status: proposed; blocked on evaluation data.
 
 Implementation note: the offline routing-study protocol, feature-partition sealing,
-and profile-aware calibration scorer are implemented. Policy fitting, holdout
-evaluation, promotion, and runtime routing remain disabled.
+profile-aware calibration scorer, deterministic candidate-policy freezer, one-attempt
+holdout evaluator, independently authenticated promotion gate, and short-lived
+three-signer activation-eligibility gate are implemented. The last gate consumes
+signed operational attestations but performs no provider query or runtime mutation.
+A pinned local monotonic control anchor and read-only preflight are also implemented;
+they reject older-message replay relative to an intact database but cannot detect
+whole-file rollback without an external witness. Runtime routing and activation
+remain disabled.
 
 ## Decision
 
@@ -64,3 +70,22 @@ Provider effort labels remain incomparable. The policy treats each concrete back
 setting. A new model, client version, material provider drift or feature-schema
 change invalidates the applicable calibration and requires re-evaluation before it
 can receive traffic.
+
+An authenticated promotion is necessary but insufficient for activation eligibility.
+The exact selected and fallback routes, normalized cost ceilings, evidence-freshness
+limits, and minimum revocation sequence are fixed in a separately signed activation
+policy. A second signer attests current catalog, price, conformance, and drift values;
+a third attests emergency-stop and revocation state. Those three identities and keys
+must be mutually distinct and disjoint from every grader, resolver, and promoter.
+The derived receipt is short-lived and fully reverifiable, but explicitly grants no
+runtime or configuration authority. Operational truth, current provider state, key
+custody, latest-sequence delivery, atomic installation, and rollback remain external
+requirements.
+
+Immediately before any future transaction, read-only preflight must reconstruct that
+entire chain and require exact equality with the latest entry in the activation
+policy's pinned control anchor. Anchor sequences and issuance times only advance,
+revocations only accumulate, and the preflight lifetime is a short signed policy
+value. Because a local database can be rolled back and state can change after the
+check, the receipt grants no dispatch authority; an external monotonic witness and
+atomic one-use broker check remain required.

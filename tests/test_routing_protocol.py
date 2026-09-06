@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, Contract, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -21,6 +22,7 @@ from mos_eisley.evaluation.models import (
     ExpectedFinding,
     RouteCandidate,
     Split,
+    StatisticalDesign,
     SweepPlan,
 )
 from mos_eisley.evaluation.routing_protocol import (
@@ -38,9 +40,11 @@ from mos_eisley.evaluation.scoring import make_plan
 from mos_eisley.run.store import private_write
 
 
-def study_inputs() -> tuple[
-    EvaluationDataset, SweepPlan, PromptFeatureManifest, RoutingStudyProtocol
-]:
+def study_inputs(
+    permissive_gate: bool = False,
+    max_mean_cost_microusd: int | None = None,
+    max_p95_latency_ms: int | None = None,
+) -> tuple[EvaluationDataset, SweepPlan, PromptFeatureManifest, RoutingStudyProtocol]:
     defect = ExpectedFinding(
         id="boundary-defect",
         category="correctness",
@@ -48,21 +52,22 @@ def study_inputs() -> tuple[
     )
     cases = tuple(
         EvalCase(
-            id=f"{split}-{size}-{kind}",
+            id=f"{split}-{size}-{kind}-{replica}",
             split=cast(Split, split),
-            independence_group=f"{split}-{size}-{kind}",
+            independence_group=f"{split}-{size}-{kind}-{replica}",
             brief=Brief(
                 spec=f"Return exact value {index}.",
-                diff=f"return {size} value {index}",
+                diff=f"return {size} value {index} replica {replica}",
             ),
             expected_findings=(defect,) if kind == "defect" else (),
             risk_tags=("public-api",),
         )
-        for index, (size, split, kind) in enumerate(
-            (size, split, kind)
+        for index, (size, split, kind, replica) in enumerate(
+            (size, split, kind, replica)
             for size in ("small", "large")
             for split in ("calibration", "holdout")
             for kind in ("defect", "clean")
+            for replica in range(2)
         )
     )
     dataset = EvaluationDataset(id="routing-study", cases=cases)
@@ -74,6 +79,7 @@ def study_inputs() -> tuple[
             effort="low",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Economy review."),
         ),
         RouteCandidate(
             backend="fixture",
@@ -82,6 +88,7 @@ def study_inputs() -> tuple[
             effort="high",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Fallback review."),
         ),
     )
     plan = make_plan(
@@ -90,9 +97,14 @@ def study_inputs() -> tuple[
         1,
         7,
         EvaluationGate(
-            min_detection_lower_bound=0.8,
-            max_false_positive_upper_bound=0.1,
-            min_completion_lower_bound=0.9,
+            statistical_design=StatisticalDesign(
+                min_groups_per_metric=2 if permissive_gate else 30
+            ),
+            min_detection_lower_bound=0 if permissive_gate else 0.8,
+            max_false_positive_upper_bound=1 if permissive_gate else 0.1,
+            min_completion_lower_bound=0 if permissive_gate else 0.9,
+            max_mean_cost_microusd=max_mean_cost_microusd,
+            max_p95_latency_ms=max_p95_latency_ms,
         ),
     )
     assignments = tuple(
@@ -125,7 +137,7 @@ def study_inputs() -> tuple[
         feature_partition=FeaturePartition(
             input_bytes_upper_bounds=(1024,),
             changed_files_upper_bounds=(1,),
-            changed_lines_upper_bounds=(1,),
+            changed_lines_upper_bounds=(1, 2),
             language_count_upper_bounds=(1,),
         ),
         uncalibrated_action="role_fallback",
@@ -213,7 +225,7 @@ class RoutingProtocolTests(TestCase):
         first = next(
             item for item in manifest.assignments if item.features.changed_lines == 1
         )
-        changed_features = first.features.model_copy(update={"changed_lines": 2})
+        changed_features = first.features.model_copy(update={"changed_lines": 3})
         remaining = tuple(item for item in manifest.assignments if item is not first)
         changed = manifest.model_copy(
             update={
