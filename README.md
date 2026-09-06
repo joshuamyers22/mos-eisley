@@ -132,6 +132,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Calibration-only candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md) that
   enforces role floors and complete-cost evidence before applying the sealed
   cost/latency/digest objective, while remaining unusable for runtime activation.
+- [One-attempt frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md) with an
+  exclusive local claim, full calibration and holdout lineage recomputation,
+  under-routing and cost/latency-regret measurement, and literal promotion denial.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -166,6 +169,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
 [routing calibration](docs/ROUTING_CALIBRATION.md),
 [candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),
+[frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

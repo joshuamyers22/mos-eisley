@@ -42,9 +42,11 @@
    profile and route without accepting holdout outcomes. Calibration-only policy
    freezing now applies the sealed role floors, complete-cost requirement, and
    deterministic objective while recording holdout as unevaluated and denying
-   activation. Next run explicitly authorized credentialed conformance, implement
-   one-time frozen-policy holdout evaluation, then run the repeated backend × model ×
-   effort sweep on clean and defective samples. Learn and
+   activation. One-attempt frozen-policy holdout evaluation now uses a private,
+   exclusive local claim, reverifies both source lineages, and reports adequacy,
+   under-routing, fallback coverage, and cost regret without promotion authority.
+   Next run explicitly authorized credentialed conformance, then run the repeated
+   backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

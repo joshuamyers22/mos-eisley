@@ -233,11 +233,12 @@ unless it runs inside the planned sandbox. The tool also cannot prove that a hum
 judgment is correct, that thresholds were authored before results were seen, or
 that the person holding an enrolled signing key is independent. Signed receipts
 bind claimed identity and timestamps but do not attest physical identity or time.
-It does not seal a holdout set against repeated analyst access, verify independence
-of the declared groups, correct for comparisons across separately authored plans,
-evaluate the now-freezable candidate policy on protected holdout outcomes, or detect
-provider drift. These controls remain required before a report can promote a routing
-policy.
+It does not globally seal a holdout set against repeated analyst access, verify
+independence of the declared groups, correct for comparisons across separately
+authored plans, or detect provider drift. The separate frozen-policy evaluator now
+adds a policy-keyed local exclusive-use claim and exact holdout scoring, but an
+independent custodian is still required to enforce one-time access. These controls
+remain required before a report can promote a routing policy.
 
 Observation sets and reports now require raw-result and adjudication digests.
 Recompile older offline observations through the artifact chain; do not insert

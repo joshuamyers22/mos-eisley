@@ -70,7 +70,12 @@ from mos_eisley.evaluation.routing_calibration import (
     RoutingCalibrationReport,
     score_routing_calibration,
 )
+from mos_eisley.evaluation.routing_holdout import (
+    evaluate_frozen_routing_policy,
+    make_holdout_use_claim,
+)
 from mos_eisley.evaluation.routing_policy import (
+    FrozenCandidateRoutingPolicy,
     freeze_candidate_routing_policy,
 )
 from mos_eisley.evaluation.routing_protocol import (
@@ -101,6 +106,7 @@ from mos_eisley.run.evaluation_broker import (
     make_assignment_broker,
 )
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.holdout_use import claim_holdout_use
 from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
@@ -412,6 +418,35 @@ def parser() -> argparse.ArgumentParser:
         "output",
     ):
         eval_freeze_routing.add_argument(f"--{option}", type=Path, required=True)
+    eval_holdout_routing = subcommands.add_parser(
+        "eval-evaluate-routing-holdout",
+        help="Consume a local claim and evaluate a frozen policy on holdout",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "holdout-use-directory",
+        "output",
+    ):
+        eval_holdout_routing.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_holdout_routing.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -874,6 +909,105 @@ def _freeze_routing_policy_command(args: argparse.Namespace) -> int:
     return 0
 
 
+type RoutingLineage = tuple[
+    ExecutionBatch,
+    BlindingMap,
+    RawResultSet,
+    GradingBatch,
+    DualGradingResolution,
+    GradingTrustPolicy,
+    ResolutionTrustPolicy,
+    DualGradedObservationSet,
+]
+
+
+def _load_routing_lineage(args: argparse.Namespace, prefix: str) -> RoutingLineage:
+    def path(name: str) -> Path:
+        return cast(Path, getattr(args, f"{prefix}_{name}"))
+
+    return (
+        ExecutionBatch.model_validate_json(read_bounded(path("batch"), 16_000_000)),
+        BlindingMap.model_validate_json(read_bounded(path("mapping"), 16_000_000)),
+        RawResultSet.model_validate_json(read_bounded(path("raw_results"), 16_000_000)),
+        GradingBatch.model_validate_json(
+            read_bounded(path("grading_batch"), 16_000_000)
+        ),
+        DualGradingResolution.model_validate_json(
+            read_bounded(path("dual_grading_resolution"), 16_000_000)
+        ),
+        GradingTrustPolicy.model_validate_json(
+            read_bounded(path("grading_trust_policy"), 64_000)
+        ),
+        ResolutionTrustPolicy.model_validate_json(
+            read_bounded(path("resolution_trust_policy"), 64_000)
+        ),
+        DualGradedObservationSet.model_validate_json(
+            read_bounded(path("dual_graded_observations"), 16_000_000)
+        ),
+    )
+
+
+def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    output = cast(Path, args.output)
+    use_directory = cast(Path, args.holdout_use_directory)
+    if output.exists():
+        raise ValueError("holdout report output already exists")
+    if not use_directory.is_dir():
+        raise ValueError("holdout use directory must already exist")
+    if _paths_overlap(output, use_directory):
+        raise ValueError("holdout report and use directory must not overlap")
+
+    claim = make_holdout_use_claim(policy, *holdout)
+    claim_path = claim_holdout_use(use_directory, claim)
+    report = evaluate_frozen_routing_policy(
+        dataset,
+        plan,
+        *calibration,
+        *holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        policy,
+        claim,
+    )
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_holdout.evaluated",
+                "path": str(output),
+                "claim_path": str(claim_path),
+                "holdout_report_sha256": report.holdout_report_sha256,
+                **report.summary.model_dump(mode="json"),
+                "holdout_status": report.holdout_status,
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
@@ -883,6 +1017,7 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
+        "eval-evaluate-routing-holdout": _evaluate_routing_holdout_command,
     }
     handler = handlers.get(args.command)
     return handler(args) if handler is not None else None

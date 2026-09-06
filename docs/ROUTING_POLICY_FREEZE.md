@@ -56,4 +56,5 @@ does not establish holdout quality, provider availability, current pricing, drif
 stability, or production safety. A separate one-time holdout evaluator must measure
 coverage, under-routing, regret, detection, false positives, completion, latency,
 and cost without changing this frozen artifact. Promotion and activation require
-later independent authorization.
+later independent authorization. The implemented next boundary is documented in
+[frozen-policy holdout evaluation](ROUTING_HOLDOUT.md).

@@ -360,6 +360,16 @@ routes makes the profile uncalibrated; use the sealed fallback or fail closed. T
 frozen candidate policy records that holdout is unevaluated and cannot activate a
 runtime route.
 
+The implemented holdout boundary consumes a policy-keyed exclusive claim in an
+existing private directory before scoring. It reverifies the frozen calibration
+chain and the complete independent holdout chain, preserves every profile/route
+score, and reports selected-route adequacy, under-routing, missed adequate
+alternatives, fallback/fail-closed coverage, and cost/latency regret. Incomplete cost
+coverage suppresses hindsight-cheapest and regret claims. This local claim is
+crash-conservative but cannot prevent an analyst from copying data, selecting a new
+claim directory, deleting state, or reading holdout outcomes elsewhere; independent
+custody is still required. The report grants neither promotion nor activation.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.
@@ -963,6 +973,12 @@ Fit an interpretable prompt-difficulty policy on the calibration split, freeze i
 a content-addressed artifact, then measure routing quality once on a final holdout.
 Never tune thresholds on that holdout. Report confidence intervals and under-routing
 separately for each role, backend, provider, repository domain and risk tag.
+
+Current implementation evaluates each sealed prompt profile, preserves all candidate
+scores, and reports route adequacy, fallback/fail-closed coverage and cost/latency
+regret. Its exclusive local claim prevents an accidental second CLI attempt for the
+same frozen policy in one trusted directory; it is not a substitute for independently
+controlled holdout access.
 
 Two expectations worth confirming rather than assuming:
 

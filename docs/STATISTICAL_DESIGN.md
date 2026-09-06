@@ -86,20 +86,23 @@ targets. Plan sample size from the formula and the chosen thresholds before buyi
 a sweep; a minimum count alone is insufficient. Statistical power analysis and
 less conservative methods require a separately reviewed protocol.
 
-Only one fixed matrix is covered. Repeated inspection of unchanged data does not
-add evidence; adding cases, changing thresholds, trying new candidate grids or
-stopping as soon as a gate passes invalidates the original guarantee. Sequential
-stopping, adaptive candidate selection and family-wide tracking across multiple
-plans are not implemented. Freeze selection on calibration, then test once on
-holdout under a pre-registered protocol before promotion.
+Only one fixed matrix is covered. The frozen-policy holdout command consumes an
+exclusive policy-keyed claim before scoring, but this is only a local guard; copied
+data, another claim directory, or other software can bypass it. Repeated inspection
+of unchanged data does not add evidence; adding cases, changing thresholds, trying
+new candidate grids or stopping as soon as a gate passes invalidates the original
+guarantee. Sequential stopping, adaptive candidate selection and family-wide
+tracking across multiple plans are not implemented. Freeze selection on calibration,
+then test once on holdout under a pre-registered protocol before promotion.
 
 Group independence, physical adjudicator identity and labels are operator claims.
 Exact duplicates and split conflicts are detectable; hidden common ancestry and
 semantic duplicates are not. Ed25519 receipts authenticate exact human grading to
 enrolled keys; the separate dual-grade path now requires authenticated comparison,
 resolution, observation compilation and full-chain scoring. The resulting report
-still has literal `promotion_ready: false`. External protocol attestation, holdout
-access control, isolated live execution and representative empirical data remain
+still has literal `promotion_ready: false`. External protocol attestation,
+independently enforced holdout access control, isolated live execution and
+representative empirical data remain
 prerequisites for routing promotion.
 
 Per-finding grading and descriptive two-grader agreement are now implemented.

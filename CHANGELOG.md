@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add one-attempt frozen-policy holdout evaluation with a private exclusive local
+  claim, full calibration/holdout lineage recomputation, profile-level adequacy,
+  under-routing, fallback coverage, conservative cost/latency regret, and literal
+  promotion/activation denial.
+
 - Add deterministic calibration-only candidate-policy freezing with sealed role
   floors, complete-cost requirements, explicit fallback/fail-closed decisions,
   full lineage recomputation, and literal holdout/promotion/activation denial.
