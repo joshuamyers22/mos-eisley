@@ -1537,6 +1537,27 @@ the decision again, and verifies the signature. A signed failed experiment remai
 a denial. The resulting receipt can claim promotion readiness but literally denies
 configuration mutation and activation.
 
-This is an evidence-authorization boundary, not installation. Package archives,
-author signatures, rollback, revocation, transactional default changes, and drift
-monitoring remain mandatory future work.
+This is an evidence-authorization boundary, not installation. The next retained-byte
+archive slice is documented below; author signatures, rollback, revocation,
+transactional default changes, and drift monitoring remain mandatory future work.
+
+### 25.6 Implemented deterministic package retention
+
+A retained skill archive now serializes every path and exact byte from the loader's
+immutable validated snapshot. Canonical base64, per-file byte counts and digests,
+canonical path ordering, collision checks, and the existing domain-separated package
+digest make the archive deterministic and content addressed. Retention never
+reopens the package, so a post-discovery filesystem mutation cannot change the
+archive selected by its exact qualified reference.
+
+Archive verification is deliberately semantic as well as structural: it reparses
+the retained `SKILL.md` and optional `mos.yaml`, re-applies the prompt-only rules,
+and rebuilds the complete descriptor and normalized instruction-body digest from
+the retained bytes. It performs no extraction or materialization. Project-source
+retention requires invocation-local approval, and the archive schema fixes
+installation, activation, and configuration mutation authority to false.
+
+This closes byte retention, not deployment. The archive does not prove authorship
+or safety and is not yet bound to a current promotion receipt. Revocation, rollback,
+transactional installation/default changes, and post-install drift monitoring remain
+separate mandatory gates.

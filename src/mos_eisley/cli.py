@@ -23,7 +23,7 @@ from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_byte
 from mos_eisley.core.ports import Journal, ProviderError
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
-from mos_eisley.core.skills import SkillRoster
+from mos_eisley.core.skills import SkillPackageArchive, SkillRoster
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
 from mos_eisley.evaluation.adjudication import (
@@ -152,7 +152,11 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
-from mos_eisley.run.skills import bind_skill_roster, discover_skills
+from mos_eisley.run.skills import (
+    bind_skill_roster,
+    discover_skills,
+    verify_skill_archive,
+)
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
@@ -771,6 +775,18 @@ def parser() -> argparse.ArgumentParser:
     skill_show.add_argument("--project-root", type=Path, action="append", default=[])
     skill_show.add_argument("--allow-project", action="store_true")
     skill_show.add_argument("--json", action="store_true")
+    skill_archive = skill_commands.add_parser(
+        "archive", help="Retain one exact validated package without installing it"
+    )
+    skill_archive.add_argument("reference")
+    skill_archive.add_argument("--user-root", type=Path, action="append", default=[])
+    skill_archive.add_argument("--project-root", type=Path, action="append", default=[])
+    skill_archive.add_argument("--allow-project", action="store_true")
+    skill_archive.add_argument("--output", type=Path, required=True)
+    skill_verify_archive = skill_commands.add_parser(
+        "verify-archive", help="Revalidate retained package bytes without extraction"
+    )
+    skill_verify_archive.add_argument("archive", type=Path)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -1988,10 +2004,56 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
 
 
 def _skills_command(args: argparse.Namespace) -> int:
+    if args.skill_command == "verify-archive":
+        archive = SkillPackageArchive.model_validate_json(
+            read_bounded(cast(Path, args.archive), 6_000_000)
+        )
+        verify_skill_archive(archive)
+        print(
+            json.dumps(
+                {
+                    "type": "skill.archive_verified",
+                    "path": str(cast(Path, args.archive)),
+                    "archive_sha256": archive.archive_sha256,
+                    "package_sha256": archive.descriptor.identity.package_sha256,
+                    "activation_authorized": archive.activation_authorized,
+                    "installation_authorized": archive.installation_authorized,
+                    "configuration_mutation_authorized": (
+                        archive.configuration_mutation_authorized
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     catalog = discover_skills(
         user_roots=tuple(cast(list[Path], args.user_root)),
         project_roots=tuple(cast(list[Path], args.project_root)),
     )
+    if args.skill_command == "archive":
+        archive = catalog.archive(
+            cast(str, args.reference),
+            allow_project=cast(bool, args.allow_project),
+        )
+        output = cast(Path, args.output)
+        _write_contract(output, archive)
+        print(
+            json.dumps(
+                {
+                    "type": "skill.archived",
+                    "path": str(output),
+                    "archive_sha256": archive.archive_sha256,
+                    "package_sha256": archive.descriptor.identity.package_sha256,
+                    "activation_authorized": archive.activation_authorized,
+                    "installation_authorized": archive.installation_authorized,
+                    "configuration_mutation_authorized": (
+                        archive.configuration_mutation_authorized
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     if args.skill_command == "show":
         activated = catalog.activate(
             cast(str, args.reference),
