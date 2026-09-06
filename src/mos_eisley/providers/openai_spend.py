@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Protocol, Self
 
@@ -40,8 +40,11 @@ class SpendPolicy(Contract):
             raise ValueError("pricing validity window must be positive")
         return self
 
-    def check_current(self) -> None:
-        if not self.valid_from <= datetime.now(UTC) < self.valid_until:
+    def check_current(self, now: datetime | None = None) -> None:
+        current = now if now is not None else datetime.now(UTC)
+        if current.tzinfo is None or current.utcoffset() != timedelta(0):
+            raise ValueError("spending policy clock must use an explicit UTC offset")
+        if not self.valid_from <= current < self.valid_until:
             raise ValueError("spending policy is outside its validity window")
 
     @property

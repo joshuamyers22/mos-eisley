@@ -489,6 +489,20 @@ def verify_skill_archive(archive: SkillPackageArchive) -> None:
         raise ValueError("archived skill descriptor does not match retained bytes")
 
 
+def prompt_asset_from_skill_archive(archive: SkillPackageArchive) -> PromptAsset:
+    """Rebuild the exact persona prompt from authenticated retained bytes."""
+    verify_skill_archive(archive)
+    identity = archive.descriptor.identity
+    descriptor, body = _describe_package(
+        tuple((item.path, item.payload) for item in archive.files),
+        identity.source,
+        identity.name,
+    )
+    if descriptor != archive.descriptor or identity.kind != "persona":
+        raise ValueError("only an exact persona archive can become a runtime prompt")
+    return PromptAsset(mode="skill", instructions=body, skill=identity)
+
+
 def discover_skills(
     *,
     user_roots: tuple[Path, ...] = (),

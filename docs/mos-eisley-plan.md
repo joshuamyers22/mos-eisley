@@ -1972,8 +1972,43 @@ holdout report. The result expires at the earliest source or policy boundary.
 This remains evidence, not execution. The CLI accepts no private keys; the evidence
 bundle and measurement protocol are authenticated by digest but not fetched or
 recomputed. Local database rollback/cloning, clock integrity, continuous monitoring,
-alert delivery, runtime prompt loading, one-use dispatch, and automatic rollback remain
+alert delivery, provider dispatch, and automatic rollback remain
 open. Every artifact denies dispatch, activation, configuration mutation, and
-automatic rollback. The next slice must design a brokered one-use runtime preflight
-that binds a fresh request, exact pointer and prompt bytes, current health/control,
-route identity, and spending reservation atomically.
+automatic rollback. The non-sending preparation substrate below addresses one-use
+request, prompt, health, route, and spending admission; brokered provider dispatch
+remains a separate gate.
+
+### 25.14 Implemented one-use skill runtime preparation and spend admission
+
+A new runtime-authority policy pins the exact health authority, default store, model
+registry, and shared spend ledger while requiring its signers to be identity- and
+key-disjoint from every upstream health, default, installation, release, promotion,
+grading, and resolution authority. The signable decision fixes one request, current
+pointer and health receipt, exact reconstructed persona prompt, provider/model/effort
+route, routing-preflight digest, normalized provider/broker request hashes, reviewed
+spend policy, deterministic ledger entry, worst-case reservation, and short validity
+window.
+
+Preparation reverifies the full skill-health chain, selected installed bytes, current
+control/default state, registry and exact route with no effort substitution. The
+request explicitly acknowledges external data transfer but no transfer occurs. To
+avoid a non-atomic claim-ledger/spend-ledger composition, the shared spend-ledger insert
+itself is the one-use authorization burn. Verified release-control and default-pointer
+read locks remain held across that insertion. All provider-independent checks occur
+first. The reservation pessimistically charges the policy's maximum input tokens plus
+the requested output cap without contacting a provider.
+
+The prepared private artifact contains the exact prompt and user input but issues no
+bearer grant and records that no request was sent. A read-only status path distinguishes
+absent, held, settled, uncertain, and violation states while denying retry and automatic
+budget release. Failed inserts consume nothing; a crash after commit leaves authority
+burned and budget held.
+
+This is not dispatch. The routing preflight is exact-route matched and bound by the
+independent runtime signature, but its complete empirical source chain is not yet
+recomputed here. The existing provider transport cannot consume a pre-reserved entry
+and must not be composed because it would reserve twice. External monotonic state,
+full routing revalidation, broker admission, credentials, network send, response audit,
+settlement, and automatic rollback remain open. The next slice must build a broker that
+reverifies both control planes immediately before send and conservatively consumes and
+settles this exact held reservation without retry across ambiguity.

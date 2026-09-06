@@ -118,9 +118,13 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    pointer with exact sequence/prior-pointer compare-and-swap. Signed post-selection
    evidence now binds that exact pointer and recomputes objective health and drift
    thresholds against the authenticated promotion holdout under two independent
-   authorities. The expiring result remains non-executing. Next: design a one-use
-   brokered runtime preflight binding health, current control, route, spend, and exact
-   prompt bytes before any model request.
+   authorities. A separately signed one-use runtime preparation now reconstructs the
+   exact installed prompt, binds one selected OpenAI route and request, holds current
+   control/default locks through a worst-case shared-ledger reservation, and uses that
+   single insert as the authorization burn. It issues no broker grant and sends
+   nothing. Next: add full routing-lineage revalidation and a request-bound broker that
+   consumes the existing reservation without double-admission, then records and settles
+   the ambiguous provider-send boundary.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
