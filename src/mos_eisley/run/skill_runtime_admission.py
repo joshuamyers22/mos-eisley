@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import sqlite3
 import stat
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -273,9 +274,129 @@ class SkillRuntimeAdmissionStore:
                 raise ValueError("skill runtime admission identity is not unique")
             return matches[0] if matches else None
 
+    @contextmanager
+    def guard_admission(
+        self, expected: SkillRuntimeBrokerAdmission
+    ) -> Generator[SkillRuntimeBrokerAdmission, None, None]:
+        """Hold an exact admission read lock across a caller's local commit."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("skill runtime admission store identity changed")
+            records = self._records(connection)
+            matches = [
+                item for item in records if item.admission_id == expected.admission_id
+            ]
+            if len(matches) != 1 or matches[0] != expected:
+                raise ValueError(
+                    "skill runtime admission is not the exact stored record"
+                )
+            yield matches[0]
+
 
 def _admission_id(prepared: PreparedSkillRuntimeRequest) -> str:
     return digest(_ADMISSION_DOMAIN + bytes.fromhex(prepared.preflight_sha256))
+
+
+def _admission(
+    sources: SkillRuntimeSources,
+    routing_preflight: RoutingRuntimePreflight,
+    request: SkillRuntimeRequest,
+    ledger: SpendLedger,
+    signed: SignedSkillRuntimeDecision,
+    prepared: PreparedSkillRuntimeRequest,
+    store: SkillRuntimeAdmissionStore,
+    admitted_at: datetime,
+) -> SkillRuntimeBrokerAdmission:
+    decision = signed.decision
+    return SkillRuntimeBrokerAdmission(
+        admission_store_policy_sha256=store.policy.policy_sha256,
+        admission_id=_admission_id(prepared),
+        prepared_runtime_request_sha256=prepared.preflight_sha256,
+        signed_runtime_decision_sha256=signed.signed_decision_sha256,
+        decision_sha256=decision.decision_sha256,
+        runtime_request_sha256=request.request_sha256,
+        routing_preflight_sha256=routing_preflight.preflight_sha256,
+        routing_control_entry_sha256=routing_preflight.anchored_control_entry_sha256,
+        skill_control_entry_sha256=(
+            sources.signed_health_policy.policy.control_anchor_entry_sha256
+        ),
+        default_pointer_sha256=decision.default_pointer_sha256,
+        provider_request_sha256=decision.provider_request_sha256,
+        broker_request_sha256=decision.broker_request_sha256,
+        spend_ledger_id=ledger.policy.ledger_id,
+        ledger_entry_id=prepared.ledger_entry.entry_id,
+        spend_reservation_sha256=prepared.ledger_entry.reservation_sha256,
+        admitted_at=admitted_at,
+        valid_until=prepared.valid_until,
+    )
+
+
+def _verify_store_provenance(
+    sources: SkillRuntimeSources,
+    ledger: SpendLedger,
+    runtime_policy: SkillRuntimeAuthorityPolicy,
+    store: SkillRuntimeAdmissionStore,
+) -> None:
+    policy = store.policy
+    if (
+        runtime_policy.admission_store_policy_sha256 != policy.policy_sha256
+        or policy.routing_control_anchor_policy_sha256
+        != sources.routing.control_anchor.policy.policy_sha256
+        or policy.skill_control_anchor_policy_sha256
+        != sources.control_anchor.policy.policy_sha256
+        or policy.default_store_policy_sha256
+        != sources.default_store.policy.policy_sha256
+        or policy.spend_ledger_id != ledger.policy.ledger_id
+    ):
+        raise ValueError("skill runtime admission store provenance mismatch")
+
+
+def verify_skill_runtime_broker_admission(
+    sources: SkillRuntimeSources,
+    routing_preflight: RoutingRuntimePreflight,
+    request: SkillRuntimeRequest,
+    registry: ModelRegistry,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    runtime_policy: SkillRuntimeAuthorityPolicy,
+    signed: SignedSkillRuntimeDecision,
+    prepared: PreparedSkillRuntimeRequest,
+    admission: SkillRuntimeBrokerAdmission,
+    store: SkillRuntimeAdmissionStore,
+    now: datetime,
+) -> None:
+    """Reverify one exact current admission without granting or sending."""
+
+    current = _require_utc(now)
+    verify_prepared_skill_runtime_request(
+        sources,
+        routing_preflight,
+        request,
+        registry,
+        spend_policy,
+        ledger,
+        runtime_policy,
+        signed,
+        prepared,
+        current,
+    )
+    _verify_store_provenance(sources, ledger, runtime_policy, store)
+    rebuilt = _admission(
+        sources,
+        routing_preflight,
+        request,
+        ledger,
+        signed,
+        prepared,
+        store,
+        admission.admitted_at,
+    )
+    if rebuilt != admission or store.get(admission.admission_id) != admission:
+        raise ValueError("skill runtime broker admission provenance mismatch")
+    if not admission.admitted_at <= current < admission.valid_until:
+        raise ValueError("skill runtime broker admission is not current")
 
 
 def make_skill_runtime_broker_admission(
@@ -306,39 +427,9 @@ def make_skill_runtime_broker_admission(
         prepared,
         current,
     )
-    policy = store.policy
-    if (
-        runtime_policy.admission_store_policy_sha256 != policy.policy_sha256
-        or policy.routing_control_anchor_policy_sha256
-        != sources.routing.control_anchor.policy.policy_sha256
-        or policy.skill_control_anchor_policy_sha256
-        != sources.control_anchor.policy.policy_sha256
-        or policy.default_store_policy_sha256
-        != sources.default_store.policy.policy_sha256
-        or policy.spend_ledger_id != ledger.policy.ledger_id
-    ):
-        raise ValueError("skill runtime admission store provenance mismatch")
-    decision = signed.decision
-    admission = SkillRuntimeBrokerAdmission(
-        admission_store_policy_sha256=policy.policy_sha256,
-        admission_id=_admission_id(prepared),
-        prepared_runtime_request_sha256=prepared.preflight_sha256,
-        signed_runtime_decision_sha256=signed.signed_decision_sha256,
-        decision_sha256=decision.decision_sha256,
-        runtime_request_sha256=request.request_sha256,
-        routing_preflight_sha256=routing_preflight.preflight_sha256,
-        routing_control_entry_sha256=(routing_preflight.anchored_control_entry_sha256),
-        skill_control_entry_sha256=(
-            sources.signed_health_policy.policy.control_anchor_entry_sha256
-        ),
-        default_pointer_sha256=decision.default_pointer_sha256,
-        provider_request_sha256=decision.provider_request_sha256,
-        broker_request_sha256=decision.broker_request_sha256,
-        spend_ledger_id=ledger.policy.ledger_id,
-        ledger_entry_id=prepared.ledger_entry.entry_id,
-        spend_reservation_sha256=prepared.ledger_entry.reservation_sha256,
-        admitted_at=current,
-        valid_until=prepared.valid_until,
+    _verify_store_provenance(sources, ledger, runtime_policy, store)
+    admission = _admission(
+        sources, routing_preflight, request, ledger, signed, prepared, store, current
     )
     with (
         guard_routing_runtime_sources(sources.routing, routing_preflight, current),

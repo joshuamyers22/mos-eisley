@@ -2031,7 +2031,29 @@ the earlier conservative reservation held.
 Admission remains non-executing. It contains no request body, credential, or bearer
 capability, and every policy, artifact, status, and event denies provider dispatch,
 send, retry, and automatic release. Store copying/rollback, clock integrity, and
-organizational collusion remain external. The next slice must require independent
-dispatch authority, consume exactly one admission into a short-lived request-bound
-capability, recheck both controls and spend immediately before transfer, and record and
-settle the ambiguous send boundary without retry.
+organizational collusion remain external. The following slice adds independent
+dispatch authority and durable consumption while deliberately deferring the first
+request-bound bearer, provider transfer, and ambiguous-send settlement.
+
+### 25.16 Implemented independent dispatch-authority consumption
+
+A separate Ed25519 dispatch policy now pins the runtime-preparation authority and a
+pre-created claim-store policy. That store policy pins the admission store, both
+control anchors, default store, and spend ledger. Dispatch signers must be identity-
+and key-disjoint from runtime-preparation signers. Decisions last at most 60 seconds
+and bind the exact admission, prepared and signed runtime artifacts, route, normalized
+provider and broker request hashes, both controls, default pointer, ledger entry, and
+reservation.
+
+Consumption reconstructs the complete routing and skill lineages and exact stored
+admission. Read guards hold both latest controls, current default, existing held spend,
+and exact admission through an at-most-once claim commit. Replay, stale state, policy
+substitution, settled spend, expiry, and invalid signatures fail closed. Injected
+database failure leaves the admission and conservative spend reservation unchanged.
+
+The resulting claim authorizes only a future exchange for one request-bound grant. It
+is not a bearer and no current transport accepts it. Every contract and event records
+that no grant was issued, direct provider dispatch is unauthorized, no request was
+sent, and retry and automatic budget release are denied. Ephemeral bearer issuance,
+the durable before-send boundary, pre-reserved transport, outcome settlement, external
+monotonic state, and credentialed conformance remain open.

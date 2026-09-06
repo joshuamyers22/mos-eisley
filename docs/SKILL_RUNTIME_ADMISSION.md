@@ -79,10 +79,11 @@ dispatch, and automatic budget release.
 
 ## Deliberate limits
 
-An admission does not authorize the next process to send. The dispatch transaction
-still needs independent, explicit authority and must consume exactly one admitted
-record into a short-lived request-bound bearer capability. Immediately before the
-first provider interaction it must recheck both current controls and the held
+An admission does not authorize the next process to send. Independent explicit
+[dispatch authority](SKILL_RUNTIME_DISPATCH_AUTHORITY.md) can now be consumed exactly
+once under fresh guards, but its durable claim is still not a bearer. A later exchange
+must mint one short-lived request-bound capability. Immediately before the first
+provider interaction it must recheck both current controls and the held
 reservation, persist the ambiguous-send boundary, locally or provider-count input
 tokens, and settle response, rejection, timeout, cancellation, and lost-response
 states conservatively without retry.

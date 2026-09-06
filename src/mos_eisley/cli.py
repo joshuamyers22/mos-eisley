@@ -211,8 +211,18 @@ from mos_eisley.run.skill_release_control import (
 from mos_eisley.run.skill_runtime_admission import (
     SkillRuntimeAdmissionStore,
     SkillRuntimeAdmissionStorePolicy,
+    SkillRuntimeBrokerAdmission,
     inspect_skill_runtime_admission,
     make_skill_runtime_broker_admission,
+)
+from mos_eisley.run.skill_runtime_dispatch import (
+    SignedSkillRuntimeDispatchDecision,
+    SkillRuntimeDispatchAuthorityPolicy,
+    SkillRuntimeDispatchClaimStore,
+    SkillRuntimeDispatchClaimStorePolicy,
+    consume_skill_runtime_dispatch_authority,
+    inspect_skill_runtime_dispatch,
+    make_skill_runtime_dispatch_decision,
 )
 from mos_eisley.run.skill_runtime_preflight import (
     PreparedSkillRuntimeRequest,
@@ -1103,10 +1113,20 @@ def parser() -> argparse.ArgumentParser:
         "eval-admit-skill-runtime-request",
         help="Record one guarded broker admission without issuing a grant or sending",
     )
+    eval_derive_skill_runtime_dispatch = subcommands.add_parser(
+        "eval-derive-skill-runtime-dispatch",
+        help="Derive signed-authority input for one future request-bound grant",
+    )
+    eval_consume_skill_runtime_dispatch = subcommands.add_parser(
+        "eval-consume-skill-runtime-dispatch",
+        help="Consume dispatch authority without issuing a grant or sending",
+    )
     for runtime_parser in (
         eval_derive_skill_runtime,
         eval_prepare_skill_runtime,
         eval_admit_skill_runtime,
+        eval_derive_skill_runtime_dispatch,
+        eval_consume_skill_runtime_dispatch,
     ):
         for option in (
             "dataset",
@@ -1203,6 +1223,33 @@ def parser() -> argparse.ArgumentParser:
         "admission-store",
     ):
         eval_admit_skill_runtime.add_argument(f"--{option}", type=Path, required=True)
+    for dispatch_parser in (
+        eval_derive_skill_runtime_dispatch,
+        eval_consume_skill_runtime_dispatch,
+    ):
+        for option in (
+            "signed-runtime-decision",
+            "prepared-runtime-request",
+            "admission",
+            "admission-store",
+            "dispatch-authority-policy",
+        ):
+            dispatch_parser.add_argument(f"--{option}", type=Path, required=True)
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--dispatch-claim-store-policy", type=Path, required=True
+    )
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_consume_skill_runtime_dispatch.add_argument(
+        "--dispatch-claim-store", type=Path, required=True
+    )
+    eval_consume_skill_runtime_dispatch.add_argument(
+        "--signed-dispatch-decision", type=Path, required=True
+    )
     skill_runtime_status = subcommands.add_parser(
         "skill-runtime-preflight-status",
         help="Inspect one runtime decision's spend state without retry or send",
@@ -1234,6 +1281,35 @@ def parser() -> argparse.ArgumentParser:
     )
     for option in ("prepared-runtime-request", "admission-store", "spend-ledger"):
         skill_runtime_admission_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_dispatch_store_create = subcommands.add_parser(
+        "skill-runtime-dispatch-claim-store-create",
+        help="Create a private at-most-once non-bearer dispatch-authority store",
+    )
+    for option in (
+        "path",
+        "dispatch-claim-store-policy",
+        "admission-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_dispatch_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_dispatch_status = subcommands.add_parser(
+        "skill-runtime-dispatch-status",
+        help="Inspect one dispatch-authority claim without granting or sending",
+    )
+    for option in (
+        "signed-dispatch-decision",
+        "dispatch-authority-policy",
+        "dispatch-claim-store",
+        "spend-ledger",
+    ):
+        skill_runtime_dispatch_status.add_argument(
             f"--{option}", type=Path, required=True
         )
     eval_seal_routing = subcommands.add_parser(
@@ -3453,6 +3529,171 @@ def _skill_runtime_admission_status_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_skill_runtime_dispatch_artifacts(
+    args: argparse.Namespace,
+) -> tuple[
+    SignedSkillRuntimeDecision,
+    PreparedSkillRuntimeRequest,
+    SkillRuntimeBrokerAdmission,
+    SkillRuntimeAdmissionStore,
+    SkillRuntimeDispatchAuthorityPolicy,
+]:
+    return (
+        SignedSkillRuntimeDecision.model_validate_json(
+            read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+        ),
+        PreparedSkillRuntimeRequest.model_validate_json(
+            read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+        ),
+        SkillRuntimeBrokerAdmission.model_validate_json(
+            read_bounded(cast(Path, args.admission), 256_000)
+        ),
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+        ),
+    )
+
+
+def _derive_skill_runtime_dispatch_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed_runtime, prepared, admission, admission_store, policy = (
+        _load_skill_runtime_dispatch_artifacts(args)
+    )
+    claim_policy = SkillRuntimeDispatchClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_claim_store_policy), 64_000)
+    )
+    decision = make_skill_runtime_dispatch_decision(
+        *inputs,
+        signed_runtime,
+        prepared,
+        admission,
+        admission_store,
+        claim_policy,
+        policy,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "admission_id": decision.admission_id,
+                "route_candidate_id": decision.route_candidate_id,
+                "provider_request_sha256": decision.provider_request_sha256,
+                "ledger_entry_id": decision.ledger_entry_id,
+                "valid_until": decision.valid_until.isoformat(),
+                "may_issue_one_request_bound_grant": (
+                    decision.may_issue_one_request_bound_grant
+                ),
+                "direct_provider_dispatch_authorized": (
+                    decision.direct_provider_dispatch_authorized
+                ),
+                "broker_grant_issued": decision.broker_grant_issued,
+                "provider_request_sent": decision.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_dispatch_claim_store_create_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimeDispatchClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_claim_store_policy), 64_000)
+    )
+    store = SkillRuntimeDispatchClaimStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_claim_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _consume_skill_runtime_dispatch_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed_runtime, prepared, admission, admission_store, policy = (
+        _load_skill_runtime_dispatch_artifacts(args)
+    )
+    signed_dispatch = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    claim = consume_skill_runtime_dispatch_authority(
+        *inputs,
+        signed_runtime,
+        prepared,
+        admission,
+        admission_store,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        policy,
+        signed_dispatch,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, claim)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_authority_consumed",
+                "path": str(output),
+                "claim_sha256": claim.claim_sha256,
+                "dispatch_decision_sha256": claim.dispatch_decision_sha256,
+                "admission_id": claim.admission_id,
+                "ledger_entry_id": claim.ledger_entry_id,
+                "request_bound_grant_eligible": claim.request_bound_grant_eligible,
+                "broker_grant_issued": claim.broker_grant_issued,
+                "direct_provider_dispatch_authorized": (
+                    claim.direct_provider_dispatch_authorized
+                ),
+                "provider_request_sent": claim.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_dispatch_status_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    policy = SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+    )
+    status = inspect_skill_runtime_dispatch(
+        signed,
+        policy,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4239,11 +4480,19 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         ),
         "eval-prepare-skill-runtime-request": (_prepare_skill_runtime_request_command),
         "eval-admit-skill-runtime-request": _admit_skill_runtime_request_command,
+        "eval-derive-skill-runtime-dispatch": (_derive_skill_runtime_dispatch_command),
+        "eval-consume-skill-runtime-dispatch": (
+            _consume_skill_runtime_dispatch_command
+        ),
         "skill-runtime-preflight-status": _skill_runtime_preflight_status_command,
         "skill-runtime-admission-store-create": (
             _skill_runtime_admission_store_create_command
         ),
         "skill-runtime-admission-status": _skill_runtime_admission_status_command,
+        "skill-runtime-dispatch-claim-store-create": (
+            _skill_runtime_dispatch_claim_store_create_command
+        ),
+        "skill-runtime-dispatch-status": _skill_runtime_dispatch_status_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
