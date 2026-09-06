@@ -30,7 +30,7 @@ from mos_eisley.evaluation.models import (
 class EvaluationRequest(Contract):
     """The complete object visible to an evaluation backend."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     sample_id: Digest
     route: RouteCandidate
     brief: Brief
@@ -41,7 +41,7 @@ class EvaluationRequest(Contract):
 
 
 class ExecutionBatch(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     plan_sha256: Digest
     requests: Annotated[
         tuple[EvaluationRequest, ...], Field(min_length=1, max_length=MAX_ASSIGNMENTS)

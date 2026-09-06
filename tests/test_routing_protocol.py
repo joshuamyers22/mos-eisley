@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, Contract, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -42,6 +43,7 @@ from mos_eisley.run.store import private_write
 def study_inputs(
     permissive_gate: bool = False,
     max_mean_cost_microusd: int | None = None,
+    max_p95_latency_ms: int | None = None,
 ) -> tuple[EvaluationDataset, SweepPlan, PromptFeatureManifest, RoutingStudyProtocol]:
     defect = ExpectedFinding(
         id="boundary-defect",
@@ -77,6 +79,7 @@ def study_inputs(
             effort="low",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Economy review."),
         ),
         RouteCandidate(
             backend="fixture",
@@ -85,6 +88,7 @@ def study_inputs(
             effort="high",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Fallback review."),
         ),
     )
     plan = make_plan(
@@ -100,6 +104,7 @@ def study_inputs(
             max_false_positive_upper_bound=1 if permissive_gate else 0.1,
             min_completion_lower_bound=0 if permissive_gate else 0.9,
             max_mean_cost_microusd=max_mean_cost_microusd,
+            max_p95_latency_ms=max_p95_latency_ms,
         ),
     )
     assignments = tuple(

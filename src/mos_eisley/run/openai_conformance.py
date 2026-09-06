@@ -8,11 +8,6 @@ from mos_eisley.core.models import Critique, canonical_bytes
 from mos_eisley.evaluation.execution import EvaluationRequest, ExecutionBatch
 from mos_eisley.providers.openai_spend import SpendPolicy
 
-INSTRUCTIONS = """You are an adversarial code reviewer. Review only the supplied
-brief. Report material correctness, specification, security, or performance issues.
-Every finding must cite an exact quote from spec, diff, or constraints. Do not infer
-files or facts outside the brief. Return only the configured structured critique."""
-
 
 def _strict_schema(value: JsonValue) -> JsonValue:
     if isinstance(value, list):
@@ -61,7 +56,7 @@ def build_openai_conformance_payload(
         raise ValueError("conformance assignment differs from spending policy")
     return {
         "model": request.route.model,
-        "instructions": INSTRUCTIONS,
+        "instructions": request.route.prompt.instructions,
         "input": [
             {
                 "role": "user",

@@ -16,4 +16,5 @@ configuration mutation, promotion, activation, or publishing is included.
 
 The next gate is a one-time holdout evaluator that takes this frozen candidate policy
 as an immutable input, measures routing quality and fallback coverage, and still
-cannot promote or activate it.
+cannot promote or activate it. That boundary is now implemented; see
+[frozen-policy holdout evaluation](ROUTING_HOLDOUT.md).

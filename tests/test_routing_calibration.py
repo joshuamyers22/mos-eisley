@@ -74,7 +74,11 @@ class RoutingCalibrationTests(TestCase):
         self.lineage = self.make_lineage("calibration")
 
     def make_lineage(
-        self, split: Split, missing_cost_model: str | None = None
+        self,
+        split: Split,
+        missing_cost_model: str | None = None,
+        cost_microusd_by_model: dict[str, int | None] | None = None,
+        latency_ms_by_model: dict[str, int] | None = None,
     ) -> RoutingLineage:
         batch, mapping = make_execution_batch(self.plan, self.dataset, split, b"n" * 32)
         cassette = complete_cassette(
@@ -89,10 +93,19 @@ class RoutingCalibrationTests(TestCase):
                             "cost_microusd": (
                                 None
                                 if request.route.model == missing_cost_model
+                                else cost_microusd_by_model.get(request.route.model)
+                                if cost_microusd_by_model is not None
                                 else 1
                                 if request.route.model == "economy"
                                 else 5
-                            )
+                            ),
+                            "latency_ms": (
+                                latency_ms_by_model.get(
+                                    request.route.model, exchange.latency_ms
+                                )
+                                if latency_ms_by_model is not None
+                                else exchange.latency_ms
+                            ),
                         }
                     )
                     for request, exchange in zip(
