@@ -9,8 +9,9 @@ credential, opens no network connection, and sends nothing.
 
 A pre-created dispatch-claim-store policy pins the admission store, routing-control
 anchor, skill-control anchor, default store, and spend ledger. The signed dispatch
-policy pins both that store policy and the runtime-preparation authority policy. Its
-Ed25519 identities and keys must be disjoint from runtime-preparation authorities.
+policy schema version 2 pins that store policy, the runtime-preparation authority
+policy, and the complete pre-created broker-grant-store policy. Its Ed25519 identities
+and keys must be disjoint from runtime-preparation authorities.
 
 The short-lived decision binds:
 
@@ -70,13 +71,13 @@ automatic budget release is permitted.
 
 ## Deliberate limits
 
-The consumed claim is not accepted by any transport. The next boundary must atomically
-exchange this exact claim for a short-lived, single-use, request-bound bearer while
-rechecking controls and spend. The provider-owning process must durably record the
+The consumed claim is not accepted by any transport. A guarded
+[ephemeral broker-grant exchange](SKILL_RUNTIME_BROKER_GRANT.md) can now consume it
+into one memory-only bearer, but redemption still does not send. The provider-owning
+process must durably record the
 ambiguous send boundary before its first possible external transfer, exclusively own
 settlement, and treat timeout, cancellation, crash, and lost response conservatively
 without automatic retry or release.
 
 Local clock integrity, authority-policy distribution, key custody, same-UID access,
 database copying/rollback, and organizational independence remain trusted boundaries.
-

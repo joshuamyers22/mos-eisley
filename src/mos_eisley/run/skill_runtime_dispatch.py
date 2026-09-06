@@ -7,7 +7,8 @@ import binascii
 import os
 import sqlite3
 import stat
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -106,13 +107,14 @@ class SkillRuntimeDispatchClaimStorePolicy(Contract):
 
 
 class SkillRuntimeDispatchAuthorityPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["skill_runtime_dispatch_authority_policy"] = (
         "skill_runtime_dispatch_authority_policy"
     )
     policy_id: Identifier
     runtime_authority_policy_sha256: Digest
     dispatch_claim_store_policy_sha256: Digest
+    broker_grant_store_policy_sha256: Digest
     valid_from: UtcTimestamp
     valid_until: UtcTimestamp
     max_decision_lifetime_seconds: Annotated[int, Field(gt=0, le=60)]
@@ -599,6 +601,25 @@ class SkillRuntimeDispatchClaimStore:
                 raise ValueError("dispatch claim identity is not unique")
             return matches[0] if matches else None
 
+    @contextmanager
+    def guard_claim(
+        self, expected: ConsumedSkillRuntimeDispatchAuthority
+    ) -> Generator[ConsumedSkillRuntimeDispatchAuthority, None, None]:
+        """Hold one exact consumed claim across a caller's local commit."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("dispatch claim store identity changed")
+            matches = [
+                item
+                for item in self._records(connection)
+                if item.dispatch_decision_sha256 == expected.dispatch_decision_sha256
+            ]
+            if len(matches) != 1 or matches[0] != expected:
+                raise ValueError("dispatch authority is not the exact stored claim")
+            yield matches[0]
+
     def consume(
         self,
         signed: SignedSkillRuntimeDispatchDecision,
@@ -613,20 +634,7 @@ class SkillRuntimeDispatchClaimStore:
             or not decision.issued_at <= current < decision.valid_until
         ):
             raise ValueError("dispatch decision is not current for this claim store")
-        claim = ConsumedSkillRuntimeDispatchAuthority(
-            claim_store_policy_sha256=self.policy.policy_sha256,
-            signed_dispatch_decision_sha256=signed.signed_decision_sha256,
-            dispatch_decision_sha256=decision.decision_sha256,
-            admission_sha256=decision.admission_sha256,
-            admission_id=decision.admission_id,
-            provider_request_sha256=decision.provider_request_sha256,
-            broker_request_sha256=decision.broker_request_sha256,
-            spend_ledger_id=decision.spend_ledger_id,
-            ledger_entry_id=decision.ledger_entry_id,
-            spend_reservation_sha256=decision.spend_reservation_sha256,
-            consumed_at=current,
-            valid_until=decision.valid_until,
-        )
+        claim = _consumed_claim(signed, self, current)
         with closing(_connect(self.path)) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             if _load_policy(connection) != self.policy:
@@ -654,6 +662,78 @@ class SkillRuntimeDispatchClaimStore:
                 ),
             )
         return claim
+
+
+def _consumed_claim(
+    signed: SignedSkillRuntimeDispatchDecision,
+    store: SkillRuntimeDispatchClaimStore,
+    consumed_at: datetime,
+) -> ConsumedSkillRuntimeDispatchAuthority:
+    decision = signed.decision
+    return ConsumedSkillRuntimeDispatchAuthority(
+        claim_store_policy_sha256=store.policy.policy_sha256,
+        signed_dispatch_decision_sha256=signed.signed_decision_sha256,
+        dispatch_decision_sha256=decision.decision_sha256,
+        admission_sha256=decision.admission_sha256,
+        admission_id=decision.admission_id,
+        provider_request_sha256=decision.provider_request_sha256,
+        broker_request_sha256=decision.broker_request_sha256,
+        spend_ledger_id=decision.spend_ledger_id,
+        ledger_entry_id=decision.ledger_entry_id,
+        spend_reservation_sha256=decision.spend_reservation_sha256,
+        consumed_at=consumed_at,
+        valid_until=decision.valid_until,
+    )
+
+
+def verify_consumed_skill_runtime_dispatch_authority(
+    sources: SkillRuntimeSources,
+    routing_preflight: RoutingRuntimePreflight,
+    request: SkillRuntimeRequest,
+    registry: ModelRegistry,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    runtime_policy: SkillRuntimeAuthorityPolicy,
+    signed_runtime: SignedSkillRuntimeDecision,
+    prepared: PreparedSkillRuntimeRequest,
+    admission: SkillRuntimeBrokerAdmission,
+    admission_store: SkillRuntimeAdmissionStore,
+    claim_store: SkillRuntimeDispatchClaimStore,
+    policy: SkillRuntimeDispatchAuthorityPolicy,
+    signed_dispatch: SignedSkillRuntimeDispatchDecision,
+    claim: ConsumedSkillRuntimeDispatchAuthority,
+    now: datetime,
+) -> None:
+    """Reverify a current exact consumed claim without issuing a grant or sending."""
+
+    current = _require_utc(now)
+    rebuilt = make_skill_runtime_dispatch_decision(
+        sources,
+        routing_preflight,
+        request,
+        registry,
+        spend_policy,
+        ledger,
+        runtime_policy,
+        signed_runtime,
+        prepared,
+        admission,
+        admission_store,
+        claim_store.policy,
+        policy,
+        signed_dispatch.decision.issued_at,
+        signed_dispatch.decision.valid_until,
+    )
+    verify_signed_skill_runtime_dispatch_decision(signed_dispatch, policy)
+    expected = _consumed_claim(signed_dispatch, claim_store, claim.consumed_at)
+    if (
+        rebuilt != signed_dispatch.decision
+        or expected != claim
+        or claim_store.get(rebuilt.decision_sha256) != claim
+    ):
+        raise ValueError("consumed skill runtime dispatch provenance mismatch")
+    if not claim.consumed_at <= current < claim.valid_until:
+        raise ValueError("consumed skill runtime dispatch authority is not current")
 
 
 def consume_skill_runtime_dispatch_authority(
