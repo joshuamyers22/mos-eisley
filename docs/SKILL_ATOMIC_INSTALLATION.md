@@ -91,5 +91,6 @@ No default-persona pointer or runtime code reads the installed store. All contra
 events fix default changes, configuration mutation, activation, and runtime lookup to
 false. Owner-driven state rollback/cloning, same-UID ancestor replacement, external
 revocation delivery, automatic recovery, uninstallation, post-install health, and drift
-monitoring remain outside this local milestone. A default change requires its own signed
-authority and recoverable atomic pointer transaction.
+monitoring remain outside this local milestone. A separate signed authority and atomic
+pointer store can now select an inert default, but runtime consumption and drift gates
+remain separate.

@@ -154,6 +154,16 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
+from mos_eisley.run.skill_default import (
+    AuthenticatedSkillDefault,
+    SignedSkillDefaultDecision,
+    SkillDefaultAuthorityPolicy,
+    SkillDefaultStore,
+    SkillDefaultStorePolicy,
+    authenticate_skill_default,
+    make_skill_default_decision,
+    select_authenticated_skill_default,
+)
 from mos_eisley.run.skill_installation import (
     AuthenticatedSkillInstallation,
     SignedSkillInstallationDecision,
@@ -918,6 +928,94 @@ def parser() -> argparse.ArgumentParser:
             eval_install_skill.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
+    eval_derive_default = subcommands.add_parser(
+        "eval-derive-skill-default",
+        help="Derive one exact state-bound skill default change for signing",
+    )
+    eval_authenticate_default = subcommands.add_parser(
+        "eval-authenticate-skill-default",
+        help="Authenticate one exact state-bound skill default change",
+    )
+    eval_select_default = subcommands.add_parser(
+        "eval-select-skill-default",
+        help="Atomically consume authority and change the inert default pointer",
+    )
+    for default_parser in (
+        eval_derive_default,
+        eval_authenticate_default,
+        eval_select_default,
+    ):
+        for option in (
+            "dataset",
+            "plan",
+            "sealed-comparison",
+            "holdout-use-claim",
+            "calibration-report",
+            "holdout-report",
+            "promotion-receipt",
+            "promotion-authority-policy",
+            "archive",
+            "release-evidence",
+            "control-authority-policy",
+            "authenticated-control",
+            "control-anchor",
+            "installed-store",
+            "installation-authority-policy",
+            "default-store",
+            "default-authority-policy",
+            "output",
+        ):
+            default_parser.add_argument(f"--{option}", type=Path, required=True)
+        default_parser.add_argument("--rollback-archive", type=Path)
+        default_parser.add_argument(
+            "--action", choices=("candidate", "rollback"), required=True
+        )
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                default_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    eval_derive_default.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_default.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_default.add_argument("--signed-default", type=Path, required=True)
+    eval_select_default.add_argument(
+        "--authenticated-default", type=Path, required=True
+    )
+    default_store_create = subcommands.add_parser(
+        "skill-default-store-create",
+        help="Create a private atomic skill default-pointer store",
+    )
+    default_store_create.add_argument("path", type=Path)
+    for option in (
+        "store-policy",
+        "default-authority-policy",
+        "installed-store",
+    ):
+        default_store_create.add_argument(f"--{option}", type=Path, required=True)
+    default_store_status = subcommands.add_parser(
+        "skill-default-store-status",
+        help="Verify the complete skill default-pointer revision chain",
+    )
+    for option in (
+        "store",
+        "default-authority-policy",
+        "installed-store",
+        "installation-authority-policy",
+    ):
+        default_store_status.add_argument(f"--{option}", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -2459,6 +2557,302 @@ def _install_skill_release_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_skill_default_runtime(
+    args: argparse.Namespace,
+) -> tuple[
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillInstalledStore,
+    SkillInstallationAuthorityPolicy,
+    SkillDefaultStore,
+    SkillDefaultAuthorityPolicy,
+]:
+    control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    default_store = SkillDefaultStore(cast(Path, args.default_store))
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    return (
+        control,
+        anchor,
+        installed_store,
+        installation_policy,
+        default_store,
+        default_policy,
+    )
+
+
+type SkillDefaultSources = tuple[
+    EvaluationDataset,
+    SweepPlan,
+    SkillEvaluationLineage,
+    SkillEvaluationLineage,
+    SealedSkillComparison,
+    SkillHoldoutUseClaim,
+    SkillComparisonReport,
+    SkillComparisonReport,
+    AuthenticatedSkillPromotion,
+    SkillPromotionAuthorityPolicy,
+    SkillPackageArchive,
+    SkillReleaseEvidence,
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAuthorityPolicy,
+    SkillReleaseControlAnchor,
+    SkillInstalledStore,
+    SkillInstallationAuthorityPolicy,
+]
+type SkillDefaultRuntime = tuple[SkillDefaultStore, SkillDefaultAuthorityPolicy]
+
+
+def _skill_default_sources(
+    args: argparse.Namespace,
+) -> tuple[SkillDefaultSources, SkillDefaultRuntime]:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    (
+        control,
+        anchor,
+        installed_store,
+        installation_policy,
+        default_store,
+        default_policy,
+    ) = _load_skill_default_runtime(args)
+    return (
+        (
+            dataset,
+            plan,
+            calibration,
+            holdout,
+            sealed,
+            claim,
+            calibration_report,
+            holdout_report,
+            promotion,
+            promotion_authorities,
+            archive,
+            evidence,
+            control,
+            control_authorities,
+            anchor,
+            installed_store,
+            installation_policy,
+        ),
+        (default_store, default_policy),
+    )
+
+
+def _derive_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    decision = make_skill_default_decision(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "sequence": decision.sequence,
+                "expected_previous_pointer_sha256": (
+                    decision.expected_previous_pointer_sha256
+                ),
+                "installed_manifest_sha256": decision.installed_manifest_sha256,
+                "archive_sha256": decision.archive_sha256,
+                "action": decision.action,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_use_required": decision.one_use_required,
+                "default_pointer_mutation_authorized": (
+                    decision.default_pointer_mutation_authorized
+                ),
+                "default_changed": False,
+                "other_configuration_mutation_authorized": (
+                    decision.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": decision.activation_authorized,
+                "runtime_lookup_authorized": decision.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    signed = SignedSkillDefaultDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_default), 256_000)
+    )
+    authorization = authenticate_skill_default(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        signed,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "sequence": signed.decision.sequence,
+                "archive_sha256": authorization.archive_sha256,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_use_required": authorization.one_use_required,
+                "default_pointer_mutation_authorized": (
+                    authorization.default_pointer_mutation_authorized
+                ),
+                "default_changed": authorization.default_changed,
+                "other_configuration_mutation_authorized": (
+                    authorization.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": authorization.activation_authorized,
+                "runtime_lookup_authorized": authorization.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_default_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillDefaultStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    store = SkillDefaultStore.create(
+        cast(Path, args.path), store_policy, default_policy, installed_store
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.store_created",
+                "path": str(store.path),
+                "store_id": store.policy.store_id,
+                "store_policy_sha256": store.policy.policy_sha256,
+                "revisions": 0,
+                "current": None,
+                "atomic_commit": True,
+                "default_changed": False,
+                "other_configuration_mutation_authorized": False,
+                "runtime_lookup_authorized": False,
+                "activation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_default_store_status_command(args: argparse.Namespace) -> int:
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    store = SkillDefaultStore(cast(Path, args.store))
+    snapshot = store.snapshot(default_policy, installed_store, installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.store_status",
+                "path": str(store.path),
+                "store_id": store.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "revisions": snapshot.revisions,
+                "current": (
+                    snapshot.current.model_dump(mode="json")
+                    if snapshot.current is not None
+                    else None
+                ),
+                "atomic_commit": snapshot.atomic_commit,
+                "automatic_recovery_required": (snapshot.automatic_recovery_required),
+                "default_changed": snapshot.default_changed,
+                "other_configuration_mutation_authorized": (
+                    snapshot.other_configuration_mutation_authorized
+                ),
+                "runtime_lookup_authorized": snapshot.runtime_lookup_authorized,
+                "activation_authorized": snapshot.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _select_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    authorization = AuthenticatedSkillDefault.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_default), 256_000)
+    )
+    result = select_authenticated_skill_default(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        authorization,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.selected",
+                "path": str(output),
+                "pointer_sha256": result.pointer.pointer_sha256,
+                "sequence": result.pointer.sequence,
+                "previous_pointer_sha256": result.pointer.previous_pointer_sha256,
+                "archive_sha256": result.pointer.archive_sha256,
+                "skill": result.pointer.skill.model_dump(mode="json"),
+                "authorization_consumed": result.authorization_consumed,
+                "default_changed": result.default_changed,
+                "atomic_commit": result.atomic_commit,
+                "other_configuration_mutation_authorized": (
+                    result.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": result.activation_authorized,
+                "runtime_lookup_authorized": result.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -3232,6 +3626,11 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-installed-store-status": _skill_installed_store_status_command,
         "skill-install-recovery-status": _skill_install_recovery_status_command,
         "eval-install-skill-release": _install_skill_release_command,
+        "eval-derive-skill-default": _derive_skill_default_command,
+        "eval-authenticate-skill-default": _authenticate_skill_default_command,
+        "skill-default-store-create": _skill_default_store_create_command,
+        "skill-default-store-status": _skill_default_store_status_command,
+        "eval-select-skill-default": _select_skill_default_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
