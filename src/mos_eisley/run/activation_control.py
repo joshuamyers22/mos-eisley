@@ -310,17 +310,35 @@ class RoutingControlAnchor:
         activation_authorities: RoutingActivationAuthorityPolicy,
         now: datetime,
     ) -> AnchoredRoutingControl:
-        _require_utc(now)
-        snapshot = self.snapshot(activation_authorities)
-        latest = snapshot.latest
-        if latest is None:
-            raise ValueError("routing control anchor has no state")
-        if latest.signed_control != signed_control:
-            raise ValueError("routing control state is not the latest anchored state")
-        control = signed_control.control
-        if (
-            not latest.anchored_at <= now
-            or not control.issued_at <= now < control.valid_until
-        ):
-            raise ValueError("latest anchored routing control state is not current")
-        return latest
+        with self.guard_latest(signed_control, activation_authorities, now) as latest:
+            return latest
+
+    @contextmanager
+    def guard_latest(
+        self,
+        signed_control: SignedRoutingActivationControl,
+        activation_authorities: RoutingActivationAuthorityPolicy,
+        now: datetime,
+    ) -> Generator[AnchoredRoutingControl, None, None]:
+        """Hold a read transaction so newer routing control cannot commit."""
+
+        current = _require_utc(now)
+        signed_control = SignedRoutingActivationControl.model_validate_json(
+            canonical_bytes(signed_control)
+        )
+        with self._transaction(write=False) as connection:
+            entries = self._entries(connection, activation_authorities)
+            latest = entries[-1] if entries else None
+            if latest is None:
+                raise ValueError("routing control anchor has no state")
+            if latest.signed_control != signed_control:
+                raise ValueError(
+                    "routing control state is not the latest anchored state"
+                )
+            control = signed_control.control
+            if (
+                not latest.anchored_at <= current
+                or not control.issued_at <= current < control.valid_until
+            ):
+                raise ValueError("latest anchored routing control state is not current")
+            yield latest

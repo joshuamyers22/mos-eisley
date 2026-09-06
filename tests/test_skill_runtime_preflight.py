@@ -1,5 +1,6 @@
 """Skill runtime preparation burns spend authority but never sends a request."""
 
+import base64
 import io
 import json
 import sqlite3
@@ -17,9 +18,15 @@ from pydantic import ValidationError
 from mos_eisley.cli import main
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.registry import ModelRegistry, openai_registry
+from mos_eisley.core.skills import PromptAsset, SkillPackageArchive
 from mos_eisley.evaluation.models import RouteCandidate
 from mos_eisley.providers.openai_spend import SpendPolicy
-from mos_eisley.run.routing_preflight import RoutingRuntimePreflight
+from mos_eisley.run.activation_control import RoutingControlAnchor
+from mos_eisley.run.routing_preflight import (
+    RoutingRuntimeSources,
+    perform_routing_runtime_preflight,
+)
+from mos_eisley.run.skill_runtime_admission import SkillRuntimeAdmissionStorePolicy
 from mos_eisley.run.skill_runtime_preflight import (
     PreparedSkillRuntimeRequest,
     SkillRuntimeAuthorityPolicy,
@@ -36,7 +43,9 @@ from mos_eisley.run.skill_runtime_preflight import (
 from mos_eisley.run.skills import prompt_asset_from_skill_archive
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
+from tests import test_routing_activation as routing_activation_module
 from tests import test_skill_health as health_module
+from tests.test_routing_protocol import study_inputs
 
 
 class SkillRuntimePreflightTests(TestCase):
@@ -51,6 +60,114 @@ class SkillRuntimePreflightTests(TestCase):
             signed_observation=self.signed_health_observation,
         )
         values = self.health.source._arguments()  # pyright: ignore[reportPrivateUsage]
+        self.registry: ModelRegistry = openai_registry()
+        registry_sha256 = digest(canonical_bytes(self.registry))
+        installed = cast(Any, values[15]).load(
+            self.health_eligibility.archive_sha256,
+            values[16],  # type: ignore[arg-type]
+        )[1]
+        prompt = prompt_asset_from_skill_archive(cast(SkillPackageArchive, installed))
+        self.route = RouteCandidate(
+            backend="api",
+            provider="openai",
+            model="gpt-6-astra",
+            effort="medium",
+            client_version="openai-test",
+            registry_sha256=registry_sha256,
+            prompt=prompt,
+        )
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        alternate_route = RouteCandidate(
+            backend="api",
+            provider="openai",
+            model="gpt-6-astra",
+            effort="low",
+            client_version="openai-test",
+            registry_sha256=registry_sha256,
+            prompt=PromptAsset(mode="inline", instructions="Fallback review."),
+        )
+
+        def routed_study(
+            permissive_gate: bool = False,
+            max_mean_cost_microusd: int | None = None,
+            max_p95_latency_ms: int | None = None,
+        ):
+            return study_inputs(
+                permissive_gate,
+                max_mean_cost_microusd,
+                max_p95_latency_ms,
+                (alternate_route, self.route),
+            )
+
+        with (
+            patch("tests.test_routing_holdout.study_inputs", side_effect=routed_study),
+            patch(
+                "tests.test_routing_activation.datetime",
+                return_value=self.health.issue_at,
+            ),
+        ):
+            activation = routing_activation_module.RoutingActivationTests()
+            activation.setUp()
+        self.addCleanup(activation.doCleanups)
+        self.routing_activation = activation
+        routing_eligibility = activation.issue()
+        signed_activation_policy = activation.sign_policy()
+        signed_snapshot = activation.sign_snapshot()
+        signed_control = activation.sign_control()
+        routing_anchor = RoutingControlAnchor.create(
+            self.root / "routing-control.sqlite",
+            activation.control_anchor_policy,
+            activation.authority_policy,
+        )
+        routing_anchor.advance(
+            signed_control, activation.authority_policy, activation.now
+        )
+        routing_study = activation.source.source
+        self.routing_sources = RoutingRuntimeSources(
+            dataset=routing_study.dataset,
+            plan=routing_study.plan,
+            calibration=routing_study.calibration,
+            holdout=routing_study.holdout,
+            manifest=routing_study.manifest,
+            sealed_study=routing_study.sealed,
+            calibration_report=routing_study.calibration_report,
+            candidate_policy=routing_study.policy,
+            promotion_policy=routing_study.promotion_policy,
+            claim=routing_study.claim(routing_study.holdout),
+            holdout_report=activation.source.report,
+            promotion=activation.promotion,
+            promotion_authorities=activation.source.authority_policy,
+            signed_activation_policy=signed_activation_policy,
+            signed_snapshot=signed_snapshot,
+            signed_control=signed_control,
+            activation_authorities=activation.authority_policy,
+            eligibility=routing_eligibility,
+            control_anchor=routing_anchor,
+        )
+        self.routing_preflight = perform_routing_runtime_preflight(
+            routing_study.dataset,
+            routing_study.plan,
+            routing_study.calibration,
+            routing_study.holdout,
+            routing_study.manifest,
+            routing_study.sealed,
+            routing_study.calibration_report,
+            routing_study.policy,
+            routing_study.promotion_policy,
+            routing_study.claim(routing_study.holdout),
+            activation.source.report,
+            activation.promotion,
+            activation.source.authority_policy,
+            signed_activation_policy,
+            signed_snapshot,
+            signed_control,
+            activation.authority_policy,
+            routing_eligibility,
+            routing_anchor,
+            self.health.issue_at,
+        )
         self.sources = SkillRuntimeSources(
             dataset=values[0],  # type: ignore[arg-type]
             plan=values[1],  # type: ignore[arg-type]
@@ -75,38 +192,22 @@ class SkillRuntimePreflightTests(TestCase):
             signed_health_observation=self.signed_health_observation,
             health_authorities=self.health.authorities,
             health_eligibility=self.health_eligibility,
+            routing=self.routing_sources,
         )
-        self.registry: ModelRegistry = openai_registry()
-        registry_sha256 = digest(canonical_bytes(self.registry))
-        installed = self.sources.installed_store.load(
-            self.health_eligibility.archive_sha256,
-            self.sources.installation_policy,
-        )[1]
-        prompt = prompt_asset_from_skill_archive(installed)
-        self.route = RouteCandidate(
-            backend="api",
-            provider="openai",
-            model="gpt-6-astra",
-            effort="medium",
-            client_version="openai-test",
-            registry_sha256=registry_sha256,
-            prompt=prompt,
-        )
-        self.routing_preflight = RoutingRuntimePreflight(
-            candidate_policy_sha256="1" * 64,
-            promotion_receipt_sha256="2" * 64,
-            activation_eligibility_sha256="3" * 64,
-            control_anchor_policy_sha256="4" * 64,
-            anchored_control_entry_sha256="5" * 64,
-            checked_at=self.health.issue_at,
-            valid_until=self.health_eligibility.valid_until,
-            eligible_candidate_ids=(self.route.candidate_id,),
-            unavailable_action="fail_closed",
-        )
-        temporary = TemporaryDirectory()
-        self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
         self.ledger = SpendLedger.create(self.root / "spend.sqlite", 500)
+        self.admission_store_policy = SkillRuntimeAdmissionStorePolicy(
+            store_id="7" * 64,
+            routing_control_anchor_policy_sha256=(
+                self.routing_sources.control_anchor.policy.policy_sha256
+            ),
+            skill_control_anchor_policy_sha256=(
+                self.sources.control_anchor.policy.policy_sha256
+            ),
+            default_store_policy_sha256=(
+                self.sources.default_store.policy.policy_sha256
+            ),
+            spend_ledger_id=self.ledger.policy.ledger_id,
+        )
         self.spend_policy = SpendPolicy(
             model=self.route.model,
             pricing_source="signed synthetic runtime rates",
@@ -136,8 +237,15 @@ class SkillRuntimePreflightTests(TestCase):
             policy_id="skill-runtime-authorities-v1",
             health_authority_policy_sha256=self.health.authorities.policy_sha256,
             default_store_policy_sha256=(self.health.source.store.policy.policy_sha256),
+            routing_activation_authority_policy_sha256=(
+                self.routing_sources.activation_authorities.policy_sha256
+            ),
+            routing_control_anchor_policy_sha256=(
+                self.routing_sources.control_anchor.policy.policy_sha256
+            ),
             model_registry_sha256=registry_sha256,
             spend_ledger_id=self.ledger.policy.ledger_id,
+            admission_store_policy_sha256=(self.admission_store_policy.policy_sha256),
             valid_from=self.health.issue_at,
             valid_until=self.health_eligibility.valid_until,
             max_decision_lifetime_seconds=20,
@@ -302,19 +410,11 @@ class SkillRuntimePreflightTests(TestCase):
             update={"instructions": self.route.prompt.instructions + "\nChanged."}
         )
         changed_route = self.route.model_copy(update={"prompt": changed_prompt})
-        changed_preflight = self.routing_preflight.model_copy(
-            update={"eligible_candidate_ids": (changed_route.candidate_id,)}
-        )
-        changed_request = self.request.model_copy(
-            update={
-                "route": changed_route,
-                "routing_preflight_sha256": changed_preflight.preflight_sha256,
-            }
-        )
+        changed_request = self.request.model_copy(update={"route": changed_route})
         with self.assertRaisesRegex(ValueError, "exact selected prompt"):
             make_skill_runtime_decision(
                 self.sources,
-                changed_preflight,
+                self.routing_preflight,
                 changed_request,
                 self.registry,
                 self.spend_policy,
@@ -326,7 +426,7 @@ class SkillRuntimePreflightTests(TestCase):
         absent_route = self.routing_preflight.model_copy(
             update={"eligible_candidate_ids": ("a" * 64,)}
         )
-        with self.assertRaisesRegex(ValueError, "absent from routing"):
+        with self.assertRaisesRegex(ValueError, "routing runtime preflight provenance"):
             make_skill_runtime_decision(
                 self.sources,
                 absent_route,
@@ -430,6 +530,31 @@ class SkillRuntimePreflightTests(TestCase):
             with self.subTest(field=field), self.assertRaises(ValidationError):
                 type(prepared).model_validate(value)
 
+    def test_runtime_authority_must_be_independent_of_routing_lineage(self) -> None:
+        routing_authority = self.routing_sources.activation_authorities.authorities[0]
+        overlapping = self.runtime_policy.model_copy(
+            update={
+                "authorities": (
+                    trusted_skill_runtime_authority(
+                        routing_authority.authority_id,
+                        base64.b64decode(routing_authority.public_key_base64),
+                    ),
+                )
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "independent of all sources"):
+            make_skill_runtime_decision(
+                self.sources,
+                self.routing_preflight,
+                self.request,
+                self.registry,
+                self.spend_policy,
+                self.ledger,
+                overlapping,
+                self.issued_at,
+                self.valid_until,
+            )
+
     def test_ledger_failure_is_atomic_and_does_not_consume_authority(self) -> None:
         signed = sign_skill_runtime_decision(
             self.decision(), "runtime-preparer", self.signer.private_bytes_raw()
@@ -501,6 +626,38 @@ class SkillRuntimePreflightTests(TestCase):
             ):
                 result.extend((f"--{option}", dummy))
             for prefix in ("calibration", "holdout"):
+                for option in (
+                    "batch",
+                    "mapping",
+                    "raw-results",
+                    "grading-batch",
+                    "dual-grading-resolution",
+                    "dual-graded-observations",
+                    "grading-trust-policy",
+                    "resolution-trust-policy",
+                ):
+                    result.extend((f"--{prefix}-{option}", dummy))
+            for option in (
+                "routing-dataset",
+                "routing-plan",
+                "routing-feature-manifest",
+                "routing-sealed-study",
+                "routing-calibration-report",
+                "routing-candidate-policy",
+                "routing-promotion-policy",
+                "routing-holdout-use-claim",
+                "routing-holdout-report",
+                "routing-promotion-receipt",
+                "routing-promotion-authority-policy",
+                "routing-signed-activation-policy",
+                "routing-signed-operational-snapshot",
+                "routing-signed-control-state",
+                "routing-activation-authority-policy",
+                "routing-activation-eligibility",
+                "routing-control-anchor",
+            ):
+                result.extend((f"--{option}", dummy))
+            for prefix in ("routing-calibration", "routing-holdout"):
                 for option in (
                     "batch",
                     "mapping",

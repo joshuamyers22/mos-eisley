@@ -33,7 +33,12 @@ from mos_eisley.evaluation.skill_promotion import (
 )
 from mos_eisley.providers.openai_spend import SpendPolicy, SpendReservation
 from mos_eisley.run.provider_broker import MAX_REQUEST_BYTES, ApprovedRequest
-from mos_eisley.run.routing_preflight import RoutingRuntimePreflight
+from mos_eisley.run.routing_preflight import (
+    RoutingRuntimePreflight,
+    RoutingRuntimeSources,
+    guard_routing_runtime_sources,
+    verify_routing_runtime_sources,
+)
 from mos_eisley.run.skill_default import (
     SkillDefaultAuthorityPolicy,
     SkillDefaultStore,
@@ -105,6 +110,7 @@ class SkillRuntimeSources:
     signed_health_observation: SignedSkillHealthObservation
     health_authorities: SkillHealthAuthorityPolicy
     health_eligibility: SkillHealthEligibility
+    routing: RoutingRuntimeSources
 
 
 class TrustedSkillRuntimeAuthority(Contract):
@@ -123,15 +129,18 @@ class TrustedSkillRuntimeAuthority(Contract):
 
 
 class SkillRuntimeAuthorityPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["skill_runtime_preflight_authority_policy"] = (
         "skill_runtime_preflight_authority_policy"
     )
     policy_id: Identifier
     health_authority_policy_sha256: Digest
     default_store_policy_sha256: Digest
+    routing_activation_authority_policy_sha256: Digest
+    routing_control_anchor_policy_sha256: Digest
     model_registry_sha256: Digest
     spend_ledger_id: Digest
+    admission_store_policy_sha256: Digest
     valid_from: UtcTimestamp
     valid_until: UtcTimestamp
     max_decision_lifetime_seconds: Annotated[int, Field(gt=0, le=300)]
@@ -423,27 +432,55 @@ def _validate_authority_separation(
         *sources.installation_policy.authorities,
         *sources.control_policy.authorities,
         *sources.promotion_policy.authorities,
+        *sources.routing.activation_authorities.authorities,
+        *sources.routing.promotion_authorities.authorities,
     )
     excluded_ids = {item.authority_id for item in upstream}
     excluded_keys = {item.public_key_sha256 for item in upstream}
-    excluded_ids |= {
-        item.adjudicator_id
-        for lineage in (sources.calibration, sources.holdout)
-        for item in lineage[5].adjudicators
-    } | {
-        item.adjudicator_id
-        for lineage in (sources.calibration, sources.holdout)
-        for item in lineage[6].resolvers
-    }
-    excluded_keys |= {
-        item.public_key_sha256
-        for lineage in (sources.calibration, sources.holdout)
-        for item in lineage[5].adjudicators
-    } | {
-        item.public_key_sha256
-        for lineage in (sources.calibration, sources.holdout)
-        for item in lineage[6].resolvers
-    }
+    excluded_ids |= (
+        {
+            item.adjudicator_id
+            for lineage in (sources.calibration, sources.holdout)
+            for item in lineage[5].adjudicators
+        }
+        | {
+            item.adjudicator_id
+            for lineage in (sources.calibration, sources.holdout)
+            for item in lineage[6].resolvers
+        }
+        | {
+            item.adjudicator_id
+            for lineage in (sources.routing.calibration, sources.routing.holdout)
+            for item in lineage[5].adjudicators
+        }
+        | {
+            item.adjudicator_id
+            for lineage in (sources.routing.calibration, sources.routing.holdout)
+            for item in lineage[6].resolvers
+        }
+    )
+    excluded_keys |= (
+        {
+            item.public_key_sha256
+            for lineage in (sources.calibration, sources.holdout)
+            for item in lineage[5].adjudicators
+        }
+        | {
+            item.public_key_sha256
+            for lineage in (sources.calibration, sources.holdout)
+            for item in lineage[6].resolvers
+        }
+        | {
+            item.public_key_sha256
+            for lineage in (sources.routing.calibration, sources.routing.holdout)
+            for item in lineage[5].adjudicators
+        }
+        | {
+            item.public_key_sha256
+            for lineage in (sources.routing.calibration, sources.routing.holdout)
+            for item in lineage[6].resolvers
+        }
+    )
     if any(
         item.authority_id in excluded_ids or item.public_key_sha256 in excluded_keys
         for item in runtime_policy.authorities
@@ -505,7 +542,7 @@ def _verified_request(
         sources.health_eligibility,
         current,
     )
-    routing_preflight.check_current(current)
+    verify_routing_runtime_sources(sources.routing, routing_preflight, current)
     spend_policy.check_current(current)
     registry_sha256 = digest(canonical_bytes(registry))
     if (
@@ -513,6 +550,10 @@ def _verified_request(
         != sources.health_authorities.policy_sha256
         or runtime_policy.default_store_policy_sha256
         != sources.default_store.policy.policy_sha256
+        or runtime_policy.routing_activation_authority_policy_sha256
+        != sources.routing.activation_authorities.policy_sha256
+        or runtime_policy.routing_control_anchor_policy_sha256
+        != sources.routing.control_anchor.policy.policy_sha256
         or runtime_policy.model_registry_sha256 != registry_sha256
         or runtime_policy.spend_ledger_id != ledger.policy.ledger_id
         or request.routing_preflight_sha256 != routing_preflight.preflight_sha256
@@ -684,9 +725,12 @@ def prepare_signed_skill_runtime_request(
         or decision.spend_reservation_sha256 != entry.reservation_sha256
     ):
         raise ValueError("skill runtime decision request or spend binding changed")
-    with sources.control_anchor.guard_latest(
-        sources.control, sources.control_policy, current
-    ) as anchored:
+    with (
+        guard_routing_runtime_sources(sources.routing, routing_preflight, current),
+        sources.control_anchor.guard_latest(
+            sources.control, sources.control_policy, current
+        ) as anchored,
+    ):
         if (
             anchored.anchor_entry_sha256
             != sources.signed_health_policy.policy.control_anchor_entry_sha256

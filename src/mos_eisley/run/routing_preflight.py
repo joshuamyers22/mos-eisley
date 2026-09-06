@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal, Self
 
@@ -36,6 +39,29 @@ from mos_eisley.evaluation.routing_protocol import (
 from mos_eisley.run.activation_control import RoutingControlAnchor
 
 UtcTimestamp = Annotated[datetime, Field()]
+
+
+@dataclass(frozen=True)
+class RoutingRuntimeSources:
+    dataset: EvaluationDataset
+    plan: SweepPlan
+    calibration: RoutingLineage
+    holdout: RoutingLineage
+    manifest: PromptFeatureManifest
+    sealed_study: SealedRoutingStudy
+    calibration_report: RoutingCalibrationReport
+    candidate_policy: FrozenCandidateRoutingPolicy
+    promotion_policy: RoutingPromotionPolicy
+    claim: HoldoutUseClaim
+    holdout_report: FrozenPolicyHoldoutReport
+    promotion: AuthenticatedRoutingPromotion
+    promotion_authorities: RoutingPromotionAuthorityPolicy
+    signed_activation_policy: SignedRoutingActivationPolicy
+    signed_snapshot: SignedRoutingOperationalSnapshot
+    signed_control: SignedRoutingActivationControl
+    activation_authorities: RoutingActivationAuthorityPolicy
+    eligibility: RoutingActivationEligibility
+    control_anchor: RoutingControlAnchor
 
 
 def _require_utc(value: datetime) -> datetime:
@@ -213,3 +239,52 @@ def verify_routing_runtime_preflight(
     if rebuilt != artifact:
         raise ValueError("routing runtime preflight provenance mismatch")
     artifact.check_current(now)
+
+
+def verify_routing_runtime_sources(
+    sources: RoutingRuntimeSources,
+    artifact: RoutingRuntimePreflight,
+    now: datetime,
+) -> None:
+    """Reverify a runtime preflight from its complete empirical source chain."""
+
+    verify_routing_runtime_preflight(
+        sources.dataset,
+        sources.plan,
+        sources.calibration,
+        sources.holdout,
+        sources.manifest,
+        sources.sealed_study,
+        sources.calibration_report,
+        sources.candidate_policy,
+        sources.promotion_policy,
+        sources.claim,
+        sources.holdout_report,
+        sources.promotion,
+        sources.promotion_authorities,
+        sources.signed_activation_policy,
+        sources.signed_snapshot,
+        sources.signed_control,
+        sources.activation_authorities,
+        sources.eligibility,
+        sources.control_anchor,
+        artifact,
+        now,
+    )
+
+
+@contextmanager
+def guard_routing_runtime_sources(
+    sources: RoutingRuntimeSources,
+    artifact: RoutingRuntimePreflight,
+    now: datetime,
+) -> Generator[None, None, None]:
+    """Reverify full lineage, then hold its exact latest control through a commit."""
+
+    verify_routing_runtime_sources(sources, artifact, now)
+    with sources.control_anchor.guard_latest(
+        sources.signed_control, sources.activation_authorities, now
+    ) as latest:
+        if latest.anchor_entry_sha256 != artifact.anchored_control_entry_sha256:
+            raise ValueError("routing preflight is no longer bound to latest control")
+        yield

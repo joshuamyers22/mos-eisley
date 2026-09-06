@@ -10,10 +10,10 @@ authorize dispatch.
 ## Transaction and trust boundaries
 
 A runtime-authority policy pins the exact health-authority policy, default-store
-policy, model registry, and spending-ledger identity. Runtime authority identities and
-keys must be independent of every health observer/policy signer, default selector,
-installer, release controller, promoter, grader, and resolver in the complete skill
-lineage.
+policy, routing activation-authority and control-anchor policies, model registry,
+spending-ledger identity, and broker-admission store policy. Runtime authority
+identities and keys must be independent of every observer, policy signer, selector,
+installer, controller, promoter, grader, and resolver in both complete lineages.
 
 The signable runtime decision binds:
 
@@ -28,9 +28,9 @@ The signable runtime decision binds:
   reservation digest; and
 - a maximum 300-second validity window.
 
-Before the commit point, the preparer reverifies the complete skill health lineage,
-current release control, complete default history, installed archive, model registry,
-route membership, signed runtime authority, request bytes, and spend ceilings. It
+Before the commit point, the preparer reverifies the complete skill health and routing
+lineages, both current controls, complete default history, installed archive, model
+registry, route membership, signed runtime authority, request bytes, and spend ceilings. It
 reserves the spending policy's full allowed input-token count plus the requested output
 limit. This deliberately pessimistic policy-ceiling calculation needs no provider
 counting call. A future dispatcher must still count and reject an input above the
@@ -70,11 +70,11 @@ inspection never retries, sends, settles, or releases a reservation.
 
 ## Deliberate limits
 
-The supplied routing preflight is schema-checked, current, exact-route matched, and
-bound into the independent runtime signature, but this slice does not reconstruct its
-full routing calibration/holdout/promotion chain. The runtime signer must inspect that
-chain. A future dispatcher must reverify it from all sources immediately before send;
-the standalone routing preflight is not self-authenticating.
+The supplied routing preflight is now reconstructed from its full
+calibration/holdout/promotion and signed operational chain during preparation. The
+subsequent [guarded broker admission](SKILL_RUNTIME_ADMISSION.md) repeats that
+verification and holds both control anchors through its local commit. Neither artifact
+authorizes provider dispatch.
 
 The reservation uses the spending policy's maximum input tokens, not a provider count,
 so it may hold substantially more budget than the eventual request needs and does not
@@ -88,8 +88,8 @@ held reservation and consumed authorization. Read-only status reports that state
 `retry_permitted: false`. It cannot prove whether some future process sent a request;
 dispatch auditing and outcome settlement are future work.
 
-Local database rollback/cloning, external monotonic state, clock integrity, routing
-source retention, credentials, endpoint trust, provider behavior, and actual invoice
+Local database rollback/cloning, external monotonic state, clock integrity, source
+retention, credentials, endpoint trust, provider behavior, and actual invoice
 reconciliation remain outside this gate. Every decision, preparation, and status fixes
 provider dispatch, activation, configuration mutation, automatic rollback, and
 automatic budget release to false.

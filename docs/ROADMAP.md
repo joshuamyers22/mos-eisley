@@ -122,9 +122,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    exact installed prompt, binds one selected OpenAI route and request, holds current
    control/default locks through a worst-case shared-ledger reservation, and uses that
    single insert as the authorization burn. It issues no broker grant and sends
-   nothing. Next: add full routing-lineage revalidation and a request-bound broker that
-   consumes the existing reservation without double-admission, then records and settles
-   the ambiguous provider-send boundary.
+   nothing. Runtime preparation and a subsequent pinned, one-use broker-admission
+   commit now reverify the complete routing lineage. Admission holds both control
+   anchors, the default pointer, and the exact existing spend entry, records readiness
+   without reserving twice, and still issues no grant or request. Next: independently
+   authorize and consume one admission into a short-lived capability, recheck controls,
+   and record and settle the ambiguous provider-send boundary without retry.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

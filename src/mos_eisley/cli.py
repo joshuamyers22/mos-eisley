@@ -160,6 +160,7 @@ from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import (
     RoutingRuntimePreflight,
+    RoutingRuntimeSources,
     perform_routing_runtime_preflight,
 )
 from mos_eisley.run.skill_default import (
@@ -207,7 +208,14 @@ from mos_eisley.run.skill_release_control import (
     authenticate_skill_release_control,
     make_skill_release_control_decision,
 )
+from mos_eisley.run.skill_runtime_admission import (
+    SkillRuntimeAdmissionStore,
+    SkillRuntimeAdmissionStorePolicy,
+    inspect_skill_runtime_admission,
+    make_skill_runtime_broker_admission,
+)
 from mos_eisley.run.skill_runtime_preflight import (
+    PreparedSkillRuntimeRequest,
     SignedSkillRuntimeDecision,
     SkillRuntimeAuthorityPolicy,
     SkillRuntimeRequest,
@@ -1091,7 +1099,15 @@ def parser() -> argparse.ArgumentParser:
         "eval-prepare-skill-runtime-request",
         help="Consume signed authority into one exact held-spend preparation",
     )
-    for runtime_parser in (eval_derive_skill_runtime, eval_prepare_skill_runtime):
+    eval_admit_skill_runtime = subcommands.add_parser(
+        "eval-admit-skill-runtime-request",
+        help="Record one guarded broker admission without issuing a grant or sending",
+    )
+    for runtime_parser in (
+        eval_derive_skill_runtime,
+        eval_prepare_skill_runtime,
+        eval_admit_skill_runtime,
+    ):
         for option in (
             "dataset",
             "plan",
@@ -1138,6 +1154,40 @@ def parser() -> argparse.ArgumentParser:
                 runtime_parser.add_argument(
                     f"--{prefix}-{option}", type=Path, required=True
                 )
+        for option in (
+            "routing-dataset",
+            "routing-plan",
+            "routing-feature-manifest",
+            "routing-sealed-study",
+            "routing-calibration-report",
+            "routing-candidate-policy",
+            "routing-promotion-policy",
+            "routing-holdout-use-claim",
+            "routing-holdout-report",
+            "routing-promotion-receipt",
+            "routing-promotion-authority-policy",
+            "routing-signed-activation-policy",
+            "routing-signed-operational-snapshot",
+            "routing-signed-control-state",
+            "routing-activation-authority-policy",
+            "routing-activation-eligibility",
+            "routing-control-anchor",
+        ):
+            runtime_parser.add_argument(f"--{option}", type=Path, required=True)
+        for prefix in ("routing-calibration", "routing-holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                runtime_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
     eval_derive_skill_runtime.add_argument(
         "--issued-at", type=_utc_datetime_argument, required=True
     )
@@ -1147,6 +1197,12 @@ def parser() -> argparse.ArgumentParser:
     eval_prepare_skill_runtime.add_argument(
         "--signed-runtime-decision", type=Path, required=True
     )
+    for option in (
+        "signed-runtime-decision",
+        "prepared-runtime-request",
+        "admission-store",
+    ):
+        eval_admit_skill_runtime.add_argument(f"--{option}", type=Path, required=True)
     skill_runtime_status = subcommands.add_parser(
         "skill-runtime-preflight-status",
         help="Inspect one runtime decision's spend state without retry or send",
@@ -1157,6 +1213,29 @@ def parser() -> argparse.ArgumentParser:
         "spend-ledger",
     ):
         skill_runtime_status.add_argument(f"--{option}", type=Path, required=True)
+    skill_runtime_admission_create = subcommands.add_parser(
+        "skill-runtime-admission-store-create",
+        help="Create a private non-dispatching one-use broker-admission store",
+    )
+    for option in (
+        "path",
+        "admission-store-policy",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_admission_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_admission_status = subcommands.add_parser(
+        "skill-runtime-admission-status",
+        help="Inspect broker admission and held spend without retry or send",
+    )
+    for option in ("prepared-runtime-request", "admission-store", "spend-ledger"):
+        skill_runtime_admission_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -3045,6 +3124,64 @@ def _issue_skill_health_eligibility_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_routing_runtime_sources(args: argparse.Namespace) -> RoutingRuntimeSources:
+    return RoutingRuntimeSources(
+        dataset=EvaluationDataset.model_validate_json(
+            read_bounded(cast(Path, args.routing_dataset), 16_000_000)
+        ),
+        plan=SweepPlan.model_validate_json(
+            read_bounded(cast(Path, args.routing_plan), 16_000_000)
+        ),
+        calibration=_load_routing_lineage(args, "routing_calibration"),
+        holdout=_load_routing_lineage(args, "routing_holdout"),
+        manifest=PromptFeatureManifest.model_validate_json(
+            read_bounded(cast(Path, args.routing_feature_manifest), 16_000_000)
+        ),
+        sealed_study=SealedRoutingStudy.model_validate_json(
+            read_bounded(cast(Path, args.routing_sealed_study), 2_000_000)
+        ),
+        calibration_report=RoutingCalibrationReport.model_validate_json(
+            read_bounded(cast(Path, args.routing_calibration_report), 16_000_000)
+        ),
+        candidate_policy=FrozenCandidateRoutingPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_candidate_policy), 16_000_000)
+        ),
+        promotion_policy=RoutingPromotionPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_policy), 64_000)
+        ),
+        claim=HoldoutUseClaim.model_validate_json(
+            read_bounded(cast(Path, args.routing_holdout_use_claim), 64_000)
+        ),
+        holdout_report=FrozenPolicyHoldoutReport.model_validate_json(
+            read_bounded(cast(Path, args.routing_holdout_report), 32_000_000)
+        ),
+        promotion=AuthenticatedRoutingPromotion.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_receipt), 128_000)
+        ),
+        promotion_authorities=RoutingPromotionAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_authority_policy), 64_000)
+        ),
+        signed_activation_policy=SignedRoutingActivationPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_signed_activation_policy), 1_000_000)
+        ),
+        signed_snapshot=SignedRoutingOperationalSnapshot.model_validate_json(
+            read_bounded(
+                cast(Path, args.routing_signed_operational_snapshot), 2_000_000
+            )
+        ),
+        signed_control=SignedRoutingActivationControl.model_validate_json(
+            read_bounded(cast(Path, args.routing_signed_control_state), 2_000_000)
+        ),
+        activation_authorities=RoutingActivationAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_activation_authority_policy), 64_000)
+        ),
+        eligibility=RoutingActivationEligibility.model_validate_json(
+            read_bounded(cast(Path, args.routing_activation_eligibility), 1_000_000)
+        ),
+        control_anchor=RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+    )
+
+
 def _load_skill_runtime_inputs(
     args: argparse.Namespace,
 ) -> tuple[
@@ -3112,6 +3249,7 @@ def _load_skill_runtime_inputs(
         signed_health_observation=signed_health_observation,
         health_authorities=health_authorities,
         health_eligibility=health_eligibility,
+        routing=_load_routing_runtime_sources(args),
     )
     return (
         sources,
@@ -3220,6 +3358,94 @@ def _skill_runtime_preflight_status_command(args: argparse.Namespace) -> int:
         json.dumps(
             {
                 "type": "evaluation.skill_runtime.status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_admission_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillRuntimeAdmissionStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.admission_store_policy), 64_000)
+    )
+    store = SkillRuntimeAdmissionStore.create(
+        cast(Path, args.path),
+        store_policy,
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.admission_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _admit_skill_runtime_request_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed = SignedSkillRuntimeDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+    )
+    prepared = PreparedSkillRuntimeRequest.model_validate_json(
+        read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+    )
+    admission = make_skill_runtime_broker_admission(
+        *inputs,
+        signed,
+        prepared,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, admission)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_admitted",
+                "path": str(output),
+                "admission_sha256": admission.admission_sha256,
+                "admission_id": admission.admission_id,
+                "decision_sha256": admission.decision_sha256,
+                "ledger_entry_id": admission.ledger_entry_id,
+                "authorization_already_consumed": (
+                    admission.authorization_already_consumed
+                ),
+                "existing_reservation_claimed": (
+                    admission.existing_reservation_claimed
+                ),
+                "second_reservation_created": admission.second_reservation_created,
+                "broker_grant_issued": admission.broker_grant_issued,
+                "provider_dispatch_authorized": (
+                    admission.provider_dispatch_authorized
+                ),
+                "provider_request_sent": admission.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_admission_status_command(args: argparse.Namespace) -> int:
+    prepared = PreparedSkillRuntimeRequest.model_validate_json(
+        read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+    )
+    status = inspect_skill_runtime_admission(
+        prepared,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.admission_status",
                 **status.model_dump(mode="json"),
             }
         )
@@ -4012,7 +4238,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
             _derive_skill_runtime_preflight_command
         ),
         "eval-prepare-skill-runtime-request": (_prepare_skill_runtime_request_command),
+        "eval-admit-skill-runtime-request": _admit_skill_runtime_request_command,
         "skill-runtime-preflight-status": _skill_runtime_preflight_status_command,
+        "skill-runtime-admission-store-create": (
+            _skill_runtime_admission_store_create_command
+        ),
+        "skill-runtime-admission-status": _skill_runtime_admission_status_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
