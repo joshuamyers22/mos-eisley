@@ -12,6 +12,7 @@ from pydantic import Field, JsonValue, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 from mos_eisley.run.store import private_write
 
 Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
@@ -70,6 +71,14 @@ class SpendReceipt(Contract):
     retained_microusd: Money
     input_tokens: Annotated[int, Field(ge=0)] | None = None
     output_tokens: Annotated[int, Field(ge=0)] | None = None
+    ledger_id: Digest | None = None
+    ledger_entry_id: Digest | None = None
+
+    @model_validator(mode="after")
+    def ledger_reference(self) -> Self:
+        if (self.ledger_id is None) != (self.ledger_entry_id is None):
+            raise ValueError("ledger receipt requires both identity fields")
+        return self
 
 
 class CountedTransport(Protocol):
@@ -83,11 +92,17 @@ class BudgetedOpenAITransport:
     """Single use: uncertain responses retain the reservation and are never retried."""
 
     def __init__(
-        self, transport: CountedTransport, policy: SpendPolicy, directory: Path
+        self,
+        transport: CountedTransport,
+        policy: SpendPolicy,
+        directory: Path,
+        ledger: SpendLedger | None = None,
     ):
         self.transport = transport
         self.policy = policy
         self.directory = directory
+        self.ledger = ledger
+        self.ledger_entry_id = digest(str(directory.resolve()).encode())
         self._used = False
 
     async def create_response(
@@ -110,6 +125,7 @@ class BudgetedOpenAITransport:
             "parallel_tool_calls",
             "include",
             "store",
+            "text",
             "truncation",
         }
         if set(request) - permitted or request.get("tools"):
@@ -160,6 +176,14 @@ class BudgetedOpenAITransport:
         reservation_bytes = canonical_bytes(reservation)
         private_write(self.directory / "spend-reservation.json", reservation_bytes)
         reservation_hash = digest(reservation_bytes)
+        if self.ledger is not None:
+            self.ledger.reserve(
+                LedgerEntry(
+                    entry_id=self.ledger_entry_id,
+                    reservation_sha256=reservation_hash,
+                    reserved_microusd=reserved,
+                )
+            )
         try:
             response = await self.transport.create_response(request)
         except BaseException:
@@ -206,6 +230,15 @@ class BudgetedOpenAITransport:
         input_tokens: int | None = None,
         output_tokens: int | None = None,
     ) -> None:
+        if self.ledger is not None:
+            self.ledger.settle(
+                LedgerSettlement(
+                    entry_id=self.ledger_entry_id,
+                    reservation_sha256=reservation_hash,
+                    status=status,
+                    charged_microusd=retained,
+                )
+            )
         private_write(
             self.directory / "spend-receipt.json",
             canonical_bytes(
@@ -215,6 +248,8 @@ class BudgetedOpenAITransport:
                     retained_microusd=retained,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    ledger_id=self.ledger.policy.ledger_id if self.ledger else None,
+                    ledger_entry_id=self.ledger_entry_id if self.ledger else None,
                 )
             ),
         )

@@ -27,14 +27,15 @@ checks and refusal to overwrite saved reports.
 
 ## Remaining limits
 
-- Grader IDs, rationale and timestamps are self-asserted. Separate delivery of
-  grading packets is an operator procedure, not enforced isolation.
+- Raw grader IDs, rationale and timestamps are self-asserted. A later Ed25519
+  authentication layer binds exact human adjudications to enrolled keys, but key
+  ownership, timestamp accuracy and separate delivery remain operator assertions.
 - Agreement is descriptive. There is no kappa, confidence interval, pre-registered
   acceptance threshold, population reliability claim or independence attestation.
 - A plausible rationale can still support a wrong label. The implementation
   enforces structure, attribution and coverage, not semantic correctness.
-- Single-grader compilation remains supported for offline rehearsal. Authenticated
-  resolution lineage and mandatory dual grading before promotion are not implemented.
+- Single-grader compilation remains supported for offline rehearsal. Mandatory
+  dual-authenticated grading and resolution before promotion are not implemented.
 - Reports do not infer live-model quality. Automatic routing remains disabled.
 
 Next milestone: isolated live evaluation and budget enforcement, alongside

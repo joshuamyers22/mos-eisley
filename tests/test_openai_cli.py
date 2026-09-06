@@ -29,9 +29,65 @@ from mos_eisley.providers.openai_spend import (
     SpendReservation,
 )
 from mos_eisley.run.live_store import load_live_run
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 
 
 class OpenAICliTests(TestCase):
+    def test_missing_or_blocked_ledger_prevents_prompt_read_and_network(self) -> None:
+        policy = SpendPolicy(
+            model="gpt-6-astra",
+            pricing_source="fixture",
+            valid_from=datetime.now(UTC) - timedelta(days=1),
+            valid_until=datetime.now(UTC) + timedelta(days=1),
+            input_microusd_per_million=1,
+            output_microusd_per_million=1,
+            max_cost_microusd=100,
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.sqlite"
+            ledger = SpendLedger.create(path, 100)
+            ledger.reserve(
+                LedgerEntry(
+                    entry_id="a" * 64, reservation_sha256="b" * 64, reserved_microusd=10
+                )
+            )
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id="a" * 64,
+                    reservation_sha256="b" * 64,
+                    status="violation",
+                    charged_microusd=10,
+                )
+            )
+            for options in ([], ["--spend-ledger", str(path)]):
+                with (
+                    self.subTest(options=options),
+                    patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                    patch(
+                        "mos_eisley.cli.read_bounded",
+                        return_value=canonical_bytes(policy),
+                    ),
+                    patch("mos_eisley.cli._utf8_file") as prompt,
+                    patch("mos_eisley.cli._openai_run") as run,
+                    redirect_stderr(io.StringIO()),
+                ):
+                    self.assertEqual(
+                        main(
+                            [
+                                "openai-run",
+                                "--prompt",
+                                "missing",
+                                "--allow-data-transfer",
+                                "--spend-policy",
+                                "policy.json",
+                                *options,
+                            ]
+                        ),
+                        2,
+                    )
+                    prompt.assert_not_called()
+                    run.assert_not_called()
+
     def test_missing_policy_cannot_start_live_run(self) -> None:
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
@@ -77,8 +133,10 @@ class OpenAICliTests(TestCase):
             journal: Journal,
             spend_policy: SpendPolicy,
             directory: Path,
+            ledger: SpendLedger,
         ) -> AgentResult:
             self.assertEqual(api_key, "secret-test-key")
+            self.assertEqual(ledger.policy.ceiling_microusd, 20_000)
             registry = openai_registry()
             resolved = registry.resolve("openai", "gpt-6-astra", "medium")
             budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
@@ -162,6 +220,8 @@ class OpenAICliTests(TestCase):
                 )
             )
             output = root / "runs"
+            ledger_path = root / "spending.sqlite"
+            SpendLedger.create(ledger_path, 20_000)
             with (
                 patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
                 patch("mos_eisley.cli._openai_run", side_effect=fake_run),
@@ -177,6 +237,8 @@ class OpenAICliTests(TestCase):
                         "--allow-data-transfer",
                         "--spend-policy",
                         str(policy_path),
+                        "--spend-ledger",
+                        str(ledger_path),
                         "--json",
                     ]
                 )
