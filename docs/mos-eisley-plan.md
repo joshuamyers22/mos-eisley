@@ -341,6 +341,67 @@ one only if a held-out comparison shows that its incremental routing benefit exc
 its latency, cost and new failure modes. Until the first calibrated policy exists,
 automatic routing is unavailable rather than intuition-backed.
 
+Implementation boundary: seal the label-free feature manifest, numeric partition
+boundaries, exact categorical fields, role allowlists, fallbacks, selection
+objective and freeze-before-holdout rule before scoring. Every resulting profile
+must have comparable clean and defective cases in both splits; sparse profiles fail
+closed instead of being pooled after outcomes are visible. A content digest fixes
+the design but does not prove when it was authored, so promotion also requires an
+external append-only pre-registration attestation.
+
+Profile calibration scoring must reverify the sealed study and authenticated grading
+lineage, accept only the exact calibration observation matrix, and allocate confidence
+across `profiles × routes × metrics × splits`. It emits no route selection and grants
+neither promotion nor activation authority.
+
+The freezer then applies the sealed role allowlist and cost-first objective to that
+reverified calibration evidence. Any missing cost among quality-eligible permitted
+routes makes the profile uncalibrated; use the sealed fallback or fail closed. The
+frozen candidate policy records that holdout is unevaluated and cannot activate a
+runtime route.
+
+The implemented holdout boundary consumes a policy-keyed exclusive claim in an
+existing private directory before scoring. It reverifies the frozen calibration
+chain and the complete independent holdout chain, preserves every profile/route
+score, and reports selected-route adequacy, under-routing, missed adequate
+alternatives, fallback/fail-closed coverage, and cost/latency regret. Incomplete cost
+coverage suppresses hindsight-cheapest and regret claims. This local claim is
+crash-conservative but cannot prevent an analyst from copying data, selecting a new
+claim directory, deleting state, or reading holdout outcomes elsewhere; independent
+custody is still required. The report grants neither promotion nor activation.
+
+Policy-level holdout acceptance thresholds are a separate pre-registered artifact
+whose digest is pinned into the holdout claim and report. The unsigned deterministic
+comparison cannot claim promotion readiness. A verification-only gate recomputes
+both source chains and every threshold, requires a domain-separated Ed25519 signature
+from an authority disjoint from graders and resolvers, and emits the only promotion-
+ready receipt. That receipt still cannot authorize runtime activation.
+Policy-level rates explicitly weight sealed profiles equally; they do not claim to
+estimate the production traffic mix without a separately registered distribution.
+
+The implemented activation-eligibility boundary then consumes only that authenticated
+promotion. Three mutually distinct operational authorities, all disjoint from the
+evaluation and promotion signers, sign: (1) exact route, cost, freshness, and control
+requirements; (2) route-specific catalog, price, conformance, and drift assertions;
+and (3) emergency-stop and revocation state. The readiness snapshot binds the signed
+policy context, every selected route, and every required fallback without model or
+effort substitution. The resulting receipt expires at the earliest input deadline
+and grants neither runtime activation nor configuration mutation. These operational
+values are signed attestations—Mos Eisley does not query or validate their sources—and
+a still-valid older control sequence remains replayable without an external monotonic
+latest-state anchor. Runtime preflight, atomic installation, rollback, and traffic
+monitoring remain separate future gates.
+
+The implemented runtime preflight adds a private append-only local control anchor.
+Its pre-registered policy fixes a unique identity, activation trust-policy digest,
+and the identities allowed to sign control state; that policy digest is bound by the
+activation signer. Every update has a greater sequence and issuance time, hash-links
+the prior entry, and may not remove revocations. Preflight reconstructs every earlier
+evaluation and authorization gate and requires the exact latest anchored state within
+a signed maximum age. It remains non-dispatching because first-state bootstrap,
+whole-database rollback by the owner, and a state change after the check require an
+external monotonic witness and atomic one-use dispatch protocol.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.
@@ -696,6 +757,18 @@ version's detection, false-positive, cost, and calibration effects. “Closest w
 discovery is forbidden for authority-bearing fields; configuration still intersects
 with trusted policy as required by §23.1B.
 
+The initial implementation is intentionally narrower: standards-compatible
+`SKILL.md`, optional `mos.yaml` containing only `version` and `kind`, prompt-only
+persona/procedure packages, explicit discovery roots, and exact
+`source:name@sha256:digest` activation. It rejects scripts, executable files,
+toolbundles, `allowed-tools`, name-only precedence, and implicit project activation.
+Discovery snapshots the complete bounded package once; model-context disclosure is
+progressive from that immutable snapshot. Recorded reviews may bind persona skills
+only when the activated, outer-trimmed body is byte-for-byte equal to the existing
+request-bound cassette,
+and schema-2 runs record the exact source, version, package digest, and instruction
+digest. See `docs/SKILLS.md` and the disposition in §25.
+
 ---
 
 ## 15. Adversarial review pipeline
@@ -944,6 +1017,12 @@ Fit an interpretable prompt-difficulty policy on the calibration split, freeze i
 a content-addressed artifact, then measure routing quality once on a final holdout.
 Never tune thresholds on that holdout. Report confidence intervals and under-routing
 separately for each role, backend, provider, repository domain and risk tag.
+
+Current implementation evaluates each sealed prompt profile, preserves all candidate
+scores, and reports route adequacy, fallback/fail-closed coverage and cost/latency
+regret. Its exclusive local claim prevents an accidental second CLI attempt for the
+same frozen policy in one trusted directory; it is not a substitute for independently
+controlled holdout access.
 
 Two expectations worth confirming rather than assuming:
 
@@ -1351,3 +1430,134 @@ gate, containment proof, or the trusted/untrusted configuration split in §23.8.
 An app server, audio/realtime mode, automatic compaction delegation, local model
 route, and Git-backed turn branching remain unplanned candidates. Each requires a
 separate measured use case and threat-model amendment before receiving a milestone.
+
+---
+
+## 25. Adversarial review of Skills, SecretRef, and Doctor
+
+**Review date:** 2026-09-05
+
+**Source:** `mos-eisley-skills-secrets-doctor.md` from the local Downloads directory
+
+**Disposition:** **Adopt the prompt-only skills foundation now; split and defer the
+authority-bearing subsystems.** The proposal correctly identifies provenance,
+shadowing, validation/use races, secret exposure, and diagnostic drift. It combines
+three independently risky systems, however, and assumes a configuration substrate
+that this implementation intentionally does not yet have. Shipping them together
+would turn a prompt-asset feature into new host-code and credential paths.
+
+### 25.1 Decision matrix
+
+| Proposal | Decision | Required narrowing |
+|---|---|---|
+| Portable `SKILL.md` | **Adopt now** | Follow the Agent Skills frontmatter shape; keep Mos-only structure in an optional sidecar. |
+| `mos.yaml` | **Adopt narrowly** | Only `version` and `kind = persona | procedure`; extra fields fail. It grants no capability. |
+| Progressive loading | **Adopt now** | Snapshot the whole bounded package once, disclose metadata/body/resources progressively from that immutable snapshot. |
+| Source precedence | **Reject project-wins** | Preserve source-qualified identities, report collisions, and require exact references. A project package never shadows a user package. |
+| Skill trust/tiering | **Defer persistence** | Project activation requires an explicit invocation-local opt-in. Structural validity is never trust. Add durable approvals only after trusted config provenance exists. |
+| Scripts/toolbundles/check code | **Reject in this phase** | Reject `scripts/`, executable bits, `toolbundle`, and `allowed-tools`; do not import package code. |
+| Persona migration | **Observe now; promote later** | Bind only bodies exactly matching request-bound recorded personas. Change personas only after paired golden/held-out evaluation. |
+| Per-skill provenance | **Adopt now** | Record source, name, version, whole-package digest, instruction digest, byte count, and critic binding in a hashed run artifact. |
+| SecretRef | **Defer as a separate security program** | First implement config provenance, child-environment isolation, read denial, audited transport substitution, and seeded-secret egress tests. |
+| Opaque secret handles | **Useful defense, not a boundary** | The transport necessarily sees plaintext. Never claim handles solve SDK/proxy/log leakage. |
+| Secret migration | **Defer** | Requires crash-safe journaling and scoped residual-secret verification without plaintext backups. |
+| Doctor diagnostics | **Defer executable/fix surface** | A future read-only typed check registry can land separately. No skill code imports; online and billable probes are explicit. |
+| `doctor --fix` | **Defer** | Automatic mutation needs per-remedy idempotence, re-verification, collision handling, and a permanently non-secret/non-sudo boundary. |
+
+### 25.2 Implemented foundation and invariants
+
+The first slice is implemented in `run/skills.py`, `core/skills.py`, the `mos skills`
+CLI, and schema-2 recorded-run artifacts. It enforces:
+
+1. only explicitly supplied roots are read; there is no ambient home, repository,
+   config, or `AGENTS.md` discovery;
+2. activation uses `source:name@sha256:whole-package-digest`, never a mutable name or
+   version alone;
+3. project packages require explicit activation and never win a collision;
+4. all package bytes are bounded and snapshotted before use; later filesystem edits
+   cannot change the activated body or lazy resource;
+5. YAML aliases, anchors, tags, and duplicate keys plus symlinks, special files,
+   executable bits, scripts, and capability vocabulary fail closed;
+6. validation and discovery explicitly grant no authority;
+7. recorded skill bindings exactly cover critics and their activated instructions
+   must reproduce each cassette persona byte for byte; replay verifies their hashed
+   provenance artifact.
+
+### 25.3 Evidence and remaining gates
+
+The implementation has malicious-package and integration tests, but it does not
+establish that any persona improves review quality. Before a persona revision replaces
+an inline default, pre-register a paired comparison on identical clean and defective
+samples and report detection, clean false-positive risk, calibration, completion,
+latency, tokens, and cost. Freeze the package digest before holdout and apply the same
+family-wise correction and independent-group rules as the routing study.
+
+Before SecretRef, land read-denial and child-environment isolation across every
+supported containment backend. Seed secrets through config, provider errors, HTTP
+diagnostics, tool output, events, run/replay/export, and crash paths. Before doctor,
+define a versioned result contract and prove offline mode opens no network path;
+mandatory security checks cannot succeed by skipping.
+
+The package snapshot prevents ordinary post-validation drift but not a malicious
+same-UID process racing trusted ancestor directories. Package signatures and archives
+are absent, so historical reconstruction depends on retaining the exact digest-named
+package. These limits are explicit in `docs/SKILLS.md` and milestone review 22.
+
+### 25.4 Implemented paired evidence gate
+
+Evaluation routes now bind an exact inline or persona-skill prompt asset. A separate
+two-arm protocol seals the dataset, full plan, prompt identities, non-inferiority
+margins, paired equal-group estimand, fixed stopping rule, and six-comparison family
+before results are inspected. The arms must be identical except for their prompt,
+and the candidate must be a digest-identified persona skill.
+
+Scoring reverifies the complete dual-authenticated human-grading lineage, averages
+repetitions within cases, pairs candidate-minus-baseline case outcomes, then weights
+declared independence groups equally. Holdout CLI use consumes an atomic private
+claim before validation so failed or repeated attempts cannot be selectively rerun
+without explicit local-control tampering. Cost and latency deltas are reported.
+
+This closes the recommended evidence-foundation slice, not persona promotion. Every
+artifact denies activation and each report denies promotion. A later milestone must
+define independent signed promotion, retained package archives, rollback, expiry,
+and drift monitoring before a skill can replace a default.
+
+### 25.5 Implemented independent promotion-readiness gate
+
+An authority policy now enrolls sorted unique Ed25519 release keys and bounds both
+its own validity and the maximum lifetime of a decision. The only signable decision
+is deterministically derived from the exact sealed comparison plus matching
+calibration and holdout reports; both registered gates must pass. The signature
+domain binds the authority policy, exact skill and prompt identities, both reports,
+and UTC decision window.
+
+Authentication recomputes both reports from their complete dual-human-grade source
+chains, rejects authority overlap with any grader or resolver, checks expiry, derives
+the decision again, and verifies the signature. A signed failed experiment remains
+a denial. The resulting receipt can claim promotion readiness but literally denies
+configuration mutation and activation.
+
+This is an evidence-authorization boundary, not installation. The next retained-byte
+archive slice is documented below; author signatures, rollback, revocation,
+transactional default changes, and drift monitoring remain mandatory future work.
+
+### 25.6 Implemented deterministic package retention
+
+A retained skill archive now serializes every path and exact byte from the loader's
+immutable validated snapshot. Canonical base64, per-file byte counts and digests,
+canonical path ordering, collision checks, and the existing domain-separated package
+digest make the archive deterministic and content addressed. Retention never
+reopens the package, so a post-discovery filesystem mutation cannot change the
+archive selected by its exact qualified reference.
+
+Archive verification is deliberately semantic as well as structural: it reparses
+the retained `SKILL.md` and optional `mos.yaml`, re-applies the prompt-only rules,
+and rebuilds the complete descriptor and normalized instruction-body digest from
+the retained bytes. It performs no extraction or materialization. Project-source
+retention requires invocation-local approval, and the archive schema fixes
+installation, activation, and configuration mutation authority to false.
+
+This closes byte retention, not deployment. The archive does not prove authorship
+or safety and is not yet bound to a current promotion receipt. Revocation, rollback,
+transactional installation/default changes, and post-install drift monitoring remain
+separate mandatory gates.

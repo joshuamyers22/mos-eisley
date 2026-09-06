@@ -3,8 +3,10 @@
 `run.provider_broker.RequestBoundBroker` gives trusted host code a short-lived,
 single-use bearer grant for one exact host-approved request. The
 `run.isolated_broker.run_isolated_broker` library now connects it to an offline
-container through private subprocess pipes. There is no paid CLI, socket listener,
-or live evaluation sweep. Tests use synthetic host responses, not live evidence.
+container through private subprocess pipes. An explicitly acknowledged
+`openai-conformance` CLI now composes these pieces for exactly one assignment;
+there is no socket listener or live evaluation sweep. Tests use synthetic host
+responses, not live evidence, and no credentialed run has been recorded.
 
 The host snapshots the canonical request and configures the OpenAI spending
 transport, credentials, endpoint, reviewed pricing, and shared ledger. A claim
@@ -89,12 +91,15 @@ guardians are no longer active before investigating incomplete states.
 
 ## Remaining gates
 
-- Integrate assignment-bound conformance records into live evaluation result
-  provenance only after response validation; grants remain process-local and
-  cannot be resumed. Add deliberate multi-audit inventory only if it retains an
-  independently trusted expected-authorization set.
-- Independently bound upstream HTTP response buffering and run explicitly
-  authorized credentialed conformance. Async cancellation cannot stop blocking
+- Strict response validation now produces a separate, non-scoreable
+  [brokered conformance artifact](BROKERED_EVALUATION.md). Promote it into live
+  evaluation provenance only after credentialed conformance passes; grants remain
+  process-local and cannot be resumed. Add deliberate multi-audit inventory only
+  if it retains an independently trusted expected-authorization set.
+- Run the implemented command under separate operator authorization and preserve
+  its credentialed conformance result. Decoded upstream HTTP bodies are independently
+  bounded for non-streaming SDK operations, but async
+  cancellation cannot stop blocking
   adapters, guarantee remote cancellation, or establish invoice-level cost caps.
-- Retain explicit data-transfer consent and reviewed shared-spend admission when
-  introducing any paid entry point. No automatic retries or paid sweeps yet.
+- Retain explicit data-transfer consent and reviewed shared-spend admission for
+  every paid entry point. No automatic retries or paid sweeps exist.

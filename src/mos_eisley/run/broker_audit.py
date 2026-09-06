@@ -1,9 +1,9 @@
 """Private host audit boundaries, not authenticated live evaluation evidence."""
 
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.files import read_bounded
@@ -31,31 +31,40 @@ class BrokerAdmission(Contract):
 
 
 class BrokerOutcome(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 2
     admission_sha256: Digest
     status: Literal["response_received", "failed", "cancelled"]
     response_sha256: Digest | None = None
+    latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
 
     @model_validator(mode="after")
     def response_matches_status(self) -> Self:
         if (self.status == "response_received") != (self.response_sha256 is not None):
             raise ValueError("broker outcome response hash mismatch")
+        if self.schema_version == 2 and (self.status == "response_received") != (
+            self.latency_ms is not None
+        ):
+            raise ValueError("broker outcome response latency mismatch")
         return self
 
 
 class BrokerRecoveryState(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     authorization_sha256: Digest
     phase: Literal["prepared", "admitted", "finished"]
     ledger_status: Literal["absent", "held", "settled", "uncertain", "violation"]
     outcome_status: Literal["response_received", "failed", "cancelled"] | None = None
+    outcome_sha256: Digest | None = None
     response_sha256: Digest | None = None
+    latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
     retry_permitted: Literal[False] = False
 
     @model_validator(mode="after")
     def consistent_phase(self) -> Self:
         if (self.phase == "finished") != (self.outcome_status is not None):
             raise ValueError("finished recovery state requires an outcome")
+        if (self.phase == "finished") != (self.outcome_sha256 is not None):
+            raise ValueError("finished recovery state requires an outcome hash")
         if (self.outcome_status == "response_received") != (
             self.response_sha256 is not None
         ):
@@ -86,11 +95,13 @@ class BrokerAudit:
         self,
         status: Literal["response_received", "failed", "cancelled"],
         response_sha256: str | None = None,
+        latency_ms: int | None = None,
     ) -> None:
         outcome = BrokerOutcome(
             admission_sha256=digest(canonical_bytes(self._admission)),
             status=status,
             response_sha256=response_sha256,
+            latency_ms=latency_ms,
         )
         private_write(self.directory / "outcome.json", canonical_bytes(outcome))
 
@@ -169,5 +180,7 @@ def inspect_broker_recovery(
         ),
         ledger_status="absent" if entry is None else entry.status,
         outcome_status=None if outcome is None else outcome.status,
+        outcome_sha256=(None if outcome is None else digest(canonical_bytes(outcome))),
         response_sha256=None if outcome is None else outcome.response_sha256,
+        latency_ms=None if outcome is None else outcome.latency_ms,
     )
