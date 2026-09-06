@@ -61,17 +61,27 @@
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
-5. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
+5. **In progress — prompt skill evidence:** exact instructions now participate in
+   evaluation candidate and request identity. A sealed two-arm protocol enforces a
+   prompt-only persona-skill treatment, paired independent-group statistics, full
+   dual-grade lineage, and a local one-use holdout claim. Reports cannot promote or
+   activate the skill. An independent Ed25519 authority can now issue a short-lived
+   promotion-readiness receipt only after both split lineages are recomputed, while
+   configuration and activation remain denied. Deterministic retained package
+   archives now preserve and semantically reverify every validated byte without
+   extraction or authority. Next: bind archives to current receipts, then rollback,
+   revocation, transactional installation, and post-promotion drift evidence.
+6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
-6. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
-7. **Publisher:** authenticated isolated credential process, dry run, idempotency.
-8. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
+7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+8. **Publisher:** authenticated isolated credential process, dry run, idempotency.
+9. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,
    redaction, typed lifecycle events and trusted endpoint/credential contracts;
    then bounded subagents; then brokered web/image evidence; finally one narrow
    outward MCP interface. See plan §§24.5 and 25 for acceptance criteria.
-9. **Convenience:** TUI, resume, provenance and optional Postgres export.
+10. **Convenience:** TUI, resume, provenance and optional Postgres export.
 
 The saved `docs/mos-eisley-plan.md` is design history including its adversarial review.
 Current implemented behavior is defined by the project brief, ADR and tests.

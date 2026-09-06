@@ -151,6 +151,15 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Prompt-only Agent Skills packages](docs/SKILLS.md) with bounded YAML parsing,
   whole-package digests, immutable progressive loading, non-shadowing source
   identities, explicit project opt-in, and replay-verified run provenance.
+- [Paired persona-skill evaluation](docs/SKILL_EVALUATION.md) that seals exact
+  prompt-only controls, consumes holdout once, reverifies dual-human-grade lineage,
+  and reports simultaneous group bounds without promotion or activation authority.
+- [Independently signed persona-skill promotion](docs/SKILL_PROMOTION.md) that
+  recomputes both split lineages, enforces evaluator/authority separation and expiry,
+  and issues evidence readiness without configuration or runtime authority.
+- [Deterministic retained skill-package archives](docs/SKILL_ARCHIVES.md) that
+  preserve every validated byte, rebuild semantic identity without extraction, and
+  literally deny installation, activation, and configuration authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -173,7 +182,9 @@ the final file component, not to every ancestor; this is not a host sandbox.
 
 Skills are inert prompt content. Scripts, tool bundles, `allowed-tools`, remote
 registries, persistent trust, automatic discovery, SecretRef, and doctor fixes are
-not implemented. Skill quality and persona changes remain evaluation-gated.
+not implemented. Archives retain exact bytes but provide no authorship, extraction,
+installation, configuration, or activation authority. Skill quality and persona
+changes remain evaluation-gated.
 
 Run files contain the supplied brief and recorded responses. Keep the output root
 private. File hashes detect accidental changes, not a malicious owner who can
@@ -194,7 +205,9 @@ See the [project brief](PROJECT_BRIEF.md),
 [routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md),
 [routing runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md),
 [prompt-only skills](docs/SKILLS.md),
+[retained skill archives](docs/SKILL_ARCHIVES.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
+[retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
