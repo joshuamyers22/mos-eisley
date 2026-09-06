@@ -37,10 +37,12 @@
    retaining literal promotion denial. A content-addressed routing-study protocol
    now seals label-free feature partitions, role candidate floors and fallbacks,
    the cost-first objective, and freeze-before-holdout discipline; it cannot inspect
-   results or authorize activation. Next run explicitly authorized credentialed
-   conformance, implement profile-aware calibration scoring and policy freezing,
-   then run the repeated backend × model × effort sweep on clean and defective
-   samples. Learn and
+   results or authorize activation. Profile-aware calibration scoring now reverifies
+   the full authenticated lineage and corrects confidence across every sealed
+   profile and route without accepting holdout outcomes or selecting a route. Next
+   run explicitly authorized credentialed conformance, implement calibration-only
+   policy freezing, then run the repeated backend × model × effort sweep on clean
+   and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

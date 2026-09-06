@@ -126,6 +126,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - A [pre-registered routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md) that
   seals label-free feature bins, role floors, fallbacks, selection rules, and
   holdout discipline without reading outcomes or granting activation authority.
+- [Profile-aware calibration scoring](docs/ROUTING_CALIBRATION.md) from fully
+  reverified dual-grade lineage, with confidence correction across all sealed
+  profiles and no holdout outcome or route-selection input.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -158,6 +161,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
+[routing calibration](docs/ROUTING_CALIBRATION.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

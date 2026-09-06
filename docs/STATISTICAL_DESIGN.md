@@ -67,6 +67,12 @@ Flawless results therefore give detection lower bound 0.83446 and clean-risk upp
 bound 0.16554. One group repeated 100 times still has a [0, 1] interval. Adding
 candidate routes increases the family size and widens the interval.
 
+For a sealed prompt-profile study, the additive protocol expands the family to
+`profile_count * route_count * 3 metrics * 2 splits`. The calibration report records
+that scope, profile count, and resulting family size on every profile and checks the
+value against each route assessment. This reserves confidence error for the later
+holdout evaluation before any calibration outcome is scored.
+
 ## Decisions and remaining limits
 
 `eligible` means group coverage, the three group confidence gates, and the

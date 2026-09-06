@@ -17,7 +17,11 @@ from mos_eisley.evaluation.models import (
     StatisticalDesign,
 )
 from mos_eisley.evaluation.scoring import EvaluationReport, make_plan, score
-from mos_eisley.evaluation.statistics import assess_groups, group_interval
+from mos_eisley.evaluation.statistics import (
+    MAX_CONFIDENCE_FAMILY,
+    assess_groups,
+    group_interval,
+)
 
 
 def grouped_dataset(groups: int) -> EvaluationDataset:
@@ -217,6 +221,6 @@ class EvaluationStatisticsTests(TestCase):
         for values in ([], [float("nan")], [float("inf")], [-0.1], [1.1]):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 group_interval(values, 6)
-        for family in (0, 5, 769):
+        for family in (0, 5, MAX_CONFIDENCE_FAMILY + 1):
             with self.subTest(family=family), self.assertRaises(ValueError):
                 group_interval([0.5], family)

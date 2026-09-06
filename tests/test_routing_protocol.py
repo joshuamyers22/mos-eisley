@@ -48,23 +48,21 @@ def study_inputs() -> tuple[
     )
     cases = tuple(
         EvalCase(
-            id=f"{split}-{kind}",
+            id=f"{split}-{size}-{kind}",
             split=cast(Split, split),
-            independence_group=f"{split}-{kind}",
+            independence_group=f"{split}-{size}-{kind}",
             brief=Brief(
-                spec=f"Return exact {index}.",
-                diff=f"return value {index}",
+                spec=f"Return exact value {index}.",
+                diff=f"return {size} value {index}",
             ),
             expected_findings=(defect,) if kind == "defect" else (),
             risk_tags=("public-api",),
         )
-        for index, (split, kind) in enumerate(
-            (
-                ("calibration", "defect"),
-                ("calibration", "clean"),
-                ("holdout", "defect"),
-                ("holdout", "clean"),
-            )
+        for index, (size, split, kind) in enumerate(
+            (size, split, kind)
+            for size in ("small", "large")
+            for split in ("calibration", "holdout")
+            for kind in ("defect", "clean")
         )
     )
     dataset = EvaluationDataset(id="routing-study", cases=cases)
@@ -105,7 +103,7 @@ def study_inputs() -> tuple[
                 role="critic",
                 input_bytes=len(canonical_bytes(case.brief)),
                 changed_files=1,
-                changed_lines=1,
+                changed_lines=1 if "small" in case.id else 2,
                 language_count=1,
                 output_contract="critique-v1",
                 tool_requirements=("read-file",),
@@ -212,13 +210,21 @@ class RoutingProtocolTests(TestCase):
 
     def test_profiles_must_support_both_metrics_on_both_splits(self) -> None:
         dataset, plan, manifest, protocol = study_inputs()
-        first = manifest.assignments[0]
+        first = next(
+            item for item in manifest.assignments if item.features.changed_lines == 1
+        )
         changed_features = first.features.model_copy(update={"changed_lines": 2})
+        remaining = tuple(item for item in manifest.assignments if item is not first)
         changed = manifest.model_copy(
             update={
-                "assignments": (
-                    first.model_copy(update={"features": changed_features}),
-                    *manifest.assignments[1:],
+                "assignments": tuple(
+                    sorted(
+                        (
+                            first.model_copy(update={"features": changed_features}),
+                            *remaining,
+                        ),
+                        key=lambda item: item.case_id,
+                    )
                 )
             }
         )

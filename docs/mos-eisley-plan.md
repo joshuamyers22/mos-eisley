@@ -349,6 +349,11 @@ closed instead of being pooled after outcomes are visible. A content digest fixe
 the design but does not prove when it was authored, so promotion also requires an
 external append-only pre-registration attestation.
 
+Profile calibration scoring must reverify the sealed study and authenticated grading
+lineage, accept only the exact calibration observation matrix, and allocate confidence
+across `profiles × routes × metrics × splits`. It emits no route selection and grants
+neither promotion nor activation authority.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.

@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add calibration-only scoring for sealed prompt profiles from fully reverified
+  dual-grade lineage, with simultaneous confidence correction across every profile,
+  route, metric, and both splits and literal promotion/activation denial.
+
 - Add a non-activating, content-addressed routing-study protocol that binds exact
   label-free prompt features, pre-registered numeric partitions, role candidate
   floors and fallbacks, a cost-first objective, and freeze-before-holdout rules.

@@ -48,6 +48,12 @@ from mos_eisley.evaluation.resolution import (
     resolve_authenticated_adjudications,
     verify_dual_grading_resolution,
 )
+from mos_eisley.evaluation.routing_calibration import (
+    ProfileCalibrationScore,
+    RoutingCalibrationReport,
+    score_routing_calibration,
+    verify_routing_calibration_report,
+)
 from mos_eisley.evaluation.routing_protocol import (
     CaseFeatureAssignment,
     DifficultyProfile,
@@ -87,10 +93,12 @@ __all__ = (
     "ObservationSet",
     "ObservablePromptFeatures",
     "PromptFeatureManifest",
+    "ProfileCalibrationScore",
     "Judgment",
     "RawResultSet",
     "RouteCandidate",
     "RoleRouteConstraint",
+    "RoutingCalibrationReport",
     "RoutingStudyProtocol",
     "SealedRoutingStudy",
     "DualGradingResolution",
@@ -108,9 +116,11 @@ __all__ = (
     "resolve_authenticated_adjudications",
     "score",
     "score_dual_graded_observations",
+    "score_routing_calibration",
     "seal_routing_study",
     "verify_dual_grading_resolution",
     "verify_dual_graded_observations",
     "verify_dual_lineage_evaluation_report",
     "verify_sealed_routing_study",
+    "verify_routing_calibration_report",
 )

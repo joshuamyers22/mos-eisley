@@ -66,9 +66,11 @@ from mos_eisley.evaluation.resolution import (
     SignedResolutionSet,
     resolve_authenticated_adjudications,
 )
+from mos_eisley.evaluation.routing_calibration import score_routing_calibration
 from mos_eisley.evaluation.routing_protocol import (
     PromptFeatureManifest,
     RoutingStudyProtocol,
+    SealedRoutingStudy,
     seal_routing_study,
 )
 from mos_eisley.evaluation.scoring import make_plan, score
@@ -360,6 +362,29 @@ def parser() -> argparse.ArgumentParser:
     eval_seal_routing.add_argument("--feature-manifest", type=Path, required=True)
     eval_seal_routing.add_argument("--protocol", type=Path, required=True)
     eval_seal_routing.add_argument("--output", type=Path, required=True)
+    eval_score_routing = subcommands.add_parser(
+        "eval-score-routing-calibration",
+        help="Score sealed profiles from authenticated calibration lineage",
+    )
+    eval_score_routing.add_argument("--dataset", type=Path, required=True)
+    eval_score_routing.add_argument("--plan", type=Path, required=True)
+    eval_score_routing.add_argument("--batch", type=Path, required=True)
+    eval_score_routing.add_argument("--mapping", type=Path, required=True)
+    eval_score_routing.add_argument("--raw-results", type=Path, required=True)
+    eval_score_routing.add_argument("--grading-batch", type=Path, required=True)
+    eval_score_routing.add_argument(
+        "--dual-grading-resolution", type=Path, required=True
+    )
+    eval_score_routing.add_argument(
+        "--dual-graded-observations", type=Path, required=True
+    )
+    eval_score_routing.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_score_routing.add_argument(
+        "--resolution-trust-policy", type=Path, required=True
+    )
+    eval_score_routing.add_argument("--feature-manifest", type=Path, required=True)
+    eval_score_routing.add_argument("--sealed-study", type=Path, required=True)
+    eval_score_routing.add_argument("--output", type=Path, required=True)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -667,19 +692,98 @@ def _seal_routing_study_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _score_routing_calibration_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    report = score_routing_calibration(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        manifest,
+        sealed_study,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_calibration.scored",
+                "path": str(output),
+                "calibration_report_sha256": report.calibration_report_sha256,
+                "profiles": len(report.profiles),
+                "eligible_profile_routes": sum(
+                    score.eligible
+                    for profile in report.profiles
+                    for score in profile.scores
+                ),
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
+    handlers = {
+        "eval-authenticate-adjudication": _authenticate_adjudication_command,
+        "eval-resolve-adjudications": _resolve_adjudications_command,
+        "eval-compile-dual": _compile_dual_command,
+        "eval-score-dual": _score_dual_command,
+        "eval-seal-routing-study": _seal_routing_study_command,
+        "eval-score-routing-calibration": _score_routing_calibration_command,
+    }
+    handler = handlers.get(args.command)
+    return handler(args) if handler is not None else None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command == "eval-authenticate-adjudication":
-            return _authenticate_adjudication_command(args)
-        if args.command == "eval-resolve-adjudications":
-            return _resolve_adjudications_command(args)
-        if args.command == "eval-compile-dual":
-            return _compile_dual_command(args)
-        if args.command == "eval-score-dual":
-            return _score_dual_command(args)
-        if args.command == "eval-seal-routing-study":
-            return _seal_routing_study_command(args)
+        specialized_result = _specialized_evaluation_command(args)
+        if specialized_result is not None:
+            return specialized_result
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")

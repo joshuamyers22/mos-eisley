@@ -56,8 +56,8 @@ record before evaluation outcomes are available. Mos Eisley does not yet provide
 that time-attestation service. Human review is also still responsible for feature
 correctness, candidate floors, dataset representativeness, and independence groups.
 
-Next, a calibration-only scorer must use the sealed partition and widen its
-simultaneous confidence family across every profile. A separate policy freezer must
-consume that report without holdout access. Only then may a one-time holdout command
-measure under-routing, regret, and coverage; activation remains a later, separately
-authorized boundary.
+The calibration-only scorer now uses the sealed partition and widens its simultaneous
+confidence family across every profile. Next, a separate policy freezer must consume
+that report without holdout outcomes. Only then may a one-time holdout command measure
+under-routing, regret, and coverage; activation remains a later, separately authorized
+boundary.

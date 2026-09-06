@@ -2,9 +2,9 @@
 
 Date: 2026-09-05. Status: proposed; blocked on evaluation data.
 
-Implementation note: the offline routing-study protocol and feature-partition
-sealing boundary are implemented. Calibration fitting, holdout evaluation,
-promotion, and runtime routing remain disabled.
+Implementation note: the offline routing-study protocol, feature-partition sealing,
+and profile-aware calibration scorer are implemented. Policy fitting, holdout
+evaluation, promotion, and runtime routing remain disabled.
 
 ## Decision
 
