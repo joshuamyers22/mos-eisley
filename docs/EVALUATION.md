@@ -32,8 +32,10 @@ uv run --frozen mos eval-plan \
 ```
 
 Each candidate is the concrete backend × provider × model × effort tuple plus its
-client version and registry digest. API and subscription clients therefore remain
-different candidates even when they expose the same model name.
+client version, registry digest, and exact `PromptAsset`. API and subscription
+clients therefore remain different candidates even when they expose the same model
+name, and instruction changes produce a different candidate identity. Persona-skill
+experiments use the separate [paired comparison protocol](SKILL_EVALUATION.md).
 
 Create an execution batch and a separate private mapping. A fresh 256-bit nonce
 produces opaque HMAC sample IDs. The batch contains only each brief and concrete
@@ -165,12 +167,25 @@ their rationales. Unresolved decisions count as unresolved conflicts even if bot
 graders abstain. No emitted findings produces a null agreement rate.
 
 This is a descriptive report, with no confidence interval or quality threshold.
-Distinct grader IDs do not authenticate people or prove independent work. The
-command rejects matching IDs, mismatched rubrics and mixed human/fixture methods,
-but it cannot detect collusion or shared bias. It does not pick a winning grader.
-Review disputes under a pre-registered resolution protocol and preserve the original
-grades; authenticated resolution lineage and enforcement before promotion remain
-future work. Single-grader compilation is still available for offline rehearsal.
+Distinct grader IDs alone do not authenticate people or prove independent work.
+The command rejects matching IDs, mismatched rubrics and mixed human/fixture
+methods, but it cannot detect collusion or shared bias. It does not pick a winning
+grader. It remains useful for fixture diagnostics, but it is not the authenticated
+gate.
+
+For human grading, authenticate both exact adjudications and use
+[`eval-resolve-adjudications`](DUAL_GRADE_RESOLUTION.md). That command reverifies
+two distinct enrolled grader keys, preserves both signed originals and requires a
+separately enrolled resolver key to sign exactly one valid decision for every
+recomputed conflict. It prohibits unnecessary resolution when labels agree. The
+result remains `promotion_eligible: false` and is deliberately not accepted by
+legacy `eval-compile` or `eval-score`. Use the separately reviewed
+[`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) command to reverify the entire
+artifact chain and create a distinct observation set rejected by legacy scoring.
+The dedicated [`eval-score-dual`](DUAL_LINEAGE_SCORING.md) command accepts that
+schema only after full-chain reverification, while every resulting report retains
+`promotion_ready: false`. Single-grader compilation remains available only for
+offline rehearsal.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.
@@ -211,6 +226,11 @@ risk in the group gate. See [statistical design](STATISTICAL_DESIGN.md) for the
 estimand, formulas, assumptions, sample-size example and schema-2 migration.
 Every report returns `promotion_ready: false`.
 
+`RouteCandidate` and `CandidateGrid` schema 2 add the exact prompt asset;
+`SweepPlan` schema 3 and `EvaluationRequest`/`ExecutionBatch` schema 2 transitively
+bind it. Regenerate older artifacts because their reviewer instructions cannot be
+reconstructed from the old route identity.
+
 ## What this does not prove
 
 The CLI opens only the explicitly named files, and the recorded execution command
@@ -218,13 +238,17 @@ does not accept a dataset or mapping. This is a structural boundary, not process
 filesystem isolation: a future in-process live adapter could read unrelated files
 unless it runs inside the planned sandbox. The tool also cannot prove that a human
 judgment is correct, that thresholds were authored before results were seen, or
-that adjudicator identity and timestamps are authentic. It does not seal a holdout
-set against repeated analyst access, verify independence of the declared groups,
-correct for comparisons across separately authored plans, stratify by prompt
-profile, or detect provider drift. These controls remain
-required before a report can promote a routing policy.
+that the person holding an enrolled signing key is independent. Signed receipts
+bind claimed identity and timestamps but do not attest physical identity or time.
+It does not globally seal a holdout set against repeated analyst access, verify
+independence of the declared groups, correct for comparisons across separately
+authored plans, or detect provider drift. The separate frozen-policy evaluator now
+adds a policy-keyed local exclusive-use claim and exact holdout scoring, but an
+independent custodian is still required to enforce one-time access. These controls
+remain required before a report can promote a routing policy.
 
 Observation sets and reports now require raw-result and adjudication digests.
 Recompile older offline observations through the artifact chain; do not insert
 placeholder hashes to make an old file validate. A digest records content integrity,
-not an authenticated execution or adjudicator identity.
+not an authenticated execution. An Ed25519 adjudication receipt authenticates key
+possession and exact content only under its independently supplied trust policy.

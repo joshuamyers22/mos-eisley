@@ -46,6 +46,14 @@ class LedgerSettlement(Contract):
     charged_microusd: Amount
 
 
+class LedgerEntryStatus(Contract):
+    entry_id: Digest
+    reservation_sha256: Digest
+    reserved_microusd: Amount
+    charged_microusd: Amount
+    status: Literal["held", "settled", "uncertain", "violation"]
+
+
 def _connect(path: Path) -> sqlite3.Connection:
     # mode=rw is deliberate: missing ledgers must never silently reset a budget.
     connection = sqlite3.connect(
@@ -141,6 +149,24 @@ class SpendLedger:
     def snapshot(self) -> LedgerSnapshot:
         with self._transaction() as connection:
             return self._snapshot(connection)
+
+    def entry_status(self, entry_id: str) -> LedgerEntryStatus | None:
+        """Read one immutable-identity entry without creating or changing state."""
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status "
+                "FROM entries WHERE entry_id = ?",
+                (entry_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return LedgerEntryStatus(
+                entry_id=entry_id,
+                reservation_sha256=row[0],
+                reserved_microusd=row[1],
+                charged_microusd=row[2],
+                status=row[3],
+            )
 
     def reserve(self, entry: LedgerEntry) -> None:
         with self._transaction() as connection:
