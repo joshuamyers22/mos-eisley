@@ -65,21 +65,27 @@ mos eval-authenticate-skill-runtime-billing-evidence \
   --output private/authenticated-billing.json
 ```
 
-Private-key custody and evidence collection remain outside the CLI. Console output is
-hash-only and does not include prompts, responses, raw billing pages, raw project/API
-key identifiers, provider credentials, or signing keys.
+The manual fields can instead be replaced by `--collected-evidence` pointing to the
+strict private bundle produced by
+[`openai-billing-collect`](SKILL_RUNTIME_BILLING_COLLECTION.md). The completeness and
+exclusivity acknowledgement remains mandatory because the documented aggregates cannot
+prove all-day API-key exclusivity. Private-key custody remains outside both commands.
+Derivation and authentication console output is hash-only and does not include prompts,
+responses, raw billing pages, raw project/API-key identifiers, provider credentials, or
+signing keys.
 
 ## Deliberate limits
 
-The software does not fetch or parse the evidence named by its digests. A trusted
-auditor can lie, omit pages despite attesting completeness, or falsely assert that the
-scope was exclusive. OpenAI does not sign these artifacts through this workflow. Cost
-exports may later receive adjustments, credits, taxes, or invoice-level treatment, so
-matching a closed daily aggregate is not invoice finality. The authenticated result
-cannot mutate the ledger, release reserved exposure, retry a request, establish
-provider authorship, claim quality, promote a skill, or activate routing.
+The original manual path does not fetch or parse the evidence named by its digests. The
+separate collector now fetches and strictly parses retained pages, but still cannot
+prove daily exclusivity or response-level attribution. A trusted auditor or operator
+can lie about scope isolation. OpenAI does not sign these artifacts through this
+workflow. Cost exports may later receive adjustments, credits, taxes, or invoice-level
+treatment, so matching a closed daily aggregate is not invoice finality. The
+authenticated result cannot mutate the ledger, release reserved exposure, retry a
+request, establish provider authorship, claim quality, promote a skill, or activate
+routing.
 
 A separately authorized credentialed conformance run is still required. Future work
-may add a credential-isolated collector and strict parser for retained Admin API pages,
-but it must preserve the aggregate attribution limit unless OpenAI exposes a documented
+must preserve the aggregate attribution limit unless OpenAI exposes a documented
 request-bound billing receipt.

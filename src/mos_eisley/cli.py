@@ -10,7 +10,7 @@ import secrets
 import sqlite3
 import sys
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal, cast
 
@@ -128,6 +128,7 @@ from mos_eisley.evaluation.skill_promotion import (
     make_skill_promotion_decision,
 )
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
+from mos_eisley.providers.openai_billing import EphemeralOpenAIAdminBillingTransport
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import (
@@ -220,6 +221,11 @@ from mos_eisley.run.skill_runtime_billing import (
     SkillRuntimeBillingPolicy,
     authenticate_skill_runtime_billing_evidence,
     make_skill_runtime_billing_observation,
+    make_skill_runtime_billing_observation_from_collection,
+)
+from mos_eisley.run.skill_runtime_billing_collection import (
+    CollectedSkillRuntimeBillingEvidence,
+    collect_skill_runtime_billing_evidence,
 )
 from mos_eisley.run.skill_runtime_conformance import (
     AuthenticatedSkillRuntimeConformance,
@@ -449,6 +455,26 @@ def parser() -> argparse.ArgumentParser:
         "--allow-data-transfer",
         action="store_true",
         help="Acknowledge that the blinded brief will be sent to OpenAI",
+    )
+    billing_collect = subcommands.add_parser(
+        "openai-billing-collect",
+        help="Collect private bounded OpenAI Admin API billing evidence",
+    )
+    for option in (
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+        "billing-policy",
+    ):
+        billing_collect.add_argument(f"--{option}", type=Path, required=True)
+    billing_collect.add_argument("--project-id", required=True)
+    billing_collect.add_argument("--api-key-id", required=True)
+    billing_collect.add_argument("--output", type=Path, required=True)
+    billing_collect.add_argument("--timeout", type=float, default=30.0)
+    billing_collect.add_argument(
+        "--allow-account-billing-read",
+        action="store_true",
+        help="Acknowledge access to private OpenAI organization billing metadata",
     )
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
@@ -1485,7 +1511,7 @@ def parser() -> argparse.ArgumentParser:
         "external-output-tokens",
         "external-cost-microusd",
     ):
-        derive_runtime_billing.add_argument(f"--{option}", type=int, required=True)
+        derive_runtime_billing.add_argument(f"--{option}", type=int)
     for option in (
         "usage-bucket-start",
         "usage-bucket-end",
@@ -1493,16 +1519,15 @@ def parser() -> argparse.ArgumentParser:
         "costs-bucket-end",
         "evidence-retrieved-at",
     ):
-        derive_runtime_billing.add_argument(
-            f"--{option}", type=_utc_datetime_argument, required=True
-        )
+        derive_runtime_billing.add_argument(f"--{option}", type=_utc_datetime_argument)
     for option in (
         "project-id-sha256",
         "api-key-id-sha256",
         "usage-evidence-sha256",
         "costs-evidence-sha256",
     ):
-        derive_runtime_billing.add_argument(f"--{option}", required=True)
+        derive_runtime_billing.add_argument(f"--{option}")
+    derive_runtime_billing.add_argument("--collected-evidence", type=Path)
     derive_runtime_billing.add_argument(
         "--attest-complete-exclusive-billing-evidence", action="store_true"
     )
@@ -1818,6 +1843,10 @@ def _openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY")
 
 
+def _openai_admin_api_key() -> str | None:
+    return os.environ.get("OPENAI_ADMIN_KEY")
+
+
 async def _openai_run(
     config: AgentConfig,
     api_key: str,
@@ -1844,6 +1873,115 @@ async def _openai_run(
             NoToolsDispatcher(),
             journal,
         )
+
+
+def _openai_billing_collect_command(args: argparse.Namespace) -> int:
+    input_paths = tuple(
+        cast(Path, value)
+        for value in (
+            args.authenticated_conformance,
+            args.conformance_policy,
+            args.response_store,
+            args.billing_policy,
+        )
+    )
+    output = cast(Path, args.output)
+    if any(_paths_overlap(output, path) for path in input_paths):
+        raise ValueError("billing collection output overlaps a trusted input")
+    if output.exists() or output.is_symlink():
+        raise ValueError("billing collection output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("billing collection output parent must exist")
+    timeout = cast(float, args.timeout)
+    if not 0 < timeout <= 60:
+        raise ValueError("billing collection timeout must be between zero and 60")
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(input_paths[0], 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(input_paths[1], 128_000)
+    )
+    response_store = SkillRuntimeResponseStore(input_paths[2])
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(input_paths[3], 128_000)
+    )
+    verified_conformance = authenticate_skill_runtime_conformance(
+        conformance.signed_observation,
+        conformance_policy,
+        response_store,
+        conformance.authenticated_at,
+    )
+    if verified_conformance != conformance:
+        raise ValueError("billing collection conformance source is not authentic")
+    if (
+        billing_policy.response_store_policy_sha256
+        != response_store.policy.policy_sha256
+        or billing_policy.conformance_policy_sha256 != conformance_policy.policy_sha256
+    ):
+        raise ValueError("billing collection policy differs from runtime lineage")
+    publication, result = response_store.load(conformance.publication_id)
+    now = datetime.now(UTC)
+    costs_end = publication.committed_at.replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ) + timedelta(days=1)
+    if now < costs_end:
+        raise ValueError("billing collection must wait for the daily costs bucket")
+    if not billing_policy.valid_from <= now <= billing_policy.valid_until:
+        raise ValueError("billing collection policy is not current")
+    admin_key = _openai_admin_api_key()
+    if admin_key is None:
+        raise ValueError("OPENAI_ADMIN_KEY is required")
+    collection = asyncio.run(
+        collect_skill_runtime_billing_evidence(
+            EphemeralOpenAIAdminBillingTransport(admin_key, timeout),
+            project_id=cast(str, args.project_id),
+            api_key_id=cast(str, args.api_key_id),
+            model=result.model,
+            published_at=publication.committed_at,
+            collected_at=now,
+        )
+    )
+    _write_contract(output, collection)
+    print(
+        json.dumps(
+            {
+                "type": "openai.billing_evidence.collected",
+                "output": str(output),
+                "collection_sha256": collection.collection_sha256,
+                "usage_evidence_sha256": collection.usage_evidence_sha256,
+                "costs_evidence_sha256": collection.costs_evidence_sha256,
+                "usage_matches_local": (
+                    collection.external_input_tokens == result.usage.input
+                    and collection.external_output_tokens == result.usage.output
+                ),
+                "cost_matches_local": (
+                    collection.external_cost_microusd == result.charged_microusd
+                ),
+                "pagination_complete": collection.pagination_complete,
+                "one_completion_request_in_usage_bucket_verified": (
+                    collection.one_completion_request_in_usage_bucket_verified
+                ),
+                "complete_daily_api_key_exclusivity_proven": (
+                    collection.complete_daily_api_key_exclusivity_proven
+                ),
+                "exact_provider_request_cost_attribution_proven": (
+                    collection.exact_provider_request_cost_attribution_proven
+                ),
+                "billing_admin_read_performed": (
+                    collection.billing_admin_read_performed
+                ),
+                "model_inference_request_sent": (
+                    collection.model_inference_request_sent
+                ),
+                "admin_credential_persisted": collection.admin_credential_persisted,
+                "ledger_mutation_authorized": collection.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    collection.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
 
 
 def _authenticate_adjudication_command(args: argparse.Namespace) -> int:
@@ -4170,24 +4308,58 @@ def _derive_skill_runtime_billing_evidence_command(args: argparse.Namespace) -> 
     billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
         read_bounded(cast(Path, args.billing_policy), 128_000)
     )
-    observation = make_skill_runtime_billing_observation(
-        conformance,
-        conformance_policy,
-        SkillRuntimeResponseStore(cast(Path, args.response_store)),
-        billing_policy,
-        external_input_tokens=cast(int, args.external_input_tokens),
-        external_output_tokens=cast(int, args.external_output_tokens),
-        external_cost_microusd=cast(int, args.external_cost_microusd),
-        usage_bucket_start=cast(datetime, args.usage_bucket_start),
-        usage_bucket_end=cast(datetime, args.usage_bucket_end),
-        costs_bucket_start=cast(datetime, args.costs_bucket_start),
-        costs_bucket_end=cast(datetime, args.costs_bucket_end),
-        project_id_sha256=cast(str, args.project_id_sha256),
-        api_key_id_sha256=cast(str, args.api_key_id_sha256),
-        usage_evidence_sha256=cast(str, args.usage_evidence_sha256),
-        costs_evidence_sha256=cast(str, args.costs_evidence_sha256),
-        evidence_retrieved_at=cast(datetime, args.evidence_retrieved_at),
+    response_store = SkillRuntimeResponseStore(cast(Path, args.response_store))
+    collection_path = cast(Path | None, args.collected_evidence)
+    manual_values = (
+        args.external_input_tokens,
+        args.external_output_tokens,
+        args.external_cost_microusd,
+        args.usage_bucket_start,
+        args.usage_bucket_end,
+        args.costs_bucket_start,
+        args.costs_bucket_end,
+        args.project_id_sha256,
+        args.api_key_id_sha256,
+        args.usage_evidence_sha256,
+        args.costs_evidence_sha256,
+        args.evidence_retrieved_at,
     )
+    if collection_path is not None:
+        if any(value is not None for value in manual_values):
+            raise ValueError(
+                "collected and manually described billing evidence conflict"
+            )
+        collection = CollectedSkillRuntimeBillingEvidence.model_validate_json(
+            read_bounded(collection_path, 48_000_000)
+        )
+        observation = make_skill_runtime_billing_observation_from_collection(
+            conformance,
+            conformance_policy,
+            response_store,
+            billing_policy,
+            collection,
+        )
+    else:
+        if any(value is None for value in manual_values):
+            raise ValueError("runtime billing evidence description is incomplete")
+        observation = make_skill_runtime_billing_observation(
+            conformance,
+            conformance_policy,
+            response_store,
+            billing_policy,
+            external_input_tokens=cast(int, args.external_input_tokens),
+            external_output_tokens=cast(int, args.external_output_tokens),
+            external_cost_microusd=cast(int, args.external_cost_microusd),
+            usage_bucket_start=cast(datetime, args.usage_bucket_start),
+            usage_bucket_end=cast(datetime, args.usage_bucket_end),
+            costs_bucket_start=cast(datetime, args.costs_bucket_start),
+            costs_bucket_end=cast(datetime, args.costs_bucket_end),
+            project_id_sha256=cast(str, args.project_id_sha256),
+            api_key_id_sha256=cast(str, args.api_key_id_sha256),
+            usage_evidence_sha256=cast(str, args.usage_evidence_sha256),
+            costs_evidence_sha256=cast(str, args.costs_evidence_sha256),
+            evidence_retrieved_at=cast(datetime, args.evidence_retrieved_at),
+        )
     output = cast(Path, args.output)
     _write_contract(output, observation)
     print(
@@ -5384,6 +5556,10 @@ def _recorded_review_command(args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "openai-billing-collect":
+            if not cast(bool, args.allow_account_billing_read):
+                raise ValueError("OpenAI account billing read was not acknowledged")
+            return _openai_billing_collect_command(args)
         specialized_result = _specialized_evaluation_command(args)
         if specialized_result is not None:
             return specialized_result

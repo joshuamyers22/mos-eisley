@@ -126,3 +126,7 @@ can authenticate an independent auditor's exact match between one settled public
 and a complete, exclusive OpenAI organization usage/cost aggregate. Because documented
 cost data uses daily buckets and does not expose a response ID, this does not authorize
 ledger mutation or release, prove request-level billing, or guarantee invoice finality.
+The separate [billing collector](SKILL_RUNTIME_BILLING_COLLECTION.md) can obtain and
+strictly parse those private pages with an explicit Admin API read acknowledgement. It
+uses no model endpoint, but its billing reads are real account access. Matching output
+still needs the existing exclusivity attestation and independent signature.

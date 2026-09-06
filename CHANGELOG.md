@@ -4,6 +4,16 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an explicit-consent OpenAI Admin API billing collector that owns
+  `OPENAI_ADMIN_KEY` only in its short-lived process, uses the official SDK through a
+  bounded zero-retry client, and retains strict complete usage/cost pages privately.
+- Validate closed one-minute/one-day buckets, exact project/API-key/model scope, one
+  completion request, cursor completion, duplicate cost groups, and integer-microusd
+  totals before collected evidence can feed the existing signable metadata path.
+- Keep daily API-key exclusivity and exact request-cost attribution explicitly
+  unproven; collection performs billing reads but never sends a model request, signs,
+  changes the ledger, releases exposure, retries, promotes, or activates routing.
+
 - Add independently signed OpenAI organization usage/cost evidence that
   reauthenticates exact runtime conformance and publication lineage, requires a
   complete exclusive one-request aggregate, and rejects token or cost mismatch.
