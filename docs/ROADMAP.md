@@ -65,10 +65,12 @@
    isolated test runner, scoped filesystem and network policy, cancellation.
 6. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
 7. **Publisher:** authenticated isolated credential process, dry run, idempotency.
-8. **Extensions after the quality/security gates:** policy preflight, redaction,
-   typed lifecycle events and trusted endpoint/credential contracts; then bounded
-   subagents and versioned skills; then brokered web/image evidence; finally one
-   narrow outward MCP interface. See plan §24.5 for acceptance criteria.
+8. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
+   skills foundation is implemented with exact recorded-run provenance. Persona
+   promotion remains gated on paired quality evaluation. Policy preflight,
+   redaction, typed lifecycle events and trusted endpoint/credential contracts;
+   then bounded subagents; then brokered web/image evidence; finally one narrow
+   outward MCP interface. See plan §§24.5 and 25 for acceptance criteria.
 9. **Convenience:** TUI, resume, provenance and optional Postgres export.
 
 The saved `docs/mos-eisley-plan.md` is design history including its adversarial review.

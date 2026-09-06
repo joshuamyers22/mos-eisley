@@ -34,6 +34,10 @@ uv run --frozen mos review \
   --cassette .mos-eisley/runs/<run-id>/cassette.json --json
 ```
 
+Prompt-only [skills](docs/SKILLS.md) can bind exact, digest-pinned personas to a
+recorded cassette without changing its requests. Discovery roots and project-source
+approval are always explicit; validation grants no trust or authority.
+
 The first live provider uses OpenAI's Responses API with the documented default
 `gpt-6-astra` model. The command reads only the named files, requires an environment
 credential and explicit acknowledgement, sends `store=false`, exposes no tools, and
@@ -144,6 +148,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - A pinned [monotonic routing-control anchor and read-only runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md)
   that reject older-message replay and preserve revocations while granting no
   dispatch, activation, or configuration authority.
+- [Prompt-only Agent Skills packages](docs/SKILLS.md) with bounded YAML parsing,
+  whole-package digests, immutable progressive loading, non-shadowing source
+  identities, explicit project opt-in, and replay-verified run provenance.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -164,6 +171,10 @@ repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this m
 The controller and parent directories are trusted. Symlink rejection applies to
 the final file component, not to every ancestor; this is not a host sandbox.
 
+Skills are inert prompt content. Scripts, tool bundles, `allowed-tools`, remote
+registries, persistent trust, automatic discovery, SecretRef, and doctor fixes are
+not implemented. Skill quality and persona changes remain evaluation-gated.
+
 Run files contain the supplied brief and recorded responses. Keep the output root
 private. File hashes detect accidental changes, not a malicious owner who can
 replace the manifest. Recorded agent runs fsync boundary events as they happen, but
@@ -182,6 +193,8 @@ See the [project brief](PROJECT_BRIEF.md),
 [routing promotion](docs/ROUTING_PROMOTION.md),
 [routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md),
 [routing runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md),
+[prompt-only skills](docs/SKILLS.md),
+[prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

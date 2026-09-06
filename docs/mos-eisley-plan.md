@@ -757,6 +757,18 @@ version's detection, false-positive, cost, and calibration effects. “Closest w
 discovery is forbidden for authority-bearing fields; configuration still intersects
 with trusted policy as required by §23.1B.
 
+The initial implementation is intentionally narrower: standards-compatible
+`SKILL.md`, optional `mos.yaml` containing only `version` and `kind`, prompt-only
+persona/procedure packages, explicit discovery roots, and exact
+`source:name@sha256:digest` activation. It rejects scripts, executable files,
+toolbundles, `allowed-tools`, name-only precedence, and implicit project activation.
+Discovery snapshots the complete bounded package once; model-context disclosure is
+progressive from that immutable snapshot. Recorded reviews may bind persona skills
+only when the activated, outer-trimmed body is byte-for-byte equal to the existing
+request-bound cassette,
+and schema-2 runs record the exact source, version, package digest, and instruction
+digest. See `docs/SKILLS.md` and the disposition in §25.
+
 ---
 
 ## 15. Adversarial review pipeline
@@ -1418,3 +1430,75 @@ gate, containment proof, or the trusted/untrusted configuration split in §23.8.
 An app server, audio/realtime mode, automatic compaction delegation, local model
 route, and Git-backed turn branching remain unplanned candidates. Each requires a
 separate measured use case and threat-model amendment before receiving a milestone.
+
+---
+
+## 25. Adversarial review of Skills, SecretRef, and Doctor
+
+**Review date:** 2026-09-05
+
+**Source:** `mos-eisley-skills-secrets-doctor.md` from the local Downloads directory
+
+**Disposition:** **Adopt the prompt-only skills foundation now; split and defer the
+authority-bearing subsystems.** The proposal correctly identifies provenance,
+shadowing, validation/use races, secret exposure, and diagnostic drift. It combines
+three independently risky systems, however, and assumes a configuration substrate
+that this implementation intentionally does not yet have. Shipping them together
+would turn a prompt-asset feature into new host-code and credential paths.
+
+### 25.1 Decision matrix
+
+| Proposal | Decision | Required narrowing |
+|---|---|---|
+| Portable `SKILL.md` | **Adopt now** | Follow the Agent Skills frontmatter shape; keep Mos-only structure in an optional sidecar. |
+| `mos.yaml` | **Adopt narrowly** | Only `version` and `kind = persona | procedure`; extra fields fail. It grants no capability. |
+| Progressive loading | **Adopt now** | Snapshot the whole bounded package once, disclose metadata/body/resources progressively from that immutable snapshot. |
+| Source precedence | **Reject project-wins** | Preserve source-qualified identities, report collisions, and require exact references. A project package never shadows a user package. |
+| Skill trust/tiering | **Defer persistence** | Project activation requires an explicit invocation-local opt-in. Structural validity is never trust. Add durable approvals only after trusted config provenance exists. |
+| Scripts/toolbundles/check code | **Reject in this phase** | Reject `scripts/`, executable bits, `toolbundle`, and `allowed-tools`; do not import package code. |
+| Persona migration | **Observe now; promote later** | Bind only bodies exactly matching request-bound recorded personas. Change personas only after paired golden/held-out evaluation. |
+| Per-skill provenance | **Adopt now** | Record source, name, version, whole-package digest, instruction digest, byte count, and critic binding in a hashed run artifact. |
+| SecretRef | **Defer as a separate security program** | First implement config provenance, child-environment isolation, read denial, audited transport substitution, and seeded-secret egress tests. |
+| Opaque secret handles | **Useful defense, not a boundary** | The transport necessarily sees plaintext. Never claim handles solve SDK/proxy/log leakage. |
+| Secret migration | **Defer** | Requires crash-safe journaling and scoped residual-secret verification without plaintext backups. |
+| Doctor diagnostics | **Defer executable/fix surface** | A future read-only typed check registry can land separately. No skill code imports; online and billable probes are explicit. |
+| `doctor --fix` | **Defer** | Automatic mutation needs per-remedy idempotence, re-verification, collision handling, and a permanently non-secret/non-sudo boundary. |
+
+### 25.2 Implemented foundation and invariants
+
+The first slice is implemented in `run/skills.py`, `core/skills.py`, the `mos skills`
+CLI, and schema-2 recorded-run artifacts. It enforces:
+
+1. only explicitly supplied roots are read; there is no ambient home, repository,
+   config, or `AGENTS.md` discovery;
+2. activation uses `source:name@sha256:whole-package-digest`, never a mutable name or
+   version alone;
+3. project packages require explicit activation and never win a collision;
+4. all package bytes are bounded and snapshotted before use; later filesystem edits
+   cannot change the activated body or lazy resource;
+5. YAML aliases, anchors, tags, and duplicate keys plus symlinks, special files,
+   executable bits, scripts, and capability vocabulary fail closed;
+6. validation and discovery explicitly grant no authority;
+7. recorded skill bindings exactly cover critics and their activated instructions
+   must reproduce each cassette persona byte for byte; replay verifies their hashed
+   provenance artifact.
+
+### 25.3 Evidence and remaining gates
+
+The implementation has malicious-package and integration tests, but it does not
+establish that any persona improves review quality. Before a persona revision replaces
+an inline default, pre-register a paired comparison on identical clean and defective
+samples and report detection, clean false-positive risk, calibration, completion,
+latency, tokens, and cost. Freeze the package digest before holdout and apply the same
+family-wise correction and independent-group rules as the routing study.
+
+Before SecretRef, land read-denial and child-environment isolation across every
+supported containment backend. Seed secrets through config, provider errors, HTTP
+diagnostics, tool output, events, run/replay/export, and crash paths. Before doctor,
+define a versioned result contract and prove offline mode opens no network path;
+mandatory security checks cannot succeed by skipping.
+
+The package snapshot prevents ordinary post-validation drift but not a malicious
+same-UID process racing trusted ancestor directories. Package signatures and archives
+are absent, so historical reconstruction depends on retaining the exact digest-named
+package. These limits are explicit in `docs/SKILLS.md` and milestone review 22.

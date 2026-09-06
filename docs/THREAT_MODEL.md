@@ -4,7 +4,7 @@ Owner: Josh Myers. Scope: recorded workflows plus explicit `openai-run`, macOS/L
 
 Assets: user files, supplied private source, API key, run integrity and verdicts.
 Untrusted inputs: brief and prompt content, OpenAI responses, cassette JSON,
-citation text and restored artifacts.
+citation text, restored artifacts, and explicitly discovered skill packages.
 Trusted components: installed code and dependencies, CLI arguments, parent/output
 directories, OS user and official OpenAI SDK. OpenAI is the sole external service
 in the live command.
@@ -48,6 +48,10 @@ in the live command.
 | A revoked policy reuses an older control message | Signed sequence floor plus a pinned append-only local anchor require exact latest-state equality and monotonically preserve revocations | Whole-anchor rollback/cloning or false bootstrap remains possible without an external monotonic witness |
 | Operational approval silently substitutes a nearby model or effort | Snapshot must cover exactly selected routes and required fallbacks; route equality and literal `allow_model_substitution=false` reject replacement | A future runtime must preserve this exact-match check immediately before dispatch |
 | Passing runtime preflight races a later emergency stop | Preflight is capped by a signed short lifetime and fixes dispatch/configuration authority to false | Future one-use dispatch must atomically recheck an external latest-state witness immediately before provider send |
+| A project skill shadows a trusted user persona | No winner-by-path lookup; exact source-qualified digest plus explicit project activation | Invocation approval is not persistent trust or a quality signal |
+| A skill changes after validation | Complete bounded package snapshot is used for activation/resources and committed by digest | Same-UID races and trusted ancestor replacement are not contained |
+| Skill metadata requests tools or executes code | `allowed-tools`, toolbundles, scripts, executable bits, symlinks, and special files fail closed | Prompt text can still influence model behavior; skills currently have no machine capabilities |
+| A skill package exhausts parsing or context | YAML indirection is rejected; file/count/depth/package/body caps are enforced; discovery output omits bodies | Byte counts are not provider token counts; quality and cost need paired evaluation |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially

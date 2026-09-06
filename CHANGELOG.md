@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a narrow prompt-only skills foundation with standards-compatible `SKILL.md`,
+  an optional validated `mos.yaml`, source-qualified whole-package digests,
+  immutable bounded snapshots, explicit project activation, and schema-2 recorded
+  run provenance. Executable, credential, and authority-bearing extensions remain
+  rejected or deferred.
+
 - Add a pinned append-only routing-control anchor and read-only runtime preflight
   that reject older-message replay, preserve revocations monotonically, reverify the
   complete evidence chain, expire within a signed short window, and grant no dispatch

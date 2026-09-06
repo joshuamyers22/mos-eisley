@@ -23,6 +23,7 @@ from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_byte
 from mos_eisley.core.ports import Journal, ProviderError
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
+from mos_eisley.core.skills import SkillRoster
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
 from mos_eisley.evaluation.adjudication import (
@@ -136,6 +137,7 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
+from mos_eisley.run.skills import bind_skill_roster, discover_skills
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
@@ -171,6 +173,22 @@ def parser() -> argparse.ArgumentParser:
                 help="Brief JSON; no implicit repository reads",
             )
             sub.add_argument("--cassette", type=Path, required=True)
+            sub.add_argument(
+                "--skill-roster",
+                type=Path,
+                help="Digest-pinned critic-to-skill bindings",
+            )
+            sub.add_argument(
+                "--user-skill-root", type=Path, action="append", default=[]
+            )
+            sub.add_argument(
+                "--project-skill-root", type=Path, action="append", default=[]
+            )
+            sub.add_argument(
+                "--allow-project-skills",
+                action="store_true",
+                help="Explicitly permit named project-source skills for this run",
+            )
     replay = subcommands.add_parser(
         "replay", help="Verify artifacts and replay recorded responses"
     )
@@ -616,6 +634,30 @@ def parser() -> argparse.ArgumentParser:
             runtime_preflight.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
+    skills = subcommands.add_parser(
+        "skills", help="Discover and inspect inert prompt-only skill packages"
+    )
+    skill_commands = skills.add_subparsers(dest="skill_command", required=True)
+    for name, help_text in (
+        ("list", "List validated discovery metadata without loading bodies"),
+        ("validate", "Validate prompt-only skill packages; grants no trust"),
+    ):
+        skill_command = skill_commands.add_parser(name, help=help_text)
+        skill_command.add_argument(
+            "--user-root", type=Path, action="append", default=[]
+        )
+        skill_command.add_argument(
+            "--project-root", type=Path, action="append", default=[]
+        )
+        skill_command.add_argument("--json", action="store_true")
+    skill_show = skill_commands.add_parser(
+        "show", help="Activate one exact source-qualified skill snapshot"
+    )
+    skill_show.add_argument("reference")
+    skill_show.add_argument("--user-root", type=Path, action="append", default=[])
+    skill_show.add_argument("--project-root", type=Path, action="append", default=[])
+    skill_show.add_argument("--allow-project", action="store_true")
+    skill_show.add_argument("--json", action="store_true")
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -1593,12 +1635,157 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     return handler(args) if handler is not None else None
 
 
+def _skills_command(args: argparse.Namespace) -> int:
+    catalog = discover_skills(
+        user_roots=tuple(cast(list[Path], args.user_root)),
+        project_roots=tuple(cast(list[Path], args.project_root)),
+    )
+    if args.skill_command == "show":
+        activated = catalog.activate(
+            cast(str, args.reference),
+            allow_project=cast(bool, args.allow_project),
+        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "type": "skill.activated",
+                        "descriptor": activated.descriptor.model_dump(mode="json"),
+                        "instructions": activated.instructions,
+                        "authority_granted": False,
+                    },
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(activated.instructions)
+        return 0
+    event = {
+        "type": (
+            "skills.validated"
+            if args.skill_command == "validate"
+            else "skills.discovered"
+        ),
+        "skills": [item.model_dump(mode="json") for item in catalog.descriptors],
+        "shadowed_names": list(catalog.shadowed_names),
+        "authority_granted": False,
+    }
+    if args.json:
+        print(json.dumps(event, sort_keys=True))
+    else:
+        for descriptor in catalog.descriptors:
+            identity = descriptor.identity
+            print(
+                f"{identity.qualified_reference} {identity.kind} "
+                f"{descriptor.package_bytes} bytes"
+            )
+        if catalog.shadowed_names:
+            print("shadowed names: " + ", ".join(catalog.shadowed_names))
+        if args.skill_command == "validate":
+            print("structurally valid; no trust or authority granted")
+    return 0
+
+
+def _recorded_review_command(args: argparse.Namespace) -> int:
+    if args.command == "replay":
+        brief, cassette, policy, expected = load_run(cast(Path, args.run))
+        actual = asyncio.run(
+            review(
+                brief,
+                tuple(r.critic for r in cassette.critics),
+                RecordedReviewer(cassette),
+                policy,
+            )
+        )
+        if actual != expected:
+            raise ValueError("recorded replay differs from stored result")
+        print(
+            json.dumps(
+                {
+                    "type": "replay.verified",
+                    "brief_id": brief.brief_id,
+                    "decision": actual.verdict.decision,
+                }
+            )
+        )
+        return 0
+    skill_manifest = None
+    if args.command == "demo":
+        brief, cassette = demo_inputs()
+    else:
+        brief = Brief.model_validate_json(read_bounded(cast(Path, args.brief)))
+        cassette = Cassette.model_validate_json(
+            read_bounded(cast(Path, args.cassette), 16_000_000)
+        )
+        roster_path = cast(Path | None, args.skill_roster)
+        user_skill_roots = tuple(cast(list[Path], args.user_skill_root))
+        project_skill_roots = tuple(cast(list[Path], args.project_skill_root))
+        allow_project_skills = cast(bool, args.allow_project_skills)
+        if roster_path is None and (
+            user_skill_roots or project_skill_roots or allow_project_skills
+        ):
+            raise ValueError("skill options require --skill-roster")
+        if roster_path is not None:
+            roster = SkillRoster.model_validate_json(read_bounded(roster_path, 64_000))
+            catalog = discover_skills(
+                user_roots=user_skill_roots,
+                project_roots=project_skill_roots,
+            )
+            skill_manifest = bind_skill_roster(
+                cassette,
+                roster,
+                catalog,
+                allow_project=allow_project_skills,
+            )
+    if brief.brief_id != cassette.brief_id:
+        raise ValueError("cassette does not match the supplied brief")
+    policy = ReviewPolicy()
+    result = asyncio.run(
+        review(
+            brief,
+            tuple(r.critic for r in cassette.critics),
+            RecordedReviewer(cassette),
+            policy,
+        )
+    )
+    root = cast(Path, args.output)
+    path = save_run(
+        root,
+        brief,
+        cassette,
+        policy,
+        result,
+        skill_manifest=skill_manifest,
+    )
+    try:
+        index_run(root, path, result)
+    except (OSError, sqlite3.Error):
+        print(
+            "Index unavailable; complete run artifacts were preserved.",
+            file=sys.stderr,
+        )
+    if args.json:
+        print(json.dumps({"type": "run.saved", "mode": "recorded", "path": str(path)}))
+        print(json.dumps({"type": "verdict", **result.verdict.model_dump(mode="json")}))
+    else:
+        print(
+            f"Recorded review: {result.verdict.decision} "
+            f"({len(result.verdict.findings)} findings)"
+        )
+        print(f"Artifacts: {path}")
+    return EXIT_CODES[result.verdict.decision]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         specialized_result = _specialized_evaluation_command(args)
         if specialized_result is not None:
             return specialized_result
+        if args.command == "skills":
+            return _skills_command(args)
+        if args.command in {"demo", "review", "replay"}:
+            return _recorded_review_command(args)
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")
@@ -2123,71 +2310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(result.final_text)
                 print(f"Artifacts: {session.path}")
             return 0
-        if args.command == "replay":
-            brief, cassette, policy, expected = load_run(cast(Path, args.run))
-            actual = asyncio.run(
-                review(
-                    brief,
-                    tuple(r.critic for r in cassette.critics),
-                    RecordedReviewer(cassette),
-                    policy,
-                )
-            )
-            if actual != expected:
-                raise ValueError("recorded replay differs from stored result")
-            print(
-                json.dumps(
-                    {
-                        "type": "replay.verified",
-                        "brief_id": brief.brief_id,
-                        "decision": actual.verdict.decision,
-                    }
-                )
-            )
-            return 0
-        if args.command == "demo":
-            brief, cassette = demo_inputs()
-        else:
-            brief = Brief.model_validate_json(read_bounded(cast(Path, args.brief)))
-            cassette = Cassette.model_validate_json(
-                read_bounded(cast(Path, args.cassette), 16_000_000)
-            )
-        if brief.brief_id != cassette.brief_id:
-            raise ValueError("cassette does not match the supplied brief")
-        policy = ReviewPolicy()
-        result = asyncio.run(
-            review(
-                brief,
-                tuple(r.critic for r in cassette.critics),
-                RecordedReviewer(cassette),
-                policy,
-            )
-        )
-        root = cast(Path, args.output)
-        path = save_run(root, brief, cassette, policy, result)
-        try:
-            index_run(root, path, result)
-        except (OSError, sqlite3.Error):
-            print(
-                "Index unavailable; complete run artifacts were preserved.",
-                file=sys.stderr,
-            )
-        if args.json:
-            print(
-                json.dumps({"type": "run.saved", "mode": "recorded", "path": str(path)})
-            )
-            print(
-                json.dumps(
-                    {"type": "verdict", **result.verdict.model_dump(mode="json")}
-                )
-            )
-        else:
-            print(
-                f"Recorded review: {result.verdict.decision} "
-                f"({len(result.verdict.findings)} findings)"
-            )
-            print(f"Artifacts: {path}")
-        return EXIT_CODES[result.verdict.decision]
+        raise ValueError("unhandled command")
     except ValidationError:
         # Pydantic diagnostics include raw rejected values; do not echo inputs.
         print("mos-eisley: invalid input schema", file=sys.stderr)
