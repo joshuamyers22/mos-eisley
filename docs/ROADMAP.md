@@ -1,5 +1,22 @@
 # Delivery roadmap
 
+**Product direction, 2026-09-06:** the primary experience is a persistent terminal
+conversation launched with `mos`, following plan §16.0. Users can ask questions,
+plan, request changes, steer ongoing work, and request independent review within
+the same session as those capabilities become available. A minimal conversational
+TUI and safe session resume are an early product workstream alongside item 3;
+advanced visual polish can follow later. This is planned work, not an availability
+claim, and preserves the existing provider, spending, quality, and containment gates.
+
+**Data ownership and storage, 2026-09-06:** keep saved conversations, replay,
+evaluation evidence, and model-selection records under one user's ownership.
+Default to private local files/SQLite, and support user-configured cloud database
+and object-storage adapters. No cross-user sharing, pooling, or aggregation,
+including anonymized model-selection telemetry. Fresh sessions may automatically
+reuse only that user's minimal model-selection aggregates; prior conversational
+content requires explicit same-owner resume or inspection. Plan §17 defines the
+contract; comprehensive enforcement and remote adapters remain planned work.
+
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
@@ -10,6 +27,18 @@
    and contract tests. Shared local cross-process spending admission is implemented.
    Next: credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
+   In parallel, build the conversational session controller and minimal terminal
+   over recorded providers and explicit inputs: contextual follow-ups, visible
+   progress, queued steering, cancellation, private persistence, and safe resume.
+   Live conversation requires conformance, transfer policy, and aggregate session
+   spending admission. Integrate review results into the main conversation while
+   keeping critic briefs isolated; add repository reads, edits, and tests only after
+   their execution gates. Keep `exec`/JSON automation on the same controller.
+   Build owner-scoped storage interfaces with the session controller; verify local
+   user isolation, explicit resume, and fresh-session context separation. Add
+   remote database/object adapters only after server-side isolation, retention,
+   migration, and no-aggregation tests pass. Backend selection must not change
+   ownership or silently create additional copies.
 4. **In progress — quality and routing gate:** deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.
@@ -91,7 +120,9 @@
    redaction, typed lifecycle events and trusted endpoint/credential contracts;
    then bounded subagents; then brokered web/image evidence; finally one narrow
    outward MCP interface. See plan §§24.5 and 25 for acceptance criteria.
-10. **Convenience:** TUI, resume, provenance and optional Postgres export.
+10. **Convenience:** advanced TUI polish and provenance navigation. The core
+    conversation, resume, and configurable storage belong to the product workstream
+    above; shared analytics or team-wide database exports are excluded.
 
 The saved `docs/mos-eisley-plan.md` is design history including its adversarial review.
 Current implemented behavior is defined by the project brief, ADR and tests.

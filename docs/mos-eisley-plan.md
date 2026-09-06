@@ -1,10 +1,15 @@
 # `mos-eisley` — Multi-Provider Adversarial Review Harness
 
-**Working name.** A CLI agentic harness spanning Claude, GPT, and Gemini, with real machine access — filesystem, shell, local git, GitHub — built around adversarial review by competing agents operating without prior context. Interface and sandbox model follow Codex CLI conventions.
+**Working name.** A conversational coding agent spanning Claude, GPT, and Gemini, with real machine access — filesystem, shell, local git, GitHub — and integrated adversarial review by competing agents operating without prior context. The primary interface is a persistent terminal conversation following Codex CLI interaction conventions.
 
 This document includes the original design and subsequent amendments. Required
 corrections in §23 and accepted changes in §24 supersede conflicting earlier
-examples and milestone tables. Current implementation status is tracked in
+examples and milestone tables. The user-directed conversational product decision
+in §16.0 supersedes earlier treatment of the TUI and session resume as late
+convenience features; capability and quality gates still apply. The user-directed
+storage and isolation contract in §17 supersedes conflicting storage, aggregation,
+and team-export examples throughout this design history. Current implementation
+status is tracked in
 `docs/ROADMAP.md`; planned modules and commands below are not availability claims.
 
 ---
@@ -15,11 +20,17 @@ examples and milestone tables. Current implementation status is tracked in
 
 1. **One agent loop, three providers.** Anthropic, OpenAI, and Google reachable through a single canonical message/turn type, with no provider's wire format leaking into the core.
 2. **Real machine control, safely.** Kernel-enforced sandboxing with per-OS backends, an approval policy, and capability tiers per role.
-3. **Adversarial review as the primary workflow.** An author produces an artifact; N independent critics on different models review it blind; a judge adjudicates. Blindness enforced structurally, not by prompt.
+3. **Conversation as the primary workflow, with integrated adversarial review.** The user explores code, plans, requests changes, and discusses results with one persistent assistant. On a review request, N independent critics on different models review a frozen artifact blind and a judge adjudicates; the assistant brings the results back into the conversation. Blindness is enforced structurally, not by prompt.
 4. **Local git and GitHub as first-class integrations.** Worktree-per-agent, structured patch application, PR review posting.
 5. **Codex-style context budgeting.** A hard session cap well below the model ceiling, explicit output reservation, headroom buffer, per-role compaction policy.
 6. **Per-task reasoning effort.** A canonical effort ladder mapped to each provider's parameter, bound to roles, with signal-driven escalation.
-7. **Reproducibility.** Every run replayable from disk; every finding traceable to the exact context that produced it.
+7. **Reproducibility.** Retained artifacts support the playback and replay guarantees
+   in §23.4; findings remain traceable to their source context within the owner's
+   configured storage and retention policy.
+8. **User-owned data with configurable storage.** Preserve conversations and run
+   evidence in storage selected by the owning user, locally or in the cloud. Never
+   pool user data or model-selection statistics across users; new sessions do not
+   automatically inherit previous conversational content (§17).
 
 ### Non-goals
 
@@ -79,7 +90,9 @@ mos-eisley/
 
 **Layer rules.** `core` and `review` never import `providers`. `review` never imports `vcs.github` — the credential holder is reachable only from `publisher`, and only through a schema-validated boundary (§19).
 
-**Stack:** Python 3.12+, asyncio, Pydantic v2, Typer, Textual for the TUI, Postgres for the run index.
+**Stack:** Python 3.12+, asyncio, Pydantic v2, Typer, Textual for the TUI, and
+storage adapters with local files/SQLite by default and optional user-configured
+cloud database/object storage (§17).
 
 ---
 
@@ -322,6 +335,11 @@ routes intersect the calibrated candidates with the official client's current
 entitlements; an unavailable cell is ineligible, not silently substituted. Missing,
 stale or out-of-distribution policy data uses the conservative fallback or fails;
 no route may fall below the role minimum.
+
+Selection evidence derived from user runs belongs exclusively to that user (§17).
+Aggregate only that user's model performance; never pool observations, derived
+policies, or model rankings across users. Historical prompts and code are not
+loaded into a new conversation to perform selection.
 
 ```toml
 [role.critic]
@@ -595,7 +613,10 @@ Mos-Eisley-Model: claude-opus-5
 Co-Authored-By: mos-eisley <noreply@localhost>
 ```
 
-`mos blame <file>:<line>` joins these against the Postgres run index to answer "which run, which model, at what effort, produced this line, and what did the critics say about it."
+`mos blame <file>:<line>` joins these against the authenticated user's run index
+to answer "which run, which model, at what effort, produced this line, and what did
+the critics say about it." A run ID in shared Git history grants no access to the
+owning user's private records.
 
 ---
 
@@ -635,7 +656,11 @@ mos review --pr 1234 --post # ... and hand the verdict to the publisher
 
 Findings already carry `location` as `file:line`, so they map onto GitHub review comments directly. The verdict maps to a check-run conclusion: `accept` → success, `revise` → neutral with annotations, `reject` → failure.
 
-CI shape: a workflow calling `mos exec --json`, uploading `runs/<id>/` as an artifact, and gating the merge on the check run. Use `pull_request_target` only if you understand exactly why it's dangerous here — it grants a write token to a workflow evaluating untrusted code.
+CI shape: call `mos exec --json` and gate the merge on the check run. Store raw run
+artifacts only in the owning user's configured private backend (§17), never in a
+shared CI artifact collection or log. Publish only the explicitly requested work
+product through the publisher. Do not use `pull_request_target` for untrusted
+checkout or test execution.
 
 ---
 
@@ -679,6 +704,10 @@ read/review status, policy preflight, and replay over versioned schemas—not a 
 identifiers are requests that trusted policy may narrow or reject; they never grant
 authority. Add authenticated sessions, rate limits, cancellation, idempotency, and
 audit records before exposing it beyond loopback.
+
+Every read, list, search, replay, and export must enforce §17 ownership using the
+authenticated caller, including when multiple users use the same service. Caller
+supplied user IDs or knowledge of another user's run ID grant no access.
 
 Do not build an MCP server and a separate app-server protocol in parallel. They
 duplicate authentication, cancellation, session, and schema semantics. Add an app
@@ -838,6 +867,87 @@ Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is mult
 
 ## 16. CLI interface
 
+### 16.0 Conversational product contract
+
+**User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
+Opening `mos` starts an ongoing conversation in the selected workspace. Plain
+language is sufficient to explore, plan, implement, debug, and request independent
+review as the corresponding capabilities become available. Slash commands are
+optional shortcuts; `mos exec` and explicit subcommands serve automation.
+
+The interaction reference is the [official Codex CLI documentation](https://learn.chatgpt.com/docs/codex/cli),
+checked 2026-09-06: a terminal conversation with follow-ups, active-turn steering,
+visible commands/diffs, and saved chats. The requirements below are Mos Eisley
+product decisions, not a claim of complete Codex parity or current availability.
+
+**Session behavior:**
+
+- Keep one user-facing assistant and conversation across requests. Follow-ups such
+  as "why?", "fix the first one", and "now review the change" resolve against
+  the active task, prior answers, and identified artifacts. Ordinary questions
+  receive direct answers without invoking the full adversarial pipeline.
+- Interpret requests in context: explaining or reviewing does not authorize edits;
+  a request to fix or build authorizes the relevant work within resolved policy.
+  Continue authorized work through verification. Ask a concise question when a
+  missing decision changes the outcome, and request approval only at a real policy
+  boundary. Show unavailable capabilities plainly.
+- Show assistant progress, tool activity, relevant diffs, and results in a readable
+  transcript. Stream text when the adapter supports it; otherwise display bounded
+  progress while waiting. Keep the composer usable during work, visibly queue
+  steering messages, and apply them at the next safe execution boundary. A stop
+  action cancels active work and its children while preserving the conversation
+  and recording any effects already completed or still uncertain.
+- Treat a new message as a refinement of the active task unless it explicitly
+  replaces or cancels it. A status question gets a brief answer and work continues.
+  Clarifications and policy approvals appear inline with the reason they are needed.
+- "Review this change" and `/review` enter the same review workflow. Freeze the
+  target revision and materialize a scoped brief; critics receive neither the
+  conversational history nor each other's findings. Return the adjudicated
+  findings to the main conversation, where the user can discuss or request fixes.
+  Never silently run a panel for every conversational turn.
+- Persist messages, task state, artifact references, and usage in the owning user's
+  configured storage (§17), which may be local or remote.
+  `mos resume` selects a saved conversation and `mos resume --last` continues the
+  latest one for the workspace. Resume revalidates current policy and capabilities,
+  never restores expired approvals or repeats uncertain side effects automatically.
+  Conversation compaction preserves user intent, decisions, and remaining work;
+  frozen critic contexts retain their separate compaction rules.
+- A fresh session starts with fresh conversational context. Only the owning user's
+  minimal model-selection statistics may be reused automatically across sessions.
+  Resuming a selected conversation or explicitly opening a prior run retrieves only
+  that user's requested records; saved content is never ambient memory for new tasks.
+
+**Terminal layout:** a scrollable conversation, compact expandable tool/review
+details, a multiline composer, and the persistent status line specified in §16.4.
+The main transcript distinguishes user input, assistant progress, final answers,
+and approval requests. Model and effort changes apply to subsequent eligible
+calls, retain the conversation, and remain subject to provider policy and budget.
+
+Illustrative interaction once review and write capabilities are available:
+
+```text
+$ mos
+you > Explain how authentication works here.
+mos > [Inspects permitted files and explains the flow with references.]
+you > Review the changes I made to token refresh.
+mos > [Runs independent review and returns the adjudicated findings.]
+you > Fix the first issue and run the relevant tests.
+mos > [Applies the authorized fix, verifies it, and reports the result.]
+you > Why did you choose that approach?
+mos > [Explains the decision using the same conversation context.]
+```
+
+**Delivery and acceptance:** make a minimal conversational terminal and session
+controller an early product workstream alongside live read-only review. Begin with
+recorded providers and explicit input artifacts, then enable live conversation
+after provider conformance, transfer policy, and aggregate session spending gates.
+Repository discovery, edits, tests, and publishing each retain their existing
+containment and authority prerequisites. Advanced visual polish can follow later.
+Acceptance requires contextual follow-ups, visible queued steering, cancellation
+without losing the session, safe save/resume, and a review round-trip that preserves
+critic blindness. Interactive and non-interactive paths share orchestration and
+policy; the renderer owns no separate execution authority.
+
 ### 16.1 Commands
 
 ```
@@ -959,6 +1069,17 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 
 ## 17. Run artifacts and telemetry
 
+**User direction, 2026-09-06:** retain transcripts, saved conversations, replay
+artifacts, evaluation records, and model-selection evidence, with strict ownership
+by one user. The user may point storage at local files/databases, a cloud database,
+or object storage. The boundary is user identity, not physical storage location.
+There is no cross-user pooling or aggregation, including anonymized statistics.
+
+### 17.1 Retained artifacts and backend selection
+
+The following is a logical artifact layout. A filesystem adapter maps it to private
+directories; an object-storage adapter maps it to authorized private objects:
+
 ```
 runs/<run_id>/
   manifest.json     # config snapshot, roster, git sha, brief_id, sandbox policy
@@ -972,7 +1093,88 @@ runs/<run_id>/
   worktrees/        # disposable
 ```
 
-**Postgres index:** `runs`, `agents`, `findings`, `verdicts`, `usage`, `commands`. Raw transcripts on disk; metadata and findings in Postgres so eval queries are SQL. Day-one query: false-positive rate by (model, effort, persona) over the last 30 days. Second query: which commands got approved most often, so you can grow the allowlist from evidence.
+**Configurable storage:** separate artifact storage from the metadata/index store.
+Ship private local files plus SQLite first. Add adapters for a user-selected remote
+SQL database (initially PostgreSQL) and object storage (initially S3-compatible).
+Users may combine local and remote adapters. All adapters expose equivalent scoped
+save/load/list/delete behavior, integrity checks, and retention controls; replay and
+resume do not depend on local path layout. Remote support is planned, not currently
+implemented.
+
+Only trusted user configuration may select storage drivers, endpoints, databases,
+buckets, regions, and credential references. Project files, prompts, plugins, and
+model output cannot redirect persistence or choose another owner. Keep credentials
+in the trusted controller, use encrypted transport to remote services, and enforce
+encryption at rest. Show the effective storage destinations before the first write
+under a changed configuration; never silently replicate or fall back to a different
+destination when a backend fails. A storage change affects future writes; moving
+existing records is a separate explicit, owner-preserving migration.
+
+The index contains `runs`, `agents`, `findings`, `verdicts`, `usage`, and `commands`,
+all scoped to the owning user. Local and remote indexes are equally private. No
+team-wide Postgres sink, central analytics warehouse, or shared run catalog is part
+of the design.
+
+### 17.2 Ownership and isolation
+
+- Resolve the owner from the trusted local identity or authenticated service
+  identity, never a request's arbitrary `user_id`. Bind artifacts, indexes, caches,
+  backups, evaluation lineage, skill evidence, spending records, and derived
+  model-selection policies to that owner. Different devices/instances may access
+  the same owner's chosen backend only with that owner's authenticated access.
+- Enforce ownership on every read, write, list, search, resume, replay, export, and
+  delete, including referenced artifacts and migrations. Use private directories
+  and file permissions locally. Remote backends must use dedicated credentials/
+  databases or enforce server-side row/object access controls. A table predicate,
+  bucket prefix, opaque run ID, or unguessable content hash alone is insufficient.
+- Shared infrastructure is allowed only when it preserves user isolation. Prohibit
+  cross-user deduplication, shared content caches, global model rankings, pooled
+  evaluation datasets, derived training data, and aggregate telemetry built from
+  user records. Removing names or hashing identifiers does not create an exception.
+- Fresh sessions cannot automatically retrieve earlier prompts, code, transcripts,
+  summaries, embeddings, findings, or artifacts. The owner can explicitly resume
+  a saved conversation or inspect selected prior records. Independent critics still
+  receive only their materialized brief, even within the same user's session.
+- Ownership covers replicas, object versions, temporary spools, database journals,
+  and backups. Retention and deletion are user-controlled and cover derived records;
+  report any backend backup/version expiry delay rather than claiming immediate
+  physical erasure. Do not publish user artifacts through diagnostics or CI logs.
+
+### 17.3 Model-selection exception across instances
+
+Only minimal, structured performance aggregates for the same user may automatically
+carry across sessions to select individual models and reasoning effort. Use an
+allowlisted schema keyed by provider/backend, model/version, effort, and bounded
+role/task categories, with counts and measured quality, completion, latency, token,
+and cost statistics. Missing quality measurements remain unknown.
+
+This selection store contains no prompts, code, conversation summaries, embeddings,
+tool output, free-text feedback, file paths, repository identifiers, or per-run
+content hashes. It is not a second transcript store. Keep it separate from the
+retained raw evidence, restrict its consumer to that user's selection logic, and
+provide an owner-scoped reset. No transfer to other users, fleet-wide optimization,
+shared defaults learned from users, or centralized model-performance collection is
+permitted. Model-selection evidence never grants permission to read prior content
+into a new agent conversation.
+
+### 17.4 Egress and acceptance criteria
+
+Configuring remote persistence authorizes storage only at the selected destination,
+not analytics, sharing, or model training. Approved inference can send the active
+task's permitted context to its selected provider; it does not authorize uploading
+the historical store. Verify provider/account data-handling requirements separately
+before live use; Mos Eisley's storage isolation is not a claim about third-party
+retention. Publishing a requested patch or review result is a separate scoped work
+product action, never permission to export the underlying transcript or user stats.
+
+Release gates: exercise two distinct users against every supported backend and
+prove no cross-user read/write/list/search/replay/delete, reference substitution, cache
+reuse, or contribution to model selection. Also test fresh-session context
+isolation, explicit same-owner resume, concurrent same-owner access, forged owner
+IDs, credential rotation, failed migrations, and owner-scoped deletion/reset.
+Outbound capture must show no analytics or unintended storage copies. Backends
+that cannot enforce these properties are unsupported; existing local privacy and
+hash checks alone do not establish these guarantees.
 
 Emit `token_count` with the full breakdown on **every** turn. Lack of compaction visibility is the standing complaint about long CLI sessions.
 
@@ -988,6 +1190,11 @@ redactor is defense in depth.
 ---
 
 ## 18. Evaluation harness
+
+All user-derived datasets, grading records, reports, and learned policies obey §17
+ownership. Evaluate and compare within one user's data; do not create a shared
+benchmark or persona/routing policy from multiple users' runs. Shipped synthetic
+fixtures may be shared only when they contain no user-derived data.
 
 ### 18.1 Ground truth by mutation
 
@@ -1080,7 +1287,9 @@ link-local addresses, scheme/port, request size, and response size are enforced 
 the broker.
 
 Cache keys must cover normalized request inputs, search/fetch provider and version,
-policy, and freshness window—not just a query hash. Cache entries remain untrusted
+policy, owning user, and freshness window—not just a query hash. No cache is reused
+across users, and cached content is not automatically loaded into new sessions
+under the model-selection exception (§17). Cache entries remain untrusted
 content and can be stale or poisoned; they never become instructions, credentials,
 or an authority source. A finding must cite the frozen artifact it used. This path
 ships only after the no-NET critic invariant and injection corpus pass end to end.
@@ -1248,7 +1457,9 @@ Landlock cannot provide the proposed read-confidentiality boundary, `none` provi
 - A `brief_id` alone is insufficient. Pin the base/head blobs, submodules, untracked inputs, tool versions, dependency lockfiles, OS/architecture, environment policy, sandbox image digest, adapter/SDK/API versions, registry snapshot, prompts, schemas, and raw serialized requests. Verify hashes before a replay.
 - Write logs atomically and make the manifest append-only or hash-chained. A crash between tool execution and logging must be detectable. Record controller decisions separately from model-controlled text.
 - Raw transcripts, repository contents, reasoning envelopes, and command output are sensitive. Store under a private directory with restrictive permissions, configurable retention/deletion, encryption where appropriate, and redaction before indexing. Postgres should not receive raw or high-cardinality sensitive fields.
-- Requiring Postgres for a local CLI adds installation, migration, lifecycle, backup, and credential burden before it provides value. Use SQLite for the default local index and make Postgres an optional team/CI sink behind the same interface.
+- Use SQLite for the default local index. Under the later §17 user direction,
+  remote databases and object storage are configurable per user; the earlier
+  team/CI aggregation proposal is superseded. Every backend must isolate users.
 - Multi-provider review sends proprietary code to three vendors. Add an explicit provider/data policy: repository allowlist, consent, retention/zero-data-retention eligibility, region, maximum classification, and per-provider exclusions. Secret scanning is defense in depth, not authorization to upload.
 
 ### 23.5 Sandbox test gaps
@@ -1272,6 +1483,11 @@ Per-agent “limits” need enforcement below the Python loop. Put subprocesses 
 Cost caps are necessarily predictive before a provider response. Estimate the maximum next-call cost—including retained reasoning, retry, and cache writes—before dispatch; do not begin a call that can exceed the remaining cap. Define rate-limit fairness so one fan-out does not starve unrelated runs.
 
 ### 23.8 Recommended scope and milestone changes
+
+**Product-priority amendment:** §16.0 supersedes the conversational TUI and resume
+deferral below. The historical sequence remains here for design provenance; a
+minimal conversation can ship over recorded/explicit inputs while machine access
+and live review continue to meet their gates. See `docs/ROADMAP.md` for current order.
 
 The current plan attempts a multi-provider agent framework, two OS sandboxes, a policy engine, Git/GitHub automation, MCP, a TUI, provenance, and an evaluation platform before demonstrating that adversarial review beats a simpler baseline. Reduce the first usable release:
 
@@ -1305,7 +1521,7 @@ M0 must not execute model-selected machine commands before the sandbox exists. I
 | What may project config change? | Prompts and commands within a trusted allowlist; capabilities only narrow |
 | Is host test execution supported? | No; disposable contained executor only |
 | Who writes Git metadata? | Trusted VCS broker, never the agent sandbox |
-| What is the local database? | SQLite; optional Postgres export |
+| What is the storage backend? | Local files/SQLite by default; user-selected cloud database/object storage with enforced user isolation (§17) |
 | What happens without critic quorum? | `infrastructure_error`, never `accept` |
 | Can a review post automatically in v1? | Dry-run/draft only until quality gates pass |
 | What does “replay” mean? | Explicit playback, cassette replay, or best-effort live re-execution |
