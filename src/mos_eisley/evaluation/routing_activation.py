@@ -83,11 +83,13 @@ class RoutingActivationPolicy(Contract):
     allow_model_substitution: Literal[False] = False
     candidate_policy_sha256: Digest
     promotion_receipt_sha256: Digest
+    control_anchor_policy_sha256: Digest
     valid_from: UtcTimestamp
     valid_until: UtcTimestamp
     max_evidence_age_seconds: Annotated[int, Field(gt=0, le=604_800)]
     max_eligibility_lifetime_seconds: Annotated[int, Field(gt=0, le=86_400)]
-    minimum_control_sequence: Annotated[int, Field(ge=0)]
+    max_runtime_preflight_age_seconds: Annotated[int, Field(gt=0, le=300)]
+    minimum_control_sequence: Annotated[int, Field(ge=0, le=9_223_372_036_854_775_807)]
     unavailable_action: Literal["role_fallback", "fail_closed"]
     route_requirements: Annotated[
         tuple[RouteOperationalRequirement, ...], Field(min_length=1, max_length=256)
@@ -172,7 +174,7 @@ class RoutingActivationControlState(Contract):
         "routing_activation_control_state"
     )
     activation_authorized: Literal[False] = False
-    sequence: Annotated[int, Field(ge=0)]
+    sequence: Annotated[int, Field(ge=0, le=9_223_372_036_854_775_807)]
     issued_at: UtcTimestamp
     valid_until: UtcTimestamp
     emergency_stop: bool
@@ -336,6 +338,7 @@ class RoutingActivationEligibility(Contract):
     promotion_receipt_sha256: Digest
     activation_policy_sha256: Digest
     signed_activation_policy_sha256: Digest
+    control_anchor_policy_sha256: Digest
     activation_authority_policy_sha256: Digest
     signed_operational_snapshot_sha256: Digest
     signed_control_state_sha256: Digest
@@ -475,6 +478,21 @@ def _verify_signature(
     except (InvalidSignature, UnsupportedAlgorithm, ValueError):
         raise ValueError("routing activation signature verification failed") from None
     return trusted
+
+
+def verify_signed_routing_activation_control(
+    signed_control: SignedRoutingActivationControl,
+    authority_policy: RoutingActivationAuthorityPolicy,
+) -> TrustedActivationAuthority:
+    """Verify one control signature against an independently trusted policy."""
+    return _verify_signature(
+        signed_control.signature.signer_id,
+        signed_control.signature.public_key_sha256,
+        signed_control.signature.signature_base64,
+        signed_control.control,
+        _CONTROL_DOMAIN,
+        authority_policy,
+    )
 
 
 def _required_routes(
@@ -619,12 +637,8 @@ def issue_routing_activation_eligibility(
         _SNAPSHOT_DOMAIN,
         activation_authorities,
     )
-    control_signer = _verify_signature(
-        signed_control.signature.signer_id,
-        signed_control.signature.public_key_sha256,
-        signed_control.signature.signature_base64,
-        signed_control.control,
-        _CONTROL_DOMAIN,
+    control_signer = verify_signed_routing_activation_control(
+        signed_control,
         activation_authorities,
     )
     signer_ids = {
@@ -706,6 +720,7 @@ def issue_routing_activation_eligibility(
         promotion_receipt_sha256=promotion.promotion_receipt_sha256,
         activation_policy_sha256=activation_policy.activation_policy_sha256,
         signed_activation_policy_sha256=signed_activation_policy.signed_policy_sha256,
+        control_anchor_policy_sha256=activation_policy.control_anchor_policy_sha256,
         activation_authority_policy_sha256=activation_authorities.policy_sha256,
         signed_operational_snapshot_sha256=signed_snapshot.signed_snapshot_sha256,
         signed_control_state_sha256=signed_control.signed_control_sha256,

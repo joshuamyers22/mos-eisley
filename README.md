@@ -141,6 +141,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Short-lived routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md)
   from three distinct signatures over exact route policy, operational attestations,
   and revocation control, with no model substitution or runtime/configuration power.
+- A pinned [monotonic routing-control anchor and read-only runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md)
+  that reject older-message replay and preserve revocations while granting no
+  dispatch, activation, or configuration authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -178,6 +181,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [frozen-policy holdout evaluation](docs/ROUTING_HOLDOUT.md),
 [routing promotion](docs/ROUTING_PROMOTION.md),
 [routing activation eligibility](docs/ROUTING_ACTIVATION_ELIGIBILITY.md),
+[routing runtime preflight](docs/ROUTING_RUNTIME_PREFLIGHT.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

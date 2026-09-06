@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a pinned append-only routing-control anchor and read-only runtime preflight
+  that reject older-message replay, preserve revocations monotonically, reverify the
+  complete evidence chain, expire within a signed short window, and grant no dispatch
+  or configuration authority.
+
 - Add short-lived routing activation eligibility that fully reverifies authenticated
   promotion and requires three distinct, evaluation-independent Ed25519 signatures
   over exact route/cost/freshness policy, operational attestations, and revocation

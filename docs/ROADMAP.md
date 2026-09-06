@@ -51,9 +51,12 @@
    activation-eligibility gate now consumes that receipt plus three distinct signed
    inputs for exact route/cost/freshness policy, operational readiness, and revocation
    control. It denies substitutions and retains literal runtime/configuration denial;
-   operational fields are attestations rather than live provider checks. Next add an
-   external latest-sequence anchor and read-only runtime preflight design, then run
-   explicitly authorized credentialed conformance and the repeated
+   operational fields are attestations rather than live provider checks. A pinned,
+   append-only local control anchor and read-only preflight now reject older-message
+   replay, preserve revocations, and reverify the full source chain without dispatch
+   authority. Whole-database rollback still needs an external monotonic witness.
+   Next design a one-use brokered dispatch transaction, then run explicitly authorized
+   credentialed conformance and the repeated
    backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

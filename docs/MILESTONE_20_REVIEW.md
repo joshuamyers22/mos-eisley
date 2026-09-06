@@ -13,7 +13,7 @@ configuration mutation, runtime activation, traffic, or publication is included.
 | An unavailable route is silently replaced | Exact selected and required fallback routes must match; substitutions and extras fail closed | A future runtime must preserve the same invariant |
 | Missing price, conformance, or drift evidence passes | Every exact route requires pass/available statuses, evidence digests, matching basis, and signed cost within its ceiling | Digests authenticate references, not truth, provenance, or measurement quality |
 | Stale evidence grants indefinite eligibility | Explicit UTC windows, maximum evidence age, and earliest-deadline receipt expiry | Host clock is trusted |
-| A stopped or revoked policy remains eligible | Fresh signed control state checks emergency stop, policy/promotion revocations, and minimum sequence | A still-valid older state can be replayed without an external latest-sequence anchor |
+| A stopped or revoked policy remains eligible | Fresh signed control state checks emergency stop, policy/promotion revocations, and minimum sequence; the follow-on pinned local anchor rejects older-message replay | Whole-anchor rollback still needs an external latest-state witness |
 | Eligibility is mistaken for deployment authority | Receipt schema fixes runtime and configuration authorization to false; no runtime consumer or mutation path exists | Downstream systems must fully verify sources rather than trust standalone JSON |
 | Private signing keys leak through the command | CLI accepts signed inputs and public trust policy only | External signer implementation and key custody are operator responsibilities |
 
@@ -32,7 +32,7 @@ Normalized pricing is basis-specific, and control freshness is not proof of glob
 latest state. Those boundaries are part of the public contract rather than hidden
 behind an `activation_eligible` label.
 
-The next gate is an external monotonic control/revocation channel and a read-only
-runtime preflight that fully verifies this receipt immediately before a separately
-authorized configuration transaction. That transaction still requires atomic
-install/rollback design, stale-head protection, and post-activation monitoring.
+The next gate is now implemented as a pinned local monotonic control anchor and
+read-only runtime preflight. A separately authorized transaction still requires an
+external latest-state witness, atomic install/rollback design, stale-head protection,
+and post-activation monitoring.

@@ -69,6 +69,7 @@ from mos_eisley.evaluation.resolution import (
 )
 from mos_eisley.evaluation.routing_activation import (
     RoutingActivationAuthorityPolicy,
+    RoutingActivationEligibility,
     SignedRoutingActivationControl,
     SignedRoutingActivationPolicy,
     SignedRoutingOperationalSnapshot,
@@ -113,6 +114,10 @@ from mos_eisley.providers.openai_responses import (
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
+from mos_eisley.run.activation_control import (
+    RoutingControlAnchor,
+    RoutingControlAnchorPolicy,
+)
 from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
 from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
@@ -130,6 +135,7 @@ from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
+from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
@@ -217,6 +223,32 @@ def parser() -> argparse.ArgumentParser:
         "spend-ledger-status", help="Inspect charges and unresolved reservations"
     )
     ledger_status.add_argument("path", type=Path)
+    anchor_create = subcommands.add_parser(
+        "routing-control-anchor-create",
+        help="Create a private monotonic routing-control anchor",
+    )
+    anchor_create.add_argument("path", type=Path)
+    anchor_create.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
+    anchor_create.add_argument("--anchor-policy", type=Path, required=True)
+    anchor_advance = subcommands.add_parser(
+        "routing-control-anchor-advance",
+        help="Append one newer signed routing-control state",
+    )
+    anchor_advance.add_argument("--anchor", type=Path, required=True)
+    anchor_advance.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
+    anchor_advance.add_argument("--signed-control-state", type=Path, required=True)
+    anchor_status = subcommands.add_parser(
+        "routing-control-anchor-status",
+        help="Verify and inspect the complete routing-control anchor chain",
+    )
+    anchor_status.add_argument("--anchor", type=Path, required=True)
+    anchor_status.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
     broker_status = subcommands.add_parser(
         "broker-audit-status",
         help="Validate one broker audit against trusted authorization and ledger",
@@ -543,6 +575,45 @@ def parser() -> argparse.ArgumentParser:
             "resolution-trust-policy",
         ):
             eval_activation.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    runtime_preflight = subcommands.add_parser(
+        "eval-routing-runtime-preflight",
+        help="Reverify eligibility against the latest anchored control state",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "signed-activation-policy",
+        "signed-operational-snapshot",
+        "signed-control-state",
+        "activation-authority-policy",
+        "activation-eligibility",
+        "control-anchor",
+        "output",
+    ):
+        runtime_preflight.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            runtime_preflight.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
     subcommands.add_parser("models", help="Print the configured model registry")
@@ -1298,6 +1369,204 @@ def _issue_routing_activation_eligibility_command(args: argparse.Namespace) -> i
     return 0
 
 
+def _routing_control_anchor_create_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    policy = RoutingControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    anchor = RoutingControlAnchor.create(
+        cast(Path, args.path),
+        policy,
+        activation_authorities,
+    )
+    snapshot = anchor.snapshot(activation_authorities)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_created",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _routing_control_anchor_advance_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.advance(
+        signed_control,
+        activation_authorities,
+        datetime.now(UTC),
+    )
+    latest = snapshot.latest
+    if latest is None:
+        raise ValueError("routing control anchor advance produced no state")
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_advanced",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_entry_sha256": latest.anchor_entry_sha256,
+                "sequence": latest.signed_control.control.sequence,
+                "emergency_stop": latest.signed_control.control.emergency_stop,
+                "valid_until": latest.signed_control.control.valid_until.isoformat(),
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _routing_control_anchor_status_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.snapshot(activation_authorities)
+    latest = snapshot.latest
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_status",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "entries": snapshot.entries,
+                "latest_entry_sha256": (
+                    latest.anchor_entry_sha256 if latest is not None else None
+                ),
+                "latest_sequence": (
+                    latest.signed_control.control.sequence
+                    if latest is not None
+                    else None
+                ),
+                "emergency_stop": (
+                    latest.signed_control.control.emergency_stop
+                    if latest is not None
+                    else None
+                ),
+                "valid_until": (
+                    latest.signed_control.control.valid_until.isoformat()
+                    if latest is not None
+                    else None
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    candidate_policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    holdout_report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    promotion = AuthenticatedRoutingPromotion.model_validate_json(
+        read_bounded(cast(Path, args.promotion_receipt), 128_000)
+    )
+    promotion_authorities = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_authority_policy), 64_000)
+    )
+    signed_activation_policy = SignedRoutingActivationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_activation_policy), 1_000_000)
+    )
+    signed_snapshot = SignedRoutingOperationalSnapshot.model_validate_json(
+        read_bounded(cast(Path, args.signed_operational_snapshot), 2_000_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    eligibility = RoutingActivationEligibility.model_validate_json(
+        read_bounded(cast(Path, args.activation_eligibility), 1_000_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.control_anchor))
+    preflight = perform_routing_runtime_preflight(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        candidate_policy,
+        promotion_policy,
+        claim,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        signed_activation_policy,
+        signed_snapshot,
+        signed_control,
+        activation_authorities,
+        eligibility,
+        anchor,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, preflight)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_runtime.preflight_passed",
+                "path": str(output),
+                "preflight_sha256": preflight.preflight_sha256,
+                "checked_at": preflight.checked_at.isoformat(),
+                "valid_until": preflight.valid_until.isoformat(),
+                "eligible_routes": len(preflight.eligible_candidate_ids),
+                "allow_model_substitution": preflight.allow_model_substitution,
+                "dispatch_authorized": preflight.dispatch_authorized,
+                "runtime_activation_authorized": (
+                    preflight.runtime_activation_authorized
+                ),
+                "configuration_mutation_authorized": (
+                    preflight.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
@@ -1315,6 +1584,10 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-issue-routing-activation-eligibility": (
             _issue_routing_activation_eligibility_command
         ),
+        "routing-control-anchor-create": _routing_control_anchor_create_command,
+        "routing-control-anchor-advance": _routing_control_anchor_advance_command,
+        "routing-control-anchor-status": _routing_control_anchor_status_command,
+        "eval-routing-runtime-preflight": _routing_runtime_preflight_command,
     }
     handler = handlers.get(args.command)
     return handler(args) if handler is not None else None

@@ -392,6 +392,16 @@ a still-valid older control sequence remains replayable without an external mono
 latest-state anchor. Runtime preflight, atomic installation, rollback, and traffic
 monitoring remain separate future gates.
 
+The implemented runtime preflight adds a private append-only local control anchor.
+Its pre-registered policy fixes a unique identity, activation trust-policy digest,
+and the identities allowed to sign control state; that policy digest is bound by the
+activation signer. Every update has a greater sequence and issuance time, hash-links
+the prior entry, and may not remove revocations. Preflight reconstructs every earlier
+evaluation and authorization gate and requires the exact latest anchored state within
+a signed maximum age. It remains non-dispatching because first-state bootstrap,
+whole-database rollback by the owner, and a state change after the check require an
+external monotonic witness and atomic one-use dispatch protocol.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.

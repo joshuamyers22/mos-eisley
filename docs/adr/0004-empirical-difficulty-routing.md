@@ -7,7 +7,10 @@ profile-aware calibration scorer, deterministic candidate-policy freezer, one-at
 holdout evaluator, independently authenticated promotion gate, and short-lived
 three-signer activation-eligibility gate are implemented. The last gate consumes
 signed operational attestations but performs no provider query or runtime mutation.
-Runtime routing and activation remain disabled.
+A pinned local monotonic control anchor and read-only preflight are also implemented;
+they reject older-message replay relative to an intact database but cannot detect
+whole-file rollback without an external witness. Runtime routing and activation
+remain disabled.
 
 ## Decision
 
@@ -78,3 +81,11 @@ The derived receipt is short-lived and fully reverifiable, but explicitly grants
 runtime or configuration authority. Operational truth, current provider state, key
 custody, latest-sequence delivery, atomic installation, and rollback remain external
 requirements.
+
+Immediately before any future transaction, read-only preflight must reconstruct that
+entire chain and require exact equality with the latest entry in the activation
+policy's pinned control anchor. Anchor sequences and issuance times only advance,
+revocations only accumulate, and the preflight lifetime is a short signed policy
+value. Because a local database can be rolled back and state can change after the
+check, the receipt grants no dispatch authority; an external monotonic witness and
+atomic one-use broker check remain required.
