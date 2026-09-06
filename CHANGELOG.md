@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add independent Ed25519 persona-skill promotion requiring both fully reverified
+  split reports, authority separation from graders/resolvers, policy-bounded expiry,
+  deterministic decision recomputation, and literal runtime/configuration denial.
+- Add derive/authenticate CLI commands that never accept promotion private keys,
+  plus adversarial tests for failed gates, stale decisions, key overlap, and tampering.
+
 - Bind exact inline or persona-skill instructions into evaluation route/request
   identity, including a validated skill-body digest; version skill, candidate/grid,
   plan, and execution contracts accordingly.

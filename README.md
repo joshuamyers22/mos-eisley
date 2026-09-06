@@ -154,6 +154,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Paired persona-skill evaluation](docs/SKILL_EVALUATION.md) that seals exact
   prompt-only controls, consumes holdout once, reverifies dual-human-grade lineage,
   and reports simultaneous group bounds without promotion or activation authority.
+- [Independently signed persona-skill promotion](docs/SKILL_PROMOTION.md) that
+  recomputes both split lineages, enforces evaluator/authority separation and expiry,
+  and issues evidence readiness without configuration or runtime authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

@@ -1521,3 +1521,22 @@ This closes the recommended evidence-foundation slice, not persona promotion. Ev
 artifact denies activation and each report denies promotion. A later milestone must
 define independent signed promotion, retained package archives, rollback, expiry,
 and drift monitoring before a skill can replace a default.
+
+### 25.5 Implemented independent promotion-readiness gate
+
+An authority policy now enrolls sorted unique Ed25519 release keys and bounds both
+its own validity and the maximum lifetime of a decision. The only signable decision
+is deterministically derived from the exact sealed comparison plus matching
+calibration and holdout reports; both registered gates must pass. The signature
+domain binds the authority policy, exact skill and prompt identities, both reports,
+and UTC decision window.
+
+Authentication recomputes both reports from their complete dual-human-grade source
+chains, rejects authority overlap with any grader or resolver, checks expiry, derives
+the decision again, and verifies the signature. A signed failed experiment remains
+a denial. The resulting receipt can claim promotion readiness but literally denies
+configuration mutation and activation.
+
+This is an evidence-authorization boundary, not installation. Package archives,
+author signatures, rollback, revocation, transactional default changes, and drift
+monitoring remain mandatory future work.
