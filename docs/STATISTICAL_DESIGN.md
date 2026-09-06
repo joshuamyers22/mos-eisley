@@ -95,6 +95,12 @@ guarantee. Sequential stopping, adaptive candidate selection and family-wide
 tracking across multiple plans are not implemented. Freeze selection on calibration,
 then test once on holdout under a pre-registered protocol before promotion.
 
+Policy-level acceptance thresholds must also be fixed before holdout. The holdout
+claim and report now pin their exact promotion-policy digest. Promotion recomputes
+the report and every threshold comparison; absent regret evidence fails rather than
+silently skipping its comparisons. This does not add population bounds for cost or
+latency.
+
 Group independence, physical adjudicator identity and labels are operator claims.
 Exact duplicates and split conflicts are detectable; hidden common ancestry and
 semantic duplicates are not. Ed25519 receipts authenticate exact human grading to

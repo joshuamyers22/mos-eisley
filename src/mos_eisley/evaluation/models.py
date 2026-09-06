@@ -16,6 +16,7 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.protocol import Effort
+from mos_eisley.core.skills import PromptAsset
 
 Split = Literal["calibration", "holdout"]
 FailureKind = Literal[
@@ -84,12 +85,14 @@ class EvaluationDataset(Contract):
 
 
 class RouteCandidate(Contract):
+    schema_version: Literal[2] = 2
     backend: Identifier
     provider: Identifier
     model: Identifier
     effort: Effort
     client_version: Annotated[str, Field(min_length=1, max_length=200)]
     registry_sha256: Digest
+    prompt: PromptAsset
 
     @property
     def candidate_id(self) -> str:
@@ -97,7 +100,7 @@ class RouteCandidate(Contract):
 
 
 class CandidateGrid(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     routes: Annotated[tuple[RouteCandidate, ...], Field(min_length=1, max_length=128)]
 
     @model_validator(mode="after")
@@ -144,7 +147,7 @@ class Assignment(Contract):
 
 
 class SweepPlan(Contract):
-    schema_version: Literal[2] = 2
+    schema_version: Literal[3] = 3
     dataset_sha256: Digest
     routes: Annotated[tuple[RouteCandidate, ...], Field(min_length=1, max_length=128)]
     repetitions: Annotated[int, Field(ge=1, le=100)]

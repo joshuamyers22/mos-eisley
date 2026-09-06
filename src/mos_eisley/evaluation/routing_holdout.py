@@ -26,6 +26,10 @@ from mos_eisley.evaluation.routing_policy import (
     FrozenProfileDecision,
     verify_frozen_candidate_routing_policy,
 )
+from mos_eisley.evaluation.routing_promotion_policy import (
+    RoutingPromotionPolicy,
+    verify_routing_promotion_policy,
+)
 from mos_eisley.evaluation.routing_protocol import (
     DifficultyProfile,
     PromptFeatureManifest,
@@ -38,6 +42,17 @@ from mos_eisley.evaluation.scoring import (
 )
 from mos_eisley.evaluation.statistics import MAX_CONFIDENCE_FAMILY
 
+type RoutingLineage = tuple[
+    ExecutionBatch,
+    BlindingMap,
+    RawResultSet,
+    GradingBatch,
+    DualGradingResolution,
+    GradingTrustPolicy,
+    ResolutionTrustPolicy,
+    DualGradedObservationSet,
+]
+
 
 class HoldoutUseClaim(Contract):
     """Deterministic payload written exclusively before holdout scoring starts."""
@@ -47,6 +62,7 @@ class HoldoutUseClaim(Contract):
     consumed: Literal[True] = True
     activation_authorized: Literal[False] = False
     candidate_policy_sha256: Digest
+    promotion_policy_sha256: Digest
     sealed_study_sha256: Digest
     dataset_sha256: Digest
     plan_sha256: Digest
@@ -271,6 +287,7 @@ class FrozenPolicyHoldoutReport(Contract):
     promotion_ready: Literal[False] = False
     activation_authorized: Literal[False] = False
     candidate_policy_sha256: Digest
+    promotion_policy_sha256: Digest
     holdout_use_claim_sha256: Digest
     sealed_study_sha256: Digest
     protocol_sha256: Digest
@@ -311,6 +328,7 @@ class FrozenPolicyHoldoutReport(Contract):
 
 def make_holdout_use_claim(
     policy: FrozenCandidateRoutingPolicy,
+    promotion_policy: RoutingPromotionPolicy,
     batch: ExecutionBatch,
     mapping: BlindingMap,
     raw_results: RawResultSet,
@@ -322,6 +340,7 @@ def make_holdout_use_claim(
 ) -> HoldoutUseClaim:
     return HoldoutUseClaim(
         candidate_policy_sha256=policy.candidate_policy_sha256,
+        promotion_policy_sha256=promotion_policy.promotion_policy_sha256,
         sealed_study_sha256=policy.sealed_study_sha256,
         dataset_sha256=policy.dataset_sha256,
         plan_sha256=policy.plan_sha256,
@@ -480,6 +499,7 @@ def evaluate_frozen_routing_policy(
     sealed_study: SealedRoutingStudy,
     calibration_report: RoutingCalibrationReport,
     policy: FrozenCandidateRoutingPolicy,
+    promotion_policy: RoutingPromotionPolicy,
     claim: HoldoutUseClaim,
 ) -> FrozenPolicyHoldoutReport:
     """Reverify both lineages, then evaluate the frozen decisions on holdout."""
@@ -499,8 +519,10 @@ def evaluate_frozen_routing_policy(
         calibration_report,
         policy,
     )
+    verify_routing_promotion_policy(promotion_policy, policy, sealed_study)
     expected_claim = make_holdout_use_claim(
         policy,
+        promotion_policy,
         holdout_batch,
         holdout_mapping,
         holdout_raw_results,
@@ -562,6 +584,7 @@ def evaluate_frozen_routing_policy(
     )
     return FrozenPolicyHoldoutReport(
         candidate_policy_sha256=policy.candidate_policy_sha256,
+        promotion_policy_sha256=promotion_policy.promotion_policy_sha256,
         holdout_use_claim_sha256=claim.claim_sha256,
         sealed_study_sha256=sealed_study.sealed_study_sha256,
         protocol_sha256=sealed_study.protocol_sha256,
@@ -605,6 +628,7 @@ def verify_frozen_policy_holdout_report(
     sealed_study: SealedRoutingStudy,
     calibration_report: RoutingCalibrationReport,
     policy: FrozenCandidateRoutingPolicy,
+    promotion_policy: RoutingPromotionPolicy,
     claim: HoldoutUseClaim,
     artifact: FrozenPolicyHoldoutReport,
 ) -> None:
@@ -631,6 +655,7 @@ def verify_frozen_policy_holdout_report(
         sealed_study,
         calibration_report,
         policy,
+        promotion_policy,
         claim,
     )
     if rebuilt != artifact:
