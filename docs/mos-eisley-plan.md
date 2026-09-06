@@ -1521,3 +1521,43 @@ This closes the recommended evidence-foundation slice, not persona promotion. Ev
 artifact denies activation and each report denies promotion. A later milestone must
 define independent signed promotion, retained package archives, rollback, expiry,
 and drift monitoring before a skill can replace a default.
+
+### 25.5 Implemented independent promotion-readiness gate
+
+An authority policy now enrolls sorted unique Ed25519 release keys and bounds both
+its own validity and the maximum lifetime of a decision. The only signable decision
+is deterministically derived from the exact sealed comparison plus matching
+calibration and holdout reports; both registered gates must pass. The signature
+domain binds the authority policy, exact skill and prompt identities, both reports,
+and UTC decision window.
+
+Authentication recomputes both reports from their complete dual-human-grade source
+chains, rejects authority overlap with any grader or resolver, checks expiry, derives
+the decision again, and verifies the signature. A signed failed experiment remains
+a denial. The resulting receipt can claim promotion readiness but literally denies
+configuration mutation and activation.
+
+This is an evidence-authorization boundary, not installation. The next retained-byte
+archive slice is documented below; author signatures, rollback, revocation,
+transactional default changes, and drift monitoring remain mandatory future work.
+
+### 25.6 Implemented deterministic package retention
+
+A retained skill archive now serializes every path and exact byte from the loader's
+immutable validated snapshot. Canonical base64, per-file byte counts and digests,
+canonical path ordering, collision checks, and the existing domain-separated package
+digest make the archive deterministic and content addressed. Retention never
+reopens the package, so a post-discovery filesystem mutation cannot change the
+archive selected by its exact qualified reference.
+
+Archive verification is deliberately semantic as well as structural: it reparses
+the retained `SKILL.md` and optional `mos.yaml`, re-applies the prompt-only rules,
+and rebuilds the complete descriptor and normalized instruction-body digest from
+the retained bytes. It performs no extraction or materialization. Project-source
+retention requires invocation-local approval, and the archive schema fixes
+installation, activation, and configuration mutation authority to false.
+
+This closes byte retention, not deployment. The archive does not prove authorship
+or safety and is not yet bound to a current promotion receipt. Revocation, rollback,
+transactional installation/default changes, and post-install drift monitoring remain
+separate mandatory gates.

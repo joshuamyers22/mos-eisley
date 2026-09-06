@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import stat
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,9 +12,21 @@ from unittest.mock import patch
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import canonical_bytes
-from mos_eisley.core.skills import PromptAsset, SkillRoster, SkillRosterAssignment
+from mos_eisley.core.skills import (
+    ArchivedSkillFile,
+    PromptAsset,
+    SkillPackageArchive,
+    SkillRoster,
+    SkillRosterAssignment,
+    skill_package_digest,
+)
 from mos_eisley.demo import demo_inputs
-from mos_eisley.run.skills import SkillCatalog, bind_skill_roster, discover_skills
+from mos_eisley.run.skills import (
+    SkillCatalog,
+    bind_skill_roster,
+    discover_skills,
+    verify_skill_archive,
+)
 from mos_eisley.run.store import Manifest, load_run, load_skill_run_manifest
 
 
@@ -282,6 +295,152 @@ class SkillDiscoveryTests(TestCase):
                 self.assertRaisesRegex(ValueError, "root exceeds"),
             ):
                 discover_skills(user_roots=(root,))
+
+
+class SkillArchiveTests(TestCase):
+    def test_archive_retains_exact_immutable_package_and_is_deterministic(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = write_skill(
+                root,
+                "archival",
+                "Retain these exact instructions.",
+                sidecar="version: 7\nkind: persona\n",
+            )
+            references = package / "references"
+            references.mkdir()
+            (references / "check.md").write_bytes(b"exact resource bytes\x00")
+            catalog = discover_skills(user_roots=(root,))
+            identity = catalog.descriptors[0].identity
+            first = catalog.archive(identity.qualified_reference)
+            second = catalog.archive(identity.qualified_reference)
+
+            self.assertEqual(first, second)
+            self.assertEqual(first.archive_sha256, second.archive_sha256)
+            self.assertFalse(first.activation_authorized)
+            self.assertFalse(first.installation_authorized)
+            self.assertFalse(first.configuration_mutation_authorized)
+            self.assertEqual(
+                {item.path: item.payload for item in first.files}[
+                    "references/check.md"
+                ],
+                b"exact resource bytes\x00",
+            )
+            verify_skill_archive(first)
+
+            (package / "SKILL.md").write_text("mutated after discovery")
+            retained = catalog.archive(identity.qualified_reference)
+            self.assertEqual(retained, first)
+            verify_skill_archive(retained)
+
+    def test_project_archive_requires_invocation_local_approval(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_skill(root, "project-only", "Retain with approval.")
+            catalog = discover_skills(project_roots=(root,))
+            reference = catalog.descriptors[0].identity.qualified_reference
+            with self.assertRaisesRegex(ValueError, "explicit approval"):
+                catalog.archive(reference)
+            archive = catalog.archive(reference, allow_project=True)
+            verify_skill_archive(archive)
+
+    def test_archive_rejects_tampering_paths_order_and_authority(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = write_skill(root, "bounded", "Bounded body.")
+            (package / "resource.txt").write_text("resource")
+            catalog = discover_skills(user_roots=(root,))
+            archive = catalog.archive(
+                catalog.descriptors[0].identity.qualified_reference
+            )
+            value = archive.model_dump(mode="json")
+
+            tampered = json.loads(json.dumps(value))
+            tampered["files"][0]["content_base64"] = "dGFtcGVyZWQ="
+            with self.assertRaisesRegex(ValueError, "digest or byte count"):
+                SkillPackageArchive.model_validate_json(json.dumps(tampered))
+
+            reordered = json.loads(json.dumps(value))
+            reordered["files"].reverse()
+            with self.assertRaisesRegex(ValueError, "canonically ordered"):
+                SkillPackageArchive.model_validate_json(json.dumps(reordered))
+
+            privileged = json.loads(json.dumps(value))
+            privileged["installation_authorized"] = True
+            with self.assertRaises(ValueError):
+                SkillPackageArchive.model_validate_json(json.dumps(privileged))
+
+            with self.assertRaisesRegex(ValueError, "path is invalid"):
+                ArchivedSkillFile.retain("scripts/run.py", b"print('no')")
+
+    def test_semantic_reverification_rebuilds_instruction_identity(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_skill(root, "semantic", "Original body.")
+            catalog = discover_skills(user_roots=(root,))
+            archive = catalog.archive(
+                catalog.descriptors[0].identity.qualified_reference
+            )
+            changed_files = tuple(
+                ArchivedSkillFile.retain(
+                    item.path,
+                    item.payload.replace(b"Original body.", b"Changed body!"),
+                )
+                for item in archive.files
+            )
+            raw_files = tuple((item.path, item.payload) for item in changed_files)
+            changed_identity = archive.descriptor.identity.model_copy(
+                update={"package_sha256": skill_package_digest(raw_files)}
+            )
+            structurally_consistent = SkillPackageArchive(
+                descriptor=archive.descriptor.model_copy(
+                    update={
+                        "identity": changed_identity,
+                        "package_bytes": sum(len(payload) for _, payload in raw_files),
+                    }
+                ),
+                files=changed_files,
+            )
+            with self.assertRaisesRegex(ValueError, "descriptor does not match"):
+                verify_skill_archive(structurally_consistent)
+
+    def test_cli_writes_private_archive_and_verifies_without_roots(self) -> None:
+        with TemporaryDirectory() as directory, redirect_stdout(io.StringIO()) as out:
+            base = Path(directory)
+            root = base / "skills"
+            write_skill(root, "cli-archive", "CLI archive body.")
+            catalog = discover_skills(user_roots=(root,))
+            reference = catalog.descriptors[0].identity.qualified_reference
+            output = base / "retained" / "skill.json"
+
+            self.assertEqual(
+                main(
+                    [
+                        "skills",
+                        "archive",
+                        reference,
+                        "--user-root",
+                        str(root),
+                        "--output",
+                        str(output),
+                    ]
+                ),
+                0,
+            )
+            event = json.loads(out.getvalue())
+            self.assertEqual(event["type"], "skill.archived")
+            self.assertFalse(event["installation_authorized"])
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+
+            out.seek(0)
+            out.truncate(0)
+            self.assertEqual(
+                main(["skills", "verify-archive", str(output)]),
+                0,
+            )
+            verified = json.loads(out.getvalue())
+            self.assertEqual(verified["type"], "skill.archive_verified")
+            self.assertEqual(verified["archive_sha256"], event["archive_sha256"])
 
 
 class SkillReviewBindingTests(TestCase):

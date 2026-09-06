@@ -125,8 +125,9 @@ registered-gate result.
 
 Passing means only that this fixed experiment met its authored thresholds. It does
 not authorize changing a default persona, dispatching a model, or activating a
-skill. Promotion needs a separately designed authority boundary and a policy for
-multiple skill revisions, package retention, rollback, expiry, and drift.
+skill. The separate [signed promotion gate](SKILL_PROMOTION.md) can issue an
+expiring evidence-readiness receipt, but package retention, rollback, installation,
+revocation, and drift gates remain required before any runtime change.
 
 The design assumes declared groups are genuinely independent, cases represent the
 target workload, grader enrollment maps to real independent humans, and neither

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 import stat
 import unicodedata
@@ -29,25 +28,34 @@ from yaml.tokens import (
 
 from mos_eisley.core.models import digest
 from mos_eisley.core.skills import (
+    MAX_ARCHIVED_FILES,
+    MAX_ARCHIVED_PACKAGE_BYTES,
+    MAX_ARCHIVED_PATH_DEPTH,
+    MAX_ARCHIVED_RESOURCE_BYTES,
+    MAX_ARCHIVED_SIDECAR_BYTES,
+    MAX_ARCHIVED_SKILL_BYTES,
+    ArchivedSkillFile,
     PromptAsset,
     SkillDescriptor,
     SkillIdentity,
+    SkillPackageArchive,
     SkillRoster,
     SkillRunAssignment,
     SkillRunManifest,
+    skill_package_digest,
 )
 from mos_eisley.providers.recorded import Cassette
 from mos_eisley.run.files import read_bounded
 
 MAX_SKILLS = 64
-MAX_FILES_PER_SKILL = 64
+MAX_FILES_PER_SKILL = MAX_ARCHIVED_FILES
 MAX_ENTRIES_PER_SKILL = 128
-MAX_FRONTMATTER_BYTES = 16_000
-MAX_SKILL_FILE_BYTES = 64_000
-MAX_RESOURCE_BYTES = 1_000_000
-MAX_PACKAGE_BYTES = 4_000_000
+MAX_FRONTMATTER_BYTES = MAX_ARCHIVED_SIDECAR_BYTES
+MAX_SKILL_FILE_BYTES = MAX_ARCHIVED_SKILL_BYTES
+MAX_RESOURCE_BYTES = MAX_ARCHIVED_RESOURCE_BYTES
+MAX_PACKAGE_BYTES = MAX_ARCHIVED_PACKAGE_BYTES
 MAX_CATALOG_BYTES = 16_000_000
-MAX_PATH_DEPTH = 4
+MAX_PATH_DEPTH = MAX_ARCHIVED_PATH_DEPTH
 MAX_PERSONA_BYTES = 8_000
 MAX_YAML_TOKENS = 1024
 MAX_YAML_DEPTH = 16
@@ -139,6 +147,14 @@ class _SkillSnapshot:
     def activate(self) -> ActivatedSkill:
         return ActivatedSkill(descriptor=self.descriptor, instructions=self.body)
 
+    def archive(self) -> SkillPackageArchive:
+        return SkillPackageArchive(
+            descriptor=self.descriptor,
+            files=tuple(
+                ArchivedSkillFile.retain(path, payload) for path, payload in self.files
+            ),
+        )
+
     def resource(self, relative_path: str) -> bytes:
         path = PurePosixPath(relative_path)
         if (
@@ -205,6 +221,18 @@ class SkillCatalog:
             if identity.source == "project" and not allow_project:
                 raise ValueError("project skill activation requires explicit approval")
             return skill.resource(relative_path)
+        raise ValueError("skill reference is absent from the immutable catalog")
+
+    def archive(
+        self, reference: str, *, allow_project: bool = False
+    ) -> SkillPackageArchive:
+        for skill in self._skills:
+            identity = skill.descriptor.identity
+            if identity.qualified_reference != reference:
+                continue
+            if identity.source == "project" and not allow_project:
+                raise ValueError("project skill retention requires explicit approval")
+            return skill.archive()
         raise ValueError("skill reference is absent from the immutable catalog")
 
 
@@ -336,17 +364,6 @@ def _inventory(skill_path: Path) -> tuple[_EntryState, ...]:
     return tuple(states)
 
 
-def _package_digest(files: tuple[tuple[str, bytes], ...]) -> str:
-    hasher = hashlib.sha256(b"mos-eisley.skill-package.v1\0")
-    for relative, payload in files:
-        encoded = relative.encode("utf-8")
-        hasher.update(len(encoded).to_bytes(8, "big"))
-        hasher.update(encoded)
-        hasher.update(len(payload).to_bytes(8, "big"))
-        hasher.update(payload)
-    return hasher.hexdigest()
-
-
 def _mos_extensions(payload: bytes | None) -> tuple[str | None, str | None]:
     if payload is None:
         return None, None
@@ -370,6 +387,61 @@ def _mos_extensions(payload: bytes | None) -> tuple[str | None, str | None]:
     if raw_kind is not None and raw_kind not in {"persona", "procedure"}:
         raise ValueError("mos.yaml kind must be persona or procedure")
     return version, cast(str | None, raw_kind)
+
+
+def _describe_package(
+    immutable_files: tuple[tuple[str, bytes], ...],
+    source: SkillSource,
+    package_name: str,
+) -> tuple[SkillDescriptor, str]:
+    payload_by_name = dict(immutable_files)
+    if (
+        len(payload_by_name) != len(immutable_files)
+        or "SKILL.md" not in payload_by_name
+    ):
+        raise ValueError("skill package files are invalid")
+    frontmatter, body_payload, frontmatter_bytes = _split_skill(
+        payload_by_name["SKILL.md"]
+    )
+    if frontmatter.name != package_name:
+        raise ValueError("SKILL.md name must match its package name")
+    version, kind = _mos_extensions(payload_by_name.get("mos.yaml"))
+    metadata_version = frontmatter.metadata.get("mos.version")
+    metadata_kind = frontmatter.metadata.get("mos.kind")
+    if (
+        version is not None
+        and metadata_version is not None
+        and version != metadata_version
+    ):
+        raise ValueError("mos.yaml and metadata disagree on version")
+    if kind is not None and metadata_kind is not None and kind != metadata_kind:
+        raise ValueError("mos.yaml and metadata disagree on kind")
+    effective_version = version or metadata_version
+    effective_kind = kind or metadata_kind or "procedure"
+    if effective_kind not in {"persona", "procedure"}:
+        raise ValueError("metadata mos.kind must be persona or procedure")
+    if effective_version is not None and not 1 <= len(effective_version) <= 64:
+        raise ValueError("metadata mos.version is invalid")
+    body = body_payload.decode("utf-8").strip()
+    identity = SkillIdentity(
+        source=source,
+        name=frontmatter.name,
+        version=effective_version,
+        kind=cast(Literal["persona", "procedure"], effective_kind),
+        package_sha256=skill_package_digest(immutable_files),
+        instructions_sha256=digest(body.encode("utf-8")),
+    )
+    descriptor = SkillDescriptor(
+        identity=identity,
+        description=frontmatter.description,
+        license=frontmatter.license,
+        compatibility=frontmatter.compatibility,
+        package_bytes=sum(len(payload) for _, payload in immutable_files),
+        file_count=len(immutable_files),
+        frontmatter_bytes=frontmatter_bytes,
+        body_bytes=len(body.encode("utf-8")),
+    )
+    return descriptor, body
 
 
 def _load_package(skill_path: Path, source: SkillSource) -> _SkillSnapshot:
@@ -397,49 +469,18 @@ def _load_package(skill_path: Path, source: SkillSource) -> _SkillSnapshot:
     if before != after:
         raise ValueError("skill package changed while being snapshotted")
     immutable_files = tuple(files)
-    payload_by_name = dict(immutable_files)
-    frontmatter, body_payload, frontmatter_bytes = _split_skill(
-        payload_by_name["SKILL.md"]
-    )
-    if frontmatter.name != skill_path.name:
-        raise ValueError("SKILL.md name must match its directory")
-    version, kind = _mos_extensions(payload_by_name.get("mos.yaml"))
-    metadata_version = frontmatter.metadata.get("mos.version")
-    metadata_kind = frontmatter.metadata.get("mos.kind")
-    if (
-        version is not None
-        and metadata_version is not None
-        and version != metadata_version
-    ):
-        raise ValueError("mos.yaml and metadata disagree on version")
-    if kind is not None and metadata_kind is not None and kind != metadata_kind:
-        raise ValueError("mos.yaml and metadata disagree on kind")
-    effective_version = version or metadata_version
-    effective_kind = kind or metadata_kind or "procedure"
-    if effective_kind not in {"persona", "procedure"}:
-        raise ValueError("metadata mos.kind must be persona or procedure")
-    if effective_version is not None and not 1 <= len(effective_version) <= 64:
-        raise ValueError("metadata mos.version is invalid")
-    body = body_payload.decode("utf-8").strip()
-    identity = SkillIdentity(
-        source=source,
-        name=frontmatter.name,
-        version=effective_version,
-        kind=cast(Literal["persona", "procedure"], effective_kind),
-        package_sha256=_package_digest(immutable_files),
-        instructions_sha256=digest(body.encode("utf-8")),
-    )
-    descriptor = SkillDescriptor(
-        identity=identity,
-        description=frontmatter.description,
-        license=frontmatter.license,
-        compatibility=frontmatter.compatibility,
-        package_bytes=total,
-        file_count=len(file_states),
-        frontmatter_bytes=frontmatter_bytes,
-        body_bytes=len(body.encode("utf-8")),
-    )
+    descriptor, body = _describe_package(immutable_files, source, skill_path.name)
     return _SkillSnapshot(descriptor=descriptor, files=immutable_files, body=body)
+
+
+def verify_skill_archive(archive: SkillPackageArchive) -> None:
+    """Rebuild all semantic metadata from retained bytes without materializing them."""
+
+    files = tuple((item.path, item.payload) for item in archive.files)
+    identity = archive.descriptor.identity
+    descriptor, _ = _describe_package(files, identity.source, identity.name)
+    if descriptor != archive.descriptor:
+        raise ValueError("archived skill descriptor does not match retained bytes")
 
 
 def discover_skills(
