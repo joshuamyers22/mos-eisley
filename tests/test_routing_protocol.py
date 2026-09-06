@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, Contract, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -78,6 +79,7 @@ def study_inputs(
             effort="low",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Economy review."),
         ),
         RouteCandidate(
             backend="fixture",
@@ -86,6 +88,7 @@ def study_inputs(
             effort="high",
             client_version="fixture/1",
             registry_sha256="a" * 64,
+            prompt=PromptAsset(mode="inline", instructions="Fallback review."),
         ),
     )
     plan = make_plan(

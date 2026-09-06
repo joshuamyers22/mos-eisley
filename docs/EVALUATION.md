@@ -32,8 +32,10 @@ uv run --frozen mos eval-plan \
 ```
 
 Each candidate is the concrete backend × provider × model × effort tuple plus its
-client version and registry digest. API and subscription clients therefore remain
-different candidates even when they expose the same model name.
+client version, registry digest, and exact `PromptAsset`. API and subscription
+clients therefore remain different candidates even when they expose the same model
+name, and instruction changes produce a different candidate identity. Persona-skill
+experiments use the separate [paired comparison protocol](SKILL_EVALUATION.md).
 
 Create an execution batch and a separate private mapping. A fresh 256-bit nonce
 produces opaque HMAC sample IDs. The batch contains only each brief and concrete
@@ -223,6 +225,11 @@ increase the independent sample count. Failed clean reviews contribute worst-cas
 risk in the group gate. See [statistical design](STATISTICAL_DESIGN.md) for the
 estimand, formulas, assumptions, sample-size example and schema-2 migration.
 Every report returns `promotion_ready: false`.
+
+`RouteCandidate` and `CandidateGrid` schema 2 add the exact prompt asset;
+`SweepPlan` schema 3 and `EvaluationRequest`/`ExecutionBatch` schema 2 transitively
+bind it. Regenerate older artifacts because their reviewer instructions cannot be
+reconstructed from the old route identity.
 
 ## What this does not prove
 
