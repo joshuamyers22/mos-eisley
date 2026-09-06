@@ -1580,3 +1580,30 @@ This closes package substitution between evaluated identity and retained bytes. 
 does not authenticate the package author, establish an external timestamp, consult a
 revocation witness, select a rollback target, materialize files, change defaults, or
 monitor post-install drift. Those remain independent prerequisites for deployment.
+
+### 25.8 Implemented authenticated revocation and rollback nomination
+
+A separate release-control policy enrolls sorted unique Ed25519 authorities and
+bounds decision lifetime. Every enrolled control identity and public key must be
+disjoint from the promotion authorities and all graders and resolvers across both
+splits. The only signable control decision is deterministically derived after
+reverifying the exact release evidence and its complete upstream lineage.
+
+The signature commits the trust-policy digest, release-evidence digest, current
+archive, candidate identity, monotonic sequence, allow/revoke disposition, optional
+rollback nomination, and UTC window. A rollback nomination is permitted only for a
+revoked release, embeds exact semantically reverified retained bytes in the resulting
+receipt, and must identify a different package for the same source-qualified persona
+name. It remains a nomination rather than an extraction or install instruction.
+
+A private SQLite anchor is scoped to one release-evidence digest and pins the exact
+authority policy, allowed control signers, and a minimum bootstrap sequence. Canonical
+entries are hash-linked and fully reverified on every read. Sequence and issue time
+must advance, a revocation cannot be removed, and consumers can require the exact
+latest signed state. This prevents ordinary older-message replay but not owner-driven
+whole-database rollback or cloning; an external monotonic witness is still required.
+
+Every new contract and CLI event continues to fix installation, activation, and
+configuration mutation to false. Transactional staging, exact post-write checks,
+atomic default switching, crash recovery, and drift-triggered rollback remain the
+next independent deployment gate.
