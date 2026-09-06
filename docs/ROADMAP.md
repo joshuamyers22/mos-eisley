@@ -110,8 +110,14 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,
    redaction, typed lifecycle events and trusted endpoint/credential contracts;
-   then bounded subagents; then brokered web/image evidence; finally one narrow
-   outward MCP interface. See plan §§24.5 and 25 for acceptance criteria.
+   then bounded subagents; then E3 brokered web/image evidence plus PDF and Word
+   (`.docx`/`.doc`) reading, scanned-document OCR, and XLSX/CSV reading and bounded
+   tabular analysis for conversations and reviews, with text/table extraction,
+   page/sheet/cell/record citations, parsing and extraction-quality reporting, and
+   isolated processing of owner-scoped artifacts; finally one narrow outward MCP
+   interface. Document and spreadsheet support is later planned work, not currently
+   available.
+   See plan §§19.6, 24.4–24.5, and 25 for scope and acceptance criteria.
 10. **Convenience:** advanced TUI polish and provenance navigation. The core
     conversation, resume, and configurable storage belong to the product workstream
     above; shared analytics or team-wide database exports are excluded.

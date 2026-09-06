@@ -1294,13 +1294,47 @@ content and can be stale or poisoned; they never become instructions, credential
 or an authority source. A finding must cite the frozen artifact it used. This path
 ships only after the no-NET critic invariant and injection corpus pass end to end.
 
-### 19.6 Multimodal inputs
+### 19.6 Multimodal and document inputs
 
 Support images later as content-addressed brief artifacts for screenshots, rendered
 UI, diagrams, and visual diffs. Validate media type independently of extension,
 decode with resource limits, strip active metadata where possible, and record the
 exact bytes and transformations supplied to each provider. A model without the
-required modality is ineligible for that route. Audio/voice/realtime interaction is
+required modality is ineligible for that route.
+
+In the same later E3 phase, support reading PDFs, Word files (`.docx` and legacy
+`.doc`), and scanned documents supplied explicitly in a conversation or review
+brief. Extract text and tables from digital documents; use OCR for scanned pages
+and image-only PDFs, with page rendering for visual interpretation when needed.
+Preserve source references: PDF/scan page numbers and Word headings, paragraphs,
+or table identifiers, plus rendered page numbers when available. Answers and review
+findings must cite the source location, flag uncertain OCR or layout extraction,
+and report unreadable, unsupported, or truncated content rather than silently omit it.
+
+Also support reading Excel workbooks (`.xlsx`) and CSV files in E3. For XLSX,
+enumerate sheets and extract bounded cell ranges and tables, preserving sheet names,
+cell addresses, headers, value types, and formula text alongside available cached
+values. Identify hidden sheets/rows and merged cells; report missing or potentially
+stale formula results without recalculating formulas or refreshing external links.
+For CSV, handle encodings, delimiters, quoted fields, and embedded newlines with
+explicit parsing settings or reported detection assumptions. Preserve raw field
+values, including leading zeros, and report ambiguous types or malformed records.
+Support questions, summaries, and bounded tabular analysis with citations to XLSX
+sheet/cell ranges or CSV logical record and column references. Disclose sampling,
+truncation, and conversion assumptions so partial data is never presented as complete.
+
+Keep originals and derived text, tables, OCR, and page images as content-addressed,
+owner-scoped artifacts under §17 storage and retention rules. Record parser/OCR
+versions, transformations, and the exact artifacts sent to each provider. Run
+parsing, conversion, and OCR in an isolated, resource-bounded worker with no network
+access; never execute macros, embedded scripts, or external document references.
+Enforce file, page, sheet, row, column, cell-size, decompression, runtime, and
+model-context limits. Document
+content remains untrusted evidence, not instructions or authority; provider/data
+policy and modality eligibility apply to every derived artifact. This is planned
+reading support, with delivery gated by §24.4.
+
+Audio/voice/realtime interaction is
 not required by the review workflow and remains out of scope until a measured use
 case justifies its privacy, storage, and provider-conformance surface.
 
@@ -1573,6 +1607,8 @@ treated as design hypotheses.
 | Skills/personas | **Adopt, staged** | Version and hash prompt/rubric assets (§14.3). Repository skills are untrusted selectors, scripts are inert, and persona migration requires regression and held-out evaluation. |
 | MCP server plus app server | **Split and defer** | Keep the client. Add one narrow outward protocol only after quality/security gates (§13.2); do not maintain two auth/session stacks without distinct users. |
 | Image and audio inputs | **Images later; audio deferred** | Images have a concrete review use case and receive artifact/media controls (§19.6). Audio, voice, and realtime interaction do not yet improve the core review outcome. |
+| PDF, Word, and scanned-document inputs | **Adopt later in E3** | Extract text and tables from PDFs and Word files; OCR scanned documents with source citations, extraction-quality reporting, isolated processing, and owner-scoped artifacts (§19.6). |
+| XLSX and CSV inputs | **Adopt later in E3** | Read workbook sheets and delimited tables for bounded analysis with sheet/cell or record/column citations, explicit parsing assumptions, inert formulas, and the same artifact/isolation controls (§19.6). |
 | Cached web search | **Adopt after containment** | Only the trusted brief builder gets brokered network access. Critics consume frozen, cited, untrusted artifacts; the cache includes provenance and freshness (§19.5). |
 | Endpoint and auth modes | **Adopt, hardened** | Use trusted endpoint records and typed credential references (§4.5), not arbitrary URL/header dictionaries. Require TLS/loopback exception, SSRF controls, conformance, and provider/data policy. |
 | Local open-weight models | **Keep out of v1** | Different branding does not prove independent training lineage. “Free per call” ignores hardware, energy, operations, and latency. Add a local endpoint only if blinded evaluation shows incremental coverage or acceptable cost/quality. |
@@ -1628,7 +1664,17 @@ These additions are not promoted to stable because they exist. Promotion require
 - service-boundary authentication, rate-limit, cancellation, replay, and
   caller-request-narrowing tests;
 - image decompression-bomb, malformed-media, metadata, and cross-provider
-  conformance tests before multimodal routing becomes eligible.
+  conformance tests before multimodal routing becomes eligible;
+- PDF, Word (`.docx`/`.doc`), and scanned-document fixtures covering text/table
+  extraction, OCR quality, source citations, and explicit partial/unreadable results;
+  malformed files, decompression bombs, active content, external references, and
+  prompt injection must not escape worker isolation or resource limits, and derived
+  artifacts must pass owner-isolation, retention, and provider-conformance checks;
+- XLSX/CSV fixtures covering multiple and hidden sheets, merged cells, value types,
+  formulas and missing cached values, encodings, delimiters, quoting, embedded
+  newlines, leading zeros, and malformed records; verify source references,
+  bounded analysis, explicit sampling/truncation, inert formulas/external links,
+  resource limits, and the same artifact/isolation controls as document inputs.
 
 **Result:** parity work is post-gate extensibility. It may make Mos Eisley easier to
 integrate and specialize, but it cannot advance ahead of the local review quality
@@ -1640,7 +1686,7 @@ gate, containment proof, or the trusted/untrusted configuration split in §23.8.
 |---|---|---|
 | **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers cannot escalate authority; every endpoint passes conformance and data-policy checks |
 | **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
-| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts | critics remain socketless; broker and cache adversarial suites pass; images pass media/resource and cross-provider conformance |
+| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts, PDF/Word reading, scanned-document OCR, and XLSX/CSV reading and bounded analysis for conversations and reviews | critics remain socketless; broker and cache adversarial suites pass; images, documents, and tabular inputs pass isolation/resource and cross-provider conformance; extraction/OCR and tabular parsing quality, source citations, and owner-scoped artifact handling meet §24.4 |
 | **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
 
 An app server, audio/realtime mode, automatic compaction delegation, local model
