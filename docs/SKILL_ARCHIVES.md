@@ -58,6 +58,8 @@ current. Anyone who can replace both an archive and the expected digest can repl
 the evidence.
 
 There is intentionally no extraction, materialization, installation, configuration,
-or activation command. Archives are not yet linked to signed promotion receipts,
-revocation state, rollback targets, or drift monitors. Those must be implemented as
-separate gates before a promoted persona can change a default or reach runtime.
+or activation command. A separate [release-evidence gate](SKILL_RELEASE_EVIDENCE.md)
+can now bind an archive to a still-current, fully reverified promotion receipt, but
+that binding also grants no deployment authority. Revocation state, rollback targets,
+transactional installation, and drift monitors remain separate gates before a
+promoted persona can change a default or reach runtime.

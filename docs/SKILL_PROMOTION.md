@@ -117,8 +117,10 @@ signature is required; quorum is not implemented. Historical verification uses t
 receipt's recorded authentication time and therefore does not assert that the
 decision is still current.
 
-Deterministic [package retention](SKILL_ARCHIVES.md) now exists independently, but
-an archive is not yet bound to a still-current promotion receipt. Package
-signature/authorship, rollback, revocation, default-persona installation, and
-post-promotion drift checks remain unimplemented. Those gates must exist before
-promotion readiness can become configuration or runtime authority.
+Deterministic [package retention](SKILL_ARCHIVES.md) and a separate
+[current release-evidence binding](SKILL_RELEASE_EVIDENCE.md) now exist. The latter
+recomputes both lineages and requires the archive identity to equal this receipt's
+exact candidate identity before expiry. Package signature/authorship, rollback,
+revocation, default-persona installation, and post-promotion drift checks remain
+unimplemented. Those gates must exist before promotion readiness can become
+configuration or runtime authority.
