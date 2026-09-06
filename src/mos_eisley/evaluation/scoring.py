@@ -151,7 +151,7 @@ def _expected_assignments(
     }
 
 
-def _validate_observation_matrix(
+def validate_observation_matrix(
     plan: SweepPlan,
     dataset: EvaluationDataset,
     observations: tuple[Observation, ...],
@@ -166,19 +166,42 @@ def _validate_observation_matrix(
         raise ValueError("observations do not exactly cover the requested split")
 
 
-def _score_route(
+def score_route_subset(
     route: RouteCandidate,
     plan: SweepPlan,
     dataset: EvaluationDataset,
     observations: tuple[Observation, ...],
     split: Split,
+    case_ids: frozenset[str],
+    comparison_strata: int = 1,
 ) -> RouteScore:
-    cases = {case.id: case for case in dataset.cases if case.split == split}
+    """Score one exact route/case subset after or alongside full-matrix checks."""
+    if route.candidate_id not in {item.candidate_id for item in plan.routes}:
+        raise ValueError("route score subset references a route outside the plan")
+    cases = {
+        case.id: case
+        for case in dataset.cases
+        if case.split == split and case.id in case_ids
+    }
+    if set(cases) != set(case_ids):
+        raise ValueError("route score subset contains an unknown or wrong-split case")
     selected = [
         observation
         for observation in observations
         if observation.candidate_id == route.candidate_id
+        and observation.case_id in case_ids
     ]
+    expected_keys = {
+        (case_id, route.candidate_id, repetition)
+        for case_id in case_ids
+        for repetition in range(plan.repetitions)
+    }
+    selected_keys = tuple(item.key for item in selected)
+    if (
+        len(selected_keys) != len(set(selected_keys))
+        or set(selected_keys) != expected_keys
+    ):
+        raise ValueError("observations do not exactly cover the route score subset")
     defect_trials = sum(len(cases[item.case_id].expected_findings) for item in selected)
     clean = [item for item in selected if not cases[item.case_id].expected_findings]
     if defect_trials == 0 or not clean:
@@ -199,7 +222,11 @@ def _score_route(
         sum(item.status == "completed" for item in selected), len(selected)
     )
     assessment = assess_groups(
-        cases, selected, plan.gate.statistical_design, len(plan.routes)
+        cases,
+        selected,
+        plan.gate.statistical_design,
+        len(plan.routes),
+        comparison_strata,
     )
     costs = [item.cost_microusd for item in selected if item.cost_microusd is not None]
     mean_cost = sum(costs) / len(costs) if costs else None
@@ -251,9 +278,11 @@ def score_observation_matrix(
     split: Split,
 ) -> tuple[RouteScore, ...]:
     """Score one exact split after source-specific provenance validation."""
-    _validate_observation_matrix(plan, dataset, observations, split)
+    validate_observation_matrix(plan, dataset, observations, split)
+    case_ids = frozenset(case.id for case in dataset.cases if case.split == split)
     return tuple(
-        _score_route(route, plan, dataset, observations, split) for route in plan.routes
+        score_route_subset(route, plan, dataset, observations, split, case_ids)
+        for route in plan.routes
     )
 
 

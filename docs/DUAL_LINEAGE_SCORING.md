@@ -47,6 +47,7 @@ capability.
 
 Cryptographic grading lineage does not establish representative data, correct
 labels, grader independence, valid independence groups, safe repeated holdout use,
-provider stability or production readiness. Credentialed conformance, a
-pre-registered calibration/holdout decision protocol, policy derivation and a
-separately authorized activation boundary remain required.
+provider stability or production readiness. The pre-registered profile protocol and
+calibration-only scorer are now separate downstream boundaries. Credentialed
+conformance, policy freezing, holdout evaluation, and a separately authorized
+activation boundary remain required.
