@@ -209,6 +209,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   that independently authenticates complete exclusive OpenAI usage/cost aggregates
   against exact conformance and publication lineage without claiming response-level
   attribution, invoice finality, refund authority, quality, or activation.
+- [Credential-isolated OpenAI billing collection](docs/SKILL_RUNTIME_BILLING_COLLECTION.md)
+  that explicitly reads and strictly retains bounded Admin API pages without sending
+  a model request or overstating daily exclusivity and response-level attribution.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -307,6 +310,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [runtime conformance-attestation adversarial review](docs/MILESTONE_39_REVIEW.md),
 [publication-history witness adversarial review](docs/MILESTONE_40_REVIEW.md),
 [aggregate billing-evidence adversarial review](docs/MILESTONE_41_REVIEW.md),
+[billing-collector adversarial review](docs/MILESTONE_42_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

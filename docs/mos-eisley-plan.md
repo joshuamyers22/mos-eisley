@@ -2214,3 +2214,30 @@ No live or paid request was made for this milestone. Next, separately authorized
 credentialed conformance and a credential-isolated strict Admin API evidence collector
 must exercise the real boundary. Request-level claims require a future documented
 provider field rather than inference from aggregate isolation.
+
+### 25.23 Implemented credential-isolated Admin API billing collection
+
+An explicit-consent `openai-billing-collect` process now owns `OPENAI_ADMIN_KEY` only
+for bounded OpenAI organization completion-usage and cost reads. It first
+reauthenticates the exact conformance publication and current billing policy, rejects
+open reporting windows and unusable output paths before credential access, then uses
+the official SDK with automatic retries, environment proxies, redirects, and streaming
+disabled. Each decoded response and the complete cursor chain are bounded.
+
+The retained private bundle strictly validates one exact one-minute completion group,
+project/API-key/model/default-tier equality, one model request, one closed daily cost
+bucket, exact project/API-key cost groups, no duplicate line items, and an integer
+microusd total. Canonical rolling digests over the retained raw pages feed the existing
+signable observation path; the collector neither holds a signing key nor mutates the
+spend ledger. Console output omits raw pages, identifiers, totals, prompts, responses,
+and the Admin credential.
+
+The adversarial boundary is narrower than “exclusive request receipt.” The completion
+endpoint proves only one request in the selected minute, while the costs endpoint is a
+daily aggregate with no response ID. Collection therefore fixes complete daily
+API-key exclusivity and exact request-cost attribution to false. The existing derive
+step still requires a separate completeness/exclusivity attestation, and authenticated
+evidence continues to deny invoice finality, ledger release, retry, quality, promotion,
+and activation. Fixture HTTP tests exercise the SDK boundary without a paid model
+request. A separately authorized real conformance run and real Admin read remain
+operator work.

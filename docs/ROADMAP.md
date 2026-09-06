@@ -147,9 +147,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    require exact usage/cost agreement for a complete, exclusive OpenAI Admin API scope
    while reverifying the full conformance and publication lineage. Documented cost
    exports remain daily and do not carry response IDs, so exact request attribution,
-   invoice finality, and ledger release remain denied. Next, run separately authorized
-   credentialed conformance, then collect and strictly parse real Admin API evidence in
-   an isolated credential-owning process before stronger operational claims.
+   invoice finality, and ledger release remain denied. A separate explicit-consent,
+   credential-owning collector now strictly retains bounded complete Admin API pages
+   and feeds the signable metadata path while recording that one-minute request count
+   does not prove all-day API-key exclusivity. Next, run separately authorized real
+   conformance and collection; fixture validation is not provider conformance.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

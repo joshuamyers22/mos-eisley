@@ -16,6 +16,9 @@ from pydantic import Field, field_validator, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import Effort
+from mos_eisley.run.skill_runtime_billing_collection import (
+    CollectedSkillRuntimeBillingEvidence,
+)
 from mos_eisley.run.skill_runtime_conformance import (
     AuthenticatedSkillRuntimeConformance,
     SkillRuntimeConformancePolicy,
@@ -455,6 +458,41 @@ def make_skill_runtime_billing_observation(
     ):
         raise ValueError("runtime billing observation source mismatch")
     return observation
+
+
+def make_skill_runtime_billing_observation_from_collection(
+    conformance: AuthenticatedSkillRuntimeConformance,
+    conformance_policy: SkillRuntimeConformancePolicy,
+    response_store: SkillRuntimeResponseStore,
+    policy: SkillRuntimeBillingPolicy,
+    collection: CollectedSkillRuntimeBillingEvidence,
+) -> SkillRuntimeBillingObservation:
+    """Revalidate a strict private collection into safe signable metadata."""
+
+    collection = CollectedSkillRuntimeBillingEvidence.model_validate_json(
+        canonical_bytes(collection)
+    )
+    _, result = response_store.load(conformance.publication_id)
+    if collection.model != result.model:
+        raise ValueError("runtime billing collection model differs from publication")
+    return make_skill_runtime_billing_observation(
+        conformance,
+        conformance_policy,
+        response_store,
+        policy,
+        external_input_tokens=collection.external_input_tokens,
+        external_output_tokens=collection.external_output_tokens,
+        external_cost_microusd=collection.external_cost_microusd,
+        usage_bucket_start=collection.usage_bucket_start,
+        usage_bucket_end=collection.usage_bucket_end,
+        costs_bucket_start=collection.costs_bucket_start,
+        costs_bucket_end=collection.costs_bucket_end,
+        project_id_sha256=collection.project_id_sha256,
+        api_key_id_sha256=collection.api_key_id_sha256,
+        usage_evidence_sha256=collection.usage_evidence_sha256,
+        costs_evidence_sha256=collection.costs_evidence_sha256,
+        evidence_retrieved_at=collection.collected_at,
+    )
 
 
 def sign_skill_runtime_billing_observation(
