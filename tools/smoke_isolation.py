@@ -1,15 +1,21 @@
 """Exercise the actual Docker boundary, including denial and cleanup probes."""
 
+import asyncio
 import os
 import shutil
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from mos_eisley.core.models import Brief, Critique
+from pydantic import JsonValue
+
+from mos_eisley.core.models import Brief, Critique, canonical_bytes
+from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.execution import (
     EvaluationCassette,
     EvaluationRequest,
@@ -17,11 +23,15 @@ from mos_eisley.evaluation.execution import (
     RecordedExchange,
 )
 from mos_eisley.evaluation.models import RouteCandidate
+from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
+from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import (
     OfflineContainer,
     bounded_process,
     run_isolated_recorded,
 )
+from mos_eisley.run.provider_broker import RequestBoundBroker
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.watchdog import CleanupLease, CleanupRecord, remove_exact
 
 PROBE = """
@@ -61,6 +71,117 @@ with socket.socket() as connection:
 Path('/tmp/allowed-write').write_text('ephemeral')
 print('containment probes passed')
 """
+
+
+def check_broker(container: OfflineContainer, root: Path) -> None:
+    """Real offline container, real spending ledger, synthetic host transport."""
+
+    class FixtureTransport:
+        calls = 0
+
+        async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
+            return 10
+
+        async def create_response(
+            self, payload: dict[str, JsonValue]
+        ) -> dict[str, JsonValue]:
+            self.calls += 1
+            assert ledger.snapshot().charged_microusd == 30
+            return {
+                "model": "fixture-model",
+                "service_tier": "default",
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "output": "synthetic host response",
+            }
+
+    root.mkdir(mode=0o700)
+    ledger = SpendLedger.create(root / "ledger.sqlite", 100)
+    fixture = FixtureTransport()
+    now = datetime.now(UTC)
+    policy = SpendPolicy(
+        model="fixture-model",
+        pricing_source="synthetic IPC test rates",
+        valid_from=now - timedelta(minutes=1),
+        valid_until=now + timedelta(minutes=5),
+        input_microusd_per_million=1_000_000,
+        output_microusd_per_million=2_000_000,
+        max_cost_microusd=100,
+    )
+    payload: dict[str, JsonValue] = {
+        "model": "fixture-model",
+        "input": [{"role": "user", "content": "Fixture"}],
+        "max_output_tokens": 10,
+        "tools": [],
+    }
+    broker = RequestBoundBroker(
+        payload,
+        BudgetedOpenAITransport(fixture, policy, root, ledger),
+        lifetime_seconds=60,
+    )
+
+    async def handle(wire: bytes) -> bytes:
+        await broker.redeem(wire)
+        raise AssertionError("tampered claim reached provider")
+
+    tamper = """
+import json, sys
+claim = json.loads(sys.stdin.readline())
+claim['request_sha256'] = '0' * 64
+print(json.dumps(claim), flush=True)
+sys.stdin.readline()
+"""
+    try:
+        container.execute(
+            ("-c", tamper), canonical_bytes(broker.claim()), exchange_handler=handle
+        )
+    except ProviderError:
+        pass
+    else:
+        raise AssertionError("tampered worker grant accepted")
+    assert fixture.calls == 0 and ledger.snapshot().charged_microusd == 0
+    reply = run_isolated_broker(broker, container)
+    assert reply.response["output"] == "synthetic host response"
+    assert fixture.calls == 1 and ledger.snapshot().charged_microusd == 20
+    try:
+        run_isolated_broker(broker, container)
+    except ProviderError:
+        pass
+    else:
+        raise AssertionError("worker replay accepted")
+    assert fixture.calls == 1
+
+    cancelled: list[bool] = []
+
+    async def pending(wire: bytes) -> bytes:
+        try:
+            await asyncio.sleep(10)
+            return b"unreachable"
+        finally:
+            cancelled.append(True)
+
+    disconnect = """
+import sys, time
+print(sys.stdin.readline().strip(), flush=True)
+time.sleep(1)
+"""
+    try:
+        container.execute(
+            ("-c", disconnect), b"fixture-grant", exchange_handler=pending
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("disconnected worker exchange accepted")
+    assert cancelled == [True], "disconnect did not cancel host work"
+    try:
+        container.execute(
+            ("-c", "print('x'*5000)"), b"fixture-grant", exchange_handler=pending
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("oversized worker frame accepted")
+    assert cancelled == [True], "oversized frame dispatched host work"
 
 
 def check_launcher_death(docker: str, image: str, root: Path) -> None:
@@ -176,6 +297,9 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
             effort="low",
             client_version="fixture/1",
             registry_sha256="b" * 64,
+            prompt=PromptAsset(
+                mode="inline", instructions="Run the containment smoke review."
+            ),
         ),
         brief=Brief(spec="Return one.", diff="return 1"),
     )
@@ -207,9 +331,10 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
         else:
             raise AssertionError("resource violation was accepted")
     check_launcher_death(docker, image, root / "killed-launcher")
+    check_broker(container, root / "broker-spending")
     after = bounded_process([docker, "ps", "-aq", "--filter", "name=mos-eval-"])
     assert set(after.split()) <= set(before.split()), "isolated containers leaked"
-    print("containment, fixture, limits, cleanup and launcher-SIGKILL recovery passed")
+    print("containment, fixtures, broker IPC, limits and crash cleanup passed")
     return 0
 
 
