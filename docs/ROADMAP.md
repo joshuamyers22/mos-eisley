@@ -143,8 +143,13 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    publication without claiming authorship, billing, or quality. A signed rolling
    publication-history checkpoint can now detect rollback against a separately
    retained prefix, while external retention and newest-checkpoint delivery remain
-   operator responsibilities. Add external billing evidence before financial-finality
-   claims.
+   operator responsibilities. Independently signed aggregate billing evidence can now
+   require exact usage/cost agreement for a complete, exclusive OpenAI Admin API scope
+   while reverifying the full conformance and publication lineage. Documented cost
+   exports remain daily and do not carry response IDs, so exact request attribution,
+   invoice finality, and ledger release remain denied. Next, run separately authorized
+   credentialed conformance, then collect and strictly parse real Admin API evidence in
+   an isolated credential-owning process before stronger operational claims.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

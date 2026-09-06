@@ -2186,3 +2186,31 @@ budget release. A matching old store and old checkpoint can still be presented i
 newer external checkpoint is suppressed. External delivery, latest-state service,
 clock integrity, key custody, and availability remain open, as do provider billing
 reconciliation and separately authorized credentialed conformance.
+
+### 25.22 Implemented authenticated aggregate billing evidence
+
+A billing policy now pins the exact response-store and conformance policies, UTC
+validity and freshness bounds, the documented OpenAI organization completion-usage and
+cost endpoints, their narrowest supported bucket widths and grouping dimensions, and
+canonical trusted Ed25519 billing auditors. Billing identities and keys must be
+disjoint from every enrolled conformance observer at authentication time.
+
+Signable evidence reauthenticates the full historical conformance receipt and private
+publication before binding transaction, outcome, ledger, provider response identifier,
+route, local usage and cost, exactly matching external aggregate values, closed bucket
+windows, hashes of project/API-key identifiers, and digests of separately retained
+complete Admin API pages. The attested scope must contain exactly one request. Evidence
+retrieval must follow both the one-minute usage bucket and one-day cost bucket.
+
+The documented aggregates do not expose a response ID, and Mos Eisley does not fetch or
+parse the retained evidence in this layer. Consequently every artifact fixes exact
+request-cost attribution, provider authorship, and invoice finality to false even when
+the exclusive aggregate matches exactly. Ledger mutation, automatic budget release,
+retry, quality, promotion, and routing activation are also structurally denied. The CLI
+only derives and authenticates metadata, never accepts provider credentials or signing
+private keys, and does not export content or raw billing pages.
+
+No live or paid request was made for this milestone. Next, separately authorized
+credentialed conformance and a credential-isolated strict Admin API evidence collector
+must exercise the real boundary. Request-level claims require a future documented
+provider field rather than inference from aggregate isolation.

@@ -120,3 +120,9 @@ Before live empirical sweeps: run explicitly authorized credentialed conformance
 then add a separately reviewed conversion from validated broker artifacts to live
 evaluation provenance. The bounded HTTP client is synthetic-tested, not proof of
 provider behavior or invoice limits.
+
+The [skill-runtime aggregate billing-evidence layer](SKILL_RUNTIME_BILLING_EVIDENCE.md)
+can authenticate an independent auditor's exact match between one settled publication
+and a complete, exclusive OpenAI organization usage/cost aggregate. Because documented
+cost data uses daily buckets and does not expose a response ID, this does not authorize
+ledger mutation or release, prove request-level billing, or guarantee invoice finality.

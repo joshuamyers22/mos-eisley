@@ -68,7 +68,11 @@ deletion policy, hardware durability, provider-side receipt, invoice reconciliat
 and credentialed OpenAI conformance remain external or future work. A portable signed
 [publication-history witness](SKILL_RUNTIME_PUBLICATION_WITNESS.md) can detect a
 rollback against a separately retained checkpoint, but cannot prove external retention
-or newest-checkpoint delivery. A settled and
+or newest-checkpoint delivery. An independent
+[aggregate billing-evidence layer](SKILL_RUNTIME_BILLING_EVIDENCE.md) can bind
+complete exclusive OpenAI usage and cost exports to the exact settled publication, but
+the documented exports do not carry its provider response ID and are not
+invoice-finality proof. A settled and
 published result proves consistency with local authenticated inputs and retained
 provider bytes; it does not prove that the provider authored those bytes independently
 of the trusted transport.
