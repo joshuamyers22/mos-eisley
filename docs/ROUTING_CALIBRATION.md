@@ -39,10 +39,10 @@ scope, and family size and validates those against every route assessment.
 Both `promotion_ready` and `activation_authorized` are literal `false`. The report
 contains no selected route. It does not apply the role allowlist or choose the
 cheapest candidate; scoring every planned route is necessary to preserve the
-pre-registered comparison family. A later calibration-only freezer must ignore
-routes outside the profile's role floor, require complete cost evidence for every
-quality-eligible candidate, and fall back or fail closed when calibration is
-insufficient.
+pre-registered comparison family. The calibration-only freezer now ignores routes
+outside the profile's role floor, requires complete cost evidence for every
+quality-eligible candidate, and falls back or fails closed when calibration is
+insufficient. Its output remains non-activating and unevaluated on holdout.
 
 The command does receive the complete pre-registered dataset and plan to verify
 their digests, but it accepts outcomes for the calibration matrix only. Source code

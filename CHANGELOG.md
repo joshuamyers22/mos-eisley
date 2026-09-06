@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add deterministic calibration-only candidate-policy freezing with sealed role
+  floors, complete-cost requirements, explicit fallback/fail-closed decisions,
+  full lineage recomputation, and literal holdout/promotion/activation denial.
+
 - Add calibration-only scoring for sealed prompt profiles from fully reverified
   dual-grade lineage, with simultaneous confidence correction across every profile,
   route, metric, and both splits and literal promotion/activation denial.

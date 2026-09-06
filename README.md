@@ -129,6 +129,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Profile-aware calibration scoring](docs/ROUTING_CALIBRATION.md) from fully
   reverified dual-grade lineage, with confidence correction across all sealed
   profiles and no holdout outcome or route-selection input.
+- [Calibration-only candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md) that
+  enforces role floors and complete-cost evidence before applying the sealed
+  cost/latency/digest objective, while remaining unusable for runtime activation.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -162,6 +165,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [evaluation foundation](docs/EVALUATION.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
 [routing calibration](docs/ROUTING_CALIBRATION.md),
+[candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

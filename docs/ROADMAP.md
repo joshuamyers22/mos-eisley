@@ -39,10 +39,12 @@
    the cost-first objective, and freeze-before-holdout discipline; it cannot inspect
    results or authorize activation. Profile-aware calibration scoring now reverifies
    the full authenticated lineage and corrects confidence across every sealed
-   profile and route without accepting holdout outcomes or selecting a route. Next
-   run explicitly authorized credentialed conformance, implement calibration-only
-   policy freezing, then run the repeated backend × model × effort sweep on clean
-   and defective samples. Learn and
+   profile and route without accepting holdout outcomes. Calibration-only policy
+   freezing now applies the sealed role floors, complete-cost requirement, and
+   deterministic objective while recording holdout as unevaluated and denying
+   activation. Next run explicitly authorized credentialed conformance, implement
+   one-time frozen-policy holdout evaluation, then run the repeated backend × model ×
+   effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

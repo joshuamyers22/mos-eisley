@@ -235,8 +235,9 @@ that the person holding an enrolled signing key is independent. Signed receipts
 bind claimed identity and timestamps but do not attest physical identity or time.
 It does not seal a holdout set against repeated analyst access, verify independence
 of the declared groups, correct for comparisons across separately authored plans,
-freeze a candidate policy from the now-scoreable prompt profiles, or detect provider
-drift. These controls remain required before a report can promote a routing policy.
+evaluate the now-freezable candidate policy on protected holdout outcomes, or detect
+provider drift. These controls remain required before a report can promote a routing
+policy.
 
 Observation sets and reports now require raw-result and adjudication digests.
 Recompile older offline observations through the artifact chain; do not insert

@@ -54,6 +54,12 @@ from mos_eisley.evaluation.routing_calibration import (
     score_routing_calibration,
     verify_routing_calibration_report,
 )
+from mos_eisley.evaluation.routing_policy import (
+    FrozenCandidateRoutingPolicy,
+    FrozenProfileDecision,
+    freeze_candidate_routing_policy,
+    verify_frozen_candidate_routing_policy,
+)
 from mos_eisley.evaluation.routing_protocol import (
     CaseFeatureAssignment,
     DifficultyProfile,
@@ -89,6 +95,8 @@ __all__ = (
     "DualLineageEvaluationReport",
     "DifficultyProfile",
     "FeaturePartition",
+    "FrozenCandidateRoutingPolicy",
+    "FrozenProfileDecision",
     "Observation",
     "ObservationSet",
     "ObservablePromptFeatures",
@@ -118,9 +126,11 @@ __all__ = (
     "score_dual_graded_observations",
     "score_routing_calibration",
     "seal_routing_study",
+    "freeze_candidate_routing_policy",
     "verify_dual_grading_resolution",
     "verify_dual_graded_observations",
     "verify_dual_lineage_evaluation_report",
     "verify_sealed_routing_study",
     "verify_routing_calibration_report",
+    "verify_frozen_candidate_routing_policy",
 )

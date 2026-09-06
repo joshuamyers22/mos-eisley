@@ -66,7 +66,13 @@ from mos_eisley.evaluation.resolution import (
     SignedResolutionSet,
     resolve_authenticated_adjudications,
 )
-from mos_eisley.evaluation.routing_calibration import score_routing_calibration
+from mos_eisley.evaluation.routing_calibration import (
+    RoutingCalibrationReport,
+    score_routing_calibration,
+)
+from mos_eisley.evaluation.routing_policy import (
+    freeze_candidate_routing_policy,
+)
 from mos_eisley.evaluation.routing_protocol import (
     PromptFeatureManifest,
     RoutingStudyProtocol,
@@ -385,6 +391,27 @@ def parser() -> argparse.ArgumentParser:
     eval_score_routing.add_argument("--feature-manifest", type=Path, required=True)
     eval_score_routing.add_argument("--sealed-study", type=Path, required=True)
     eval_score_routing.add_argument("--output", type=Path, required=True)
+    eval_freeze_routing = subcommands.add_parser(
+        "eval-freeze-routing-policy",
+        help="Freeze a non-activating candidate policy from calibration evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "batch",
+        "mapping",
+        "raw-results",
+        "grading-batch",
+        "dual-grading-resolution",
+        "dual-graded-observations",
+        "grading-trust-policy",
+        "resolution-trust-policy",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "output",
+    ):
+        eval_freeze_routing.add_argument(f"--{option}", type=Path, required=True)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -765,6 +792,88 @@ def _score_routing_calibration_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _freeze_routing_policy_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = freeze_candidate_routing_policy(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        manifest,
+        sealed_study,
+        calibration_report,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_policy.frozen",
+                "path": str(output),
+                "candidate_policy_sha256": policy.candidate_policy_sha256,
+                "profiles": len(policy.decisions),
+                "calibrated_routes": sum(
+                    item.action == "calibrated_route" for item in policy.decisions
+                ),
+                "fallbacks": sum(
+                    item.action == "role_fallback" for item in policy.decisions
+                ),
+                "fail_closed": sum(
+                    item.action == "fail_closed" for item in policy.decisions
+                ),
+                "holdout_status": policy.holdout_status,
+                "promotion_ready": policy.promotion_ready,
+                "activation_authorized": policy.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
@@ -773,6 +882,7 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-score-dual": _score_dual_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
+        "eval-freeze-routing-policy": _freeze_routing_policy_command,
     }
     handler = handlers.get(args.command)
     return handler(args) if handler is not None else None
