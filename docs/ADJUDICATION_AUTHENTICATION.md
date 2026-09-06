@@ -53,5 +53,8 @@ Authentication receipts are consumed by
 [`eval-resolve-adjudications`](DUAL_GRADE_RESOLUTION.md), which requires two
 authenticated graders and a disjoint signed resolver for any conflicts. The older
 `eval-agreement` and `eval-compile` commands remain offline rehearsal surfaces;
-the dual-grade artifact is not accepted by compilation or scoring and explicitly
-reports `promotion_eligible: false`.
+the dual-grade artifact is accepted only by the dedicated
+[`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) path, whose distinct observation
+schema is rejected by legacy scoring and explicitly reports
+`promotion_eligible: false`. The dedicated dual-lineage scorer reverifies all
+sources and still reports `promotion_ready: false`.
