@@ -4,6 +4,45 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add deterministic retained skill-package archives containing every immutable
+  validated byte, per-file and whole-package commitments, semantic descriptor and
+  instruction revalidation, explicit project opt-in, and literal denial of
+  extraction-adjacent installation, activation, and configuration authority.
+- Add private archive and non-extracting verification CLI commands plus adversarial
+  coverage for byte tampering, reordering, reserved script paths, forged semantics,
+  and authority escalation.
+
+- Add independent Ed25519 persona-skill promotion requiring both fully reverified
+  split reports, authority separation from graders/resolvers, policy-bounded expiry,
+  deterministic decision recomputation, and literal runtime/configuration denial.
+- Add derive/authenticate CLI commands that never accept promotion private keys,
+  plus adversarial tests for failed gates, stale decisions, key overlap, and tampering.
+
+- Bind exact inline or persona-skill instructions into evaluation route/request
+  identity, including a validated skill-body digest; version skill, candidate/grid,
+  plan, and execution contracts accordingly.
+- Add sealed paired persona-skill comparisons with prompt-only experimental control,
+  fixed independent-group Hoeffding/Bonferroni inference, full dual-grade lineage,
+  resource deltas, and literal promotion/activation denial.
+- Add an atomic private one-use holdout claim plus seal/score CLI commands and
+  adversarial tests for route confounding, underpowered groups, replay, and tampering.
+
+- Add a narrow prompt-only skills foundation with standards-compatible `SKILL.md`,
+  an optional validated `mos.yaml`, source-qualified whole-package digests,
+  immutable bounded snapshots, explicit project activation, and schema-2 recorded
+  run provenance. Executable, credential, and authority-bearing extensions remain
+  rejected or deferred.
+
+- Add a pinned append-only routing-control anchor and read-only runtime preflight
+  that reject older-message replay, preserve revocations monotonically, reverify the
+  complete evidence chain, expire within a signed short window, and grant no dispatch
+  or configuration authority.
+
+- Add short-lived routing activation eligibility that fully reverifies authenticated
+  promotion and requires three distinct, evaluation-independent Ed25519 signatures
+  over exact route/cost/freshness policy, operational attestations, and revocation
+  control while denying substitutions, runtime activation, and configuration writes.
+
 - Add independently authenticated routing promotion with policy-level thresholds
   pinned before holdout, deterministic denial on missing or failed evidence, full
   lineage recomputation, Ed25519 authority separation from graders/resolvers, and
