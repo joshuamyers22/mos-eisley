@@ -85,8 +85,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    replay, preserve revocations, and reverify the full source chain without dispatch
    authority. Whole-database rollback still needs an external monotonic witness.
    The one-use admission, dispatch, ephemeral grant, provider transaction, and
-   content-verified response publication path is now implemented. Next run explicitly
-   authorized credentialed conformance and the repeated
+   content-verified response publication path and verification-only signed
+   conformance attestation are now implemented. Next run explicitly authorized
+   credentialed conformance through that exact path and the repeated
    backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
@@ -137,8 +138,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    never permit retry or automatic release. A pinned private response store now
    atomically retains exact provider bytes and publishes a freshly reverified,
    reasoning-free result with complete settled lineage. Next: run separately
-   authorized credentialed conformance against this exact boundary and add external
-   billing or monotonic witnesses before stronger finality claims.
+   authorized credentialed conformance against this exact boundary. A signed,
+   freshness-bounded observer attestation can now bind that run to its verified
+   publication without claiming authorship, billing, or quality. Add external billing
+   or monotonic witnesses before stronger finality claims.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

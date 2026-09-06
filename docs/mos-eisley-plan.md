@@ -2133,3 +2133,30 @@ trusted transport/parser behavior, store rollback/cloning, retention policy, har
 durability, provider authorship, invoice reconciliation, and credentialed OpenAI
 conformance remain open. A separately authorized credentialed run must traverse this
 exact zero-retry boundary before stronger operational claims are made.
+
+### 25.20 Implemented authenticated runtime conformance attestation
+
+A separate conformance policy now pins the exact response-store policy, UTC validity
+and freshness bounds, canonical trusted Ed25519 observer identities and keys, reviewed
+OpenAI SDK versions, production origin, Responses API family, API-key credential mode,
+official SDK, zero-retry, no-storage, and no-truncation requirements.
+
+After an operator actually observes a credentialed exchange, signable metadata binds
+the exact verified publication, result, transaction, model, effort, provider request
+ID, SDK version, and a digest of separately retained redacted transport evidence. The
+derive CLI requires explicit credentialed-exchange acknowledgement and never accepts a
+provider credential or signing key. External signing retains private-key custody.
+
+Authentication verifies the enrolled observer's domain-separated Ed25519 signature,
+policy and observation freshness, allowlisted SDK, and the exact private publication.
+Loading that publication repeats canonical raw-response, result, settled transaction,
+and ledger-lineage verification. Output carries hashes and metadata only, not prompt,
+answer, reasoning, raw response, API credential, or signing key.
+
+This authenticates an observer claim, not the truth of every claimed transport fact.
+Provider authorship, TLS peer identity, invoice reconciliation, quality, promotion,
+and routing activation remain structurally false. The observer can lie or collude;
+the external evidence digest is not fetched. No live or paid request was made for this
+milestone. Next, a separately authorized run must traverse the exact path, followed by
+external billing/provider-receipt reconciliation and the repeated blinded quality
+study before stronger operational or routing claims.

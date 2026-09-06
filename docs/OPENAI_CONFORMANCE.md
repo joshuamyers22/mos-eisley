@@ -60,3 +60,8 @@ artifact or permits retry.
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. No live call was made while implementing or testing this lifecycle.
+
+The later [skill runtime conformance attestation](SKILL_RUNTIME_CONFORMANCE.md) binds
+an enrolled observer's signed claim to the exact settled and content-verified skill
+runtime publication. It remains a claim-authentication layer, not provider or billing
+proof, and likewise makes no quality or promotion claim.
