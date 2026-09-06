@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a private content-addressed installed-skill store that consumes exact one-use
+  authority, serializes cross-process commits, reconstructs every written byte, and
+  durably publishes only completion-marker-last atomic transactions.
+- Add read-only install recovery correlation for completed, incomplete, claim-only,
+  and unbound states while continuing to deny default changes, runtime lookup,
+  automatic recovery, and cleanup.
+
 - Add independent Ed25519 installation authority for exact quarantined persona
   packages, binding the latest release-control anchor, staging manifest, one-use
   claim-store identity, installation target, action, and bounded validity window.

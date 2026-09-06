@@ -72,8 +72,9 @@ mos skill-installation-claim-store-status \
   --installation-authority-policy trusted/installation-authorities.json
 ```
 
-There is no standalone consume command. A future installer must call the guarded
-library primitive immediately around its atomic commit. That primitive reverifies all
+The standalone authority layer still exposes no unguarded consume command. The
+[atomic inert installer](SKILL_ATOMIC_INSTALLATION.md) calls the guarded library
+primitive immediately around its commit. That primitive reverifies all
 sources, holds a latest-control SQLite read transaction, and durably consumes the
 signed decision digest while retaining the exact authenticated receipt before yielding.
 Re-authenticating the same signature therefore cannot create another use. A concurrent
@@ -82,9 +83,8 @@ installer's critical section, and an exception never refunds ambiguous authority
 
 ## Remaining boundary
 
-This milestone has no installed-package layout, atomic default pointer, completion
-receipt, uninstaller, automatic recovery, runtime consumer, or drift monitor. The
-opaque installation-target identity prevents generic authorization but does not yet
-implement that target. Owner-driven deletion, rollback, or cloning of the claim store
-or control anchor can defeat local at-most-once and freshness guarantees; an external
-monotonic witness remains necessary for that threat model.
+The installation target now has a private content-addressed inert package layout and
+completion manifest, but still has no atomic default pointer, uninstaller, automatic
+recovery, runtime consumer, or drift monitor. Owner-driven deletion, rollback, or
+cloning of the claim store or control anchor can defeat local at-most-once and freshness
+guarantees; an external monotonic witness remains necessary for that threat model.

@@ -155,12 +155,19 @@ from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
 from mos_eisley.run.skill_installation import (
+    AuthenticatedSkillInstallation,
     SignedSkillInstallationDecision,
     SkillInstallationAuthorityPolicy,
     SkillInstallationClaimStore,
     SkillInstallationClaimStorePolicy,
     authenticate_skill_installation,
     make_skill_installation_decision,
+)
+from mos_eisley.run.skill_installed_store import (
+    SkillInstalledStore,
+    SkillInstalledStorePolicy,
+    inspect_skill_install_recovery,
+    install_authenticated_skill_release,
 )
 from mos_eisley.run.skill_release import (
     SkillReleaseEvidence,
@@ -838,6 +845,79 @@ def parser() -> argparse.ArgumentParser:
     installation_claim_status.add_argument(
         "--installation-authority-policy", type=Path, required=True
     )
+    installed_create = subcommands.add_parser(
+        "skill-installed-store-create",
+        help="Create a private inert installed-skill store",
+    )
+    installed_create.add_argument("path", type=Path)
+    for option in (
+        "store-policy",
+        "installation-authority-policy",
+        "staging-store",
+        "claim-store-policy",
+    ):
+        installed_create.add_argument(f"--{option}", type=Path, required=True)
+    installed_status = subcommands.add_parser(
+        "skill-installed-store-status",
+        help="Verify installed packages and inventory incomplete transactions",
+    )
+    installed_status.add_argument("--store", type=Path, required=True)
+    installed_status.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    installed_recovery = subcommands.add_parser(
+        "skill-install-recovery-status",
+        help="Correlate consumed claims with completed and incomplete installs",
+    )
+    installed_recovery.add_argument("--installed-store", type=Path, required=True)
+    installed_recovery.add_argument("--claim-store", type=Path, required=True)
+    installed_recovery.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    eval_install_skill = subcommands.add_parser(
+        "eval-install-skill-release",
+        help="Consume exact authority and atomically install inert skill bytes",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "staging-store",
+        "authenticated-installation",
+        "installation-authority-policy",
+        "claim-store",
+        "installed-store",
+        "output",
+    ):
+        eval_install_skill.add_argument(f"--{option}", type=Path, required=True)
+    eval_install_skill.add_argument("--rollback-archive", type=Path)
+    eval_install_skill.add_argument(
+        "--action", choices=("candidate", "rollback"), required=True
+    )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_install_skill.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -2206,6 +2286,179 @@ def _skill_installation_claim_store_status_command(args: argparse.Namespace) -> 
     return 0
 
 
+def _skill_installed_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillInstalledStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    claim_store_policy = SkillInstallationClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.claim_store_policy), 64_000)
+    )
+    store = SkillInstalledStore.create(
+        cast(Path, args.path),
+        store_policy,
+        installation_policy,
+        staging_store,
+        claim_store_policy,
+    )
+    snapshot = store.snapshot(installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.store_created",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "packages": len(snapshot.packages),
+                "incomplete_transactions": len(snapshot.incomplete),
+                "default_changed": False,
+                "configuration_mutation_authorized": False,
+                "activation_authorized": False,
+                "runtime_lookup_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installed_store_status_command(args: argparse.Namespace) -> int:
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstalledStore(cast(Path, args.store))
+    snapshot = store.snapshot(installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.store_status",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "packages": list(snapshot.packages),
+                "incomplete_transactions": [
+                    item.model_dump(mode="json") for item in snapshot.incomplete
+                ],
+                "default_changed": False,
+                "configuration_mutation_authorized": False,
+                "activation_authorized": False,
+                "runtime_lookup_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_install_recovery_status_command(args: argparse.Namespace) -> int:
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    claim_store = SkillInstallationClaimStore(cast(Path, args.claim_store))
+    snapshot = inspect_skill_install_recovery(
+        installed_store,
+        installation_policy,
+        claim_store,
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.recovery_status",
+                "installed_store": str(installed_store.root),
+                "claim_store": str(claim_store.path),
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "entries": [item.model_dump(mode="json") for item in snapshot.entries],
+                "unbound_transactions": list(snapshot.unbound_transactions),
+                "automatic_recovery_authorized": (
+                    snapshot.automatic_recovery_authorized
+                ),
+                "cleanup_authorized": snapshot.cleanup_authorized,
+                "default_mutation_authorized": (snapshot.default_mutation_authorized),
+                "configuration_mutation_authorized": (
+                    snapshot.configuration_mutation_authorized
+                ),
+                "runtime_lookup_authorized": snapshot.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _install_skill_release_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    authorization = AuthenticatedSkillInstallation.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_installation), 256_000)
+    )
+    claim_store = SkillInstallationClaimStore(cast(Path, args.claim_store))
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    result = install_authenticated_skill_release(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        authorization,
+        installation_policy,
+        claim_store,
+        installed_store,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.completed",
+                "path": str(output),
+                "package_path": result.package_path,
+                "manifest_sha256": result.manifest.manifest_sha256,
+                "archive_sha256": result.manifest.intent.archive_sha256,
+                "decision_sha256": result.claim.decision_sha256,
+                "installation_performed": result.installation_performed,
+                "default_changed": result.default_changed,
+                "configuration_mutation_authorized": (
+                    result.configuration_mutation_authorized
+                ),
+                "activation_authorized": result.activation_authorized,
+                "runtime_lookup_authorized": result.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -2975,6 +3228,10 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-installation-claim-store-status": (
             _skill_installation_claim_store_status_command
         ),
+        "skill-installed-store-create": _skill_installed_store_create_command,
+        "skill-installed-store-status": _skill_installed_store_status_command,
+        "skill-install-recovery-status": _skill_install_recovery_status_command,
+        "eval-install-skill-release": _install_skill_release_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
