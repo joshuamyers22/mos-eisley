@@ -9,7 +9,8 @@ Issuance requires three domain-separated Ed25519 signatures from distinct truste
 keys:
 
 1. an activation-policy signature over the exact routes, normalized cost ceilings,
-   freshness limit, receipt lifetime, minimum control sequence, and validity window;
+   freshness limits, receipt/preflight lifetimes, minimum control sequence, pinned
+   control-anchor policy, and validity window;
 2. an operational-readiness signature over exact route identities and the asserted
    catalog, price, conformance, and drift evidence; and
 3. a control signature over a fresh emergency-stop and revocation state.
@@ -42,6 +43,10 @@ evidence, or configured maximum lifetime. Consumers must call
 `verify_routing_activation_eligibility` with the complete source set and current time;
 the standalone JSON is not self-authenticating.
 
+The follow-on [runtime preflight](ROUTING_RUNTIME_PREFLIGHT.md) requires the control
+state to be the latest entry in the exact anchor policy pinned here. This closes
+ordinary older-message replay while retaining literal dispatch denial.
+
 ```console
 mos eval-issue-routing-activation-eligibility \
   --signed-activation-policy trusted/signed-activation-policy.json \
@@ -70,10 +75,8 @@ not a universal provider invoice calculation. Their method, source, effective da
 cache treatment, and token assumptions require external review.
 
 A signed control state proves its sequence and validity window, not that it is the
-latest state ever issued. An older still-valid state can be replayed until it expires
-unless the consumer maintains an external monotonic sequence anchor. The signed
-minimum sequence, evidence-age bound, and short expiry limit this window but do not
-replace a live revocation service.
+latest state ever issued. The local monotonic anchor rejects ordinary older-message
+replay, but whole-database rollback remains possible without an external witness.
 
 System-clock integrity, evidence collection, trust-policy distribution, private-key
 custody, key revocation, signer organizational independence, and monotonic control

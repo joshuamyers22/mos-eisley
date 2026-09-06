@@ -66,6 +66,7 @@ from mos_eisley.evaluation.routing_activation import (
     sign_routing_operational_snapshot,
     trusted_activation_authority,
     verify_routing_activation_eligibility,
+    verify_signed_routing_activation_control,
 )
 from mos_eisley.evaluation.routing_calibration import (
     ProfileCalibrationScore,
@@ -210,5 +211,6 @@ __all__ = (
     "verify_authenticated_routing_promotion",
     "verify_routing_promotion_policy",
     "verify_routing_activation_eligibility",
+    "verify_signed_routing_activation_control",
     "AuthenticatedRoutingPromotion",
 )

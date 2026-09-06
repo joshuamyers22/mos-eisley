@@ -33,6 +33,7 @@ from mos_eisley.evaluation.routing_activation import (
     trusted_activation_authority,
     verify_routing_activation_eligibility,
 )
+from mos_eisley.run.activation_control import RoutingControlAnchorPolicy
 from mos_eisley.run.store import private_write
 from tests.test_routing_promotion import RoutingPromotionTests
 
@@ -68,6 +69,11 @@ class RoutingActivationTests(TestCase):
                 )
             ),
         )
+        self.control_anchor_policy = RoutingControlAnchorPolicy(
+            anchor_id="e" * 64,
+            activation_authority_policy_sha256=self.authority_policy.policy_sha256,
+            control_authority_ids=("control-manager",),
+        )
         routes = {route.candidate_id: route for route in self.source.source.plan.routes}
         required_ids = {
             item.selected_candidate_id
@@ -87,10 +93,12 @@ class RoutingActivationTests(TestCase):
             policy_id="routing-activation-v1",
             candidate_policy_sha256=(self.source.source.policy.candidate_policy_sha256),
             promotion_receipt_sha256=self.promotion.promotion_receipt_sha256,
+            control_anchor_policy_sha256=self.control_anchor_policy.policy_sha256,
             valid_from=self.now - timedelta(minutes=5),
             valid_until=self.now + timedelta(hours=1),
             max_evidence_age_seconds=900,
             max_eligibility_lifetime_seconds=600,
+            max_runtime_preflight_age_seconds=30,
             minimum_control_sequence=7,
             unavailable_action="role_fallback",
             route_requirements=self.requirements,

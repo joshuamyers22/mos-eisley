@@ -8,10 +8,11 @@ from pathlib import Path
 
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.evaluation.routing_holdout import HoldoutUseClaim
+from mos_eisley.evaluation.skill_comparison import SkillHoldoutUseClaim
 
 
-def claim_holdout_use(directory: Path, claim: HoldoutUseClaim) -> Path:
-    """Atomically consume a policy-keyed claim in a trusted private directory."""
+def _claim(directory: Path, filename: str, payload: bytes) -> Path:
+    """Atomically consume one namespaced claim in a trusted private directory."""
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     directory_fd = os.open(directory, flags)
     try:
@@ -24,7 +25,6 @@ def claim_holdout_use(directory: Path, claim: HoldoutUseClaim) -> Path:
             raise ValueError(
                 "holdout use directory must not grant group or other access"
             )
-        filename = f"{claim.candidate_policy_sha256}.json"
         fd = os.open(
             filename,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -32,10 +32,22 @@ def claim_holdout_use(directory: Path, claim: HoldoutUseClaim) -> Path:
             dir_fd=directory_fd,
         )
         with os.fdopen(fd, "wb") as stream:
-            stream.write(canonical_bytes(claim))
+            stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
     return directory / filename
+
+
+def claim_holdout_use(directory: Path, claim: HoldoutUseClaim) -> Path:
+    """Atomically consume a policy-keyed claim in a trusted private directory."""
+    filename = f"{claim.candidate_policy_sha256}.json"
+    return _claim(directory, filename, canonical_bytes(claim))
+
+
+def claim_skill_holdout_use(directory: Path, claim: SkillHoldoutUseClaim) -> Path:
+    """Atomically consume a sealed-comparison claim before skill holdout scoring."""
+    filename = f"skill-{claim.sealed_comparison_sha256}.json"
+    return _claim(directory, filename, canonical_bytes(claim))
