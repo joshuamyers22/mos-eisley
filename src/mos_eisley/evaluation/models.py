@@ -16,6 +16,7 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.protocol import Effort
+from mos_eisley.core.skills import PromptAsset
 
 Split = Literal["calibration", "holdout"]
 FailureKind = Literal[
@@ -36,6 +37,7 @@ class ExpectedFinding(Contract):
 class EvalCase(Contract):
     id: Identifier
     split: Split
+    independence_group: Identifier | None = None
     brief: Brief
     expected_findings: Annotated[tuple[ExpectedFinding, ...], Field(max_length=50)] = ()
     risk_tags: Annotated[tuple[Identifier, ...], Field(max_length=32)] = ()
@@ -51,7 +53,7 @@ class EvalCase(Contract):
 
 
 class EvaluationDataset(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     id: Identifier
     cases: Annotated[tuple[EvalCase, ...], Field(min_length=2, max_length=5000)]
 
@@ -62,6 +64,19 @@ class EvaluationDataset(Contract):
             raise ValueError("evaluation case ids must be unique")
         if {case.split for case in self.cases} != {"calibration", "holdout"}:
             raise ValueError("dataset must contain calibration and holdout cases")
+        group_splits: dict[str, Split] = {}
+        brief_ids: set[str] = set()
+        for case in self.cases:
+            group = case.independence_group
+            if group is not None:
+                if group in group_splits and group_splits[group] != case.split:
+                    raise ValueError(
+                        "independence group cannot cross evaluation splits"
+                    )
+                group_splits[group] = case.split
+            if case.brief.brief_id in brief_ids:
+                raise ValueError("duplicate evaluation briefs must use repetitions")
+            brief_ids.add(case.brief.brief_id)
         return self
 
     @property
@@ -70,12 +85,14 @@ class EvaluationDataset(Contract):
 
 
 class RouteCandidate(Contract):
+    schema_version: Literal[2] = 2
     backend: Identifier
     provider: Identifier
     model: Identifier
     effort: Effort
     client_version: Annotated[str, Field(min_length=1, max_length=200)]
     registry_sha256: Digest
+    prompt: PromptAsset
 
     @property
     def candidate_id(self) -> str:
@@ -83,7 +100,7 @@ class RouteCandidate(Contract):
 
 
 class CandidateGrid(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     routes: Annotated[tuple[RouteCandidate, ...], Field(min_length=1, max_length=128)]
 
     @model_validator(mode="after")
@@ -94,9 +111,21 @@ class CandidateGrid(Contract):
         return self
 
 
-class EvaluationGate(Contract):
+class StatisticalDesign(Contract):
     schema_version: Literal[1] = 1
+    method: Literal["group_hoeffding_bonferroni"] = "group_hoeffding_bonferroni"
+    estimand: Literal["equal_group_mean"] = "equal_group_mean"
+    stopping_rule: Literal["fixed_matrix"] = "fixed_matrix"
+    family_scope: Literal["all_routes_metrics_both_splits"] = (
+        "all_routes_metrics_both_splits"
+    )
+    min_groups_per_metric: Annotated[int, Field(ge=2, le=5000)] = 30
+
+
+class EvaluationGate(Contract):
+    schema_version: Literal[2] = 2
     confidence_level: Literal["95%"] = "95%"
+    statistical_design: StatisticalDesign = Field(default_factory=StatisticalDesign)
     min_detection_lower_bound: Rate
     max_false_positive_upper_bound: Rate
     min_completion_lower_bound: Rate
@@ -118,7 +147,7 @@ class Assignment(Contract):
 
 
 class SweepPlan(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[3] = 3
     dataset_sha256: Digest
     routes: Annotated[tuple[RouteCandidate, ...], Field(min_length=1, max_length=128)]
     repetitions: Annotated[int, Field(ge=1, le=100)]

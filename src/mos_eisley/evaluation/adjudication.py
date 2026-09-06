@@ -13,6 +13,7 @@ from mos_eisley.core.models import (
     Critique,
     Digest,
     Identifier,
+    Text,
     canonical_bytes,
     digest,
 )
@@ -49,16 +50,49 @@ class AdjudicatorProvenance(Contract):
         return value
 
 
-class Judgment(Contract):
-    sample_id: Digest
-    detected_finding_ids: Annotated[tuple[Identifier, ...], Field(max_length=50)] = ()
-    false_positive_count: Annotated[int, Field(ge=0, le=1000)] = 0
+class FindingJudgment(Contract):
+    finding_index: Annotated[int, Field(ge=0, lt=50)]
+    finding_sha256: Digest
+    disposition: Literal["matched", "false_positive", "duplicate", "unresolved"]
+    expected_finding_ids: Annotated[tuple[Identifier, ...], Field(max_length=50)] = ()
+    duplicate_of: Annotated[int, Field(ge=0, lt=50)] | None = None
+    rationale: Text
 
     @model_validator(mode="after")
-    def unique_detections(self) -> Self:
-        if len(self.detected_finding_ids) != len(set(self.detected_finding_ids)):
-            raise ValueError("judgment detections must be unique")
+    def consistent_disposition(self) -> Self:
+        if len(self.expected_finding_ids) != len(set(self.expected_finding_ids)):
+            raise ValueError("finding judgment labels must be unique")
+        if (self.disposition == "matched") != bool(self.expected_finding_ids):
+            raise ValueError("only matched findings require expected labels")
+        if (self.disposition == "duplicate") != (self.duplicate_of is not None):
+            raise ValueError("only duplicate findings require a target")
+        if self.duplicate_of is not None and self.duplicate_of >= self.finding_index:
+            raise ValueError("duplicate must reference an earlier finding")
         return self
+
+
+class Judgment(Contract):
+    sample_id: Digest
+    findings: Annotated[tuple[FindingJudgment, ...], Field(max_length=50)] = ()
+
+    @model_validator(mode="after")
+    def unique_findings(self) -> Self:
+        indices = tuple(item.finding_index for item in self.findings)
+        if len(indices) != len(set(indices)):
+            raise ValueError("finding judgment indices must be unique")
+        return self
+
+    @property
+    def detected_finding_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {label for item in self.findings for label in item.expected_finding_ids}
+            )
+        )
+
+    @property
+    def false_positive_count(self) -> int:
+        return sum(item.disposition == "false_positive" for item in self.findings)
 
 
 class GradingItem(Contract):
@@ -88,7 +122,7 @@ class GradingBatch(Contract):
 
 
 class AdjudicationSet(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     grading_batch_sha256: Digest
     adjudicator: AdjudicatorProvenance
     judgments: Annotated[tuple[Judgment, ...], Field(max_length=50_000)]
@@ -103,6 +137,44 @@ class AdjudicationSet(Contract):
     @property
     def adjudication_sha256(self) -> str:
         return digest(canonical_bytes(self))
+
+
+def validate_adjudication(
+    batch: GradingBatch,
+    adjudication: AdjudicationSet,
+    *,
+    allow_unresolved: bool = False,
+) -> None:
+    """Require one content-bound decision per emitted finding."""
+    if adjudication.grading_batch_sha256 != batch.grading_batch_sha256:
+        raise ValueError("adjudication does not match the grading batch")
+    judgments = {item.sample_id: item for item in adjudication.judgments}
+    if set(judgments) != {item.sample_id for item in batch.items}:
+        raise ValueError("adjudication must exactly cover completed raw results")
+    for item in batch.items:
+        decisions = {
+            decision.finding_index: decision
+            for decision in judgments[item.sample_id].findings
+        }
+        if set(decisions) != set(range(len(item.critique.findings))):
+            raise ValueError("adjudication must exactly cover emitted findings")
+        expected_ids = {finding.id for finding in item.expected_findings}
+        for index, finding in enumerate(item.critique.findings):
+            decision = decisions[index]
+            if decision.finding_sha256 != finding.finding_id:
+                raise ValueError("finding judgment content hash mismatch")
+            if not set(decision.expected_finding_ids) <= expected_ids:
+                raise ValueError("judgment contains an unknown expected finding id")
+            if decision.disposition == "duplicate":
+                target = (
+                    decisions.get(decision.duplicate_of)
+                    if decision.duplicate_of is not None
+                    else None
+                )
+                if target is None or target.disposition != "matched":
+                    raise ValueError("duplicate must reference a matched finding")
+            if decision.disposition == "unresolved" and not allow_unresolved:
+                raise ValueError("unresolved finding prevents observation compilation")
 
 
 def _validate_execution_chain(
@@ -213,19 +285,27 @@ def compile_observations(
     )
     if grading_batch != expected_grading_batch:
         raise ValueError("grading batch does not match its source artifacts")
-    if adjudication.grading_batch_sha256 != grading_batch.grading_batch_sha256:
-        raise ValueError("adjudication does not match the grading batch")
-    cases = {case.id: case for case in dataset.cases}
-    entries = {entry.sample_id: entry for entry in mapping.entries}
-    judgments = {judgment.sample_id: judgment for judgment in adjudication.judgments}
-    completed_ids = {
-        result.sample_id
-        for result in raw_results.results
-        if result.status == "completed"
-    }
-    if set(judgments) != completed_ids:
-        raise ValueError("adjudication must exactly cover completed raw results")
+    validate_adjudication(grading_batch, adjudication)
+    observations = join_validated_judgments(
+        mapping, raw_results, adjudication.judgments, adjudication.adjudicator.method
+    )
+    return ObservationSet(
+        plan_sha256=plan.plan_sha256,
+        raw_results_sha256=raw_results.raw_results_sha256,
+        adjudication_sha256=adjudication.adjudication_sha256,
+        observations=observations,
+    )
 
+
+def join_validated_judgments(
+    mapping: BlindingMap,
+    raw_results: RawResultSet,
+    source_judgments: tuple[Judgment, ...],
+    method: Literal["fixture", "human"],
+) -> tuple[Observation, ...]:
+    """Join already validated judgments to their private assignment identities."""
+    entries = {entry.sample_id: entry for entry in mapping.entries}
+    judgments = {judgment.sample_id: judgment for judgment in source_judgments}
     observations: list[Observation] = []
     for result in raw_results.results:
         entry = entries[result.sample_id]
@@ -238,22 +318,12 @@ def compile_observations(
                     status="error",
                     latency_ms=result.latency_ms,
                     cost_microusd=result.cost_microusd,
-                    adjudication=adjudication.adjudicator.method,
+                    adjudication=method,
                     error=result.error,
                 )
             )
             continue
         judgment = judgments[result.sample_id]
-        expected_ids = {
-            finding.id for finding in cases[entry.case_id].expected_findings
-        }
-        if not set(judgment.detected_finding_ids) <= expected_ids:
-            raise ValueError("judgment contains an unknown expected finding id")
-        finding_count = len(result.critique.findings) if result.critique else 0
-        if judgment.detected_finding_ids and finding_count == 0:
-            raise ValueError("empty critique cannot support detected findings")
-        if judgment.false_positive_count > finding_count:
-            raise ValueError("false-positive count exceeds the critique findings")
         observations.append(
             Observation(
                 case_id=entry.case_id,
@@ -264,12 +334,7 @@ def compile_observations(
                 false_positive_count=judgment.false_positive_count,
                 latency_ms=result.latency_ms,
                 cost_microusd=result.cost_microusd,
-                adjudication=adjudication.adjudicator.method,
+                adjudication=method,
             )
         )
-    return ObservationSet(
-        plan_sha256=plan.plan_sha256,
-        raw_results_sha256=raw_results.raw_results_sha256,
-        adjudication_sha256=adjudication.adjudication_sha256,
-        observations=tuple(observations),
-    )
+    return tuple(observations)

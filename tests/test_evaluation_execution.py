@@ -9,10 +9,13 @@ from unittest import TestCase
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, Critique, Evidence, Finding, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.adjudication import (
     AdjudicationSet,
     AdjudicatorProvenance,
+    FindingJudgment,
     GradingBatch,
+    GradingItem,
     Judgment,
     compile_observations,
     make_grading_batch,
@@ -82,6 +85,7 @@ def inputs() -> tuple[EvaluationDataset, CandidateGrid, EvaluationGate]:
                 effort="low",
                 client_version="fixture/1",
                 registry_sha256="a" * 64,
+                prompt=PromptAsset(mode="inline", instructions="Review carefully."),
             ),
         )
     )
@@ -120,6 +124,23 @@ def complete_cassette(
                 cost_microusd=3,
             )
             for request_hash in request_hashes
+        ),
+    )
+
+
+def grade_item(item: GradingItem) -> Judgment:
+    labels = tuple(finding.id for finding in item.expected_findings)
+    return Judgment(
+        sample_id=item.sample_id,
+        findings=tuple(
+            FindingJudgment(
+                finding_index=index,
+                finding_sha256=finding.finding_id,
+                disposition="matched" if labels else "false_positive",
+                expected_finding_ids=labels,
+                rationale="Fixture grading against the expected labels.",
+            )
+            for index, finding in enumerate(item.critique.findings)
         ),
     )
 
@@ -240,10 +261,7 @@ class EvaluationExecutionTests(TestCase):
         )
         raw = run_recorded_evaluation(batch, cassette)
         grading = make_grading_batch(data, plan, batch, mapping, raw)
-        for detection, false_positives, message in (
-            (True, 0, "empty critique"),
-            (False, 1, "false-positive count"),
-        ):
+        for disposition in ("matched", "false_positive"):
             adjudication = AdjudicationSet(
                 grading_batch_sha256=grading.grading_batch_sha256,
                 adjudicator=AdjudicatorProvenance(
@@ -255,19 +273,24 @@ class EvaluationExecutionTests(TestCase):
                 judgments=tuple(
                     Judgment(
                         sample_id=item.sample_id,
-                        detected_finding_ids=tuple(
-                            finding.id for finding in item.expected_findings
-                        )
-                        if detection
-                        else (),
-                        false_positive_count=false_positives,
+                        findings=(
+                            FindingJudgment(
+                                finding_index=0,
+                                finding_sha256="f" * 64,
+                                disposition=disposition,
+                                expected_finding_ids=("secret-defect-label",)
+                                if disposition == "matched"
+                                else (),
+                                rationale="Invented finding must fail validation.",
+                            ),
+                        ),
                     )
                     for item in grading.items
                 ),
             )
             with (
-                self.subTest(kind=message),
-                self.assertRaisesRegex(ValueError, message),
+                self.subTest(kind=disposition),
+                self.assertRaisesRegex(ValueError, "exactly cover emitted"),
             ):
                 compile_observations(
                     data, plan, batch, mapping, raw, grading, adjudication
@@ -285,6 +308,7 @@ class EvaluationExecutionTests(TestCase):
             b"secret-defect-label",
             b"private expected description",
             b"private-risk-tag",
+            b"independence_group",
             b"holdout",
         ):
             self.assertNotIn(secret, exposed)
@@ -297,7 +321,6 @@ class EvaluationExecutionTests(TestCase):
         raw_results = run_recorded_evaluation(batch, cassette)
         self.assertNotIn(b"private-hold-defect", canonical_bytes(raw_results))
 
-        case_by_sample = {entry.sample_id: entry.case_id for entry in mapping.entries}
         grading_batch = make_grading_batch(data, plan, batch, mapping, raw_results)
         grading_bytes = canonical_bytes(grading_batch)
         self.assertIn(b"secret-defect-label", grading_bytes)
@@ -316,15 +339,7 @@ class EvaluationExecutionTests(TestCase):
                 rubric_sha256="b" * 64,
                 completed_at="2026-09-05T12:00:00Z",
             ),
-            judgments=tuple(
-                Judgment(
-                    sample_id=result.sample_id,
-                    detected_finding_ids=("secret-defect-label",)
-                    if case_by_sample[result.sample_id] == "private-hold-defect"
-                    else (),
-                )
-                for result in grading_batch.items
-            ),
+            judgments=tuple(grade_item(result) for result in grading_batch.items),
         )
         observations = compile_observations(
             data, plan, batch, mapping, raw_results, grading_batch, adjudication
@@ -337,7 +352,7 @@ class EvaluationExecutionTests(TestCase):
             observations.adjudication_sha256, adjudication.adjudication_sha256
         )
         report = score(plan, data, observations, "holdout")
-        self.assertTrue(report.scores[0].eligible)
+        self.assertFalse(report.scores[0].eligible)
         self.assertEqual(report.raw_results_sha256, raw_results.raw_results_sha256)
         self.assertEqual(report.adjudication_sha256, adjudication.adjudication_sha256)
 
@@ -479,7 +494,7 @@ class EvaluationExecutionTests(TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual(json.loads(output.getvalue())["requests"], 2)
             batch = ExecutionBatch.model_validate_json(batch_path.read_bytes())
-            mapping = BlindingMap.model_validate_json(mapping_path.read_bytes())
+            BlindingMap.model_validate_json(mapping_path.read_bytes())
             self.assertNotIn(b"secret-defect-label", batch_path.read_bytes())
 
             cassette = complete_cassette(
@@ -529,9 +544,6 @@ class EvaluationExecutionTests(TestCase):
             grading_batch = GradingBatch.model_validate_json(grading_path.read_bytes())
             self.assertNotIn(b"reviewer-v1", grading_path.read_bytes())
 
-            case_by_sample = {
-                entry.sample_id: entry.case_id for entry in mapping.entries
-            }
             adjudication = AdjudicationSet(
                 grading_batch_sha256=grading_batch.grading_batch_sha256,
                 adjudicator=AdjudicatorProvenance(
@@ -540,15 +552,7 @@ class EvaluationExecutionTests(TestCase):
                     rubric_sha256="b" * 64,
                     completed_at="2026-09-05T12:00:00Z",
                 ),
-                judgments=tuple(
-                    Judgment(
-                        sample_id=result.sample_id,
-                        detected_finding_ids=("secret-defect-label",)
-                        if case_by_sample[result.sample_id] == "private-hold-defect"
-                        else (),
-                    )
-                    for result in grading_batch.items
-                ),
+                judgments=tuple(grade_item(result) for result in grading_batch.items),
             )
             adjudication_path.write_bytes(canonical_bytes(adjudication))
             with redirect_stdout(io.StringIO()) as output:

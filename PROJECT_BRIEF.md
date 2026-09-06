@@ -15,7 +15,13 @@
   creates content-addressed sweep plans and exact-coverage calibration/holdout
   reports. Recorded execution now separates backend-visible briefs from labels and
   grader-visible content from route identity, then binds adjudicator provenance. It
-  does not call a live provider or learn a policy.
+  does not call a live provider or learn a policy. Statistical gates now use declared
+  independent groups and simultaneous bounds across the planned comparison family;
+  repeated runs cannot inflate the independent sample count. Reports explicitly
+  deny promotion readiness.
+- Grading: decisions bind each emitted finding by index/hash, identify matched
+  defects or false positives, and retain unresolved findings. Two-grader comparison
+  reports disagreements without automatically resolving them or asserting independence.
 - Success criteria: documented CLI works from the built wheel; missing quorum,
   malformed evidence and malformed tool histories fail closed; identical recordings
   reproduce identical results; strict typing, tests, >=85% branch-inclusive coverage,

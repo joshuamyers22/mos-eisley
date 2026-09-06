@@ -5,6 +5,7 @@ from unittest import TestCase
 from pydantic import ValidationError
 
 from mos_eisley.core.models import Brief
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -65,6 +66,7 @@ def candidates() -> CandidateGrid:
                 effort="low",
                 client_version="mos-eisley-test/1",
                 registry_sha256="a" * 64,
+                prompt=PromptAsset(mode="inline", instructions="Review carefully."),
             ),
         )
     )
@@ -94,7 +96,7 @@ class EvaluationTests(TestCase):
         self.assertNotEqual(first.assignments, other_seed.assignments)
         self.assertNotEqual(first.plan_sha256, other_seed.plan_sha256)
 
-    def test_holdout_score_passes_only_from_complete_evidence(self) -> None:
+    def test_repetitions_alone_cannot_establish_eligibility(self) -> None:
         data = dataset()
         plan = make_plan(data, candidates(), 20, 7, gate())
         route_id = plan.routes[0].candidate_id
@@ -123,7 +125,11 @@ class EvaluationTests(TestCase):
 
         report = score(plan, data, observations, "holdout")
         result = report.scores[0]
-        self.assertTrue(result.eligible)
+        self.assertFalse(result.eligible)
+        self.assertEqual(
+            result.statistical_assessment.issues, ("missing_independence_groups",)
+        )
+        self.assertFalse(report.promotion_ready)
         self.assertEqual(result.route, plan.routes[0])
         self.assertEqual(report.gate, plan.gate)
         self.assertEqual(report.observations_sha256, observations.observations_sha256)
