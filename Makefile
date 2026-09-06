@@ -26,3 +26,4 @@ container:
 	docker build --tag mos-eisley:local .
 	docker run --rm --network none --read-only --tmpfs /tmp mos-eisley:local --help
 	python3 tools/smoke_container.py
+	uv run --frozen python tools/smoke_isolation.py
