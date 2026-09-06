@@ -10,6 +10,7 @@ import secrets
 import sqlite3
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -66,6 +67,13 @@ from mos_eisley.evaluation.resolution import (
     SignedResolutionSet,
     resolve_authenticated_adjudications,
 )
+from mos_eisley.evaluation.routing_activation import (
+    RoutingActivationAuthorityPolicy,
+    SignedRoutingActivationControl,
+    SignedRoutingActivationPolicy,
+    SignedRoutingOperationalSnapshot,
+    issue_routing_activation_eligibility,
+)
 from mos_eisley.evaluation.routing_calibration import (
     RoutingCalibrationReport,
     score_routing_calibration,
@@ -81,6 +89,7 @@ from mos_eisley.evaluation.routing_policy import (
     freeze_candidate_routing_policy,
 )
 from mos_eisley.evaluation.routing_promotion import (
+    AuthenticatedRoutingPromotion,
     RoutingPromotionAuthorityPolicy,
     SignedRoutingPromotionDecision,
     authenticate_routing_promotion,
@@ -497,6 +506,43 @@ def parser() -> argparse.ArgumentParser:
             "resolution-trust-policy",
         ):
             eval_authenticate_promotion.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_activation = subcommands.add_parser(
+        "eval-issue-routing-activation-eligibility",
+        help="Issue short-lived eligibility from fresh signed operational evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "signed-activation-policy",
+        "signed-operational-snapshot",
+        "signed-control-state",
+        "activation-authority-policy",
+        "output",
+    ):
+        eval_activation.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_activation.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
     subcommands.add_parser("models", help="Print the configured model registry")
@@ -1158,6 +1204,100 @@ def _authenticate_routing_promotion_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _issue_routing_activation_eligibility_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    candidate_policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    holdout_report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    promotion = AuthenticatedRoutingPromotion.model_validate_json(
+        read_bounded(cast(Path, args.promotion_receipt), 128_000)
+    )
+    promotion_authorities = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_authority_policy), 64_000)
+    )
+    signed_activation_policy = SignedRoutingActivationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_activation_policy), 1_000_000)
+    )
+    signed_snapshot = SignedRoutingOperationalSnapshot.model_validate_json(
+        read_bounded(cast(Path, args.signed_operational_snapshot), 2_000_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    eligibility = issue_routing_activation_eligibility(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        candidate_policy,
+        promotion_policy,
+        claim,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        signed_activation_policy,
+        signed_snapshot,
+        signed_control,
+        activation_authorities,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, eligibility)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_activation.eligibility_issued",
+                "path": str(output),
+                "eligibility_sha256": eligibility.eligibility_sha256,
+                "issued_at": eligibility.issued_at.isoformat(),
+                "valid_until": eligibility.valid_until.isoformat(),
+                "eligible_routes": len(eligibility.eligible_candidate_ids),
+                "unavailable_action": eligibility.unavailable_action,
+                "allow_model_substitution": eligibility.allow_model_substitution,
+                "activation_eligible": eligibility.activation_eligible,
+                "runtime_activation_authorized": (
+                    eligibility.runtime_activation_authorized
+                ),
+                "configuration_mutation_authorized": (
+                    eligibility.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
@@ -1171,6 +1311,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-derive-routing-promotion": _derive_routing_promotion_command,
         "eval-authenticate-routing-promotion": (
             _authenticate_routing_promotion_command
+        ),
+        "eval-issue-routing-activation-eligibility": (
+            _issue_routing_activation_eligibility_command
         ),
     }
     handler = handlers.get(args.command)

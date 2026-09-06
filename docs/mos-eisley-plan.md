@@ -379,6 +379,19 @@ ready receipt. That receipt still cannot authorize runtime activation.
 Policy-level rates explicitly weight sealed profiles equally; they do not claim to
 estimate the production traffic mix without a separately registered distribution.
 
+The implemented activation-eligibility boundary then consumes only that authenticated
+promotion. Three mutually distinct operational authorities, all disjoint from the
+evaluation and promotion signers, sign: (1) exact route, cost, freshness, and control
+requirements; (2) route-specific catalog, price, conformance, and drift assertions;
+and (3) emergency-stop and revocation state. The readiness snapshot binds the signed
+policy context, every selected route, and every required fallback without model or
+effort substitution. The resulting receipt expires at the earliest input deadline
+and grants neither runtime activation nor configuration mutation. These operational
+values are signed attestations—Mos Eisley does not query or validate their sources—and
+a still-valid older control sequence remains replayable without an external monotonic
+latest-state anchor. Runtime preflight, atomic installation, rollback, and traffic
+monitoring remain separate future gates.
+
 ### 7.4 Effort ↔ max_tokens coupling
 
 At high/xhigh/max with a tight `max_tokens`, you get a response that is almost entirely thinking followed by a truncated answer and `stop_reason: "max_tokens"`. Anthropic suggests starting around 64k `max_tokens` for Opus 4.7 at xhigh or max.

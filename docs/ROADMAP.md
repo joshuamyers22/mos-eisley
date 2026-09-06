@@ -47,8 +47,13 @@
    under-routing, fallback coverage, and cost regret without promotion authority.
    Policy-level thresholds are now pinned before holdout, and a verification-only
    Ed25519 gate grants promotion readiness only after full evidence recomputation
-   and an authority signature independent of graders and resolvers; activation stays
-   disabled. Next run explicitly authorized credentialed conformance, then run the repeated
+   and an authority signature independent of graders and resolvers. A short-lived
+   activation-eligibility gate now consumes that receipt plus three distinct signed
+   inputs for exact route/cost/freshness policy, operational readiness, and revocation
+   control. It denies substitutions and retains literal runtime/configuration denial;
+   operational fields are attestations rather than live provider checks. Next add an
+   external latest-sequence anchor and read-only runtime preflight design, then run
+   explicitly authorized credentialed conformance and the repeated
    backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

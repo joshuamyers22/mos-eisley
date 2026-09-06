@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add short-lived routing activation eligibility that fully reverifies authenticated
+  promotion and requires three distinct, evaluation-independent Ed25519 signatures
+  over exact route/cost/freshness policy, operational attestations, and revocation
+  control while denying substitutions, runtime activation, and configuration writes.
+
 - Add independently authenticated routing promotion with policy-level thresholds
   pinned before holdout, deterministic denial on missing or failed evidence, full
   lineage recomputation, Ed25519 authority separation from graders/resolvers, and

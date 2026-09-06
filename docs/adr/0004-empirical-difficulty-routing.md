@@ -4,7 +4,9 @@ Date: 2026-09-05. Status: proposed; blocked on evaluation data.
 
 Implementation note: the offline routing-study protocol, feature-partition sealing,
 profile-aware calibration scorer, deterministic candidate-policy freezer, one-attempt
-holdout evaluator, and independently authenticated promotion gate are implemented.
+holdout evaluator, independently authenticated promotion gate, and short-lived
+three-signer activation-eligibility gate are implemented. The last gate consumes
+signed operational attestations but performs no provider query or runtime mutation.
 Runtime routing and activation remain disabled.
 
 ## Decision
@@ -65,3 +67,14 @@ Provider effort labels remain incomparable. The policy treats each concrete back
 setting. A new model, client version, material provider drift or feature-schema
 change invalidates the applicable calibration and requires re-evaluation before it
 can receive traffic.
+
+An authenticated promotion is necessary but insufficient for activation eligibility.
+The exact selected and fallback routes, normalized cost ceilings, evidence-freshness
+limits, and minimum revocation sequence are fixed in a separately signed activation
+policy. A second signer attests current catalog, price, conformance, and drift values;
+a third attests emergency-stop and revocation state. Those three identities and keys
+must be mutually distinct and disjoint from every grader, resolver, and promoter.
+The derived receipt is short-lived and fully reverifiable, but explicitly grants no
+runtime or configuration authority. Operational truth, current provider state, key
+custody, latest-sequence delivery, atomic installation, and rollback remain external
+requirements.

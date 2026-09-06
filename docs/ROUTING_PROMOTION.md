@@ -89,6 +89,7 @@ can replace the authority policy can trust their own key, so its distribution is
 root of trust rather than a self-authenticating artifact.
 
 This milestone uses one release-authority signature. It does not implement quorum,
-expiry, revocation, provider-drift checks, current price or availability checks,
 runtime policy installation, rollback, or traffic routing. Promotion readiness is
-an evidence decision, not activation authority.
+an evidence decision, not activation authority. The next non-executing boundary is
+the separately documented [routing activation eligibility](ROUTING_ACTIVATION_ELIGIBILITY.md)
+gate; its operational values are signed attestations, not provider queries.

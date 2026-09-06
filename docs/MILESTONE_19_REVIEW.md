@@ -16,7 +16,7 @@ configuration mutation, or publishing is included.
 | Equal-profile rates are mistaken for production frequency | Pin `population_unit: sealed_profiles_equal_weight` in the threshold policy | Representative traffic weights and domain prevalence are not established by this study |
 | Promotion is confused with deployment | Every decision and receipt has literal activation denial; no runtime accepts or installs it | Drift, expiry, availability, rollback and activation authorization remain future gates |
 
-The next boundary is a time-bounded activation policy that consumes only an
-authenticated promotion receipt after fresh provider/catalog, price, conformance,
-and drift checks. It must preserve conservative fallback behavior and support
-revocation without giving the model configuration authority.
+The next boundary is implemented as [routing activation eligibility](ROUTING_ACTIVATION_ELIGIBILITY.md):
+a time-bounded, three-signer gate over exact routes, operational attestations, and
+revocation state. It preserves fallback behavior and grants no runtime or
+configuration authority.
