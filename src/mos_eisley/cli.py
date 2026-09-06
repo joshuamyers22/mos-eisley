@@ -159,12 +159,18 @@ from mos_eisley.run.skill_release import (
     bind_skill_release_evidence,
 )
 from mos_eisley.run.skill_release_control import (
+    AuthenticatedSkillReleaseControl,
     SignedSkillReleaseControl,
     SkillReleaseControlAnchor,
     SkillReleaseControlAnchorPolicy,
     SkillReleaseControlAuthorityPolicy,
     authenticate_skill_release_control,
     make_skill_release_control_decision,
+)
+from mos_eisley.run.skill_staging import (
+    SkillStagingStore,
+    SkillStagingStorePolicy,
+    stage_authenticated_skill_release,
 )
 from mos_eisley.run.skills import (
     bind_skill_roster,
@@ -697,6 +703,58 @@ def parser() -> argparse.ArgumentParser:
         )
         if control_command.endswith("advance"):
             control_anchor.add_argument("--signed-control", type=Path, required=True)
+    staging_create = subcommands.add_parser(
+        "skill-staging-store-create",
+        help="Create a private quarantine store pinned to release control",
+    )
+    staging_create.add_argument("path", type=Path)
+    staging_create.add_argument("--store-policy", type=Path, required=True)
+    staging_create.add_argument("--anchor-policy", type=Path, required=True)
+    staging_status = subcommands.add_parser(
+        "skill-staging-store-status",
+        help="Verify staged packages and inventory incomplete transactions",
+    )
+    staging_status.add_argument("--store", type=Path, required=True)
+    eval_stage_skill = subcommands.add_parser(
+        "eval-stage-skill-release",
+        help="Transactionally stage exact latest-controlled bytes into quarantine",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "staging-store",
+        "output",
+    ):
+        eval_stage_skill.add_argument(f"--{option}", type=Path, required=True)
+    eval_stage_skill.add_argument("--rollback-archive", type=Path)
+    eval_stage_skill.add_argument(
+        "--action", choices=("candidate", "rollback"), required=True
+    )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_stage_skill.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -1734,6 +1792,130 @@ def _skill_release_control_anchor_status_command(args: argparse.Namespace) -> in
     return 0
 
 
+def _skill_staging_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillStagingStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    anchor_policy = SkillReleaseControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    store = SkillStagingStore.create(
+        cast(Path, args.path),
+        policy,
+        anchor_policy,
+    )
+    snapshot = store.snapshot()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.store_created",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "control_anchor_policy_sha256": (
+                    snapshot.policy.control_anchor_policy_sha256
+                ),
+                "packages": len(snapshot.packages),
+                "incomplete_transactions": len(snapshot.incomplete),
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_staging_store_status_command(args: argparse.Namespace) -> int:
+    store = SkillStagingStore(cast(Path, args.store))
+    snapshot = store.snapshot()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.store_status",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "packages": list(snapshot.packages),
+                "incomplete_transactions": [
+                    item.model_dump(mode="json") for item in snapshot.incomplete
+                ],
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _stage_skill_release_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    authenticated_control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    control_anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    result = stage_authenticated_skill_release(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        authenticated_control,
+        control_authorities,
+        control_anchor,
+        staging_store,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.completed",
+                "path": str(output),
+                "package_path": result.package_path,
+                "manifest_sha256": result.manifest.manifest_sha256,
+                "archive_sha256": result.manifest.intent.archive_sha256,
+                "action": result.manifest.intent.action,
+                "already_present": result.already_present,
+                "quarantine_staged": result.manifest.quarantine_staged,
+                "installation_authorized": result.installation_authorized,
+                "activation_authorized": result.activation_authorized,
+                "configuration_mutation_authorized": (
+                    result.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -2490,6 +2672,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-release-control-anchor-status": (
             _skill_release_control_anchor_status_command
         ),
+        "skill-staging-store-create": _skill_staging_store_create_command,
+        "skill-staging-store-status": _skill_staging_store_status_command,
+        "eval-stage-skill-release": _stage_skill_release_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

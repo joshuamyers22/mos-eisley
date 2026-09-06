@@ -532,6 +532,46 @@ def authenticate_skill_release_control(
     )
 
 
+def verify_authenticated_skill_release_control(
+    dataset: EvaluationDataset,
+    plan: SweepPlan,
+    calibration: SkillEvaluationLineage,
+    holdout: SkillEvaluationLineage,
+    sealed: SealedSkillComparison,
+    holdout_claim: SkillHoldoutUseClaim,
+    calibration_report: SkillComparisonReport,
+    holdout_report: SkillComparisonReport,
+    promotion: AuthenticatedSkillPromotion,
+    promotion_authority_policy: SkillPromotionAuthorityPolicy,
+    archive: SkillPackageArchive,
+    evidence: SkillReleaseEvidence,
+    artifact: AuthenticatedSkillReleaseControl,
+    control_authority_policy: SkillReleaseControlAuthorityPolicy,
+) -> None:
+    """Rebuild an authenticated control at its recorded verification time."""
+
+    rebuilt = authenticate_skill_release_control(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        holdout_claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authority_policy,
+        archive,
+        evidence,
+        artifact.signed_control,
+        control_authority_policy,
+        artifact.rollback_archive,
+        artifact.authenticated_at,
+    )
+    if rebuilt != artifact:
+        raise ValueError("authenticated skill release control provenance mismatch")
+
+
 class SkillReleaseControlAnchorPolicy(Contract):
     schema_version: Literal[1] = 1
     anchor_id: Digest
@@ -842,21 +882,37 @@ class SkillReleaseControlAnchor:
         control_authorities: SkillReleaseControlAuthorityPolicy,
         now: datetime,
     ) -> AnchoredSkillReleaseControl:
+        with self.guard_latest(control, control_authorities, now) as latest:
+            return latest
+
+    @contextmanager
+    def guard_latest(
+        self,
+        control: AuthenticatedSkillReleaseControl,
+        control_authorities: SkillReleaseControlAuthorityPolicy,
+        now: datetime,
+    ) -> Generator[AnchoredSkillReleaseControl, None, None]:
+        """Hold a read transaction so newer control cannot commit mid-action."""
+
         current = _require_utc(now)
         control = AuthenticatedSkillReleaseControl.model_validate_json(
             canonical_bytes(control)
         )
-        latest = self.snapshot(control_authorities).latest
-        if latest is None:
-            raise ValueError("skill release control anchor has no state")
-        if latest.signed_control != control.signed_control:
-            raise ValueError("skill release control is not the latest anchored state")
-        decision = control.signed_control.decision
-        if (
-            control.release_evidence_sha256 != self.policy.release_evidence_sha256
-            or not latest.anchored_at <= current
-            or not decision.issued_at <= current < decision.valid_until
-            or not control.authenticated_at <= current < control.valid_until
-        ):
-            raise ValueError("latest anchored skill release control is not current")
-        return latest
+        with self._transaction(write=False) as connection:
+            entries = self._entries(connection, control_authorities)
+            latest = entries[-1] if entries else None
+            if latest is None:
+                raise ValueError("skill release control anchor has no state")
+            if latest.signed_control != control.signed_control:
+                raise ValueError(
+                    "skill release control is not the latest anchored state"
+                )
+            decision = control.signed_control.decision
+            if (
+                control.release_evidence_sha256 != self.policy.release_evidence_sha256
+                or not latest.anchored_at <= current
+                or not decision.issued_at <= current < decision.valid_until
+                or not control.authenticated_at <= current < control.valid_until
+            ):
+                raise ValueError("latest anchored skill release control is not current")
+            yield latest

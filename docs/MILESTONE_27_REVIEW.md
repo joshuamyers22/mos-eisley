@@ -21,8 +21,9 @@ in a private monotonic anchor. Preserve the boundary as non-installing.
 
 ## Stop condition
 
-This milestone stops before filesystem materialization. It adds no installer,
-configuration writer, runtime skill selector, or drift monitor. The next safe slice is
-a separately reviewed transaction protocol with exclusive destination ownership,
-staging, exact post-write verification, atomic switch, crash recovery, and an
-external latest-state witness or explicit acknowledgement of its absence.
+Milestone 28 adds separately reviewed, exclusive, exact post-write-verified quarantine
+staging with atomic commit and conservative crash inventory. It remains non-installing
+and adds no configuration writer, runtime skill selector, or drift monitor. A future
+install transaction still needs independent authority, atomic default switching,
+recovery, and an external latest-state witness or explicit acknowledgement of its
+absence.

@@ -164,9 +164,9 @@ the cassette persona.
 - automatic promotion of persona revisions. Exact prompt-only revisions can now use
   the non-promoting [paired evaluation protocol](SKILL_EVALUATION.md), but no pass
   grants configuration or activation authority.
-- transactional installation/default changes and post-install drift monitoring.
-  Retained-byte binding plus independent signed revocation and rollback nomination
-  are implemented as non-deploying evidence gates.
+- signed installation/default changes and post-install drift monitoring. Retained-byte
+  binding, independent signed revocation/rollback nomination, and transactional
+  quarantine staging are implemented as non-deploying evidence gates.
 
 These are separate authority or evidence problems. A `SKILL.md` makes prompt assets
 portable, inspectable, versionable, and measurable; it does not make their

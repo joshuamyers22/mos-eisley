@@ -69,7 +69,9 @@ host clock have no external witness. Authority enrollment, key custody, organiza
 independence, package authorship, and the judgment that selected rollback bytes are
 safe remain external responsibilities.
 
-There is still no transactional materialization, atomic default change, recovery
-journal, post-install validation, or drift-triggered rollback. Any future installer
-must reauthenticate the complete control receipt and require exact latest-anchor
-equality immediately inside a one-use transaction.
+The follow-on [quarantine-staging gate](SKILL_QUARANTINE_STAGING.md) can now
+transactionally materialize exact latest-controlled bytes without installing them.
+There is still no signed installation authority, atomic default change, automatic
+recovery, post-install validation, or drift-triggered rollback. Any future installer
+must consume the verified staging manifest and preserve exact latest-anchor equality
+inside its own one-use configuration transaction.

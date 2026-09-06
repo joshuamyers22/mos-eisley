@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a private content-addressed skill quarantine store with exact post-write archive
+  reconstruction, semantic verification, completion-marker-last transactions,
+  durable atomic rename, idempotent verified reuse, and bounded crash inventory.
+- Reauthenticate the complete skill-release lineage and hold a latest-control SQLite
+  read guard across staging commit, closing the local check-to-revocation race while
+  preserving literal installation, activation, and configuration denial.
+
 - Add independent, expiring Ed25519 skill-release allow/revoke decisions that
   reverify complete release provenance, enforce separation from promotion and
   evaluation authorities, and optionally bind exact retained rollback bytes.

@@ -65,3 +65,7 @@ that binding also grants no deployment authority. A follow-on
 and retained rollback nominations without installing them. Transactional
 installation/default changes and drift monitors remain separate gates before a
 promoted persona can change a default or reach runtime.
+
+Exact latest-controlled bytes can also be transactionally materialized by the
+[quarantine-staging gate](SKILL_QUARANTINE_STAGING.md). That private content-addressed
+store is deliberately not an installation or runtime lookup path.
