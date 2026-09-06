@@ -197,6 +197,13 @@ the journal contains hashes and status—not a standalone full transcript. Incom
 runs lack a valid manifest and cannot be replayed. Live runs preserve full canonical
 responses for inspection but cannot replay a provider execution. Retention is manual.
 
+The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-telemetry)
+keeps retained data under one user's ownership while allowing user-configured local
+or cloud backends. It prohibits cross-user aggregation, including model-selection
+statistics, and automatic reuse of prior conversational content in fresh sessions.
+Remote storage adapters and comprehensive user-isolation enforcement are not yet
+implemented; the current private-file behavior is not a claim of those guarantees.
+
 See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),

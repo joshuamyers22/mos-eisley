@@ -34,6 +34,12 @@
 - Data: recorded workflows stay local. `openai-run` sends only named prompt and
   instruction files after acknowledgement and never stores its environment key.
   Run files mode 0600 and new run directories mode 0700. Manual retention.
+- Planned data contract: retain conversations and evidence in user-selected local
+  or cloud storage with enforced per-user ownership. No cross-user aggregation,
+  including anonymized model-selection statistics. Fresh sessions automatically
+  reuse only the same user's minimal selection aggregates; saved content requires
+  explicit resume/inspection. Remote adapters and comprehensive enforcement remain
+  unimplemented; see plan §17 and the roadmap.
 - Recovery: run artifacts are authoritative. Missing/invalid manifests reject
   replay; an unavailable SQLite index does not discard completed evidence.
 - Failure scenarios: fabricated evidence, unknown judge IDs, missing critics,
