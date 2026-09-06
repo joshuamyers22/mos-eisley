@@ -11,6 +11,7 @@ from openai import AsyncOpenAI
 from pydantic import JsonValue, TypeAdapter
 
 from mos_eisley.core.models import Brief
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.execution import EvaluationRequest, ExecutionBatch
 from mos_eisley.evaluation.models import RouteCandidate
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
@@ -33,6 +34,9 @@ def conformance_inputs() -> tuple[ExecutionBatch, SpendPolicy]:
         effort="high",
         client_version="openai/2",
         registry_sha256="a" * 64,
+        prompt=PromptAsset(
+            mode="inline", instructions="Perform the exact conformance review."
+        ),
     )
     request = EvaluationRequest(
         sample_id="b" * 64,
@@ -64,6 +68,9 @@ class ConformanceRequestTests(TestCase):
         )
         self.assertEqual(payload["model"], "gpt-6-astra")
         self.assertEqual(payload["reasoning"], {"effort": "high"})
+        self.assertEqual(
+            payload["instructions"], "Perform the exact conformance review."
+        )
         self.assertEqual(payload["tools"], [])
         self.assertFalse(payload["store"])
         self.assertEqual(payload["truncation"], "disabled")

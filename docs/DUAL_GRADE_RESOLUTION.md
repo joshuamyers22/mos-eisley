@@ -10,7 +10,9 @@ This is an offline integrity gate. It makes no provider calls and its output has
 literal `promotion_eligible: false`. The legacy `eval-compile` and `eval-score`
 commands do not accept this artifact, so it cannot silently alter model selection.
 The separate [dual-lineage compiler](DUAL_LINEAGE_OBSERVATIONS.md) reverifies it
-into a distinct, still non-scoreable observation schema.
+into a distinct observation schema rejected by legacy scoring. Only the dedicated
+[dual-lineage scorer](DUAL_LINEAGE_SCORING.md) accepts that schema, and its reports
+remain non-promotable.
 
 ## Trust separation
 

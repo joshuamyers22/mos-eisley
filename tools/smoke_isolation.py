@@ -15,6 +15,7 @@ from pydantic import JsonValue
 
 from mos_eisley.core.models import Brief, Critique, canonical_bytes
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.execution import (
     EvaluationCassette,
     EvaluationRequest,
@@ -296,6 +297,9 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
             effort="low",
             client_version="fixture/1",
             registry_sha256="b" * 64,
+            prompt=PromptAsset(
+                mode="inline", instructions="Run the containment smoke review."
+            ),
         ),
         brief=Brief(spec="Return one.", diff="return 1"),
     )

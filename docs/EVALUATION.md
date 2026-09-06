@@ -32,8 +32,10 @@ uv run --frozen mos eval-plan \
 ```
 
 Each candidate is the concrete backend × provider × model × effort tuple plus its
-client version and registry digest. API and subscription clients therefore remain
-different candidates even when they expose the same model name.
+client version, registry digest, and exact `PromptAsset`. API and subscription
+clients therefore remain different candidates even when they expose the same model
+name, and instruction changes produce a different candidate identity. Persona-skill
+experiments use the separate [paired comparison protocol](SKILL_EVALUATION.md).
 
 Create an execution batch and a separate private mapping. A fresh 256-bit nonce
 produces opaque HMAC sample IDs. The batch contains only each brief and concrete
@@ -179,8 +181,11 @@ recomputed conflict. It prohibits unnecessary resolution when labels agree. The
 result remains `promotion_eligible: false` and is deliberately not accepted by
 legacy `eval-compile` or `eval-score`. Use the separately reviewed
 [`eval-compile-dual`](DUAL_LINEAGE_OBSERVATIONS.md) command to reverify the entire
-artifact chain and create a distinct, still non-scoreable observation set.
-Single-grader compilation remains available only for offline rehearsal.
+artifact chain and create a distinct observation set rejected by legacy scoring.
+The dedicated [`eval-score-dual`](DUAL_LINEAGE_SCORING.md) command accepts that
+schema only after full-chain reverification, while every resulting report retains
+`promotion_ready: false`. Single-grader compilation remains available only for
+offline rehearsal.
 
 Adjudication schema 2 replaces the old aggregate fields. Regrade older artifacts;
 there is no reliable automatic conversion from counts to per-finding decisions.
@@ -221,6 +226,11 @@ risk in the group gate. See [statistical design](STATISTICAL_DESIGN.md) for the
 estimand, formulas, assumptions, sample-size example and schema-2 migration.
 Every report returns `promotion_ready: false`.
 
+`RouteCandidate` and `CandidateGrid` schema 2 add the exact prompt asset;
+`SweepPlan` schema 3 and `EvaluationRequest`/`ExecutionBatch` schema 2 transitively
+bind it. Regenerate older artifacts because their reviewer instructions cannot be
+reconstructed from the old route identity.
+
 ## What this does not prove
 
 The CLI opens only the explicitly named files, and the recorded execution command
@@ -230,11 +240,12 @@ unless it runs inside the planned sandbox. The tool also cannot prove that a hum
 judgment is correct, that thresholds were authored before results were seen, or
 that the person holding an enrolled signing key is independent. Signed receipts
 bind claimed identity and timestamps but do not attest physical identity or time.
-It does not seal a holdout
-set against repeated analyst access, verify independence of the declared groups,
-correct for comparisons across separately authored plans, stratify by prompt
-profile, or detect provider drift. These controls remain
-required before a report can promote a routing policy.
+It does not globally seal a holdout set against repeated analyst access, verify
+independence of the declared groups, correct for comparisons across separately
+authored plans, or detect provider drift. The separate frozen-policy evaluator now
+adds a policy-keyed local exclusive-use claim and exact holdout scoring, but an
+independent custodian is still required to enforce one-time access. These controls
+remain required before a report can promote a routing policy.
 
 Observation sets and reports now require raw-result and adjudication digests.
 Recompile older offline observations through the artifact chain; do not insert
