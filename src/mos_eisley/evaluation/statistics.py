@@ -17,6 +17,8 @@ from mos_eisley.evaluation.models import (
     StatisticalDesign,
 )
 
+MAX_CONFIDENCE_FAMILY = 128 * 5000 * 3 * 2
+
 
 class GroupInterval(Contract):
     method: Literal["hoeffding_bonferroni_95_family"] = "hoeffding_bonferroni_95_family"
@@ -29,7 +31,7 @@ class GroupInterval(Contract):
 
 class StatisticalAssessment(Contract):
     design: StatisticalDesign
-    family_size: Annotated[int, Field(ge=6, le=768)]
+    family_size: Annotated[int, Field(ge=6, le=MAX_CONFIDENCE_FAMILY)]
     interval_alpha: Annotated[float, Field(gt=0, lt=1)]
     detection: GroupInterval | None = None
     clean_false_positive_runs: GroupInterval | None = None
@@ -44,7 +46,7 @@ def group_interval(values: Sequence[float], family_size: int) -> GroupInterval:
         math.isfinite(value) and 0 <= value <= 1 for value in values
     ):
         raise ValueError("group rates must be nonempty, finite and within [0, 1]")
-    if not 6 <= family_size <= 768:
+    if not 6 <= family_size <= MAX_CONFIDENCE_FAMILY:
         raise ValueError("confidence family size is outside the supported range")
     radius = math.sqrt(math.log(2 * family_size / 0.05) / (2 * len(values)))
     estimate = math.fsum(values) / len(values)
@@ -62,9 +64,14 @@ def assess_groups(
     observations: Sequence[Observation],
     design: StatisticalDesign,
     route_count: int,
+    comparison_strata: int = 1,
 ) -> StatisticalAssessment:
     """Average repetitions per case, cases per group, then independent groups."""
-    family_size = route_count * 3 * 2
+    if not 1 <= route_count <= 128 or not 1 <= comparison_strata <= 5000:
+        raise ValueError(
+            "confidence comparison dimensions are outside supported bounds"
+        )
+    family_size = route_count * comparison_strata * 3 * 2
     if any(case.independence_group is None for case in cases.values()):
         return StatisticalAssessment(
             design=design,
