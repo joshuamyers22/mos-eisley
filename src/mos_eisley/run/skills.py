@@ -29,6 +29,7 @@ from yaml.tokens import (
 
 from mos_eisley.core.models import digest
 from mos_eisley.core.skills import (
+    PromptAsset,
     SkillDescriptor,
     SkillIdentity,
     SkillRoster,
@@ -107,6 +108,15 @@ class _Frontmatter(BaseModel):
 class ActivatedSkill:
     descriptor: SkillDescriptor
     instructions: str
+
+    def as_prompt_asset(self) -> PromptAsset:
+        if self.descriptor.identity.kind != "persona":
+            raise ValueError("only persona skills can become reviewer prompts")
+        return PromptAsset(
+            mode="skill",
+            instructions=self.instructions,
+            skill=self.descriptor.identity,
+        )
 
 
 @dataclass(frozen=True)
@@ -417,6 +427,7 @@ def _load_package(skill_path: Path, source: SkillSource) -> _SkillSnapshot:
         version=effective_version,
         kind=cast(Literal["persona", "procedure"], effective_kind),
         package_sha256=_package_digest(immutable_files),
+        instructions_sha256=digest(body.encode("utf-8")),
     )
     descriptor = SkillDescriptor(
         identity=identity,

@@ -151,6 +151,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Prompt-only Agent Skills packages](docs/SKILLS.md) with bounded YAML parsing,
   whole-package digests, immutable progressive loading, non-shadowing source
   identities, explicit project opt-in, and replay-verified run provenance.
+- [Paired persona-skill evaluation](docs/SKILL_EVALUATION.md) that seals exact
+  prompt-only controls, consumes holdout once, reverifies dual-human-grade lineage,
+  and reports simultaneous group bounds without promotion or activation authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations

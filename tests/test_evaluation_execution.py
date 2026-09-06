@@ -9,6 +9,7 @@ from unittest import TestCase
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, Critique, Evidence, Finding, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.adjudication import (
     AdjudicationSet,
     AdjudicatorProvenance,
@@ -84,6 +85,7 @@ def inputs() -> tuple[EvaluationDataset, CandidateGrid, EvaluationGate]:
                 effort="low",
                 client_version="fixture/1",
                 registry_sha256="a" * 64,
+                prompt=PromptAsset(mode="inline", instructions="Review carefully."),
             ),
         )
     )

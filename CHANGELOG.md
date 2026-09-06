@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind exact inline or persona-skill instructions into evaluation route/request
+  identity, including a validated skill-body digest; version skill, candidate/grid,
+  plan, and execution contracts accordingly.
+- Add sealed paired persona-skill comparisons with prompt-only experimental control,
+  fixed independent-group Hoeffding/Bonferroni inference, full dual-grade lineage,
+  resource deltas, and literal promotion/activation denial.
+- Add an atomic private one-use holdout claim plus seal/score CLI commands and
+  adversarial tests for route confounding, underpowered groups, replay, and tampering.
+
 - Add a narrow prompt-only skills foundation with standards-compatible `SKILL.md`,
   an optional validated `mos.yaml`, source-qualified whole-package digests,
   immutable bounded snapshots, explicit project activation, and schema-2 recorded

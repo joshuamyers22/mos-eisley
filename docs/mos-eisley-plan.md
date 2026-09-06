@@ -1502,3 +1502,22 @@ The package snapshot prevents ordinary post-validation drift but not a malicious
 same-UID process racing trusted ancestor directories. Package signatures and archives
 are absent, so historical reconstruction depends on retaining the exact digest-named
 package. These limits are explicit in `docs/SKILLS.md` and milestone review 22.
+
+### 25.4 Implemented paired evidence gate
+
+Evaluation routes now bind an exact inline or persona-skill prompt asset. A separate
+two-arm protocol seals the dataset, full plan, prompt identities, non-inferiority
+margins, paired equal-group estimand, fixed stopping rule, and six-comparison family
+before results are inspected. The arms must be identical except for their prompt,
+and the candidate must be a digest-identified persona skill.
+
+Scoring reverifies the complete dual-authenticated human-grading lineage, averages
+repetitions within cases, pairs candidate-minus-baseline case outcomes, then weights
+declared independence groups equally. Holdout CLI use consumes an atomic private
+claim before validation so failed or repeated attempts cannot be selectively rerun
+without explicit local-control tampering. Cost and latency deltas are reported.
+
+This closes the recommended evidence-foundation slice, not persona promotion. Every
+artifact denies activation and each report denies promotion. A later milestone must
+define independent signed promotion, retained package archives, rollback, expiry,
+and drift monitoring before a skill can replace a default.

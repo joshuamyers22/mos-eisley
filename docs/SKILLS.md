@@ -73,7 +73,9 @@ inventory check rejects ordinary mutations during discovery.
 The package SHA-256 is domain-separated and covers every file in sorted POSIX-path
 order using length-prefixed path and content bytes. It therefore changes when the
 body, sidecar, or a lazily requested reference/asset changes. It does not normalize
-newlines or Markdown.
+newlines or Markdown. Schema-2 skill identity also records the digest of the exact
+activated body so a prompt asset cannot claim the package identity with different
+instructions.
 
 Limits are fail-closed: 64 root entries/skills, 128 entries and 64 files per package,
 16 KB frontmatter, 32 KB body, 1 MB per resource, 4 MB per package, 16 MB per
@@ -127,8 +129,9 @@ the cassette persona.
 - remote registries, downloads, signatures, and content-addressed package storage;
 - SecretRef providers and `doctor --fix`;
 - replacing inline personas in live review;
-- promotion of persona revisions without paired golden and held-out evaluation of
-  detection, false-positive, latency, token, and cost effects.
+- automatic promotion of persona revisions. Exact prompt-only revisions can now use
+  the non-promoting [paired evaluation protocol](SKILL_EVALUATION.md), but no pass
+  grants configuration or activation authority.
 
 These are separate authority or evidence problems. A `SKILL.md` makes prompt assets
 portable, inspectable, versionable, and measurable; it does not make their

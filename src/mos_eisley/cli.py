@@ -105,6 +105,13 @@ from mos_eisley.evaluation.routing_protocol import (
     seal_routing_study,
 )
 from mos_eisley.evaluation.scoring import make_plan, score
+from mos_eisley.evaluation.skill_comparison import (
+    SealedSkillComparison,
+    SkillComparisonProtocol,
+    make_skill_holdout_use_claim,
+    score_authenticated_skill_comparison,
+    seal_skill_comparison,
+)
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
@@ -130,7 +137,7 @@ from mos_eisley.run.evaluation_broker import (
     make_assignment_broker,
 )
 from mos_eisley.run.files import read_bounded
-from mos_eisley.run.holdout_use import claim_holdout_use
+from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
 from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
@@ -433,6 +440,40 @@ def parser() -> argparse.ArgumentParser:
         "--split", choices=("calibration", "holdout"), required=True
     )
     eval_score_dual.add_argument("--output", type=Path, required=True)
+    eval_seal_skill = subcommands.add_parser(
+        "eval-seal-skill-comparison",
+        help="Seal a pre-registered prompt-only persona-skill comparison",
+    )
+    eval_seal_skill.add_argument("--dataset", type=Path, required=True)
+    eval_seal_skill.add_argument("--plan", type=Path, required=True)
+    eval_seal_skill.add_argument("--protocol", type=Path, required=True)
+    eval_seal_skill.add_argument("--output", type=Path, required=True)
+    eval_score_skill = subcommands.add_parser(
+        "eval-score-skill-comparison",
+        help="Score paired skill evidence after reverifying dual-grade lineage",
+    )
+    eval_score_skill.add_argument("--dataset", type=Path, required=True)
+    eval_score_skill.add_argument("--plan", type=Path, required=True)
+    eval_score_skill.add_argument("--batch", type=Path, required=True)
+    eval_score_skill.add_argument("--mapping", type=Path, required=True)
+    eval_score_skill.add_argument("--raw-results", type=Path, required=True)
+    eval_score_skill.add_argument("--grading-batch", type=Path, required=True)
+    eval_score_skill.add_argument("--dual-grading-resolution", type=Path, required=True)
+    eval_score_skill.add_argument(
+        "--dual-graded-observations", type=Path, required=True
+    )
+    eval_score_skill.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_score_skill.add_argument("--resolution-trust-policy", type=Path, required=True)
+    eval_score_skill.add_argument("--sealed-comparison", type=Path, required=True)
+    eval_score_skill.add_argument(
+        "--holdout-use-directory",
+        type=Path,
+        help="Existing private directory required when scoring holdout",
+    )
+    eval_score_skill.add_argument(
+        "--split", choices=("calibration", "holdout"), required=True
+    )
+    eval_score_skill.add_argument("--output", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -928,6 +969,130 @@ def _score_dual_command(args: argparse.Namespace) -> int:
                 "split": report.split,
                 "eligible": sum(item.eligible for item in report.scores),
                 "promotion_ready": report.promotion_ready,
+            }
+        )
+    )
+    return 0
+
+
+def _seal_skill_comparison_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    protocol = SkillComparisonProtocol.model_validate_json(
+        read_bounded(cast(Path, args.protocol), 1_000_000)
+    )
+    artifact = seal_skill_comparison(dataset, plan, protocol)
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_comparison.sealed",
+                "path": str(output),
+                "sealed_comparison_sha256": artifact.sealed_comparison_sha256,
+                "protocol_sha256": artifact.protocol.protocol_sha256,
+                "activation_authorized": artifact.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _score_skill_comparison_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    sealed = SealedSkillComparison.model_validate_json(
+        read_bounded(cast(Path, args.sealed_comparison), 2_000_000)
+    )
+    split = cast(Split, args.split)
+    output = cast(Path, args.output)
+    claim = None
+    claim_path = None
+    if split == "holdout":
+        if args.holdout_use_directory is None:
+            raise ValueError("holdout scoring requires --holdout-use-directory")
+        use_directory = cast(Path, args.holdout_use_directory)
+        if output.exists():
+            raise ValueError("skill comparison report output already exists")
+        if not use_directory.is_dir():
+            raise ValueError("holdout use directory must already exist")
+        if _paths_overlap(output, use_directory):
+            raise ValueError("skill report and holdout use directory must not overlap")
+        claim = make_skill_holdout_use_claim(
+            sealed,
+            batch,
+            mapping,
+            raw_results,
+            grading_batch,
+            dual_grading,
+            grading_policy,
+            resolution_policy,
+            observations,
+        )
+        claim_path = claim_skill_holdout_use(use_directory, claim)
+    elif args.holdout_use_directory is not None:
+        raise ValueError("calibration scoring does not accept --holdout-use-directory")
+    report = score_authenticated_skill_comparison(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        sealed,
+        split,
+        claim,
+    )
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_comparison.scored",
+                "path": str(output),
+                "claim_path": str(claim_path) if claim_path is not None else None,
+                "skill_comparison_report_sha256": (
+                    report.skill_comparison_report_sha256
+                ),
+                "split": report.split,
+                "passes_registered_gate": report.passes_registered_gate,
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
             }
         )
     )
@@ -1615,6 +1780,8 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-resolve-adjudications": _resolve_adjudications_command,
         "eval-compile-dual": _compile_dual_command,
         "eval-score-dual": _score_dual_command,
+        "eval-seal-skill-comparison": _seal_skill_comparison_command,
+        "eval-score-skill-comparison": _score_skill_comparison_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import canonical_bytes
-from mos_eisley.core.skills import SkillRoster, SkillRosterAssignment
+from mos_eisley.core.skills import PromptAsset, SkillRoster, SkillRosterAssignment
 from mos_eisley.demo import demo_inputs
 from mos_eisley.run.skills import SkillCatalog, bind_skill_roster, discover_skills
 from mos_eisley.run.store import Manifest, load_run, load_skill_run_manifest
@@ -42,6 +42,41 @@ def write_skill(
 
 
 class SkillDiscoveryTests(TestCase):
+    def test_only_persona_skills_become_exact_prompt_assets(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_skill(root, "procedure", "Run a bounded procedure.")
+            write_skill(
+                root,
+                "persona",
+                "Review adversarially.",
+                sidecar="version: 1\nkind: persona\n",
+            )
+            catalog = discover_skills(user_roots=(root,))
+            activated = {
+                item.identity.name: catalog.activate(item.identity.qualified_reference)
+                for item in catalog.descriptors
+            }
+            prompt = activated["persona"].as_prompt_asset()
+            self.assertEqual(prompt.mode, "skill")
+            self.assertEqual(prompt.instructions, "Review adversarially.")
+            self.assertEqual(prompt.skill, activated["persona"].descriptor.identity)
+            self.assertEqual(len(prompt.prompt_sha256), 64)
+            with self.assertRaisesRegex(ValueError, "only persona"):
+                activated["procedure"].as_prompt_asset()
+            with self.assertRaises(ValueError):
+                PromptAsset(
+                    mode="inline",
+                    instructions="Cannot claim package identity.",
+                    skill=prompt.skill,
+                )
+            with self.assertRaisesRegex(ValueError, "differ from its identity"):
+                PromptAsset(
+                    mode="skill",
+                    instructions="Substituted instructions.",
+                    skill=prompt.skill,
+                )
+
     def test_standard_skill_discovers_metadata_then_activates_snapshot(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
