@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add independent Ed25519 installation authority for exact quarantined persona
+  packages, binding the latest release-control anchor, staging manifest, one-use
+  claim-store identity, installation target, action, and bounded validity window.
+- Add a private durable at-most-once claim ledger and guarded consumption primitive
+  that burns authority before side effects and holds release control through the
+  caller's commit, while granting no activation or configuration mutation.
+
 - Add a private content-addressed skill quarantine store with exact post-write archive
   reconstruction, semantic verification, completion-marker-last transactions,
   durable atomic rename, idempotent verified reuse, and bounded crash inventory.

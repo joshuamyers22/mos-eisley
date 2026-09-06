@@ -1852,3 +1852,36 @@ deletes, or promotes partial state automatically. Every contract and event conti
 to deny installation, activation, and configuration mutation, and no runtime code
 reads the quarantine store. Independent signed install authority, atomic default
 switching and recovery, and post-install drift evidence remain future gates.
+
+### 25.10 Implemented independent one-use installation authorization
+
+A separate installation-authority policy enrolls sorted unique Ed25519 identities
+and keys that must be disjoint from the release controllers, promotion authorities,
+graders, and resolvers in both evidence splits. It pins the exact quarantine-store
+policy, release-control anchor policy, one private claim-store identity, one inert
+installation-target identity, its own validity window, and a maximum decision life.
+
+The derived signable decision reverifies the entire release lineage and every staged
+byte. It binds the exact staging manifest, archive, source-qualified persona, candidate
+or rollback action, signed control, latest anchor entry, release evidence, claim store,
+target, and UTC window. Authentication recomputes that decision, checks the independent
+signature, reauthenticates all sources at the host clock, and again requires the same
+latest anchor entry. The receipt grants installation permission for only that exact
+target while fixing activation and configuration mutation to false; it records that
+installation has not occurred.
+
+A private SQLite claim ledger is pinned back to the exact authority policy. Guarded
+consumption reverifies the authenticated receipt, burns the signed decision digest
+durably before any caller side effect, retains the exact receipt used, and keeps the
+release-control read transaction open across the
+caller's commit window. Exceptions never refund the claim, so ambiguous or failed
+attempts require a newly signed authorization. The raw claim operation is private and
+there is deliberately no standalone consume CLI that could waste permission without
+an installer transaction.
+
+This is an authority and at-most-once substrate, not deployment. No installed-package
+store, default pointer, runtime lookup, completed-install receipt, automatic recovery,
+or drift monitor exists. Local claim and control databases can still be rolled back or
+cloned by their owner without an external monotonic witness. The next slice must define
+the atomic installation/default transaction, complete-or-incomplete recovery evidence,
+and post-commit verification before any authorized prompt reaches a model request.

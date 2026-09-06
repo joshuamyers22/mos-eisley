@@ -107,9 +107,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    or rollback bytes can now be transactionally materialized into a private
    content-addressed quarantine store with a latest-anchor commit guard, full
    post-write verification, and conservative crash inventory. Quarantine grants no
-   installation or configuration authority. Next: independent one-use installation
-   authorization, atomic default changes and recovery, then post-promotion drift
-   evidence.
+   installation or configuration authority. Independent Ed25519 installation
+   authority now binds an exact staged manifest, target, latest control entry, and
+   one private at-most-once claim store. Guarded claim consumption burns permission
+   before a side effect and holds release control through the future installer's
+   commit window, but performs no installation or activation. Next: the atomic
+   installation/default transaction and recovery, then post-promotion drift evidence.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

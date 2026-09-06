@@ -154,6 +154,14 @@ from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
+from mos_eisley.run.skill_installation import (
+    SignedSkillInstallationDecision,
+    SkillInstallationAuthorityPolicy,
+    SkillInstallationClaimStore,
+    SkillInstallationClaimStorePolicy,
+    authenticate_skill_installation,
+    make_skill_installation_decision,
+)
 from mos_eisley.run.skill_release import (
     SkillReleaseEvidence,
     bind_skill_release_evidence,
@@ -755,6 +763,81 @@ def parser() -> argparse.ArgumentParser:
             eval_stage_skill.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
+    eval_derive_installation = subcommands.add_parser(
+        "eval-derive-skill-installation",
+        help="Derive exact one-use skill installation authority for signing",
+    )
+    eval_authenticate_installation = subcommands.add_parser(
+        "eval-authenticate-skill-installation",
+        help="Authenticate exact one-use skill installation authority",
+    )
+    for installation_parser in (
+        eval_derive_installation,
+        eval_authenticate_installation,
+    ):
+        for option in (
+            "dataset",
+            "plan",
+            "sealed-comparison",
+            "holdout-use-claim",
+            "calibration-report",
+            "holdout-report",
+            "promotion-receipt",
+            "promotion-authority-policy",
+            "archive",
+            "release-evidence",
+            "control-authority-policy",
+            "authenticated-control",
+            "control-anchor",
+            "staging-store",
+            "installation-authority-policy",
+            "output",
+        ):
+            installation_parser.add_argument(f"--{option}", type=Path, required=True)
+        installation_parser.add_argument("--rollback-archive", type=Path)
+        installation_parser.add_argument(
+            "--action", choices=("candidate", "rollback"), required=True
+        )
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                installation_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    eval_derive_installation.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_installation.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_installation.add_argument(
+        "--signed-installation", type=Path, required=True
+    )
+    installation_claim_create = subcommands.add_parser(
+        "skill-installation-claim-store-create",
+        help="Create a private at-most-once skill installation claim store",
+    )
+    installation_claim_create.add_argument("path", type=Path)
+    installation_claim_create.add_argument("--store-policy", type=Path, required=True)
+    installation_claim_create.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    installation_claim_status = subcommands.add_parser(
+        "skill-installation-claim-store-status",
+        help="Verify and inspect consumed skill installation authorities",
+    )
+    installation_claim_status.add_argument("--store", type=Path, required=True)
+    installation_claim_status.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -1916,6 +1999,213 @@ def _stage_skill_release_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_skill_installation_runtime(
+    args: argparse.Namespace,
+) -> tuple[
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillStagingStore,
+    SkillInstallationAuthorityPolicy,
+]:
+    authenticated_control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    return authenticated_control, anchor, staging_store, installation_policy
+
+
+def _derive_skill_installation_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    decision = make_skill_installation_decision(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        installation_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "staging_manifest_sha256": decision.staging_manifest_sha256,
+                "archive_sha256": decision.archive_sha256,
+                "action": decision.action,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_use_required": decision.one_use_required,
+                "authenticated": False,
+                "installation_authorized": decision.installation_authorized,
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_installation_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    signed = SignedSkillInstallationDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_installation), 256_000)
+    )
+    authorization = authenticate_skill_installation(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        signed,
+        installation_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "archive_sha256": authorization.archive_sha256,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_use_required": authorization.one_use_required,
+                "installation_authorized": authorization.installation_authorized,
+                "installation_performed": authorization.installation_performed,
+                "activation_authorized": authorization.activation_authorized,
+                "configuration_mutation_authorized": (
+                    authorization.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installation_claim_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillInstallationClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    authority_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstallationClaimStore.create(
+        cast(Path, args.path), store_policy, authority_policy
+    )
+    snapshot = store.snapshot(authority_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.claim_store_created",
+                "path": str(store.path),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "claims": len(snapshot.claims),
+                "installation_performed": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installation_claim_store_status_command(args: argparse.Namespace) -> int:
+    authority_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstallationClaimStore(cast(Path, args.store))
+    snapshot = store.snapshot(authority_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.claim_store_status",
+                "path": str(store.path),
+                "store_id": snapshot.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "claims": [item.model_dump(mode="json") for item in snapshot.claims],
+                "installation_performed": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -2675,6 +2965,16 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-staging-store-create": _skill_staging_store_create_command,
         "skill-staging-store-status": _skill_staging_store_status_command,
         "eval-stage-skill-release": _stage_skill_release_command,
+        "eval-derive-skill-installation": _derive_skill_installation_command,
+        "eval-authenticate-skill-installation": (
+            _authenticate_skill_installation_command
+        ),
+        "skill-installation-claim-store-create": (
+            _skill_installation_claim_store_create_command
+        ),
+        "skill-installation-claim-store-status": (
+            _skill_installation_claim_store_status_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
