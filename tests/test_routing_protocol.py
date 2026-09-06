@@ -44,6 +44,7 @@ def study_inputs(
     permissive_gate: bool = False,
     max_mean_cost_microusd: int | None = None,
     max_p95_latency_ms: int | None = None,
+    routes: tuple[RouteCandidate, ...] | None = None,
 ) -> tuple[EvaluationDataset, SweepPlan, PromptFeatureManifest, RoutingStudyProtocol]:
     defect = ExpectedFinding(
         id="boundary-defect",
@@ -71,7 +72,7 @@ def study_inputs(
         )
     )
     dataset = EvaluationDataset(id="routing-study", cases=cases)
-    routes = (
+    selected_routes = routes or (
         RouteCandidate(
             backend="fixture",
             provider="fixture",
@@ -93,7 +94,7 @@ def study_inputs(
     )
     plan = make_plan(
         dataset,
-        CandidateGrid(routes=routes),
+        CandidateGrid(routes=selected_routes),
         1,
         7,
         EvaluationGate(
@@ -128,7 +129,7 @@ def study_inputs(
         dataset_sha256=dataset.dataset_sha256,
         assignments=assignments,
     )
-    candidate_ids = tuple(sorted(route.candidate_id for route in routes))
+    candidate_ids = tuple(sorted(route.candidate_id for route in selected_routes))
     protocol = RoutingStudyProtocol(
         study_id="critic-routing-v1",
         dataset_sha256=dataset.dataset_sha256,
@@ -146,7 +147,7 @@ def study_inputs(
                 role="critic",
                 minimum_rationale="Both reviewed candidates satisfy the critic floor.",
                 permitted_candidate_ids=candidate_ids,
-                fallback_candidate_id=routes[1].candidate_id,
+                fallback_candidate_id=selected_routes[1].candidate_id,
             ),
         ),
     )

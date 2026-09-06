@@ -168,6 +168,39 @@ class SpendLedger:
                 status=row[3],
             )
 
+    @contextmanager
+    def guard_held(
+        self, expected: LedgerEntry
+    ) -> Generator[LedgerEntryStatus, None, None]:
+        """Hold a verified reservation read lock across a caller's local commit."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _policy(connection) != self.policy:
+                raise ValueError("spending ledger identity or ceiling changed")
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status "
+                "FROM entries WHERE entry_id = ?",
+                (expected.entry_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("spending reservation is absent")
+            status = LedgerEntryStatus(
+                entry_id=expected.entry_id,
+                reservation_sha256=row[0],
+                reserved_microusd=row[1],
+                charged_microusd=row[2],
+                status=row[3],
+            )
+            if (
+                status.reservation_sha256 != expected.reservation_sha256
+                or status.reserved_microusd != expected.reserved_microusd
+                or status.charged_microusd != expected.reserved_microusd
+                or status.status != "held"
+            ):
+                raise ValueError("spending reservation is not the exact held entry")
+            yield status
+
     def reserve(self, entry: LedgerEntry) -> None:
         with self._transaction() as connection:
             snapshot = self._snapshot(connection)

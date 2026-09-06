@@ -2005,10 +2005,33 @@ budget release. Failed inserts consume nothing; a crash after commit leaves auth
 burned and budget held.
 
 This is not dispatch. The routing preflight is exact-route matched and bound by the
-independent runtime signature, but its complete empirical source chain is not yet
-recomputed here. The existing provider transport cannot consume a pre-reserved entry
-and must not be composed because it would reserve twice. External monotonic state,
-full routing revalidation, broker admission, credentials, network send, response audit,
-settlement, and automatic rollback remain open. The next slice must build a broker that
-reverifies both control planes immediately before send and conservatively consumes and
-settles this exact held reservation without retry across ambiguity.
+independent runtime signature. Runtime policy schema version 2 and the preparation path
+now also pin and recompute its complete empirical source chain. The existing provider
+transport cannot consume a pre-reserved entry and must not be composed because it would
+reserve twice. External monotonic state, dispatch authority, credentials, network send,
+response audit, settlement, and automatic rollback remain open.
+
+### 25.15 Implemented full routing revalidation and guarded broker admission
+
+A pre-created admission-store policy pins one private store identity, both control
+anchors, the default store, and the spend ledger. The signed runtime-authority policy
+pins that complete policy, plus the routing activation-authority and control-anchor
+policies. Runtime signers must be independent of authorities and evaluators in both the
+skill and routing lineages.
+
+Preparation and broker admission now reconstruct the routing preflight from its full
+calibration, holdout, promotion, operational-signature, eligibility, and anchored
+control sources. The admission commit holds read locks on the exact latest routing
+control, exact latest skill release control, current default pointer, and exact held
+spend entry. A deterministic insert uniquely claims the prepared request, runtime
+decision, and existing ledger entry in the pinned admission store. It does not create
+a second reservation, and injected failures roll back only the admission while leaving
+the earlier conservative reservation held.
+
+Admission remains non-executing. It contains no request body, credential, or bearer
+capability, and every policy, artifact, status, and event denies provider dispatch,
+send, retry, and automatic release. Store copying/rollback, clock integrity, and
+organizational collusion remain external. The next slice must require independent
+dispatch authority, consume exactly one admission into a short-lived request-bound
+capability, recheck both controls and spend immediately before transfer, and record and
+settle the ambiguous send boundary without retry.
