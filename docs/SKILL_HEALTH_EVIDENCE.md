@@ -77,7 +77,9 @@ their owner without an external monotonic witness. Clock integrity, evidence
 collection, trust-policy distribution, signer custody and organizational independence,
 and alert delivery remain external responsibilities.
 
-`runtime_preflight_eligible: true` means only that this evidence may be presented to a
-future preflight. Every policy, observation, and result fixes runtime dispatch,
-activation, configuration mutation, and automatic rollback to false. No shipped
-runtime component consumes this artifact or the selected default.
+`runtime_preflight_eligible: true` means only that this evidence may be presented to
+the separately authorized, non-sending
+[runtime preparation](SKILL_RUNTIME_PREFLIGHT.md). Every policy, observation, and
+result fixes runtime dispatch, activation, configuration mutation, and automatic
+rollback to false. Preparation can reconstruct the selected prompt into a private
+artifact, but no shipped component sends it to a provider.

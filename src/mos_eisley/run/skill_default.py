@@ -7,7 +7,8 @@ import binascii
 import os
 import sqlite3
 import stat
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -690,6 +691,25 @@ class SkillDefaultStore:
             revisions=len(records),
             current=records[-1].pointer if records else None,
         )
+
+    @contextmanager
+    def guard_current(
+        self,
+        authority_policy: SkillDefaultAuthorityPolicy,
+        installed_store: SkillInstalledStore,
+        installation_policy: SkillInstallationAuthorityPolicy,
+    ) -> Generator[SkillDefaultPointer, None, None]:
+        """Hold a verified current-pointer read lock across a caller commit."""
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("skill default store identity or policy changed")
+            records = self._records(
+                connection, authority_policy, installed_store, installation_policy
+            )
+            if not records:
+                raise ValueError("skill default store has no current pointer")
+            yield records[-1].pointer
 
     def _select_under_guard(
         self,
