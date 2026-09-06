@@ -7,8 +7,9 @@ yet recorded a credentialed conformance result.
 
 `build_openai_conformance_payload` requires one exact sample in an
 `ExecutionBatch`, an `openai` route, and a reviewed spending policy for the same
-model. The model and reasoning effort come from the assignment. The output-token
-ceiling comes from the policy. The user content is only canonical `Brief` JSON;
+model. The model, reasoning effort, and exact instructions come from the assignment.
+The output-token ceiling comes from the policy. The user content is only canonical
+`Brief` JSON;
 private labels, case IDs, split, mapping, expected findings, credentials, endpoints,
 and spending authority are not included. Tools are empty, parallel tool calls are
 disabled, storage is false, and input truncation is disabled.
