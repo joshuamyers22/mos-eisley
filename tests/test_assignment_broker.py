@@ -4,11 +4,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase
 
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
 from mos_eisley.run.broker_audit import (
     BrokerAudit,
+    BrokerOutcome,
     inspect_broker_recovery,
     verify_broker_audit,
 )
@@ -17,11 +18,48 @@ from mos_eisley.run.evaluation_broker import (
     make_assignment_broker,
 )
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
+from mos_eisley.run.store import private_write
 from tests.test_evaluation_execution import inputs, make_plan
 from tests.test_openai_spend import FakeTransport, policy, request
 
 
 class AssignmentBrokerTests(IsolatedAsyncioTestCase):
+    def test_legacy_outcome_remains_readable_but_has_no_latency(self) -> None:
+        outcome = BrokerOutcome.model_validate(
+            {
+                "schema_version": 1,
+                "admission_sha256": "a" * 64,
+                "status": "response_received",
+                "response_sha256": "b" * 64,
+            }
+        )
+        self.assertIsNone(outcome.latency_ms)
+
+    def test_legacy_outcome_is_recoverable_but_cannot_supply_latency(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, transport = self._transport(root)
+            assert transport.ledger is not None
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            binding = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            audit = BrokerAudit(root / "audit", binding)
+            audit.admit()
+            admission = (root / "audit" / "admission.json").read_bytes()
+            legacy = BrokerOutcome(
+                schema_version=1,
+                admission_sha256=digest(admission),
+                status="response_received",
+                response_sha256="b" * 64,
+            )
+            private_write(root / "audit" / "outcome.json", canonical_bytes(legacy))
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual(state.phase, "finished")
+            self.assertIsNone(state.latency_ms)
+
     def setUp(self) -> None:
         data, grid, gate = inputs()
         self.plan = make_plan(data, grid, 1, 0, gate)
