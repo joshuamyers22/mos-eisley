@@ -2103,5 +2103,33 @@ the full reservation as a blocking violation. The ledger commits before hash-onl
 outcome metadata, so either cross-store failure remains conservatively accounted
 behind the durable marker. Recovery never authorizes retry or automatic release.
 
-Credentialed conformance, external billing reconciliation, and durable
-content-verified response/result publication remain open.
+Credentialed conformance and external billing reconciliation remain open. Durable
+content-verified response/result publication is the separately pinned next layer.
+
+### 25.19 Implemented content-verified runtime response publication
+
+Provider-transaction policy schema version 2 now pins one complete response-store
+policy. That policy binds the exact transaction-store identity, capacity, individual
+and aggregate byte limits while structurally denying reasoning or provider-credential
+publication, provider retry, and automatic budget release.
+
+Publication accepts only the exact stored `response_received` transaction with its
+existing ledger entry settled. It recomputes response bytes, request and response
+digests, full preparation/issuance/route/ledger lineage, model, provider request ID,
+stop reason, token usage, and locally charged cost. The exact canonical provider
+response, reasoning-free result, manifest, send intent, and outcome commit together in
+one private rollback-journal SQLite transaction. Unique identities reject replay.
+
+Every subsequent status or result read repeats canonical-record, digest, lineage, and
+result-to-raw-response verification. The public result accepts only assistant text;
+reasoning, including encrypted provider state, remains retained in the private raw
+record. Tool-bearing and reasoning-only responses are not publishable. The CLI can
+create and inspect the store and read verified results but has no raw-response export.
+Provider credentials are not accepted or added, but model-authored text remains
+untrusted and may require a separate sensitive-output policy.
+
+This closes local durable result publication, not external proof. Same-UID access,
+trusted transport/parser behavior, store rollback/cloning, retention policy, hardware
+durability, provider authorship, invoice reconciliation, and credentialed OpenAI
+conformance remain open. A separately authorized credentialed run must traverse this
+exact zero-retry boundary before stronger operational claims are made.

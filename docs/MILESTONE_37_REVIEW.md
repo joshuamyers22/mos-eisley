@@ -26,7 +26,7 @@ billing finality, or safe retry after any committed intent.
 
 ## Follow-on requirement
 
-Add credentialed OpenAI conformance for the exact transaction boundary and a durable,
-content-verified response/result publication step. Publication must correlate the
-provider response, settled outcome, request identity, and runtime lineage without
-weakening ambiguous-state handling or exposing reasoning/credentials unintentionally.
+The durable, content-verified response/result publication step is implemented in
+milestone 38. Next run credentialed OpenAI conformance through the exact transaction
+and publication boundary without weakening ambiguous-state handling or exposing
+reasoning or credentials.

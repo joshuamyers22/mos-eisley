@@ -196,6 +196,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Skill runtime provider transaction](docs/SKILL_RUNTIME_PROVIDER_TRANSACTION.md)
   that commits an fsynced before-send marker, invokes one exact zero-retry OpenAI
   transport request, and conservatively settles the existing reservation.
+- [Skill runtime response publication](docs/SKILL_RUNTIME_RESPONSE_PUBLICATION.md)
+  that atomically retains exact private provider bytes while exposing only a
+  content-verified, reasoning-free result bound to settled runtime lineage.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -273,6 +276,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [independent skill runtime dispatch authority](docs/SKILL_RUNTIME_DISPATCH_AUTHORITY.md),
 [ephemeral skill runtime broker grant](docs/SKILL_RUNTIME_BROKER_GRANT.md),
 [skill runtime provider transaction](docs/SKILL_RUNTIME_PROVIDER_TRANSACTION.md),
+[skill runtime response publication](docs/SKILL_RUNTIME_RESPONSE_PUBLICATION.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [skill-release control adversarial review](docs/MILESTONE_27_REVIEW.md),
@@ -286,6 +290,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [runtime dispatch-authority adversarial review](docs/MILESTONE_35_REVIEW.md),
 [runtime broker-grant adversarial review](docs/MILESTONE_36_REVIEW.md),
 [runtime provider-transaction adversarial review](docs/MILESTONE_37_REVIEW.md),
+[runtime response-publication adversarial review](docs/MILESTONE_38_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

@@ -63,11 +63,13 @@ def _provider_request_sha256(payload: dict[str, JsonValue]) -> str:
     )
 
 
-def _json_sha256(payload: dict[str, JsonValue]) -> str:
-    return digest(_json_bytes(payload))
+def skill_runtime_provider_response_sha256(payload: dict[str, JsonValue]) -> str:
+    """Hash the exact bounded JSON representation used by runtime persistence."""
+
+    return digest(skill_runtime_provider_response_bytes(payload))
 
 
-def _json_bytes(payload: dict[str, JsonValue]) -> bytes:
+def skill_runtime_provider_response_bytes(payload: dict[str, JsonValue]) -> bytes:
     return json.dumps(
         payload,
         sort_keys=True,
@@ -89,7 +91,7 @@ class SkillRuntimeProviderTransport(Protocol):
 
 
 class SkillRuntimeProviderTransactionStorePolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["skill_runtime_provider_transaction_store_policy"] = (
         "skill_runtime_provider_transaction_store_policy"
     )
@@ -99,6 +101,7 @@ class SkillRuntimeProviderTransactionStorePolicy(Contract):
     skill_control_anchor_policy_sha256: Digest
     default_store_policy_sha256: Digest
     spend_ledger_id: Digest
+    response_store_policy_sha256: Digest
     max_transactions: Annotated[int, Field(ge=1, le=100_000)] = 10_000
     max_provider_wait_seconds: Annotated[int, Field(ge=1, le=60)] = 60
     may_own_one_pre_reserved_provider_request: Literal[True] = True
@@ -582,7 +585,9 @@ def _outcome(
         charged_microusd=charged,
         provider_response_observed=response is not None,
         provider_response_sha256=(
-            _json_sha256(response) if response is not None else None
+            skill_runtime_provider_response_sha256(response)
+            if response is not None
+            else None
         ),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -683,7 +688,10 @@ async def execute_skill_runtime_provider_transaction(
             response = copy.deepcopy(
                 _RESPONSE.validate_python(raw_response, strict=True)
             )
-            if len(_json_bytes(response)) > MAX_OPENAI_RESPONSE_BYTES:
+            if (
+                len(skill_runtime_provider_response_bytes(response))
+                > MAX_OPENAI_RESPONSE_BYTES
+            ):
                 raise ProviderError("provider response exceeds byte limit")
     except asyncio.CancelledError:
         outcome = _outcome(intent, "uncertain", reserved)
@@ -699,7 +707,7 @@ async def execute_skill_runtime_provider_transaction(
             ) from settlement_error
         raise ProviderError("skill runtime provider response unavailable") from error
 
-    response_hash = _json_sha256(response)
+    response_hash = skill_runtime_provider_response_sha256(response)
     usage = response.get("usage")
     if not isinstance(usage, dict):
         outcome = _outcome(intent, "uncertain", reserved, response)

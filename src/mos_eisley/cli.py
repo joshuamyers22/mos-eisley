@@ -245,6 +245,10 @@ from mos_eisley.run.skill_runtime_provider import (
     SkillRuntimeProviderTransactionStorePolicy,
     inspect_skill_runtime_provider_transaction,
 )
+from mos_eisley.run.skill_runtime_response import (
+    SkillRuntimeResponseStore,
+    SkillRuntimeResponseStorePolicy,
+)
 from mos_eisley.run.skill_staging import (
     SkillStagingStore,
     SkillStagingStorePolicy,
@@ -1380,6 +1384,33 @@ def parser() -> argparse.ArgumentParser:
         skill_runtime_provider_status.add_argument(
             f"--{option}", type=Path, required=True
         )
+    skill_runtime_response_store_create = subcommands.add_parser(
+        "skill-runtime-response-store-create",
+        help="Create a private raw-response and safe publication store",
+    )
+    for option in (
+        "path",
+        "response-store-policy",
+        "provider-transaction-store",
+    ):
+        skill_runtime_response_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_response_status = subcommands.add_parser(
+        "skill-runtime-response-store-status",
+        help="Inspect publication counts without exporting raw responses",
+    )
+    skill_runtime_response_status.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    skill_runtime_response_result = subcommands.add_parser(
+        "skill-runtime-response-result",
+        help="Read one verified reasoning-free runtime result",
+    )
+    skill_runtime_response_result.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    skill_runtime_response_result.add_argument("--publication-id", required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -3864,6 +3895,58 @@ def _skill_runtime_provider_transaction_status_command(
     return 0
 
 
+def _skill_runtime_response_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillRuntimeResponseStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.response_store_policy), 64_000)
+    )
+    store = SkillRuntimeResponseStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeProviderTransactionStore(
+            cast(Path, args.provider_transaction_store)
+        ),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_response_store_status_command(args: argparse.Namespace) -> int:
+    status = SkillRuntimeResponseStore(cast(Path, args.response_store)).status()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_store_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_response_result_command(args: argparse.Namespace) -> int:
+    publication, result = SkillRuntimeResponseStore(
+        cast(Path, args.response_store)
+    ).load(cast(str, args.publication_id))
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_result",
+                "publication": publication.model_dump(mode="json"),
+                "result": result.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4675,6 +4758,13 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "skill-runtime-provider-transaction-status": (
             _skill_runtime_provider_transaction_status_command
         ),
+        "skill-runtime-response-store-create": (
+            _skill_runtime_response_store_create_command
+        ),
+        "skill-runtime-response-store-status": (
+            _skill_runtime_response_store_status_command
+        ),
+        "skill-runtime-response-result": _skill_runtime_response_result_command,
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

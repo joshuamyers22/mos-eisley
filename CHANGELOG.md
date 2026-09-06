@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a pinned private skill-runtime response store that atomically retains exact
+  provider response bytes and publishes one content-verified, reasoning-free result
+  linked to the settled transaction, issuance, route, request, and ledger entry.
+- Reject response/result substitution, tool-bearing or reasoning-only publication,
+  replay, partial commits, and edited records; expose only verified counts and
+  text-only results through safe CLI commands with no raw-response export.
+
 - Add a provider-owning skill-runtime transaction that burns one exact ephemeral
   capability into an fsynced before-send marker before invoking a bounded,
   zero-retry OpenAI transport.
