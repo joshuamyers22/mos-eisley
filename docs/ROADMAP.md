@@ -27,6 +27,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    and contract tests. Shared local cross-process spending admission is implemented.
    Next: credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
+   Define a versioned provider-adapter interface and extensible model catalog so
+   new providers/backends and model entries can be added without rewriting the
+   agent loop. Keep explicit route identities, capability/pricing provenance, and
+   per-backend conformance; catalog discovery proposes entries without enabling
+   them. These extension contracts are planned work (plan §§4.6 and 5.1).
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.
@@ -90,6 +95,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
+   Define a replaceable selection interface over controller-filtered eligible
+   routes: manual choices, per-role profiles, and calibrated automatic strategies.
+   Expose session/task overrides and explainable decisions; new strategies retain
+   quality, spending, privacy, and activation gates. See plan §7.6 for planned
+   interface, model-switching, fallback, and acceptance requirements.
 5. **In progress — prompt skill evidence:** exact instructions now participate in
    evaluation candidate and request identity. A sealed two-arm protocol enforces a
    prompt-only persona-skill treatment, paired independent-group statistics, full
@@ -109,7 +119,8 @@ contract; comprehensive enforcement and remote adapters remain planned work.
 9. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,
-   redaction, typed lifecycle events and trusted endpoint/credential contracts;
+   redaction, typed lifecycle events and trusted endpoint/credential contracts,
+   plus E1 trusted provider/selector extension loading and model catalog overlays;
    then bounded subagents; then E3 brokered web/image evidence plus PDF and Word
    (`.docx`/`.doc`) reading, scanned-document OCR, and XLSX/CSV reading and bounded
    tabular analysis for conversations and reviews, with text/table extraction,

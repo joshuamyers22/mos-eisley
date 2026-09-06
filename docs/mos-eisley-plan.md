@@ -177,6 +177,33 @@ references, or inject headers. Login/logout commands modify only the selected
 trusted credential store; tokens and resolved headers never enter manifests,
 events, prompts, or replay artifacts.
 
+### 4.6 Provider extensibility
+
+The initial three providers are starting integrations, not a closed list. Define a
+versioned provider-adapter interface and explicit registration mechanism so an
+additional provider or backend can be added without changing the agent loop,
+review pipeline, or selection engine. Keep provider SDK dependencies optional and
+provider wire formats inside the adapter. The contract covers canonical requests
+and responses, capability reporting, effort mapping, usage/cost accounting, bounded
+timeouts and cancellation, and normalized errors; unsupported features must be
+reported explicitly rather than silently approximated.
+
+Register adapters through trusted user/admin configuration with stable provider and
+backend IDs, compatible interface versions, and pinned implementation digests.
+Executable adapter packages follow §24.3 supply-chain controls and execute only in
+the provider/broker boundary with scoped credentials and network access. Project
+files and model output cannot install or load adapters. An OpenAI-compatible API
+still requires its own endpoint identity, capability record, and conformance evidence
+under §4.5; compatibility does not confer equivalence or approval.
+
+Ship a reusable adapter contract suite and development guide, including a fixture
+adapter that demonstrates adding a provider without edits to core dispatch code.
+Live eligibility requires endpoint/data policy, credentialed conformance, and
+spending checks; automatic selection additionally requires §7.3 evaluation evidence.
+Design these interfaces alongside the core provider work; deliver external adapter
+loading later in E1 after the existing quality and containment gates. This is planned
+extensibility, not a claim that arbitrary providers are currently supported.
+
 ---
 
 ## 5. Model registry
@@ -221,6 +248,27 @@ Three facts everything downstream must respect:
 3. **Sonnet 5's tokenizer is denser** than 4.6's. Any shared cross-model token estimate is wrong; use each provider's counting endpoint.
 
 Pin exact model IDs. Never ship an alias as a default.
+
+### 5.1 Extensible model catalog
+
+Adding a model on an existing backend should normally require a validated registry
+entry and conformance evidence, not core-code changes. Key routes by provider,
+backend/endpoint, and exact model ID so identical vendor model names on different
+services cannot collide. Version the catalog schema and allow trusted user-owned
+overlays with explicit precedence; reject duplicate or ambiguous route identities.
+Record input modalities, tool/structured-output support, context and output limits,
+effort mappings, counting method, reviewed pricing and freshness, lifecycle status,
+and conformance provenance. Unknown capabilities are ineligible for requirements
+that depend on them.
+
+Provider catalog discovery is an explicit brokered refresh that proposes entries
+for validation. It cannot silently enable a model, change defaults, or replace a
+pinned model with an alias. `mos models` should expose configured routes, capability
+and availability status, and why a route is excluded. Keep account availability
+separate from static capabilities. Deprecation, removal, pricing changes, or material
+capability drift must invalidate affected eligibility and calibration as appropriate;
+retain prior snapshots for historical replay. New behavior beyond the adapter
+contract requires a versioned adapter change rather than opaque registry code.
 
 ---
 
@@ -440,6 +488,45 @@ failure gets a bounded format-repair attempt at the same route; it is not eviden
 that harder reasoning is required. A model's self-reported confidence never triggers
 escalation by itself. Both attempts and the trigger are logged. Keep an escalation
 only when held-out evaluation shows positive payoff after added cost and latency.
+
+### 7.6 Extensible selection strategies
+
+Separate route eligibility from selection strategy. A trusted resolver first
+filters the catalog by provider/data policy, current account availability,
+capabilities and modalities, context/output needs, role minimums, conformance,
+spending limits, and required evidence. A versioned selection interface then
+receives the eligible route snapshot, permitted task features, role, user
+preferences, and budget, and returns a concrete route and effort with a structured
+reason or an explicit no-route result. The controller rechecks current eligibility
+and reserves spend at dispatch; a selector cannot grant authority or call providers.
+
+Support explicit manual selection, named per-role profiles with fixed routes and
+fallbacks, and the empirically calibrated strategy in §7.3. Make the strategy
+replaceable without rewriting provider adapters or the agent loop. Future selectors
+may optimize cost, latency, or quality among qualified candidates, but each new
+automatic strategy must pass preregistered held-out evaluation and activation gates.
+Executable selector extensions use the same trusted registration, versioning,
+revocation, and supply-chain controls as adapters, with no credentials or network
+access. They receive only the owner's permitted features and selection aggregates
+under §17, never another user's history.
+
+Expose provider/backend, model, effort, and selection profile in the planned CLI and
+conversation controls. Allow per-session defaults and explicit per-task/role
+overrides within trusted policy; manual choices cannot bypass eligibility or spend
+limits. Model switches occur at safe turn boundaries with an explicit context
+handoff: never forward provider-specific opaque reasoning to a different route or
+send conversation content to an unapproved provider. Preserve the frozen route for
+an in-flight review. Unavailable routes fail visibly or use only an explicitly
+configured, eligible fallback; record every substitution.
+
+Record strategy ID/version/digest, registry snapshot, requested and resolved route,
+effort, candidate exclusions, and decision reason in owner-scoped run artifacts.
+`mos policy check` must explain selection using the same resolver without dispatch.
+Verify manual overrides, new model registration, strategy replacement, stale
+catalogs/evidence, unsupported modalities, budget exhaustion, route collisions,
+fallbacks, and replay of recorded decisions. Define the interface with the routing
+work; external selector loading belongs to later E1 and does not enable unvalidated
+automatic routing.
 
 ---
 
@@ -1611,6 +1698,7 @@ treated as design hypotheses.
 | XLSX and CSV inputs | **Adopt later in E3** | Read workbook sheets and delimited tables for bounded analysis with sheet/cell or record/column citations, explicit parsing assumptions, inert formulas, and the same artifact/isolation controls (§19.6). |
 | Cached web search | **Adopt after containment** | Only the trusted brief builder gets brokered network access. Critics consume frozen, cited, untrusted artifacts; the cache includes provenance and freshness (§19.5). |
 | Endpoint and auth modes | **Adopt, hardened** | Use trusted endpoint records and typed credential references (§4.5), not arbitrary URL/header dictionaries. Require TLS/loopback exception, SSRF controls, conformance, and provider/data policy. |
+| Provider, model catalog, and selection extensibility | **Adopt, staged** | Define versioned adapter/catalog/selector contracts with the core provider and routing work; deliver trusted external adapter and selector loading in E1. Additional routes and strategies must satisfy existing conformance, eligibility, spending, and evaluation gates (§§4.6, 5.1, 7.6). |
 | Local open-weight models | **Keep out of v1** | Different branding does not prove independent training lineage. “Free per call” ignores hardware, energy, operations, and latency. Add a local endpoint only if blinded evaluation shows incremental coverage or acceptable cost/quality. |
 | Model-keyed capability defaults | **Reject** | Model labels such as “frontier,” “small,” or “cyber” are mutable and do not determine the OS authority a task needs. Policy is task/role/data based; a provider or model restriction may narrow authority, never raise it. |
 | Policy preflight | **Adopt** | `mos policy check` shares the dispatch resolver, explains provenance, and executes nothing (§16.1–16.2). |
@@ -1659,6 +1747,10 @@ These additions are not promoted to stable because they exist. Promotion require
 - network-broker SSRF/DNS-rebinding/redirect/cache-poisoning tests and proof that
   critics remain unable to open sockets;
 - endpoint conformance and data-policy approval for every new backend;
+- provider and selector extension contract suites demonstrating registration without
+  core-loop changes, version/identity validation, revocation, and no authority
+  escalation; catalog refresh cannot enable routes, and selection preflight/dispatch
+  must agree subject to explicit rejection when eligibility changes (§§4.6, 5.1, 7.6);
 - egress tests seeding credentials in prompts, tool output, events, MCP traffic, raw
   artifacts, and replay paths;
 - service-boundary authentication, rate-limit, cancellation, replay, and
@@ -1684,7 +1776,7 @@ gate, containment proof, or the trusted/untrusted configuration split in §23.8.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers cannot escalate authority; every endpoint passes conformance and data-policy checks |
+| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints, trusted provider/selector extension loading and model catalog overlays | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers and extensions cannot escalate authority; adapter/catalog/selector contract suites pass; every endpoint passes conformance and data-policy checks; automatic strategies remain evaluation-gated |
 | **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
 | **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts, PDF/Word reading, scanned-document OCR, and XLSX/CSV reading and bounded analysis for conversations and reviews | critics remain socketless; broker and cache adversarial suites pass; images, documents, and tabular inputs pass isolation/resource and cross-provider conformance; extraction/OCR and tabular parsing quality, source citations, and owner-scoped artifact handling meet §24.4 |
 | **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
