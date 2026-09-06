@@ -1947,3 +1947,33 @@ reads the pointer. Local database/control rollback or cloning, external monotoni
 post-selection health evidence, runtime consumption, drift monitoring, and automatic
 rollback remain open. The next slice adds post-promotion drift and health evidence
 before any selected prompt can reach a model request.
+
+### 25.13 Implemented signed post-selection health and drift eligibility
+
+A health-authority policy now pins the exact default/control/promotion trust roots and
+requires at least two independent Ed25519 identities. The identities and keys must be
+disjoint from each other by role and from every evaluator, resolver, promoter, release
+controller, installer, and default selector in the fully reverified source lineage.
+
+One signer fixes the exact current pointer, installed bytes, latest release-control
+entry, authenticated promotion holdout reference, measurement-protocol digest,
+freshness/lifetime limits, independent-group floor, and direction-aware numeric
+thresholds. A distinct observer signs the exact post-selection measurement window,
+evidence-bundle digest, group counts, confidence-bound rates in integer parts per
+million, complete-cost coverage and delta, and p95 latency delta.
+
+Issuance rebuilds promotion and release control, holds the latest local control guard,
+verifies the complete default revision chain and installed package, and accepts only
+the archive currently permitted by control. It rejects observations that predate
+selection, are future-dated or stale, have insufficient groups, fail the original
+registered health gate, or drift beyond the separately signed tolerances from the
+holdout report. The result expires at the earliest source or policy boundary.
+
+This remains evidence, not execution. The CLI accepts no private keys; the evidence
+bundle and measurement protocol are authenticated by digest but not fetched or
+recomputed. Local database rollback/cloning, clock integrity, continuous monitoring,
+alert delivery, runtime prompt loading, one-use dispatch, and automatic rollback remain
+open. Every artifact denies dispatch, activation, configuration mutation, and
+automatic rollback. The next slice must design a brokered one-use runtime preflight
+that binds a fresh request, exact pointer and prompt bytes, current health/control,
+route identity, and spending reservation atomically.

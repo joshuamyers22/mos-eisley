@@ -178,6 +178,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Atomic skill default selection](docs/SKILL_DEFAULT_SELECTION.md) with an independent
   signature, exact prior-pointer compare-and-swap, and one transaction for immutable
   consumption plus pointer mutation; no runtime reads it.
+- [Post-selection skill health and drift evidence](docs/SKILL_HEALTH_EVIDENCE.md)
+  with distinct policy/observer signatures, exact pointer and control binding, and
+  recomputed empirical thresholds; the expiring result grants no dispatch authority.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -249,6 +252,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [one-use skill installation authorization](docs/SKILL_INSTALLATION_AUTHORIZATION.md),
 [atomic inert skill installation](docs/SKILL_ATOMIC_INSTALLATION.md),
 [atomic skill default selection](docs/SKILL_DEFAULT_SELECTION.md),
+[post-selection skill health evidence](docs/SKILL_HEALTH_EVIDENCE.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [skill-release control adversarial review](docs/MILESTONE_27_REVIEW.md),
@@ -256,6 +260,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [skill installation-authorization adversarial review](docs/MILESTONE_29_REVIEW.md),
 [atomic skill-installation adversarial review](docs/MILESTONE_30_REVIEW.md),
 [atomic skill-default adversarial review](docs/MILESTONE_31_REVIEW.md),
+[skill health-evidence adversarial review](docs/MILESTONE_32_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
