@@ -225,6 +225,7 @@ from mos_eisley.run.skill_runtime_dispatch import (
     make_skill_runtime_dispatch_decision,
 )
 from mos_eisley.run.skill_runtime_grant import (
+    IssuedSkillRuntimeBrokerGrant,
     SkillRuntimeBrokerGrantStore,
     SkillRuntimeBrokerGrantStorePolicy,
     inspect_skill_runtime_broker_grant,
@@ -238,6 +239,11 @@ from mos_eisley.run.skill_runtime_preflight import (
     inspect_skill_runtime_preflight,
     make_skill_runtime_decision,
     prepare_signed_skill_runtime_request,
+)
+from mos_eisley.run.skill_runtime_provider import (
+    SkillRuntimeProviderTransactionStore,
+    SkillRuntimeProviderTransactionStorePolicy,
+    inspect_skill_runtime_provider_transaction,
 )
 from mos_eisley.run.skill_staging import (
     SkillStagingStore,
@@ -1345,6 +1351,35 @@ def parser() -> argparse.ArgumentParser:
         "spend-ledger",
     ):
         skill_runtime_grant_status.add_argument(f"--{option}", type=Path, required=True)
+    skill_runtime_provider_store_create = subcommands.add_parser(
+        "skill-runtime-provider-transaction-store-create",
+        help="Create a private durable before-send and outcome store",
+    )
+    for option in (
+        "path",
+        "provider-transaction-store-policy",
+        "broker-grant-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_provider_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_provider_status = subcommands.add_parser(
+        "skill-runtime-provider-transaction-status",
+        help="Inspect send-boundary recovery state without retry or release",
+    )
+    for option in (
+        "issued-broker-grant",
+        "broker-grant-store",
+        "provider-transaction-store",
+        "spend-ledger",
+    ):
+        skill_runtime_provider_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -3777,6 +3812,58 @@ def _skill_runtime_broker_grant_status_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _skill_runtime_provider_transaction_store_create_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimeProviderTransactionStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.provider_transaction_store_policy), 64_000)
+    )
+    store = SkillRuntimeProviderTransactionStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": ("evaluation.skill_runtime.provider_transaction_store_created"),
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_provider_transaction_status_command(
+    args: argparse.Namespace,
+) -> int:
+    issuance = IssuedSkillRuntimeBrokerGrant.model_validate_json(
+        read_bounded(cast(Path, args.issued_broker_grant), 256_000)
+    )
+    status = inspect_skill_runtime_provider_transaction(
+        issuance,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        SkillRuntimeProviderTransactionStore(
+            cast(Path, args.provider_transaction_store)
+        ),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.provider_transaction_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4581,6 +4668,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         ),
         "skill-runtime-broker-grant-status": (
             _skill_runtime_broker_grant_status_command
+        ),
+        "skill-runtime-provider-transaction-store-create": (
+            _skill_runtime_provider_transaction_store_create_command
+        ),
+        "skill-runtime-provider-transaction-status": (
+            _skill_runtime_provider_transaction_status_command
         ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,

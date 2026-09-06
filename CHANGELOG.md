@@ -4,6 +4,17 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a provider-owning skill-runtime transaction that burns one exact ephemeral
+  capability into an fsynced before-send marker before invoking a bounded,
+  zero-retry OpenAI transport.
+- Settle the already-held reservation at verified actual usage or retain full exposure
+  for provider errors, cancellation, timeout, malformed usage, pricing violations,
+  lost responses, and ambiguous cross-store failures; no outcome permits retry or
+  automatic budget release.
+- Add hash-only transaction recovery/status, safe store-management CLI commands, and
+  adversarial tests for exact-request binding, concurrency, crash boundaries, and
+  secret/prompt/response non-persistence.
+
 - Add a pinned durable broker-grant issuance store that consumes one exact dispatch
   claim while holding current routing, skill, default, admission, and spend guards.
 - Add a maximum-30-second memory-only 256-bit bearer with redacted representation,

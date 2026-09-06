@@ -72,12 +72,12 @@ always denies direct provider dispatch, send, retry, and automatic budget releas
 
 ## Deliberate limits
 
-Redemption is not a provider-send event. The next provider-owning transaction must
-accept the exact issuance and prepared request, recheck current controls and held
-spend, durably record intent before the first operation that might transfer data,
-consume the already reserved amount without reserving again, and conservatively
-settle response, rejection, cancellation, timeout, crash, and lost-response states.
-No missing outcome may authorize retry or budget release.
+Redemption alone is not a provider-send event. A separately pinned
+[provider-owning transaction](SKILL_RUNTIME_PROVIDER_TRANSACTION.md) now accepts the
+exact issuance and prepared request, rechecks current controls and held spend, and
+durably records intent before the first operation that might transfer data. It settles
+the already reserved amount without reserving again; no missing outcome authorizes
+retry or budget release.
 
 Capability delivery still requires a private authenticated channel. Process memory,
 same-UID inspection, clock integrity, database rollback/cloning, and host compromise

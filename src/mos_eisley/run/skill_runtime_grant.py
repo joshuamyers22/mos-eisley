@@ -8,7 +8,8 @@ import sqlite3
 import stat
 import threading
 import time
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -71,7 +72,7 @@ def _capability_sha256(capability: str) -> str:
 
 
 class SkillRuntimeBrokerGrantStorePolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["skill_runtime_broker_grant_store_policy"] = (
         "skill_runtime_broker_grant_store_policy"
     )
@@ -82,6 +83,7 @@ class SkillRuntimeBrokerGrantStorePolicy(Contract):
     skill_control_anchor_policy_sha256: Digest
     default_store_policy_sha256: Digest
     spend_ledger_id: Digest
+    provider_transaction_store_policy_sha256: Digest
     max_grants: Annotated[int, Field(ge=1, le=100_000)] = 10_000
     may_issue_one_request_bound_broker_grant: Literal[True] = True
     direct_provider_dispatch_authorized: Literal[False] = False
@@ -426,6 +428,25 @@ class SkillRuntimeBrokerGrantStore:
             if len(matches) > 1:
                 raise ValueError("broker grant issuance identity is not unique")
             return matches[0] if matches else None
+
+    @contextmanager
+    def guard_grant(
+        self, expected: IssuedSkillRuntimeBrokerGrant
+    ) -> Generator[IssuedSkillRuntimeBrokerGrant, None, None]:
+        """Hold an exact issuance read lock through a downstream durable commit."""
+
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _load_policy(connection) != self.policy:
+                raise ValueError("broker grant store identity changed")
+            matches = [
+                item
+                for item in self._records(connection)
+                if item.dispatch_decision_sha256 == expected.dispatch_decision_sha256
+            ]
+            if len(matches) != 1 or matches[0] != expected:
+                raise ValueError("broker grant issuance is not the exact stored record")
+            yield matches[0]
 
     def issue(
         self,
