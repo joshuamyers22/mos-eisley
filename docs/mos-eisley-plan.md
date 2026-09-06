@@ -1885,3 +1885,35 @@ or drift monitor exists. Local claim and control databases can still be rolled b
 cloned by their owner without an external monotonic witness. The next slice must define
 the atomic installation/default transaction, complete-or-incomplete recovery evidence,
 and post-commit verification before any authorized prompt reaches a model request.
+
+### 25.11 Implemented atomic inert installation and recovery evidence
+
+An installed-store policy now pins one exact installation-authority policy, quarantine
+store, at-most-once claim store, and opaque installation-target identity. Its private
+layout contains an immutable policy, owner-private cross-process lock, content-addressed
+completed packages, and bounded transaction directory. It has no default pointer or
+runtime reader.
+
+The installer preflights existing content and capacity before consuming authority,
+then reauthenticates the complete evaluation/promotion/release/staging chain under the
+latest-control guard. The claim is durably burned before writes. While that revocation
+guard remains held, the installed-store lock serializes a second inventory check,
+transaction creation, provenance files, exact payload writes, post-write semantic
+archive reconstruction, completion-manifest write, directory fsyncs, and atomic rename
+to the archive digest. Concurrent installs cannot exceed configured limits or overwrite
+an existing exact package. An already installed digest is rejected before consuming a
+new authorization when visible at preflight; a later race fails conservatively.
+
+Every completed package retains its exact authenticated authorization, consumed claim,
+quarantine manifest, intent, descriptor, and payload. Store loads reverify the external
+installation signature and rebuild the full archive from disk. The result alone records
+`installation_performed: true`; every store, intent, manifest, result, and event fixes
+default mutation, configuration mutation, activation, and runtime lookup to false.
+
+Read-only recovery inspection correlates durable claim-ledger entries with completed
+manifests and incomplete intents. It distinguishes `completed`, `incomplete`, and
+`claim_only`, and separately inventories transaction directories without an intent.
+It never retries, finalizes, deletes, refunds, or changes a default. Local owner rollback
+and cloning, same-UID path replacement, external monotonic state, default selection,
+runtime consumption, and drift monitoring remain open. The next slice requires a
+separate signed default-change authority and an atomic recoverable pointer transaction.

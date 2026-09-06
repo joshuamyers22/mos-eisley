@@ -89,9 +89,8 @@ Status reports whether its intent and completion marker exist, but never resumes
 deletes, or finalizes it automatically. A completed package appears only at a
 content-addressed `packages/` path and is fully reverified on every inventory/load.
 
-The store is quarantine evidence, not a trusted runtime search path. There is no
-signed installation authority, default-persona pointer, overwrite operation,
-uninstaller, automatic crash recovery, external anti-rollback witness, post-stage
-health check, or drift monitor. A later installer must consume an exact verified
-staging manifest in a separate one-use transaction and preserve the latest-control
-guard through its configuration commit.
+The store is quarantine evidence, not a trusted runtime search path. A separate signed
+one-use authority and atomic inert installer now consume exact verified staging bytes
+while preserving the latest-control guard, but there is still no default-persona
+pointer, overwrite operation, uninstaller, automatic crash recovery, external
+anti-rollback witness, post-install health check, or drift monitor.

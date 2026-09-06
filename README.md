@@ -172,6 +172,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [One-use skill installation authorization](docs/SKILL_INSTALLATION_AUTHORIZATION.md)
   that binds an independent signature to one exact staged package, target, latest
   control entry, and private claim ledger without performing installation or activation.
+- [Atomic inert skill installation](docs/SKILL_ATOMIC_INSTALLATION.md) that consumes
+  that authority under the revocation guard, reconstructs exact bytes behind a
+  durable content-addressed commit, and exposes conservative read-only recovery.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -203,8 +206,10 @@ whole-database rollback. Exact bytes can be transactionally staged in an inert
 private quarantine store, but the store is not an install or runtime search path.
 An independent signer can now authorize one exact installation target, and a private
 claim ledger can burn that authority at most once while holding the release-control
-guard. No shipped command consumes the claim or mutates an installation/default;
-claim-store deletion, rollback, or cloning remains an owner-controlled replay risk.
+guard. The atomic installer can materialize those exact bytes into a separate private
+content-addressed store, but no runtime reads it and no default pointer is created or
+changed. Recovery is inspection-only; claim/store deletion, rollback, or cloning
+remains an owner-controlled replay risk.
 Skill quality and persona changes remain evaluation-gated.
 
 Run files contain the supplied brief and recorded responses. Keep the output root
@@ -238,11 +243,13 @@ See the [project brief](PROJECT_BRIEF.md),
 [authenticated skill-release control](docs/SKILL_RELEASE_CONTROL.md),
 [transactional skill quarantine staging](docs/SKILL_QUARANTINE_STAGING.md),
 [one-use skill installation authorization](docs/SKILL_INSTALLATION_AUTHORIZATION.md),
+[atomic inert skill installation](docs/SKILL_ATOMIC_INSTALLATION.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [skill-release control adversarial review](docs/MILESTONE_27_REVIEW.md),
 [skill quarantine-staging adversarial review](docs/MILESTONE_28_REVIEW.md),
 [skill installation-authorization adversarial review](docs/MILESTONE_29_REVIEW.md),
+[atomic skill-installation adversarial review](docs/MILESTONE_30_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
