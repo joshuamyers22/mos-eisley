@@ -93,6 +93,9 @@ class ToolCallBlock(Contract):
     id: Identifier
     name: Identifier
     args: dict[str, JsonValue]
+    provider_call_id: Annotated[
+        str | None, Field(max_length=1000, exclude_if=lambda value: value is None)
+    ] = None
     native_id: Annotated[str, Field(max_length=1000)] | None = None
 
 
@@ -161,7 +164,7 @@ def validate_turn_sequence(turns: tuple[Turn, ...]) -> None:
 
 
 class Usage(Contract):
-    unit: Literal["bytes"] = "bytes"
+    unit: Literal["bytes", "tokens"] = "bytes"
     input: Annotated[int, Field(ge=0)]
     output: Annotated[int, Field(ge=0)]
     reasoning: Annotated[int, Field(ge=0)] = 0
@@ -177,7 +180,11 @@ class ModelRequest(Contract):
     system: Annotated[str, Field(max_length=64_000)] = ""
     tools: Annotated[tuple[ToolDefinition, ...], Field(max_length=64)] = ()
     turns: Annotated[tuple[Turn, ...], Field(min_length=1, max_length=256)]
+    # Local canonical-response byte ceiling; this is not a provider token limit.
     max_output: Annotated[int, Field(gt=0)]
+    max_output_tokens: Annotated[
+        int | None, Field(gt=0, exclude_if=lambda value: value is None)
+    ] = None
 
     @model_validator(mode="after")
     def unique_tools(self) -> Self:

@@ -23,13 +23,17 @@ EFFORT_LADDER: tuple[Effort, ...] = (
 class ModelSpec(Contract):
     provider: Identifier
     id: Identifier
+    # Stable, provider-neutral safety ceilings for canonical serialized payloads.
+    # These are deliberately distinct from the provider's documented token limits.
     context_bytes: Annotated[int, Field(gt=0)]
     max_output_bytes: Annotated[int, Field(gt=0)]
+    context_tokens: Annotated[int, Field(gt=0)] | None = None
+    max_output_tokens: Annotated[int, Field(gt=0)] | None = None
     efforts: Annotated[tuple[Effort, ...], Field(min_length=1)]
     default_effort: Effort
     tool_calling: bool
     structured_output: bool
-    verification: Literal["fixture", "live_conformance"]
+    verification: Literal["fixture", "documented", "live_conformance"]
 
     @model_validator(mode="after")
     def valid_capabilities(self) -> Self:
@@ -38,7 +42,15 @@ class ModelSpec(Contract):
         if self.default_effort not in self.efforts:
             raise ValueError("default effort must be supported")
         if self.max_output_bytes >= self.context_bytes:
-            raise ValueError("model output limit must be below context limit")
+            raise ValueError("response byte limit must be below request byte limit")
+        if (self.context_tokens is None) != (self.max_output_tokens is None):
+            raise ValueError("model token limits must be declared together")
+        if (
+            self.context_tokens is not None
+            and self.max_output_tokens is not None
+            and self.max_output_tokens >= self.context_tokens
+        ):
+            raise ValueError("model output token limit must be below context limit")
         return self
 
 
@@ -96,3 +108,28 @@ def fixture_registry() -> ModelRegistry:
             ),
         )
     )
+
+
+def openai_registry() -> ModelRegistry:
+    """Capabilities documented by OpenAI; live conformance is still required."""
+    return ModelRegistry(
+        models=(
+            ModelSpec(
+                provider="openai",
+                id="gpt-6-astra",
+                context_bytes=1_000_000,
+                max_output_bytes=256_000,
+                context_tokens=1_050_000,
+                max_output_tokens=128_000,
+                efforts=("low", "medium", "high", "xhigh", "max"),
+                default_effort="medium",
+                tool_calling=True,
+                structured_output=True,
+                verification="documented",
+            ),
+        )
+    )
+
+
+def default_registry() -> ModelRegistry:
+    return ModelRegistry(models=fixture_registry().models + openai_registry().models)

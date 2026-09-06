@@ -10,7 +10,7 @@ from unittest import TestCase
 
 from mos_eisley.cli import main
 from mos_eisley.core.agent import run_agent
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import JournalEvent
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.demo_agent import agent_demo_inputs
@@ -141,8 +141,11 @@ class AgentCliTests(TestCase):
             out.seek(0)
             out.truncate(0)
             self.assertEqual(main(["models"]), 0)
-            model = json.loads(out.getvalue())
-            self.assertEqual(model["verification"], "fixture")
+            models = tuple(json.loads(line) for line in out.getvalue().splitlines())
+            self.assertEqual(
+                tuple(model["provider"] for model in models), ("fixture", "openai")
+            )
+            self.assertEqual(models[1]["verification"], "documented")
 
     def test_agent_replay_rejects_modified_run_without_echoing_content(self) -> None:
         with (
@@ -155,3 +158,37 @@ class AgentCliTests(TestCase):
             (run / "result.json").write_text("sensitive modified content")
             self.assertEqual(main(["agent-replay", str(run)]), 2)
             self.assertNotIn("sensitive", errors.getvalue())
+
+    def test_agent_replay_accepts_pre_provider_schema_one_result(self) -> None:
+        config, fixtures, cassette = agent_demo_inputs()
+        with TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            session = begin_agent_run(Path(directory), config, fixtures, cassette)
+            result = asyncio.run(
+                run_agent(
+                    config,
+                    fixture_registry(),
+                    RecordedAgentClient(cassette),
+                    FixtureDispatcher(fixtures),
+                    session.journal,
+                )
+            )
+            session.complete(result)
+            result_path = session.path / "result.json"
+            legacy = result.model_dump(mode="json")
+            legacy.pop("responses")
+            payload = json.dumps(
+                legacy, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            ).encode()
+            result_path.write_bytes(payload)
+            manifest_path = session.path / "manifest.json"
+            manifest = AgentManifest.model_validate_json(manifest_path.read_bytes())
+            artifacts = tuple(
+                artifact.model_copy(update={"sha256": digest(payload)})
+                if artifact.name == "result.json"
+                else artifact
+                for artifact in manifest.artifacts
+            )
+            manifest_path.write_bytes(
+                canonical_bytes(manifest.model_copy(update={"artifacts": artifacts}))
+            )
+            self.assertEqual(main(["agent-replay", str(session.path)]), 0)

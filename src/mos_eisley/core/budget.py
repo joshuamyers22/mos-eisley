@@ -16,6 +16,7 @@ class BudgetPolicy(Contract):
     reserve_low_bytes: Annotated[int, Field(gt=0)] = 4_000
     reserve_medium_bytes: Annotated[int, Field(gt=0)] = 8_000
     reserve_high_bytes: Annotated[int, Field(gt=0)] = 12_000
+    max_output_tokens: Annotated[int, Field(gt=0)] = 4_096
 
     def reserve_for(self, effort: Effort) -> int:
         if effort in {"none", "minimal", "low"}:
@@ -31,6 +32,7 @@ class Budget(Contract):
     output_reserve: int
     usable_input: int
     headroom: int
+    max_output_tokens: int | None = None
 
 
 def resolve_budget(model: ModelSpec, effort: Effort, policy: BudgetPolicy) -> Budget:
@@ -47,4 +49,9 @@ def resolve_budget(model: ModelSpec, effort: Effort, policy: BudgetPolicy) -> Bu
         output_reserve=reserve,
         usable_input=usable,
         headroom=before_headroom - usable,
+        max_output_tokens=(
+            min(model.max_output_tokens, policy.max_output_tokens)
+            if model.max_output_tokens is not None
+            else None
+        ),
     )
