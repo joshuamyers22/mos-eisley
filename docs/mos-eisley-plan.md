@@ -2081,3 +2081,27 @@ durable store. Provider request transmission, pre-reserved settlement, an fsynce
 before-send marker, response handling, cancellation, timeout, crash recovery, and
 credentialed conformance remain open. Missing or ambiguous outcomes must never imply
 retry or budget release.
+
+### 25.18 Implemented provider-owning pre-reserved transaction
+
+Broker-grant-store policy schema version 2 now pins one provider-transaction-store
+policy. The latter pins the grant-store identity, both control anchors, default store,
+spend ledger, capacity, and a maximum 60-second provider wait. Before redemption, the
+transaction checks exact preparation/issuance request hashes, route, model, pricing,
+and existing reservation plus a zero-retry OpenAI transport contract.
+
+Fresh routing-control, skill-control, default, held-spend, and exact-grant read guards
+remain open while the capability is burned and an exact send intent commits in a
+private rollback-journal SQLite store using `synchronous=EXTRA`. Transport is invoked
+only after that commit and at most once. The store persists no bearer, prompt,
+credential, request body, or response body.
+
+Verified model/tier/usage settles the existing ledger entry at locally computed actual
+cost. Provider errors, malformed or missing usage, timeout, cancellation, and lost
+response retain the full reservation as uncertain. Pricing-bound violations retain
+the full reservation as a blocking violation. The ledger commits before hash-only
+outcome metadata, so either cross-store failure remains conservatively accounted
+behind the durable marker. Recovery never authorizes retry or automatic release.
+
+Credentialed conformance, external billing reconciliation, and durable
+content-verified response/result publication remain open.

@@ -74,10 +74,10 @@ automatic budget release is permitted.
 The consumed claim is not accepted by any transport. A guarded
 [ephemeral broker-grant exchange](SKILL_RUNTIME_BROKER_GRANT.md) can now consume it
 into one memory-only bearer, but redemption still does not send. The provider-owning
-process must durably record the
-ambiguous send boundary before its first possible external transfer, exclusively own
-settlement, and treat timeout, cancellation, crash, and lost response conservatively
-without automatic retry or release.
+[pre-reserved transaction](SKILL_RUNTIME_PROVIDER_TRANSACTION.md) can now burn that
+bearer into a durable before-send marker, exclusively settle the existing reservation,
+and treat timeout, cancellation, crash, and lost response conservatively without
+automatic retry or release.
 
 Local clock integrity, authority-policy distribution, key custody, same-UID access,
 database copying/rollback, and organizational independence remain trusted boundaries.

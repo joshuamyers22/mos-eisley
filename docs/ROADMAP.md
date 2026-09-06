@@ -129,9 +129,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    maximum-60-second Ed25519 decision can now be consumed once under fresh guards into
    durable eligibility for one future request-bound grant. A pinned issuance store can
    now consume that claim exactly once into a memory-only, maximum-30-second bearer;
-   it persists only the capability hash, supports one in-process redemption, and sends
-   nothing. Next: make the provider-owning pre-reserved transaction record and
-   conservatively settle the ambiguous provider-send boundary without retry.
+   it persists only the capability hash and supports one in-process redemption. A
+   separately pinned provider-owning transaction now burns that bearer into an fsynced
+   before-send marker, invokes one exact bounded zero-retry OpenAI request, and settles
+   the existing reservation. Missing or ambiguous outcomes retain full exposure and
+   never permit retry or automatic release. Next: run credentialed conformance against
+   this exact boundary and durably publish a content-verified response/result artifact.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

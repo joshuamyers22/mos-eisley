@@ -27,6 +27,9 @@ from mos_eisley.run.skill_runtime_dispatch import (
     trusted_skill_runtime_dispatch_authority,
 )
 from mos_eisley.run.skill_runtime_grant import SkillRuntimeBrokerGrantStorePolicy
+from mos_eisley.run.skill_runtime_provider import (
+    SkillRuntimeProviderTransactionStorePolicy,
+)
 from mos_eisley.run.spend_ledger import LedgerSettlement
 from mos_eisley.run.store import private_write
 from tests import test_skill_runtime_admission as admission_module
@@ -59,6 +62,21 @@ class SkillRuntimeDispatchTests(TestCase):
             ),
             spend_ledger_id=self.runtime.ledger.policy.ledger_id,
         )
+        self.transaction_policy = SkillRuntimeProviderTransactionStorePolicy(
+            store_id="c" * 64,
+            broker_grant_store_id="b" * 64,
+            routing_control_anchor_policy_sha256=(
+                self.runtime.sources.routing.control_anchor.policy.policy_sha256
+            ),
+            skill_control_anchor_policy_sha256=(
+                self.runtime.sources.control_anchor.policy.policy_sha256
+            ),
+            default_store_policy_sha256=(
+                self.runtime.sources.default_store.policy.policy_sha256
+            ),
+            spend_ledger_id=self.runtime.ledger.policy.ledger_id,
+            max_provider_wait_seconds=1,
+        )
         self.grant_policy = SkillRuntimeBrokerGrantStorePolicy(
             store_id="b" * 64,
             dispatch_claim_store_policy_sha256=self.claim_policy.policy_sha256,
@@ -75,6 +93,9 @@ class SkillRuntimeDispatchTests(TestCase):
                 self.runtime.sources.default_store.policy.policy_sha256
             ),
             spend_ledger_id=self.runtime.ledger.policy.ledger_id,
+            provider_transaction_store_policy_sha256=(
+                self.transaction_policy.policy_sha256
+            ),
         )
         self.policy = SkillRuntimeDispatchAuthorityPolicy(
             policy_id="runtime-dispatch",
