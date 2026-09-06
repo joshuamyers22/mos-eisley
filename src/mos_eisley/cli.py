@@ -215,6 +215,12 @@ from mos_eisley.run.skill_runtime_admission import (
     inspect_skill_runtime_admission,
     make_skill_runtime_broker_admission,
 )
+from mos_eisley.run.skill_runtime_conformance import (
+    SignedSkillRuntimeConformanceObservation,
+    SkillRuntimeConformancePolicy,
+    authenticate_skill_runtime_conformance,
+    make_skill_runtime_conformance_observation,
+)
 from mos_eisley.run.skill_runtime_dispatch import (
     SignedSkillRuntimeDispatchDecision,
     SkillRuntimeDispatchAuthorityPolicy,
@@ -1411,6 +1417,45 @@ def parser() -> argparse.ArgumentParser:
         "--response-store", type=Path, required=True
     )
     skill_runtime_response_result.add_argument("--publication-id", required=True)
+    derive_runtime_conformance = subcommands.add_parser(
+        "eval-derive-skill-runtime-conformance",
+        help="Derive signable metadata for one observed credentialed exchange",
+    )
+    derive_runtime_conformance.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    derive_runtime_conformance.add_argument("--publication-id", required=True)
+    derive_runtime_conformance.add_argument(
+        "--conformance-policy", type=Path, required=True
+    )
+    derive_runtime_conformance.add_argument(
+        "--observed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_runtime_conformance.add_argument("--sdk-version", required=True)
+    derive_runtime_conformance.add_argument(
+        "--transport-evidence-sha256", required=True
+    )
+    derive_runtime_conformance.add_argument(
+        "--attest-credentialed-exchange", action="store_true"
+    )
+    derive_runtime_conformance.add_argument("--output", type=Path, required=True)
+    authenticate_runtime_conformance = subcommands.add_parser(
+        "eval-authenticate-skill-runtime-conformance",
+        help="Authenticate an observed exchange against its verified publication",
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--signed-observation", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--conformance-policy", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_runtime_conformance.add_argument("--output", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -3947,6 +3992,80 @@ def _skill_runtime_response_result_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _derive_skill_runtime_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_credentialed_exchange):
+        raise ValueError("credentialed runtime exchange was not attested")
+    policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    publication, result = SkillRuntimeResponseStore(
+        cast(Path, args.response_store)
+    ).load(cast(str, args.publication_id))
+    observation = make_skill_runtime_conformance_observation(
+        publication,
+        result,
+        policy,
+        cast(datetime, args.observed_at),
+        cast(str, args.sdk_version),
+        cast(str, args.transport_evidence_sha256),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.conformance_observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "publication_id": observation.publication_id,
+                "credentialed_exchange_attested": (
+                    observation.credentialed_exchange_attested
+                ),
+                "provider_authorship_proven": observation.provider_authorship_proven,
+                "billing_reconciled": observation.billing_reconciled,
+                "quality_claimed": observation.quality_claimed,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_runtime_conformance_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeConformanceObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_observation), 256_000)
+    )
+    policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    authenticated = authenticate_skill_runtime_conformance(
+        signed,
+        policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.conformance_authenticated",
+                "output": str(output),
+                "authenticated_conformance_sha256": (
+                    authenticated.authenticated_conformance_sha256
+                ),
+                "publication_id": authenticated.publication_id,
+                "signer_id": authenticated.signer_id,
+                "provider_authorship_proven": (
+                    authenticated.provider_authorship_proven
+                ),
+                "billing_reconciled": authenticated.billing_reconciled,
+                "quality_claimed": authenticated.quality_claimed,
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4765,6 +4884,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
             _skill_runtime_response_store_status_command
         ),
         "skill-runtime-response-result": _skill_runtime_response_result_command,
+        "eval-derive-skill-runtime-conformance": (
+            _derive_skill_runtime_conformance_command
+        ),
+        "eval-authenticate-skill-runtime-conformance": (
+            _authenticate_skill_runtime_conformance_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,

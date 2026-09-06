@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a policy-pinned Ed25519 runtime-conformance attestation that binds an enrolled
+  observer's freshness-bounded OpenAI endpoint, SDK, transport, and credentialed-use
+  claims to one exact content-verified skill-runtime publication.
+- Add verification-only derive/authenticate CLI commands with explicit live-exchange
+  acknowledgement, allowlisted SDK versions, and literal denials of provider
+  authorship proof, billing reconciliation, quality, promotion, and activation.
+
 - Add a pinned private skill-runtime response store that atomically retains exact
   provider response bytes and publishes one content-verified, reasoning-free result
   linked to the settled transaction, issuance, route, request, and ledger entry.
