@@ -100,7 +100,8 @@ resume, budget top-up, tax/fee accounting or total-invoice guarantee. Each new C
 invocation requests new admission against that ledger. Provider errors are intentionally
 generic; inspect private artifacts for completion state without disclosing secrets.
 
-`BoundedOpenAIHttpClient` is the only HTTP client constructed by `openai-run`.
+`BoundedOpenAIHttpClient` is the only HTTP client constructed by `openai-run` and
+`openai-conformance`.
 It forces non-streaming responses through a 1,000,000-byte decoded-body ceiling,
 counts chunks incrementally, closes rejected bodies, and rejects a declared encoded
 `Content-Length` above the ceiling early. Counting decoded chunks also rejects a
@@ -110,6 +111,12 @@ streaming later requires a separate bounded event protocol and cancellation desi
 The cap does not limit response headers, provider-side work, or charges already
 incurred, and an accepted body still occupies up to the configured limit in memory.
 
-Before live empirical sweeps: connect validated broker responses to live evaluation
-provenance and complete explicitly authorized credentialed conformance. The bounded
-HTTP client is synthetic-tested, not proof of provider behavior or invoice limits.
+The host-built [conformance request](OPENAI_CONFORMANCE.md) may add a strict
+`text.format` JSON Schema. This output constraint is included in input-token counting
+and in the exact request snapshot; it does not let the isolated worker alter the
+schema or bypass output-token and cost ceilings.
+
+Before live empirical sweeps: run explicitly authorized credentialed conformance,
+then add a separately reviewed conversion from validated broker artifacts to live
+evaluation provenance. The bounded HTTP client is synthetic-tested, not proof of
+provider behavior or invoice limits.

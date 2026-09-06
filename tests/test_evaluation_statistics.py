@@ -5,6 +5,7 @@ from unittest import TestCase
 from pydantic import ValidationError
 
 from mos_eisley.core.models import Brief, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -17,7 +18,11 @@ from mos_eisley.evaluation.models import (
     StatisticalDesign,
 )
 from mos_eisley.evaluation.scoring import EvaluationReport, make_plan, score
-from mos_eisley.evaluation.statistics import assess_groups, group_interval
+from mos_eisley.evaluation.statistics import (
+    MAX_CONFIDENCE_FAMILY,
+    assess_groups,
+    group_interval,
+)
 
 
 def grouped_dataset(groups: int) -> EvaluationDataset:
@@ -53,6 +58,7 @@ def perfect_report(
                 effort="low",
                 client_version="fixture/1",
                 registry_sha256="a" * 64,
+                prompt=PromptAsset(mode="inline", instructions="Review carefully."),
             )
             for index in range(routes)
         )
@@ -217,6 +223,6 @@ class EvaluationStatisticsTests(TestCase):
         for values in ([], [float("nan")], [float("inf")], [-0.1], [1.1]):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 group_interval(values, 6)
-        for family in (0, 5, 769):
+        for family in (0, 5, MAX_CONFIDENCE_FAMILY + 1):
             with self.subTest(family=family), self.assertRaises(ValueError):
                 group_interval([0.5], family)
