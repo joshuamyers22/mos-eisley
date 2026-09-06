@@ -74,8 +74,12 @@
    Independent, expiring release control now authenticates exact allow/revoke state,
    can nominate exact retained rollback bytes, and uses a release-scoped append-only
    local anchor to reject older-message replay. It grants no install authority and
-   whole-anchor rollback still needs an external witness. Next: transactional
-   installation, atomic default changes, crash recovery, and post-promotion drift
+   whole-anchor rollback still needs an external witness. Exact controlled candidate
+   or rollback bytes can now be transactionally materialized into a private
+   content-addressed quarantine store with a latest-anchor commit guard, full
+   post-write verification, and conservative crash inventory. Quarantine grants no
+   installation or configuration authority. Next: independent one-use installation
+   authorization, atomic default changes and recovery, then post-promotion drift
    evidence.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.

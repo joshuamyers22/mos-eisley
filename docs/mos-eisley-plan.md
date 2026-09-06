@@ -1607,3 +1607,32 @@ Every new contract and CLI event continues to fix installation, activation, and
 configuration mutation to false. Transactional staging, exact post-write checks,
 atomic default switching, crash recovery, and drift-triggered rollback remain the
 next independent deployment gate.
+
+### 25.9 Implemented transactional quarantine staging
+
+An exclusive private store can now materialize the exact candidate archive from an
+allowed control or the exact embedded rollback archive from a revoked control. The
+staging entry point first rebuilds the authenticated control at its recorded time,
+then reauthenticates the release, promotion, both comparison splits, and retained
+archive at the current host time.
+
+The store policy pins the exact release-control anchor policy and caps both completed
+packages and incomplete transactions. Each transaction binds the current control
+receipt and exact anchor entry, writes payload files exclusively with private modes,
+reconstructs the archive and semantic skill descriptor from the written bytes, writes
+the completion manifest last, and fsyncs files and all directory levels. Only then is
+the verified directory atomically renamed to its archive-digest path and both sides
+of that rename fsynced. Exact existing packages are verified before idempotent reuse;
+there is no overwrite or repair path.
+
+Latest-control validation and package commit share one SQLite read transaction. A
+concurrent anchor advance cannot commit a newer revocation between verification and
+the atomic staging rename. This closes the local check-to-use race, not same-UID
+replacement of the entire anchor/store or rollback of their external trust roots.
+
+Interrupted transactions remain bounded and visible under a separate transaction
+directory. Status inventories intent/completion-marker presence but never resumes,
+deletes, or promotes partial state automatically. Every contract and event continues
+to deny installation, activation, and configuration mutation, and no runtime code
+reads the quarantine store. Independent signed install authority, atomic default
+switching and recovery, and post-install drift evidence remain future gates.

@@ -166,6 +166,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Authenticated skill-release control](docs/SKILL_RELEASE_CONTROL.md) with an
   independent expiring allow/revoke signature, exact retained rollback nomination,
   and a release-scoped monotonic local anchor that grants no deployment power.
+- [Transactional skill quarantine staging](docs/SKILL_QUARANTINE_STAGING.md) that
+  reauthenticates the full latest-controlled lineage, materializes exact bytes behind
+  a crash-conservative atomic commit, and remains disconnected from configuration.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
 ## Boundaries and limitations
@@ -193,7 +196,8 @@ installation, configuration, or activation authority. Release evidence now prove
 that retained bytes match current promotion evidence. Independent release control
 can revoke that exact artifact and nominate exact rollback bytes, but still cannot
 deploy either package. Its anchor resists older-message replay, not owner-driven
-whole-database rollback.
+whole-database rollback. Exact bytes can be transactionally staged in an inert
+private quarantine store, but the store is not an install or runtime search path.
 Skill quality and persona changes remain evaluation-gated.
 
 Run files contain the supplied brief and recorded responses. Keep the output root
@@ -218,10 +222,12 @@ See the [project brief](PROJECT_BRIEF.md),
 [retained skill archives](docs/SKILL_ARCHIVES.md),
 [skill-release evidence](docs/SKILL_RELEASE_EVIDENCE.md),
 [authenticated skill-release control](docs/SKILL_RELEASE_CONTROL.md),
+[transactional skill quarantine staging](docs/SKILL_QUARANTINE_STAGING.md),
 [prompt-only skills adversarial review](docs/MILESTONE_22_REVIEW.md),
 [retained skill archives adversarial review](docs/MILESTONE_25_REVIEW.md),
 [skill-release evidence adversarial review](docs/MILESTONE_26_REVIEW.md),
 [skill-release control adversarial review](docs/MILESTONE_27_REVIEW.md),
+[skill quarantine-staging adversarial review](docs/MILESTONE_28_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
