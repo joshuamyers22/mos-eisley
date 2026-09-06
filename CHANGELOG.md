@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add hash-only rolling response-publication history commitments and policy-pinned
+  Ed25519 checkpoints that detect deletion, reordering, or divergent replacement while
+  accepting legitimate later publications.
+- Version response-store policy and persist a gap-free publication sequence so history
+  commitments never depend on SQLite's mutable implicit row IDs.
+- Add verification-only checkpoint derive/verify CLI commands with no signing key or
+  private response/result export and explicit denial of external-retention or
+  newest-checkpoint proof.
+
 - Add a policy-pinned Ed25519 runtime-conformance attestation that binds an enrolled
   observer's freshness-bounded OpenAI endpoint, SDK, transport, and credentialed-use
   claims to one exact content-verified skill-runtime publication.

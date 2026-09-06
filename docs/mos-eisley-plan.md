@@ -2160,3 +2160,29 @@ the external evidence digest is not fetched. No live or paid request was made fo
 milestone. Next, a separately authorized run must traverse the exact path, followed by
 external billing/provider-receipt reconciliation and the repeated blinded quality
 study before stronger operational or routing claims.
+
+### 25.21 Implemented portable publication-history witness
+
+Response-store policy schema version 2 now persists and validates an explicit,
+gap-free publication sequence rather than SQLite's mutable implicit row ID. The store
+computes a domain-separated rolling SHA-256 commitment over publication-manifest
+digests in that order only after fully reverifying every canonical raw response,
+result, manifest, transaction, and ledger relationship. The hash-only
+history includes store-policy identity, count, rolling digest, and latest publication
+identifiers, never raw response or published assistant content.
+
+A separate witness policy pins that exact store, UTC validity and freshness bounds,
+positive minimum publication count, and canonical trusted Ed25519 witness identities
+and keys. Signable checkpoints bind the policy, full current history, and witness time.
+Verification authenticates the signature and requires that checkpoint history remain
+an exact prefix of the current store. Legitimate later publications remain valid;
+deletion, reordering, or divergence at or before the checkpoint fails closed.
+
+The CLI derives and verifies hash-only artifacts but never accepts signing private
+keys. A useful signed checkpoint must be retained in a separate trust or storage
+domain. Both checkpoint and verification schemas explicitly deny proof of external
+retention or newest-checkpoint delivery, as well as response/result export, retry, and
+budget release. A matching old store and old checkpoint can still be presented if a
+newer external checkpoint is suppressed. External delivery, latest-state service,
+clock integrity, key custody, and availability remain open, as do provider billing
+reconciliation and separately authorized credentialed conformance.

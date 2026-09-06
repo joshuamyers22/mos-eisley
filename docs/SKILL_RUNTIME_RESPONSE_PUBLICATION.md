@@ -65,7 +65,10 @@ Private filesystem permissions and Python module boundaries do not contain malic
 same-UID or same-process code. The owner can copy or roll back both SQLite databases,
 so cross-host uniqueness and monotonicity require an external witness. Retention and
 deletion policy, hardware durability, provider-side receipt, invoice reconciliation,
-and credentialed OpenAI conformance remain external or future work. A settled and
+and credentialed OpenAI conformance remain external or future work. A portable signed
+[publication-history witness](SKILL_RUNTIME_PUBLICATION_WITNESS.md) can detect a
+rollback against a separately retained checkpoint, but cannot prove external retention
+or newest-checkpoint delivery. A settled and
 published result proves consistency with local authenticated inputs and retained
 provider bytes; it does not prove that the provider authored those bytes independently
 of the trusted transport.

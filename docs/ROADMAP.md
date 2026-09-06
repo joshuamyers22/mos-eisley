@@ -140,8 +140,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    reasoning-free result with complete settled lineage. Next: run separately
    authorized credentialed conformance against this exact boundary. A signed,
    freshness-bounded observer attestation can now bind that run to its verified
-   publication without claiming authorship, billing, or quality. Add external billing
-   or monotonic witnesses before stronger finality claims.
+   publication without claiming authorship, billing, or quality. A signed rolling
+   publication-history checkpoint can now detect rollback against a separately
+   retained prefix, while external retention and newest-checkpoint delivery remain
+   operator responsibilities. Add external billing evidence before financial-finality
+   claims.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.

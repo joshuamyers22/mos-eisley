@@ -66,6 +66,9 @@ transport evidence remain operator responsibilities.
 The attestation does not prove TLS peer identity, provider authorship, credential use,
 account ownership, request receipt, invoice correctness, absence of upstream retries,
 or model quality. The trusted observer and policy enrollment can lie or collude. Local
-database rollback and evidence replacement still need an external monotonic witness.
+database rollback and evidence replacement still require separately retained witness
+state. The [publication-history witness](SKILL_RUNTIME_PUBLICATION_WITNESS.md) provides
+a portable signed prefix commitment but cannot prove external retention or that the
+verifier received the newest checkpoint.
 One separately authorized paid run is conformance evidence only and must never enter
 empirical model-routing promotion as a quality sample.

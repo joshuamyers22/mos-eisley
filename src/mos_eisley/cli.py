@@ -255,6 +255,12 @@ from mos_eisley.run.skill_runtime_response import (
     SkillRuntimeResponseStore,
     SkillRuntimeResponseStorePolicy,
 )
+from mos_eisley.run.skill_runtime_witness import (
+    SignedSkillRuntimePublicationCheckpoint,
+    SkillRuntimePublicationWitnessPolicy,
+    make_skill_runtime_publication_checkpoint,
+    verify_skill_runtime_publication_checkpoint,
+)
 from mos_eisley.run.skill_staging import (
     SkillStagingStore,
     SkillStagingStorePolicy,
@@ -1456,6 +1462,29 @@ def parser() -> argparse.ArgumentParser:
         "--at", type=_utc_datetime_argument, required=True
     )
     authenticate_runtime_conformance.add_argument("--output", type=Path, required=True)
+    derive_runtime_checkpoint = subcommands.add_parser(
+        "eval-derive-skill-runtime-publication-checkpoint",
+        help="Derive a hash-only publication-history checkpoint for signing",
+    )
+    derive_runtime_checkpoint.add_argument("--response-store", type=Path, required=True)
+    derive_runtime_checkpoint.add_argument("--witness-policy", type=Path, required=True)
+    derive_runtime_checkpoint.add_argument(
+        "--witnessed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_runtime_checkpoint.add_argument("--output", type=Path, required=True)
+    verify_runtime_checkpoint = subcommands.add_parser(
+        "eval-verify-skill-runtime-publication-checkpoint",
+        help="Verify a signed publication checkpoint against the current store",
+    )
+    verify_runtime_checkpoint.add_argument(
+        "--signed-checkpoint", type=Path, required=True
+    )
+    verify_runtime_checkpoint.add_argument("--witness-policy", type=Path, required=True)
+    verify_runtime_checkpoint.add_argument("--response-store", type=Path, required=True)
+    verify_runtime_checkpoint.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    verify_runtime_checkpoint.add_argument("--output", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -4066,6 +4095,78 @@ def _authenticate_skill_runtime_conformance_command(args: argparse.Namespace) ->
     return 0
 
 
+def _derive_skill_runtime_publication_checkpoint_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimePublicationWitnessPolicy.model_validate_json(
+        read_bounded(cast(Path, args.witness_policy), 128_000)
+    )
+    checkpoint = make_skill_runtime_publication_checkpoint(
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        policy,
+        cast(datetime, args.witnessed_at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, checkpoint)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.publication_checkpoint_derived",
+                "output": str(output),
+                "checkpoint_sha256": checkpoint.checkpoint_sha256,
+                "publications": checkpoint.history.publications,
+                "history_sha256": checkpoint.history.history_sha256,
+                "external_retention_proven": checkpoint.external_retention_proven,
+                "latest_external_checkpoint_proven": (
+                    checkpoint.latest_external_checkpoint_proven
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _verify_skill_runtime_publication_checkpoint_command(
+    args: argparse.Namespace,
+) -> int:
+    signed = SignedSkillRuntimePublicationCheckpoint.model_validate_json(
+        read_bounded(cast(Path, args.signed_checkpoint), 256_000)
+    )
+    policy = SkillRuntimePublicationWitnessPolicy.model_validate_json(
+        read_bounded(cast(Path, args.witness_policy), 128_000)
+    )
+    verified = verify_skill_runtime_publication_checkpoint(
+        signed,
+        policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, verified)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.publication_checkpoint_verified",
+                "output": str(output),
+                "verification_sha256": verified.verification_sha256,
+                "signer_id": verified.signer_id,
+                "checkpoint_publications": (
+                    verified.signed_checkpoint.checkpoint.history.publications
+                ),
+                "current_publications": verified.current_history.publications,
+                "rollback_or_divergence_observed": (
+                    verified.rollback_or_divergence_observed
+                ),
+                "external_retention_proven": verified.external_retention_proven,
+                "latest_external_checkpoint_proven": (
+                    verified.latest_external_checkpoint_proven
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -4889,6 +4990,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         ),
         "eval-authenticate-skill-runtime-conformance": (
             _authenticate_skill_runtime_conformance_command
+        ),
+        "eval-derive-skill-runtime-publication-checkpoint": (
+            _derive_skill_runtime_publication_checkpoint_command
+        ),
+        "eval-verify-skill-runtime-publication-checkpoint": (
+            _verify_skill_runtime_publication_checkpoint_command
         ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
