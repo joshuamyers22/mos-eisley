@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from pydantic import JsonValue
 from test_evaluation_execution import complete_cassette, inputs
@@ -24,6 +24,7 @@ from mos_eisley.run.isolation import (
 )
 
 IMAGE = "sha256:" + "a" * 64
+CONTAINER_ID = "b" * 64
 
 
 class IsolationTests(TestCase):
@@ -34,6 +35,7 @@ class IsolationTests(TestCase):
             "print('x'*10000)",
             "import sys; sys.stderr.write('secret'*20000)",
             "import time; time.sleep(10)",
+            "import os,time; os.close(1); os.close(2); time.sleep(10)",
             "import sys; sys.exit(2)",
         ):
             with self.subTest(script=script), self.assertRaises(ValueError):
@@ -50,10 +52,15 @@ class IsolationTests(TestCase):
 
     def test_fixed_container_flags_and_cleanup(self) -> None:
         metadata = json.dumps([{"Id": IMAGE, "Config": {}}]).encode()
-        with patch(
-            "mos_eisley.run.isolation.bounded_process",
-            side_effect=[metadata, b"container-id", b"output", b"0\n", b"removed"],
-        ) as command:
+        guard = MagicMock()
+        with (
+            patch("mos_eisley.run.isolation.arm_watchdog", return_value=guard) as arm,
+            patch("mos_eisley.run.isolation.remove_exact") as remove,
+            patch(
+                "mos_eisley.run.isolation.bounded_process",
+                side_effect=[metadata, CONTAINER_ID.encode(), b"output", b"0\n"],
+            ) as command,
+        ):
             output = OfflineContainer(Path("/usr/bin/docker"), IMAGE).execute(
                 ("-c", "pass"), b"input"
             )
@@ -71,19 +78,27 @@ class IsolationTests(TestCase):
             self.assertNotIn(option, create)
         self.assertEqual(create[create.index("--network") + 1], "none")
         self.assertEqual(create[create.index("--user") + 1], "10001:10001")
-        self.assertEqual(command.call_args_list[-1].args[0][1:3], ["rm", "--force"])
+        self.assertEqual(arm.call_args.args[1], CONTAINER_ID)
+        self.assertEqual(command.call_args_list[2].args[0][-1], CONTAINER_ID)
+        guard.finish.assert_called_once_with()
+        remove.assert_called_once_with("/usr/bin/docker", CONTAINER_ID)
 
     def test_failure_still_removes_and_cleanup_failure_is_not_success(self) -> None:
         metadata = json.dumps([{"Id": IMAGE, "Config": {}}]).encode()
         cases = (
             [metadata, ValueError("create failed"), b"removed"],
-            [metadata, b"id", ValueError("deadline"), b"removed"],
-            [metadata, b"id", b"output", b"1", b"removed"],
-            [metadata, b"id", b"output", b"0", ValueError("cleanup failed")],
+            [metadata, CONTAINER_ID.encode(), ValueError("deadline")],
+            [metadata, CONTAINER_ID.encode(), b"output", b"1"],
+            [metadata, CONTAINER_ID.encode(), b"output", b"0"],
         )
-        for results in cases:
+        for index, results in enumerate(cases):
+            guard = MagicMock()
+            if index == 3:
+                guard.finish.side_effect = ValueError("cleanup failed")
             with (
                 self.subTest(results=results),
+                patch("mos_eisley.run.isolation.arm_watchdog", return_value=guard),
+                patch("mos_eisley.run.isolation.remove_exact"),
                 patch(
                     "mos_eisley.run.isolation.bounded_process",
                     side_effect=results,
@@ -93,7 +108,32 @@ class IsolationTests(TestCase):
                 OfflineContainer(Path("/usr/bin/docker"), IMAGE).execute(
                     ("-c", "pass"), b""
                 )
-            self.assertEqual(command.call_args_list[-1].args[0][1:3], ["rm", "--force"])
+            if index == 0:
+                self.assertEqual(
+                    command.call_args_list[-1].args[0][1:3], ["rm", "--force"]
+                )
+            else:
+                guard.finish.assert_called_once_with()
+
+    def test_worker_never_starts_without_ready_watchdog(self) -> None:
+        metadata = json.dumps([{"Id": IMAGE, "Config": {}}]).encode()
+        with (
+            patch(
+                "mos_eisley.run.isolation.bounded_process",
+                side_effect=[metadata, CONTAINER_ID.encode()],
+            ) as command,
+            patch(
+                "mos_eisley.run.isolation.arm_watchdog",
+                side_effect=ValueError("not ready"),
+            ),
+            patch("mos_eisley.run.isolation.remove_exact") as remove,
+            self.assertRaises(ValueError),
+        ):
+            OfflineContainer(Path("/usr/bin/docker"), IMAGE).execute(
+                ("-c", "pass"), b""
+            )
+        self.assertEqual(command.call_count, 2)
+        remove.assert_called_once_with("/usr/bin/docker", CONTAINER_ID)
 
     def test_tags_volumes_and_bad_bounds_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -118,6 +158,22 @@ class IsolationTests(TestCase):
             ):
                 container.execute((), b"")
             self.assertEqual(command.call_count, 1)
+
+    def test_malformed_container_id_never_arms_or_starts(self) -> None:
+        metadata = json.dumps([{"Id": IMAGE, "Config": {}}]).encode()
+        with (
+            patch(
+                "mos_eisley.run.isolation.bounded_process",
+                side_effect=[metadata, b"short-id", b"removed"],
+            ) as command,
+            patch("mos_eisley.run.isolation.arm_watchdog") as arm,
+            self.assertRaises(ValueError),
+        ):
+            OfflineContainer(Path("/usr/bin/docker"), IMAGE).execute(
+                ("-c", "pass"), b""
+            )
+        arm.assert_not_called()
+        self.assertEqual(command.call_args.args[0][1:3], ["rm", "--force"])
 
     def test_recorded_worker_roundtrip_and_changed_output_rejected(self) -> None:
         data, grid, gate = inputs()

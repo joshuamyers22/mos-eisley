@@ -10,6 +10,7 @@ from unittest import TestCase
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import Brief, canonical_bytes
+from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.models import (
     CandidateGrid,
     EvalCase,
@@ -64,6 +65,7 @@ class EvaluationCliTests(TestCase):
                     effort="low",
                     client_version="test/1",
                     registry_sha256="a" * 64,
+                    prompt=PromptAsset(mode="inline", instructions="Review carefully."),
                 ),
             )
         )

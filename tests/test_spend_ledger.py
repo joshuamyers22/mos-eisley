@@ -207,6 +207,18 @@ os._exit(23)
                     ledger.reserve(entry(1, 1))
             self.assertEqual(ledger.snapshot().entries, 0)
 
+    def test_entry_status_is_read_only_and_exact(self) -> None:
+        with TemporaryDirectory() as directory:
+            ledger = SpendLedger.create(Path(directory) / "spend.sqlite", 100)
+            self.assertIsNone(ledger.entry_status("a" * 64))
+            item = entry(1, 20)
+            ledger.reserve(item)
+            status = ledger.entry_status(item.entry_id)
+            assert status is not None
+            self.assertEqual(status.status, "held")
+            self.assertEqual(status.charged_microusd, 20)
+            self.assertEqual(ledger.snapshot().entries, 1)
+
     def test_unexpected_journal_or_missing_policy_is_rejected(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "spend.sqlite"

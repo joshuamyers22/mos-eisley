@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import os
+import asyncio
 import re
-import selectors
-import subprocess
-import tempfile
-import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,8 +16,10 @@ from mos_eisley.evaluation.execution import (
     RawResultSet,
     run_recorded_evaluation,
 )
-
-MAX_WIRE_BYTES = 16_000_000
+from mos_eisley.run.duplex import ExchangeHandler, bounded_exchange
+from mos_eisley.run.process import MAX_WIRE_BYTES as MAX_WIRE_BYTES
+from mos_eisley.run.process import bounded_process as bounded_process
+from mos_eisley.run.watchdog import WatchdogHandle, arm_watchdog, remove_exact
 
 
 class RecordedJob(Contract):
@@ -29,85 +27,15 @@ class RecordedJob(Contract):
     cassette: EvaluationCassette
 
 
-def bounded_process(
-    command: list[str],
-    payload: bytes = b"",
-    timeout: float = 30,
-    limit: int = MAX_WIRE_BYTES,
-) -> bytes:
-    """Drain both pipes; terminate the client on limits or cancellation."""
-    if len(payload) > MAX_WIRE_BYTES:
-        raise ValueError("isolated input exceeds byte limit")
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if key
-        in (
-            "PATH",
-            "HOME",
-            "DOCKER_HOST",
-            "DOCKER_CONTEXT",
-            "DOCKER_CONFIG",
-            "DOCKER_TLS_VERIFY",
-            "DOCKER_CERT_PATH",
-        )
-    }
-    with tempfile.TemporaryFile() as source:
-        source.write(payload)
-        source.seek(0)
-        with (
-            subprocess.Popen(
-                command,
-                stdin=source,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=environment,
-            ) as process,
-            selectors.DefaultSelector() as selector,
-        ):
-            assert process.stdout is not None and process.stderr is not None
-            streams = {process.stdout: bytearray(), process.stderr: bytearray()}
-            for stream in streams:
-                selector.register(stream, selectors.EVENT_READ)
-            deadline = time.monotonic() + timeout
-            try:
-                while selector.get_map():
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        raise ValueError("isolated process deadline exceeded")
-                    for key, _ in selector.select(min(remaining, 0.1)):
-                        stream = (
-                            process.stdout
-                            if key.fileobj is process.stdout
-                            else process.stderr
-                        )
-                        block = os.read(stream.fileno(), 65536)
-                        if not block:
-                            selector.unregister(stream)
-                            continue
-                        buffer = streams[stream]
-                        cap = limit if stream is process.stdout else 65536
-                        if len(buffer) + len(block) > cap:
-                            raise ValueError(
-                                "isolated process output exceeds byte limit"
-                            )
-                        buffer.extend(block)
-                remaining = deadline - time.monotonic()
-                if remaining <= 0 or process.wait(timeout=remaining) != 0:
-                    raise ValueError("isolated process failed")
-                return bytes(streams[process.stdout])
-            except BaseException as error:
-                process.kill()
-                process.wait()
-                if isinstance(error, subprocess.TimeoutExpired):
-                    raise ValueError("isolated process deadline exceeded") from None
-                raise
-
-
 class OfflineContainer:
     """Docker daemon/image are trusted; worker gets stdin only, never host mounts."""
 
-    def __init__(self, docker: Path, image_id: str):
+    def __init__(
+        self,
+        docker: Path,
+        image_id: str,
+        lifecycle_root: Path = Path(".mos-eisley/container-lifecycles"),
+    ):
         if not docker.is_absolute() or not re.fullmatch(
             r"sha256:[0-9a-f]{64}", image_id
         ):
@@ -116,9 +44,16 @@ class OfflineContainer:
             )
         self.docker = str(docker)
         self.image_id = image_id
+        self.lifecycle_root = lifecycle_root
+        self.lifecycle_path: Path | None = None
 
     def execute(
-        self, arguments: tuple[str, ...], payload: bytes, timeout: float = 30
+        self,
+        arguments: tuple[str, ...],
+        payload: bytes,
+        timeout: float = 30,
+        *,
+        exchange_handler: ExchangeHandler | None = None,
     ) -> bytes:
         if len(payload) > MAX_WIRE_BYTES or not 0 < timeout <= 60:
             raise ValueError("invalid isolated execution bounds")
@@ -135,8 +70,11 @@ class OfflineContainer:
         if not isinstance(config, dict) or config.get("Volumes"):
             raise ValueError("image configuration permits implicit volumes")
         name = "mos-eval-" + uuid4().hex
+        container_id: str | None = None
+        watchdog: WatchdogHandle | None = None
+        self.lifecycle_path = None
         try:
-            bounded_process(
+            created = bounded_process(
                 [
                     self.docker,
                     "create",
@@ -177,24 +115,54 @@ class OfflineContainer:
                 ],
                 limit=65536,
             )
-            output = bounded_process(
-                [self.docker, "start", "--attach", "--interactive", name],
-                payload,
-                timeout,
+            candidate_id = created.decode("ascii").strip()
+            if not re.fullmatch(r"[0-9a-f]{64}", candidate_id):
+                raise ValueError("Docker did not return a full container ID")
+            container_id = candidate_id
+            watchdog = arm_watchdog(
+                self.docker,
+                container_id,
+                self.lifecycle_root,
+                timeout + 5,
             )
+            self.lifecycle_path = watchdog.directory
+            command = [self.docker, "start", "--attach", "--interactive", container_id]
+            if exchange_handler is None:
+                output = bounded_process(command, payload, timeout)
+            else:
+                output = asyncio.run(
+                    bounded_exchange(command, payload, exchange_handler, timeout)
+                )
             exit_code = bounded_process(
-                [self.docker, "inspect", "--format", "{{.State.ExitCode}}", name],
+                [
+                    self.docker,
+                    "inspect",
+                    "--format",
+                    "{{.State.ExitCode}}",
+                    container_id,
+                ],
                 limit=65536,
             )
             if exit_code.strip() != b"0":
                 raise ValueError("isolated worker failed")
             return output
         finally:
-            # Killing an attached client does not guarantee container termination.
-            # A failed removal is surfaced; never claim successful cleanup then.
-            bounded_process(
-                [self.docker, "rm", "--force", name], timeout=10, limit=65536
-            )
+            if watchdog is not None:
+                # Keep launcher cleanup too: a dead guardian must not remove the
+                # launcher's ability to terminate its own worker.
+                try:
+                    assert container_id is not None
+                    remove_exact(self.docker, container_id)
+                finally:
+                    watchdog.finish()
+            elif container_id is not None:
+                remove_exact(self.docker, container_id)
+            else:
+                # Creation may have reached Docker despite a lost response.
+                # This name was generated by this invocation, never caller input.
+                bounded_process(
+                    [self.docker, "rm", "--force", name], timeout=10, limit=65536
+                )
 
 
 def run_isolated_recorded(

@@ -10,18 +10,20 @@ import secrets
 import sqlite3
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
-from mos_eisley.core.ports import Journal
+from mos_eisley.core.ports import Journal, ProviderError
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
 from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
+from mos_eisley.core.skills import SkillPackageArchive, SkillRoster
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
 from mos_eisley.evaluation.adjudication import (
@@ -31,6 +33,12 @@ from mos_eisley.evaluation.adjudication import (
     make_grading_batch,
 )
 from mos_eisley.evaluation.agreement import compare_adjudications
+from mos_eisley.evaluation.authentication import (
+    AuthenticatedAdjudication,
+    GradingTrustPolicy,
+    SignedAdjudication,
+    authenticate_adjudication,
+)
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -38,6 +46,13 @@ from mos_eisley.evaluation.execution import (
     RawResultSet,
     make_execution_batch,
     run_recorded_evaluation,
+)
+from mos_eisley.evaluation.lineage import (
+    DualGradedObservationSet,
+    compile_dual_graded_observations,
+)
+from mos_eisley.evaluation.lineage_scoring import (
+    score_dual_graded_observations,
 )
 from mos_eisley.evaluation.models import (
     CandidateGrid,
@@ -47,8 +62,67 @@ from mos_eisley.evaluation.models import (
     Split,
     SweepPlan,
 )
+from mos_eisley.evaluation.resolution import (
+    DualGradingResolution,
+    ResolutionTrustPolicy,
+    SignedResolutionSet,
+    resolve_authenticated_adjudications,
+)
+from mos_eisley.evaluation.routing_activation import (
+    RoutingActivationAuthorityPolicy,
+    RoutingActivationEligibility,
+    SignedRoutingActivationControl,
+    SignedRoutingActivationPolicy,
+    SignedRoutingOperationalSnapshot,
+    issue_routing_activation_eligibility,
+)
+from mos_eisley.evaluation.routing_calibration import (
+    RoutingCalibrationReport,
+    score_routing_calibration,
+)
+from mos_eisley.evaluation.routing_holdout import (
+    FrozenPolicyHoldoutReport,
+    HoldoutUseClaim,
+    evaluate_frozen_routing_policy,
+    make_holdout_use_claim,
+)
+from mos_eisley.evaluation.routing_policy import (
+    FrozenCandidateRoutingPolicy,
+    freeze_candidate_routing_policy,
+)
+from mos_eisley.evaluation.routing_promotion import (
+    AuthenticatedRoutingPromotion,
+    RoutingPromotionAuthorityPolicy,
+    SignedRoutingPromotionDecision,
+    authenticate_routing_promotion,
+    make_routing_promotion_decision,
+)
+from mos_eisley.evaluation.routing_promotion_policy import RoutingPromotionPolicy
+from mos_eisley.evaluation.routing_protocol import (
+    PromptFeatureManifest,
+    RoutingStudyProtocol,
+    SealedRoutingStudy,
+    seal_routing_study,
+)
 from mos_eisley.evaluation.scoring import make_plan, score
+from mos_eisley.evaluation.skill_comparison import (
+    SealedSkillComparison,
+    SkillComparisonProtocol,
+    SkillComparisonReport,
+    SkillHoldoutUseClaim,
+    make_skill_holdout_use_claim,
+    score_authenticated_skill_comparison,
+    seal_skill_comparison,
+)
+from mos_eisley.evaluation.skill_promotion import (
+    SignedSkillPromotionDecision,
+    SkillPromotionAuthorityPolicy,
+    authenticate_skill_promotion,
+    make_skill_promotion_decision,
+)
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
+from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
+from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
@@ -56,17 +130,49 @@ from mos_eisley.providers.openai_responses import (
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
+from mos_eisley.run.activation_control import (
+    RoutingControlAnchor,
+    RoutingControlAnchorPolicy,
+)
 from mos_eisley.run.agent_store import begin_agent_run, load_agent_run
+from mos_eisley.run.broker_audit import (
+    AssignmentAuthorization,
+    inspect_broker_recovery,
+)
+from mos_eisley.run.brokered_evaluation import compile_brokered_evaluation
+from mos_eisley.run.evaluation_broker import (
+    authorize_assignment,
+    make_assignment_broker,
+)
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
+from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
+from mos_eisley.run.openai_conformance import build_openai_conformance_payload
+from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
+from mos_eisley.run.skills import (
+    bind_skill_roster,
+    discover_skills,
+    verify_skill_archive,
+)
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
 from mos_eisley.tools.none import NoToolsDispatcher
 
 EXIT_CODES = {"accept": 0, "revise": 1, "reject": 1, "infrastructure_error": 2}
+
+
+def _utc_datetime_argument(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("timestamp must be ISO 8601") from error
+    if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+        raise argparse.ArgumentTypeError("timestamp must use an explicit UTC offset")
+    return parsed
 
 
 def parser() -> argparse.ArgumentParser:
@@ -96,6 +202,22 @@ def parser() -> argparse.ArgumentParser:
                 help="Brief JSON; no implicit repository reads",
             )
             sub.add_argument("--cassette", type=Path, required=True)
+            sub.add_argument(
+                "--skill-roster",
+                type=Path,
+                help="Digest-pinned critic-to-skill bindings",
+            )
+            sub.add_argument(
+                "--user-skill-root", type=Path, action="append", default=[]
+            )
+            sub.add_argument(
+                "--project-skill-root", type=Path, action="append", default=[]
+            )
+            sub.add_argument(
+                "--allow-project-skills",
+                action="store_true",
+                help="Explicitly permit named project-source skills for this run",
+            )
     replay = subcommands.add_parser(
         "replay", help="Verify artifacts and replay recorded responses"
     )
@@ -148,6 +270,65 @@ def parser() -> argparse.ArgumentParser:
         "spend-ledger-status", help="Inspect charges and unresolved reservations"
     )
     ledger_status.add_argument("path", type=Path)
+    anchor_create = subcommands.add_parser(
+        "routing-control-anchor-create",
+        help="Create a private monotonic routing-control anchor",
+    )
+    anchor_create.add_argument("path", type=Path)
+    anchor_create.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
+    anchor_create.add_argument("--anchor-policy", type=Path, required=True)
+    anchor_advance = subcommands.add_parser(
+        "routing-control-anchor-advance",
+        help="Append one newer signed routing-control state",
+    )
+    anchor_advance.add_argument("--anchor", type=Path, required=True)
+    anchor_advance.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
+    anchor_advance.add_argument("--signed-control-state", type=Path, required=True)
+    anchor_status = subcommands.add_parser(
+        "routing-control-anchor-status",
+        help="Verify and inspect the complete routing-control anchor chain",
+    )
+    anchor_status.add_argument("--anchor", type=Path, required=True)
+    anchor_status.add_argument(
+        "--activation-authority-policy", type=Path, required=True
+    )
+    broker_status = subcommands.add_parser(
+        "broker-audit-status",
+        help="Validate one broker audit against trusted authorization and ledger",
+    )
+    broker_status.add_argument("--audit-dir", type=Path, required=True)
+    broker_status.add_argument("--expected-authorization", type=Path, required=True)
+    broker_status.add_argument("--spend-ledger", type=Path, required=True)
+    conformance = subcommands.add_parser(
+        "openai-conformance",
+        help="Run one explicitly authorized blinded OpenAI conformance assignment",
+    )
+    conformance.add_argument("--batch", type=Path, required=True)
+    conformance.add_argument("--sample-id", required=True)
+    conformance.add_argument("--spend-policy", type=Path, required=True)
+    conformance.add_argument("--spend-ledger", type=Path, required=True)
+    conformance.add_argument("--docker", type=Path, required=True)
+    conformance.add_argument(
+        "--image", required=True, help="Locally built immutable sha256 image ID"
+    )
+    conformance.add_argument("--audit-dir", type=Path, required=True)
+    conformance.add_argument("--authorization-output", type=Path, required=True)
+    conformance.add_argument("--artifact-output", type=Path, required=True)
+    conformance.add_argument(
+        "--lifecycle-root",
+        type=Path,
+        default=Path(".mos-eisley/container-lifecycles"),
+    )
+    conformance.add_argument("--timeout", type=float, default=30.0)
+    conformance.add_argument(
+        "--allow-data-transfer",
+        action="store_true",
+        help="Acknowledge that the blinded brief will be sent to OpenAI",
+    )
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -183,6 +364,12 @@ def parser() -> argparse.ArgumentParser:
     isolated.add_argument(
         "--image", required=True, help="Locally built sha256 image ID"
     )
+    isolated.add_argument(
+        "--lifecycle-root",
+        type=Path,
+        default=Path(".mos-eisley/container-lifecycles"),
+        help="Private watchdog lease and cleanup records",
+    )
     eval_grade = subcommands.add_parser(
         "eval-grade-packet", help="Export route-blind material for an adjudicator"
     )
@@ -203,6 +390,24 @@ def parser() -> argparse.ArgumentParser:
     eval_compile.add_argument("--grading-batch", type=Path, required=True)
     eval_compile.add_argument("--adjudication", type=Path, required=True)
     eval_compile.add_argument("--output", type=Path, required=True)
+    eval_compile_dual = subcommands.add_parser(
+        "eval-compile-dual",
+        help="Compile observations from reverified dual-grade lineage",
+    )
+    eval_compile_dual.add_argument("--dataset", type=Path, required=True)
+    eval_compile_dual.add_argument("--plan", type=Path, required=True)
+    eval_compile_dual.add_argument("--batch", type=Path, required=True)
+    eval_compile_dual.add_argument("--mapping", type=Path, required=True)
+    eval_compile_dual.add_argument("--raw-results", type=Path, required=True)
+    eval_compile_dual.add_argument("--grading-batch", type=Path, required=True)
+    eval_compile_dual.add_argument(
+        "--dual-grading-resolution", type=Path, required=True
+    )
+    eval_compile_dual.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_compile_dual.add_argument(
+        "--resolution-trust-policy", type=Path, required=True
+    )
+    eval_compile_dual.add_argument("--output", type=Path, required=True)
     eval_agreement = subcommands.add_parser(
         "eval-agreement", help="Compare two grading artifacts and report conflicts"
     )
@@ -210,6 +415,25 @@ def parser() -> argparse.ArgumentParser:
     eval_agreement.add_argument("--left", type=Path, required=True)
     eval_agreement.add_argument("--right", type=Path, required=True)
     eval_agreement.add_argument("--output", type=Path, required=True)
+    eval_authenticate = subcommands.add_parser(
+        "eval-authenticate-adjudication",
+        help="Verify one human adjudication against a trusted Ed25519 identity",
+    )
+    eval_authenticate.add_argument("--grading-batch", type=Path, required=True)
+    eval_authenticate.add_argument("--signed-adjudication", type=Path, required=True)
+    eval_authenticate.add_argument("--trust-policy", type=Path, required=True)
+    eval_authenticate.add_argument("--output", type=Path, required=True)
+    eval_resolve = subcommands.add_parser(
+        "eval-resolve-adjudications",
+        help="Verify two authenticated grades and independently resolve conflicts",
+    )
+    eval_resolve.add_argument("--grading-batch", type=Path, required=True)
+    eval_resolve.add_argument("--left-authenticated", type=Path, required=True)
+    eval_resolve.add_argument("--right-authenticated", type=Path, required=True)
+    eval_resolve.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_resolve.add_argument("--resolution-trust-policy", type=Path, required=True)
+    eval_resolve.add_argument("--signed-resolution", type=Path)
+    eval_resolve.add_argument("--output", type=Path, required=True)
     eval_score = subcommands.add_parser(
         "eval-score", help="Score one exactly covered evaluation split"
     )
@@ -220,6 +444,349 @@ def parser() -> argparse.ArgumentParser:
         "--split", choices=("calibration", "holdout"), required=True
     )
     eval_score.add_argument("--output", type=Path, required=True)
+    eval_score_dual = subcommands.add_parser(
+        "eval-score-dual",
+        help="Score one split after reverifying its complete dual-grade lineage",
+    )
+    eval_score_dual.add_argument("--dataset", type=Path, required=True)
+    eval_score_dual.add_argument("--plan", type=Path, required=True)
+    eval_score_dual.add_argument("--batch", type=Path, required=True)
+    eval_score_dual.add_argument("--mapping", type=Path, required=True)
+    eval_score_dual.add_argument("--raw-results", type=Path, required=True)
+    eval_score_dual.add_argument("--grading-batch", type=Path, required=True)
+    eval_score_dual.add_argument("--dual-grading-resolution", type=Path, required=True)
+    eval_score_dual.add_argument("--dual-graded-observations", type=Path, required=True)
+    eval_score_dual.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_score_dual.add_argument("--resolution-trust-policy", type=Path, required=True)
+    eval_score_dual.add_argument(
+        "--split", choices=("calibration", "holdout"), required=True
+    )
+    eval_score_dual.add_argument("--output", type=Path, required=True)
+    eval_seal_skill = subcommands.add_parser(
+        "eval-seal-skill-comparison",
+        help="Seal a pre-registered prompt-only persona-skill comparison",
+    )
+    eval_seal_skill.add_argument("--dataset", type=Path, required=True)
+    eval_seal_skill.add_argument("--plan", type=Path, required=True)
+    eval_seal_skill.add_argument("--protocol", type=Path, required=True)
+    eval_seal_skill.add_argument("--output", type=Path, required=True)
+    eval_score_skill = subcommands.add_parser(
+        "eval-score-skill-comparison",
+        help="Score paired skill evidence after reverifying dual-grade lineage",
+    )
+    eval_score_skill.add_argument("--dataset", type=Path, required=True)
+    eval_score_skill.add_argument("--plan", type=Path, required=True)
+    eval_score_skill.add_argument("--batch", type=Path, required=True)
+    eval_score_skill.add_argument("--mapping", type=Path, required=True)
+    eval_score_skill.add_argument("--raw-results", type=Path, required=True)
+    eval_score_skill.add_argument("--grading-batch", type=Path, required=True)
+    eval_score_skill.add_argument("--dual-grading-resolution", type=Path, required=True)
+    eval_score_skill.add_argument(
+        "--dual-graded-observations", type=Path, required=True
+    )
+    eval_score_skill.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_score_skill.add_argument("--resolution-trust-policy", type=Path, required=True)
+    eval_score_skill.add_argument("--sealed-comparison", type=Path, required=True)
+    eval_score_skill.add_argument(
+        "--holdout-use-directory",
+        type=Path,
+        help="Existing private directory required when scoring holdout",
+    )
+    eval_score_skill.add_argument(
+        "--split", choices=("calibration", "holdout"), required=True
+    )
+    eval_score_skill.add_argument("--output", type=Path, required=True)
+    eval_derive_skill_promotion = subcommands.add_parser(
+        "eval-derive-skill-promotion",
+        help="Derive an expiring skill decision for external signing",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "calibration-report",
+        "holdout-report",
+        "authority-policy",
+        "output",
+    ):
+        eval_derive_skill_promotion.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    eval_derive_skill_promotion.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_promotion.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_skill_promotion = subcommands.add_parser(
+        "eval-authenticate-skill-promotion",
+        help="Reverify both split lineages and authenticate skill promotion",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "signed-promotion",
+        "authority-policy",
+        "output",
+    ):
+        eval_authenticate_skill_promotion.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_authenticate_skill_promotion.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_seal_routing = subcommands.add_parser(
+        "eval-seal-routing-study",
+        help="Validate and seal a pre-registered difficulty-routing study",
+    )
+    eval_seal_routing.add_argument("--dataset", type=Path, required=True)
+    eval_seal_routing.add_argument("--plan", type=Path, required=True)
+    eval_seal_routing.add_argument("--feature-manifest", type=Path, required=True)
+    eval_seal_routing.add_argument("--protocol", type=Path, required=True)
+    eval_seal_routing.add_argument("--output", type=Path, required=True)
+    eval_score_routing = subcommands.add_parser(
+        "eval-score-routing-calibration",
+        help="Score sealed profiles from authenticated calibration lineage",
+    )
+    eval_score_routing.add_argument("--dataset", type=Path, required=True)
+    eval_score_routing.add_argument("--plan", type=Path, required=True)
+    eval_score_routing.add_argument("--batch", type=Path, required=True)
+    eval_score_routing.add_argument("--mapping", type=Path, required=True)
+    eval_score_routing.add_argument("--raw-results", type=Path, required=True)
+    eval_score_routing.add_argument("--grading-batch", type=Path, required=True)
+    eval_score_routing.add_argument(
+        "--dual-grading-resolution", type=Path, required=True
+    )
+    eval_score_routing.add_argument(
+        "--dual-graded-observations", type=Path, required=True
+    )
+    eval_score_routing.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_score_routing.add_argument(
+        "--resolution-trust-policy", type=Path, required=True
+    )
+    eval_score_routing.add_argument("--feature-manifest", type=Path, required=True)
+    eval_score_routing.add_argument("--sealed-study", type=Path, required=True)
+    eval_score_routing.add_argument("--output", type=Path, required=True)
+    eval_freeze_routing = subcommands.add_parser(
+        "eval-freeze-routing-policy",
+        help="Freeze a non-activating candidate policy from calibration evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "batch",
+        "mapping",
+        "raw-results",
+        "grading-batch",
+        "dual-grading-resolution",
+        "dual-graded-observations",
+        "grading-trust-policy",
+        "resolution-trust-policy",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "output",
+    ):
+        eval_freeze_routing.add_argument(f"--{option}", type=Path, required=True)
+    eval_holdout_routing = subcommands.add_parser(
+        "eval-evaluate-routing-holdout",
+        help="Consume a local claim and evaluate a frozen policy on holdout",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-directory",
+        "output",
+    ):
+        eval_holdout_routing.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_holdout_routing.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_derive_promotion = subcommands.add_parser(
+        "eval-derive-routing-promotion",
+        help="Apply pre-pinned promotion thresholds without authorizing promotion",
+    )
+    eval_derive_promotion.add_argument("--promotion-policy", type=Path, required=True)
+    eval_derive_promotion.add_argument("--holdout-report", type=Path, required=True)
+    eval_derive_promotion.add_argument("--output", type=Path, required=True)
+    eval_authenticate_promotion = subcommands.add_parser(
+        "eval-authenticate-routing-promotion",
+        help="Reverify holdout lineage and authenticate an independent promotion",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "signed-promotion",
+        "authority-policy",
+        "output",
+    ):
+        eval_authenticate_promotion.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_authenticate_promotion.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_activation = subcommands.add_parser(
+        "eval-issue-routing-activation-eligibility",
+        help="Issue short-lived eligibility from fresh signed operational evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "signed-activation-policy",
+        "signed-operational-snapshot",
+        "signed-control-state",
+        "activation-authority-policy",
+        "output",
+    ):
+        eval_activation.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_activation.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    runtime_preflight = subcommands.add_parser(
+        "eval-routing-runtime-preflight",
+        help="Reverify eligibility against the latest anchored control state",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "feature-manifest",
+        "sealed-study",
+        "calibration-report",
+        "candidate-policy",
+        "promotion-policy",
+        "holdout-use-claim",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "signed-activation-policy",
+        "signed-operational-snapshot",
+        "signed-control-state",
+        "activation-authority-policy",
+        "activation-eligibility",
+        "control-anchor",
+        "output",
+    ):
+        runtime_preflight.add_argument(f"--{option}", type=Path, required=True)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            runtime_preflight.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    skills = subcommands.add_parser(
+        "skills", help="Discover and inspect inert prompt-only skill packages"
+    )
+    skill_commands = skills.add_subparsers(dest="skill_command", required=True)
+    for name, help_text in (
+        ("list", "List validated discovery metadata without loading bodies"),
+        ("validate", "Validate prompt-only skill packages; grants no trust"),
+    ):
+        skill_command = skill_commands.add_parser(name, help=help_text)
+        skill_command.add_argument(
+            "--user-root", type=Path, action="append", default=[]
+        )
+        skill_command.add_argument(
+            "--project-root", type=Path, action="append", default=[]
+        )
+        skill_command.add_argument("--json", action="store_true")
+    skill_show = skill_commands.add_parser(
+        "show", help="Activate one exact source-qualified skill snapshot"
+    )
+    skill_show.add_argument("reference")
+    skill_show.add_argument("--user-root", type=Path, action="append", default=[])
+    skill_show.add_argument("--project-root", type=Path, action="append", default=[])
+    skill_show.add_argument("--allow-project", action="store_true")
+    skill_show.add_argument("--json", action="store_true")
+    skill_archive = skill_commands.add_parser(
+        "archive", help="Retain one exact validated package without installing it"
+    )
+    skill_archive.add_argument("reference")
+    skill_archive.add_argument("--user-root", type=Path, action="append", default=[])
+    skill_archive.add_argument("--project-root", type=Path, action="append", default=[])
+    skill_archive.add_argument("--allow-project", action="store_true")
+    skill_archive.add_argument("--output", type=Path, required=True)
+    skill_verify_archive = skill_commands.add_parser(
+        "verify-archive", help="Revalidate retained package bytes without extraction"
+    )
+    skill_verify_archive.add_argument("archive", type=Path)
     subcommands.add_parser("models", help="Print the configured model registry")
     return command
 
@@ -239,6 +806,20 @@ def _write_contract(path: Path, value: Contract) -> None:
     private_write(path, canonical_bytes(value))
 
 
+def _paths_overlap(left: Path, right: Path) -> bool:
+    left_resolved = left.resolve()
+    right_resolved = right.resolve()
+    return (
+        left_resolved == right_resolved
+        or left_resolved.is_relative_to(right_resolved)
+        or right_resolved.is_relative_to(left_resolved)
+    )
+
+
+def _openai_api_key() -> str | None:
+    return os.environ.get("OPENAI_API_KEY")
+
+
 async def _openai_run(
     config: AgentConfig,
     api_key: str,
@@ -252,7 +833,7 @@ async def _openai_run(
         timeout=config.request_timeout_seconds,
         max_retries=0,
         base_url="https://api.openai.com/v1",
-        http_client=DefaultAsyncHttpxClient(trust_env=False, follow_redirects=False),
+        http_client=BoundedOpenAIHttpClient(trust_env=False, follow_redirects=False),
     ) as sdk:
         return await run_agent(
             config,
@@ -267,9 +848,1480 @@ async def _openai_run(
         )
 
 
+def _authenticate_adjudication_command(args: argparse.Namespace) -> int:
+    grading = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    signed = SignedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.signed_adjudication), 16_000_000)
+    )
+    trust_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.trust_policy), 64_000)
+    )
+    authenticated = authenticate_adjudication(grading, signed, trust_policy)
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.adjudication.authenticated",
+                "path": str(output),
+                "authenticated_adjudication_sha256": (
+                    authenticated.authenticated_adjudication_sha256
+                ),
+                "grading_batch_sha256": authenticated.grading_batch_sha256,
+                "trust_policy_sha256": authenticated.trust_policy_sha256,
+                "adjudicator_id": (
+                    authenticated.signed_adjudication.signature.signer_id
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _resolve_adjudications_command(args: argparse.Namespace) -> int:
+    grading = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    left = AuthenticatedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.left_authenticated), 16_000_000)
+    )
+    right = AuthenticatedAdjudication.model_validate_json(
+        read_bounded(cast(Path, args.right_authenticated), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    resolution_path = cast(Path | None, args.signed_resolution)
+    signed_resolution = (
+        SignedResolutionSet.model_validate_json(
+            read_bounded(resolution_path, 16_000_000)
+        )
+        if resolution_path is not None
+        else None
+    )
+    artifact = resolve_authenticated_adjudications(
+        grading,
+        left,
+        right,
+        grading_policy,
+        resolution_policy,
+        signed_resolution,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.dual_grading.resolved",
+                "path": str(output),
+                "dual_grading_resolution_sha256": (
+                    artifact.dual_grading_resolution_sha256
+                ),
+                "grading_batch_sha256": artifact.grading_batch_sha256,
+                "left_adjudicator_id": left.signed_adjudication.signature.signer_id,
+                "right_adjudicator_id": right.signed_adjudication.signature.signer_id,
+                "resolver_id": (
+                    signed_resolution.signature.signer_id
+                    if signed_resolution is not None
+                    else None
+                ),
+                "conflicts": len(artifact.agreement.conflicts),
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _compile_dual_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    observations = compile_dual_graded_observations(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, observations)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.dual_graded_observations.compiled",
+                "path": str(output),
+                "dual_graded_observations_sha256": (
+                    observations.dual_graded_observations_sha256
+                ),
+                "dual_grading_resolution_sha256": (
+                    observations.dual_grading_resolution_sha256
+                ),
+                "observations": len(observations.observations),
+                "promotion_eligible": observations.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _score_dual_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    split = cast(Split, args.split)
+    report = score_dual_graded_observations(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        split,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.dual_lineage_score.created",
+                "path": str(output),
+                "dual_lineage_report_sha256": report.dual_lineage_report_sha256,
+                "dual_graded_observations_sha256": (
+                    report.dual_graded_observations_sha256
+                ),
+                "split": report.split,
+                "eligible": sum(item.eligible for item in report.scores),
+                "promotion_ready": report.promotion_ready,
+            }
+        )
+    )
+    return 0
+
+
+def _seal_skill_comparison_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    protocol = SkillComparisonProtocol.model_validate_json(
+        read_bounded(cast(Path, args.protocol), 1_000_000)
+    )
+    artifact = seal_skill_comparison(dataset, plan, protocol)
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_comparison.sealed",
+                "path": str(output),
+                "sealed_comparison_sha256": artifact.sealed_comparison_sha256,
+                "protocol_sha256": artifact.protocol.protocol_sha256,
+                "activation_authorized": artifact.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _score_skill_comparison_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    sealed = SealedSkillComparison.model_validate_json(
+        read_bounded(cast(Path, args.sealed_comparison), 2_000_000)
+    )
+    split = cast(Split, args.split)
+    output = cast(Path, args.output)
+    claim = None
+    claim_path = None
+    if split == "holdout":
+        if args.holdout_use_directory is None:
+            raise ValueError("holdout scoring requires --holdout-use-directory")
+        use_directory = cast(Path, args.holdout_use_directory)
+        if output.exists():
+            raise ValueError("skill comparison report output already exists")
+        if not use_directory.is_dir():
+            raise ValueError("holdout use directory must already exist")
+        if _paths_overlap(output, use_directory):
+            raise ValueError("skill report and holdout use directory must not overlap")
+        claim = make_skill_holdout_use_claim(
+            sealed,
+            batch,
+            mapping,
+            raw_results,
+            grading_batch,
+            dual_grading,
+            grading_policy,
+            resolution_policy,
+            observations,
+        )
+        claim_path = claim_skill_holdout_use(use_directory, claim)
+    elif args.holdout_use_directory is not None:
+        raise ValueError("calibration scoring does not accept --holdout-use-directory")
+    report = score_authenticated_skill_comparison(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        sealed,
+        split,
+        claim,
+    )
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_comparison.scored",
+                "path": str(output),
+                "claim_path": str(claim_path) if claim_path is not None else None,
+                "skill_comparison_report_sha256": (
+                    report.skill_comparison_report_sha256
+                ),
+                "split": report.split,
+                "passes_registered_gate": report.passes_registered_gate,
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_skill_promotion_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    sealed = SealedSkillComparison.model_validate_json(
+        read_bounded(cast(Path, args.sealed_comparison), 2_000_000)
+    )
+    calibration_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 2_000_000)
+    )
+    holdout_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 2_000_000)
+    )
+    authority_policy = SkillPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.authority_policy), 64_000)
+    )
+    decision = make_skill_promotion_decision(
+        dataset,
+        plan,
+        sealed,
+        calibration_report,
+        holdout_report,
+        authority_policy,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_promotion.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "criteria_satisfied": decision.criteria_satisfied,
+                "valid_until": decision.valid_until.isoformat(),
+                "authenticated": False,
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_promotion_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    sealed = SealedSkillComparison.model_validate_json(
+        read_bounded(cast(Path, args.sealed_comparison), 2_000_000)
+    )
+    claim = SkillHoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    calibration_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 2_000_000)
+    )
+    holdout_report = SkillComparisonReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 2_000_000)
+    )
+    signed = SignedSkillPromotionDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_promotion), 128_000)
+    )
+    authority_policy = SkillPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.authority_policy), 64_000)
+    )
+    authenticated = authenticate_skill_promotion(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        signed,
+        authority_policy,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_promotion.authenticated",
+                "path": str(output),
+                "promotion_receipt_sha256": (authenticated.promotion_receipt_sha256),
+                "signer_id": signed.signature.signer_id,
+                "promotion_ready": authenticated.promotion_ready,
+                "valid_until": authenticated.valid_until.isoformat(),
+                "activation_authorized": authenticated.activation_authorized,
+                "configuration_mutation_authorized": (
+                    authenticated.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _seal_routing_study_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    protocol = RoutingStudyProtocol.model_validate_json(
+        read_bounded(cast(Path, args.protocol), 1_000_000)
+    )
+    artifact = seal_routing_study(dataset, plan, manifest, protocol)
+    output = cast(Path, args.output)
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_study.sealed",
+                "path": str(output),
+                "sealed_study_sha256": artifact.sealed_study_sha256,
+                "protocol_sha256": artifact.protocol_sha256,
+                "profiles": len(artifact.profile_ids),
+                "activation_authorized": artifact.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _score_routing_calibration_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    report = score_routing_calibration(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        manifest,
+        sealed_study,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_calibration.scored",
+                "path": str(output),
+                "calibration_report_sha256": report.calibration_report_sha256,
+                "profiles": len(report.profiles),
+                "eligible_profile_routes": sum(
+                    score.eligible
+                    for profile in report.profiles
+                    for score in profile.scores
+                ),
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _freeze_routing_policy_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    mapping = BlindingMap.model_validate_json(
+        read_bounded(cast(Path, args.mapping), 16_000_000)
+    )
+    raw_results = RawResultSet.model_validate_json(
+        read_bounded(cast(Path, args.raw_results), 16_000_000)
+    )
+    grading_batch = GradingBatch.model_validate_json(
+        read_bounded(cast(Path, args.grading_batch), 16_000_000)
+    )
+    dual_grading = DualGradingResolution.model_validate_json(
+        read_bounded(cast(Path, args.dual_grading_resolution), 16_000_000)
+    )
+    observations = DualGradedObservationSet.model_validate_json(
+        read_bounded(cast(Path, args.dual_graded_observations), 16_000_000)
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy), 64_000)
+    )
+    resolution_policy = ResolutionTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.resolution_trust_policy), 64_000)
+    )
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = freeze_candidate_routing_policy(
+        dataset,
+        plan,
+        batch,
+        mapping,
+        raw_results,
+        grading_batch,
+        dual_grading,
+        grading_policy,
+        resolution_policy,
+        observations,
+        manifest,
+        sealed_study,
+        calibration_report,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_policy.frozen",
+                "path": str(output),
+                "candidate_policy_sha256": policy.candidate_policy_sha256,
+                "profiles": len(policy.decisions),
+                "calibrated_routes": sum(
+                    item.action == "calibrated_route" for item in policy.decisions
+                ),
+                "fallbacks": sum(
+                    item.action == "role_fallback" for item in policy.decisions
+                ),
+                "fail_closed": sum(
+                    item.action == "fail_closed" for item in policy.decisions
+                ),
+                "holdout_status": policy.holdout_status,
+                "promotion_ready": policy.promotion_ready,
+                "activation_authorized": policy.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+type RoutingLineage = tuple[
+    ExecutionBatch,
+    BlindingMap,
+    RawResultSet,
+    GradingBatch,
+    DualGradingResolution,
+    GradingTrustPolicy,
+    ResolutionTrustPolicy,
+    DualGradedObservationSet,
+]
+
+
+def _load_routing_lineage(args: argparse.Namespace, prefix: str) -> RoutingLineage:
+    def path(name: str) -> Path:
+        return cast(Path, getattr(args, f"{prefix}_{name}"))
+
+    return (
+        ExecutionBatch.model_validate_json(read_bounded(path("batch"), 16_000_000)),
+        BlindingMap.model_validate_json(read_bounded(path("mapping"), 16_000_000)),
+        RawResultSet.model_validate_json(read_bounded(path("raw_results"), 16_000_000)),
+        GradingBatch.model_validate_json(
+            read_bounded(path("grading_batch"), 16_000_000)
+        ),
+        DualGradingResolution.model_validate_json(
+            read_bounded(path("dual_grading_resolution"), 16_000_000)
+        ),
+        GradingTrustPolicy.model_validate_json(
+            read_bounded(path("grading_trust_policy"), 64_000)
+        ),
+        ResolutionTrustPolicy.model_validate_json(
+            read_bounded(path("resolution_trust_policy"), 64_000)
+        ),
+        DualGradedObservationSet.model_validate_json(
+            read_bounded(path("dual_graded_observations"), 16_000_000)
+        ),
+    )
+
+
+def _evaluate_routing_holdout_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    output = cast(Path, args.output)
+    use_directory = cast(Path, args.holdout_use_directory)
+    if output.exists():
+        raise ValueError("holdout report output already exists")
+    if not use_directory.is_dir():
+        raise ValueError("holdout use directory must already exist")
+    if _paths_overlap(output, use_directory):
+        raise ValueError("holdout report and use directory must not overlap")
+
+    claim = make_holdout_use_claim(policy, promotion_policy, *holdout)
+    claim_path = claim_holdout_use(use_directory, claim)
+    report = evaluate_frozen_routing_policy(
+        dataset,
+        plan,
+        *calibration,
+        *holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        policy,
+        promotion_policy,
+        claim,
+    )
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_holdout.evaluated",
+                "path": str(output),
+                "claim_path": str(claim_path),
+                "holdout_report_sha256": report.holdout_report_sha256,
+                **report.summary.model_dump(mode="json"),
+                "holdout_status": report.holdout_status,
+                "promotion_ready": report.promotion_ready,
+                "activation_authorized": report.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_routing_promotion_command(args: argparse.Namespace) -> int:
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    decision = make_routing_promotion_decision(report, promotion_policy)
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_promotion.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "threshold_result": decision.threshold_result,
+                "criteria_satisfied": decision.criteria_satisfied,
+                "authenticated": False,
+                "activation_authorized": decision.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_routing_promotion_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    signed = SignedRoutingPromotionDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_promotion), 64_000)
+    )
+    authority_policy = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.authority_policy), 64_000)
+    )
+    authenticated = authenticate_routing_promotion(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        policy,
+        claim,
+        report,
+        promotion_policy,
+        signed,
+        authority_policy,
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_promotion.authenticated",
+                "path": str(output),
+                "promotion_receipt_sha256": authenticated.promotion_receipt_sha256,
+                "signer_id": signed.signature.signer_id,
+                "promotion_ready": authenticated.promotion_ready,
+                "activation_authorized": authenticated.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _issue_routing_activation_eligibility_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    candidate_policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    holdout_report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    promotion = AuthenticatedRoutingPromotion.model_validate_json(
+        read_bounded(cast(Path, args.promotion_receipt), 128_000)
+    )
+    promotion_authorities = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_authority_policy), 64_000)
+    )
+    signed_activation_policy = SignedRoutingActivationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_activation_policy), 1_000_000)
+    )
+    signed_snapshot = SignedRoutingOperationalSnapshot.model_validate_json(
+        read_bounded(cast(Path, args.signed_operational_snapshot), 2_000_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    eligibility = issue_routing_activation_eligibility(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        candidate_policy,
+        promotion_policy,
+        claim,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        signed_activation_policy,
+        signed_snapshot,
+        signed_control,
+        activation_authorities,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, eligibility)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_activation.eligibility_issued",
+                "path": str(output),
+                "eligibility_sha256": eligibility.eligibility_sha256,
+                "issued_at": eligibility.issued_at.isoformat(),
+                "valid_until": eligibility.valid_until.isoformat(),
+                "eligible_routes": len(eligibility.eligible_candidate_ids),
+                "unavailable_action": eligibility.unavailable_action,
+                "allow_model_substitution": eligibility.allow_model_substitution,
+                "activation_eligible": eligibility.activation_eligible,
+                "runtime_activation_authorized": (
+                    eligibility.runtime_activation_authorized
+                ),
+                "configuration_mutation_authorized": (
+                    eligibility.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _routing_control_anchor_create_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    policy = RoutingControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    anchor = RoutingControlAnchor.create(
+        cast(Path, args.path),
+        policy,
+        activation_authorities,
+    )
+    snapshot = anchor.snapshot(activation_authorities)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_created",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _routing_control_anchor_advance_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.advance(
+        signed_control,
+        activation_authorities,
+        datetime.now(UTC),
+    )
+    latest = snapshot.latest
+    if latest is None:
+        raise ValueError("routing control anchor advance produced no state")
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_advanced",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_entry_sha256": latest.anchor_entry_sha256,
+                "sequence": latest.signed_control.control.sequence,
+                "emergency_stop": latest.signed_control.control.emergency_stop,
+                "valid_until": latest.signed_control.control.valid_until.isoformat(),
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _routing_control_anchor_status_command(args: argparse.Namespace) -> int:
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.snapshot(activation_authorities)
+    latest = snapshot.latest
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_control.anchor_status",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "entries": snapshot.entries,
+                "latest_entry_sha256": (
+                    latest.anchor_entry_sha256 if latest is not None else None
+                ),
+                "latest_sequence": (
+                    latest.signed_control.control.sequence
+                    if latest is not None
+                    else None
+                ),
+                "emergency_stop": (
+                    latest.signed_control.control.emergency_stop
+                    if latest is not None
+                    else None
+                ),
+                "valid_until": (
+                    latest.signed_control.control.valid_until.isoformat()
+                    if latest is not None
+                    else None
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
+    dataset = EvaluationDataset.model_validate_json(
+        read_bounded(cast(Path, args.dataset), 16_000_000)
+    )
+    plan = SweepPlan.model_validate_json(
+        read_bounded(cast(Path, args.plan), 16_000_000)
+    )
+    calibration = _load_routing_lineage(args, "calibration")
+    holdout = _load_routing_lineage(args, "holdout")
+    manifest = PromptFeatureManifest.model_validate_json(
+        read_bounded(cast(Path, args.feature_manifest), 16_000_000)
+    )
+    sealed_study = SealedRoutingStudy.model_validate_json(
+        read_bounded(cast(Path, args.sealed_study), 2_000_000)
+    )
+    calibration_report = RoutingCalibrationReport.model_validate_json(
+        read_bounded(cast(Path, args.calibration_report), 16_000_000)
+    )
+    candidate_policy = FrozenCandidateRoutingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.candidate_policy), 16_000_000)
+    )
+    promotion_policy = RoutingPromotionPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_policy), 64_000)
+    )
+    claim = HoldoutUseClaim.model_validate_json(
+        read_bounded(cast(Path, args.holdout_use_claim), 64_000)
+    )
+    holdout_report = FrozenPolicyHoldoutReport.model_validate_json(
+        read_bounded(cast(Path, args.holdout_report), 32_000_000)
+    )
+    promotion = AuthenticatedRoutingPromotion.model_validate_json(
+        read_bounded(cast(Path, args.promotion_receipt), 128_000)
+    )
+    promotion_authorities = RoutingPromotionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.promotion_authority_policy), 64_000)
+    )
+    signed_activation_policy = SignedRoutingActivationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_activation_policy), 1_000_000)
+    )
+    signed_snapshot = SignedRoutingOperationalSnapshot.model_validate_json(
+        read_bounded(cast(Path, args.signed_operational_snapshot), 2_000_000)
+    )
+    signed_control = SignedRoutingActivationControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control_state), 2_000_000)
+    )
+    activation_authorities = RoutingActivationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.activation_authority_policy), 64_000)
+    )
+    eligibility = RoutingActivationEligibility.model_validate_json(
+        read_bounded(cast(Path, args.activation_eligibility), 1_000_000)
+    )
+    anchor = RoutingControlAnchor(cast(Path, args.control_anchor))
+    preflight = perform_routing_runtime_preflight(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        manifest,
+        sealed_study,
+        calibration_report,
+        candidate_policy,
+        promotion_policy,
+        claim,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        signed_activation_policy,
+        signed_snapshot,
+        signed_control,
+        activation_authorities,
+        eligibility,
+        anchor,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, preflight)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.routing_runtime.preflight_passed",
+                "path": str(output),
+                "preflight_sha256": preflight.preflight_sha256,
+                "checked_at": preflight.checked_at.isoformat(),
+                "valid_until": preflight.valid_until.isoformat(),
+                "eligible_routes": len(preflight.eligible_candidate_ids),
+                "allow_model_substitution": preflight.allow_model_substitution,
+                "dispatch_authorized": preflight.dispatch_authorized,
+                "runtime_activation_authorized": (
+                    preflight.runtime_activation_authorized
+                ),
+                "configuration_mutation_authorized": (
+                    preflight.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
+    handlers = {
+        "eval-authenticate-adjudication": _authenticate_adjudication_command,
+        "eval-resolve-adjudications": _resolve_adjudications_command,
+        "eval-compile-dual": _compile_dual_command,
+        "eval-score-dual": _score_dual_command,
+        "eval-seal-skill-comparison": _seal_skill_comparison_command,
+        "eval-score-skill-comparison": _score_skill_comparison_command,
+        "eval-derive-skill-promotion": _derive_skill_promotion_command,
+        "eval-authenticate-skill-promotion": (_authenticate_skill_promotion_command),
+        "eval-seal-routing-study": _seal_routing_study_command,
+        "eval-score-routing-calibration": _score_routing_calibration_command,
+        "eval-freeze-routing-policy": _freeze_routing_policy_command,
+        "eval-evaluate-routing-holdout": _evaluate_routing_holdout_command,
+        "eval-derive-routing-promotion": _derive_routing_promotion_command,
+        "eval-authenticate-routing-promotion": (
+            _authenticate_routing_promotion_command
+        ),
+        "eval-issue-routing-activation-eligibility": (
+            _issue_routing_activation_eligibility_command
+        ),
+        "routing-control-anchor-create": _routing_control_anchor_create_command,
+        "routing-control-anchor-advance": _routing_control_anchor_advance_command,
+        "routing-control-anchor-status": _routing_control_anchor_status_command,
+        "eval-routing-runtime-preflight": _routing_runtime_preflight_command,
+    }
+    handler = handlers.get(args.command)
+    return handler(args) if handler is not None else None
+
+
+def _skills_command(args: argparse.Namespace) -> int:
+    if args.skill_command == "verify-archive":
+        archive = SkillPackageArchive.model_validate_json(
+            read_bounded(cast(Path, args.archive), 6_000_000)
+        )
+        verify_skill_archive(archive)
+        print(
+            json.dumps(
+                {
+                    "type": "skill.archive_verified",
+                    "path": str(cast(Path, args.archive)),
+                    "archive_sha256": archive.archive_sha256,
+                    "package_sha256": archive.descriptor.identity.package_sha256,
+                    "activation_authorized": archive.activation_authorized,
+                    "installation_authorized": archive.installation_authorized,
+                    "configuration_mutation_authorized": (
+                        archive.configuration_mutation_authorized
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    catalog = discover_skills(
+        user_roots=tuple(cast(list[Path], args.user_root)),
+        project_roots=tuple(cast(list[Path], args.project_root)),
+    )
+    if args.skill_command == "archive":
+        archive = catalog.archive(
+            cast(str, args.reference),
+            allow_project=cast(bool, args.allow_project),
+        )
+        output = cast(Path, args.output)
+        _write_contract(output, archive)
+        print(
+            json.dumps(
+                {
+                    "type": "skill.archived",
+                    "path": str(output),
+                    "archive_sha256": archive.archive_sha256,
+                    "package_sha256": archive.descriptor.identity.package_sha256,
+                    "activation_authorized": archive.activation_authorized,
+                    "installation_authorized": archive.installation_authorized,
+                    "configuration_mutation_authorized": (
+                        archive.configuration_mutation_authorized
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if args.skill_command == "show":
+        activated = catalog.activate(
+            cast(str, args.reference),
+            allow_project=cast(bool, args.allow_project),
+        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "type": "skill.activated",
+                        "descriptor": activated.descriptor.model_dump(mode="json"),
+                        "instructions": activated.instructions,
+                        "authority_granted": False,
+                    },
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(activated.instructions)
+        return 0
+    event = {
+        "type": (
+            "skills.validated"
+            if args.skill_command == "validate"
+            else "skills.discovered"
+        ),
+        "skills": [item.model_dump(mode="json") for item in catalog.descriptors],
+        "shadowed_names": list(catalog.shadowed_names),
+        "authority_granted": False,
+    }
+    if args.json:
+        print(json.dumps(event, sort_keys=True))
+    else:
+        for descriptor in catalog.descriptors:
+            identity = descriptor.identity
+            print(
+                f"{identity.qualified_reference} {identity.kind} "
+                f"{descriptor.package_bytes} bytes"
+            )
+        if catalog.shadowed_names:
+            print("shadowed names: " + ", ".join(catalog.shadowed_names))
+        if args.skill_command == "validate":
+            print("structurally valid; no trust or authority granted")
+    return 0
+
+
+def _recorded_review_command(args: argparse.Namespace) -> int:
+    if args.command == "replay":
+        brief, cassette, policy, expected = load_run(cast(Path, args.run))
+        actual = asyncio.run(
+            review(
+                brief,
+                tuple(r.critic for r in cassette.critics),
+                RecordedReviewer(cassette),
+                policy,
+            )
+        )
+        if actual != expected:
+            raise ValueError("recorded replay differs from stored result")
+        print(
+            json.dumps(
+                {
+                    "type": "replay.verified",
+                    "brief_id": brief.brief_id,
+                    "decision": actual.verdict.decision,
+                }
+            )
+        )
+        return 0
+    skill_manifest = None
+    if args.command == "demo":
+        brief, cassette = demo_inputs()
+    else:
+        brief = Brief.model_validate_json(read_bounded(cast(Path, args.brief)))
+        cassette = Cassette.model_validate_json(
+            read_bounded(cast(Path, args.cassette), 16_000_000)
+        )
+        roster_path = cast(Path | None, args.skill_roster)
+        user_skill_roots = tuple(cast(list[Path], args.user_skill_root))
+        project_skill_roots = tuple(cast(list[Path], args.project_skill_root))
+        allow_project_skills = cast(bool, args.allow_project_skills)
+        if roster_path is None and (
+            user_skill_roots or project_skill_roots or allow_project_skills
+        ):
+            raise ValueError("skill options require --skill-roster")
+        if roster_path is not None:
+            roster = SkillRoster.model_validate_json(read_bounded(roster_path, 64_000))
+            catalog = discover_skills(
+                user_roots=user_skill_roots,
+                project_roots=project_skill_roots,
+            )
+            skill_manifest = bind_skill_roster(
+                cassette,
+                roster,
+                catalog,
+                allow_project=allow_project_skills,
+            )
+    if brief.brief_id != cassette.brief_id:
+        raise ValueError("cassette does not match the supplied brief")
+    policy = ReviewPolicy()
+    result = asyncio.run(
+        review(
+            brief,
+            tuple(r.critic for r in cassette.critics),
+            RecordedReviewer(cassette),
+            policy,
+        )
+    )
+    root = cast(Path, args.output)
+    path = save_run(
+        root,
+        brief,
+        cassette,
+        policy,
+        result,
+        skill_manifest=skill_manifest,
+    )
+    try:
+        index_run(root, path, result)
+    except (OSError, sqlite3.Error):
+        print(
+            "Index unavailable; complete run artifacts were preserved.",
+            file=sys.stderr,
+        )
+    if args.json:
+        print(json.dumps({"type": "run.saved", "mode": "recorded", "path": str(path)}))
+        print(json.dumps({"type": "verdict", **result.verdict.model_dump(mode="json")}))
+    else:
+        print(
+            f"Recorded review: {result.verdict.decision} "
+            f"({len(result.verdict.findings)} findings)"
+        )
+        print(f"Artifacts: {path}")
+    return EXIT_CODES[result.verdict.decision]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        specialized_result = _specialized_evaluation_command(args)
+        if specialized_result is not None:
+            return specialized_result
+        if args.command == "skills":
+            return _skills_command(args)
+        if args.command in {"demo", "review", "replay"}:
+            return _recorded_review_command(args)
+        if args.command == "openai-conformance":
+            if not cast(bool, args.allow_data_transfer):
+                raise ValueError("OpenAI data transfer was not acknowledged")
+            batch = ExecutionBatch.model_validate_json(
+                read_bounded(cast(Path, args.batch), 16_000_000)
+            )
+            spend_policy = SpendPolicy.model_validate_json(
+                read_bounded(cast(Path, args.spend_policy), 64_000)
+            )
+            spend_policy.check_current()
+            ledger = SpendLedger(cast(Path, args.spend_ledger))
+            if ledger.snapshot().blocked:
+                raise ValueError("shared spending ledger is blocked")
+            sample_id = cast(str, args.sample_id)
+            payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
+            timeout = cast(float, args.timeout)
+            container = OfflineContainer(
+                cast(Path, args.docker),
+                cast(str, args.image),
+                cast(Path, args.lifecycle_root),
+            )
+            # Broker construction independently enforces this bound, but preflight
+            # it before credential access or any output is created.
+            if not 0 < timeout <= 60:
+                raise ValueError("conformance timeout must be between zero and 60")
+            audit_directory = cast(Path, args.audit_dir)
+            authorization_output = cast(Path, args.authorization_output)
+            artifact_output = cast(Path, args.artifact_output)
+            if (
+                audit_directory.exists()
+                or authorization_output.exists()
+                or artifact_output.exists()
+            ):
+                raise ValueError("conformance output already exists")
+            if not audit_directory.parent.is_dir():
+                raise ValueError("trusted audit parent must already exist")
+            if any(
+                _paths_overlap(left, right)
+                for left, right in (
+                    (audit_directory, authorization_output),
+                    (audit_directory, artifact_output),
+                    (authorization_output, artifact_output),
+                )
+            ):
+                raise ValueError("conformance output paths must not overlap")
+            api_key = _openai_api_key()
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is not configured")
+            budgeted = BudgetedOpenAITransport(
+                EphemeralOpenAITransport(api_key, timeout),
+                spend_policy,
+                audit_directory,
+                ledger,
+            )
+            authorization = authorize_assignment(batch, sample_id, payload, budgeted)
+            # This trusted copy is outside the broker-created audit directory and
+            # exists before the worker can redeem its single-use capability.
+            _write_contract(authorization_output, authorization)
+            broker = make_assignment_broker(
+                batch,
+                sample_id,
+                payload,
+                budgeted,
+                audit_directory,
+                lifetime_seconds=timeout,
+            )
+            reply = run_isolated_broker(broker, container, timeout=timeout)
+            artifact = compile_brokered_evaluation(
+                reply, authorization, audit_directory, ledger
+            )
+            _write_contract(artifact_output, artifact)
+            print(
+                json.dumps(
+                    {
+                        "type": "openai.conformance.completed",
+                        "mode": artifact.mode,
+                        "authorization_path": str(authorization_output),
+                        "audit_path": str(audit_directory),
+                        "artifact_path": str(artifact_output),
+                        "lifecycle_path": (
+                            str(container.lifecycle_path)
+                            if container.lifecycle_path is not None
+                            else None
+                        ),
+                        "artifact_sha256": artifact.artifact_sha256,
+                        "provider_request_id": artifact.provider_request_id,
+                        "input_tokens": artifact.usage.input,
+                        "output_tokens": artifact.usage.output,
+                        "latency_ms": artifact.latency_ms,
+                        "cost_microusd": artifact.cost_microusd,
+                        "promotion_eligible": artifact.promotion_eligible,
+                    }
+                )
+            )
+            return 0
+        if args.command == "broker-audit-status":
+            audit_directory = cast(Path, args.audit_dir)
+            expected_path = cast(Path, args.expected_authorization)
+            if (
+                expected_path.resolve()
+                == (audit_directory / "authorization.json").resolve()
+            ):
+                raise ValueError(
+                    "expected authorization must be independently supplied"
+                )
+            expected = AssignmentAuthorization.model_validate_json(
+                read_bounded(expected_path, 4096)
+            )
+            state = inspect_broker_recovery(
+                audit_directory,
+                expected,
+                SpendLedger(cast(Path, args.spend_ledger)),
+            )
+            print(
+                json.dumps(
+                    {
+                        "type": "broker.audit.status",
+                        **state.model_dump(mode="json"),
+                    }
+                )
+            )
+            return 0
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(
@@ -345,15 +2397,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             cassette = EvaluationCassette.model_validate_json(
                 read_bounded(cast(Path, args.cassette), 16_000_000)
             )
-            raw_results = (
-                run_isolated_recorded(
-                    batch,
-                    cassette,
-                    OfflineContainer(cast(Path, args.docker), cast(str, args.image)),
+            container: OfflineContainer | None = None
+            if args.command == "eval-run-isolated":
+                container = OfflineContainer(
+                    cast(Path, args.docker),
+                    cast(str, args.image),
+                    cast(Path, args.lifecycle_root),
                 )
-                if args.command == "eval-run-isolated"
-                else run_recorded_evaluation(batch, cassette)
-            )
+                raw_results = run_isolated_recorded(batch, cassette, container)
+            else:
+                raw_results = run_recorded_evaluation(batch, cassette)
             output = cast(Path, args.output)
             _write_contract(output, raw_results)
             print(
@@ -369,6 +2422,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if args.command == "eval-run-isolated"
                         else None,
                         "path": str(output),
+                        "lifecycle_path": str(container.lifecycle_path)
+                        if container
+                        else None,
                         "raw_results_sha256": raw_results.raw_results_sha256,
                         "completed": sum(
                             result.status == "completed"
@@ -520,7 +2576,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "openai-run":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")
-            api_key = os.environ.get("OPENAI_API_KEY")
+            api_key = _openai_api_key()
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not configured")
             policy_path = cast(Path | None, args.spend_policy)
@@ -668,76 +2724,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(result.final_text)
                 print(f"Artifacts: {session.path}")
             return 0
-        if args.command == "replay":
-            brief, cassette, policy, expected = load_run(cast(Path, args.run))
-            actual = asyncio.run(
-                review(
-                    brief,
-                    tuple(r.critic for r in cassette.critics),
-                    RecordedReviewer(cassette),
-                    policy,
-                )
-            )
-            if actual != expected:
-                raise ValueError("recorded replay differs from stored result")
-            print(
-                json.dumps(
-                    {
-                        "type": "replay.verified",
-                        "brief_id": brief.brief_id,
-                        "decision": actual.verdict.decision,
-                    }
-                )
-            )
-            return 0
-        if args.command == "demo":
-            brief, cassette = demo_inputs()
-        else:
-            brief = Brief.model_validate_json(read_bounded(cast(Path, args.brief)))
-            cassette = Cassette.model_validate_json(
-                read_bounded(cast(Path, args.cassette), 16_000_000)
-            )
-        if brief.brief_id != cassette.brief_id:
-            raise ValueError("cassette does not match the supplied brief")
-        policy = ReviewPolicy()
-        result = asyncio.run(
-            review(
-                brief,
-                tuple(r.critic for r in cassette.critics),
-                RecordedReviewer(cassette),
-                policy,
-            )
-        )
-        root = cast(Path, args.output)
-        path = save_run(root, brief, cassette, policy, result)
-        try:
-            index_run(root, path, result)
-        except (OSError, sqlite3.Error):
-            print(
-                "Index unavailable; complete run artifacts were preserved.",
-                file=sys.stderr,
-            )
-        if args.json:
-            print(
-                json.dumps({"type": "run.saved", "mode": "recorded", "path": str(path)})
-            )
-            print(
-                json.dumps(
-                    {"type": "verdict", **result.verdict.model_dump(mode="json")}
-                )
-            )
-        else:
-            print(
-                f"Recorded review: {result.verdict.decision} "
-                f"({len(result.verdict.findings)} findings)"
-            )
-            print(f"Artifacts: {path}")
-        return EXIT_CODES[result.verdict.decision]
+        raise ValueError("unhandled command")
     except ValidationError:
         # Pydantic diagnostics include raw rejected values; do not echo inputs.
         print("mos-eisley: invalid input schema", file=sys.stderr)
         return 2
-    except (AgentFailure, OSError, ValueError) as error:
+    except (AgentFailure, OSError, ProviderError, ValueError) as error:
         print(
             f"mos-eisley: {type(error).__name__}: input or artifact validation failed",
             file=sys.stderr,
