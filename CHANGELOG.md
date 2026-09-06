@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an independent maximum-60-second Ed25519 authority that binds one exact
+  admitted skill-runtime request, route, controls, default, and held spend entry.
+- Add durable at-most-once consumption under fresh local guards while deliberately
+  issuing no bearer grant, authorizing no direct provider dispatch, and sending no
+  request.
+
 - Add independent Ed25519 authorization for one exact state-bound skill default
   transition, including installed provenance, latest release control, sequence, and
   expected prior pointer.

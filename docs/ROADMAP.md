@@ -125,9 +125,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    nothing. Runtime preparation and a subsequent pinned, one-use broker-admission
    commit now reverify the complete routing lineage. Admission holds both control
    anchors, the default pointer, and the exact existing spend entry, records readiness
-   without reserving twice, and still issues no grant or request. Next: independently
-   authorize and consume one admission into a short-lived capability, recheck controls,
-   and record and settle the ambiguous provider-send boundary without retry.
+   without reserving twice, and still issues no grant or request. An independent,
+   maximum-60-second Ed25519 decision can now be consumed once under fresh guards into
+   durable eligibility for one future request-bound grant. The claim is not a bearer,
+   issues no grant, and sends nothing. Next: exchange it for an ephemeral single-use
+   capability, then record and conservatively settle the ambiguous provider-send
+   boundary without retry.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
