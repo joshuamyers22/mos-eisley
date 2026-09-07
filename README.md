@@ -242,11 +242,13 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 ## Boundaries and limitations
 
 The OpenAI adapter and paid-capable conformance CLI are tested against captured
-response shapes but have not completed a credentialed conformance run in this
-repository. The readiness command checks only model metadata; model availability,
-billing, and endpoint permissions remain account-dependent. The synthetic Responses
-canary completed one operator-signed live generation on 2026-09-07, verifying only
-the exact fixed request at that time; billing and future availability remain
+response shapes. One independently authorized and observed credentialed
+`gpt-5.6-luna` conformance assignment completed on 2026-09-07; it verifies only that
+exact blinded request and does not establish provider authorship, billing, batch
+conformance, or quality. The readiness command checks only model metadata; model
+availability, billing, and endpoint permissions remain account-dependent. The
+synthetic Responses canary also completed one operator-signed live generation that
+day, verifying only its exact fixed request; billing and future availability remain
 unverified. Live critic fan-out and judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
@@ -347,6 +349,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI response-encoding adversarial review](docs/MILESTONE_49_REVIEW.md),
 [synthetic Responses canary adversarial review](docs/MILESTONE_50_REVIEW.md),
 [conformance request-boundary adversarial review](docs/MILESTONE_51_REVIEW.md),
+[live blinded-conformance adversarial review](docs/MILESTONE_52_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

@@ -67,8 +67,9 @@ result schema. It can now preserve terminal failures and assemble exact blinded-
 coverage as a distinct
 [`BrokeredEvaluationResultSet`](BROKERED_EVALUATION.md), but that artifact fixes live
 issuance, grading, scoring, and promotion to false. Do not relabel it as recorded or
-live `RawResultSet`; authenticated credentialed conformance and a separately reviewed
-conversion are still required.
+live `RawResultSet`; repeated authenticated credentialed conformance and a separately
+reviewed conversion are still required. The first one-assignment receipt does not
+satisfy either complete-batch gate.
 
 One successful probe can now receive an
 [authenticated observer receipt](EVALUATION_CONFORMANCE.md) that reverifies its exact

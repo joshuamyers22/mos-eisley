@@ -105,12 +105,13 @@ guardians are no longer active before investigating incomplete states.
 - Strict response and terminal-failure validation now produces separate, non-scoreable
   [brokered conformance artifacts](BROKERED_EVALUATION.md). Exact-batch assembly
   preserves failures but explicitly does not issue live raw results. Promote it into
-  live evaluation provenance only after credentialed conformance passes; grants remain
-  process-local and cannot be resumed. Add broader audit inventory only if it retains
-  an independently trusted expected-authorization set.
-- Run the implemented command under separate operator authorization and preserve
-  its credentialed conformance result. Decoded upstream HTTP bodies are independently
-  bounded for non-streaming SDK operations, but async
+  live evaluation provenance only after repeated credentialed conformance passes;
+  grants remain process-local and cannot be resumed. Add broader audit inventory only
+  if it retains an independently trusted expected-authorization set.
+- The first separately authorized command completed and its private one-assignment
+  result was preserved and authenticated. Repeat across the intended model/effort and
+  failure matrix. Decoded upstream HTTP bodies are independently bounded for
+  non-streaming SDK operations, but async
   cancellation cannot stop blocking
   adapters, guarantee remote cancellation, or establish invoice-level cost caps.
 - Retain explicit data-transfer consent and reviewed shared-spend admission for

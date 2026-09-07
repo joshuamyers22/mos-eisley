@@ -75,13 +75,16 @@ decoded HTTP byte ceiling before this compilation step.
 
 ## Remaining boundary
 
-This path proves provenance and exact-coverage composition with synthetic responses.
-It does not prove model availability, provider billing, response conformance, critique
-quality, group independence, or network behavior. The separate
+Automated coverage proves provenance and exact-coverage composition with synthetic
+responses. One separately authorized live assignment now has an authenticated
+conformance receipt, but does not prove future model availability, provider billing,
+complete response conformance, critique quality, group independence, or general
+network behavior. The separate
 [evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate one
 trusted observer's claim for one successful credentialed probe, but it deliberately
-denies complete-batch conformance and conversion. Credentialed conformance requires
-explicit operator authorization and data-transfer consent. Only after repeated probes
-pass may another separately reviewed conversion produce live `RawResultSet` evidence.
+denies complete-batch conformance and conversion. Each credentialed conformance run
+requires explicit operator authorization and data-transfer consent. Only after
+repeated probes pass may another separately reviewed conversion produce live
+`RawResultSet` evidence.
 These artifacts and result sets are never scoreable and must not be relabeled or
 copied into recorded-fixture provenance.
