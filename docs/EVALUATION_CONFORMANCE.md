@@ -23,7 +23,9 @@ Use the no-send [conformance ceremony preflight](CONFORMANCE_CEREMONY.md) to der
 this policy from the exact assignment, spend scope, ledger, planned fresh audit,
 observer roster, and SDK allowlist before any credential access. The paid-capable
 command now requires that prepared policy and revalidates it before reading
-`OPENAI_API_KEY`.
+`OPENAI_API_KEY`. It also requires an independent
+[signed transfer and spend authorization](EVALUATION_CONFORMANCE_AUTHORIZATION.md)
+whose authority is disjoint from every post-run observer.
 
 ## Derive, sign, and authenticate
 

@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Require an independently signed, short-lived authorization for the exact blinded
+  conformance transfer and maximum spend before the paid-capable command reads an API
+  key; retain the separate explicit local confirmation.
+- Enforce authority/observer separation, nested policy windows, timeout coverage,
+  domain-separated signatures, and literal denial of retry, release, conversion,
+  scoring, promotion, and routing activation.
+
 - Add a no-send conformance ceremony that derives one exact assignment, provider
   request, spend scope, ledger entry, planned audit, observer roster, SDK allowlist,
   and validity policy without credential access, reservation, Docker, or dispatch.

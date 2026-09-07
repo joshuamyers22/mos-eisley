@@ -95,7 +95,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    send proof, complete-batch conformance, conversion, and scoring. A no-send ceremony
    now derives that exact policy and makes the paid-capable command recheck request,
    spend, ledger entry, audit path, installed SDK, and validity before API-key access.
-   Next, separately authorize and run credentialed conformance through that exact
+   An independent short-lived Ed25519 authorization now binds explicit blinded
+   transfer and maximum spend to that exact policy, must be disjoint from observers,
+   and is verified in addition to local consent before API-key access. Next, obtain
+   that external signature and separately run credentialed conformance through the exact
    path, then design conversion only after repeated probes cover success and failure
    boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.

@@ -32,6 +32,13 @@ from mos_eisley.run.evaluation_conformance import (
     prepare_evaluation_conformance_policy,
     trusted_evaluation_conformance_observer,
 )
+from mos_eisley.run.evaluation_conformance_authorization import (
+    EvaluationConformanceAuthorityPolicy,
+    SignedEvaluationConformanceAuthorization,
+    make_evaluation_conformance_authorization,
+    sign_evaluation_conformance_authorization,
+    trusted_evaluation_conformance_authority,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -135,6 +142,35 @@ class OpenAIConformanceCLITests(TestCase):
         )
         conformance_policy_path = root / "conformance-policy.json"
         private_write(conformance_policy_path, canonical_bytes(conformance_policy))
+        authority_key = Ed25519PrivateKey.generate()
+        authority_policy = EvaluationConformanceAuthorityPolicy(
+            policy_id="openai-conformance-authority",
+            valid_from=now - timedelta(minutes=5),
+            valid_until=now + timedelta(minutes=30),
+            max_authorization_lifetime_seconds=900,
+            authorities=(
+                trusted_evaluation_conformance_authority(
+                    "transfer-authorizer",
+                    authority_key.public_key().public_bytes_raw(),
+                ),
+            ),
+        )
+        authority_policy_path = root / "conformance-authority-policy.json"
+        private_write(authority_policy_path, canonical_bytes(authority_policy))
+        authorization = make_evaluation_conformance_authorization(
+            conformance_policy,
+            policy,
+            authority_policy,
+            now - timedelta(minutes=1),
+            now + timedelta(minutes=10),
+        )
+        signed_authorization = sign_evaluation_conformance_authorization(
+            authorization,
+            "transfer-authorizer",
+            authority_key.private_bytes_raw(),
+        )
+        signed_authorization_path = root / "signed-conformance-authorization.json"
+        private_write(signed_authorization_path, canonical_bytes(signed_authorization))
         return (
             [
                 "openai-conformance",
@@ -148,6 +184,10 @@ class OpenAIConformanceCLITests(TestCase):
                 str(ledger.path),
                 "--conformance-policy",
                 str(conformance_policy_path),
+                "--conformance-authority-policy",
+                str(authority_policy_path),
+                "--signed-conformance-authorization",
+                str(signed_authorization_path),
                 "--docker",
                 "/usr/local/bin/docker",
                 "--image",
@@ -241,6 +281,10 @@ class OpenAIConformanceCLITests(TestCase):
             "missing-ledger",
             "--conformance-policy",
             "missing-conformance-policy",
+            "--conformance-authority-policy",
+            "missing-conformance-authority-policy",
+            "--signed-conformance-authorization",
+            "missing-signed-conformance-authorization",
             "--docker",
             "/usr/local/bin/docker",
             "--image",
@@ -327,6 +371,37 @@ class OpenAIConformanceCLITests(TestCase):
                 ),
             )
             options[options.index(str(policy_path))] = str(changed_path)
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stderr(io.StringIO()),
+            ):
+                self.assertEqual(main(options), 2)
+                credential.assert_not_called()
+                dispatch.assert_not_called()
+
+    def test_invalid_signed_authority_fails_before_credential_or_dispatch(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            signed_path = root / "signed-conformance-authorization.json"
+            signed = SignedEvaluationConformanceAuthorization.model_validate_json(
+                signed_path.read_bytes()
+            )
+            changed_path = root / "changed-signed-authorization.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    signed.model_copy(
+                        update={
+                            "authorization": signed.authorization.model_copy(
+                                update={"max_cost_microusd": 1}
+                            )
+                        }
+                    )
+                ),
+            )
+            options[options.index(str(signed_path))] = str(changed_path)
             with (
                 patch("mos_eisley.cli._openai_api_key") as credential,
                 patch("mos_eisley.cli.run_isolated_broker") as dispatch,

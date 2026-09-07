@@ -3,7 +3,8 @@
 Mos Eisley prepares one exact conformance policy without reading an OpenAI
 credential, creating the broker audit, reserving money, starting Docker, or sending a
 provider request. The resulting policy is required by the paid-capable
-`openai-conformance` command.
+`openai-conformance` command, along with a separate
+[signed execution authorization](EVALUATION_CONFORMANCE_AUTHORIZATION.md).
 
 ## Prepare the policy
 
@@ -50,6 +51,8 @@ mos openai-conformance \
   --spend-policy trusted/spend-policy.json \
   --spend-ledger private/spending.sqlite \
   --conformance-policy trusted/conformance-policy.json \
+  --conformance-authority-policy trusted/conformance-authority-policy.json \
+  --signed-conformance-authorization trusted/signed-authorization.json \
   --docker /usr/local/bin/docker --image sha256:<64-hex-image-id> \
   --audit-dir private/audit-RUN \
   --authorization-output trusted/authorization.json \
@@ -57,7 +60,8 @@ mos openai-conformance \
   --allow-data-transfer
 ```
 
-Before reading `OPENAI_API_KEY`, Mos Eisley reconstructs the request and authorization,
+Before reading `OPENAI_API_KEY`, Mos Eisley verifies the independent short-lived
+transfer/spend signature, then reconstructs the request and assignment authorization,
 checks every policy identity, verifies the installed `openai` package version, requires
 both time windows to be current, ensures the policy covers the full request timeout,
 rechecks the unblocked ledger and unused entry, and rechecks the fresh audit/output
