@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Allow the metadata-only OpenAI readiness command to select one exact model from the
+  reviewed registry while preserving Luna as the default, one GET, zero retries, no
+  prompt, and every downstream-authority denial.
+- Reject unregistered targets before credential access and reject returned or
+  substituted receipt identities that differ from the requested model.
+
 - Record the first authenticated live blinded OpenAI conformance probe: one
   independently authorized and observed `gpt-5.6-luna` low-effort assignment, 397
   input tokens, 299 output tokens, 6,992 ms latency, and 439 micro-USD settled.

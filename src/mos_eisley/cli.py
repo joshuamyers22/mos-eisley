@@ -423,14 +423,19 @@ def parser() -> argparse.ArgumentParser:
     openai_run.add_argument("--json", action="store_true")
     openai_readiness = subcommands.add_parser(
         "openai-readiness",
-        help="Check fixed OpenAI model visibility without sending a prompt",
+        help="Check registry-bound OpenAI model visibility without a prompt",
+    )
+    openai_readiness.add_argument(
+        "--model",
+        choices=tuple(model.id for model in openai_registry().models),
+        default="gpt-5.6-luna",
     )
     openai_readiness.add_argument("--output", type=Path, required=True)
     openai_readiness.add_argument("--timeout", type=float, default=10.0)
     openai_readiness.add_argument(
         "--allow-provider-access",
         action="store_true",
-        help="Acknowledge that the API key and fixed model ID will be sent to OpenAI",
+        help="Acknowledge that the API key and selected model ID reach OpenAI",
     )
     derive_openai_canary = subcommands.add_parser(
         "openai-derive-responses-canary-authorization",
@@ -2208,14 +2213,18 @@ def _openai_readiness_command(args: argparse.Namespace) -> int:
     api_key = _openai_api_key()
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not configured")
+    model = cast(str, args.model)
     receipt = asyncio.run(
         probe_openai_readiness(
             api_key,
             timeout_seconds=timeout,
             checked_at=datetime.now(UTC),
             sdk_version=_openai_sdk_version(),
+            model=model,
         )
     )
+    if receipt.model != model:
+        raise ValueError("OpenAI readiness receipt model differs from request")
     _write_contract(output, receipt)
     print(
         json.dumps(

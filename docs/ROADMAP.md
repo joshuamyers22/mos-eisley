@@ -120,8 +120,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    `gpt-5.6-luna` low-effort assignment has now passed that exact path with a settled,
    unblocked ledger and authenticated one-assignment receipt. Provider authorship,
    billing, complete-batch conformance, quality, conversion, scoring, promotion, and
-   activation remain denied. The metadata-only readiness check and one successful
-   probe cannot substitute for repeated conformance. Next, cover the intended
+   activation remain denied. Metadata-only readiness can now check each exact
+   registry model independently without generation or spend authority, but those
+   receipts and one successful probe cannot substitute for repeated conformance.
+   Next, check the remaining model identities, then cover the intended
    model/effort matrix and live failure boundaries. Design conversion only after
    repeated probes cover success and failure boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.

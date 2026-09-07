@@ -11,6 +11,7 @@ from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Identifier
 from mos_eisley.core.ports import ProviderError, ProviderFailureKind
+from mos_eisley.core.registry import openai_registry
 from mos_eisley.providers.openai_errors import safe_openai_failure_kind
 from mos_eisley.providers.openai_http import (
     BoundedOpenAIHttpClient,
@@ -18,6 +19,7 @@ from mos_eisley.providers.openai_http import (
 )
 
 OPENAI_READINESS_MODEL = "gpt-5.6-luna"
+OPENAI_READINESS_MODELS = tuple(model.id for model in openai_registry().models)
 OPENAI_API_BASE = "https://api.openai.com/v1"
 OpenAIReadinessFailureDetail = Literal[
     "connection_error",
@@ -99,6 +101,8 @@ class OpenAIReadinessReceipt(Contract):
 
     @model_validator(mode="after")
     def consistent_outcome(self) -> Self:
+        if self.model not in OPENAI_READINESS_MODELS:
+            raise ValueError("readiness model is not in the OpenAI registry")
         if self.checked_at.utcoffset() != UTC.utcoffset(self.checked_at):
             raise ValueError("readiness timestamp must use UTC")
         if (self.outcome == "visible") != (self.failure_kind is None):
@@ -145,11 +149,15 @@ async def make_openai_readiness_receipt(
     *,
     checked_at: datetime,
     sdk_version: str,
+    model: str = OPENAI_READINESS_MODEL,
 ) -> OpenAIReadinessReceipt:
-    """Attempt exactly one fixed model lookup and reduce it to safe evidence."""
+    """Attempt exactly one registry-bound model lookup and reduce it safely."""
+
+    if model not in OPENAI_READINESS_MODELS:
+        raise ValueError("readiness model is not in the OpenAI registry")
 
     try:
-        model = await transport.retrieve_model(OPENAI_READINESS_MODEL)
+        returned_model = await transport.retrieve_model(model)
     except ProviderError as error:
         if error.failure_stage is not None:
             raise ValueError(
@@ -165,17 +173,17 @@ async def make_openai_readiness_receipt(
             )
         )
         return OpenAIReadinessReceipt(
-            model=OPENAI_READINESS_MODEL,
+            model=model,
             checked_at=checked_at,
             sdk_version=sdk_version,
             outcome="error",
             failure_kind=error.failure_kind,
             failure_detail=failure_detail,
         )
-    if model != OPENAI_READINESS_MODEL:
+    if returned_model != model:
         raise ValueError("readiness transport returned an unexpected model")
     return OpenAIReadinessReceipt(
-        model=model,
+        model=returned_model,
         checked_at=checked_at,
         sdk_version=sdk_version,
         outcome="visible",
@@ -188,9 +196,12 @@ async def probe_openai_readiness(
     timeout_seconds: float,
     checked_at: datetime,
     sdk_version: str,
+    model: str = OPENAI_READINESS_MODEL,
 ) -> OpenAIReadinessReceipt:
     """Own and close the credentialed zero-retry SDK client for one lookup."""
 
+    if model not in OPENAI_READINESS_MODELS:
+        raise ValueError("readiness model is not in the OpenAI registry")
     if not api_key:
         raise ValueError("OpenAI API key must not be empty")
     if not 0 < timeout_seconds <= 30:
@@ -209,4 +220,5 @@ async def probe_openai_readiness(
             SDKOpenAIModelMetadataTransport(sdk),
             checked_at=checked_at,
             sdk_version=sdk_version,
+            model=model,
         )
