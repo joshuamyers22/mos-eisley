@@ -11,6 +11,7 @@ import sqlite3
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Literal, cast
 
@@ -161,8 +162,11 @@ from mos_eisley.run.evaluation_broker import (
 from mos_eisley.run.evaluation_conformance import (
     EvaluationConformancePolicy,
     SignedEvaluationConformanceObservation,
+    TrustedEvaluationConformanceObserver,
     authenticate_evaluation_conformance,
     make_evaluation_conformance_observation,
+    prepare_evaluation_conformance_policy,
+    validate_evaluation_conformance_preflight,
 )
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
@@ -450,6 +454,7 @@ def parser() -> argparse.ArgumentParser:
     conformance.add_argument("--sample-id", required=True)
     conformance.add_argument("--spend-policy", type=Path, required=True)
     conformance.add_argument("--spend-ledger", type=Path, required=True)
+    conformance.add_argument("--conformance-policy", type=Path, required=True)
     conformance.add_argument("--docker", type=Path, required=True)
     conformance.add_argument(
         "--image", required=True, help="Locally built immutable sha256 image ID"
@@ -532,6 +537,36 @@ def parser() -> argparse.ArgumentParser:
         "--artifact", type=Path, action="append", required=True
     )
     eval_broker_results.add_argument("--output", type=Path, required=True)
+    prepare_evaluation_conformance = subcommands.add_parser(
+        "eval-prepare-brokered-conformance-policy",
+        help="Prepare an exact no-send policy for one OpenAI conformance probe",
+    )
+    prepare_evaluation_conformance.add_argument("--batch", type=Path, required=True)
+    prepare_evaluation_conformance.add_argument("--sample-id", required=True)
+    prepare_evaluation_conformance.add_argument(
+        "--spend-policy", type=Path, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--spend-ledger", type=Path, required=True
+    )
+    prepare_evaluation_conformance.add_argument("--audit-dir", type=Path, required=True)
+    prepare_evaluation_conformance.add_argument("--policy-id", required=True)
+    prepare_evaluation_conformance.add_argument(
+        "--valid-from", type=_utc_datetime_argument, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--max-observation-age-seconds", type=int, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--observer", type=Path, action="append", required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--sdk-version", action="append", required=True
+    )
+    prepare_evaluation_conformance.add_argument("--output", type=Path, required=True)
     derive_evaluation_conformance = subcommands.add_parser(
         "eval-derive-brokered-conformance",
         help="Derive signable metadata for one credentialed evaluation probe",
@@ -1932,6 +1967,10 @@ def _openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY")
 
 
+def _openai_sdk_version() -> str:
+    return distribution_version("openai")
+
+
 def _openai_admin_api_key() -> str | None:
     return os.environ.get("OPENAI_ADMIN_KEY")
 
@@ -2153,6 +2192,68 @@ def _assemble_brokered_results_command(args: argparse.Namespace) -> int:
                     result.automatic_budget_release_authorized
                 ),
                 "promotion_eligible": result.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _prepare_evaluation_conformance_policy_command(args: argparse.Namespace) -> int:
+    batch_path = cast(Path, args.batch)
+    spend_policy_path = cast(Path, args.spend_policy)
+    ledger_path = cast(Path, args.spend_ledger)
+    audit_directory = cast(Path, args.audit_dir)
+    observer_paths = cast(list[Path], args.observer)
+    sdk_versions = tuple(cast(list[str], args.sdk_version))
+    output = cast(Path, args.output)
+    if len(observer_paths) > 20 or len(sdk_versions) > 20:
+        raise ValueError("conformance policy trust list exceeds limit")
+    sources = (batch_path, spend_policy_path, ledger_path, *observer_paths)
+    if any(_paths_overlap(source, audit_directory) for source in sources):
+        raise ValueError("conformance policy inputs must be outside the broker audit")
+    if any(_paths_overlap(output, source) for source in (*sources, audit_directory)):
+        raise ValueError("conformance policy output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    observers = tuple(
+        TrustedEvaluationConformanceObserver.model_validate_json(
+            read_bounded(path, 64_000)
+        )
+        for path in observer_paths
+    )
+    policy = prepare_evaluation_conformance_policy(
+        batch,
+        cast(str, args.sample_id),
+        spend_policy,
+        SpendLedger(ledger_path),
+        audit_directory,
+        cast(str, args.policy_id),
+        cast(datetime, args.valid_from),
+        cast(datetime, args.valid_until),
+        cast(int, args.max_observation_age_seconds),
+        observers,
+        sdk_versions,
+    )
+    _write_contract(output, policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.policy_prepared",
+                "output": str(output),
+                "policy_sha256": policy.policy_sha256,
+                "sample_id": policy.sample_id,
+                "candidate_id": policy.candidate_id,
+                "observer_count": len(policy.observers),
+                "allowed_sdk_versions": list(policy.allowed_sdk_versions),
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "batch_conversion_authorized": (policy.batch_conversion_authorized),
+                "grading_authorized": policy.grading_authorized,
+                "scoring_authorized": policy.scoring_authorized,
+                "promotion_authorized": policy.promotion_authorized,
             }
         )
     )
@@ -5589,6 +5690,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
+        "eval-prepare-brokered-conformance-policy": (
+            _prepare_evaluation_conformance_policy_command
+        ),
         "eval-derive-brokered-conformance": (_derive_evaluation_conformance_command),
         "eval-authenticate-brokered-conformance": (
             _authenticate_evaluation_conformance_command
@@ -5919,14 +6023,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")
+            batch_path = cast(Path, args.batch)
+            spend_policy_path = cast(Path, args.spend_policy)
+            ledger_path = cast(Path, args.spend_ledger)
+            conformance_policy_path = cast(Path, args.conformance_policy)
             batch = ExecutionBatch.model_validate_json(
-                read_bounded(cast(Path, args.batch), 16_000_000)
+                read_bounded(batch_path, 16_000_000)
             )
             spend_policy = SpendPolicy.model_validate_json(
-                read_bounded(cast(Path, args.spend_policy), 64_000)
+                read_bounded(spend_policy_path, 64_000)
+            )
+            conformance_policy = EvaluationConformancePolicy.model_validate_json(
+                read_bounded(conformance_policy_path, 128_000)
             )
             spend_policy.check_current()
-            ledger = SpendLedger(cast(Path, args.spend_ledger))
+            ledger = SpendLedger(ledger_path)
             if ledger.snapshot().blocked:
                 raise ValueError("shared spending ledger is blocked")
             sample_id = cast(str, args.sample_id)
@@ -5958,9 +6069,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                     (audit_directory, authorization_output),
                     (audit_directory, artifact_output),
                     (authorization_output, artifact_output),
+                    (conformance_policy_path, audit_directory),
+                    (conformance_policy_path, authorization_output),
+                    (conformance_policy_path, artifact_output),
                 )
             ):
                 raise ValueError("conformance output paths must not overlap")
+            prepared_authorization = validate_evaluation_conformance_preflight(
+                batch,
+                sample_id,
+                spend_policy,
+                ledger,
+                audit_directory,
+                conformance_policy,
+                _openai_sdk_version(),
+                datetime.now(UTC),
+            )
+            if (
+                datetime.now(UTC) + timedelta(seconds=timeout)
+                > conformance_policy.valid_until
+            ):
+                raise ValueError("conformance policy cannot cover the request timeout")
             api_key = _openai_api_key()
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not configured")
@@ -5971,6 +6100,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ledger,
             )
             authorization = authorize_assignment(batch, sample_id, payload, budgeted)
+            if authorization != prepared_authorization:
+                raise ValueError("conformance authorization changed after preflight")
             # This trusted copy is outside the broker-created audit directory and
             # exists before the worker can redeem its single-use capability.
             _write_contract(authorization_output, authorization)

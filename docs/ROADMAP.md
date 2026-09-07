@@ -92,9 +92,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    pre-registered, freshness-bounded Ed25519 observer receipt can now authenticate one
    successful credentialed probe while reverifying the exact authorization, audit,
    ledger, and blinded route. It still denies provider authorship, billing, failure
-   send proof, complete-batch conformance, conversion, and scoring. Next, run explicitly
-   authorized credentialed conformance through that exact path, then design conversion
-   only after repeated probes cover success and failure boundaries. Run the repeated
+   send proof, complete-batch conformance, conversion, and scoring. A no-send ceremony
+   now derives that exact policy and makes the paid-capable command recheck request,
+   spend, ledger entry, audit path, installed SDK, and validity before API-key access.
+   Next, separately authorize and run credentialed conformance through that exact
+   path, then design conversion only after repeated probes cover success and failure
+   boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

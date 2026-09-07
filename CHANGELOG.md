@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a no-send conformance ceremony that derives one exact assignment, provider
+  request, spend scope, ledger entry, planned audit, observer roster, SDK allowlist,
+  and validity policy without credential access, reservation, Docker, or dispatch.
+- Require the prepared policy for `openai-conformance` and fail before API-key access
+  on identity, window, SDK, blocked-ledger, reused-entry, or output-layout mismatch.
+
 - Add a pre-registered, policy-pinned Ed25519 observer receipt for one successful
   credentialed brokered OpenAI evaluation probe.
 - Reverify the independently anchored authorization, private audit chain, exact

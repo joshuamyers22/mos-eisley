@@ -5,12 +5,15 @@ import io
 import json
 import os
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import UTC, datetime, timedelta
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import JsonValue
 
 from mos_eisley.cli import main
@@ -24,6 +27,11 @@ from mos_eisley.run.broker_audit import (
 )
 from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.brokered_evaluation import BrokeredEvaluationArtifact
+from mos_eisley.run.evaluation_conformance import (
+    EvaluationConformancePolicy,
+    prepare_evaluation_conformance_policy,
+    trusted_evaluation_conformance_observer,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -107,6 +115,26 @@ class OpenAIConformanceCLITests(TestCase):
         private_write(batch_path, canonical_bytes(batch))
         private_write(policy_path, canonical_bytes(policy))
         ledger = SpendLedger.create(root / "ledger.sqlite", 20_000)
+        observer = trusted_evaluation_conformance_observer(
+            "observer-a",
+            Ed25519PrivateKey.generate().public_key().public_bytes_raw(),
+        )
+        now = datetime.now(UTC)
+        conformance_policy = prepare_evaluation_conformance_policy(
+            batch,
+            batch.requests[0].sample_id,
+            policy,
+            ledger,
+            root / "audit",
+            "openai-probe-1",
+            now - timedelta(minutes=5),
+            now + timedelta(minutes=30),
+            120,
+            (observer,),
+            (distribution_version("openai"),),
+        )
+        conformance_policy_path = root / "conformance-policy.json"
+        private_write(conformance_policy_path, canonical_bytes(conformance_policy))
         return (
             [
                 "openai-conformance",
@@ -118,6 +146,8 @@ class OpenAIConformanceCLITests(TestCase):
                 str(policy_path),
                 "--spend-ledger",
                 str(ledger.path),
+                "--conformance-policy",
+                str(conformance_policy_path),
                 "--docker",
                 "/usr/local/bin/docker",
                 "--image",
@@ -209,6 +239,8 @@ class OpenAIConformanceCLITests(TestCase):
             "missing-policy",
             "--spend-ledger",
             "missing-ledger",
+            "--conformance-policy",
+            "missing-conformance-policy",
             "--docker",
             "/usr/local/bin/docker",
             "--image",
@@ -270,6 +302,31 @@ class OpenAIConformanceCLITests(TestCase):
             root = Path(directory)
             options, _ = self._inputs(root)
             options[options.index("b" * 64)] = "0" * 64
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stderr(io.StringIO()),
+            ):
+                self.assertEqual(main(options), 2)
+                credential.assert_not_called()
+                dispatch.assert_not_called()
+
+    def test_policy_mismatch_fails_before_credential_or_dispatch(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            policy_path = root / "conformance-policy.json"
+            policy = EvaluationConformancePolicy.model_validate_json(
+                policy_path.read_bytes()
+            )
+            changed_path = root / "changed-conformance-policy.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    policy.model_copy(update={"allowed_sdk_versions": ("0.0.0",)})
+                ),
+            )
+            options[options.index(str(policy_path))] = str(changed_path)
             with (
                 patch("mos_eisley.cli._openai_api_key") as credential,
                 patch("mos_eisley.cli.run_isolated_broker") as dispatch,

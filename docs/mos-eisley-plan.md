@@ -2295,3 +2295,27 @@ occurred. One probe cannot establish complete-batch conformance and every policy
 observation, receipt, and event fixes conversion, grading, scoring, quality, promotion,
 and routing activation to false. A separately authorized real probe is still required;
 tests use synthetic artifacts and keys and make no provider or paid request.
+
+### 25.26 Implemented no-send evaluation conformance ceremony preflight
+
+A dedicated preparation command now deterministically derives the exact
+evaluation-conformance policy from one blinded assignment, reviewed spend policy,
+existing shared ledger, planned fresh audit path, UTC window, sorted observer roster,
+and sorted installed-SDK allowlist. It reconstructs the strict OpenAI request and
+pins its hash plus every assignment and spending identity. The ceremony reads no
+provider credential, creates no audit, makes no reservation, starts no container,
+and sends no request; its event reports those facts explicitly.
+
+The paid-capable `openai-conformance` command now requires that prepared policy.
+Before reading `OPENAI_API_KEY`, it reconstructs the authorization and rejects any
+request, assignment, spend-policy, ledger, audit-derived entry, installed SDK, or
+validity mismatch. The policy window must fit inside the spend-policy window and
+cover the configured request timeout. Both preparation and live preflight require an
+unblocked ledger, unused exact entry, fresh audit path, and non-overlapping inputs and
+outputs. Atomic spending admission remains authoritative against concurrent changes.
+
+This is a local pre-credential commitment, not a spend reservation, provider
+authorization, conformance result, or observer signature. File custody, host clocks,
+same-UID races, and ledger rollback/cloning remain outside the local proof. All
+conversion, grading, scoring, promotion, and routing flags remain false. Tests use
+synthetic provider and Docker behavior and make no credentialed or paid request.
