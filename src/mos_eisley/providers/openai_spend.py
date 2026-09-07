@@ -130,8 +130,22 @@ class BudgetedOpenAITransport:
             "store",
             "text",
             "truncation",
+            "service_tier",
+            "stream",
+            "background",
         }
-        if set(request) - permitted or request.get("tools"):
+        if (
+            set(request) - permitted
+            or request.get("tools")
+            or request.get("service_tier") not in (None, "default")
+            or (
+                request.get("stream") is not None and request.get("stream") is not False
+            )
+            or (
+                request.get("background") is not None
+                and request.get("background") is not False
+            )
+        ):
             raise ProviderError("spending controller requires a text-only request")
         inputs = request.get("input")
         if not isinstance(inputs, list) or not inputs:
@@ -156,7 +170,15 @@ class BudgetedOpenAITransport:
         count_payload = {
             key: value
             for key, value in request.items()
-            if key not in ("max_output_tokens", "store", "include", "service_tier")
+            if key
+            not in (
+                "max_output_tokens",
+                "stream",
+                "background",
+                "store",
+                "include",
+                "service_tier",
+            )
         }
         tokens = await self.transport.count_input_tokens(copy.deepcopy(count_payload))
         if type(tokens) is not int or not 0 <= tokens <= self.policy.max_input_tokens:

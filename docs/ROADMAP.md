@@ -33,8 +33,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    transport subcategory. On 2026-09-07, a fresh private schema-2 operator receipt
    confirmed exact `gpt-5.6-luna` metadata visibility through that fixed path while
    retaining literal denials of billing, Responses, scoring, and routing authority.
-   Next: an independently authorized minimal synthetic Responses canary, then
-   credentialed conformance and isolated broker integration,
+   An independently authorized minimal synthetic Responses canary is implemented
+   with fixed repository-owned input, exact two-request binding, a 32-token output
+   cap, shared-ledger admission, zero retries, content-addressed private evidence,
+   and literal downstream denials. A fresh operator-signed live canary remains
+   required. Next: credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible

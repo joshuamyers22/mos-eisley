@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an independently signed, fixed `gpt-5.6-luna` Responses canary with exact
+  token-count/generation binding, a 32-token ceiling, explicit synthetic-transfer
+  consent, shared-ledger admission, zero retries, and no tools or user prompt.
+- Preserve content-addressed private canary evidence with a manifest-last completion
+  marker and offline ledger-backed verification; retain literal billing, grading,
+  scoring, promotion, and routing denials.
+
 - Force identity encoding at the bounded OpenAI HTTP send boundary after a live
   readiness attempt exposed a zlib decode failure while identity curl returned 200.
 - Add schema-2 readiness receipts with a fixed local transport-detail vocabulary;
