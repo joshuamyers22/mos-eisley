@@ -188,6 +188,7 @@ class BrokeredEvaluationTests(IsolatedAsyncioTestCase):
                 self.assertEqual(artifact.status, "error")
                 self.assertEqual(artifact.outcome_status, expected_status)
                 self.assertEqual(artifact.error, expected_error)
+                self.assertEqual(artifact.failure_stage, "exchange")
                 self.assertEqual(artifact.ledger_status, "uncertain")
                 self.assertEqual(artifact.cost_microusd, 300)
                 self.assertIsNotNone(artifact.latency_ms)
@@ -414,6 +415,7 @@ class BrokeredEvaluationTests(IsolatedAsyncioTestCase):
                             "usage": None,
                             "critique": None,
                             "error": "provider_error",
+                            "failure_stage": "exchange",
                         }
                     )
                 artifacts.append(base.model_copy(update=changes))

@@ -25,7 +25,9 @@ Failure compilation requires a terminal `failed` or `cancelled` outcome, an
 independently supplied assignment authorization, and the exact named spending ledger.
 It carries no response hash, provider request ID, usage, or critique. An absent
 pre-reservation ledger entry yields null cost; held, uncertain, and violation entries
-retain their recorded exposure. The CLI rejects trust anchors anywhere in the audit
+retain their recorded exposure. Schema-3 failure artifacts also bind the schema-4
+audit's allowlisted failure stage and category. They never contain raw SDK messages,
+provider bodies, prompts, or credentials. The CLI rejects trust anchors anywhere in the audit
 tree or hard-linked to its authorization, and rejects writing derived output into
 that audit directory:
 
@@ -37,10 +39,10 @@ mos eval-compile-brokered-failure \
   --output private/failure-artifact.json
 ```
 
-Host latency is stored for every schema-3 broker outcome before artifact compilation
+Host latency is stored for every schema-3 or schema-4 broker outcome before artifact compilation
 and is therefore covered by the audit outcome hash. Actual broker deadlines,
-caller cancellation, and generic provider execution errors remain distinct. Schema-1
-and schema-2 outcomes remain readable for recovery, but an older failure lacking
+caller cancellation, and classified provider execution errors remain distinct. Schema-1
+through schema-3 outcomes remain readable for recovery, but an older failure lacking
 trusted latency and classification cannot mint failure evidence.
 Latency spans accepted grant dispatch through spending checks, token counting, and
 response receipt; it is an end-to-end route observation, not provider compute time.

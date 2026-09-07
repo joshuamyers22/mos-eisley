@@ -8,23 +8,22 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, ValidationError, model_validator
 
 from mos_eisley.core.models import Contract, Critique, Digest, canonical_bytes, digest
-from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.ports import ProviderError, ProviderFailureStage
 from mos_eisley.core.protocol import ReasoningBlock, TextBlock, Usage
 from mos_eisley.evaluation.execution import ExecutionBatch
 from mos_eisley.evaluation.models import MAX_ASSIGNMENTS
 from mos_eisley.providers.openai_responses import response_from_payload
 from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
+    BrokerFailureKind,
     inspect_broker_recovery,
 )
 from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.spend_ledger import SpendLedger
 
-BrokerFailureKind = Literal["provider_error", "timeout", "cancelled"]
-
 
 class BrokeredEvaluationArtifact(Contract):
-    schema_version: Literal[1, 2] = 2
+    schema_version: Literal[1, 2, 3] = 3
     mode: Literal["broker_conformance"] = "broker_conformance"
     authorization: AssignmentAuthorization
     authorization_sha256: Digest
@@ -45,6 +44,9 @@ class BrokeredEvaluationArtifact(Contract):
     cost_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)] | None = None
     critique: Critique | None = None
     error: BrokerFailureKind | None = None
+    failure_stage: ProviderFailureStage | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     retry_permitted: Literal[False] = False
     automatic_budget_release_authorized: Literal[False] = False
     promotion_eligible: Literal[False] = False
@@ -67,6 +69,7 @@ class BrokeredEvaluationArtifact(Contract):
             or self.cost_microusd is None
             or self.critique is None
             or self.error is not None
+            or self.failure_stage is not None
         ):
             raise ValueError("completed brokered artifact is incomplete")
         if not completed and (
@@ -77,10 +80,21 @@ class BrokeredEvaluationArtifact(Contract):
             or self.usage is not None
             or self.latency_ms is None
             or self.critique is not None
-            or self.error not in ("provider_error", "timeout", "cancelled")
+            or self.error is None
             or (self.ledger_status == "absent") != (self.cost_microusd is None)
         ):
             raise ValueError("failed brokered artifact is inconsistent")
+        if self.schema_version in (1, 2) and self.failure_stage is not None:
+            raise ValueError("legacy brokered artifact cannot declare a failure stage")
+        if self.schema_version in (1, 2) and self.error not in (
+            None,
+            "provider_error",
+            "timeout",
+            "cancelled",
+        ):
+            raise ValueError("legacy brokered artifact has an invalid error")
+        if self.schema_version == 3 and completed == (self.failure_stage is not None):
+            raise ValueError("brokered artifact failure stage does not match status")
         if self.outcome_status == "cancelled" and self.error != "cancelled":
             raise ValueError("cancelled brokered artifact classification is invalid")
         if self.outcome_status == "failed" and self.error == "cancelled":
@@ -221,7 +235,8 @@ def compile_brokered_evaluation_failure(
         or state.outcome_sha256 is None
         or state.response_sha256 is not None
         or state.latency_ms is None
-        or state.error not in ("provider_error", "timeout", "cancelled")
+        or state.error is None
+        or state.failure_stage is None
     ):
         raise ValueError("brokered evaluation failure provenance is incomplete")
     entry = ledger.entry_status(expected.ledger_entry_id)
@@ -245,6 +260,7 @@ def compile_brokered_evaluation_failure(
         latency_ms=state.latency_ms,
         cost_microusd=cost_microusd,
         error=state.error,
+        failure_stage=state.failure_stage,
     )
 
 

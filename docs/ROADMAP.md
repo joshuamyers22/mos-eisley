@@ -86,8 +86,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    authority. Whole-database rollback still needs an external monotonic witness.
    The one-use admission, dispatch, ephemeral grant, provider transaction, and
    content-verified response publication path and verification-only signed
-   conformance attestation are now implemented. Broker audit schema 3 preserves
-   terminal failures and elapsed latency; a distinct inert assembler requires exact
+   conformance attestation are now implemented. Broker audit schema 4 preserves
+   terminal failures, elapsed latency, and allowlisted failure stage/category without
+   retaining raw provider diagnostics; a distinct inert assembler requires exact
    blinded-batch coverage without issuing gradeable or scoreable live results. A
    pre-registered, freshness-bounded Ed25519 observer receipt can now authenticate one
    successful credentialed probe while reverifying the exact authorization, audit,

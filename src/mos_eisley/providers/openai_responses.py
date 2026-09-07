@@ -7,7 +7,17 @@ import json
 import re
 from typing import Any, Protocol, cast
 
-from openai import AsyncOpenAI, OpenAIError
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AsyncOpenAI,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    OpenAIError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from openai.types.responses import Response
 from pydantic import (
     BaseModel,
@@ -18,7 +28,7 @@ from pydantic import (
     ValidationError,
 )
 
-from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.ports import ProviderError, ProviderFailureKind
 from mos_eisley.core.protocol import (
     ModelRequest,
     ModelResponse,
@@ -42,6 +52,30 @@ class OpenAITransport(Protocol):
     ) -> dict[str, JsonValue]: ...
 
 
+def _safe_failure_kind(error: OpenAIError) -> ProviderFailureKind:
+    """Map SDK exception types to a fixed vocabulary without retaining details."""
+
+    if isinstance(error, AuthenticationError):
+        return "authentication_error"
+    if isinstance(error, PermissionDeniedError):
+        return "permission_error"
+    if isinstance(error, RateLimitError):
+        return (
+            "quota_error"
+            if getattr(error, "code", None) == "insufficient_quota"
+            else "rate_limit_error"
+        )
+    if isinstance(error, NotFoundError):
+        return "not_found_error"
+    if isinstance(error, BadRequestError):
+        return "invalid_request_error"
+    if isinstance(error, APITimeoutError):
+        return "provider_timeout"
+    if isinstance(error, APIConnectionError):
+        return "transport_error"
+    return "provider_error"
+
+
 class SDKOpenAITransport:
     """Small SDK boundary so protocol translation can be tested without network."""
 
@@ -52,8 +86,14 @@ class SDKOpenAITransport:
         try:
             count = await self.client.responses.input_tokens.count(**cast(Any, payload))
         except OpenAIError as error:
-            raise ProviderError("OpenAI token count failed") from error
-        return count.input_tokens
+            failure_kind = _safe_failure_kind(error)
+        else:
+            return count.input_tokens
+        raise ProviderError(
+            "OpenAI token count failed",
+            failure_kind=failure_kind,
+            failure_stage="token_count",
+        )
 
     async def create_response(
         self, payload: dict[str, JsonValue]
@@ -64,8 +104,14 @@ class SDKOpenAITransport:
                 await self.client.responses.create(**cast(Any, payload)),
             )
         except OpenAIError as error:
-            raise ProviderError("OpenAI request failed") from error
-        return cast(dict[str, JsonValue], response.model_dump(mode="json"))
+            failure_kind = _safe_failure_kind(error)
+        else:
+            return cast(dict[str, JsonValue], response.model_dump(mode="json"))
+        raise ProviderError(
+            "OpenAI request failed",
+            failure_kind=failure_kind,
+            failure_stage="response",
+        )
 
 
 class _External(BaseModel):

@@ -8,7 +8,17 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from openai import OpenAIError
+import httpx
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    OpenAIError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from pydantic import JsonValue, ValidationError
 
 from mos_eisley.core.models import canonical_bytes
@@ -352,8 +362,73 @@ class SpendingTests(IsolatedAsyncioTestCase):
         self.assertEqual(await transport.count_input_tokens({"model": "example"}), 42)
         sdk.responses.input_tokens.count.assert_awaited_once_with(model="example")
         sdk.responses.input_tokens.count.side_effect = OpenAIError("private error")
-        with self.assertRaisesRegex(ProviderError, "token count failed"):
+        with self.assertRaisesRegex(ProviderError, "token count failed") as raised:
             await transport.count_input_tokens({})
+        self.assertEqual(raised.exception.failure_kind, "provider_error")
+        self.assertEqual(raised.exception.failure_stage, "token_count")
+        self.assertNotIn("private error", str(raised.exception))
+
+    async def test_sdk_errors_map_to_allowlisted_private_diagnostics(self) -> None:
+        request_ = httpx.Request(
+            "POST", "https://api.openai.com/v1/responses/input_tokens"
+        )
+
+        def response(status: int) -> httpx.Response:
+            return httpx.Response(status, request=request_)
+
+        cases = (
+            (
+                AuthenticationError(
+                    "secret authentication detail",
+                    response=response(401),
+                    body=None,
+                ),
+                "authentication_error",
+            ),
+            (
+                PermissionDeniedError(
+                    "secret permission detail", response=response(403), body=None
+                ),
+                "permission_error",
+            ),
+            (
+                RateLimitError(
+                    "secret quota detail",
+                    response=response(429),
+                    body={"code": "insufficient_quota"},
+                ),
+                "quota_error",
+            ),
+            (
+                RateLimitError("secret rate detail", response=response(429), body=None),
+                "rate_limit_error",
+            ),
+            (
+                NotFoundError(
+                    "secret missing detail", response=response(404), body=None
+                ),
+                "not_found_error",
+            ),
+            (
+                BadRequestError(
+                    "secret request detail", response=response(400), body=None
+                ),
+                "invalid_request_error",
+            ),
+            (APIConnectionError(request=request_), "transport_error"),
+            (APITimeoutError(request_), "provider_timeout"),
+        )
+        for error, expected in cases:
+            with self.subTest(expected=expected):
+                sdk = MagicMock()
+                sdk.responses.input_tokens.count = AsyncMock(side_effect=error)
+                with self.assertRaises(ProviderError) as raised:
+                    await SDKOpenAITransport(sdk).count_input_tokens({})
+                self.assertEqual(raised.exception.failure_kind, expected)
+                self.assertEqual(raised.exception.failure_stage, "token_count")
+                self.assertNotIn("secret", str(raised.exception))
+                self.assertIsNone(raised.exception.__cause__)
+                self.assertIsNone(raised.exception.__context__)
 
 
 class PolicyTests(TestCase):
