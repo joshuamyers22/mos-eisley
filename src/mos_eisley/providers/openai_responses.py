@@ -7,17 +7,7 @@ import json
 import re
 from typing import Any, Protocol, cast
 
-from openai import (
-    APIConnectionError,
-    APITimeoutError,
-    AsyncOpenAI,
-    AuthenticationError,
-    BadRequestError,
-    NotFoundError,
-    OpenAIError,
-    PermissionDeniedError,
-    RateLimitError,
-)
+from openai import AsyncOpenAI, OpenAIError
 from openai.types.responses import Response
 from pydantic import (
     BaseModel,
@@ -28,7 +18,7 @@ from pydantic import (
     ValidationError,
 )
 
-from mos_eisley.core.ports import ProviderError, ProviderFailureKind
+from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import (
     ModelRequest,
     ModelResponse,
@@ -41,6 +31,7 @@ from mos_eisley.core.protocol import (
     Turn,
     Usage,
 )
+from mos_eisley.providers.openai_errors import safe_openai_failure_kind
 
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$")
 _ARGUMENTS = TypeAdapter(dict[str, JsonValue])
@@ -50,30 +41,6 @@ class OpenAITransport(Protocol):
     async def create_response(
         self, payload: dict[str, JsonValue]
     ) -> dict[str, JsonValue]: ...
-
-
-def _safe_failure_kind(error: OpenAIError) -> ProviderFailureKind:
-    """Map SDK exception types to a fixed vocabulary without retaining details."""
-
-    if isinstance(error, AuthenticationError):
-        return "authentication_error"
-    if isinstance(error, PermissionDeniedError):
-        return "permission_error"
-    if isinstance(error, RateLimitError):
-        return (
-            "quota_error"
-            if getattr(error, "code", None) == "insufficient_quota"
-            else "rate_limit_error"
-        )
-    if isinstance(error, NotFoundError):
-        return "not_found_error"
-    if isinstance(error, BadRequestError):
-        return "invalid_request_error"
-    if isinstance(error, APITimeoutError):
-        return "provider_timeout"
-    if isinstance(error, APIConnectionError):
-        return "transport_error"
-    return "provider_error"
 
 
 class SDKOpenAITransport:
@@ -86,7 +53,7 @@ class SDKOpenAITransport:
         try:
             count = await self.client.responses.input_tokens.count(**cast(Any, payload))
         except OpenAIError as error:
-            failure_kind = _safe_failure_kind(error)
+            failure_kind = safe_openai_failure_kind(error)
         else:
             return count.input_tokens
         raise ProviderError(
@@ -104,7 +71,7 @@ class SDKOpenAITransport:
                 await self.client.responses.create(**cast(Any, payload)),
             )
         except OpenAIError as error:
-            failure_kind = _safe_failure_kind(error)
+            failure_kind = safe_openai_failure_kind(error)
         else:
             return cast(dict[str, JsonValue], response.model_dump(mode="json"))
         raise ProviderError(

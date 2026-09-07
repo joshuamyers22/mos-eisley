@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an explicit-consent, fixed `gpt-5.6-luna` model-metadata readiness command
+  using one bounded, zero-retry official-SDK request and an exclusive private receipt.
+- Persist only safe provider failure categories and literal denials of billing or
+  Responses verification, retry, spend, grading, scoring, and routing activation.
+
 - Require an independently signed, short-lived authorization for the exact blinded
   conformance transfer and maximum spend before the paid-capable command reads an API
   key; retain the separate explicit local confirmation.
