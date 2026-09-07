@@ -4,6 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a pre-registered, policy-pinned Ed25519 observer receipt for one successful
+  credentialed brokered OpenAI evaluation probe.
+- Reverify the independently anchored authorization, private audit chain, exact
+  settled ledger entry, blinded assignment, SDK allowlist, and freshness window at
+  both observation derivation and authentication.
+- Keep provider authorship, billing, failed-send proof, batch conformance, conversion,
+  grading, scoring, quality, promotion, and routing activation structurally false.
+
 - Preserve terminal broker provider errors, deadlines, and cancellations as distinct
   schema-3 audit outcomes with measured latency and conservative ledger state.
 - Add verification-only failure compilation and exact-batch brokered result assembly;

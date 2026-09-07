@@ -61,6 +61,12 @@ Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. No live call was made while implementing or testing this lifecycle.
 
+After a real successful probe, the separate
+[evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate an
+enrolled observer's claim against the exact assignment, independently retained
+authorization, audit chain, and settled ledger. That receipt remains one-assignment,
+non-scoreable evidence and does not prove provider authorship or billing.
+
 The later [skill runtime conformance attestation](SKILL_RUNTIME_CONFORMANCE.md) binds
 an enrolled observer's signed claim to the exact settled and content-verified skill
 runtime publication. It remains a claim-authentication layer, not provider or billing

@@ -158,6 +158,12 @@ from mos_eisley.run.evaluation_broker import (
     authorize_assignment,
     make_assignment_broker,
 )
+from mos_eisley.run.evaluation_conformance import (
+    EvaluationConformancePolicy,
+    SignedEvaluationConformanceObservation,
+    authenticate_evaluation_conformance,
+    make_evaluation_conformance_observation,
+)
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
 from mos_eisley.run.isolated_broker import run_isolated_broker
@@ -526,6 +532,54 @@ def parser() -> argparse.ArgumentParser:
         "--artifact", type=Path, action="append", required=True
     )
     eval_broker_results.add_argument("--output", type=Path, required=True)
+    derive_evaluation_conformance = subcommands.add_parser(
+        "eval-derive-brokered-conformance",
+        help="Derive signable metadata for one credentialed evaluation probe",
+    )
+    for option in (
+        "batch",
+        "artifact",
+        "expected-authorization",
+        "audit-dir",
+        "spend-ledger",
+        "conformance-policy",
+    ):
+        derive_evaluation_conformance.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_evaluation_conformance.add_argument(
+        "--observed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_evaluation_conformance.add_argument("--sdk-version", required=True)
+    derive_evaluation_conformance.add_argument(
+        "--transport-evidence-sha256", required=True
+    )
+    derive_evaluation_conformance.add_argument(
+        "--attest-credentialed-exchange", action="store_true"
+    )
+    derive_evaluation_conformance.add_argument("--output", type=Path, required=True)
+    authenticate_evaluation_conformance_parser = subcommands.add_parser(
+        "eval-authenticate-brokered-conformance",
+        help="Authenticate one observed probe against its batch and artifact",
+    )
+    for option in (
+        "signed-observation",
+        "conformance-policy",
+        "batch",
+        "artifact",
+        "expected-authorization",
+        "audit-dir",
+        "spend-ledger",
+    ):
+        authenticate_evaluation_conformance_parser.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_evaluation_conformance_parser.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_evaluation_conformance_parser.add_argument(
+        "--output", type=Path, required=True
+    )
     isolated = subcommands.add_parser(
         "eval-run-isolated", help="Run recorded evaluation in an offline container"
     )
@@ -1864,6 +1918,16 @@ def _paths_overlap(left: Path, right: Path) -> bool:
     )
 
 
+def _aliases_broker_audit_authorization(
+    expected_path: Path, audit_directory: Path
+) -> bool:
+    try:
+        same_file = expected_path.samefile(audit_directory / "authorization.json")
+    except FileNotFoundError:
+        same_file = False
+    return _paths_overlap(expected_path, audit_directory) or same_file
+
+
 def _openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY")
 
@@ -2016,12 +2080,7 @@ def _compile_brokered_failure_command(args: argparse.Namespace) -> int:
     expected = AssignmentAuthorization.model_validate_json(
         read_bounded(expected_path, 4096)
     )
-    audit_authorization = audit_directory / "authorization.json"
-    try:
-        aliases_audit_authorization = expected_path.samefile(audit_authorization)
-    except FileNotFoundError:
-        aliases_audit_authorization = False
-    if _paths_overlap(expected_path, audit_directory) or aliases_audit_authorization:
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
         raise ValueError("expected authorization must be independently supplied")
     if _paths_overlap(output, audit_directory):
         raise ValueError("failure artifact output must be outside the broker audit")
@@ -2094,6 +2153,174 @@ def _assemble_brokered_results_command(args: argparse.Namespace) -> int:
                     result.automatic_budget_release_authorized
                 ),
                 "promotion_eligible": result.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_evaluation_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_credentialed_exchange):
+        raise ValueError("credentialed evaluation exchange was not attested")
+    batch_path = cast(Path, args.batch)
+    artifact_path = cast(Path, args.artifact)
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    ledger_path = cast(Path, args.spend_ledger)
+    policy_path = cast(Path, args.conformance_policy)
+    output = cast(Path, args.output)
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
+        raise ValueError("expected authorization must be independently supplied")
+    if any(
+        _paths_overlap(source, audit_directory)
+        for source in (batch_path, artifact_path, ledger_path, policy_path)
+    ):
+        raise ValueError("conformance inputs must be outside the broker audit")
+    if any(
+        _paths_overlap(output, source)
+        for source in (
+            batch_path,
+            artifact_path,
+            expected_path,
+            audit_directory,
+            ledger_path,
+            policy_path,
+        )
+    ):
+        raise ValueError("conformance observation output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    artifact = BrokeredEvaluationArtifact.model_validate_json(
+        read_bounded(artifact_path, 2_000_000)
+    )
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    observation = make_evaluation_conformance_observation(
+        batch,
+        artifact,
+        expected,
+        audit_directory,
+        SpendLedger(ledger_path),
+        policy,
+        cast(datetime, args.observed_at),
+        cast(str, args.sdk_version),
+        cast(str, args.transport_evidence_sha256),
+    )
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "sample_id": observation.sample_id,
+                "artifact_sha256": observation.artifact_sha256,
+                "credentialed_exchange_attested": (
+                    observation.credentialed_exchange_attested
+                ),
+                "provider_authorship_proven": observation.provider_authorship_proven,
+                "billing_reconciled": observation.billing_reconciled,
+                "complete_batch_conformance_proven": (
+                    observation.complete_batch_conformance_proven
+                ),
+                "batch_conversion_authorized": (
+                    observation.batch_conversion_authorized
+                ),
+                "grading_authorized": observation.grading_authorized,
+                "scoring_authorized": observation.scoring_authorized,
+                "promotion_authorized": observation.promotion_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_evaluation_conformance_command(args: argparse.Namespace) -> int:
+    signed_path = cast(Path, args.signed_observation)
+    policy_path = cast(Path, args.conformance_policy)
+    batch_path = cast(Path, args.batch)
+    artifact_path = cast(Path, args.artifact)
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    ledger_path = cast(Path, args.spend_ledger)
+    output = cast(Path, args.output)
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
+        raise ValueError("expected authorization must be independently supplied")
+    if any(
+        _paths_overlap(source, audit_directory)
+        for source in (
+            signed_path,
+            policy_path,
+            batch_path,
+            artifact_path,
+            ledger_path,
+        )
+    ):
+        raise ValueError("conformance inputs must be outside the broker audit")
+    if any(
+        _paths_overlap(output, source)
+        for source in (
+            signed_path,
+            policy_path,
+            batch_path,
+            artifact_path,
+            expected_path,
+            audit_directory,
+            ledger_path,
+        )
+    ):
+        raise ValueError("authenticated conformance output must not overlap an input")
+    signed = SignedEvaluationConformanceObservation.model_validate_json(
+        read_bounded(signed_path, 256_000)
+    )
+    policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    artifact = BrokeredEvaluationArtifact.model_validate_json(
+        read_bounded(artifact_path, 2_000_000)
+    )
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    authenticated = authenticate_evaluation_conformance(
+        signed,
+        policy,
+        batch,
+        artifact,
+        expected,
+        audit_directory,
+        SpendLedger(ledger_path),
+        cast(datetime, args.at),
+    )
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.authenticated",
+                "output": str(output),
+                "authenticated_conformance_sha256": (
+                    authenticated.authenticated_conformance_sha256
+                ),
+                "sample_id": authenticated.sample_id,
+                "artifact_sha256": authenticated.artifact_sha256,
+                "signer_id": authenticated.signer_id,
+                "provider_authorship_proven": (
+                    authenticated.provider_authorship_proven
+                ),
+                "billing_reconciled": authenticated.billing_reconciled,
+                "complete_batch_conformance_proven": (
+                    authenticated.complete_batch_conformance_proven
+                ),
+                "batch_conversion_authorized": (
+                    authenticated.batch_conversion_authorized
+                ),
+                "grading_authorized": authenticated.grading_authorized,
+                "scoring_authorized": authenticated.scoring_authorized,
+                "promotion_authorized": authenticated.promotion_authorized,
             }
         )
     )
@@ -5362,6 +5589,10 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
+        "eval-derive-brokered-conformance": (_derive_evaluation_conformance_command),
+        "eval-authenticate-brokered-conformance": (
+            _authenticate_evaluation_conformance_command
+        ),
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
         "eval-resolve-adjudications": _resolve_adjudications_command,
         "eval-compile-dual": _compile_dual_command,

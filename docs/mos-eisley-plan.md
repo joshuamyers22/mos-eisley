@@ -2266,3 +2266,32 @@ grading, scoring, promotion, retry, and automatic budget release to false. This 
 failure-preserving coverage composition only. A real provider conformance run,
 authenticated live-execution policy, and separately reviewed conversion remain
 mandatory before empirical scoring. No provider or paid request was made.
+
+### 25.25 Implemented authenticated brokered evaluation conformance receipt
+
+A pre-registered evaluation-conformance policy now fixes one exact blinded OpenAI
+assignment before an observer claim can be accepted: plan, batch, sample, candidate,
+evaluation request, serialized provider request, spend policy, ledger, ledger entry,
+UTC window, observation age, SDK allowlist, and sorted unique Ed25519 observer keys.
+Provider, endpoint, Responses family, API-key mode, explicit conformance command,
+official SDK, bounded client, isolated broker, zero retries, disabled storage, and
+disabled truncation are strict literals rather than signable free text.
+
+Derivation requires explicit credentialed-exchange attestation plus the successful
+broker artifact, exact blinded batch, independently retained assignment authorization,
+private audit, and shared ledger. Authentication verifies the domain-separated
+signature and freshness, then reparses every contract and reopens the audit and ledger.
+The terminal response and outcome hashes, measured latency, settled status, and
+charged amount must continue to match. Trust anchors or derived inputs inside the
+audit tree, symlink aliases, hard links to the audit authorization, and output/input
+overlap fail closed. CLI output omits prompt, critique, usage, provider request ID,
+raw response, credential, and signing key.
+
+This authenticates a trusted observer statement, not OpenAI authorship or billing.
+The observer can lie; transport-evidence bytes are externally retained and not fetched;
+the observation time and host clock are trusted. Only successful settled token-usage
+artifacts qualify because current failure state does not prove whether a provider send
+occurred. One probe cannot establish complete-batch conformance and every policy,
+observation, receipt, and event fixes conversion, grading, scoring, quality, promotion,
+and routing activation to false. A separately authorized real probe is still required;
+tests use synthetic artifacts and keys and make no provider or paid request.

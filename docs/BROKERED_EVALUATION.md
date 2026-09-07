@@ -75,8 +75,11 @@ decoded HTTP byte ceiling before this compilation step.
 
 This path proves provenance and exact-coverage composition with synthetic responses.
 It does not prove model availability, provider billing, response conformance, critique
-quality, group independence, or network behavior. Credentialed conformance requires
-explicit operator authorization and data-transfer consent. Only after those probes
-pass may a separately reviewed, authenticated conversion produce live `RawResultSet`
-evidence. These artifacts and result sets are never scoreable and must not be relabeled
-or copied into recorded-fixture provenance.
+quality, group independence, or network behavior. The separate
+[evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate one
+trusted observer's claim for one successful credentialed probe, but it deliberately
+denies complete-batch conformance and conversion. Credentialed conformance requires
+explicit operator authorization and data-transfer consent. Only after repeated probes
+pass may another separately reviewed conversion produce live `RawResultSet` evidence.
+These artifacts and result sets are never scoreable and must not be relabeled or
+copied into recorded-fixture provenance.
