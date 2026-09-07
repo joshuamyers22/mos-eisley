@@ -30,13 +30,16 @@ serialized provider request.
 ## Explicit command
 
 `openai-conformance` requires the blinded batch/sample, reviewed expiring spending
-policy, existing shared ledger, separately prepared conformance policy, absolute
-Docker executable, immutable image ID, fresh audit directory, and two fresh output
-files. It derives model and effort from the assignment; there are no command-line
-overrides. Consent is checked before any input read. The
+policy, existing shared ledger, separately prepared conformance policy, independent
+authority policy and signed short-lived execution authorization, absolute Docker
+executable, immutable image ID, fresh audit directory, and two fresh output files. It
+derives model and effort from the assignment; there are no command-line overrides.
+Local consent is checked before any input read. The
 [no-send ceremony](CONFORMANCE_CEREMONY.md) and live preflight bind and recheck the
 exact request, spending identities, audit-derived unused ledger entry, policy window,
-and installed SDK version before `OPENAI_API_KEY` is read or Docker starts. The
+and installed SDK version. The separate
+[signed authorization](EVALUATION_CONFORMANCE_AUTHORIZATION.md) authenticates exact
+blinded-transfer and spend authority before `OPENAI_API_KEY` is read or Docker starts. The
 trusted audit parent must already exist, and the policy and three output paths may
 not contain or overlap one another.
 
@@ -45,6 +48,8 @@ mos openai-conformance \
   --batch blinded-batch.json --sample-id <sha256> \
   --spend-policy spend-policy.json --spend-ledger spending.sqlite \
   --conformance-policy trusted/conformance-policy.json \
+  --conformance-authority-policy trusted/conformance-authority-policy.json \
+  --signed-conformance-authorization trusted/signed-authorization.json \
   --docker /usr/local/bin/docker --image sha256:<64-hex-image-id> \
   --audit-dir private/audit \
   --authorization-output trusted/authorization.json \

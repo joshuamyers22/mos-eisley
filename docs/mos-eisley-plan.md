@@ -2319,3 +2319,27 @@ authorization, conformance result, or observer signature. File custody, host clo
 same-UID races, and ledger rollback/cloning remain outside the local proof. All
 conversion, grading, scoring, promotion, and routing flags remain false. Tests use
 synthetic provider and Docker behavior and make no credentialed or paid request.
+
+### 25.27 Implemented signed evaluation conformance authorization
+
+The paid-capable evaluation conformance boundary now requires an independent,
+short-lived Ed25519 authorization in addition to explicit local transfer confirmation.
+A strict authority policy enrolls sorted unique identities and keys and caps each
+authorization at one hour. Every enrolled authority must be disjoint by both identity
+and key from every post-run observer in the exact conformance policy.
+
+Unsigned derivation binds the authority and conformance policy hashes, complete
+assignment and provider-request identity, spend policy, ledger and entry, maximum
+micro-USD exposure, issue time, and expiry. It reads no provider credential or private
+key, reserves no money, creates no audit, and sends nothing. Signing is out of process
+under a distinct domain. Before API-key access, the live command verifies enrollment,
+signature, exact reconstructed content, authority separation, nested authority,
+conformance and spend windows, and enough signed lifetime for the request timeout.
+
+The signature authorizes one exact blinded transfer, credential access, and bounded
+spend; it explicitly denies unblinded transfer, retry, automatic budget release,
+conversion, grading, scoring, promotion, and routing activation. It proves possession
+of an enrolled key, not human identity or informed judgment. Trust-policy custody,
+signer independence, clocks, same-UID replacement, and ledger rollback/cloning remain
+external. Tests use synthetic keys and transport behavior and make no credentialed or
+paid request.

@@ -168,6 +168,12 @@ from mos_eisley.run.evaluation_conformance import (
     prepare_evaluation_conformance_policy,
     validate_evaluation_conformance_preflight,
 )
+from mos_eisley.run.evaluation_conformance_authorization import (
+    EvaluationConformanceAuthorityPolicy,
+    SignedEvaluationConformanceAuthorization,
+    make_evaluation_conformance_authorization,
+    verify_evaluation_conformance_authorization,
+)
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
 from mos_eisley.run.isolated_broker import run_isolated_broker
@@ -455,6 +461,10 @@ def parser() -> argparse.ArgumentParser:
     conformance.add_argument("--spend-policy", type=Path, required=True)
     conformance.add_argument("--spend-ledger", type=Path, required=True)
     conformance.add_argument("--conformance-policy", type=Path, required=True)
+    conformance.add_argument("--conformance-authority-policy", type=Path, required=True)
+    conformance.add_argument(
+        "--signed-conformance-authorization", type=Path, required=True
+    )
     conformance.add_argument("--docker", type=Path, required=True)
     conformance.add_argument(
         "--image", required=True, help="Locally built immutable sha256 image ID"
@@ -567,6 +577,21 @@ def parser() -> argparse.ArgumentParser:
         "--sdk-version", action="append", required=True
     )
     prepare_evaluation_conformance.add_argument("--output", type=Path, required=True)
+    derive_conformance_authorization = subcommands.add_parser(
+        "eval-derive-brokered-conformance-authorization",
+        help="Derive exact OpenAI conformance authority for external signing",
+    )
+    for option in ("conformance-policy", "spend-policy", "authority-policy"):
+        derive_conformance_authorization.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_conformance_authorization.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_conformance_authorization.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_conformance_authorization.add_argument("--output", type=Path, required=True)
     derive_evaluation_conformance = subcommands.add_parser(
         "eval-derive-brokered-conformance",
         help="Derive signable metadata for one credentialed evaluation probe",
@@ -2254,6 +2279,59 @@ def _prepare_evaluation_conformance_policy_command(args: argparse.Namespace) -> 
                 "grading_authorized": policy.grading_authorized,
                 "scoring_authorized": policy.scoring_authorized,
                 "promotion_authorized": policy.promotion_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_evaluation_conformance_authorization_command(
+    args: argparse.Namespace,
+) -> int:
+    conformance_policy_path = cast(Path, args.conformance_policy)
+    spend_policy_path = cast(Path, args.spend_policy)
+    authority_policy_path = cast(Path, args.authority_policy)
+    output = cast(Path, args.output)
+    inputs = (
+        conformance_policy_path,
+        spend_policy_path,
+        authority_policy_path,
+    )
+    if any(_paths_overlap(output, source) for source in inputs):
+        raise ValueError("conformance authorization output must not overlap an input")
+    conformance_policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(conformance_policy_path, 128_000)
+    )
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    authority_policy = EvaluationConformanceAuthorityPolicy.model_validate_json(
+        read_bounded(authority_policy_path, 64_000)
+    )
+    authorization = make_evaluation_conformance_authorization(
+        conformance_policy,
+        spend_policy,
+        authority_policy,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.authorization_derived",
+                "output": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "conformance_policy_sha256": (authorization.conformance_policy_sha256),
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "authenticated": False,
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "grading_authorized": authorization.grading_authorized,
+                "scoring_authorized": authorization.scoring_authorized,
+                "promotion_authorized": authorization.promotion_authorized,
             }
         )
     )
@@ -5693,6 +5771,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command
         ),
+        "eval-derive-brokered-conformance-authorization": (
+            _derive_evaluation_conformance_authorization_command
+        ),
         "eval-derive-brokered-conformance": (_derive_evaluation_conformance_command),
         "eval-authenticate-brokered-conformance": (
             _authenticate_evaluation_conformance_command
@@ -6027,6 +6108,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             spend_policy_path = cast(Path, args.spend_policy)
             ledger_path = cast(Path, args.spend_ledger)
             conformance_policy_path = cast(Path, args.conformance_policy)
+            conformance_authority_policy_path = cast(
+                Path, args.conformance_authority_policy
+            )
+            signed_conformance_authorization_path = cast(
+                Path, args.signed_conformance_authorization
+            )
             batch = ExecutionBatch.model_validate_json(
                 read_bounded(batch_path, 16_000_000)
             )
@@ -6035,6 +6122,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             conformance_policy = EvaluationConformancePolicy.model_validate_json(
                 read_bounded(conformance_policy_path, 128_000)
+            )
+            conformance_authority_policy = (
+                EvaluationConformanceAuthorityPolicy.model_validate_json(
+                    read_bounded(conformance_authority_policy_path, 64_000)
+                )
+            )
+            signed_conformance_authorization = (
+                SignedEvaluationConformanceAuthorization.model_validate_json(
+                    read_bounded(signed_conformance_authorization_path, 128_000)
+                )
             )
             spend_policy.check_current()
             ledger = SpendLedger(ledger_path)
@@ -6072,9 +6169,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     (conformance_policy_path, audit_directory),
                     (conformance_policy_path, authorization_output),
                     (conformance_policy_path, artifact_output),
+                    (conformance_authority_policy_path, audit_directory),
+                    (conformance_authority_policy_path, authorization_output),
+                    (conformance_authority_policy_path, artifact_output),
+                    (signed_conformance_authorization_path, audit_directory),
+                    (signed_conformance_authorization_path, authorization_output),
+                    (signed_conformance_authorization_path, artifact_output),
                 )
             ):
                 raise ValueError("conformance output paths must not overlap")
+            preflight_at = datetime.now(UTC)
             prepared_authorization = validate_evaluation_conformance_preflight(
                 batch,
                 sample_id,
@@ -6083,13 +6187,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 audit_directory,
                 conformance_policy,
                 _openai_sdk_version(),
-                datetime.now(UTC),
+                preflight_at,
             )
-            if (
-                datetime.now(UTC) + timedelta(seconds=timeout)
-                > conformance_policy.valid_until
+            verified_conformance_authorization = (
+                verify_evaluation_conformance_authorization(
+                    signed_conformance_authorization,
+                    conformance_authority_policy,
+                    conformance_policy,
+                    spend_policy,
+                    preflight_at,
+                )
+            )
+            if preflight_at + timedelta(seconds=timeout) > min(
+                conformance_policy.valid_until,
+                verified_conformance_authorization.valid_until,
             ):
-                raise ValueError("conformance policy cannot cover the request timeout")
+                raise ValueError(
+                    "conformance authorization cannot cover the request timeout"
+                )
             api_key = _openai_api_key()
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is not configured")
@@ -6102,6 +6217,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             authorization = authorize_assignment(batch, sample_id, payload, budgeted)
             if authorization != prepared_authorization:
                 raise ValueError("conformance authorization changed after preflight")
+            if (
+                datetime.now(UTC) + timedelta(seconds=timeout)
+                > verified_conformance_authorization.valid_until
+            ):
+                raise ValueError("conformance authorization expired before dispatch")
             # This trusted copy is outside the broker-created audit directory and
             # exists before the worker can redeem its single-use capability.
             _write_contract(authorization_output, authorization)
