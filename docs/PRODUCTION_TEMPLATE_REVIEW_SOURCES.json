@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "source_repository": "production-project-template",
+  "source_local_path": "/Users/josh/Projects/production-project-template",
+  "base_commit": "3d467040ba760efe9795f67f07d5a2ccf364282b",
+  "captured_at_utc": "2026-09-07T03:29:26.379608+00:00",
+  "source_includes_uncommitted_changes": true,
+  "scope": "Local source snapshot for design review; not a published release or runtime template approval.",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "73d021b1f10f018b856bdf057acf3863ea865b21a9cd77a6f92447b5d72cd5ba",
+      "bytes": 8937
+    },
+    {
+      "path": "PERSONAL_ENGINEERING_DEFAULTS.md",
+      "sha256": "e7b3a77ab03e802d05538348567f627132b8d45d17f9108884dde735828640ea",
+      "bytes": 8289
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "902132acc9c37998a0e6f77518592280a7e695eab3d66b056485b7cf83fcf801",
+      "bytes": 4724
+    },
+    {
+      "path": "PROJECT_MEMORY.md",
+      "sha256": "3a6be3589661e7136f161f4f2fb9dfbdca4cce7b6cf79421b34ee9a0d23f4c34",
+      "bytes": 4256
+    },
+    {
+      "path": "docs/OBSERVABILITY_AND_IMPROVEMENT.md",
+      "sha256": "e8992223ad0a1afc3a09b647b30fbd8aeef2a2d0e1666528a6c4f70020a4f113",
+      "bytes": 3744
+    },
+    {
+      "path": "docs/TELEMETRY_PLAN.md",
+      "sha256": "7e5f52b0736e8282ed4e49f61c0c7b44c0380baaf06ea59802ec712849561d70",
+      "bytes": 60681
+    },
+    {
+      "path": "schemas/telemetry-event.schema.json",
+      "sha256": "cc44aa2cc9b94adeac4654fce4e7713a6799cff588fbc8bae18d4283c8fa50a2",
+      "bytes": 4583
+    },
+    {
+      "path": "docs/AGENT_MEMORY_GUIDE.md",
+      "sha256": "78046c7c207055dcfb2910e844104f5a77d4789fe6cefe42c70c97f10d4881bc",
+      "bytes": 6126
+    },
+    {
+      "path": "docs/AGENTIC_VERIFICATION_GUIDE.md",
+      "sha256": "f0ea5eba1e0a90fb8263252d3d3779a3b70645e99f2e07d2e6095a5d04932ca2",
+      "bytes": 6855
+    },
+    {
+      "path": "templates/WORK_NOTE.md",
+      "sha256": "ddaa662dde003c1feeb19d1df4a8abe47db2ea394054ad439b76f355fb49f332",
+      "bytes": 1221
+    },
+    {
+      "path": "templates/TELEMETRY_REVIEW.md",
+      "sha256": "9f519c245776a44bb7d9db9fcb504e1beee1e0cda2ab1e84c736e2c95f15021e",
+      "bytes": 1861
+    },
+    {
+      "path": "templates/IMPROVEMENT_PLAN.md",
+      "sha256": "0acf5d1fc8a0e3e72d4ce64ba68222a5eeb623846c3abbba4033dcf59a73ff03",
+      "bytes": 1394
+    },
+    {
+      "path": "templates/AGENTIC_VERIFICATION_LOOP.md",
+      "sha256": "426a11484eb026b45e2c51e6cb69a16f58768627dad7a9b5502a7de0ee5fc17f",
+      "bytes": 2472
+    },
+    {
+      "path": "notes/README.md",
+      "sha256": "7730aec3c231cf67c023d933ae0ac520d54505aca253a8d6662b8ca2874e2aca",
+      "bytes": 825
+    },
+    {
+      "path": "docs/QUANT_STATISTICAL_LEARNING_POINT_OF_VIEW.md",
+      "sha256": "0af1bda6d7bf93fef1c33c683bec510d06ba7e2b3f9bacbe29b515f9ab0f0399",
+      "bytes": 7336
+    }
+  ]
+}

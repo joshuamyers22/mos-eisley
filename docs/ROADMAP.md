@@ -17,6 +17,14 @@ reuse only that user's minimal model-selection aggregates; prior conversational
 content requires explicit same-owner resume or inspection. Plan §17 defines the
 contract; comprehensive enforcement and remote adapters remain planned work.
 
+**Project guidance and operational evidence:** adopt the production template's
+structured-logging and bounded memory/note principles with Mos Eisley's ownership,
+fresh-session, and audit guarantees. Add per-project points of view and best-practice
+templates with explicit binding, versioned snapshots, independent overrides, and
+visible precedence. Preferences and telemetry infrastructure remain project choices.
+See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`; these are planned
+capabilities, not current automatic template or memory loading.
+
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
@@ -43,12 +51,20 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
    their execution gates. Keep `exec`/JSON automation on the same controller.
+   Add project-guidance attach/show/update/detach with trusted project bindings and
+   frozen per-role rubrics. Alongside private persistence, add explicitly selected
+   project memory and handoff notes; writing them requires scoped write capabilities.
+   Never reuse private history merely because a guidance template was attached.
    Build owner-scoped storage interfaces with the session controller; verify local
    user isolation, explicit resume, and fresh-session context separation. Add
    remote database/object adapters only after server-side isolation, retention,
    migration, and no-aggregation tests pass. Backend selection must not change
    ownership or silently create additional copies.
-4. **In progress — quality and routing gate:** deterministic, content-addressed
+4. **In progress — quality and routing gate:**
+   Add the §17.5 versioned operational-event mapping alongside live provider work,
+   preserving required audit/spend durability and owner isolation. Evaluate outcomes
+   and guardrails on later windows; telemetry review does not authorize changes.
+   Existing evaluation progress: deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.
    Fixed-matrix group-mean bounds and comparison-family correction are implemented;
