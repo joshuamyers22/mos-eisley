@@ -1,6 +1,6 @@
 """The review use case owns this boundary; vendor SDKs remain outside it."""
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 from mos_eisley.core.models import (
     CriticRequest,
@@ -18,9 +18,36 @@ from mos_eisley.core.protocol import (
     ToolResultBlock,
 )
 
+ProviderFailureKind = Literal[
+    "provider_error",
+    "authentication_error",
+    "permission_error",
+    "quota_error",
+    "rate_limit_error",
+    "not_found_error",
+    "invalid_request_error",
+    "transport_error",
+    "provider_timeout",
+]
+ProviderFailureStage = Literal["token_count", "response", "exchange"]
+
 
 class ProviderError(Exception):
-    """An expected adapter failure; details must not enter public diagnostics."""
+    """An expected adapter failure with optional, allowlisted safe diagnostics."""
+
+    failure_kind: ProviderFailureKind
+    failure_stage: ProviderFailureStage | None
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_kind: ProviderFailureKind = "provider_error",
+        failure_stage: ProviderFailureStage | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.failure_kind = failure_kind
+        self.failure_stage = failure_stage
 
 
 class Reviewer(Protocol):

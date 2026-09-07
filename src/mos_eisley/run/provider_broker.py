@@ -118,20 +118,40 @@ class RequestBoundBroker:
         except asyncio.CancelledError:
             if self._audit is not None:
                 self._audit.finish(
-                    "cancelled", latency_ms=latency_ms(), error="cancelled"
+                    "cancelled",
+                    latency_ms=latency_ms(),
+                    error="cancelled",
+                    failure_stage="exchange",
                 )
             raise
         except TimeoutError:
             if self._audit is not None:
-                self._audit.finish("failed", latency_ms=latency_ms(), error="timeout")
+                self._audit.finish(
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error="timeout",
+                    failure_stage="exchange",
+                )
+            raise ProviderError("broker response unavailable") from None
+        except ProviderError as error:
+            if self._audit is not None:
+                self._audit.finish(
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error=error.failure_kind,
+                    failure_stage=error.failure_stage or "exchange",
+                )
+            # Cancellation propagates; the grant stays consumed in every case.
+            # Spending controller retains uncertain reservations after dispatch.
             raise ProviderError("broker response unavailable") from None
         except Exception:
             if self._audit is not None:
                 self._audit.finish(
-                    "failed", latency_ms=latency_ms(), error="provider_error"
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error="provider_error",
+                    failure_stage="exchange",
                 )
-            # Cancellation propagates; the grant stays consumed in every case.
-            # Spending controller retains uncertain reservations after dispatch.
             raise ProviderError("broker response unavailable") from None
         if self._audit is not None:
             self._audit.finish(

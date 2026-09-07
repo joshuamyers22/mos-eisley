@@ -129,10 +129,14 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
                 max_retries=0,
                 http_client=http_client,
             )
-            with self.assertRaisesRegex(ProviderError, "^OpenAI request failed$"):
+            with self.assertRaisesRegex(
+                ProviderError, "^OpenAI request failed$"
+            ) as raised:
                 await SDKOpenAITransport(sdk).create_response(
                     {"model": "gpt-6-astra", "input": "fixture"}
                 )
+            self.assertEqual(raised.exception.failure_kind, "transport_error")
+            self.assertEqual(raised.exception.failure_stage, "response")
 
     def test_invalid_limits_rejected(self) -> None:
         for limit in (0, 1023, 1_000_001):

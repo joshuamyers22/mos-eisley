@@ -269,6 +269,7 @@ class EvaluationConformanceTests(TestCase):
             latency_ms=12,
             cost_microusd=300,
             error="provider_error",
+            failure_stage="exchange",
         )
         with self.assertRaisesRegex(ValueError, "completed artifact"):
             make_evaluation_conformance_observation(

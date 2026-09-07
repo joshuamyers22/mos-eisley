@@ -35,6 +35,55 @@ class AssignmentBrokerTests(IsolatedAsyncioTestCase):
         )
         self.assertIsNone(outcome.latency_ms)
 
+    def test_schema_three_failure_remains_recoverable_without_stage(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, transport = self._transport(root)
+            assert transport.ledger is not None
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            binding = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            audit = BrokerAudit(root / "audit", binding)
+            audit.admit()
+            admission = (root / "audit" / "admission.json").read_bytes()
+            legacy = BrokerOutcome(
+                schema_version=3,
+                admission_sha256=digest(admission),
+                status="failed",
+                latency_ms=1,
+                error="provider_error",
+            )
+            encoded = canonical_bytes(legacy)
+            private_write(root / "audit" / "outcome.json", encoded)
+            self.assertEqual(
+                canonical_bytes(BrokerOutcome.model_validate_json(encoded)), encoded
+            )
+            state = inspect_broker_recovery(root / "audit", binding, transport.ledger)
+            self.assertEqual(state.error, "provider_error")
+            self.assertIsNone(state.failure_stage)
+
+    def test_schema_four_failure_classification_is_consistent(self) -> None:
+        valid = {
+            "admission_sha256": "a" * 64,
+            "status": "failed",
+            "latency_ms": 1,
+            "error": "permission_error",
+            "failure_stage": "token_count",
+        }
+        self.assertEqual(
+            BrokerOutcome.model_validate(valid).failure_stage, "token_count"
+        )
+        for changes in (
+            {"failure_stage": None},
+            {"status": "cancelled"},
+            {"error": "cancelled", "status": "failed"},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                BrokerOutcome.model_validate(valid | changes)
+
     def test_legacy_outcome_is_recoverable_but_cannot_supply_latency(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -104,6 +153,39 @@ class AssignmentBrokerTests(IsolatedAsyncioTestCase):
             self.assertEqual(len(fake.calls), 1)
             with self.assertRaises(ProviderError):
                 await broker.redeem(canonical_bytes(broker.claim()))
+
+    async def test_audit_preserves_only_allowlisted_provider_diagnostics(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake, transport = self._transport(root)
+            payload = request()
+            payload["model"] = self.request.route.model
+            payload["reasoning"] = {"effort": self.request.route.effort}
+            expected = authorize_assignment(
+                self.batch, self.request.sample_id, payload, transport
+            )
+            assert transport.ledger is not None
+            fake.error = ProviderError(
+                "secret upstream detail",
+                failure_kind="permission_error",
+                failure_stage="response",
+            )
+            broker = make_assignment_broker(
+                self.batch,
+                self.request.sample_id,
+                payload,
+                transport,
+                root / "audit",
+            )
+            with self.assertRaisesRegex(ProviderError, "broker response unavailable"):
+                await broker.redeem(canonical_bytes(broker.claim()))
+            state = inspect_broker_recovery(root / "audit", expected, transport.ledger)
+            self.assertEqual(state.error, "permission_error")
+            self.assertEqual(state.failure_stage, "response")
+            self.assertNotIn(
+                b"secret upstream detail",
+                (root / "audit" / "outcome.json").read_bytes(),
+            )
 
     def test_cross_assignment_and_route_mutation_rejected(self) -> None:
         with TemporaryDirectory() as directory:

@@ -6,7 +6,8 @@ single-use bearer grant for one exact host-approved request. The
 container through private subprocess pipes. An explicitly acknowledged
 `openai-conformance` CLI now composes these pieces for exactly one assignment;
 there is no socket listener or live evaluation sweep. Tests use synthetic host
-responses, not live evidence, and no credentialed run has been recorded.
+responses, not live evidence, and the repository contains no committed successful
+credentialed result.
 
 The host snapshots the canonical request and configures the OpenAI spending
 transport, credentials, endpoint, reviewed pricing, and shared ledger. A claim
@@ -19,7 +20,9 @@ submit replacement prompts, model/effort settings, tools, endpoints, or budgets.
 The broker requires the existing shared-ledger spending controller. Failure,
 timeout, or cancellation burns the grant; uncertain generation retains its full
 reservation under the controller's existing rules. The grant lifetime (at most
-60 seconds) also bounds the cooperative provider deadline. API errors are generic.
+60 seconds) also bounds the cooperative provider deadline. Raw API errors are
+discarded, while schema-4 audits retain only allowlisted failure stages and
+categories.
 Request snapshots have a 1 MiB serialized ceiling; claims have a 1 KiB wire ceiling.
 
 OpenAI's [authentication guidance](https://developers.openai.com/api/reference/overview#authentication)
@@ -61,8 +64,15 @@ policy, ledger identity and ledger-entry identity. The claim includes the result
 authorization hash, so a claim cannot move between otherwise similar assignments.
 Private `authorization.json`, `admission.json`, and `outcome.json` files form a
 hash-linked sequence. Admission is fsynced before token counting or spending
-reservation; outcomes record only a generic status and an optional response hash.
-They contain neither bearer capabilities nor raw provider errors.
+reservation. Schema-4 failures record `token_count`, `response`, or coarse
+`exchange` stage plus one fixed category: authentication, permission, quota,
+rate-limit, not-found, invalid-request, transport, provider-timeout, generic
+provider, broker timeout, or cancellation. `transport_error` deliberately covers
+both connectivity failures and local bounded-transport rejection; a stage proves
+only where local execution failed, not that OpenAI received the request. Outcomes
+contain neither bearer capabilities, raw provider errors, response bodies, nor
+unrecognized provider codes. Legacy outcomes remain readable without acquiring
+new diagnostic claims.
 
 `inspect_broker_recovery` compares one audit with an independently trusted expected
 authorization and the named shared ledger. It classifies `prepared`, `admitted`,
@@ -83,7 +93,8 @@ mos broker-audit-status \
 
 The expected authorization must be a separately supplied regular file; the CLI
 rejects using the audit's own `authorization.json` as its trust anchor. Output is
-one JSON event containing phase, ledger state, hashes, and
+one JSON event containing phase, ledger state, hashes, safe failure classification,
+and
 `retry_permitted: false`. The command does not scan for audits, contact a provider,
 write recovery files, settle ledger entries, remove containers, or authorize a
 replacement call. Operators must separately establish that old processes and

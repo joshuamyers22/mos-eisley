@@ -2,8 +2,8 @@
 
 Mos Eisley has a deterministic request builder and fail-closed CLI lifecycle for
 one blinded OpenAI evaluation assignment. The command is paid-capable, but its
-tests replace both provider dispatch and Docker execution; this repository has not
-yet recorded a credentialed conformance result.
+tests replace both provider dispatch and Docker execution; this repository contains
+no committed successful credentialed conformance result.
 
 `build_openai_conformance_payload` requires one exact sample in an
 `ExecutionBatch`, an `openai` route, and a reviewed spending policy for the same
@@ -64,11 +64,13 @@ event loop, while the credential and endpoint remain host-only. A completed repl
 must agree with the audit chain and settled ledger before the strict, explicitly
 non-scoreable artifact is written. After dispatch, failure leaves the authorization,
 audit, and conservative ledger receipt for recovery inspection and never writes an
-artifact or permits retry.
+artifact or permits retry. Schema-4 audit diagnostics retain only a fixed local stage
+and coarse SDK exception category. They discard exception text and bodies and do not
+prove provider receipt, billing, or the exact remote cause.
 
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
-cost. No live call was made while implementing or testing this lifecycle.
+cost. Automated tests do not make live calls.
 
 After a real successful probe, the separate
 [evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate an

@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
+from mos_eisley.core.ports import ProviderFailureKind, ProviderFailureStage
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
@@ -30,13 +31,19 @@ class BrokerAdmission(Contract):
     authorization_sha256: Digest
 
 
+BrokerFailureKind = ProviderFailureKind | Literal["timeout", "cancelled"]
+
+
 class BrokerOutcome(Contract):
-    schema_version: Literal[1, 2, 3] = 3
+    schema_version: Literal[1, 2, 3, 4] = 4
     admission_sha256: Digest
     status: Literal["response_received", "failed", "cancelled"]
     response_sha256: Digest | None = None
     latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
-    error: Literal["provider_error", "timeout", "cancelled"] | None = None
+    error: BrokerFailureKind | None = None
+    failure_stage: ProviderFailureStage | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def response_matches_status(self) -> Self:
@@ -48,20 +55,33 @@ class BrokerOutcome(Contract):
             raise ValueError("broker outcome response latency mismatch")
         if self.schema_version in (1, 2) and self.error is not None:
             raise ValueError("legacy broker outcome cannot declare an error")
-        if self.schema_version == 3 and self.latency_ms is None:
+        if self.schema_version in (3, 4) and self.latency_ms is None:
             raise ValueError("broker outcome latency is required")
-        if self.schema_version == 3 and (self.status == "response_received") == (
+        if self.schema_version in (3, 4) and (self.status == "response_received") == (
             self.error is not None
         ):
             raise ValueError("broker outcome error does not match status")
+        if self.schema_version in (1, 2, 3) and self.failure_stage is not None:
+            raise ValueError("legacy broker outcome cannot declare a failure stage")
+        if self.schema_version == 3 and self.error not in (
+            None,
+            "provider_error",
+            "timeout",
+            "cancelled",
+        ):
+            raise ValueError("legacy broker outcome has an invalid error")
+        if self.schema_version == 4 and (self.status == "response_received") == (
+            self.failure_stage is not None
+        ):
+            raise ValueError("broker outcome failure stage does not match status")
         if (
-            self.schema_version == 3
+            self.schema_version in (3, 4)
             and self.status == "cancelled"
             and (self.error != "cancelled")
         ):
             raise ValueError("cancelled broker outcome classification is invalid")
         if (
-            self.schema_version == 3
+            self.schema_version in (3, 4)
             and self.status != "cancelled"
             and self.error == "cancelled"
         ):
@@ -70,7 +90,7 @@ class BrokerOutcome(Contract):
 
 
 class BrokerRecoveryState(Contract):
-    schema_version: Literal[3] = 3
+    schema_version: Literal[4] = 4
     authorization_sha256: Digest
     phase: Literal["prepared", "admitted", "finished"]
     ledger_status: Literal["absent", "held", "settled", "uncertain", "violation"]
@@ -78,7 +98,8 @@ class BrokerRecoveryState(Contract):
     outcome_sha256: Digest | None = None
     response_sha256: Digest | None = None
     latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
-    error: Literal["provider_error", "timeout", "cancelled"] | None = None
+    error: BrokerFailureKind | None = None
+    failure_stage: ProviderFailureStage | None = None
     retry_permitted: Literal[False] = False
 
     @model_validator(mode="after")
@@ -95,6 +116,19 @@ class BrokerRecoveryState(Contract):
             raise ValueError("unfinished recovery state cannot declare an error")
         if self.outcome_status == "response_received" and self.error is not None:
             raise ValueError("successful recovery state cannot declare an error")
+        if (
+            self.outcome_status is None or self.outcome_status == "response_received"
+        ) and self.failure_stage is not None:
+            raise ValueError(
+                "non-failure recovery state cannot declare a failure stage"
+            )
+        if self.failure_stage is None and self.error not in (
+            None,
+            "provider_error",
+            "timeout",
+            "cancelled",
+        ):
+            raise ValueError("classified recovery failure requires a failure stage")
         return self
 
 
@@ -122,7 +156,8 @@ class BrokerAudit:
         status: Literal["response_received", "failed", "cancelled"],
         response_sha256: str | None = None,
         latency_ms: int | None = None,
-        error: Literal["provider_error", "timeout", "cancelled"] | None = None,
+        error: BrokerFailureKind | None = None,
+        failure_stage: ProviderFailureStage | None = None,
     ) -> None:
         outcome = BrokerOutcome(
             admission_sha256=digest(canonical_bytes(self._admission)),
@@ -130,6 +165,11 @@ class BrokerAudit:
             response_sha256=response_sha256,
             latency_ms=latency_ms,
             error=error,
+            failure_stage=(
+                failure_stage
+                if failure_stage is not None or error is None
+                else "exchange"
+            ),
         )
         private_write(self.directory / "outcome.json", canonical_bytes(outcome))
 
@@ -212,4 +252,5 @@ def inspect_broker_recovery(
         response_sha256=None if outcome is None else outcome.response_sha256,
         latency_ms=None if outcome is None else outcome.latency_ms,
         error=None if outcome is None else outcome.error,
+        failure_stage=None if outcome is None else outcome.failure_stage,
     )
