@@ -5,22 +5,74 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal, Protocol, Self
 
+import httpx
 from openai import AsyncOpenAI, OpenAIError
 from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Identifier
 from mos_eisley.core.ports import ProviderError, ProviderFailureKind
 from mos_eisley.providers.openai_errors import safe_openai_failure_kind
-from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
+from mos_eisley.providers.openai_http import (
+    BoundedOpenAIHttpClient,
+    OpenAIResponseLimitError,
+)
 
 OPENAI_READINESS_MODEL = "gpt-5.6-luna"
 OPENAI_API_BASE = "https://api.openai.com/v1"
+OpenAIReadinessFailureDetail = Literal[
+    "connection_error",
+    "protocol_error",
+    "response_decode_error",
+    "response_limit_error",
+    "unknown_transport_error",
+]
+
+
+def _safe_readiness_failure_detail(
+    error: OpenAIError,
+) -> OpenAIReadinessFailureDetail | None:
+    """Reduce a transport exception chain to fixed local categories."""
+
+    if safe_openai_failure_kind(error) != "transport_error":
+        return None
+    current: BaseException | None = error
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, OpenAIResponseLimitError):
+            return "response_limit_error"
+        if isinstance(current, httpx.DecodingError):
+            return "response_decode_error"
+        if isinstance(current, httpx.ProtocolError):
+            return "protocol_error"
+        if isinstance(current, httpx.NetworkError):
+            return "connection_error"
+        current = current.__cause__ or current.__context__
+    return "unknown_transport_error"
+
+
+class OpenAIReadinessError(ProviderError):
+    """Provider error carrying only a readiness-specific allowlisted detail."""
+
+    failure_detail: OpenAIReadinessFailureDetail | None
+
+    def __init__(
+        self,
+        *,
+        failure_kind: ProviderFailureKind,
+        failure_detail: OpenAIReadinessFailureDetail | None,
+    ) -> None:
+        super().__init__(
+            "OpenAI model metadata request failed",
+            failure_kind=failure_kind,
+        )
+        self.failure_detail = failure_detail
 
 
 class OpenAIReadinessReceipt(Contract):
     """Durable result that deliberately grants no downstream authority."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["openai_model_readiness"] = "openai_model_readiness"
     provider: Literal["openai"] = "openai"
     model: Identifier
@@ -31,6 +83,7 @@ class OpenAIReadinessReceipt(Contract):
     api_family: Literal["models"] = "models"
     outcome: Literal["visible", "error"]
     failure_kind: ProviderFailureKind | None = None
+    failure_detail: OpenAIReadinessFailureDetail | None = None
     automatic_retries: Literal[0] = 0
     credential_accessed: Literal[True] = True
     provider_request_attempted: Literal[True] = True
@@ -50,6 +103,11 @@ class OpenAIReadinessReceipt(Contract):
             raise ValueError("readiness timestamp must use UTC")
         if (self.outcome == "visible") != (self.failure_kind is None):
             raise ValueError("readiness outcome and failure kind disagree")
+        if self.failure_kind == "transport_error":
+            if self.failure_detail is None:
+                raise ValueError("transport failure requires a safe detail")
+        elif self.failure_detail is not None:
+            raise ValueError("safe failure detail requires a transport failure")
         return self
 
 
@@ -68,6 +126,7 @@ class SDKOpenAIModelMetadataTransport:
             result = await self.client.models.retrieve(model)
         except OpenAIError as error:
             failure_kind = safe_openai_failure_kind(error)
+            failure_detail = _safe_readiness_failure_detail(error)
         else:
             if result.object != "model" or result.id != model:
                 raise ProviderError(
@@ -75,9 +134,9 @@ class SDKOpenAIModelMetadataTransport:
                     failure_kind="provider_error",
                 )
             return result.id
-        raise ProviderError(
-            "OpenAI model metadata request failed",
+        raise OpenAIReadinessError(
             failure_kind=failure_kind,
+            failure_detail=failure_detail,
         )
 
 
@@ -96,12 +155,22 @@ async def make_openai_readiness_receipt(
             raise ValueError(
                 "readiness transport returned an invalid failure stage"
             ) from None
+        failure_detail = (
+            error.failure_detail
+            if isinstance(error, OpenAIReadinessError)
+            else (
+                "unknown_transport_error"
+                if error.failure_kind == "transport_error"
+                else None
+            )
+        )
         return OpenAIReadinessReceipt(
             model=OPENAI_READINESS_MODEL,
             checked_at=checked_at,
             sdk_version=sdk_version,
             outcome="error",
             failure_kind=error.failure_kind,
+            failure_detail=failure_detail,
         )
     if model != OPENAI_READINESS_MODEL:
         raise ValueError("readiness transport returned an unexpected model")

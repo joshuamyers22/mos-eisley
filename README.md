@@ -99,7 +99,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - Reviewed pricing policies, pre-generation token-count reservations and private
   spending receipts; uncertain outcomes retain the full reservation without retry.
 - A non-streaming OpenAI HTTP client that bounds decoded response bodies before SDK
-  JSON construction, including compressed and chunked responses.
+  JSON construction, forces identity encoding after a credentialed decode failure,
+  and still fails closed on compressed or chunked responses that ignore the request.
 - Transactional shared spending ledger with cross-process admission, conservative
   crash handling and a scope-wide block after recorded pricing violations.
 - Content-addressed backend × model × effort sweep plans with pre-registered gates,
@@ -332,6 +333,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [failure-preserving broker-assembly review](docs/MILESTONE_43_REVIEW.md),
 [evaluation conformance-receipt review](docs/MILESTONE_44_REVIEW.md),
 [OpenAI model-readiness adversarial review](docs/MILESTONE_48_REVIEW.md),
+[OpenAI response-encoding adversarial review](docs/MILESTONE_49_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
