@@ -12,7 +12,10 @@ The output-token ceiling comes from the policy. The user content is only canonic
 `Brief` JSON;
 private labels, case IDs, split, mapping, expected findings, credentials, endpoints,
 and spending authority are not included. Tools are empty, parallel tool calls are
-disabled, storage is false, and input truncation is disabled.
+disabled, storage is false, input truncation is disabled, the service tier is
+`default`, and both streaming and background execution are explicitly false. These
+generation controls therefore participate in the request hash reviewed by the
+ceremony instead of being inferred from API or SDK defaults.
 
 The response uses strict JSON Schema derived from the immutable `Critique` contract.
 Schema normalization removes presentation/default keywords and makes every object
@@ -23,9 +26,12 @@ schema through the installed official SDK and bounded HTTP client.
 
 The spending controller permits this host-created `text` configuration while
 retaining its existing one-use request snapshot, token count, reservation, shared
-ledger, model/tier/usage checks, and conservative failure handling. A worker still
-cannot choose or modify the schema because its capability is bound to the exact
-serialized provider request.
+ledger, model/tier/usage checks, and conservative failure handling. It rejects
+conflicting storage, truncation, service-tier, streaming, or background values rather
+than silently rewriting them. The conformance builder's request is unchanged at the
+controller-to-transport generation boundary. Generation-only controls are removed
+from the separate input-token-count request. A worker still cannot choose or modify
+the schema because its capability is bound to the exact serialized provider request.
 
 ## Explicit command
 
@@ -71,6 +77,12 @@ prove provider receipt, billing, or the exact remote cause.
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.
+
+The independent authorization signs the deterministic request hash rather than a
+second cleartext copy of the request. The authorizer therefore needs the blinded
+batch, reviewed policies, and trusted deterministic builder (or an independently
+rendered request) to understand the bytes represented by that hash. A future schema
+may embed a human-reviewable request projection without weakening hash verification.
 
 After a real successful probe, the separate
 [evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate an

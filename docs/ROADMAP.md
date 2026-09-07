@@ -113,9 +113,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    spend, ledger entry, audit path, installed SDK, and validity before API-key access.
    An independent short-lived Ed25519 authorization now binds explicit blinded
    transfer and maximum spend to that exact policy, must be disjoint from observers,
-   and is verified in addition to local consent before API-key access. Next, obtain
-   that external signature and separately run credentialed conformance through the exact
-   path. The metadata-only readiness check is implemented but cannot substitute for
+   and is verified in addition to local consent before API-key access. The
+   conformance builder now explicitly binds storage, truncation, service tier,
+   streaming, and background controls, and the spending boundary rejects rather than
+   rewrites conflicts. Next, obtain a fresh external signature and separately run
+   credentialed conformance through that exact path. The metadata-only readiness check
+   is implemented but cannot substitute for
    that conformance. Design conversion only after repeated probes cover success and failure
    boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.
@@ -167,8 +170,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    the existing reservation. Missing or ambiguous outcomes retain full exposure and
    never permit retry or automatic release. A pinned private response store now
    atomically retains exact provider bytes and publishes a freshly reverified,
-   reasoning-free result with complete settled lineage. Next: run separately
-   authorized credentialed conformance against this exact boundary. A signed,
+   reasoning-free result with complete settled lineage. The independently reviewed
+   conformance request boundary now includes explicit generation-mode controls and
+   rejects post-authorization semantic rewrites. Next: run separately authorized
+   credentialed conformance against this exact boundary. A signed,
    freshness-bounded observer attestation can now bind that run to its verified
    publication without claiming authorship, billing, or quality. A signed rolling
    publication-history checkpoint can now detect rollback against a separately

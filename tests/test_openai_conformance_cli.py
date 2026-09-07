@@ -100,7 +100,15 @@ class EphemeralOpenAITransportTests(IsolatedAsyncioTestCase):
             count_payload = {
                 key: value
                 for key, value in payload.items()
-                if key not in ("max_output_tokens", "store", "include", "service_tier")
+                if key
+                not in (
+                    "max_output_tokens",
+                    "stream",
+                    "background",
+                    "store",
+                    "include",
+                    "service_tier",
+                )
             }
             self.assertEqual(await transport.count_input_tokens(count_payload), 100)
             response = await transport.create_response(payload)
@@ -110,6 +118,11 @@ class EphemeralOpenAITransportTests(IsolatedAsyncioTestCase):
             [request.url.path for request in requests],
             ["/v1/responses/input_tokens", "/v1/responses"],
         )
+        count_request = json.loads(requests[0].content)
+        generation_request = json.loads(requests[1].content)
+        self.assertNotIn("stream", count_request)
+        self.assertNotIn("background", count_request)
+        self.assertEqual(generation_request, payload)
         self.assertEqual(len(clients), 2)
         self.assertTrue(all(client.is_closed for client in clients))
 
