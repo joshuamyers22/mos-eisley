@@ -31,11 +31,12 @@ class BrokerAdmission(Contract):
 
 
 class BrokerOutcome(Contract):
-    schema_version: Literal[1, 2] = 2
+    schema_version: Literal[1, 2, 3] = 3
     admission_sha256: Digest
     status: Literal["response_received", "failed", "cancelled"]
     response_sha256: Digest | None = None
     latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
+    error: Literal["provider_error", "timeout", "cancelled"] | None = None
 
     @model_validator(mode="after")
     def response_matches_status(self) -> Self:
@@ -45,11 +46,31 @@ class BrokerOutcome(Contract):
             self.latency_ms is not None
         ):
             raise ValueError("broker outcome response latency mismatch")
+        if self.schema_version in (1, 2) and self.error is not None:
+            raise ValueError("legacy broker outcome cannot declare an error")
+        if self.schema_version == 3 and self.latency_ms is None:
+            raise ValueError("broker outcome latency is required")
+        if self.schema_version == 3 and (self.status == "response_received") == (
+            self.error is not None
+        ):
+            raise ValueError("broker outcome error does not match status")
+        if (
+            self.schema_version == 3
+            and self.status == "cancelled"
+            and (self.error != "cancelled")
+        ):
+            raise ValueError("cancelled broker outcome classification is invalid")
+        if (
+            self.schema_version == 3
+            and self.status != "cancelled"
+            and self.error == "cancelled"
+        ):
+            raise ValueError("non-cancelled broker outcome classification is invalid")
         return self
 
 
 class BrokerRecoveryState(Contract):
-    schema_version: Literal[2] = 2
+    schema_version: Literal[3] = 3
     authorization_sha256: Digest
     phase: Literal["prepared", "admitted", "finished"]
     ledger_status: Literal["absent", "held", "settled", "uncertain", "violation"]
@@ -57,6 +78,7 @@ class BrokerRecoveryState(Contract):
     outcome_sha256: Digest | None = None
     response_sha256: Digest | None = None
     latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
+    error: Literal["provider_error", "timeout", "cancelled"] | None = None
     retry_permitted: Literal[False] = False
 
     @model_validator(mode="after")
@@ -69,6 +91,10 @@ class BrokerRecoveryState(Contract):
             self.response_sha256 is not None
         ):
             raise ValueError("recovery response hash mismatch")
+        if self.outcome_status is None and self.error is not None:
+            raise ValueError("unfinished recovery state cannot declare an error")
+        if self.outcome_status == "response_received" and self.error is not None:
+            raise ValueError("successful recovery state cannot declare an error")
         return self
 
 
@@ -96,12 +122,14 @@ class BrokerAudit:
         status: Literal["response_received", "failed", "cancelled"],
         response_sha256: str | None = None,
         latency_ms: int | None = None,
+        error: Literal["provider_error", "timeout", "cancelled"] | None = None,
     ) -> None:
         outcome = BrokerOutcome(
             admission_sha256=digest(canonical_bytes(self._admission)),
             status=status,
             response_sha256=response_sha256,
             latency_ms=latency_ms,
+            error=error,
         )
         private_write(self.directory / "outcome.json", canonical_bytes(outcome))
 
@@ -183,4 +211,5 @@ def inspect_broker_recovery(
         outcome_sha256=(None if outcome is None else digest(canonical_bytes(outcome))),
         response_sha256=None if outcome is None else outcome.response_sha256,
         latency_ms=None if outcome is None else outcome.latency_ms,
+        error=None if outcome is None else outcome.error,
     )

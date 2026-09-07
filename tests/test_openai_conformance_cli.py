@@ -279,7 +279,7 @@ class OpenAIConformanceCLITests(TestCase):
                 credential.assert_not_called()
                 dispatch.assert_not_called()
 
-    def test_dispatched_failure_is_audited_uncertain_and_never_artifacted(self) -> None:
+    def test_dispatched_failure_is_not_mislabeled_as_success_artifact(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             options, ledger = self._inputs(root)

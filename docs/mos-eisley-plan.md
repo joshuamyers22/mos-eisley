@@ -2241,3 +2241,28 @@ evidence continues to deny invoice finality, ledger release, retry, quality, pro
 and activation. Fixture HTTP tests exercise the SDK boundary without a paid model
 request. A separately authorized real conformance run and real Admin read remain
 operator work.
+
+### 25.24 Implemented failure-preserving brokered evaluation assembly
+
+Broker audit outcome schema version 3 now requires bounded elapsed latency for every
+terminal state and distinguishes a generic provider execution error, an actual broker
+deadline, and caller cancellation. Successful outcomes continue to bind exact reply
+bytes. Failed and cancelled outcomes carry no response hash or provider request ID;
+their recovery state preserves absent, held, uncertain, or violation ledger exposure
+without authorizing retry or release. Older outcomes remain readable for recovery but
+cannot mint failure evidence without the new latency and error fields.
+
+A verification-only failure compiler requires an independently supplied assignment
+authorization, the exact private audit chain, and the named shared ledger. It emits no
+invented response, usage, critique, or cost when no reservation exists. A separate
+assembler revalidates every artifact against the blinded execution batch, requires
+exact sample coverage and unique authorization, outcome, response, provider-request,
+and ledger identities, and restores canonical batch order. Omission, duplication,
+route substitution, and mixed-ledger assembly fail closed.
+
+The assembled `BrokeredEvaluationResultSet` is intentionally not `RawResultSet`. Its
+contract and CLI output fix credentialed conformance proof, live-result issuance,
+grading, scoring, promotion, retry, and automatic budget release to false. This closes
+failure-preserving coverage composition only. A real provider conformance run,
+authenticated live-execution policy, and separately reviewed conversion remain
+mandatory before empirical scoring. No provider or paid request was made.

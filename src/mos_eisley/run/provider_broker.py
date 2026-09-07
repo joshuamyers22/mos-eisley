@@ -106,6 +106,10 @@ class RequestBoundBroker:
         if self._audit is not None:
             self._audit.admit()
         started = time.monotonic()
+
+        def latency_ms() -> int:
+            return min(86_400_000, math.ceil((time.monotonic() - started) * 1000))
+
         try:
             async with asyncio.timeout(remaining):
                 response = await self._transport.create_response(
@@ -113,11 +117,19 @@ class RequestBoundBroker:
                 )
         except asyncio.CancelledError:
             if self._audit is not None:
-                self._audit.finish("cancelled")
+                self._audit.finish(
+                    "cancelled", latency_ms=latency_ms(), error="cancelled"
+                )
             raise
+        except TimeoutError:
+            if self._audit is not None:
+                self._audit.finish("failed", latency_ms=latency_ms(), error="timeout")
+            raise ProviderError("broker response unavailable") from None
         except Exception:
             if self._audit is not None:
-                self._audit.finish("failed")
+                self._audit.finish(
+                    "failed", latency_ms=latency_ms(), error="provider_error"
+                )
             # Cancellation propagates; the grant stays consumed in every case.
             # Spending controller retains uncertain reservations after dispatch.
             raise ProviderError("broker response unavailable") from None
@@ -125,6 +137,6 @@ class RequestBoundBroker:
             self._audit.finish(
                 "response_received",
                 digest(canonical_bytes(BrokerReply(response=response))),
-                min(86_400_000, math.ceil((time.monotonic() - started) * 1000)),
+                latency_ms(),
             )
         return response
