@@ -26,3 +26,9 @@ compression header, ignored identity still flows through decoded-size enforcemen
 malformed deflate becomes only `response_decode_error`, and no raw body or credential
 enters the receipt. Existing compression, size, SDK-error, one-attempt, and authority-
 denial tests remain in force. Automated tests make no live provider request.
+
+After merge, the operator reran the fixed command with a fresh private output. The
+schema-2 receipt recorded exact `gpt-5.6-luna` visibility, no failure kind or detail,
+and exit status zero. It continued to deny billing verification, Responses access,
+spend, grading, scoring, and routing activation. The receipt remains ignored private
+evidence and is not committed to the repository.
