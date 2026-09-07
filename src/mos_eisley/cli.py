@@ -182,6 +182,16 @@ from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
+from mos_eisley.run.openai_responses_canary import (
+    OpenAIResponsesCanaryAuthorityPolicy,
+    OpenAIResponsesCanaryResult,
+    SignedOpenAIResponsesCanaryAuthorization,
+    begin_openai_responses_canary,
+    execute_openai_responses_canary,
+    load_openai_responses_canary,
+    make_openai_responses_canary_authorization,
+    verify_openai_responses_canary_authorization,
+)
 from mos_eisley.run.routing_preflight import (
     RoutingRuntimePreflight,
     RoutingRuntimeSources,
@@ -422,6 +432,41 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Acknowledge that the API key and fixed model ID will be sent to OpenAI",
     )
+    derive_openai_canary = subcommands.add_parser(
+        "openai-derive-responses-canary-authorization",
+        help="Derive exact synthetic Responses canary authority for external signing",
+    )
+    for option in ("spend-policy", "spend-ledger", "authority-policy"):
+        derive_openai_canary.add_argument(f"--{option}", type=Path, required=True)
+    derive_openai_canary.add_argument("--run-dir", type=Path, required=True)
+    derive_openai_canary.add_argument("--timeout", type=float, default=10.0)
+    derive_openai_canary.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_canary.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_canary.add_argument("--output", type=Path, required=True)
+    openai_canary = subcommands.add_parser(
+        "openai-responses-canary",
+        help="Run one independently authorized fixed synthetic Responses request",
+    )
+    for option in ("spend-policy", "spend-ledger", "authority-policy"):
+        openai_canary.add_argument(f"--{option}", type=Path, required=True)
+    openai_canary.add_argument("--signed-authorization", type=Path, required=True)
+    openai_canary.add_argument("--run-dir", type=Path, required=True)
+    openai_canary.add_argument("--timeout", type=float, default=10.0)
+    openai_canary.add_argument(
+        "--allow-data-transfer",
+        action="store_true",
+        help="Acknowledge transfer of the fixed synthetic prompt to OpenAI",
+    )
+    verify_openai_canary = subcommands.add_parser(
+        "openai-verify-responses-canary",
+        help="Reverify a completed synthetic Responses canary and its ledger entry",
+    )
+    verify_openai_canary.add_argument("--run-dir", type=Path, required=True)
+    verify_openai_canary.add_argument("--spend-ledger", type=Path, required=True)
     ledger_create = subcommands.add_parser(
         "spend-ledger-create", help="Create a new local spending scope; never overwrite"
     )
@@ -2190,6 +2235,201 @@ def _openai_readiness_command(args: argparse.Namespace) -> int:
         )
     )
     return 0 if receipt.outcome == "visible" else 2
+
+
+def _openai_canary_inputs(
+    args: argparse.Namespace,
+) -> tuple[
+    SpendPolicy,
+    SpendLedger,
+    OpenAIResponsesCanaryAuthorityPolicy,
+    tuple[Path, Path, Path],
+]:
+    spend_policy_path = cast(Path, args.spend_policy)
+    ledger_path = cast(Path, args.spend_ledger)
+    authority_policy_path = cast(Path, args.authority_policy)
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    authority_policy = OpenAIResponsesCanaryAuthorityPolicy.model_validate_json(
+        read_bounded(authority_policy_path, 64_000)
+    )
+    ledger = SpendLedger(ledger_path)
+    if ledger.snapshot().blocked:
+        raise ValueError("shared spending ledger is blocked")
+    return (
+        spend_policy,
+        ledger,
+        authority_policy,
+        (spend_policy_path, ledger_path, authority_policy_path),
+    )
+
+
+def _derive_openai_responses_canary_authorization_command(
+    args: argparse.Namespace,
+) -> int:
+    spend_policy, ledger, authority_policy, input_paths = _openai_canary_inputs(args)
+    run_directory = cast(Path, args.run_dir)
+    output = cast(Path, args.output)
+    if run_directory.exists() or run_directory.is_symlink():
+        raise ValueError("canary run directory already exists")
+    if not run_directory.parent.is_dir():
+        raise ValueError("canary run parent must already exist")
+    if output.exists() or output.is_symlink():
+        raise ValueError("canary authorization output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("canary authorization output parent must already exist")
+    if _paths_overlap(run_directory, output) or any(
+        _paths_overlap(run_directory, path) or _paths_overlap(output, path)
+        for path in input_paths
+    ):
+        raise ValueError("canary outputs must not overlap trusted inputs")
+    authorization = make_openai_responses_canary_authorization(
+        spend_policy,
+        ledger.policy.ledger_id,
+        authority_policy,
+        run_directory,
+        cast(float, args.timeout),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    if ledger.entry_status(authorization.ledger_entry_id) is not None:
+        raise ValueError("canary spending identity was already used")
+    if ledger.snapshot().available_microusd < authorization.max_cost_microusd:
+        raise ValueError("canary ledger cannot cover maximum authorized exposure")
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.authorization_derived",
+                "output": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "model": authorization.model,
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "responses_access_verified": False,
+                "routing_activation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+async def _openai_responses_canary_run(
+    api_key: str,
+    timeout: float,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    run_directory: Path,
+    authority_policy: OpenAIResponsesCanaryAuthorityPolicy,
+    signed: SignedOpenAIResponsesCanaryAuthorization,
+) -> OpenAIResponsesCanaryResult:
+    async with AsyncOpenAI(
+        api_key=api_key,
+        timeout=timeout,
+        max_retries=0,
+        base_url="https://api.openai.com/v1",
+        http_client=BoundedOpenAIHttpClient(trust_env=False, follow_redirects=False),
+    ) as sdk:
+        return await execute_openai_responses_canary(
+            SDKOpenAITransport(sdk),
+            spend_policy,
+            ledger,
+            run_directory,
+            authority_policy,
+            signed,
+            sdk_version=_openai_sdk_version(),
+        )
+
+
+def _openai_responses_canary_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI synthetic data transfer was not acknowledged")
+    spend_policy, ledger, authority_policy, input_paths = _openai_canary_inputs(args)
+    signed_path = cast(Path, args.signed_authorization)
+    signed = SignedOpenAIResponsesCanaryAuthorization.model_validate_json(
+        read_bounded(signed_path, 128_000)
+    )
+    run_directory = cast(Path, args.run_dir)
+    timeout = cast(float, args.timeout)
+    if run_directory.exists() or run_directory.is_symlink():
+        raise ValueError("canary run directory already exists")
+    if not run_directory.parent.is_dir():
+        raise ValueError("canary run parent must already exist")
+    if any(_paths_overlap(run_directory, path) for path in (*input_paths, signed_path)):
+        raise ValueError("canary run directory overlaps a trusted input")
+    preflight_at = datetime.now(UTC)
+    authorization = verify_openai_responses_canary_authorization(
+        signed,
+        authority_policy,
+        spend_policy,
+        ledger.policy.ledger_id,
+        run_directory,
+        timeout,
+        preflight_at,
+    )
+    if ledger.entry_status(authorization.ledger_entry_id) is not None:
+        raise ValueError("canary spending identity was already used")
+    if ledger.snapshot().available_microusd < authorization.max_cost_microusd:
+        raise ValueError("canary ledger cannot cover maximum authorized exposure")
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    begin_openai_responses_canary(run_directory, authority_policy, signed, spend_policy)
+    result = asyncio.run(
+        _openai_responses_canary_run(
+            api_key,
+            timeout,
+            spend_policy,
+            ledger,
+            run_directory,
+            authority_policy,
+            signed,
+        )
+    )
+    if load_openai_responses_canary(run_directory, ledger) != result:
+        raise ValueError("canary result failed post-write verification")
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.completed",
+                "path": str(run_directory),
+                "model": result.model,
+                "outcome": result.outcome,
+                "input_tokens": result.response.usage.input,
+                "output_tokens": result.response.usage.output,
+                "retained_microusd": result.retained_microusd,
+                "responses_access_verified": result.responses_access_verified,
+                "billing_verified": result.billing_verified,
+                "routing_activation_authorized": (result.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
+
+
+def _verify_openai_responses_canary_command(args: argparse.Namespace) -> int:
+    run_directory = cast(Path, args.run_dir)
+    ledger = SpendLedger(cast(Path, args.spend_ledger))
+    result = load_openai_responses_canary(run_directory, ledger)
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.verified",
+                "path": str(run_directory),
+                "model": result.model,
+                "outcome": result.outcome,
+                "retained_microusd": result.retained_microusd,
+                "responses_access_verified": result.responses_access_verified,
+                "billing_verified": result.billing_verified,
+                "routing_activation_authorized": (result.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
 
 
 def _compile_brokered_failure_command(args: argparse.Namespace) -> int:
@@ -6145,6 +6385,12 @@ def _recorded_review_command(args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "openai-derive-responses-canary-authorization":
+            return _derive_openai_responses_canary_authorization_command(args)
+        if args.command == "openai-responses-canary":
+            return _openai_responses_canary_command(args)
+        if args.command == "openai-verify-responses-canary":
+            return _verify_openai_responses_canary_command(args)
         if args.command == "openai-billing-collect":
             if not cast(bool, args.allow_account_billing_read):
                 raise ValueError("OpenAI account billing read was not acknowledged")

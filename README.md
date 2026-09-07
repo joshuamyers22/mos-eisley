@@ -68,6 +68,11 @@ Before a separately authorized generation probe, the narrower
 `gpt-5.6-luna` model-metadata request without sending a prompt. Its private receipt
 proves neither billing readiness nor Responses access and cannot enable routing.
 
+The independently signed [synthetic Responses canary](docs/OPENAI_RESPONSES_CANARY.md)
+then tests one fixed, tool-free `gpt-5.6-luna` generation under a 32-token cap and
+shared spending ledger. It accepts no user prompt and grants no evaluation, billing,
+scoring, promotion, or routing authority.
+
 Review exit codes: **0** accept; **1** revise/reject; **2** invalid input or
 infrastructure failure. Replay exits **0** when the recorded result reproduces,
 even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
@@ -94,6 +99,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   stateless encrypted-reasoning carry-forward and token usage accounting.
 - Opt-in fixed-model OpenAI readiness check with no prompt or generation, zero retries,
   safe failure categories, exclusive private output, and literal downstream denials.
+- Independently authorized fixed-model Responses canary with synthetic-only input,
+  exact count/generation request binding, bounded spend, manifest-last evidence, and
+  offline ledger-backed verification.
 - Opt-in `openai-run` with a 64,000-byte prompt bound, 4,096-token output ceiling,
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Reviewed pricing policies, pre-generation token-count reservations and private
@@ -236,8 +244,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 The OpenAI adapter and paid-capable conformance CLI are tested against captured
 response shapes but have not completed a credentialed conformance run in this
 repository. The readiness command checks only model metadata; model availability,
-billing, and endpoint permissions remain account-dependent. Live critic fan-out and
-judging are not wired yet. There is no
+billing, and endpoint permissions remain account-dependent. The synthetic Responses
+canary is implemented but has not completed an operator-signed live generation.
+Live critic fan-out and judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only
@@ -285,6 +294,7 @@ implemented; the current private-file behavior is not a claim of those guarantee
 See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [OpenAI model readiness](docs/OPENAI_READINESS.md),
+[OpenAI Responses canary](docs/OPENAI_RESPONSES_CANARY.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
@@ -334,6 +344,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [evaluation conformance-receipt review](docs/MILESTONE_44_REVIEW.md),
 [OpenAI model-readiness adversarial review](docs/MILESTONE_48_REVIEW.md),
 [OpenAI response-encoding adversarial review](docs/MILESTONE_49_REVIEW.md),
+[synthetic Responses canary adversarial review](docs/MILESTONE_50_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

@@ -314,6 +314,11 @@ class SpendingTests(IsolatedAsyncioTestCase):
         cases: tuple[dict[str, JsonValue], ...] = (
             {"model": "wrong"},
             {"tools": [{"type": "web_search"}]},
+            {"service_tier": "priority"},
+            {"stream": True},
+            {"stream": 0},
+            {"background": True},
+            {"background": 0},
             {"previous_response_id": "resp_hidden"},
             {"max_output_tokens": 4097},
             {"input": [{"role": "user", "content": [{"type": "input_image"}]}]},
