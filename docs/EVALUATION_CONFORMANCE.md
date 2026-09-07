@@ -19,6 +19,12 @@ The policy is supplied as data; Mos Eisley does not create or distribute observe
 keys. Policy custody, creation time, clock correctness, and organizational
 independence remain operator responsibilities.
 
+Use the no-send [conformance ceremony preflight](CONFORMANCE_CEREMONY.md) to derive
+this policy from the exact assignment, spend scope, ledger, planned fresh audit,
+observer roster, and SDK allowlist before any credential access. The paid-capable
+command now requires that prepared policy and revalidates it before reading
+`OPENAI_API_KEY`.
+
 ## Derive, sign, and authenticate
 
 After a separately authorized successful `openai-conformance` run, derive canonical

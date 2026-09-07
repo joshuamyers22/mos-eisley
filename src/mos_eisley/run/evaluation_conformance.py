@@ -18,11 +18,14 @@ from pydantic import Field, field_validator, model_validator
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import Effort, Usage
 from mos_eisley.evaluation.execution import EvaluationRequest, ExecutionBatch
+from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
     inspect_broker_recovery,
 )
 from mos_eisley.run.brokered_evaluation import BrokeredEvaluationArtifact
+from mos_eisley.run.evaluation_broker import make_assignment_authorization
+from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.spend_ledger import SpendLedger
 
 _DOMAIN = b"mos-eisley/brokered-openai-evaluation-conformance/v1\x00"
@@ -371,6 +374,125 @@ def _verify_local_provenance(
         or entry.charged_microusd != artifact.cost_microusd
     ):
         raise ValueError("evaluation conformance local provenance mismatch")
+
+
+def _policy_matches_authorization(
+    policy: EvaluationConformancePolicy,
+    authorization: AssignmentAuthorization,
+) -> bool:
+    return (
+        policy.plan_sha256 == authorization.plan_sha256
+        and policy.batch_sha256 == authorization.batch_sha256
+        and policy.sample_id == authorization.sample_id
+        and policy.candidate_id == authorization.candidate_id
+        and policy.evaluation_request_sha256 == authorization.evaluation_request_sha256
+        and policy.provider_request_sha256 == authorization.provider_request_sha256
+        and policy.spend_policy_sha256 == authorization.spend_policy_sha256
+        and policy.ledger_id == authorization.ledger_id
+        and policy.ledger_entry_id == authorization.ledger_entry_id
+    )
+
+
+def prepare_evaluation_conformance_policy(
+    batch: ExecutionBatch,
+    sample_id: str,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    audit_directory: Path,
+    policy_id: str,
+    valid_from: datetime,
+    valid_until: datetime,
+    max_observation_age_seconds: int,
+    observers: tuple[TrustedEvaluationConformanceObserver, ...],
+    allowed_sdk_versions: tuple[str, ...],
+) -> EvaluationConformancePolicy:
+    """Pre-register one exact no-send conformance ceremony."""
+
+    batch = ExecutionBatch.model_validate_json(canonical_bytes(batch))
+    spend_policy = SpendPolicy.model_validate_json(canonical_bytes(spend_policy))
+    valid_from = _require_utc(valid_from)
+    valid_until = _require_utc(valid_until)
+    if audit_directory.exists() or not audit_directory.parent.is_dir():
+        raise ValueError("conformance policy requires a fresh audit path")
+    if ledger.snapshot().blocked:
+        raise ValueError("conformance policy requires an unblocked ledger")
+    if not (
+        spend_policy.valid_from <= valid_from
+        and valid_until <= spend_policy.valid_until
+    ):
+        raise ValueError("conformance policy exceeds spending-policy validity")
+    payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
+    authorization = make_assignment_authorization(
+        batch,
+        sample_id,
+        payload,
+        spend_policy,
+        ledger,
+        digest(str(audit_directory.resolve()).encode()),
+    )
+    if ledger.entry_status(authorization.ledger_entry_id) is not None:
+        raise ValueError("conformance policy ledger entry already exists")
+    return EvaluationConformancePolicy(
+        policy_id=policy_id,
+        plan_sha256=authorization.plan_sha256,
+        batch_sha256=authorization.batch_sha256,
+        sample_id=authorization.sample_id,
+        candidate_id=authorization.candidate_id,
+        evaluation_request_sha256=authorization.evaluation_request_sha256,
+        provider_request_sha256=authorization.provider_request_sha256,
+        spend_policy_sha256=authorization.spend_policy_sha256,
+        ledger_id=authorization.ledger_id,
+        ledger_entry_id=authorization.ledger_entry_id,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        max_observation_age_seconds=max_observation_age_seconds,
+        observers=observers,
+        allowed_sdk_versions=allowed_sdk_versions,
+    )
+
+
+def validate_evaluation_conformance_preflight(
+    batch: ExecutionBatch,
+    sample_id: str,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    audit_directory: Path,
+    policy: EvaluationConformancePolicy,
+    sdk_version: str,
+    now: datetime,
+) -> AssignmentAuthorization:
+    """Fail before credential access unless one run matches its prepared policy."""
+
+    current = _require_utc(now)
+    batch = ExecutionBatch.model_validate_json(canonical_bytes(batch))
+    spend_policy = SpendPolicy.model_validate_json(canonical_bytes(spend_policy))
+    policy = EvaluationConformancePolicy.model_validate_json(canonical_bytes(policy))
+    if audit_directory.exists() or not audit_directory.parent.is_dir():
+        raise ValueError("conformance preflight requires a fresh audit path")
+    if ledger.snapshot().blocked:
+        raise ValueError("conformance preflight requires an unblocked ledger")
+    payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
+    authorization = make_assignment_authorization(
+        batch,
+        sample_id,
+        payload,
+        spend_policy,
+        ledger,
+        digest(str(audit_directory.resolve()).encode()),
+    )
+    if (
+        not _policy_matches_authorization(policy, authorization)
+        or not (
+            spend_policy.valid_from <= policy.valid_from
+            and policy.valid_until <= spend_policy.valid_until
+        )
+        or not policy.valid_from <= current <= policy.valid_until
+        or not spend_policy.valid_from <= current < spend_policy.valid_until
+        or sdk_version not in policy.allowed_sdk_versions
+        or ledger.entry_status(authorization.ledger_entry_id) is not None
+    ):
+        raise ValueError("conformance run does not match its prepared policy")
+    return authorization
 
 
 def make_evaluation_conformance_observation(

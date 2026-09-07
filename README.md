@@ -205,6 +205,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - [Brokered evaluation conformance receipt](docs/EVALUATION_CONFORMANCE.md) that
   authenticates one pre-registered successful OpenAI probe against its exact blinded
   assignment, audit, and settled ledger without enabling batch conversion or scoring.
+- [No-send OpenAI conformance ceremony](docs/CONFORMANCE_CEREMONY.md) that prepares
+  and rechecks the exact request, spend scope, fresh audit identity, observer roster,
+  SDK allowlist, and time window before the paid-capable process reads an API key.
 - [Skill runtime publication witness](docs/SKILL_RUNTIME_PUBLICATION_WITNESS.md)
   that signs a rolling hash-only history checkpoint for separately retained rollback
   and divergence detection without exporting response or result content.
