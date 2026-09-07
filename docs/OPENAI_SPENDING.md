@@ -116,10 +116,10 @@ The host-built [conformance request](OPENAI_CONFORMANCE.md) may add a strict
 and in the exact request snapshot; it does not let the isolated worker alter the
 schema or bypass output-token and cost ceilings.
 
-Before live empirical sweeps: run explicitly authorized credentialed conformance,
-then add a separately reviewed conversion from validated broker artifacts to live
-evaluation provenance. The bounded HTTP client is synthetic-tested, not proof of
-provider behavior or invoice limits.
+Before live empirical sweeps: extend the first explicitly authorized credentialed
+probe across the intended model/effort and failure matrix, then add a separately
+reviewed conversion from validated broker artifacts to live evaluation provenance.
+One authenticated success does not prove general provider behavior or invoice limits.
 
 The [skill-runtime aggregate billing-evidence layer](SKILL_RUNTIME_BILLING_EVIDENCE.md)
 can authenticate an independent auditor's exact match between one settled publication

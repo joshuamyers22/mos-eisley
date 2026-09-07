@@ -1,9 +1,10 @@
 # OpenAI credentialed-conformance request contract
 
 Mos Eisley has a deterministic request builder and fail-closed CLI lifecycle for
-one blinded OpenAI evaluation assignment. The command is paid-capable, but its
-tests replace both provider dispatch and Docker execution; this repository contains
-no committed successful credentialed conformance result.
+one blinded OpenAI evaluation assignment. Its automated tests replace both provider
+dispatch and Docker execution. After merge of the exact-request hardening, one
+operator-authorized live probe completed and its private evidence authenticated; the
+repository commits only the bounded disposition, not the private artifacts.
 
 `build_openai_conformance_payload` requires one exact sample in an
 `ExecutionBatch`, an `openai` route, and a reviewed spending policy for the same
@@ -89,6 +90,12 @@ After a real successful probe, the separate
 enrolled observer's claim against the exact assignment, independently retained
 authorization, audit chain, and settled ledger. That receipt remains one-assignment,
 non-scoreable evidence and does not prove provider authorship or billing.
+
+The first such receipt was authenticated on 2026-09-07 for one blinded
+`gpt-5.6-luna` assignment at reasoning effort `low`. See the
+[live-evidence adversarial review](MILESTONE_52_REVIEW.md) for the verified counts,
+hashes, and deliberately unproven claims. It does not authorize conversion or
+empirical routing.
 
 The later [skill runtime conformance attestation](SKILL_RUNTIME_CONFORMANCE.md) binds
 an enrolled observer's signed claim to the exact settled and content-verified skill

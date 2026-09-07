@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Record the first authenticated live blinded OpenAI conformance probe: one
+  independently authorized and observed `gpt-5.6-luna` low-effort assignment, 397
+  input tokens, 299 output tokens, 6,992 ms latency, and 439 micro-USD settled.
+- Preserve its one-assignment disposition and literal denial of provider authorship,
+  billing reconciliation, complete-batch conformance, quality, conversion, grading,
+  scoring, promotion, and routing activation; private evidence remains uncommitted.
+
 - Bind storage, truncation, default service tier, streaming, and background controls
   into the exact OpenAI conformance request before independent authorization.
 - Reject conflicting request controls before token counting or reservation, preserve

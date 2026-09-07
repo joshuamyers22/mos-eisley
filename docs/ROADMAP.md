@@ -116,11 +116,14 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    and is verified in addition to local consent before API-key access. The
    conformance builder now explicitly binds storage, truncation, service tier,
    streaming, and background controls, and the spending boundary rejects rather than
-   rewrites conflicts. Next, obtain a fresh external signature and separately run
-   credentialed conformance through that exact path. The metadata-only readiness check
-   is implemented but cannot substitute for
-   that conformance. Design conversion only after repeated probes cover success and failure
-   boundaries. Run the repeated
+   rewrites conflicts. One independently authorized and observed live
+   `gpt-5.6-luna` low-effort assignment has now passed that exact path with a settled,
+   unblocked ledger and authenticated one-assignment receipt. Provider authorship,
+   billing, complete-batch conformance, quality, conversion, scoring, promotion, and
+   activation remain denied. The metadata-only readiness check and one successful
+   probe cannot substitute for repeated conformance. Next, cover the intended
+   model/effort matrix and live failure boundaries. Design conversion only after
+   repeated probes cover success and failure boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
@@ -172,9 +175,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    atomically retains exact provider bytes and publishes a freshly reverified,
    reasoning-free result with complete settled lineage. The independently reviewed
    conformance request boundary now includes explicit generation-mode controls and
-   rejects post-authorization semantic rewrites. Next: run separately authorized
-   credentialed conformance against this exact boundary. A signed,
-   freshness-bounded observer attestation can now bind that run to its verified
+   rejects post-authorization semantic rewrites. One separately authorized live
+   blinded assignment has passed the evaluation broker boundary and received a fresh
+   observer signature, but it is not a skill-runtime publication and grants no
+   runtime authority. Next, run separately authorized credentialed conformance
+   against the exact skill-runtime transaction/publication boundary. A signed,
+   freshness-bounded observer attestation can bind that run to its verified
    publication without claiming authorship, billing, or quality. A signed rolling
    publication-history checkpoint can now detect rollback against a separately
    retained prefix, while external retention and newest-checkpoint delivery remain
