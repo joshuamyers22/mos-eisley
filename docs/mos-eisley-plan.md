@@ -19,6 +19,8 @@ status is tracked in
 ### Goals
 
 1. **One agent loop, three providers.** Anthropic, OpenAI, and Google reachable through a single canonical message/turn type, with no provider's wire format leaking into the core.
+   Each provider must be usable as creator, critic, or judge through roster
+   configuration; no role is permanently assigned to a vendor (§7.7).
 2. **Real machine control, safely.** Kernel-enforced sandboxing with per-OS backends, an approval policy, and capability tiers per role.
 3. **Conversation as the primary workflow, with integrated adversarial review.** The user explores code, plans, requests changes, and discusses results with one persistent assistant. On a review request, N independent critics on different models review a frozen artifact blind and a judge adjudicates; the assistant brings the results back into the conversation. Blindness is enforced structurally, not by prompt.
 4. **Local git and GitHub as first-class integrations.** Worktree-per-agent, structured patch application, PR review posting.
@@ -31,6 +33,10 @@ status is tracked in
    evidence in storage selected by the owning user, locally or in the cloud. Never
    pool user data or model-selection statistics across users; new sessions do not
    automatically inherit previous conversational content (§17).
+9. **Creator-led delegated coding.** The creator writes the plan and tests and owns
+   the final result, obtains critic/judge review of both, approves them, and delegates
+   at least one meaningful coding subtask to an implementation subagent. Optimize for clean,
+   efficient code and total task cost, including review and rework (§§14.2.1, 15.7).
 
 ### Non-goals
 
@@ -528,6 +534,35 @@ fallbacks, and replay of recorded decisions. Define the interface with the routi
 work; external selector loading belongs to later E1 and does not enable unvalidated
 automatic routing.
 
+### 7.7 Interchangeable creator, critic, and judge roles
+
+**User-directed product requirement:** Anthropic, OpenAI, and Google must each be
+eligible to supply the creator, critic, and judge through the same role contracts.
+"Creator" is the user-facing planning, authoring, and integration role called
+"author" elsewhere in this plan; it is not an additional competing controller.
+Support explicit per-task rosters and evaluated selection policies that rotate
+providers and models among these roles without changing pipeline code. Implementation
+subagents have their own model/effort assignment and need not match the creator.
+Interchangeability is a planned capability, subject to route conformance and role
+requirements, not an assertion that every model has equal ability.
+
+For the three-provider review profile, support all six assignments of the three
+distinct providers to creator, critic, and judge. Keep creator transcripts and
+implementation-subagent reasoning out of the independent critic's context. The
+judge receives the frozen artifact and structured findings needed to adjudicate,
+not the creator's private reasoning or provider/model identities. Switching roles
+never merges contexts or grants extra authority. A same-provider creator and coding
+subagent does not count as independent cross-provider review evidence.
+
+Example requested profile: **Astra as creator; Luna with max thinking as the coding
+subagent**, with eligible models from the other two providers as critic and judge.
+These are user-facing example labels, not hard-coded production model IDs or a
+claim of current availability. Resolve each label to an exact configured provider,
+backend, model, and supported effort before use; expose the resolved roster and
+reject an unsupported `max` request rather than silently weaken it. The critic and
+judge assess the creator-written plan and tests before the creator approves
+execution as specified in §15.7.
+
 ---
 
 ## 8. Tool layer
@@ -858,6 +893,48 @@ Replacing a fourth compaction with a child changes task semantics and can multip
 cost; promote that behavior only if evaluation demonstrates higher task success
 within the same aggregate budget.
 
+### 14.2.1 Creator-led coding delegation
+
+Once coding execution and bounded children are available, coding workflows must
+assign at least one meaningful implementation subtask to a subagent. A critique,
+status check, or cosmetic no-op does not satisfy this requirement. The creator
+retains responsibility for architecture, task decomposition, authoring the tests,
+integration, test execution, and the final answer, and may implement other portions
+itself. If no eligible child or adequate aggregate budget is available, report the
+unmet delegation requirement
+and resolve it before claiming the delegated workflow can proceed.
+
+Give each coding child the creator-approved plan and test-suite revisions, scoped
+file ownership, interfaces, acceptance criteria, permitted tools, and a
+token/cost/time allowance. The creator writes concrete tests for the requested
+behavior and relevant failure cases before implementation delegation; a prose test
+plan alone does not satisfy this requirement. The critic and judge assess test
+adequacy together with the plan. Tests may initially fail or await the planned
+interfaces, but their expected behavior must be explicit. Coding children implement
+against these tests and cannot delete, weaken, or redefine them to make a patch
+pass. Test corrections require creator ownership and renewed critic/judge review
+of the affected plan/test revision. Test-file creation and execution remain subject
+to the execution/VCS gates; this ordering does not grant early machine access.
+Use isolated worktrees and the trusted VCS broker when writes become available.
+Parallelize only independent coding tasks; serialize shared-file edits and record
+dependencies. Return a patch, relevant verification evidence, and unresolved issues
+for creator integration. Children cannot approve their own final integration or
+expand the accepted plan; material scope changes return to plan review (§15.7).
+
+The explicit objective is **clean, efficient output at a cost-effective total task
+cost**. Evaluate correctness, maintainability, unnecessary code/dependencies, and
+task-relevant runtime/resource efficiency alongside completion, latency, and spend.
+Prefer the least expensive child route shown to meet those requirements, using
+appropriate reasoning effort. Include creator planning, critic/judge calls, child
+execution, context handoffs, integration, testing, and retries in cost comparisons;
+a lower per-token price alone does not establish savings. Reserve aggregate spend
+before dispatch and keep correction/escalation within the approved task budget.
+
+Define and evaluate this workflow alongside the author workstream. Activate delegated
+coding only after both execution/VCS containment and the E2 bounded-subagent gates
+pass; it does not authorize earlier model-driven writes. Validate against a
+creator-only baseline on matched tasks before promoting a default delegation policy.
+
 ### 14.3 Versioned skills and personas
 
 A skill is a progressively disclosed prompt/rubric bundle with a manifest,
@@ -949,6 +1026,40 @@ class Finding(BaseModel):
 ### 15.6 Rounds
 
 Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is multiplicative in (critics × rounds).
+
+### 15.7 Plan review, creator approval, and delegated implementation
+
+For the creator-led coding workflow, use this explicit sequence:
+
+1. **Creator writes the plan and tests.** Freeze a concrete plan with constraints,
+   interfaces, proposed coding subtasks and routes, and an aggregate cost/time
+   budget, together with creator-authored executable tests for the required behavior
+   and relevant failure cases. Record exact digests for both the plan and test suite.
+2. **Critic reviews the plan and tests.** Supply both frozen artifacts and permitted
+   repository evidence in a fresh context; assess correctness, maintainability,
+   efficiency, missing requirements, test adequacy, and the proposed delegation and
+   cost assumptions.
+3. **Judge adjudicates.** Resolve the structured findings into an accept, revise,
+   or reject disposition tied to the exact plan and test-suite digests, with blocking
+   findings explicit. Apply the existing bounded review rounds rather than an unlimited loop.
+4. **Creator approves.** The creator considers the verdict and records acceptance
+   of that exact plan and test suite before releasing coding work. A revise/reject
+   disposition or unresolved blocker requires revised artifacts and renewed review. This is an agent
+   workflow decision, not a new user-confirmation step or permission to bypass policy.
+5. **Subagents implement; creator integrates.** Dispatch at least one coding child
+   against the approved plan and tests. The creator checks patches, runs permitted tests,
+   resolves integration issues, and retains ownership of the result. A materially
+   changed plan or any changed approved test invalidates the affected approval and
+   dependent child authorization until renewed review and creator approval.
+6. **Review the result.** Submit the frozen implementation and verification evidence
+   to independent critic/judge review, then have the creator accept the final result
+   or coordinate bounded corrections. Plan acceptance alone does not prove the code
+   meets its requirements. All rounds share the task's aggregate budget.
+
+Persist the plan and test-suite revisions, critic findings, judge disposition,
+creator approval, child assignments/patches, final verification, and per-role usage
+as owner-scoped artifacts. No coding child may start before matching plan/test approval. Questions and
+non-coding conversation retain §16.0's direct-answer behavior.
 
 ---
 
@@ -1744,6 +1855,13 @@ These additions are not promoted to stable because they exist. Promotion require
 - lifecycle and skill non-escalation tests plus a malicious-extension corpus;
 - subagent comparisons against the existing specialized review path, reporting
   quality, cost, latency, isolation failures, and aggregate-budget violations;
+- all six three-provider creator/critic/judge assignments through common contracts,
+  with role isolation and capability rejection; creator-led coding fixtures proving
+  creator-written plan/tests, critic/judge review, and exact creator approval precede child execution, at
+  least one child performs meaningful coding, test weakening and stale approvals
+  fail, and final code
+  receives review; matched delegation studies report clean/efficient output and
+  whole-task cost including integration and rework (§§7.7, 14.2.1, 15.7);
 - network-broker SSRF/DNS-rebinding/redirect/cache-poisoning tests and proof that
   critics remain unable to open sockets;
 - endpoint conformance and data-policy approval for every new backend;
@@ -1777,7 +1895,7 @@ gate, containment proof, or the trusted/untrusted configuration split in §23.8.
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints, trusted provider/selector extension loading and model catalog overlays | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers and extensions cannot escalate authority; adapter/catalog/selector contract suites pass; every endpoint passes conformance and data-policy checks; automatic strategies remain evaluation-gated |
-| **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
+| **E2 — delegation assets** | general subagent primitive, creator-approved plan review and delegated coding, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; interchangeable role contracts and plan-approval ordering pass; coding also requires execution/VCS containment; delegation meets preregistered quality/efficiency and whole-task cost targets; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
 | **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts, PDF/Word reading, scanned-document OCR, and XLSX/CSV reading and bounded analysis for conversations and reviews | critics remain socketless; broker and cache adversarial suites pass; images, documents, and tabular inputs pass isolation/resource and cross-provider conformance; extraction/OCR and tabular parsing quality, source citations, and owner-scoped artifact handling meet §24.4 |
 | **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
 

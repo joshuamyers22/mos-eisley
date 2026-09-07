@@ -32,6 +32,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    agent loop. Keep explicit route identities, capability/pricing provenance, and
    per-backend conformance; catalog discovery proposes entries without enabling
    them. These extension contracts are planned work (plan §§4.6 and 5.1).
+   Make Anthropic, OpenAI, and Google interchangeable as creator (author), critic,
+   and judge, with independent contexts and all six distinct-provider role
+   assignments supported by the common contracts. Keep coding-child model/effort
+   selection independent of the creator (plan §7.7); this remains planned work.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.
@@ -115,13 +119,22 @@ contract; comprehensive enforcement and remote adapters remain planned work.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+   Add creator-led coding: creator writes the plan and executable tests, critic
+   reviews both, judge adjudicates, creator approves the exact plan/test revisions,
+   then delegates at least one meaningful coding subtask
+   and owns integration, tests, and final critic/judge review. Example: Astra creator
+   with a Luna max-thinking coding child, resolved to eligible exact model routes.
+   Target clean, efficient code and cost-effective whole-task execution, counting
+   planning, review, handoffs, integration, and rework. Delegated writes also require
+   E2 bounded-subagent gates (plan §§7.7, 14.2.1, 15.7).
 8. **Publisher:** authenticated isolated credential process, dry run, idempotency.
 9. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,
    redaction, typed lifecycle events and trusted endpoint/credential contracts,
    plus E1 trusted provider/selector extension loading and model catalog overlays;
-   then bounded subagents; then E3 brokered web/image evidence plus PDF and Word
+   then E2 bounded subagents and creator-approved delegated coding after execution
+   containment; then E3 brokered web/image evidence plus PDF and Word
    (`.docx`/`.doc`) reading, scanned-document OCR, and XLSX/CSV reading and bounded
    tabular analysis for conversations and reviews, with text/table extraction,
    page/sheet/cell/record citations, parsing and extraction-quality reporting, and
