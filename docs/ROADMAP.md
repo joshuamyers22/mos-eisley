@@ -36,9 +36,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    An independently authorized minimal synthetic Responses canary is implemented
    with fixed repository-owned input, exact two-request binding, a 32-token output
    cap, shared-ledger admission, zero retries, content-addressed private evidence,
-   and literal downstream denials. A fresh operator-signed live canary remains
-   required. Next: credentialed conformance and isolated broker integration,
-   then wire OpenAI into critic/judge review before other providers.
+   and literal downstream denials. On 2026-09-07, the first operator-signed live
+   canary completed and offline verification confirmed 40 input tokens, 5 output
+   tokens, 14 micro-USD retained, a settled unblocked ledger, and exact Responses
+   access while billing and routing authority remained false. Next: credentialed
+   conformance and isolated broker integration, then wire OpenAI into critic/judge
+   review before other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.

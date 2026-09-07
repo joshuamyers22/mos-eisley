@@ -245,8 +245,9 @@ The OpenAI adapter and paid-capable conformance CLI are tested against captured
 response shapes but have not completed a credentialed conformance run in this
 repository. The readiness command checks only model metadata; model availability,
 billing, and endpoint permissions remain account-dependent. The synthetic Responses
-canary is implemented but has not completed an operator-signed live generation.
-Live critic fan-out and judging are not wired yet. There is no
+canary completed one operator-signed live generation on 2026-09-07, verifying only
+the exact fixed request at that time; billing and future availability remain
+unverified. Live critic fan-out and judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only

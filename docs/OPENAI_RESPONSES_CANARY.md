@@ -98,6 +98,12 @@ mos openai-verify-responses-canary \
   --spend-ledger private/spending.sqlite
 ```
 
+The first operator-signed live canary completed on 2026-09-07 at `20:32:22Z`.
+Offline verification confirmed 40 input tokens, 5 output tokens, 14 micro-USD
+retained, a settled unblocked ledger entry, and `responses_access_verified=true`.
+It retained literal false values for billing verification and every downstream
+authority. Its manifest and response evidence remain private and are not committed.
+
 If counting, generation, parsing, settlement, or final verification fails, no
 completion manifest is written. Once a reservation exists, failure retains the full
 uncertain exposure and cannot retry under the same directory/ledger identity.
