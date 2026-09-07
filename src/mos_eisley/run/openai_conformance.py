@@ -70,4 +70,7 @@ def build_openai_conformance_payload(
         "parallel_tool_calls": False,
         "store": False,
         "truncation": "disabled",
+        "service_tier": policy.service_tier,
+        "stream": False,
+        "background": False,
     }

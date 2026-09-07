@@ -138,6 +138,8 @@ class BudgetedOpenAITransport:
             set(request) - permitted
             or request.get("tools")
             or request.get("service_tier") not in (None, "default")
+            or (request.get("store") is not None and request.get("store") is not False)
+            or request.get("truncation") not in (None, "disabled")
             or (
                 request.get("stream") is not None and request.get("stream") is not False
             )

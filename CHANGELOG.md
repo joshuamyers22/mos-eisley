@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind storage, truncation, default service tier, streaming, and background controls
+  into the exact OpenAI conformance request before independent authorization.
+- Reject conflicting request controls before token counting or reservation, preserve
+  controller-to-transport generation equality, and keep generation-only controls out
+  of the input-token count request.
+
 - Add an independently signed, fixed `gpt-5.6-luna` Responses canary with exact
   token-count/generation binding, a 32-token ceiling, explicit synthetic-transfer
   consent, shared-ledger admission, zero retries, and no tools or user prompt.

@@ -10,13 +10,17 @@ import httpx
 from openai import AsyncOpenAI
 from pydantic import JsonValue, TypeAdapter
 
-from mos_eisley.core.models import Brief
+from mos_eisley.core.models import Brief, digest
 from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.execution import EvaluationRequest, ExecutionBatch
 from mos_eisley.evaluation.models import RouteCandidate
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_responses import SDKOpenAITransport
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
+from mos_eisley.providers.openai_spend import (
+    BudgetedOpenAITransport,
+    SpendPolicy,
+    SpendReservation,
+)
 from mos_eisley.run.openai_conformance import (
     build_openai_conformance_payload,
     critique_format,
@@ -74,6 +78,9 @@ class ConformanceRequestTests(TestCase):
         self.assertEqual(payload["tools"], [])
         self.assertFalse(payload["store"])
         self.assertEqual(payload["truncation"], "disabled")
+        self.assertEqual(payload["service_tier"], "default")
+        self.assertIs(payload["stream"], False)
+        self.assertIs(payload["background"], False)
         self.assertNotIn("expected_findings", str(payload))
         content = payload["input"]
         self.assertIsInstance(content, list)
@@ -173,6 +180,9 @@ class ConformanceSpendTests(IsolatedAsyncioTestCase):
             response = await SDKOpenAITransport(sdk).create_response(payload)
         self.assertEqual(response["model"], policy.model)
         self.assertEqual(captured[0]["text"], critique_format())
+        self.assertEqual(captured[0]["service_tier"], "default")
+        self.assertIs(captured[0]["stream"], False)
+        self.assertIs(captured[0]["background"], False)
 
     async def test_spending_controller_accepts_only_host_built_structured_request(
         self,
@@ -192,3 +202,28 @@ class ConformanceSpendTests(IsolatedAsyncioTestCase):
             self.assertEqual(response, fake.response)
             self.assertEqual(len(fake.calls), 1)
             self.assertIn("text", fake.calls[0])
+            self.assertEqual(fake.calls[0], payload)
+            self.assertEqual(len(fake.counts), 1)
+            for field in (
+                "max_output_tokens",
+                "stream",
+                "background",
+                "store",
+                "include",
+                "service_tier",
+            ):
+                self.assertNotIn(field, fake.counts[0])
+            reservation = SpendReservation.model_validate_json(
+                (root / "spend-reservation.json").read_bytes()
+            )
+            self.assertEqual(
+                reservation.request_sha256,
+                digest(
+                    json.dumps(
+                        payload,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ).encode()
+                ),
+            )
