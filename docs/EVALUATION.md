@@ -62,6 +62,14 @@ uv run --frozen mos eval-run-recorded \
   --output .mos-eisley/eval/holdout-raw.json
 ```
 
+The brokered OpenAI conformance path remains deliberately outside this scoreable raw
+result schema. It can now preserve terminal failures and assemble exact blinded-batch
+coverage as a distinct
+[`BrokeredEvaluationResultSet`](BROKERED_EVALUATION.md), but that artifact fixes live
+issuance, grading, scoring, and promotion to false. Do not relabel it as recorded or
+live `RawResultSet`; authenticated credentialed conformance and a separately reviewed
+conversion are still required.
+
 Next, create the adjudicator packet. This joins references to completed outputs but
 removes route, model, backend, case ID, split and private assignment mapping. Give
 only this packet and the grading rubric to a human adjudicator. A candidate can

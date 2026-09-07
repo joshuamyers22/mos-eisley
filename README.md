@@ -112,8 +112,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   fixture-tested container roundtrips, host-only spending, disconnect cancellation,
   assignment audit chains and read-only crash inventory.
 - [Brokered evaluation conformance artifacts](docs/BROKERED_EVALUATION.md) binding
-  strict critiques to response, audit, assignment, usage, latency and settled spend;
-  these artifacts are explicitly non-scoreable.
+  strict critiques or terminal failures to audit, assignment, latency and conservative
+  spend state, plus exact-batch inert assembly; these artifacts remain non-scoreable.
 - A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
   using blinded input and strict structured `Critique` output, plus an explicit
   one-assignment CLI whose provider and container boundaries are fixture-substituted.
@@ -311,6 +311,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [publication-history witness adversarial review](docs/MILESTONE_40_REVIEW.md),
 [aggregate billing-evidence adversarial review](docs/MILESTONE_41_REVIEW.md),
 [billing-collector adversarial review](docs/MILESTONE_42_REVIEW.md),
+[failure-preserving broker-assembly review](docs/MILESTONE_43_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

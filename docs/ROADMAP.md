@@ -86,8 +86,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    authority. Whole-database rollback still needs an external monotonic witness.
    The one-use admission, dispatch, ephemeral grant, provider transaction, and
    content-verified response publication path and verification-only signed
-   conformance attestation are now implemented. Next run explicitly authorized
-   credentialed conformance through that exact path and the repeated
+   conformance attestation are now implemented. Broker audit schema 3 preserves
+   terminal failures and elapsed latency; a distinct inert assembler requires exact
+   blinded-batch coverage without issuing gradeable or scoreable live results. Next,
+   run explicitly authorized credentialed conformance through that exact path and the repeated
    backend × model × effort sweep on clean and defective samples. Learn and
    freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a

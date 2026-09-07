@@ -211,6 +211,6 @@ class AssignmentBrokerTests(IsolatedAsyncioTestCase):
                 self.batch, self.request.sample_id, payload, transport
             )
             audit = BrokerAudit(root / "audit", binding)
-            audit.finish("failed")
+            audit.finish("failed", latency_ms=1, error="provider_error")
             with self.assertRaises(ValueError):
                 inspect_broker_recovery(root / "audit", binding, transport.ledger)

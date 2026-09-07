@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Preserve terminal broker provider errors, deadlines, and cancellations as distinct
+  schema-3 audit outcomes with measured latency and conservative ledger state.
+- Add verification-only failure compilation and exact-batch brokered result assembly;
+  the distinct output schema preserves unsuccessful assignments but remains
+  incompatible with `RawResultSet`, grading, scoring, retry, release, and promotion.
+
 - Add an explicit-consent OpenAI Admin API billing collector that owns
   `OPENAI_ADMIN_KEY` only in its short-lived process, uses the official SDK through a
   bounded zero-retry client, and retains strict complete usage/cost pages privately.

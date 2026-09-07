@@ -60,6 +60,7 @@ from mos_eisley.evaluation.lineage_scoring import (
     score_dual_graded_observations,
 )
 from mos_eisley.evaluation.models import (
+    MAX_ASSIGNMENTS,
     CandidateGrid,
     EvaluationDataset,
     EvaluationGate,
@@ -147,7 +148,12 @@ from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
     inspect_broker_recovery,
 )
-from mos_eisley.run.brokered_evaluation import compile_brokered_evaluation
+from mos_eisley.run.brokered_evaluation import (
+    BrokeredEvaluationArtifact,
+    compile_brokered_evaluation,
+    compile_brokered_evaluation_failure,
+    compile_brokered_evaluation_result_set,
+)
 from mos_eisley.run.evaluation_broker import (
     authorize_assignment,
     make_assignment_broker,
@@ -501,6 +507,25 @@ def parser() -> argparse.ArgumentParser:
     eval_run.add_argument("--batch", type=Path, required=True)
     eval_run.add_argument("--cassette", type=Path, required=True)
     eval_run.add_argument("--output", type=Path, required=True)
+    eval_broker_failure = subcommands.add_parser(
+        "eval-compile-brokered-failure",
+        help="Compile one terminal broker failure into inert evaluation evidence",
+    )
+    eval_broker_failure.add_argument(
+        "--expected-authorization", type=Path, required=True
+    )
+    eval_broker_failure.add_argument("--audit-dir", type=Path, required=True)
+    eval_broker_failure.add_argument("--spend-ledger", type=Path, required=True)
+    eval_broker_failure.add_argument("--output", type=Path, required=True)
+    eval_broker_results = subcommands.add_parser(
+        "eval-assemble-brokered-results",
+        help="Require exact batch coverage without issuing live scoring evidence",
+    )
+    eval_broker_results.add_argument("--batch", type=Path, required=True)
+    eval_broker_results.add_argument(
+        "--artifact", type=Path, action="append", required=True
+    )
+    eval_broker_results.add_argument("--output", type=Path, required=True)
     isolated = subcommands.add_parser(
         "eval-run-isolated", help="Run recorded evaluation in an offline container"
     )
@@ -1978,6 +2003,97 @@ def _openai_billing_collect_command(args: argparse.Namespace) -> int:
                 "automatic_budget_release_authorized": (
                     collection.automatic_budget_release_authorized
                 ),
+            }
+        )
+    )
+    return 0
+
+
+def _compile_brokered_failure_command(args: argparse.Namespace) -> int:
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    output = cast(Path, args.output)
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    audit_authorization = audit_directory / "authorization.json"
+    try:
+        aliases_audit_authorization = expected_path.samefile(audit_authorization)
+    except FileNotFoundError:
+        aliases_audit_authorization = False
+    if _paths_overlap(expected_path, audit_directory) or aliases_audit_authorization:
+        raise ValueError("expected authorization must be independently supplied")
+    if _paths_overlap(output, audit_directory):
+        raise ValueError("failure artifact output must be outside the broker audit")
+    artifact = compile_brokered_evaluation_failure(
+        expected,
+        audit_directory,
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_failure.compiled",
+                "path": str(output),
+                "artifact_sha256": artifact.artifact_sha256,
+                "sample_id": artifact.authorization.sample_id,
+                "status": artifact.status,
+                "outcome_status": artifact.outcome_status,
+                "ledger_status": artifact.ledger_status,
+                "error": artifact.error,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "live_result_eligible": artifact.live_result_eligible,
+                "retry_permitted": artifact.retry_permitted,
+                "automatic_budget_release_authorized": (
+                    artifact.automatic_budget_release_authorized
+                ),
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _assemble_brokered_results_command(args: argparse.Namespace) -> int:
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    artifact_paths = cast(list[Path], args.artifact)
+    if len(artifact_paths) > MAX_ASSIGNMENTS:
+        raise ValueError("brokered artifact list exceeds assignment limit")
+    artifacts = tuple(
+        BrokeredEvaluationArtifact.model_validate_json(read_bounded(path, 2_000_000))
+        for path in artifact_paths
+    )
+    result = compile_brokered_evaluation_result_set(batch, artifacts)
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_results.assembled",
+                "path": str(output),
+                "result_set_sha256": result.result_set_sha256,
+                "assignments": len(result.artifacts),
+                "completed": sum(
+                    item.status == "completed" for item in result.artifacts
+                ),
+                "errors": sum(item.status == "error" for item in result.artifacts),
+                "exact_batch_coverage_verified": (result.exact_batch_coverage_verified),
+                "failures_preserved": result.failures_preserved,
+                "credentialed_conformance_proven": (
+                    result.credentialed_conformance_proven
+                ),
+                "live_raw_result_set_issued": result.live_raw_result_set_issued,
+                "grading_authorized": result.grading_authorized,
+                "scoring_authorized": result.scoring_authorized,
+                "retry_permitted": result.retry_permitted,
+                "automatic_budget_release_authorized": (
+                    result.automatic_budget_release_authorized
+                ),
+                "promotion_eligible": result.promotion_eligible,
             }
         )
     )
@@ -5244,6 +5360,8 @@ def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
 
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
+        "eval-compile-brokered-failure": _compile_brokered_failure_command,
+        "eval-assemble-brokered-results": _assemble_brokered_results_command,
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
         "eval-resolve-adjudications": _resolve_adjudications_command,
         "eval-compile-dual": _compile_dual_command,
@@ -5637,6 +5755,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact = compile_brokered_evaluation(
                 reply, authorization, audit_directory, ledger
             )
+            assert artifact.usage is not None
             _write_contract(artifact_output, artifact)
             print(
                 json.dumps(
