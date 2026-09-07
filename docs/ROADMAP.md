@@ -30,7 +30,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    billing, Responses, quality, scoring, and routing claims. Its first credentialed
    operator attempt exposed a compressed-response decode failure; the bounded client
    now forces identity encoding and schema-2 receipts retain only a safe local
-   transport subcategory. A fresh successful canonical receipt is still required.
+   transport subcategory. On 2026-09-07, a fresh private schema-2 operator receipt
+   confirmed exact `gpt-5.6-luna` metadata visibility through that fixed path while
+   retaining literal denials of billing, Responses, scoring, and routing authority.
    Next: an independently authorized minimal synthetic Responses canary, then
    credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
