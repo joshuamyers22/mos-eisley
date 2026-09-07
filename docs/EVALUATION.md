@@ -70,6 +70,11 @@ issuance, grading, scoring, and promotion to false. Do not relabel it as recorde
 live `RawResultSet`; authenticated credentialed conformance and a separately reviewed
 conversion are still required.
 
+One successful probe can now receive an
+[authenticated observer receipt](EVALUATION_CONFORMANCE.md) that reverifies its exact
+assignment, independent authorization, audit, and ledger. The receipt explicitly does
+not establish complete batch conformance or permit conversion, grading, or scoring.
+
 Next, create the adjudicator packet. This joins references to completed outputs but
 removes route, model, backend, case ID, split and private assignment mapping. Give
 only this packet and the grading rubric to a human adjudicator. A candidate can

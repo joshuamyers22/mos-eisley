@@ -88,10 +88,15 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    content-verified response publication path and verification-only signed
    conformance attestation are now implemented. Broker audit schema 3 preserves
    terminal failures and elapsed latency; a distinct inert assembler requires exact
-   blinded-batch coverage without issuing gradeable or scoreable live results. Next,
-   run explicitly authorized credentialed conformance through that exact path and the repeated
-   backend × model × effort sweep on clean and defective samples. Learn and
-   freeze an interpretable difficulty-routing policy only after held-out detection,
+   blinded-batch coverage without issuing gradeable or scoreable live results. A
+   pre-registered, freshness-bounded Ed25519 observer receipt can now authenticate one
+   successful credentialed probe while reverifying the exact authorization, audit,
+   ledger, and blinded route. It still denies provider authorship, billing, failure
+   send proof, complete-batch conformance, conversion, and scoring. Next, run explicitly
+   authorized credentialed conformance through that exact path, then design conversion
+   only after repeated probes cover success and failure boundaries. Run the repeated
+   backend × model × effort sweep on clean and defective samples only after that gate.
+   Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
 5. **In progress — prompt skill evidence:** exact instructions now participate in
