@@ -1,11 +1,37 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source_repository": "production-project-template",
-  "source_local_path": "/Users/josh/Projects/production-project-template",
-  "base_commit": "3d467040ba760efe9795f67f07d5a2ccf364282b",
-  "captured_at_utc": "2026-09-07T03:29:26.379608+00:00",
-  "source_includes_uncommitted_changes": true,
-  "scope": "Local source snapshot for design review; not a published release or runtime template approval.",
+  "source_url": "https://github.com/joshuamyers22/production-project-template",
+  "source_ref": "origin/main",
+  "source_commit": "d59f3e661a1fa3456505cf36f91b51f4a1c873ac",
+  "captured_at_utc": "2026-09-07T03:44:20.871205+00:00",
+  "source_includes_uncommitted_changes": false,
+  "scope": "Published Git blobs for adoption review and isolated upstream example tests; not Mos Eisley integration or production approval.",
+  "previous_review_comparison": {
+    "base_commit": "3d467040ba760efe9795f67f07d5a2ccf364282b",
+    "source_included_uncommitted_changes": true,
+    "files_compared": 15,
+    "identical_published_files": 15,
+    "changed_files": []
+  },
+  "validation": {
+    "suite": "examples/python-telemetry",
+    "snapshot_contents": [
+      "src/",
+      "tests/",
+      "schemas/"
+    ],
+    "command": "PYTHONPATH=src python -m unittest discover -s tests -v",
+    "python_version": "Python 3.12.11",
+    "tests_run": 26,
+    "result": "passed",
+    "limitations": [
+      "Upstream Python example only",
+      "No full repository gate or C++ test run",
+      "No Mos Eisley runtime integration",
+      "No target-deployment or comprehensive security validation"
+    ]
+  },
   "files": [
     {
       "path": "README.md",
@@ -81,6 +107,151 @@
       "path": "docs/QUANT_STATISTICAL_LEARNING_POINT_OF_VIEW.md",
       "sha256": "0af1bda6d7bf93fef1c33c683bec510d06ba7e2b3f9bacbe29b515f9ab0f0399",
       "bytes": 7336
+    },
+    {
+      "path": "archetypes/python-telemetry/README.md",
+      "sha256": "6301ddd847b5b0881b8b42624fc62cf1e9f8b284db732d716c6dafc628718846",
+      "bytes": 1737
+    },
+    {
+      "path": "archetypes/python-telemetry/PRODUCTION_READINESS.md",
+      "sha256": "8e99463f6db1a8d984e9fe826b75d121560abfba8466d42649389c14bac7af42",
+      "bytes": 3118
+    },
+    {
+      "path": "archetypes/python-telemetry/pyproject.toml",
+      "sha256": "2865928b79c25d48ce05b410971e8f2022ddcb0bc737a4be1bcb88c19b523cfb",
+      "bytes": 630
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/client.py",
+      "sha256": "47aa1964e0a1535d709295471fe35fb0a952dee711284742639af315bd5b75dc",
+      "bytes": 7194
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/config.py",
+      "sha256": "db4e23660f070b941656e6799a004d89d8029b634c35abb97bcb17f963663fa3",
+      "bytes": 4297
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/event.py",
+      "sha256": "905f9819c455f06e0e2cf3a14ca8485b79eaa3b329f8f992c339de1e37f1d781",
+      "bytes": 9644
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/ports.py",
+      "sha256": "f9ff20de8fa43d6b230aa24c56f7d9550aa01119439214a3fe316c39e45d7be0",
+      "bytes": 513
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/sanitize.py",
+      "sha256": "519bf465b21e8c0bfab1b2d4450e3e5bc97b5029c248e51ebaa6b21d41b348a9",
+      "bytes": 7280
+    },
+    {
+      "path": "archetypes/python-telemetry/src/__package__/spool.py",
+      "sha256": "00d5582447c0abc0de119420e11da35f8f0a67be4ae2b53b6cc200e826d21517",
+      "bytes": 24080
+    },
+    {
+      "path": "archetypes/python-telemetry/tests/test_schema_contract.py",
+      "sha256": "dfb56269d47edff07d2072a03cffe51e5aea0ab800e7e9830d06d465375bb5d5",
+      "bytes": 3306
+    },
+    {
+      "path": "archetypes/python-telemetry/tests/test_spool.py",
+      "sha256": "8a53f90d14f066fd3f72f1c1646876f811d5e4a4968bc46bf92edd6d0acbf5d2",
+      "bytes": 9210
+    },
+    {
+      "path": "archetypes/python-api-service/src/__package__/logging.py",
+      "sha256": "619b0ba746b77f023a75a5c372742cf58407c61cc457607b7c81fc365898b2e4",
+      "bytes": 4741
+    },
+    {
+      "path": "archetypes/cpp-low-latency/include/__package__/telemetry.hpp",
+      "sha256": "ddd95c3f183e8c95b1b1a74f58eac644141817700c765184faf460c39b10b254",
+      "bytes": 1679
+    },
+    {
+      "path": "archetypes/_shared/AGENTS.md",
+      "sha256": "dac2d1cfe3db0b54390b3feb0b1b5a23bb96e3e2cc37e19d061ef3d577b69782",
+      "bytes": 4711
+    },
+    {
+      "path": "archetypes/_shared/PROJECT_MEMORY.md",
+      "sha256": "95ec18fb84562aab4a8abe3e656bad2c7cc714d42a4ad278879f3a84bbc28c02",
+      "bytes": 1703
+    },
+    {
+      "path": "tools/create_project.py",
+      "sha256": "48d2946a6d95e484e84393ce4ac826e07262012d4930429aabe39fefd329cde6",
+      "bytes": 2810
+    },
+    {
+      "path": "examples/python-telemetry/schemas/telemetry-event.schema.json",
+      "sha256": "cc44aa2cc9b94adeac4654fce4e7713a6799cff588fbc8bae18d4283c8fa50a2",
+      "bytes": 4583
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/__init__.py",
+      "sha256": "729e0c10e800e0665f7ca6513d554a3bd73b8a882293e45e29f83267d8e0c0e0",
+      "bytes": 356
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/client.py",
+      "sha256": "47aa1964e0a1535d709295471fe35fb0a952dee711284742639af315bd5b75dc",
+      "bytes": 7194
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/config.py",
+      "sha256": "db4e23660f070b941656e6799a004d89d8029b634c35abb97bcb17f963663fa3",
+      "bytes": 4297
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/event.py",
+      "sha256": "905f9819c455f06e0e2cf3a14ca8485b79eaa3b329f8f992c339de1e37f1d781",
+      "bytes": 9644
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/ports.py",
+      "sha256": "f9ff20de8fa43d6b230aa24c56f7d9550aa01119439214a3fe316c39e45d7be0",
+      "bytes": 513
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/sanitize.py",
+      "sha256": "519bf465b21e8c0bfab1b2d4450e3e5bc97b5029c248e51ebaa6b21d41b348a9",
+      "bytes": 7280
+    },
+    {
+      "path": "examples/python-telemetry/src/golden_telemetry/spool.py",
+      "sha256": "00d5582447c0abc0de119420e11da35f8f0a67be4ae2b53b6cc200e826d21517",
+      "bytes": 24080
+    },
+    {
+      "path": "examples/python-telemetry/tests/test_config.py",
+      "sha256": "25a5562897f6ffc0527289496c63c1eebddf0f2fa496f657b5b295f714610cc3",
+      "bytes": 2084
+    },
+    {
+      "path": "examples/python-telemetry/tests/test_event.py",
+      "sha256": "8739b6f2298888a801402c93c170f587380290f2da2b7d8de63dce64601a6db2",
+      "bytes": 5515
+    },
+    {
+      "path": "examples/python-telemetry/tests/test_sanitize.py",
+      "sha256": "de816f69786fd124e08b0659161539275f26d6423274c425b062bf585543be2c",
+      "bytes": 3147
+    },
+    {
+      "path": "examples/python-telemetry/tests/test_schema_contract.py",
+      "sha256": "b53306c0efac0f52144cbdb1af308a9e44093fab73d5ef83cae8598839a978ca",
+      "bytes": 3306
+    },
+    {
+      "path": "examples/python-telemetry/tests/test_spool.py",
+      "sha256": "c83a75a710bdc513a89e70f137cd2ba38dfd052e7a2e363cf8e041d775269aa6",
+      "bytes": 9210
     }
   ]
 }

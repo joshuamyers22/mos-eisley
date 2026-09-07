@@ -73,6 +73,8 @@ tests; proposed test corrections return to creator and critic/judge review.
 - Event schema/version and stable event/error codes:
 - Allowed fields, redaction, and forbidden content:
 - Diagnostic sink versus mandatory audit-record failure behavior:
+- Queue-admission versus durable-write meaning; independent health and drain checks:
+- Reused telemetry implementation/version and project-specific integration evidence:
 - Selected sink, access, retention, capacity, and sampling/drop policy:
 - Review cadence, owner, and scoped query references:
 - Baseline, later assessment window, regression checks, and guardrails:

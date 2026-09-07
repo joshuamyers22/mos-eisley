@@ -1463,6 +1463,15 @@ redactor is defense in depth.
 
 ### 17.5 Operational logging and evidence-driven improvement
 
+**Published-template re-review:** production-project-template commit
+`d59f3e661a1fa3456505cf36f91b51f4a1c873ac` includes a Python event/sanitizer/sink core
+and local JSONL spool plus a C++ encoder. Prefer evaluating the pinned Python
+implementation behind a Mos-owned adapter before duplicating it. Version any
+package or reviewed source extraction and retain provenance; generated archetype
+placeholders and mutable branches are not runtime dependencies. This is a planned
+integration candidate, not telemetry code installed by this plan amendment. See
+`docs/PROJECT_GUIDANCE_DESIGN.md` for the published-source review and test scope.
+
 Adopt the production template's structured event principles for Mos Eisley's own
 runtime. Maintain a versioned mapping from canonical lifecycle events to its
 language-neutral telemetry envelope: UTC time, severity, stable event/error code,
@@ -1485,6 +1494,17 @@ retained conversation/replay artifacts in §17.1 retain their own explicit acces
 and retention contract. Do not export the content-bearing §16.5 event stream
 directly. Bound serialization, queues, disk use, sampling and retention; surface
 dropped-event counts, sampling coverage, and incomplete query windows.
+
+If using the upstream spool, distinguish queue acceptance from fsync-confirmed
+durability and pending records. Expose health independently of that same log sink,
+including drop reasons, writer errors, accepted/durable gap, quarantine, pressure,
+and drain failure. Consumers accept only closed files with verified checksum
+sidecars, never bare JSONL or active/quarantine files. Validate quota/drop-new,
+rotation, fork, crash recovery, and bounded shutdown on the actual service-account
+filesystem. Keep spools owner-scoped; run IDs are not access controls. Apply the
+Mos-specific schema and content allowlist before invoking upstream code: permissive
+`safe_message`, arbitrary nested attributes, or sanitized traceback support do not
+automatically satisfy the no-content telemetry contract.
 
 Optional diagnostic sink failure may degrade observability with counted loss, but
 must never weaken mandatory audit, authorization, before-send markers, or spend

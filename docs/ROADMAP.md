@@ -64,6 +64,10 @@ capabilities, not current automatic template or memory loading.
    Add the §17.5 versioned operational-event mapping alongside live provider work,
    preserving required audit/spend durability and owner isolation. Evaluate outcomes
    and guardrails on later windows; telemetry review does not authorize changes.
+   Published template `d59f3e6` supplies a Python core/local-spool reuse candidate;
+   evaluate a pinned Mos adapter with independent health, explicit queue/durability
+   semantics, and Mos-specific sanitization before enabling it. No telemetry code
+   is added by the adoption review itself.
    Existing evaluation progress: deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.

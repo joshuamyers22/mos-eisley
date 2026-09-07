@@ -8,12 +8,15 @@ support or an upgrade of the production-template repository.
 
 ## Sources and scope
 
-Reviewed the updated local working tree at
-`/Users/josh/Projects/production-project-template`, including uncommitted and newly
-added documents. Its Git base alone does not identify these updates; see the
-companion [source manifest](PRODUCTION_TEMPLATE_REVIEW_SOURCES.json) for file hashes
-and base commit.
-No claim is made that these files have been published or production-validated.
+Re-reviewed the published GitHub `main` at
+[`d59f3e661a1fa3456505cf36f91b51f4a1c873ac`](https://github.com/joshuamyers22/production-project-template/commit/d59f3e661a1fa3456505cf36f91b51f4a1c873ac).
+All 15 files hashed in the earlier local-working-tree review match the published
+Git blobs exactly. The earlier architectural decisions therefore still apply; this
+revision replaces local-only provenance and expands review to the published
+implementation, generated example, and production-readiness checklist. See the
+companion [source manifest](PRODUCTION_TEMPLATE_REVIEW_SOURCES.json) for the exact
+GitHub revision, source hashes, comparison, and validation scope. Published source
+and passing example tests do not establish production readiness in Mos Eisley.
 
 Primary inputs were `PERSONAL_ENGINEERING_DEFAULTS.md`,
 `docs/OBSERVABILITY_AND_IMPROVEMENT.md`, `docs/TELEMETRY_PLAN.md`,
@@ -22,12 +25,52 @@ Primary inputs were `PERSONAL_ENGINEERING_DEFAULTS.md`,
 The source research summaries are background: this amendment does not adopt their
 quantitative research claims as evidence of Mos Eisley performance.
 
+## Published implementation and reuse decision
+
+The upstream update includes working code, not only telemetry plans:
+
+- [`python-telemetry`](https://github.com/joshuamyers22/production-project-template/tree/d59f3e661a1fa3456505cf36f91b51f4a1c873ac/archetypes/python-telemetry)
+  provides a standard-library runtime with explicit composition, bounded event
+  construction, attribute sanitization, scoped run context, a sink protocol, and a
+  local JSONL spool. Queue admission is separate from fsync-confirmed durability;
+  closed-file consumers require the checksum sidecar commit marker.
+- The API-service archetype has a structured Python logging formatter. Its optional
+  `safe_message` switch permits free text, so it is not a ready-made privacy boundary
+  for an agent handling prompts, tools, and provider errors.
+- The C++ archetype has a fixed-buffer encoder for the shared envelope. Queueing,
+  writing, and target-hardware latency evidence remain separate; it is not needed
+  by Mos Eisley's Python runtime.
+- Shared archetype files supply agent instructions, memory/notes, schema, and review
+  templates. The generator applies shared then archetype files to a new destination;
+  it does not implement Mos Eisley's planned per-project attachment/update workflow.
+
+**Decision:** prefer evaluating the pinned Python core/spool behind a Mos-owned sink
+adapter before writing equivalent diagnostic infrastructure. Choose a versioned
+package or reviewed source extraction with provenance when implementation begins;
+do not depend on unresolved archetype placeholders or a mutable Git branch. Retain
+project-selected backends and keep the estate platform optional. No upstream runtime
+code is imported, installed, or enabled by this documentation review.
+
+The adapter must enforce a narrower field contract before upstream event creation.
+Allowlisting an attribute name or recognizing common secret patterns does not prove
+arbitrary values are safe. Constrain identifiers, nested attributes, error metadata,
+and correlation fields; omit free-text messages and traceback locations unless
+separately reviewed. Test with Mos-specific prompt/tool/provider-output canaries.
+
+Adopt upstream's accepted/durable/pending distinction, independently readable health
+and drop/error counters, bounded shutdown, quota/drop-new behavior, and sidecar-only
+publication checks if using its spool. Partition and authorize every spool by owner;
+the emitter's run ID alone does not establish user isolation. Recheck actual service
+account, filesystem, overload, crash and retention behavior before rollout using the
+published [readiness checklist](https://github.com/joshuamyers22/production-project-template/blob/d59f3e661a1fa3456505cf36f91b51f4a1c873ac/archetypes/python-telemetry/PRODUCTION_READINESS.md).
+Required audit and spending transactions remain on their own durable path.
+
 ## Decision matrix
 
 | Topic | Put in Mos Eisley's product plan | Keep project-specific or separate |
 |---|---|---|
 | Structured logging | Stable versioned event/error mapping, bounded fields, privacy, correlation, failure and retention contracts (§17.5). | Application-specific signals, SLOs, libraries, sinks, and review cadence. |
-| Telemetry platform | Optional export/query adapter with explicit owner-scoped access and bounded failures. | `telem` deployment, SSD/HDD topology, Parquet compaction, DuckDB, Grafana, shipping, host metrics and alerts. |
+| Telemetry code and platform | Evaluate reuse of the published Python core/local spool behind a Mos-owned adapter; add independent health, explicit durability semantics, and optional owner-scoped export/query. | `telem` deployment, SSD/HDD topology, Parquet compaction, DuckDB, Grafana, shipping, host metrics and alerts. |
 | Improvement loop | Scoped aggregate review, observed versus inferred findings, reproducible baseline and later assessment, normal change authorization. | Which operational question matters, domain metrics, effect thresholds and ownership. |
 | Project memory | Bounded keyed evidence index, stale-entry correction, explicit historical selection, private owner/project storage (§17.6). | Which facts are durable, size limits, and a deliberate sanitized documentation export. |
 | Notes | Private scratch, concise evidence-linked handoffs/investigations, expiry and promotion/closure. | When a tracked project document is useful and where approved records live. |
@@ -82,6 +125,15 @@ conversation controller. Add explicit memory/note retrieval with private storage
 repository writes and publication keep their existing gates. Add operational event
 mapping alongside provider/controller work, then optional external adapters only
 after their isolation and failure checks pass.
+
+For this re-review, extracted only `src/`, `tests/`, and `schemas/` from the pinned
+published `examples/python-telemetry` into a temporary directory and ran its existing
+`unittest` suite under Python 3.12. All **26 tests passed**, covering event/config
+contracts, sanitization, schema validation, disk pressure, shutdown, fork handling,
+and SIGKILL/partial-tail recovery. The snapshot was removed after execution. No
+dependencies were installed and no source working tree was changed by the tests.
+This was a focused upstream example check, not the full template gate, a C++ test
+run, a comprehensive security audit, or Mos Eisley integration/production validation.
 
 The plan's §§16.6 and 17.5–17.6 specify acceptance coverage for two-project/two-user
 isolation, conflicting or changed templates, frozen role contexts, explicit history
