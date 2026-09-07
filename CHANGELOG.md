@@ -10,6 +10,9 @@ Notable changes are recorded here using semantic versioning.
 - Preserve content-addressed private canary evidence with a manifest-last completion
   marker and offline ledger-backed verification; retain literal billing, grading,
   scoring, promotion, and routing denials.
+- Record the first operator-signed live synthetic Responses canary: exact
+  `gpt-5.6-luna` access verified with 40 input tokens, 5 output tokens, 14 micro-USD
+  retained, zero retries, a settled unblocked ledger, and no downstream authority.
 
 - Force identity encoding at the bounded OpenAI HTTP send boundary after a live
   readiness attempt exposed a zlib decode failure while identity curl returned 200.

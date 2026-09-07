@@ -3,8 +3,8 @@
 ## Disposition
 
 Accepted for implementation as a narrow, independently authorized capability probe.
-No live generation was used to validate this milestone; automated tests use synthetic
-transports. A fresh operator-signed live run remains required.
+Automated tests use synthetic transports. After merge, a fresh operator-signed live
+run completed and its private evidence passed offline artifact-and-ledger verification.
 
 ## Findings and implemented changes
 
@@ -29,3 +29,12 @@ Tests cover signature and expiry failures, path/timeout/ledger substitution, exa
 request shapes, absence of user content in authorization, dispatch-time preserved-
 input checks, shared-ledger settlement, uncertain failure retention, content-addressed
 replay, tamper rejection, credential exclusion, and pre-credential CLI ordering.
+
+On 2026-09-07 at `20:32:22Z`, the first operator-signed live canary completed the
+fixed `gpt-5.6-luna` request. The verified private result records 40 input tokens,
+5 output tokens, 14 micro-USD retained, exactly two provider requests, zero automatic
+retries, no tools, and no user-data transfer. Offline replay matched the manifest and
+settled ledger entry; the ledger remained unblocked with no unresolved entries.
+Responses access is therefore verified only for that exact canary at that time.
+Billing, grading, scoring, promotion, and routing activation remain literally false.
+The private response and authorization artifacts are not committed.
