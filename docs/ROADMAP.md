@@ -25,7 +25,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
    and contract tests. Shared local cross-process spending admission is implemented.
-   Next: credentialed conformance and isolated broker integration,
+   A fixed-model, metadata-only OpenAI readiness command now records exact
+   `gpt-5.6-luna` visibility or a coarse safe failure while explicitly denying
+   billing, Responses, quality, scoring, and routing claims.
+   Next: an independently authorized minimal synthetic Responses canary, then
+   credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
@@ -100,7 +104,8 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    transfer and maximum spend to that exact policy, must be disjoint from observers,
    and is verified in addition to local consent before API-key access. Next, obtain
    that external signature and separately run credentialed conformance through the exact
-   path, then design conversion only after repeated probes cover success and failure
+   path. The metadata-only readiness check is implemented but cannot substitute for
+   that conformance. Design conversion only after repeated probes cover success and failure
    boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,

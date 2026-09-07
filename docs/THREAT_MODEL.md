@@ -26,6 +26,7 @@ in the live command.
 | Agent adapter leaks exception content | Generic public failure with hashed journal boundary | Artifacts intentionally retain configured fixtures/responses |
 | Partial agent run is mistaken for complete | Append-and-fsync journal; manifest written last | Partial runs are forensic inputs, not resumable runs |
 | Prompt is sent unintentionally | Named file plus required `--allow-data-transfer` | Acknowledgement cannot classify confidentiality |
+| A model-metadata readiness check is mistaken for billing, Responses, quality, or routing proof | Fixed `gpt-5.6-luna` lookup sends no prompt, retries zero times, records only exact visibility or a coarse error, and structurally denies every downstream authority | The key/model ID reach OpenAI; only a separately authorized canary and conformance run test later boundaries |
 | API credential leaks into output | Key only from environment; generic errors; regression scan | Same-UID processes and inherited environments are trusted |
 | Provider retains sensitive input | Responses request sets `store=false` | Organization policy and provider retention controls still apply |
 | Provider response violates expected shape or size | Decoded HTTP body capped before SDK JSON construction; narrow schema validation; canonical response ceiling | Headers remain transport-owned; accepted body still buffers up to 1 MB; streaming disabled |

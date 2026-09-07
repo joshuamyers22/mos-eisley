@@ -63,6 +63,11 @@ cost fits the per-invocation ceiling. This is not an account-wide invoice cap.
 Reuse the same [shared ledger](docs/SHARED_SPENDING.md) to bound participating runs
 collectively. Missing ledgers fail closed; creation never overwrites an existing scope.
 
+Before a separately authorized generation probe, the narrower
+[`openai-readiness`](docs/OPENAI_READINESS.md) command can make one fixed
+`gpt-5.6-luna` model-metadata request without sending a prompt. Its private receipt
+proves neither billing readiness nor Responses access and cannot enable routing.
+
 Review exit codes: **0** accept; **1** revise/reject; **2** invalid input or
 infrastructure failure. Replay exits **0** when the recorded result reproduces,
 even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
@@ -87,6 +92,8 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   replay for a pure in-memory fixture tool.
 - OpenAI Responses adapter with strict function schemas, provider call-ID mapping,
   stateless encrypted-reasoning carry-forward and token usage accounting.
+- Opt-in fixed-model OpenAI readiness check with no prompt or generation, zero retries,
+  safe failure categories, exclusive private output, and literal downstream denials.
 - Opt-in `openai-run` with a 64,000-byte prompt bound, 4,096-token output ceiling,
   one-request limit, no tools, generic diagnostics and content-verified artifacts.
 - Reviewed pricing policies, pre-generation token-count reservations and private
@@ -227,8 +234,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 
 The OpenAI adapter and paid-capable conformance CLI are tested against captured
 response shapes but have not completed a credentialed conformance run in this
-repository. Model availability depends on
-account access. Live critic fan-out and judging are not wired yet. There is no
+repository. The readiness command checks only model metadata; model availability,
+billing, and endpoint permissions remain account-dependent. Live critic fan-out and
+judging are not wired yet. There is no
 machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
 publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only
@@ -275,6 +283,7 @@ implemented; the current private-file behavior is not a claim of those guarantee
 
 See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
+[OpenAI model readiness](docs/OPENAI_READINESS.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
@@ -322,6 +331,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [billing-collector adversarial review](docs/MILESTONE_42_REVIEW.md),
 [failure-preserving broker-assembly review](docs/MILESTONE_43_REVIEW.md),
 [evaluation conformance-receipt review](docs/MILESTONE_44_REVIEW.md),
+[OpenAI model-readiness adversarial review](docs/MILESTONE_48_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).

@@ -133,6 +133,7 @@ from mos_eisley.providers.agent_recorded import RecordedAgentClient
 from mos_eisley.providers.openai_billing import EphemeralOpenAIAdminBillingTransport
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
+from mos_eisley.providers.openai_readiness import probe_openai_readiness
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
@@ -410,6 +411,17 @@ def parser() -> argparse.ArgumentParser:
         help="Acknowledge that prompt content will be sent to OpenAI",
     )
     openai_run.add_argument("--json", action="store_true")
+    openai_readiness = subcommands.add_parser(
+        "openai-readiness",
+        help="Check fixed OpenAI model visibility without sending a prompt",
+    )
+    openai_readiness.add_argument("--output", type=Path, required=True)
+    openai_readiness.add_argument("--timeout", type=float, default=10.0)
+    openai_readiness.add_argument(
+        "--allow-provider-access",
+        action="store_true",
+        help="Acknowledge that the API key and fixed model ID will be sent to OpenAI",
+    )
     ledger_create = subcommands.add_parser(
         "spend-ledger-create", help="Create a new local spending scope; never overwrite"
     )
@@ -2135,6 +2147,48 @@ def _openai_billing_collect_command(args: argparse.Namespace) -> int:
         )
     )
     return 0
+
+
+def _openai_readiness_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_provider_access):
+        raise ValueError("OpenAI provider access was not acknowledged")
+    timeout = cast(float, args.timeout)
+    if not 0 < timeout <= 30:
+        raise ValueError("OpenAI readiness timeout must be between zero and 30 seconds")
+    output = cast(Path, args.output)
+    if output.exists() or output.is_symlink():
+        raise ValueError("OpenAI readiness output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("OpenAI readiness output parent must already exist")
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    receipt = asyncio.run(
+        probe_openai_readiness(
+            api_key,
+            timeout_seconds=timeout,
+            checked_at=datetime.now(UTC),
+            sdk_version=_openai_sdk_version(),
+        )
+    )
+    _write_contract(output, receipt)
+    print(
+        json.dumps(
+            {
+                "type": "openai.readiness.checked",
+                "path": str(output),
+                "model": receipt.model,
+                "outcome": receipt.outcome,
+                "failure_kind": receipt.failure_kind,
+                "billing_verified": receipt.billing_verified,
+                "responses_access_verified": receipt.responses_access_verified,
+                "routing_activation_authorized": (
+                    receipt.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0 if receipt.outcome == "visible" else 2
 
 
 def _compile_brokered_failure_command(args: argparse.Namespace) -> int:
@@ -6094,6 +6148,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if not cast(bool, args.allow_account_billing_read):
                 raise ValueError("OpenAI account billing read was not acknowledged")
             return _openai_billing_collect_command(args)
+        if args.command == "openai-readiness":
+            return _openai_readiness_command(args)
         specialized_result = _specialized_evaluation_command(args)
         if specialized_result is not None:
             return specialized_result
