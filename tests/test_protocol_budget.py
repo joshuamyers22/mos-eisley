@@ -139,6 +139,24 @@ class ProtocolTests(TestCase):
 
 
 class RegistryBudgetTests(TestCase):
+    def test_openai_registry_exposes_documented_evaluation_tiers(self) -> None:
+        registry = openai_registry()
+        self.assertEqual(
+            tuple(model.id for model in registry.models),
+            (
+                "gpt-6-astra",
+                "gpt-5.6-sol",
+                "gpt-5.6-terra",
+                "gpt-5.6-luna",
+            ),
+        )
+        for model_id in ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
+            resolved = registry.resolve("openai", model_id, "max")
+            self.assertEqual(resolved.effort, "max")
+            self.assertFalse(resolved.substituted)
+            self.assertEqual(resolved.spec.default_effort, "medium")
+            self.assertEqual(resolved.spec.verification, "documented")
+
     def test_effort_exact_fallback_and_errors(self) -> None:
         registry = fixture_registry()
         exact = registry.resolve("fixture", "tool-reviewer-v1", "medium")

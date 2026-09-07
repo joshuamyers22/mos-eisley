@@ -46,3 +46,14 @@ Provider retention still follows organization and OpenAI policy despite
 `store=false`. Model access may vary by account. Dollar budgeting, independent
 transport byte limits, retry policy, live quality evaluation and credentialed
 conformance remain required before production use.
+
+## 2026-09-07 evaluation amendment
+
+The documented OpenAI registry also includes `gpt-5.6-sol`, `gpt-5.6-terra`, and
+`gpt-5.6-luna` as non-default evaluation candidates. All three expose the Responses
+API, structured outputs, function calling, a 1,050,000-token context window, a
+128,000-token output limit, and reasoning efforts `none`, `low`, `medium`, `high`,
+`xhigh`, and `max`; their documented default is `medium`. Astra remains the runtime
+default. Adding candidates does not activate routing or establish account access:
+those decisions still require blinded evaluation, live conformance, and the existing
+promotion controls.

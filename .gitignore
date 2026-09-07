@@ -9,6 +9,8 @@ dist/
 .env.*
 !.env.example
 .mos-eisley/
+private/
+trusted/
 .coverage
 coverage.xml
 htmlcov/
