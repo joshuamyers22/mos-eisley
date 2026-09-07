@@ -27,7 +27,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    and contract tests. Shared local cross-process spending admission is implemented.
    A fixed-model, metadata-only OpenAI readiness command now records exact
    `gpt-5.6-luna` visibility or a coarse safe failure while explicitly denying
-   billing, Responses, quality, scoring, and routing claims.
+   billing, Responses, quality, scoring, and routing claims. Its first credentialed
+   operator attempt exposed a compressed-response decode failure; the bounded client
+   now forces identity encoding and schema-2 receipts retain only a safe local
+   transport subcategory. A fresh successful canonical receipt is still required.
    Next: an independently authorized minimal synthetic Responses canary, then
    credentialed conformance and isolated broker integration,
    then wire OpenAI into critic/judge review before other providers.

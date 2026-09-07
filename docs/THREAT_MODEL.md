@@ -30,6 +30,7 @@ in the live command.
 | API credential leaks into output | Key only from environment; generic errors; regression scan | Same-UID processes and inherited environments are trusted |
 | Provider retains sensitive input | Responses request sets `store=false` | Organization policy and provider retention controls still apply |
 | Provider response violates expected shape or size | Decoded HTTP body capped before SDK JSON construction; narrow schema validation; canonical response ceiling | Headers remain transport-owned; accepted body still buffers up to 1 MB; streaming disabled |
+| Provider or intermediary compression makes an otherwise valid response undecodable | Final send boundary forces identity encoding; ignored preferences still use incremental decoded-byte enforcement and a readiness-only safe decode category | Identity may increase bandwidth; malformed ignored encodings still fail closed without raw-body forensics |
 | Reasoning/tool state corrupts across turns | Preserve encrypted reasoning and native call IDs; pair results exactly | Credentialed conformance has not run |
 | Model spend grows unexpectedly | Bounded requests, reviewed prices and transactional shared reservations | Participating local runs only; operator rates/provider caps trusted; not an invoice ceiling |
 | Concurrent runs overdraw shared capacity | Atomic admission and conservative unresolved charges | Same ledger/local filesystem required; copied or rolled-back databases bypass accounting |

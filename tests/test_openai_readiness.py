@@ -63,6 +63,7 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
         receipt = await self._receipt(httpx.MockTransport(reply))
         self.assertEqual(receipt.outcome, "visible")
         self.assertIsNone(receipt.failure_kind)
+        self.assertIsNone(receipt.failure_detail)
         self.assertEqual(len(requests), 1)
         self.assertEqual(requests[0].method, "GET")
         self.assertEqual(requests[0].url.path, f"/v1/models/{OPENAI_READINESS_MODEL}")
@@ -120,6 +121,7 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
                 receipt = await self._receipt(httpx.MockTransport(reply))
                 self.assertEqual(receipt.outcome, "error")
                 self.assertEqual(receipt.failure_kind, expected)
+                self.assertIsNone(receipt.failure_detail)
                 self.assertEqual(calls, 1)
                 payload = canonical_bytes(receipt)
                 self.assertNotIn(b"private raw detail", payload)
@@ -129,10 +131,24 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cases = (
-            (httpx.ConnectError("private network detail"), "transport_error"),
-            (httpx.ReadTimeout("private timeout detail"), "provider_timeout"),
+            (
+                httpx.ConnectError("private network detail"),
+                "transport_error",
+                "connection_error",
+            ),
+            (
+                httpx.RemoteProtocolError("private protocol detail"),
+                "transport_error",
+                "protocol_error",
+            ),
+            (
+                RuntimeError("private unknown detail"),
+                "transport_error",
+                "unknown_transport_error",
+            ),
+            (httpx.ReadTimeout("private timeout detail"), "provider_timeout", None),
         )
-        for failure, expected in cases:
+        for failure, expected, detail in cases:
             calls = 0
 
             async def reply(
@@ -146,8 +162,42 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
             with self.subTest(expected=expected):
                 receipt = await self._receipt(httpx.MockTransport(reply))
                 self.assertEqual(receipt.failure_kind, expected)
+                self.assertEqual(receipt.failure_detail, detail)
                 self.assertEqual(calls, 1)
                 self.assertNotIn(b"private", canonical_bytes(receipt))
+
+    async def test_ignored_identity_request_reports_safe_decode_detail(self) -> None:
+        class InvalidDeflateBody(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield b"private invalid deflate body"
+
+        async def reply(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.headers["accept-encoding"], "identity")
+            return httpx.Response(
+                200,
+                headers={"content-encoding": "deflate"},
+                stream=InvalidDeflateBody(),
+                request=request,
+            )
+
+        receipt = await self._receipt(httpx.MockTransport(reply))
+        self.assertEqual(receipt.failure_kind, "transport_error")
+        self.assertEqual(receipt.failure_detail, "response_decode_error")
+        self.assertNotIn(b"private", canonical_bytes(receipt))
+
+    async def test_response_limit_has_distinct_safe_detail(self) -> None:
+        async def reply(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-length": "1000001"},
+                content=b"private",
+                request=request,
+            )
+
+        receipt = await self._receipt(httpx.MockTransport(reply))
+        self.assertEqual(receipt.failure_kind, "transport_error")
+        self.assertEqual(receipt.failure_detail, "response_limit_error")
+        self.assertNotIn(b"private", canonical_bytes(receipt))
 
     async def test_mismatched_model_metadata_fails_closed(self) -> None:
         async def reply(request: httpx.Request) -> httpx.Response:
@@ -177,6 +227,12 @@ class OpenAIReadinessReceiptTests(TestCase):
         for update in (
             {"outcome": "visible", "failure_kind": "provider_error"},
             {"outcome": "error", "failure_kind": None},
+            {"outcome": "error", "failure_kind": "transport_error"},
+            {
+                "outcome": "error",
+                "failure_kind": "permission_error",
+                "failure_detail": "connection_error",
+            },
             {"outcome": "visible", "checked_at": datetime(2026, 9, 7)},
             {
                 "outcome": "visible",

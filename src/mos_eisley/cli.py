@@ -2180,6 +2180,7 @@ def _openai_readiness_command(args: argparse.Namespace) -> int:
                 "model": receipt.model,
                 "outcome": receipt.outcome,
                 "failure_kind": receipt.failure_kind,
+                "failure_detail": receipt.failure_detail,
                 "billing_verified": receipt.billing_verified,
                 "responses_access_verified": receipt.responses_access_verified,
                 "routing_activation_authorized": (

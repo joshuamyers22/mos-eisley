@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Force identity encoding at the bounded OpenAI HTTP send boundary after a live
+  readiness attempt exposed a zlib decode failure while identity curl returned 200.
+- Add schema-2 readiness receipts with a fixed local transport-detail vocabulary;
+  retain decoded-size enforcement, zero retries, generic public errors, and all
+  downstream authority denials.
+
 - Add an explicit-consent, fixed `gpt-5.6-luna` model-metadata readiness command
   using one bounded, zero-retry official-SDK request and an exclusive private receipt.
 - Persist only safe provider failure categories and literal denials of billing or

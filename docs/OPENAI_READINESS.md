@@ -9,8 +9,9 @@ no prompt, instructions, evaluation sample, tool definition, or generation reque
 This is a live provider request. The command therefore requires explicit
 `--allow-provider-access`, reads the credential only from `OPENAI_API_KEY`, disables
 SDK retries, environment proxies, redirects, and streaming, applies a maximum
-30-second timeout and bounded decoded response body, and closes the SDK client after
-the single attempt. It never reads the conformance batch or spending ledger.
+30-second timeout, forces identity response encoding, retains a bounded decoded
+response body if that preference is ignored, and closes the SDK client after the
+single attempt. It never reads the conformance batch or spending ledger.
 
 The output parent must already exist and the receipt path must be fresh. The file is
 created privately and exclusively:
@@ -34,12 +35,16 @@ exercise that endpoint. Therefore success does not prove:
 Those denials are literal fields in the receipt. The receipt cannot be passed to any
 grading, scoring, conformance-authentication, or routing-activation command.
 
-On a provider failure the same fresh receipt records only one allowlisted category:
+New receipts use schema 2. On a provider failure the same fresh receipt records only
+one allowlisted category:
 authentication, permission, quota, rate limit, not found, invalid request, transport,
-timeout, or generic provider error. SDK messages, response bodies, headers, account
-details, and credentials are discarded. A failed attempt returns exit status 2 and
-is never retried automatically. Because the Models API documentation does not make
-a billing guarantee for this lookup, Mos Eisley does not describe the request as
-free; it records only that no model-generation spend was authorized.
+timeout, or generic provider error. Transport failures add only one local allowlisted
+detail: connection, protocol, response decode, response limit, or unknown transport.
+SDK messages, response bodies, headers, account details, and credentials are
+discarded. A failed attempt returns exit status 2 and is never retried automatically.
+Prior schema-1 receipts are not modified or promoted. Because the Models API
+documentation does not make a billing guarantee for this lookup, Mos Eisley does not
+describe the request as free; it records only that no model-generation spend was
+authorized.
 
 Automated tests use synthetic HTTP transports and make no live provider request.
