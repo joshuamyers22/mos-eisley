@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Commit the private deterministic selection of five remaining OpenAI conformance
+  probes before paid outcomes, binding exact model/effort profiles, current rates,
+  token ceilings, three readiness-receipt hashes, and one fresh $0.15 shared ledger.
+- Preserve the campaign commitment as non-authorizing and non-scoreable; every paid
+  probe still requires a fresh independent signature and explicit local consent.
+
 - Allow the metadata-only OpenAI readiness command to select one exact model from the
   reviewed registry while preserving Luna as the default, one GET, zero retries, no
   prompt, and every downstream-authority denial.

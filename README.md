@@ -351,6 +351,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [conformance request-boundary adversarial review](docs/MILESTONE_51_REVIEW.md),
 [live blinded-conformance adversarial review](docs/MILESTONE_52_REVIEW.md),
 [registry-bound model-readiness adversarial review](docs/MILESTONE_53_REVIEW.md),
+[OpenAI conformance-campaign commitment review](docs/MILESTONE_54_REVIEW.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
 [threat model](docs/THREAT_MODEL.md), and [roadmap](docs/ROADMAP.md).
