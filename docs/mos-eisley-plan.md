@@ -2683,3 +2683,27 @@ The authenticated receipt continues to fix provider authorship, billing
 reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
 routing activation to false. Five precommitted successful probes and the five frozen
 failure boundaries remain. No calibration conversion is authorized.
+
+### 25.41 Completed the Sol/high live-conformance profile
+
+The eighth committed attempt in the second campaign traversed the exact independently
+signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 3,776 micro-USD against the campaign ledger, and
+published a strict artifact with 399 input tokens, 109 combined visible/reasoning
+output tokens, including 84 reported reasoning tokens, and 5,334 ms measured latency.
+A separately enrolled observer signed the derived record, and local authentication
+reverified the exact batch, request, authorization, policy, artifact, audit, ledger
+entry, response hash, SDK, and freshness lineage.
+
+This is the third qualifying Sol/high success under the frozen live-conformance gate
+and completes that exact profile at 3 of 3 consecutive authenticated successes.
+Overall progress is 14 of 18: Luna/low, Terra/medium, Sol/medium, and Sol/high are
+complete, while Astra/high and Astra/max are each 1 of 3. The second campaign ledger
+contains eight settled entries, 27,889 micro-USD charged, no unresolved entries, and
+272,111 micro-USD available.
+
+Profile completion is not gate completion. The authenticated receipt continues to
+fix provider authorship, billing reconciliation, complete-batch conformance, grading,
+scoring, quality, promotion, and routing activation to false. Four precommitted
+successful probes and the five frozen failure boundaries remain. No calibration
+conversion is authorized.
