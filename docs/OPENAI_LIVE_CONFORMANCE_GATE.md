@@ -64,6 +64,13 @@ authenticated results are documented in [Milestone 61](MILESTONE_61_REVIEW.md),
 failure-artifact recovery, and prohibition on running sequences 11 and 12 are
 documented in [Milestone 70](MILESTONE_70_REVIEW.md).
 
+A third, five-attempt recovery campaign is privately sealed and publicly committed
+in [Milestone 71](MILESTONE_71_REVIEW.md). It assigns three fresh Astra/high attempts
+to a replacement streak and two fresh Astra/max attempts to its remaining positions,
+all under a new ledger and larger but bounded output and timeout limits. The
+commitment authorizes no execution and does not change the current 13-of-18 gate
+credit.
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct

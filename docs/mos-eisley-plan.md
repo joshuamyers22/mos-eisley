@@ -2759,3 +2759,29 @@ authenticated successes remain historical evidence, current gate credit is 13 of
 precommitted consecutive successes, and Astra/max retains its first success. This
 natural failure does not satisfy controlled boundary F4. A new public campaign and
 budget disposition are required before any further provider request.
+
+### 25.44 Sealed the replacement Astra campaign
+
+A third private conformance manifest is sealed against the same blinded batch and
+plan, the halted v2 manifest, and its terminal sequence-10 failure artifact. It
+commits three fresh Astra/high attempts for a new consecutive streak followed by two
+fresh Astra/max attempts for positions two and three. A deterministic lexical
+selector excludes all six pre-v2 success IDs and all 12 v2 commitments, including
+the failed request and unused sequences 11 and 12. The manifest commitment is
+`df66aba92b145d243bf3cb5b378ec477ea81adafcf072286a250078b8f44b885`.
+
+The sequence-10 boundary showed that 512 combined visible/reasoning output tokens
+were insufficient. The replacement fixes each request at no more than 1,000 input,
+2,048 combined output tokens, 60 seconds, and 112,400 micro-USD using the checked
+Astra standard rates. Five per-request maxima total 562,000 micro-USD. A fresh
+600,000 micro-USD ledger
+`771cc6fcb438d44cbe2f51502bce2c9adc20bd26a89aa25fa17d57321c0ca9c6`
+retains 38,000 micro-USD aggregate headroom and was empty and unblocked at sealing.
+
+Sealing accessed no credential, reserved no spend, transferred no data, and sent no
+provider request. It authorizes neither execution nor continuation of v2. Sequence 1
+still requires fresh short-lived policies, independent authorization, operator
+review, and explicit local consent. Any non-success stops v3. The current gate
+remains 13 of 18, and successful completion of all five attempts would still leave
+the five controlled failure boundaries and every downstream quality, calibration,
+promotion, and activation gate outstanding.
