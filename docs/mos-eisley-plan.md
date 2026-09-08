@@ -2509,3 +2509,32 @@ routing activation. The committed attempts are not presumed successes: every out
 must remain in chronology, and any failure requires a reviewed disposition and a new
 commitment under the frozen gate rules. Fresh per-attempt policies, independent
 signature, and explicit local consent remain mandatory.
+
+### 25.34 Recorded second authenticated Luna/low live conformance success
+
+The first committed attempt in the second campaign traversed the exact independently
+signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 335 micro-USD against the campaign ledger, and
+published a strict artifact with 377 input tokens, 216 combined visible/reasoning
+output tokens, and 13,302 ms measured latency. A separately enrolled observer signed
+the derived record, and local authentication reverified the exact batch, request,
+authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
+freshness lineage.
+
+This is the second qualifying Luna/low success under the frozen live-conformance
+gate and the first completed attempt from the second campaign. Overall progress is 7
+of 18: Luna/low is 2 of 3 and Terra/medium, Sol/medium, Sol/high, Astra/high, and
+Astra/max are each 1 of 3. The second campaign ledger contains one settled entry,
+335 micro-USD charged, no unresolved entries, and 299,665 micro-USD available.
+
+After the provider request had completed, the operator exposed the credential in an
+interactive shell input. The credential was treated as compromised and revoked
+before campaign continuation; a repository scan found no persisted project copy.
+This post-run handling incident does not alter the retained request lineage, but it
+requires a new credential for every later live attempt and remains an operator- and
+shell-history boundary rather than machine-verifiable proof of revocation.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion,
+and routing activation to false. Eleven precommitted successful probes and the five
+frozen failure boundaries remain. No calibration conversion is authorized.
