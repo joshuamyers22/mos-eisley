@@ -126,11 +126,14 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    The remaining three model identities are now visible, and a public hash commits
    the private deterministic selection, exact rate assumptions, token ceilings, and
    one fresh shared $0.15 ledger for five remaining profile probes before paid
-   outcomes exist. This commitment grants no execution authority. Next, execute each
-   committed probe only through a fresh signed ceremony, then cover the intended
-   model/effort matrix and live failure boundaries. Design conversion only after
-   repeated probes cover success and failure boundaries. Run the repeated
-   backend × model × effort sweep on clean and defective samples only after that gate.
+   outcomes exist. This commitment grants no execution authority. The live gate now
+   requires three consecutive, precommitted, distinct authenticated successes in
+   each of the six exact profiles (18 total), complete failed-attempt retention, and
+   the five named operational/provider failure boundaries in
+   `OPENAI_LIVE_CONFORMANCE_GATE.md`. Next, execute each committed probe only through
+   a fresh signed ceremony. Design conversion only after that exact gate passes. Run
+   the repeated backend × model × effort sweep on clean and defective samples only
+   after that gate.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

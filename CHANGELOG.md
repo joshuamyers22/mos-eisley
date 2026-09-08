@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Pin the OpenAI live-conformance exit criterion at three consecutive,
+  precommitted, distinct authenticated successes for each of six exact profiles (18
+  total), with complete failed-attempt retention and reset-after-failure semantics.
+- Define five required provider/operational failure boundaries, isolate deliberate
+  ambiguous exposure in disposable ledgers, and keep calibration conversion disabled
+  until the complete gate passes.
+- Keep CI and release jobs bounded while raising their timeouts to accommodate the
+  full quality, audit, build, container, and release-evidence workflow.
+
 - Commit the private deterministic selection of five remaining OpenAI conformance
   probes before paid outcomes, binding exact model/effort profiles, current rates,
   token ceilings, three readiness-receipt hashes, and one fresh $0.15 shared ledger.

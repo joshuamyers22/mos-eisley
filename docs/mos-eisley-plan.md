@@ -1351,6 +1351,25 @@ The sandbox negative tests and the blindness assertions are the two most importa
 
 M2 and M3 moved ahead of the provider work deliberately. Once the harness can touch the machine, everything after it inherits whatever boundary you built — retrofitting a sandbox around an agent loop that already assumes free filesystem access is a rewrite.
 
+### 21.1 OpenAI live-conformance prerequisite for M12
+
+**Pinned 2026-09-07:** OpenAI broker output cannot enter the M12 empirical sweep
+until six exact profiles—Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high,
+and Astra/max—each have three consecutive, precommitted, distinct authenticated
+successes. This is 18 successes total. Every attempted sample and terminal outcome
+must be retained. After a failed attempt, the affected profile needs three newly
+precommitted consecutive successes following a reviewed root-cause disposition and
+regression test; failures cannot be silently replaced.
+
+The prerequisite also requires five retained failure-boundary results: rejection of
+an expired or mismatched authorization before credential access; a separately
+consented live authentication rejection; a controlled ambiguous post-reservation
+timeout/disconnect with retained exposure; a controlled invalid or identity-mismatched
+structured response; and real-container launcher-death cleanup with read-only recovery.
+Controlled ambiguous faults use dedicated ledgers that are never released or reused
+for success. The complete operational contract and non-authority limits are defined
+in `OPENAI_LIVE_CONFORMANCE_GATE.md`.
+
 ---
 
 ## 22. Open risks

@@ -55,5 +55,7 @@ For each committed probe, derive a fresh short-lived spend and conformance polic
 review the exact serialized request, obtain a separate independent signature, and
 invoke the broker only with explicit local data-transfer consent. Stop after any
 uncertain or violating ledger result. Authenticate observations independently and
-keep every result non-scoreable. Repeated matrix conformance and separately
-authorized failure-boundary probes remain required before calibration conversion.
+keep every result non-scoreable. The exact repeated-success and failure criteria are
+pinned in the [OpenAI live-conformance exit gate](OPENAI_LIVE_CONFORMANCE_GATE.md):
+three consecutive successes in each of six exact profiles plus five named failure
+boundaries. Calibration conversion remains prohibited until that gate passes.
