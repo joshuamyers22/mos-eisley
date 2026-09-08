@@ -83,6 +83,13 @@ current gate credit to 14 of 18 without authorizing sequence 2. Its exact eviden
 and remaining denials are documented in
 [Milestone 73](MILESTONE_73_REVIEW.md).
 
+The second admitted v3 execution also completed and authenticated with a distinct
+sample, request, ledger entry, response, artifact, signature, and receipt. It is
+position two of the replacement Astra/high streak, advancing current gate credit to
+15 of 18 without completing the profile or authorizing sequence 3. Its exact
+evidence and remaining denials are documented in
+[Milestone 74](MILESTONE_74_REVIEW.md).
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
