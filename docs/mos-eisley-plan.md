@@ -2878,3 +2878,29 @@ This result completes the new Astra/high streak at 3 of 3. Current qualifying
 progress is 16 of 18: five profiles are complete and Astra/max remains 1 of 3.
 Sequence 4 begins the remaining Astra/max tranche and requires fresh no-send
 preparation, independent authorization, and explicit local consent.
+
+### 25.49 Authenticated the second Astra/max success
+
+The fourth admitted v3 sequence completed through the corrected immutable container
+boundary and was independently authenticated. It used 373 input and 206 combined
+output tokens, including 181 reported reasoning tokens, over 6,411 ms. The shared
+ledger settled 14,030 micro-USD against the 112,400 micro-USD request maximum and
+now retains 541,330 micro-USD with no unresolved or blocking state. Container
+cleanup reached `removed` on its first attempt.
+
+The completed artifact is
+`08490de0e3f399ff63813525103fd2e337b31d0c89e6b7809d78f00cf692f528`, the
+observer-signed observation payload is
+`01e47b33d54776f8991ab59777fdd3e784c68ff495e8df325e67257f118c5fa3`, and fresh
+authentication produced receipt
+`d27e63abf37d6d0e58999841ea7f8a3309e17ca8a29d950f1526351c953bb0da`.
+Its sample, request, authorization, audit, ledger-entry, response, artifact,
+signature, and receipt identities are distinct from the earlier Astra/max result.
+All provider-authorship, billing, complete-batch, conversion, grading, scoring,
+quality, promotion, and activation claims remain false.
+
+This result is position two of the Astra/max profile. Current qualifying progress is
+17 of 18: five profiles are complete and Astra/max is 2 of 3. Sequence 5 is the
+remaining success assignment and requires fresh no-send preparation, independent
+authorization, and explicit local consent. The success matrix alone will not satisfy
+the gate because all five controlled failure boundaries remain outstanding.
