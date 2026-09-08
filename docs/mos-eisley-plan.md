@@ -2483,3 +2483,29 @@ routing activation to false. The observer statement, local clock, host and key
 custody, and retained evidence remain trusted. Twelve newly precommitted successful
 probes and the five frozen failure boundaries remain. No calibration conversion is
 authorized.
+
+### 25.33 Sealed the second OpenAI live-conformance campaign
+
+A second private campaign manifest now commits the 12 remaining success-matrix
+attempts before any of their provider outcomes are known: two distinct assignments
+for each of Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and Astra/max.
+Selection is mechanical—the two lexicographically smallest sample IDs for each exact
+profile that are absent from the six authenticated prior-success receipts. The
+manifest binds those receipts, the existing blinded batch and plan, the exact route,
+execution sequence, standard pricing source and rates, token caps, and a fresh shared
+ledger. It also requires the campaign to stop after any non-success.
+
+The private manifest digest is
+`c16548cebc197d4515a8cb01226201e1db23412de4c1b92d3bd5ec2e1853b5c8`.
+Its fresh ledger identity is
+`3a70da17b19c50af40722f1746e3ab9b0a0eb5ce32851a89029cfe9a656bfae7`,
+with a 300,000 micro-USD ceiling. Two capped attempts per profile produce a 217,278
+micro-USD worst case and 82,722 micro-USD headroom. At sealing, the ledger contained
+zero entries, zero charged exposure, and no unresolved or blocking state.
+
+The sealing path read no credential, made no provider request, reserved no spend,
+and authorized no data transfer, conformance, retry, grading, scoring, promotion, or
+routing activation. The committed attempts are not presumed successes: every outcome
+must remain in chronology, and any failure requires a reviewed disposition and a new
+commitment under the frozen gate rules. Fresh per-attempt policies, independent
+signature, and explicit local consent remain mandatory.
