@@ -43,7 +43,8 @@ all six profiles are 1 of 3. The retained campaign receipts are documented in
 [Milestone 57](MILESTONE_57_REVIEW.md),
 [Milestone 58](MILESTONE_58_REVIEW.md), and
 [Milestone 59](MILESTONE_59_REVIEW.md). The initial sealed campaign is complete;
-12 newly precommitted successful probes remain.
+the second campaign commits the 12 remaining attempts before their outcomes are
+known, as documented in [Milestone 60](MILESTONE_60_REVIEW.md).
 
 ## Failure-boundary suite
 
