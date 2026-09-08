@@ -2804,3 +2804,26 @@ in the private v3 runner. A fresh authorization identity may be prepared against
 same committed sequence only after this public disposition. It still provides no
 send authority without independent signing and new explicit operator consent; any
 admitted non-success will halt v3.
+
+### 25.46 Authenticated the first replacement Astra/high success
+
+The first admitted v3 sequence completed against the corrected immutable container
+boundary and was independently authenticated. It used 409 input and 438 combined
+output tokens, including 203 reported reasoning tokens, over 13,730 ms. The shared
+ledger settled 25,990 micro-USD against the 112,400 micro-USD request maximum and
+retains 574,010 micro-USD with no unresolved or blocking state. Container cleanup
+reached `removed` on its first attempt.
+
+The completed artifact is
+`2c94ce6d6126874368afa26fe0af9f30997615fc80670225d541120288590185`, the
+observer-signed observation is
+`fc821ec9ba65a54587c75f20ecae0b9b80e17ca36a278f681fdb407c3fea0b9d`, and fresh
+authentication produced receipt
+`07e85687a8093574301c37a1470edeef612606beb7dc9e8edd1b77c03cd604eb`.
+All provider-authorship, billing, complete-batch, conversion, grading, scoring,
+quality, promotion, and activation claims remain false.
+
+This result begins a new Astra/high streak rather than joining successes across the
+sequence-10 failure. Current qualifying progress is 14 of 18: four lower profiles
+remain complete, Astra/high is 1 of 3, and Astra/max is 1 of 3. Sequence 2 requires
+fresh no-send preparation, independent authorization, and explicit local consent.

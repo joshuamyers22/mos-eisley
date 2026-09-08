@@ -77,6 +77,12 @@ pinned image was absent. It sent no request and created no ledger entry, so sequ
 fresh-preparation requirement are documented in
 [Milestone 72](MILESTONE_72_REVIEW.md). Gate credit remains 13 of 18.
 
+The first admitted v3 execution subsequently completed and authenticated under the
+corrected boundary. It is position one of the new Astra/high streak, advancing
+current gate credit to 14 of 18 without authorizing sequence 2. Its exact evidence
+and remaining denials are documented in
+[Milestone 73](MILESTONE_73_REVIEW.md).
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
