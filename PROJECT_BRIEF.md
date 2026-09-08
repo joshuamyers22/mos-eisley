@@ -6,7 +6,8 @@
   judge -> policy verdict, plus a provider-neutral multi-turn agent loop using an
   inert fixture tool. Both paths produce private, content-verified offline replays.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
-  capabilities are documented but not credential-conformance verified.
+  one independently authorized Luna/low assignment has passed credentialed
+  conformance, while complete profile and failure-boundary conformance remains open.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or
@@ -19,6 +20,11 @@
   independent groups and simultaneous bounds across the planned comparison family;
   repeated runs cannot inflate the independent sample count. Reports explicitly
   deny promotion readiness.
+- OpenAI conformance prerequisite: calibration conversion remains disabled until
+  three consecutive, precommitted, distinct authenticated successes exist for each
+  of six exact model/effort profiles (18 total), every failed attempt is retained,
+  and the five named live/controlled failure boundaries pass. The current evidence
+  contains one qualifying Luna/low success and a five-profile one-probe commitment.
 - Grading: decisions bind each emitted finding by index/hash, identify matched
   defects or false positives, and retain unresolved findings. Two-grader comparison
   reports disagreements without automatically resolving them or asserting independence.

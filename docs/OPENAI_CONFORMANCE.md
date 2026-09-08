@@ -79,6 +79,17 @@ Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.
 
+## Live-conformance exit criterion
+
+One successful command is not sufficient. Before brokered artifacts may become
+eligible for a separately reviewed calibration converter, the
+[OpenAI live-conformance gate](OPENAI_LIVE_CONFORMANCE_GATE.md) requires three
+consecutive, precommitted, distinct authenticated successes for each of six exact
+model/effort profiles, plus five named provider and controlled operational failure
+boundaries. Failed attempts cannot be discarded, ambiguous exposure cannot be
+released, and deliberately faulted runs use ledgers separate from successful probes.
+Passing this gate still does not authorize grading, scoring, promotion, or routing.
+
 The independent authorization signs the deterministic request hash rather than a
 second cleartext copy of the request. The authorizer therefore needs the blinded
 batch, reviewed policies, and trusted deterministic builder (or an independently
