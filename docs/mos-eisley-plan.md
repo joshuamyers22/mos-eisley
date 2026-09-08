@@ -2904,3 +2904,31 @@ This result is position two of the Astra/max profile. Current qualifying progres
 remaining success assignment and requires fresh no-send preparation, independent
 authorization, and explicit local consent. The success matrix alone will not satisfy
 the gate because all five controlled failure boundaries remain outstanding.
+
+### 25.50 Completed the OpenAI live success matrix
+
+The fifth and final admitted v3 sequence completed through the corrected immutable
+container boundary and was independently authenticated. It used 399 input and 349
+combined output tokens, including 324 reported reasoning tokens, over 9,976 ms. The
+shared ledger settled 21,440 micro-USD against the 112,400 micro-USD request maximum
+and retains 519,890 micro-USD of unused campaign capacity with no unresolved or
+blocking state. Container cleanup reached `removed` on its first attempt.
+
+The completed artifact is
+`937c80e6f0bb31da1114a1733f13379c275e2a4afe1888c78019cc2cc2ae3d55`, the
+observer-signed observation payload is
+`c7d8e67ce75dd4b80b4dfcf165b73daeee4f3dd230ac3de2563e98bd41604232`, and fresh
+authentication produced receipt
+`42f593529a9052da8d1d776b4955d7945b0e854f492ba012bdfe7cefa2b3c1fe`.
+The three Astra/max positions have distinct sample, request, authorization, audit,
+ledger-entry, response, artifact, signature, and receipt identities. All
+provider-authorship, billing, complete-batch, conversion, grading, scoring, quality,
+promotion, and activation claims remain false.
+
+All six registered profiles now have three qualifying consecutive authenticated
+successes, completing the 18-of-18 success matrix. Twenty successes remain in
+historical evidence because the two pre-failure Astra/high results are retained but
+do not count across the reset. The five-request v3 campaign is closed and its unused
+ledger headroom authorizes no further send. The OpenAI live-conformance exit gate
+remains incomplete until controlled boundaries F1 through F5 pass; only then may a
+reviewed gate report consider calibration conversion.
