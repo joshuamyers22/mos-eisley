@@ -2729,3 +2729,33 @@ The authenticated receipt continues to fix provider authorship, billing
 reconciliation, complete-batch conformance, grading, scoring, quality, promotion,
 and routing activation to false. Three precommitted successful probes and the five
 frozen failure boundaries remain. No calibration conversion is authorized.
+
+### 25.43 Recovered the Astra/high output-limit failure
+
+The tenth committed attempt in the second campaign reached the provider on
+2026-09-08, received a hash-bound response, settled 29,850 micro-USD, and removed its
+container. The receipt recorded 425 input tokens and exactly the configured 512
+combined output tokens over 18,437 ms. Strict critique compilation failed, so the
+attempt produced no success artifact. Exact use of the output ceiling strongly
+supports truncation, consistent with OpenAI's definition of `max_output_tokens` as
+including visible and reasoning generation, but retained evidence does not prove the
+provider's exact terminal status or expose its raw body.
+
+Brokered evaluation artifact schema 4 now preserves this distinct post-response
+validation boundary. The repaired offline compiler bound sequence 10's independent
+authorization, response-received audit, response hash, settled ledger entry, latency,
+and cost into a non-scoreable `invalid_response` / `validation` artifact. The normal
+live command now performs the same publication automatically with a structured
+rejection event and exit code 2. It retains no raw response, prompt, provider request
+ID, critique, or invented usage and fixes retry, automatic release, live-result
+eligibility, and promotion to false. Recorded regression coverage exercises
+incomplete output, automatic publication, offline recovery, reply-hash substitution,
+and credential non-persistence.
+
+Campaign v2 is halted and its unused eleventh and twelfth requests are not
+authorized to run. The failed attempt breaks the Astra/high streak: although 15
+authenticated successes remain historical evidence, current gate credit is 13 of
+18. The four lower profiles remain complete, Astra/high requires three newly
+precommitted consecutive successes, and Astra/max retains its first success. This
+natural failure does not satisfy controlled boundary F4. A new public campaign and
+budget disposition are required before any further provider request.

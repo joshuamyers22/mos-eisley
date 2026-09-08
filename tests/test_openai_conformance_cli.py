@@ -281,6 +281,64 @@ class OpenAIConformanceCLITests(TestCase):
                 ),
             )
 
+    def test_incomplete_response_writes_terminal_rejection_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            response = conformance_response("gpt-6-astra")
+            response["status"] = "incomplete"
+            response["incomplete_details"] = {"reason": "max_output_tokens"}
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(return_value=100),
+                ),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.create_response",
+                    new=AsyncMock(return_value=response),
+                ),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(error.getvalue(), "")
+            event = json.loads(output.getvalue())
+            self.assertEqual(event["type"], "openai.conformance.rejected")
+            self.assertEqual(event["outcome_status"], "response_received")
+            self.assertEqual(event["ledger_status"], "settled")
+            self.assertEqual(event["error"], "invalid_response")
+            self.assertEqual(event["failure_stage"], "validation")
+            self.assertFalse(event["retry_permitted"])
+            self.assertFalse(event["promotion_eligible"])
+
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            artifact = BrokeredEvaluationArtifact.model_validate_json(
+                (root / "artifact.json").read_bytes()
+            )
+            self.assertEqual(artifact.status, "error")
+            self.assertEqual(artifact.error, "invalid_response")
+            self.assertEqual(artifact.failure_stage, "validation")
+            self.assertEqual(artifact.ledger_status, "settled")
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(
+                (state.phase, state.ledger_status, state.outcome_status),
+                ("finished", "settled", "response_received"),
+            )
+            self.assertNotIn(
+                b"secret-test-key",
+                b"".join(
+                    path.read_bytes() for path in root.rglob("*") if path.is_file()
+                ),
+            )
+
     def test_consent_fails_before_files_credentials_or_dispatch(self) -> None:
         options = [
             "openai-conformance",

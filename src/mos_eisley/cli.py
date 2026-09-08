@@ -152,6 +152,7 @@ from mos_eisley.run.broker_audit import (
 )
 from mos_eisley.run.brokered_evaluation import (
     BrokeredEvaluationArtifact,
+    BrokeredEvaluationResponseError,
     compile_brokered_evaluation,
     compile_brokered_evaluation_failure,
     compile_brokered_evaluation_result_set,
@@ -6546,9 +6547,44 @@ def main(argv: Sequence[str] | None = None) -> int:
                 lifetime_seconds=timeout,
             )
             reply = run_isolated_broker(broker, container, timeout=timeout)
-            artifact = compile_brokered_evaluation(
-                reply, authorization, audit_directory, ledger
-            )
+            try:
+                artifact = compile_brokered_evaluation(
+                    reply, authorization, audit_directory, ledger
+                )
+            except BrokeredEvaluationResponseError:
+                artifact = compile_brokered_evaluation_failure(
+                    authorization,
+                    audit_directory,
+                    ledger,
+                    reply,
+                )
+                _write_contract(artifact_output, artifact)
+                print(
+                    json.dumps(
+                        {
+                            "type": "openai.conformance.rejected",
+                            "mode": artifact.mode,
+                            "authorization_path": str(authorization_output),
+                            "audit_path": str(audit_directory),
+                            "artifact_path": str(artifact_output),
+                            "lifecycle_path": (
+                                str(container.lifecycle_path)
+                                if container.lifecycle_path is not None
+                                else None
+                            ),
+                            "artifact_sha256": artifact.artifact_sha256,
+                            "outcome_status": artifact.outcome_status,
+                            "ledger_status": artifact.ledger_status,
+                            "error": artifact.error,
+                            "failure_stage": artifact.failure_stage,
+                            "latency_ms": artifact.latency_ms,
+                            "cost_microusd": artifact.cost_microusd,
+                            "retry_permitted": artifact.retry_permitted,
+                            "promotion_eligible": artifact.promotion_eligible,
+                        }
+                    )
+                )
+                return 2
             assert artifact.usage is not None
             _write_contract(artifact_output, artifact)
             print(

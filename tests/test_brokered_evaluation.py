@@ -154,6 +154,56 @@ class BrokeredEvaluationTests(IsolatedAsyncioTestCase):
                 ):
                     compile_brokered_evaluation(reply, expected, root / "audit", ledger)
 
+    async def test_incomplete_response_becomes_terminal_validation_failure(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            broker, expected, ledger = self._context(
+                root,
+                Critique().model_dump_json(),
+                status="incomplete",
+            )
+            reply = BrokerReply(
+                response=await broker.redeem(canonical_bytes(broker.claim()))
+            )
+            with self.assertRaisesRegex(
+                ValueError, "brokered critique validation failed"
+            ):
+                compile_brokered_evaluation(reply, expected, root / "audit", ledger)
+
+            artifact = compile_brokered_evaluation_failure(
+                expected, root / "audit", ledger, reply
+            )
+            self.assertEqual(artifact.schema_version, 4)
+            self.assertEqual(artifact.status, "error")
+            self.assertEqual(artifact.outcome_status, "response_received")
+            self.assertEqual(artifact.ledger_status, "settled")
+            self.assertEqual(artifact.error, "invalid_response")
+            self.assertEqual(artifact.failure_stage, "validation")
+            self.assertEqual(
+                artifact.provider_response_sha256, digest(canonical_bytes(reply))
+            )
+            self.assertEqual(artifact.cost_microusd, 140)
+            self.assertIsNone(artifact.provider_request_id)
+            self.assertIsNone(artifact.usage)
+            self.assertIsNone(artifact.critique)
+            self.assertFalse(artifact.live_result_eligible)
+            self.assertFalse(artifact.retry_permitted)
+            self.assertFalse(artifact.promotion_eligible)
+
+            recovered = compile_brokered_evaluation_failure(
+                expected, root / "audit", ledger
+            )
+            self.assertEqual(recovered, artifact)
+            changed = reply.model_copy(update={"response": {"changed": True}})
+            with self.assertRaisesRegex(
+                ValueError, "response validation failure provenance is incomplete"
+            ):
+                compile_brokered_evaluation_failure(
+                    expected, root / "audit", ledger, changed
+                )
+
     def test_unredeemed_grant_cannot_mint_provenance(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

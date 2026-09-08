@@ -21,9 +21,16 @@ from mos_eisley.run.broker_audit import (
 from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.spend_ledger import SpendLedger
 
+BrokeredEvaluationFailureKind = BrokerFailureKind | Literal["invalid_response"]
+BrokeredEvaluationFailureStage = ProviderFailureStage | Literal["validation"]
+
+
+class BrokeredEvaluationResponseError(ValueError):
+    """A received provider response cannot become successful conformance."""
+
 
 class BrokeredEvaluationArtifact(Contract):
-    schema_version: Literal[1, 2, 3] = 3
+    schema_version: Literal[1, 2, 3, 4] = 4
     mode: Literal["broker_conformance"] = "broker_conformance"
     authorization: AssignmentAuthorization
     authorization_sha256: Digest
@@ -43,8 +50,8 @@ class BrokeredEvaluationArtifact(Contract):
     latency_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
     cost_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)] | None = None
     critique: Critique | None = None
-    error: BrokerFailureKind | None = None
-    failure_stage: ProviderFailureStage | None = Field(
+    error: BrokeredEvaluationFailureKind | None = None
+    failure_stage: BrokeredEvaluationFailureStage | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     retry_permitted: Literal[False] = False
@@ -57,6 +64,7 @@ class BrokeredEvaluationArtifact(Contract):
         if self.authorization_sha256 != digest(canonical_bytes(self.authorization)):
             raise ValueError("brokered artifact authorization hash mismatch")
         completed = self.status == "completed"
+        validation_failed = not completed and self.outcome_status == "response_received"
         if self.schema_version == 1 and not completed:
             raise ValueError("legacy brokered artifacts cannot encode failures")
         if completed and (
@@ -72,20 +80,42 @@ class BrokeredEvaluationArtifact(Contract):
             or self.failure_stage is not None
         ):
             raise ValueError("completed brokered artifact is incomplete")
-        if not completed and (
-            self.outcome_status == "response_received"
-            or self.ledger_status == "settled"
-            or self.provider_response_sha256 is not None
+        if validation_failed and (
+            self.schema_version != 4
+            or self.ledger_status != "settled"
+            or self.provider_response_sha256 is None
             or self.provider_request_id is not None
             or self.usage is not None
             or self.latency_ms is None
+            or self.cost_microusd is None
             or self.critique is not None
-            or self.error is None
-            or (self.ledger_status == "absent") != (self.cost_microusd is None)
+            or self.error != "invalid_response"
+            or self.failure_stage != "validation"
+        ):
+            raise ValueError("response validation failure artifact is inconsistent")
+        if (
+            not completed
+            and not validation_failed
+            and (
+                self.ledger_status == "settled"
+                or self.provider_response_sha256 is not None
+                or self.provider_request_id is not None
+                or self.usage is not None
+                or self.latency_ms is None
+                or self.critique is not None
+                or self.error is None
+                or (self.ledger_status == "absent") != (self.cost_microusd is None)
+            )
         ):
             raise ValueError("failed brokered artifact is inconsistent")
         if self.schema_version in (1, 2) and self.failure_stage is not None:
             raise ValueError("legacy brokered artifact cannot declare a failure stage")
+        if self.schema_version in (1, 2, 3) and (
+            self.error == "invalid_response" or self.failure_stage == "validation"
+        ):
+            raise ValueError(
+                "legacy brokered artifact cannot encode response rejection"
+            )
         if self.schema_version in (1, 2) and self.error not in (
             None,
             "provider_error",
@@ -93,7 +123,9 @@ class BrokeredEvaluationArtifact(Contract):
             "cancelled",
         ):
             raise ValueError("legacy brokered artifact has an invalid error")
-        if self.schema_version == 3 and completed == (self.failure_stage is not None):
+        if self.schema_version in (3, 4) and completed == (
+            self.failure_stage is not None
+        ):
             raise ValueError("brokered artifact failure stage does not match status")
         if self.outcome_status == "cancelled" and self.error != "cancelled":
             raise ValueError("cancelled brokered artifact classification is invalid")
@@ -204,7 +236,9 @@ def compile_brokered_evaluation(
         if response.provider_request_id is None:
             raise ValueError("provider request identity is absent")
     except (ProviderError, ValidationError, ValueError):
-        raise ValueError("brokered critique validation failed") from None
+        raise BrokeredEvaluationResponseError(
+            "brokered critique validation failed"
+        ) from None
     return BrokeredEvaluationArtifact(
         authorization=expected,
         authorization_sha256=state.authorization_sha256,
@@ -225,10 +259,42 @@ def compile_brokered_evaluation_failure(
     expected: AssignmentAuthorization,
     audit_directory: Path,
     ledger: SpendLedger,
+    reply: BrokerReply | None = None,
 ) -> BrokeredEvaluationArtifact:
-    """Preserve one terminal broker failure without inventing response evidence."""
+    """Preserve one terminal broker or response-validation failure."""
 
     state = inspect_broker_recovery(audit_directory, expected, ledger)
+    if state.outcome_status == "response_received":
+        if (
+            state.phase != "finished"
+            or state.outcome_sha256 is None
+            or state.response_sha256 is None
+            or state.latency_ms is None
+            or state.error is not None
+            or state.failure_stage is not None
+            or state.ledger_status != "settled"
+            or (
+                reply is not None
+                and digest(canonical_bytes(reply)) != state.response_sha256
+            )
+        ):
+            raise ValueError("response validation failure provenance is incomplete")
+        entry = ledger.entry_status(expected.ledger_entry_id)
+        if entry is None or entry.status != "settled":
+            raise ValueError("response validation failure spending is incomplete")
+        return BrokeredEvaluationArtifact(
+            authorization=expected,
+            authorization_sha256=state.authorization_sha256,
+            outcome_sha256=state.outcome_sha256,
+            status="error",
+            outcome_status="response_received",
+            ledger_status="settled",
+            provider_response_sha256=state.response_sha256,
+            latency_ms=state.latency_ms,
+            cost_microusd=entry.charged_microusd,
+            error="invalid_response",
+            failure_stage="validation",
+        )
     if (
         state.phase != "finished"
         or state.outcome_status not in ("failed", "cancelled")
