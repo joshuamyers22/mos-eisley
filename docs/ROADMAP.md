@@ -123,7 +123,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    activation remain denied. Metadata-only readiness can now check each exact
    registry model independently without generation or spend authority, but those
    receipts and one successful probe cannot substitute for repeated conformance.
-   Next, check the remaining model identities, then cover the intended
+   The remaining three model identities are now visible, and a public hash commits
+   the private deterministic selection, exact rate assumptions, token ceilings, and
+   one fresh shared $0.15 ledger for five remaining profile probes before paid
+   outcomes exist. This commitment grants no execution authority. Next, execute each
+   committed probe only through a fresh signed ceremony, then cover the intended
    model/effort matrix and live failure boundaries. Design conversion only after
    repeated probes cover success and failure boundaries. Run the repeated
    backend × model × effort sweep on clean and defective samples only after that gate.
