@@ -71,6 +71,12 @@ all under a new ledger and larger but bounded output and timeout limits. The
 commitment authorizes no execution and does not change the current 13-of-18 gate
 credit.
 
+The first sequence-1 invocation stopped before broker admission because its locally
+pinned image was absent. It sent no request and created no ledger entry, so sequence
+1 remains unconsumed. The preserved stub, corrected immutable image binding, and
+fresh-preparation requirement are documented in
+[Milestone 72](MILESTONE_72_REVIEW.md). Gate credit remains 13 of 18.
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
