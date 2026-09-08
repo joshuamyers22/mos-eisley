@@ -35,9 +35,13 @@ profile requires three newly precommitted consecutive successes following a revi
 root-cause disposition and regression test. No held, uncertain, violating, corrupt,
 or unexplained entry may remain in a success ledger when the gate is evaluated.
 
-The first authenticated Luna/low probe counts as one success. If every probe in the
-current five-profile campaign succeeds, every profile will stand at one of three and
-12 further successful probes will remain.
+The first authenticated Luna/low probe and the first authenticated Terra/medium
+campaign probe each count as one success. Current progress is therefore 2 of 18:
+Luna/low is 1 of 3, Terra/medium is 1 of 3, and the other four profiles are 0 of 3.
+The retained Terra receipt is documented in
+[Milestone 55](MILESTONE_55_REVIEW.md). If every remaining probe in the current
+five-profile campaign succeeds, every profile will stand at one of three and 12
+further successful probes will remain.
 
 ## Failure-boundary suite
 
