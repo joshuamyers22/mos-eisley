@@ -2853,3 +2853,28 @@ This result is position two of the new Astra/high streak. Current qualifying
 progress is 15 of 18: four lower profiles remain complete, Astra/high is 2 of 3,
 and Astra/max is 1 of 3. Sequence 3 requires fresh no-send preparation, independent
 authorization, and explicit local consent.
+
+### 25.48 Completed the replacement Astra/high streak
+
+The third admitted v3 sequence completed through the corrected immutable container
+boundary and was independently authenticated. It used 392 input and 71 combined
+output tokens, including 46 reported reasoning tokens, over 5,087 ms. The shared
+ledger settled 7,470 micro-USD against the 112,400 micro-USD request maximum and now
+retains 555,360 micro-USD with no unresolved or blocking state. Container cleanup
+reached `removed` on its first attempt.
+
+The completed artifact is
+`7e5fa9b48e38ac21b69921a621e3af95235f00c3806a227f65a75898d30d86c8`, the
+observer-signed observation payload is
+`3301fb4d710c0108ade8ff1031c4c7af713e80ef19d36773796430b4f2610861`, and fresh
+authentication produced receipt
+`140022e6666d9d69a9e93d9afcf361ad856a7a58f2d307cd7226cdbb69c48101`.
+All three replacement positions have distinct sample, request, authorization,
+audit, ledger-entry, response, artifact, signature, and receipt identities. All
+provider-authorship, billing, complete-batch, conversion, grading, scoring, quality,
+promotion, and activation claims remain false.
+
+This result completes the new Astra/high streak at 3 of 3. Current qualifying
+progress is 16 of 18: five profiles are complete and Astra/max remains 1 of 3.
+Sequence 4 begins the remaining Astra/max tranche and requires fresh no-send
+preparation, independent authorization, and explicit local consent.

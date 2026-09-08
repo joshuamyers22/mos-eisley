@@ -90,6 +90,12 @@ position two of the replacement Astra/high streak, advancing current gate credit
 evidence and remaining denials are documented in
 [Milestone 74](MILESTONE_74_REVIEW.md).
 
+The third admitted v3 execution completed and authenticated through another
+distinct lineage. It completes the new three-success Astra/high streak and advances
+current gate credit to 16 of 18 without completing the overall gate or authorizing
+the Astra/max transition. Its exact evidence and remaining denials are documented
+in [Milestone 75](MILESTONE_75_REVIEW.md).
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
