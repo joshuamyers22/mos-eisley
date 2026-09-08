@@ -2434,3 +2434,27 @@ routing activation to false. The observer statement, local clock, host and key
 custody, and retained evidence remain trusted. Two probes remain in the initial
 campaign, followed by 12 newly precommitted successes and the five frozen failure
 boundaries. No calibration conversion is authorized.
+
+### 25.31 Recorded first authenticated Astra/high live conformance success
+
+The committed Astra/high campaign probe traversed the exact independently signed,
+explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 18,050 micro-USD against the shared campaign ledger,
+and published a strict artifact with 390 input tokens, 283 combined
+visible/reasoning output tokens, and 9,569 ms measured latency. A separately enrolled
+observer signed the derived record, and local authentication reverified the exact
+batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
+SDK, and freshness lineage.
+
+This is one qualifying Astra/high success under the frozen live-conformance gate.
+Together with the Luna/low, Terra/medium, Sol/medium, and Sol/high results, progress
+is 5 of 18: each of those profiles is 1 of 3. The shared success ledger contains four
+settled campaign entries, 32,974 micro-USD charged in total, no unresolved entries,
+and 117,026 micro-USD available.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
+routing activation to false. The observer statement, local clock, host and key
+custody, and retained evidence remain trusted. One Astra/max probe remains in the
+initial campaign, followed by 12 newly precommitted successes and the five frozen
+failure boundaries. No calibration conversion is authorized.
