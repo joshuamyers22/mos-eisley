@@ -2362,3 +2362,27 @@ of an enrolled key, not human identity or informed judgment. Trust-policy custod
 signer independence, clocks, same-UID replacement, and ledger rollback/cloning remain
 external. Tests use synthetic keys and transport behavior and make no credentialed or
 paid request.
+
+### 25.28 Recorded first authenticated Terra/medium live conformance success
+
+The first committed Terra/medium campaign probe traversed the exact independently
+signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled the shared campaign ledger at 3,468 micro-USD, and
+published a strict artifact with 384 input tokens, 225 combined visible/reasoning
+output tokens, and 6,642 ms measured latency. A separately enrolled observer signed
+the derived record, and local authentication reverified the exact batch, request,
+authorization, policy, artifact, audit, ledger entry, response hash, SDK, and freshness
+lineage.
+
+This is one qualifying Terra/medium success under the frozen live-conformance gate.
+Together with the earlier Luna/low result, progress is 2 of 18 required successes:
+Luna/low and Terra/medium are each 1 of 3. The unused expired no-send authorization
+package did not access a credential, create an audit, reserve spend, or contact the
+provider and does not count as a live attempt.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
+routing activation to false. The observer statement, local clock, host and key custody,
+and retained evidence remain trusted. Four probes remain in the initial campaign,
+followed by 12 newly precommitted successes and the five frozen failure boundaries.
+No calibration conversion is authorized.
