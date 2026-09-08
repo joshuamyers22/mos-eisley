@@ -2785,3 +2785,22 @@ review, and explicit local consent. Any non-success stops v3. The current gate
 remains 13 of 18, and successful completion of all five attempts would still leave
 the five controlled failure boundaries and every downstream quality, calibration,
 promotion, and activation gate outstanding.
+
+### 25.45 Preserved the v3 pre-dispatch image failure
+
+The first v3 sequence-1 invocation failed closed because its previously pinned
+Docker image was absent locally. Policy and signature verification completed and the
+API key entered ephemeral process memory, but the broker never recorded admission.
+The audit remained `prepared`, the ledger remained `absent` with zero entries and
+zero exposure, no container lifecycle existed, and no prompt or provider request
+crossed the execution boundary. This is a local preparation failure, not a campaign
+result, retry, controlled boundary, or change to the 13-of-18 gate.
+
+The expired signed stub is preserved intact and cannot mint conformance evidence. A
+locked rebuild produced no-volume image
+`sha256:929977cba2903c990b567b1341f0d97b965ef31e670c73a4db30638204856dc7`,
+which completed an offline, read-only, no-network smoke invocation and is now pinned
+in the private v3 runner. A fresh authorization identity may be prepared against the
+same committed sequence only after this public disposition. It still provides no
+send authority without independent signing and new explicit operator consent; any
+admitted non-success will halt v3.
