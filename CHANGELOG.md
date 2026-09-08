@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Review the project and imported adaptive-reasoning/adversarial-loop plans; add
+  revised repository-owned designs and integrate plan §26 with the delivery roadmap.
+  Correct stale review examples and specify independent readings, test-binding
+  integrity, bounded correction, proxy-versus-label outcomes, feasible statistical
+  studies, owner-scoped routing evidence and atomic activation prerequisites.
+  This is a planning change and enables no runtime capability.
+
 - Add current skill-release evidence that semantically reverifies a retained package,
   recomputes both authenticated evaluation lineages, and binds the exact archive to
   its signed promotion receipt while literally denying installation, activation,

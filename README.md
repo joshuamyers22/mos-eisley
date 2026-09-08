@@ -205,6 +205,9 @@ Remote storage adapters and comprehensive user-isolation enforcement are not yet
 implemented; the current private-file behavior is not a claim of those guarantees.
 
 See the [project brief](PROJECT_BRIEF.md),
+[integrated project review](docs/PROJECT_REVIEW_2026-09-08.md),
+[revised adaptive routing design](docs/adaptive-reasoning-routing.md),
+[revised adversarial-loop plan](docs/adversarial-review-loop-project-plan.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),

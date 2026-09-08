@@ -1,5 +1,28 @@
 # Delivery roadmap
 
+**Integrated project review, 2026-09-08:** adopt the revised
+[adaptive reasoning design](adaptive-reasoning-routing.md) and
+[adversarial review-loop project plan](adversarial-review-loop-project-plan.md)
+under [plan §26](mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract).
+The [review](PROJECT_REVIEW_2026-09-08.md) records gaps, decisions and local checks.
+These are planned extensions; current implementation status below is unchanged.
+Execute this dependency order alongside the existing capability workstreams:
+
+| Order | Next deliverable | Gate |
+|---|---|---|
+| G0/G1 | Clause/decision/outcome contracts, recorded conversation/review slice and sealed plan-reading experiment | Accurate private records, replay, no early reveal, revision invalidation, cancel/resume |
+| G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
+| G3 | Affordable independent utility study | Pre-spend sample/assignment feasibility, protected holdout, clean/defective labels and whole-task outcomes |
+| G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
+| G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
+| G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+
+G0/G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
+qualified; retain fixed measurement components and full initial judging. Do not
+remove reviewers based on overlap or learn correctness from judge/test proxies.
+All work retains the user-owned data, no-history-retrieval, containment and spending
+contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -124,6 +147,11 @@ capabilities, not current automatic template or memory loading.
    Expose session/task overrides and explainable decisions; new strategies retain
    quality, spending, privacy, and activation gates. See plan §7.6 for planned
    interface, model-switching, fallback, and acceptance requirements.
+   Extend that interface through R0–R4 in the revised routing design: pre-dispatch
+   distributions and actual actions, versioned outcomes, fixed baseline, qualified
+   offline lookup/cascade comparisons, and then gated activation. Output-budget
+   routing and off-policy inference are new schema/statistical work, not options
+   supported by today's fixed-matrix scorer.
 5. **In progress — prompt skill evidence:** exact instructions now participate in
    evaluation candidate and request identity. A sealed two-arm protocol enforces a
    prompt-only persona-skill treatment, paired independent-group statistics, full
@@ -139,6 +167,11 @@ capabilities, not current automatic template or memory loading.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+   Integrate L0–L5 from the revised loop plan: immutable clauses, fresh sealed
+   readings, blind independent tests, whole-package freezing and reviewed bindings,
+   full initial judging, persistent correction budgets and final full verification.
+   Independent labels precede any automatic correction bypass or reviewer downgrade;
+   no research-site GUI or mandatory Postgres is required.
    Add creator-led coding: creator writes the plan and executable tests, critic
    reviews both, judge adjudicates, creator approves the exact plan/test revisions,
    then delegates at least one meaningful coding subtask
