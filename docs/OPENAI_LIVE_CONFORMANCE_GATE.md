@@ -36,26 +36,27 @@ root-cause disposition and regression test. No held, uncertain, violating, corru
 or unexplained entry may remain in a success ledger when the gate is evaluated.
 
 The first authenticated Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and
-Astra/max probes each count as one success. The first eight completed attempts from
-the second campaign complete Luna/low, Terra/medium, Sol/medium, and Sol/high.
-Current progress is therefore 14 of 18: those four profiles are complete at 3 of 3,
-and Astra/high and Astra/max are each 1 of 3. The retained campaign receipts are
-documented in
+Astra/max probes each count as one success. The first nine completed attempts from
+the second campaign complete Luna/low, Terra/medium, Sol/medium, and Sol/high and
+advance Astra/high to 2 of 3. Current progress is therefore 15 of 18: those four
+profiles are complete at 3 of 3, Astra/high is 2 of 3, and Astra/max is 1 of 3. The
+retained campaign receipts are documented in
 [Milestone 55](MILESTONE_55_REVIEW.md),
 [Milestone 56](MILESTONE_56_REVIEW.md),
 [Milestone 57](MILESTONE_57_REVIEW.md),
 [Milestone 58](MILESTONE_58_REVIEW.md), and
 [Milestone 59](MILESTONE_59_REVIEW.md). The initial sealed campaign is complete;
 the second campaign commits the 12 remaining attempts before their outcomes are
-known, as documented in [Milestone 60](MILESTONE_60_REVIEW.md), and its first eight
+known, as documented in [Milestone 60](MILESTONE_60_REVIEW.md), and its first nine
 authenticated results are documented in [Milestone 61](MILESTONE_61_REVIEW.md),
 [Milestone 62](MILESTONE_62_REVIEW.md),
 [Milestone 63](MILESTONE_63_REVIEW.md),
 [Milestone 64](MILESTONE_64_REVIEW.md),
 [Milestone 65](MILESTONE_65_REVIEW.md),
 [Milestone 66](MILESTONE_66_REVIEW.md),
-[Milestone 67](MILESTONE_67_REVIEW.md), and
-[Milestone 68](MILESTONE_68_REVIEW.md).
+[Milestone 67](MILESTONE_67_REVIEW.md),
+[Milestone 68](MILESTONE_68_REVIEW.md), and
+[Milestone 69](MILESTONE_69_REVIEW.md).
 
 ## Failure-boundary suite
 
