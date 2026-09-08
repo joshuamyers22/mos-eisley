@@ -2386,3 +2386,27 @@ routing activation to false. The observer statement, local clock, host and key c
 and retained evidence remain trusted. Four probes remain in the initial campaign,
 followed by 12 newly precommitted successes and the five frozen failure boundaries.
 No calibration conversion is authorized.
+
+### 25.29 Recorded first authenticated Sol/medium live conformance success
+
+The committed Sol/medium campaign probe traversed the exact independently signed,
+explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 8,448 micro-USD against the shared campaign ledger,
+and published a strict artifact with 377 input tokens, 347 combined
+visible/reasoning output tokens, and 9,300 ms measured latency. A separately enrolled
+observer signed the derived record, and local authentication reverified the exact
+batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
+SDK, and freshness lineage.
+
+This is one qualifying Sol/medium success under the frozen live-conformance gate.
+Together with the earlier Luna/low and Terra/medium results, progress is 3 of 18:
+each of those profiles is 1 of 3. The shared success ledger contains two settled
+campaign entries, 11,916 micro-USD charged in total, no unresolved entries, and
+138,084 micro-USD available.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
+routing activation to false. The observer statement, local clock, host and key
+custody, and retained evidence remain trusted. Three probes remain in the initial
+campaign, followed by 12 newly precommitted successes and the five frozen failure
+boundaries. No calibration conversion is authorized.
