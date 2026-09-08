@@ -96,6 +96,12 @@ current gate credit to 16 of 18 without completing the overall gate or authorizi
 the Astra/max transition. Its exact evidence and remaining denials are documented
 in [Milestone 75](MILESTONE_75_REVIEW.md).
 
+The fourth admitted v3 execution completed and authenticated as position two of the
+Astra/max profile. It advances current gate credit to 17 of 18 without completing
+that profile, the overall gate, or authorizing sequence 5. Its exact evidence and
+remaining denials are documented in
+[Milestone 76](MILESTONE_76_REVIEW.md).
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
