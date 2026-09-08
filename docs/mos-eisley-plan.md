@@ -2707,3 +2707,25 @@ fix provider authorship, billing reconciliation, complete-batch conformance, gra
 scoring, quality, promotion, and routing activation to false. Four precommitted
 successful probes and the five frozen failure boundaries remain. No calibration
 conversion is authorized.
+
+### 25.42 Recorded second authenticated Astra/high live conformance success
+
+The ninth committed attempt in the second campaign traversed the exact independently
+signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 25,700 micro-USD against the campaign ledger, and
+published a strict artifact with 375 input tokens, 439 combined visible/reasoning
+output tokens, including 285 reported reasoning tokens, and 13,846 ms measured
+latency. A separately enrolled observer signed the derived record, and local
+authentication reverified the exact batch, request, authorization, policy, artifact,
+audit, ledger entry, response hash, SDK, and freshness lineage.
+
+This is the second qualifying Astra/high success under the frozen live-conformance
+gate. Overall progress is 15 of 18: Luna/low, Terra/medium, Sol/medium, and Sol/high
+are complete at 3 of 3, Astra/high is 2 of 3, and Astra/max is 1 of 3. The second
+campaign ledger contains nine settled entries, 53,589 micro-USD charged, no
+unresolved entries, and 246,411 micro-USD available.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion,
+and routing activation to false. Three precommitted successful probes and the five
+frozen failure boundaries remain. No calibration conversion is authorized.
