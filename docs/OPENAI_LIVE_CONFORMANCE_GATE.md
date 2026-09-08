@@ -102,6 +102,13 @@ that profile, the overall gate, or authorizing sequence 5. Its exact evidence an
 remaining denials are documented in
 [Milestone 76](MILESTONE_76_REVIEW.md).
 
+The fifth admitted v3 execution completed and authenticated through a distinct
+lineage. It completes Astra/max, the five-attempt replacement campaign, and all 18
+registered success positions. It does not complete the overall exit gate because
+F1 through F5 remain outstanding, and it authorizes no additional provider request
+or calibration conversion. Its exact evidence and remaining denials are documented
+in [Milestone 77](MILESTONE_77_REVIEW.md).
+
 ## Failure-boundary suite
 
 The success matrix is necessary but not sufficient. The following five distinct
