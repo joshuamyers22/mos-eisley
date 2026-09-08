@@ -2608,3 +2608,32 @@ fix provider authorship, billing reconciliation, complete-batch conformance, gra
 scoring, quality, promotion, and routing activation to false. Eight precommitted
 successful probes and the five frozen failure boundaries remain. No calibration
 conversion is authorized.
+
+### 25.38 Recorded second authenticated Sol/medium live conformance success
+
+The fifth committed attempt in the second campaign traversed the exact independently
+signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
+response-received audit, settled 4,712 micro-USD against the campaign ledger, and
+published a strict artifact with 393 input tokens, 157 combined visible/reasoning
+output tokens, and 6,887 ms measured latency. A separately enrolled observer signed
+the derived record, and local authentication reverified the exact batch, request,
+authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
+freshness lineage.
+
+An earlier no-send preparation for the same committed sequence expired before
+signature, credential access, reservation, or provider contact. It remains retained
+privately under an explicit archival name. Regeneration preserved the exact committed
+sample, request, ledger entry, model, effort, token caps, and maximum while creating
+fresh policy and authorization windows; it did not create or conceal a live provider
+outcome.
+
+This is the second qualifying Sol/medium success under the frozen live-conformance
+gate. Overall progress is 11 of 18: Luna/low and Terra/medium are complete at 3 of 3,
+Sol/medium is 2 of 3, and Sol/high, Astra/high, and Astra/max are each 1 of 3. The
+second campaign ledger contains five settled entries, 14,717 micro-USD charged, no
+unresolved entries, and 285,283 micro-USD available.
+
+The authenticated receipt continues to fix provider authorship, billing
+reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
+routing activation to false. Seven precommitted successful probes and the five frozen
+failure boundaries remain. No calibration conversion is authorized.
