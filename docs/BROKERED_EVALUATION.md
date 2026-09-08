@@ -21,13 +21,16 @@ outcome hash, provider-response hash, provider request ID, token usage, settled
 micro-USD charge, host-recorded latency, and parsed critique. Its own canonical hash
 binds those fields. No raw API key, bearer grant, or provider exception is included.
 
-Failure compilation requires a terminal `failed` or `cancelled` outcome, an
-independently supplied assignment authorization, and the exact named spending ledger.
-It carries no response hash, provider request ID, usage, or critique. An absent
+Failure compilation requires an independently supplied assignment authorization and
+the exact named spending ledger. A terminal `failed` or `cancelled` broker outcome
+carries no response hash, provider request ID, usage, or critique. An absent
 pre-reservation ledger entry yields null cost; held, uncertain, and violation entries
-retain their recorded exposure. Schema-3 failure artifacts also bind the schema-4
-audit's allowlisted failure stage and category. They never contain raw SDK messages,
-provider bodies, prompts, or credentials. The CLI rejects trust anchors anywhere in the audit
+retain their recorded exposure. A schema-4 post-response validation failure instead
+binds a `response_received` audit, settled ledger entry, response hash, cost, and
+latency while fixing its error to `invalid_response` and stage to `validation`. It
+still carries no raw response, provider request ID, usage, or critique and cannot be
+mistaken for success. Failure artifacts never contain raw SDK messages, provider
+bodies, prompts, or credentials. The CLI rejects trust anchors anywhere in the audit
 tree or hard-linked to its authorization, and rejects writing derived output into
 that audit directory:
 
@@ -39,11 +42,12 @@ mos eval-compile-brokered-failure \
   --output private/failure-artifact.json
 ```
 
-Host latency is stored for every schema-3 or schema-4 broker outcome before artifact compilation
-and is therefore covered by the audit outcome hash. Actual broker deadlines,
-caller cancellation, and classified provider execution errors remain distinct. Schema-1
-through schema-3 outcomes remain readable for recovery, but an older failure lacking
-trusted latency and classification cannot mint failure evidence.
+Host latency is stored for every schema-3 or schema-4 broker outcome before artifact
+compilation and is therefore covered by the audit outcome hash. Actual broker
+deadlines, caller cancellation, classified provider execution errors, and local
+post-response validation failures remain distinct. Schema-1 through schema-3
+outcomes remain readable for recovery, but an older failure lacking trusted latency
+and classification cannot mint failure evidence.
 Latency spans accepted grant dispatch through spending checks, token counting, and
 response receipt; it is an end-to-end route observation, not provider compute time.
 

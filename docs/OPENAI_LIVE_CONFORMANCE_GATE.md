@@ -36,11 +36,15 @@ root-cause disposition and regression test. No held, uncertain, violating, corru
 or unexplained entry may remain in a success ledger when the gate is evaluated.
 
 The first authenticated Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and
-Astra/max probes each count as one success. The first nine completed attempts from
-the second campaign complete Luna/low, Terra/medium, Sol/medium, and Sol/high and
-advance Astra/high to 2 of 3. Current progress is therefore 15 of 18: those four
-profiles are complete at 3 of 3, Astra/high is 2 of 3, and Astra/max is 1 of 3. The
-retained campaign receipts are documented in
+Astra/max probes each counted as one success. The first nine completed attempts from
+the second campaign completed Luna/low, Terra/medium, Sol/medium, and Sol/high and
+advanced Astra/high to 2 of 3. Its tenth attempt received and settled a provider
+response but failed strict local validation after consuming the exact 512-token
+output cap. The campaign is halted, and the Astra/high consecutive-success streak is
+reset. Fifteen authenticated successes remain historical evidence, but current gate
+credit is 13 of 18: those four profiles are complete at 3 of 3, Astra/high is 0 of 3
+for its required replacement streak, and Astra/max is 1 of 3. The retained campaign
+receipts are documented in
 [Milestone 55](MILESTONE_55_REVIEW.md),
 [Milestone 56](MILESTONE_56_REVIEW.md),
 [Milestone 57](MILESTONE_57_REVIEW.md),
@@ -56,7 +60,9 @@ authenticated results are documented in [Milestone 61](MILESTONE_61_REVIEW.md),
 [Milestone 66](MILESTONE_66_REVIEW.md),
 [Milestone 67](MILESTONE_67_REVIEW.md),
 [Milestone 68](MILESTONE_68_REVIEW.md), and
-[Milestone 69](MILESTONE_69_REVIEW.md).
+[Milestone 69](MILESTONE_69_REVIEW.md). The terminal tenth-attempt disposition,
+failure-artifact recovery, and prohibition on running sequences 11 and 12 are
+documented in [Milestone 70](MILESTONE_70_REVIEW.md).
 
 ## Failure-boundary suite
 
