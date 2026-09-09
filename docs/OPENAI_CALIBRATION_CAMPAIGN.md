@@ -29,9 +29,10 @@ Rate sources: [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5
 
 The aggregate maximum is 15,377,973 micro-USD ($15.377973). This is an arithmetic
 upper envelope, not expected cost, a reservation, an OpenAI billing claim, or
-permission to spend. A future paid boundary must support cache-write usage in its
-reservation and settlement logic, recheck current pricing, and fail closed if the
-pinned assumptions are stale.
+permission to spend. The shared spending controller now supports schema-2
+cache-write-aware reservation and settlement, but that support grants no campaign
+authority. A future paid boundary must require schema 2, recheck current pricing,
+and fail closed if the pinned assumptions are stale.
 
 ```console
 env -u OPENAI_API_KEY -u MOS_OPENAI_KEY \

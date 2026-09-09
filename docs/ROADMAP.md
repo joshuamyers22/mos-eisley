@@ -146,7 +146,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    A credential-refusing offline campaign planner now binds the exact 342-request
    remainder in frozen batch order, six current cache-write-aware standard-rate
    token envelopes, and a $15.377973 aggregate maximum without embedding briefs,
-   reserving spend, or granting execution. Next, derive and authenticate a
+   reserving spend, or granting execution. The shared spending controller now has
+   backward-compatible schema-2 cache-write-aware worst-case reservation and exact
+   settlement, including fail-closed usage validation; this is fixture-validated
+   infrastructure, not campaign authority. Next, derive and authenticate a
    short-lived one-use execution
    decision for one exact campaign assignment, then run the remaining repeated
    backend × model × effort matrix on clean and defective samples only through fresh

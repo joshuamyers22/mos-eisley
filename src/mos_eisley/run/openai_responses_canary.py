@@ -417,7 +417,7 @@ def make_openai_responses_canary_authorization(
         raise ValueError("canary spending policy model mismatch")
     if spend_policy.max_output_tokens < OPENAI_RESPONSES_CANARY_MAX_OUTPUT_TOKENS:
         raise ValueError("canary output limit exceeds spending policy")
-    max_cost = spend_policy.cost(
+    max_cost = spend_policy.reservation_cost(
         spend_policy.max_input_tokens, OPENAI_RESPONSES_CANARY_MAX_OUTPUT_TOKENS
     )
     if max_cost > spend_policy.max_cost_microusd:
@@ -749,9 +749,18 @@ def load_openai_responses_canary(
         or receipt.ledger_entry_id != authorization.ledger_entry_id
         or receipt.input_tokens != result.response.usage.input
         or receipt.output_tokens != result.response.usage.output
+        or (
+            spend_policy.schema_version == 2
+            and receipt.cache_write_tokens != result.response.usage.cache_write
+        )
+        or (spend_policy.schema_version == 1 and receipt.cache_write_tokens is not None)
         or result.retained_microusd != receipt.retained_microusd
         or receipt.retained_microusd
-        != spend_policy.cost(result.response.usage.input, result.response.usage.output)
+        != spend_policy.cost(
+            result.response.usage.input,
+            result.response.usage.output,
+            result.response.usage.cache_write,
+        )
     ):
         raise ValueError("canary artifacts do not match their authorization")
     if ledger is not None:

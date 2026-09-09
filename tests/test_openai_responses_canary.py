@@ -49,6 +49,22 @@ def _spend_policy() -> SpendPolicy:
     )
 
 
+def _cache_write_spend_policy() -> SpendPolicy:
+    return SpendPolicy(
+        schema_version=2,
+        model=OPENAI_RESPONSES_CANARY_MODEL,
+        pricing_source="official synthetic cache-write fixture",
+        valid_from=NOW - timedelta(hours=1),
+        valid_until=NOW + timedelta(hours=1),
+        input_microusd_per_million=1_000_000,
+        cache_write_microusd_per_million=1_250_000,
+        output_microusd_per_million=1_000_000,
+        max_cost_microusd=1_000,
+        max_input_tokens=100,
+        max_output_tokens=64,
+    )
+
+
 def _authority_policy(
     key: Ed25519PrivateKey,
 ) -> OpenAIResponsesCanaryAuthorityPolicy:
@@ -92,10 +108,16 @@ def _authorization(
 
 
 class CanaryTransport:
-    def __init__(self, *, fail_response: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail_response: bool = False,
+        cache_write_tokens: int | None = None,
+    ) -> None:
         self.counts: list[dict[str, JsonValue]] = []
         self.responses: list[dict[str, JsonValue]] = []
         self.fail_response = fail_response
+        self.cache_write_tokens = cache_write_tokens
 
     async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
         self.counts.append(payload)
@@ -111,6 +133,9 @@ class CanaryTransport:
                 failure_kind="transport_error",
                 failure_stage="response",
             )
+        input_details: dict[str, JsonValue] = {"cached_tokens": 0}
+        if self.cache_write_tokens is not None:
+            input_details["cache_write_tokens"] = self.cache_write_tokens
         return {
             "id": "resp_canary",
             "status": "completed",
@@ -126,7 +151,7 @@ class CanaryTransport:
             "usage": {
                 "input_tokens": 12,
                 "output_tokens": 2,
-                "input_tokens_details": {"cached_tokens": 0},
+                "input_tokens_details": input_details,
                 "output_tokens_details": {"reasoning_tokens": 0},
             },
             "incomplete_details": None,
@@ -355,6 +380,39 @@ class OpenAIResponsesCanaryExecutionTests(IsolatedAsyncioTestCase):
             result_path.write_text(json.dumps(changed))
             with self.assertRaisesRegex(ValueError, "artifact digest"):
                 load_openai_responses_canary(directory, ledger)
+
+    async def test_schema_two_binds_and_verifies_cache_write_settlement(self) -> None:
+        key = Ed25519PrivateKey.generate()
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger = SpendLedger.create(root / "spending.sqlite", 10_000)
+            policy = _cache_write_spend_policy()
+            directory = root / "canary"
+            authority_policy, signed = _authorization(key, policy, ledger, directory)
+            # Independent authorization is derived before provider token counting,
+            # so it covers the policy's 100-token input cap and the fixed 32-token
+            # canary output cap at the schema-2 worst-case rates.
+            self.assertEqual(signed.authorization.max_cost_microusd, 157)
+            begin_openai_responses_canary(directory, authority_policy, signed, policy)
+
+            result = await execute_openai_responses_canary(
+                CanaryTransport(cache_write_tokens=3),
+                policy,
+                ledger,
+                directory,
+                authority_policy,
+                signed,
+                completed_at=NOW + timedelta(minutes=1),
+                sdk_version="2.test",
+            )
+
+            receipt = SpendReceipt.model_validate_json(
+                (directory / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(result.retained_microusd, 15)
+            self.assertEqual(receipt.cache_write_tokens, 3)
+            self.assertEqual(ledger.snapshot().charged_microusd, 15)
+            self.assertEqual(load_openai_responses_canary(directory, ledger), result)
 
     async def test_failed_generation_retains_reservation_without_manifest(self) -> None:
         key = Ed25519PrivateKey.generate()
