@@ -1016,7 +1016,9 @@ Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is mult
 
 **Implementation status, 2026-09-09:** the first recorded conversation terminal
 supports contextual follow-ups, queued messages, cancellation, private local saving
-and explicit same-user/workspace resume. See [usage and limits](CONVERSATIONS.md).
+and explicit same-user/workspace resume. Metadata-only session listing, latest
+selection and locked exact-snapshot deletion now provide navigation and manual
+retention. See [usage and limits](CONVERSATIONS.md).
 The full product contract below remains the target; live conversation, review
 integration, active-request steering and the full composer are not yet available.
 

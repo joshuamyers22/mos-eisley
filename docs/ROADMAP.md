@@ -49,8 +49,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
-   interrupted request is never replayed automatically. Next add session navigation,
-   retention controls and a review round-trip that preserves critic blindness;
+   interrupted request is never replayed automatically. Workspace-scoped metadata
+   listing, latest-session selection with a locked hash recheck, and exact-snapshot
+   deletion with temporary-file cleanup now provide navigation and manual retention.
+   Next add a review round-trip that preserves critic blindness;
    active-request steering and the full composer remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while

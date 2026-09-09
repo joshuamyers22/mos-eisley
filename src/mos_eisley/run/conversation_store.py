@@ -4,22 +4,45 @@ from __future__ import annotations
 
 import fcntl
 import os
+import re
 import stat
 from contextlib import suppress
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Annotated, Self
 from uuid import uuid4
+
+from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import ConversationState, SessionID
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 
 MAX_BYTES = 2_000_000
+MAX_DIRECTORY_ENTRIES = 4096
+MAX_CATALOG_BYTES = 8_000_000
+MAX_SESSIONS = 256
 
 
 class ConversationSnapshot(Contract):
     state: ConversationState
     sha256: Digest
+
+
+class ConversationSummary(Contract):
+    session_id: SessionID
+    snapshot_sha256: Digest
+    revision: Annotated[int, Field(ge=0)]
+    modified_ns: Annotated[int, Field(ge=0)]
+    messages: Annotated[int, Field(ge=0, le=16)]
+    completed: Annotated[int, Field(ge=0, le=16)]
+    pending: Annotated[int, Field(ge=0, le=16)]
+    active: bool
+
+
+class ConversationDeletion(Contract):
+    session_id: SessionID
+    snapshot_sha256: Digest
+    removed_temporary_files: Annotated[int, Field(ge=0)]
 
 
 def _private(fd: int, *, directory: bool = False) -> None:
@@ -36,26 +59,139 @@ def _private(fd: int, *, directory: bool = False) -> None:
         raise ValueError("conversation storage must be private and owned by this user")
 
 
+def _names(root: int) -> tuple[str, ...]:
+    names: list[str] = []
+    with os.scandir(root) as entries:
+        for entry in entries:
+            if len(names) == MAX_DIRECTORY_ENTRIES:
+                raise ValueError("conversation directory exceeds entry limit")
+            names.append(entry.name)
+    return tuple(names)
+
+
+def _snapshot(
+    root: int, session_id: str, *, byte_limit: int = MAX_BYTES
+) -> tuple[ConversationSnapshot, int, int]:
+    _private(root, directory=True)
+    fd = os.open(
+        f"{session_id}.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root
+    )
+    with os.fdopen(fd, "rb") as stream:
+        _private(stream.fileno())
+        modified_ns = os.fstat(stream.fileno()).st_mtime_ns
+        payload = stream.read(byte_limit + 1)
+    if len(payload) > byte_limit:
+        raise ValueError("conversation snapshot exceeds byte limit")
+    snapshot = ConversationSnapshot.model_validate_json(payload)
+    state = snapshot.state
+    if (
+        state.owner_uid != os.getuid()
+        or state.session_id != session_id
+        or snapshot.sha256 != digest(canonical_bytes(state))
+    ):
+        raise ValueError("conversation ownership or integrity mismatch")
+    return snapshot, modified_ns, len(payload)
+
+
+def list_conversations(root: Path, workspace: Path) -> tuple[ConversationSummary, ...]:
+    """Read bounded snapshots; return only metadata for this user's workspace.
+
+    Listing does not write directories, lock files, snapshots or recency metadata.
+    A bad candidate aborts the catalog rather than silently selecting an older one.
+    """
+    if workspace.exists() and not workspace.is_dir():
+        raise ValueError("conversation workspace must be a directory")
+    selected_workspace = str(workspace.resolve())
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        _private(root_fd, directory=True)
+        candidates = tuple(
+            name[:-5]
+            for name in _names(root_fd)
+            if re.fullmatch(r"[0-9a-f]{32}\.json", name)
+        )
+        if len(candidates) > MAX_SESSIONS:
+            raise ValueError("conversation catalog exceeds session limit")
+        summaries: list[ConversationSummary] = []
+        total_bytes = 0
+        for session_id in candidates:
+            snapshot, modified_ns, size = _snapshot(
+                root_fd,
+                session_id,
+                byte_limit=min(MAX_BYTES, MAX_CATALOG_BYTES - total_bytes),
+            )
+            total_bytes += size
+            state = snapshot.state
+            if state.workspace != selected_workspace:
+                continue
+            lock = os.open(
+                f"{session_id}.lock",
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=root_fd,
+            )
+            try:
+                _private(lock)
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    active = False
+                except BlockingIOError:
+                    active = True
+            finally:
+                os.close(lock)
+            summaries.append(
+                ConversationSummary(
+                    session_id=session_id,
+                    snapshot_sha256=snapshot.sha256,
+                    revision=state.revision,
+                    modified_ns=modified_ns,
+                    messages=len(state.entries),
+                    active=active,
+                    completed=sum(e.status == "completed" for e in state.entries),
+                    pending=sum(e.status == "queued" for e in state.entries),
+                )
+            )
+        return tuple(
+            sorted(
+                summaries,
+                key=lambda item: (item.modified_ns, item.session_id),
+                reverse=True,
+            )
+        )
+    finally:
+        os.close(root_fd)
+
+
 class ConversationStore:
     """A held per-session flock rejects competing writers for this entire handle."""
 
-    def __init__(self, root: Path, session_id: str, workspace: Path) -> None:
-        from pydantic import TypeAdapter
-
+    def __init__(
+        self,
+        root: Path,
+        session_id: str,
+        workspace: Path,
+        *,
+        create: bool = True,
+        require_workspace: bool = True,
+    ) -> None:
         self.session_id = TypeAdapter[str](SessionID).validate_python(session_id)
-        if not workspace.is_dir():
+        if not workspace.is_dir() and (require_workspace or workspace.exists()):
             raise ValueError("conversation workspace must be a directory")
-        self.workspace = str(workspace.resolve(strict=True))
+        self.workspace = str(workspace.resolve(strict=require_workspace))
         self._revision = -1
         self._sha256: str | None = None
-        root.mkdir(mode=0o700, exist_ok=True)
+        self._deleted = False
+        if create:
+            root.mkdir(mode=0o700, exist_ok=True)
         self._root = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self._lock = -1
         try:
             _private(self._root, directory=True)
             self._lock = os.open(
                 f"{session_id}.lock",
-                os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
+                os.O_RDWR
+                | (os.O_CREAT if create else 0)
+                | os.O_NOFOLLOW
+                | os.O_NONBLOCK,
                 0o600,
                 dir_fd=self._root,
             )
@@ -85,26 +221,12 @@ class ConversationStore:
         self.close()
 
     def _read(self) -> ConversationSnapshot:
-        _private(self._root, directory=True)
-        fd = os.open(
-            f"{self.session_id}.json",
-            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
-            dir_fd=self._root,
-        )
-        with os.fdopen(fd, "rb") as stream:
-            _private(stream.fileno())
-            payload = stream.read(MAX_BYTES + 1)
-        if len(payload) > MAX_BYTES:
-            raise ValueError("conversation snapshot exceeds byte limit")
-        snapshot = ConversationSnapshot.model_validate_json(payload)
+        if self._deleted:
+            raise ValueError("conversation has been deleted")
+        snapshot, _, _ = _snapshot(self._root, self.session_id)
         state = snapshot.state
-        if (
-            state.owner_uid != os.getuid()
-            or state.session_id != self.session_id
-            or state.workspace != self.workspace
-            or snapshot.sha256 != digest(canonical_bytes(state))
-        ):
-            raise ValueError("conversation ownership, workspace or integrity mismatch")
+        if state.workspace != self.workspace:
+            raise ValueError("conversation workspace mismatch")
         return snapshot
 
     def load(self) -> ConversationState:
@@ -114,6 +236,8 @@ class ConversationStore:
         return snapshot.state
 
     def save(self, state: ConversationState) -> None:
+        if self._deleted:
+            raise ValueError("conversation has been deleted")
         _private(self._root, directory=True)
         state = ConversationState.model_validate_json(state.model_dump_json())
         if (
@@ -158,3 +282,36 @@ class ConversationStore:
                 os.unlink(temporary, dir_fd=self._root)
         self._revision = state.revision
         self._sha256 = snapshot.sha256
+
+    def delete(self, expected_sha256: str) -> ConversationDeletion:
+        expected = TypeAdapter[str](Digest).validate_python(expected_sha256)
+        snapshot = self._read()
+        if snapshot.sha256 != expected:
+            raise ValueError("conversation changed since deletion was selected")
+        temporary = tuple(
+            name
+            for name in _names(self._root)
+            if re.fullmatch(rf"\.{self.session_id}\.[0-9a-f]{{32}}\.tmp", name)
+        )
+        # Validate every targeted file before the first removal. Cooperative writers
+        # cannot create/replace this session's files while this lock is held.
+        for name in temporary:
+            fd = os.open(
+                name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=self._root
+            )
+            try:
+                _private(fd)
+            finally:
+                os.close(fd)
+        for name in temporary:
+            os.unlink(name, dir_fd=self._root)
+        os.unlink(f"{self.session_id}.json", dir_fd=self._root)
+        self._deleted = True
+        os.fsync(self._root)
+        # Keep the empty lock inode: removing it could allow a second writer to
+        # obtain a different lock for the same session while this handle is open.
+        return ConversationDeletion(
+            session_id=self.session_id,
+            snapshot_sha256=expected,
+            removed_temporary_files=len(temporary),
+        )
