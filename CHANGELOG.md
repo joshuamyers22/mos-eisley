@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit raw-data analytical mode with source discovery, a restricted raw
+  read-tool profile and null semantic revision. Reuse spending, evidence and private
+  export controls; compare raw/promoted arms in offline evaluation. Add examples,
+  adversarial tests and same-file Parquet integration.
+
 - Add offline analytical evaluation of private result bundles against frozen
   question, run-identity, source, SQL and cell expectations. Separate exported tasks
   from golden labels, preserve failed/missing assignments, and report unknown usage

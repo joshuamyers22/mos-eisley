@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "command": "/Users/josh/Projects/data-mcp/.venv/bin/data-mcp",
+  "args": [
+    "--config",
+    "/Users/josh/Projects/data-mcp/config.ana-raw.toml"
+  ],
+  "cwd": "/Users/josh/Projects/data-mcp",
+  "env": [
+    "ANA_LOCAL_READ_DSN"
+  ],
+  "tools": {
+    "list_sources": "read",
+    "list_parquet": "read",
+    "describe_parquet": "read",
+    "query_parquet": "read",
+    "list_postgres_tables": "read",
+    "describe_postgres": "read",
+    "query_postgres": "read"
+  },
+  "allow_writes": false,
+  "timeout_seconds": 35,
+  "max_result_bytes": 4000
+}

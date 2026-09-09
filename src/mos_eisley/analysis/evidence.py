@@ -9,6 +9,30 @@ from pydantic import Field, JsonValue, model_validator
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import ToolCallBlock, ToolResultBlock
 
+ContextMode = Literal["promoted", "raw"]
+RAW_TOOLS = frozenset(
+    {
+        "list_sources",
+        "list_parquet",
+        "describe_parquet",
+        "query_parquet",
+        "list_postgres_tables",
+        "describe_postgres",
+        "query_postgres",
+    }
+)
+METADATA_TOOLS = frozenset(
+    {
+        "get_semantic_context",
+        "list_metrics",
+        "list_sources",
+        "list_parquet",
+        "describe_parquet",
+        "list_postgres_tables",
+        "describe_postgres",
+    }
+)
+
 Scalar = str | int | float | bool | None
 
 
@@ -139,7 +163,7 @@ def checked_answer(
     lines: list[str] = []
     for claim in answer.claims:
         trace = available.get(claim.result_id)
-        if trace is None or trace.call.name in {"get_semantic_context", "list_metrics"}:
+        if trace is None or trace.call.name in METADATA_TOOLS:
             raise ValueError("claim refers to unavailable evidence")
         columns, rows = complete_table(trace)
         key = (claim.result_id, claim.row, claim.column)
@@ -167,14 +191,25 @@ def checked_answer(
 
 
 def verify_evidence(
-    evidence: tuple[AnalysisEvidence, ...], traces: tuple[ToolTrace, ...], revision: str
+    evidence: tuple[AnalysisEvidence, ...],
+    traces: tuple[ToolTrace, ...],
+    revision: str | None,
+    context_mode: ContextMode = "promoted",
 ) -> None:
+    if (context_mode == "promoted") != (revision is not None):
+        raise ValueError("context mode and semantic revision disagree")
+    bootstrap = "get_semantic_context" if context_mode == "promoted" else "list_sources"
     if (
         not traces
-        or traces[0].call.name != "get_semantic_context"
+        or traces[0].call.name != bootstrap
         or traces[0].outcome != "accepted"
     ):
-        raise ValueError("evidence trail must start with promoted context")
+        raise ValueError("evidence trail must start with the configured bootstrap")
+    if context_mode == "raw" and any(
+        trace.outcome == "accepted" and trace.call.name not in RAW_TOOLS
+        for trace in traces
+    ):
+        raise ValueError("raw evidence includes an out-of-profile tool")
     accepted = [trace for trace in traces if trace.outcome == "accepted"]
     if len({trace.call.id for trace in traces}) != len(traces):
         raise ValueError("duplicate tool trace call IDs")

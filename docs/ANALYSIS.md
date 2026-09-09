@@ -23,9 +23,16 @@ only the other read tools needed for your sources. The analytical controller rej
 write grants and known data-mcp mutation tool names, and forces validated JSON
 argument wrappers for the OpenAI strict schema representation. The ordinary MCP
 commands retain their explicit read/write access. Analytical tools must return
-structured JSON objects. Context must include a SHA-256 definition `revision`, and
+structured JSON objects. The default `context_mode="promoted"` requires a SHA-256
+definition `revision`, and
 `run_metric` results must carry that same revision. Text-only/binary results cannot
 serve as analytical evidence in this milestone.
+
+For a no-promoted-catalog control arm, explicitly select `context_mode="raw"` and
+its raw tool profile. It bootstraps source discovery and records a null semantic
+revision while sharing the same limits and spending controls. See the
+[raw-data baseline guide](ANALYSIS_RAW_BASELINE.md). Missing context never triggers
+an automatic fallback.
 
 Tool labels are operator grants, not proof that a third-party server cannot mutate
 its backend. Review the server and enforce read-only source permissions. Source

@@ -18,6 +18,7 @@ from pydantic import JsonValue
 from mos_eisley.analysis.artifacts import load_artifact
 from mos_eisley.analysis.controller import AnalysisConfig
 from mos_eisley.analysis.demo import fixture_config
+from mos_eisley.analysis.evidence import ContextMode
 from mos_eisley.analysis.fixture_server import REVISION
 from mos_eisley.analysis.spending import AnalysisSpending
 from mos_eisley.cli import main
@@ -310,6 +311,10 @@ class SpendingTests(IsolatedAsyncioTestCase):
 
 
 class ConversationalTransport(FakeTransport):
+    def __init__(self, context_mode: ContextMode = "promoted") -> None:
+        super().__init__()
+        self.context_mode = context_mode
+
     async def create_response(
         self, payload: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
@@ -320,13 +325,21 @@ class ConversationalTransport(FakeTransport):
                     "type": "function_call",
                     "id": "fc-1",
                     "call_id": "metric-call",
-                    "name": "run_metric",
+                    "name": "query_parquet"
+                    if self.context_mode == "raw"
+                    else "run_metric",
                     "arguments": json.dumps(
                         {
                             "arguments_json": json.dumps(
                                 {
                                     "name": "fixture_total",
                                     "revision": REVISION,
+                                }
+                                if self.context_mode == "promoted"
+                                else {
+                                    "root": "synthetic",
+                                    "paths": ["items.parquet"],
+                                    "sql": "SELECT SUM(quantity) AS total FROM data",
                                 }
                             )
                         }
@@ -373,17 +386,19 @@ class ConversationalTransport(FakeTransport):
 
 class LiveCLITests(TestCase):
     def test_synthetic_live_path_and_missing_key_settlement(self) -> None:
-        for key, retention in (
-            ("synthetic-not-a-real-key", "memory"),
-            ("synthetic-not-a-real-key", "private"),
-            ("", "memory"),
-        ):
+        cases: tuple[tuple[str, str, ContextMode], ...] = (
+            ("synthetic-not-a-real-key", "memory", "promoted"),
+            ("synthetic-not-a-real-key", "private", "promoted"),
+            ("", "memory", "promoted"),
+            ("synthetic-not-a-real-key", "private", "raw"),
+        )
+        for key, retention, mode in cases:
             with TemporaryDirectory() as directory:
                 root = Path(directory)
                 ledger = SpendLedger.create(root / "ledger.sqlite", 1000000)
                 for name, value in (
-                    ("config", config(retention=retention)),
-                    ("mcp", fixture_config()),
+                    ("config", config(retention=retention, context_mode=mode)),
+                    ("mcp", fixture_config(mode)),
                     ("policy", policy()),
                 ):
                     (root / name).write_text(value.model_dump_json())
@@ -407,7 +422,7 @@ class LiveCLITests(TestCase):
                     arguments.extend(
                         ["--allow-result-retention", "--result-root", str(root)]
                     )
-                fake = ConversationalTransport()
+                fake = ConversationalTransport(mode)
                 out, err = io.StringIO(), io.StringIO()
                 with (
                     patch.dict("os.environ", {"OPENAI_API_KEY": key}),
@@ -431,6 +446,7 @@ class LiveCLITests(TestCase):
                     _, artifact = load_artifact(Path(event["artifact_path"]))
                     self.assertEqual(artifact.result.answer.claims[0].value, 42)
                     self.assertIsNotNone(artifact.spend_receipt)
+                    self.assertEqual(artifact.result.context_mode, mode)
                 self.assertNotIn(
                     "synthetic-not-a-real-key", out.getvalue() + err.getvalue()
                 )
