@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add Streamable HTTP MCP with endpoint-bound bearer credentials, DNS pinning,
+  TLS verification, pre-decoding response limits, and uncertain-write handling.
+  Cover HTTP/SSE, legacy negotiation, TLS and fault cases with real fixtures.
+
 - Add explicit stdio MCP discovery/calls and a canonical tool dispatcher with
   operator-controlled read/write grants, schema lowering reports, environment
   filtering, deadlines, result limits and no automatic write retries.

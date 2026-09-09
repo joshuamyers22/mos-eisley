@@ -3,12 +3,13 @@
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import cast
 
 from mos_eisley.core.protocol import ToolCallBlock
 from mos_eisley.run.files import read_bounded
-from mos_eisley.tools.mcp import MCPConfig, connect_mcp
+from mos_eisley.tools.mcp import MCPConfig, MCPFailure, connect_mcp
 
 
 def run_mcp_command(args: argparse.Namespace) -> int:
@@ -42,4 +43,12 @@ def run_mcp_command(args: argparse.Namespace) -> int:
             print(result.model_dump_json())
             return 2 if result.is_error else 0
 
-    return asyncio.run(execute())
+    try:
+        return asyncio.run(execute())
+    except MCPFailure:
+        print(
+            "mos-eisley: MCP connection or call failed; check configuration and "
+            "credentials. Inspect any submitted write before retrying.",
+            file=sys.stderr,
+        )
+        return 2
