@@ -25,7 +25,9 @@ silently converted to zero. Results must explicitly report `truncated=false`, ha
 unique nonempty column names and coherent row widths. Missing, duplicate, malformed,
 non-finite and out-of-range references fail. An empty table cannot support an invented
 zero; obtain a count through SQL when needed. Compute sums, ratios, rounding and other
-transformations in SQL and refer to the returned cells. Arbitrary narrative claims
+transformations in SQL and refer to the returned cells. Known source/schema
+discovery tools cannot support numeric claims, even with table-shaped metadata.
+Arbitrary narrative claims
 and controller-side arithmetic are outside this first checked-answer format.
 
 `value_verification="returned_cells"` means the displayed values match captured
@@ -43,9 +45,11 @@ and semantic ambiguity still need the planned domain evaluation.
   arguments, controller timestamps and outcome. Accepted calls retain the exact
   canonical MCP response used for evidence hashing. Failed calls retain their
   arguments and an error outcome; raw error messages are omitted.
-- Successful result IDs/hashes, the promoted semantic revision and checked cell
+- Successful result IDs/hashes, context mode, semantic revision and checked cell
   claims. The model selects result IDs explicitly; the last tool result has no
-  special status as an answer or export source.
+  special status as an answer or export source. Raw mode explicitly records a null
+  semantic revision and starts with source discovery; the default promoted mode
+  still requires its catalog revision.
 - A SQL trail for `run_metric`, `query_parquet` and `query_postgres`: submitted SQL
   from the request or metric response, normalized SQL when the server reports it,
   arguments and source-reported metadata. Missing normalized SQL stays null.

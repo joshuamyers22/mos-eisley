@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from mos_eisley.analysis.controller import AnalysisConfig, AnalysisResult, run_analysis
+from mos_eisley.analysis.evidence import ContextMode
 from mos_eisley.analysis.fixture_server import REVISION
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.protocol import (
@@ -22,40 +23,53 @@ from mos_eisley.tools.mcp import MCPConfig
 Scenario = Literal["answer", "clarify", "unavailable", "injection"]
 
 
-def fixture_config() -> MCPConfig:
+def fixture_config(context_mode: ContextMode = "promoted") -> MCPConfig:
     return MCPConfig(
         command=sys.executable,
         args=("-m", "mos_eisley.analysis.fixture_server"),
         cwd=str(Path.cwd()),
-        tools={"get_semantic_context": "read", "run_metric": "read"},
+        tools={"get_semantic_context": "read", "run_metric": "read"}
+        if context_mode == "promoted"
+        else {
+            "list_sources": "read",
+            "describe_parquet": "read",
+            "query_parquet": "read",
+        },
     )
 
 
 class AnalysisFixtureClient:
-    def __init__(self, scenario: Scenario = "answer") -> None:
+    def __init__(
+        self, scenario: Scenario = "answer", context_mode: ContextMode = "promoted"
+    ) -> None:
         self.scenario, self.requests = scenario, 0
+        self.context_mode = context_mode
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         self.requests += 1
         if (self.requests == 1 and self.scenario in {"answer", "injection"}) or (
             self.requests == 2 and self.scenario == "injection"
         ):
+            raw = self.context_mode == "raw"
+            name = "query_parquet" if raw else "run_metric"
+            arguments = (
+                {
+                    "root": "synthetic",
+                    "paths": ["items.parquet"],
+                    "sql": "SELECT SUM(quantity) AS total FROM data",
+                }
+                if raw
+                else {"name": "fixture_total", "revision": REVISION}
+            )
+            if self.scenario == "injection" and self.requests == 2:
+                name = "get_semantic_context" if raw else "write_parquet"
             turn = Turn(
                 role="assistant",
                 blocks=(
                     ToolCallBlock(
                         id=f"fixture-call-{self.requests}",
-                        name="write_parquet"
-                        if self.scenario == "injection" and self.requests == 2
-                        else "run_metric",
-                        args={
-                            "arguments_json": json.dumps(
-                                {
-                                    "name": "fixture_total",
-                                    "revision": REVISION,
-                                }
-                            )
-                        },
+                        name=name,
+                        args={"arguments_json": json.dumps(arguments)},
                     ),
                 ),
             )
@@ -104,7 +118,10 @@ class AnalysisFixtureClient:
 
 
 async def run_demo(
-    scenario: Scenario = "answer", *, retention: Literal["memory", "private"] = "memory"
+    scenario: Scenario = "answer",
+    *,
+    retention: Literal["memory", "private"] = "memory",
+    context_mode: ContextMode = "promoted",
 ) -> AnalysisResult:
     return await run_analysis(
         AnalysisConfig(
@@ -112,9 +129,10 @@ async def run_demo(
             model="tool-reviewer-v1",
             account="fixture",
             retention=retention,
+            context_mode=context_mode,
             question="What is the synthetic total?",
         ),
-        fixture_config(),
+        fixture_config(context_mode),
         fixture_registry(),
-        AnalysisFixtureClient(scenario),
+        AnalysisFixtureClient(scenario, context_mode),
     )

@@ -429,6 +429,9 @@ def parser() -> argparse.ArgumentParser:
     analysis_demo.add_argument(
         "--scenario", choices=("answer", "clarify", "unavailable"), default="answer"
     )
+    analysis_demo.add_argument(
+        "--context-mode", choices=("promoted", "raw"), default="promoted"
+    )
     analysis_run = subcommands.add_parser(
         "analysis-run", help="Run explicitly budgeted read-only OpenAI analysis"
     )

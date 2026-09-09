@@ -16,7 +16,7 @@ from mos_eisley.analysis.artifacts import (
     private_directory,
 )
 from mos_eisley.analysis.controller import AnalysisRunIdentity
-from mos_eisley.analysis.evidence import CellClaim, Scalar
+from mos_eisley.analysis.evidence import CellClaim, ContextMode, Scalar
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.run.store import private_write
 
@@ -30,6 +30,7 @@ Reason = Literal[
     "model_mismatch",
     "run_identity_mismatch",
     "semantic_revision_mismatch",
+    "context_mode_mismatch",
     "status_mismatch",
     "claims_mismatch",
     "run_predates_review",
@@ -114,7 +115,16 @@ class EvaluationArm(Contract):
     provider: Literal["fixture", "openai"]
     model: Identifier
     run_identity: AnalysisRunIdentity
-    semantic_revision: Digest
+    context_mode: ContextMode = Field(
+        default="promoted", exclude_if=lambda value: value == "promoted"
+    )
+    semantic_revision: Digest | None
+
+    @model_validator(mode="after")
+    def context_binding(self) -> "EvaluationArm":
+        if (self.context_mode == "promoted") != (self.semantic_revision is not None):
+            raise ValueError("arm context mode and semantic revision disagree")
+        return self
 
 
 class EvaluationCase(Contract):
@@ -145,12 +155,19 @@ class EvaluationSuite(Contract):
             self.cases
         ):
             raise ValueError("evaluation identities must be unique")
+        arm_modes = {arm.id: arm.context_mode for arm in self.arms}
         families: dict[str, Split] = {}
         questions: set[str] = set()
         for case in self.cases:
             ids = [expected.arm_id for expected in case.expectations]
             if len(ids) != len(set(ids)) or set(ids) != arms:
                 raise ValueError("every case requires exactly one expectation per arm")
+            if any(
+                arm_modes[item.arm_id] == "raw"
+                and any(cell.tool == "run_metric" for cell in item.cells)
+                for item in case.expectations
+            ):
+                raise ValueError("raw arms cannot expect promoted metric calls")
             if case.family in families and families[case.family] != case.split:
                 raise ValueError("development and holdout families must be disjoint")
             if case.question in questions:
@@ -373,6 +390,8 @@ def _score_case(
         reasons.append("model_mismatch")
     if result.run_identity != arm.run_identity:
         reasons.append("run_identity_mismatch")
+    if result.context_mode != arm.context_mode:
+        reasons.append("context_mode_mismatch")
     if result.semantic_revision != arm.semantic_revision:
         reasons.append("semantic_revision_mismatch")
     if result.started_at < suite.reviewed_at:

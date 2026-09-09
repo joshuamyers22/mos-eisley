@@ -47,7 +47,8 @@ actually supplies it. Missing required metadata is a mismatch.
 New analytical results record SHA-256 hashes of the resolved analysis configuration
 (excluding the question), system prompt and exposed canonical tool catalog.
 Review these before assessment using `run_identity(config, definitions)` with the
-same `analysis_mcp_config` and discovered definitions as the intended run. Provider,
+same `analysis_mcp_config(mcp, config.context_mode)` and discovered definitions as
+the intended run. Provider,
 model, semantic revision and question are also checked separately. Changing budgets,
 retention settings or selected tool definitions changes the identity. Existing
 schema-2 bundles without this optional identity still verify/export, but cannot
@@ -130,8 +131,11 @@ Correct expected values and reviewed SQL remain a domain responsibility.
 
 The next experimental work is to prepare reviewed domain fixtures and disjoint
 question families, then run a separately budgeted assessment with fixed settings,
-frozen sources and recorded failures. The controller currently always bootstraps
-promoted context: a true ontology-free baseline, randomized/interleaved execution,
-probe/maintenance accounting and statistical inference remain unimplemented.
+frozen sources and recorded failures. An explicit
+[raw-data baseline](ANALYSIS_RAW_BASELINE.md) now runs the same controller without
+promoted context. Raw arms require `context_mode: "raw"`, a null semantic revision
+and raw query expectations. Promoted arms keep the default mode and their revision.
+Randomized/interleaved execution, probe/maintenance accounting and statistical
+inference remain unimplemented.
 This offline grader supports part of Ana Lite Stages 0 and 6; it does not complete
 the controlled comparison or justify adding automatic learning.
