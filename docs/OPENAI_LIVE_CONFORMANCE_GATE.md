@@ -117,7 +117,7 @@ boundaries must each pass once using the installed wheel and retained artifacts:
 | ID | Boundary | Required evidence | Status |
 | --- | --- | --- | --- |
 | F1 | Pre-credential authorization rejection | An expired or exact-binding-mismatched signed authorization fails before API-key access, audit creation, Docker start, ledger admission, or provider request | Passed 2026-09-09 |
-| F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Outstanding |
+| F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Passed 2026-09-09 |
 | F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Outstanding |
 | F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Outstanding |
 | F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Outstanding |
@@ -141,9 +141,22 @@ The production command can now retain the exact F2 terminal tuple only when the
 adapter, broker audit, and ledger independently agree on `authentication_error` at
 `token_count`, absent spend, and null cost. Automated tests also prove that partial,
 different, and post-reservation failures cannot mint that artifact. This is
-instrumentation readiness, not a live F2 pass; [Milestone 80](MILESTONE_80_REVIEW.md)
-records the adversarial disposition. F2 through F5 remain outstanding, so the
-overall gate remains open.
+instrumentation readiness, not by itself a live F2 pass;
+[Milestone 80](MILESTONE_80_REVIEW.md) records that implementation disposition.
+
+F2 subsequently passed through a separately installed wheel with hash
+`6da01d8b82f5ac1de884be8c83e4daf351fdba84cfe7a0bdc3cbc7675d1bde17`
+and immutable image
+`sha256:711d60232e9f7c49da6a5e26ef2ec0b663f182f2f22b02731e679dc1dab74efe`.
+The exact, independently authorized live token-count attempt terminated as
+`authentication_error` at `token_count` and retained canonical failure artifact
+`ee6cb8800a13985b38978d16b2d6cc54809fca23e6a1aa8930b0f466cb3bb3fa`.
+Its dedicated ledger remained empty, unchanged, and unblocked; the exact entry and
+both spend files are absent; generation was never requested; retry remains false;
+and the container was removed on its first cleanup attempt. This result does not
+prove that OpenAI inspected a particular body or establish provider billing.
+[Milestone 81](MILESTONE_81_REVIEW.md) records the adversarial disposition. F3
+through F5 remain outstanding, so the overall gate remains open.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful

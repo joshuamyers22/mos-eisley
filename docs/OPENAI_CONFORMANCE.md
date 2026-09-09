@@ -98,7 +98,12 @@ not write an artifact or permit retry. Schema-4 audit diagnostics retain only a 
 local stage and coarse SDK exception category. They discard exception text and bodies
 and do not prove provider receipt, billing, or the exact remote cause. See
 [Milestone 80](MILESTONE_80_REVIEW.md) for the retained-F2 implementation review;
-the live F2 boundary remains outstanding.
+the live F2 boundary subsequently passed through the separately installed wheel and
+retained artifact
+`ee6cb8800a13985b38978d16b2d6cc54809fca23e6a1aa8930b0f466cb3bb3fa`.
+Its dedicated ledger remained empty and no generation was requested. This proves
+the bounded authentication-rejection behavior, not remote request-body inspection or
+provider billing. See [Milestone 81](MILESTONE_81_REVIEW.md).
 
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
