@@ -1,5 +1,9 @@
 # OpenAI live-conformance exit gate
 
+**Status, 2026-09-09:** passed. The reviewed aggregate report is recorded in
+[Milestone 85](MILESTONE_85_REVIEW.md). This status authorizes no provider request,
+calibration conversion, scoring, promotion, or routing activation.
+
 This gate defines the minimum evidence required before Mos Eisley may convert
 brokered OpenAI conformance output into empirical calibration input. It is an exit
 criterion, not execution authority. Every provider request still requires the exact
@@ -202,10 +206,8 @@ receipt, conformance artifact, retry, or automatic release. This is a controlled
 local launcher/watchdog result, not provider behavior or billing.
 [Milestone 84](MILESTONE_84_REVIEW.md) records the adversarial disposition.
 
-All 18 success positions and five failure boundaries now exist. The overall gate
-remains open until the aggregate report reverifies every retained lineage together
-and fixes unsupported provider, billing, quality, conversion, grading, scoring,
-promotion, and activation claims to false.
+All 18 success positions and five failure boundaries existed after F5. At that
+point, the overall gate remained open pending aggregate verification.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful
@@ -214,12 +216,23 @@ pending a reviewed disposition and a new commitment.
 
 ## Gate output
 
-The eventual gate report must reverify all 18 success lineages and the five failure
+The gate report must reverify all 18 success lineages and the five failure
 artifacts from their authoritative sources. It must report exact attempt coverage and
 fix provider authorship, billing reconciliation, quality, calibration conversion,
 promotion, and routing activation to false. A separate reviewed converter may be
 designed only after this report passes; routing remains disabled until the later
 calibration and holdout gates pass.
+
+That aggregate report passed offline on 2026-09-09. Its private sorted compact JSON
+has SHA-256
+`e58dc274b5087271fe1f241724fdd1f319956b4fffba8bf1e83e086db26ea72a`.
+It reauthenticated all 20 retained successful exchanges from their authoritative
+sources, counted exactly 18 qualifying positions, excluded the two invalidated
+Astra/high successes, reverified F1 through F5, and represented every retained
+failure, no-send event, expired preparation, and forbidden continuation. The
+compiler accessed no credential and sent no request. All unsupported downstream
+claims remain literal false. [Milestone 85](MILESTONE_85_REVIEW.md) records the
+evidence and adversarial limits.
 
 Changing the profile set, consecutive-success count, failure suite, or budget rules
 requires a new public adversarial disposition before additional results are observed.

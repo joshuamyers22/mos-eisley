@@ -39,9 +39,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    and literal downstream denials. On 2026-09-07, the first operator-signed live
    canary completed and offline verification confirmed 40 input tokens, 5 output
    tokens, 14 micro-USD retained, a settled unblocked ledger, and exact Responses
-   access while billing and routing authority remained false. Next: credentialed
-   conformance and isolated broker integration, then wire OpenAI into critic/judge
-   review before other providers.
+   access while billing and routing authority remained false. Those exact-profile
+   conformance prerequisites subsequently passed as described in item 4. Next,
+   convert only qualifying evidence through a separate reviewed offline boundary,
+   then wire OpenAI into critic/judge review before other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.
@@ -126,14 +127,17 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    The remaining three model identities are now visible, and a public hash commits
    the private deterministic selection, exact rate assumptions, token ceilings, and
    one fresh shared $0.15 ledger for five remaining profile probes before paid
-   outcomes exist. This commitment grants no execution authority. The live gate now
-   requires three consecutive, precommitted, distinct authenticated successes in
-   each of the six exact profiles (18 total), complete failed-attempt retention, and
+   outcomes exist. This commitment grants no execution authority. The frozen live
+   gate required three consecutive, precommitted, distinct authenticated successes
+   in each of six exact profiles (18 total), complete failed-attempt retention, and
    the five named operational/provider failure boundaries in
-   `OPENAI_LIVE_CONFORMANCE_GATE.md`. Next, execute each committed probe only through
-   a fresh signed ceremony. Design conversion only after that exact gate passes. Run
-   the repeated backend × model × effort sweep on clean and defective samples only
-   after that gate.
+   `OPENAI_LIVE_CONFORMANCE_GATE.md`. All 23 execution positions and the offline
+   lineage-wide aggregate report passed on 2026-09-09. The report reauthenticated 20
+   successful exchanges, counted only the 18 qualifying records, and retained
+   literal false conversion, quality, scoring, promotion, activation, and
+   additional-request authority. Next, design and adversarially review the offline
+   calibration converter. Run the repeated backend × model × effort sweep on clean
+   and defective samples only through that future converter.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.

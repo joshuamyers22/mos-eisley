@@ -3147,3 +3147,27 @@ All 18 success positions and F1 through F5 now exist, completing the 23 required
 execution positions. The overall gate remains open until a reviewed aggregate report
 reverifies the complete lineage and fixes every unsupported downstream claim to
 false. No calibration conversion or provider request is authorized by this result.
+
+### 25.58 Passed the aggregate OpenAI live-conformance gate
+
+An offline, credential-refusing compiler reauthenticated all 20 retained successful
+exchanges at their original authentication timestamps against the exact frozen batch,
+policy, observer signature, assignment, artifact, broker audit, and ledger source.
+It counted 18 qualifying positions across the six required profiles and separately
+retained the two earlier Astra/high successes invalidated by the sequence-10 break.
+Every sample, receipt, signature, artifact, authorization, outcome, provider request,
+provider response, and ledger-entry identity is distinct.
+
+The aggregate also reverified the v2 terminal validation failure, the v3 pre-dispatch
+no-send event, both expired unsigned preparations, both forbidden v2 continuations,
+all three campaign manifests, every success-ledger entry, and F1 through F5 from
+their authoritative sources. The private 32,624-byte sorted compact report hashes to
+`e58dc274b5087271fe1f241724fdd1f319956b4fffba8bf1e83e086db26ea72a`
+and records 23 of 23 required execution positions with `outcome=pass`.
+
+The compiler accessed no credential and sent no request. Provider authorship,
+billing reconciliation, quality, complete-batch conformance, calibration conversion,
+grading, scoring, promotion, routing activation, and additional-request authority
+remain literal false. Passing this gate permits only the design of a separate,
+reviewed offline converter for the 18 qualifying records. No conversion or empirical
+routing claim exists yet.

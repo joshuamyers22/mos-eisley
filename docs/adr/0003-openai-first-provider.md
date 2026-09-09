@@ -1,6 +1,7 @@
 # ADR 0003: OpenAI Responses as the first live provider
 
-Date: 2026-09-05. Status: implemented as a preview; live conformance pending.
+Date: 2026-09-05. Status: implemented as a preview; exact-profile live-conformance
+gate passed 2026-09-09; calibration and runtime activation pending.
 
 ## Decision
 
@@ -57,3 +58,14 @@ API, structured outputs, function calling, a 1,050,000-token context window, a
 default. Adding candidates does not activate routing or establish account access:
 those decisions still require blinded evaluation, live conformance, and the existing
 promotion controls.
+
+## 2026-09-09 conformance amendment
+
+The frozen six-profile exit gate has passed after three qualifying authenticated
+successes per exact model/effort profile, five installed-wheel failure boundaries,
+and a lineage-wide offline aggregate review. This establishes conformance only for
+Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and Astra/max through the
+bounded zero-retry broker path. It does not generalize to every documented effort or
+feature and does not prove provider authorship, billing, or model quality. A separate
+calibration converter and the existing scoring, holdout, promotion, and activation
+controls remain mandatory before empirical routing or production use.

@@ -135,6 +135,15 @@ No OpenAI credential or request was involved, so this proves local crash-conserv
 recovery and watchdog cleanup rather than provider behavior or billing. See
 [Milestone 84](MILESTONE_84_REVIEW.md).
 
+The subsequent offline aggregate report reauthenticated all 20 retained success
+lineages, counted the exact 18 qualifying successes, explicitly excluded the two
+invalidated Astra/high successes, reverified all five failure boundaries, and
+preserved exact failed/no-send/unexecuted attempt coverage. The frozen exit gate has
+therefore passed. This authorizes only the design of a separate calibration
+converter; provider authorship, billing, quality, conversion, grading, scoring,
+promotion, routing activation, and another provider request remain false. See
+[Milestone 85](MILESTONE_85_REVIEW.md).
+
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.
