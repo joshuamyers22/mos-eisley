@@ -449,6 +449,20 @@ def parser() -> argparse.ArgumentParser:
         if name == "analysis-export":
             analysis_command.add_argument("--result-id", required=True)
             analysis_command.add_argument("--result-root", type=Path, required=True)
+    for name in ("analysis-eval-plan", "analysis-evaluate"):
+        eval_command = subcommands.add_parser(name)
+        eval_command.add_argument("--suite", type=Path, required=True)
+        eval_command.add_argument("--output", type=Path, required=True)
+        if name == "analysis-eval-plan":
+            eval_command.add_argument(
+                "--split", choices=("development", "holdout"), required=True
+            )
+        else:
+            eval_command.add_argument("--inputs", type=Path, required=True)
+    eval_demo = subcommands.add_parser(
+        "analysis-eval-demo", help="Save and score synthetic analytical fixtures"
+    )
+    eval_demo.add_argument("--result-root", type=Path, required=True)
     agent_demo = subcommands.add_parser(
         "agent-demo", help="Run a recorded two-turn canonical tool exchange"
     )
@@ -7396,6 +7410,14 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in {
+            "analysis-eval-plan",
+            "analysis-evaluate",
+            "analysis-eval-demo",
+        }:
+            from mos_eisley.analysis.evaluation_cli import run_command
+
+            return run_command(args)
         if args.command in {
             "analysis-run",
             "analysis-demo",

@@ -266,7 +266,10 @@ and critic/judge workflows retain their existing tool-free boundaries.
 The opt-in `analysis-run` command adds OpenAI tool conversations with a read-only
 profile, revision-bound metrics and whole-run spending reservations. Answers now
 use checked cell references, with a SQL/result trail and optional private
-[artifacts and captured-result exports](docs/ANALYSIS_EVIDENCE.md). See the
+[artifacts and captured-result exports](docs/ANALYSIS_EVIDENCE.md). The
+[offline evaluator](docs/ANALYSIS_EVALUATION.md) grades those bundles against reviewed
+SQL/source/cell expectations and counts missing or failed runs. Try
+`mos analysis-eval-demo --result-root /absolute/private/directory`. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 

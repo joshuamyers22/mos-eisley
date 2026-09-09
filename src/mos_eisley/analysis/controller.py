@@ -63,8 +63,34 @@ class AnalysisConfig(Contract):
     max_result_bytes: Annotated[int, Field(ge=1024, le=12000)] = 4000
 
 
+class AnalysisRunIdentity(Contract):
+    schema_version: Literal[1] = 1
+    settings_sha256: Digest
+    system_sha256: Digest
+    tool_catalog_sha256: Digest
+
+
+def run_identity(
+    config: AnalysisConfig, definitions: tuple[ToolDefinition, ...]
+) -> AnalysisRunIdentity:
+    settings = config.model_dump(mode="json", exclude={"question"})
+    catalog = [tool.model_dump(mode="json") for tool in definitions]
+    return AnalysisRunIdentity(
+        settings_sha256=digest(
+            json.dumps(settings, sort_keys=True, separators=(",", ":")).encode()
+        ),
+        system_sha256=digest(SYSTEM.encode()),
+        tool_catalog_sha256=digest(
+            json.dumps(catalog, sort_keys=True, separators=(",", ":")).encode()
+        ),
+    )
+
+
 class AnalysisResult(Contract):
     schema_version: Literal[2] = 2
+    run_identity: AnalysisRunIdentity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     started_at: datetime
     completed_at: datetime
     provider: Identifier
@@ -347,6 +373,7 @@ async def run_analysis(
                 answer = AnalysisAnswer.model_validate_json(result.final_text)
                 answer = checked_answer(answer, tuple(tools.trace))
                 return AnalysisResult(
+                    run_identity=run_identity(config, tools.definitions),
                     started_at=started,
                     completed_at=datetime.now(UTC),
                     provider=config.provider,
