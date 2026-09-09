@@ -1014,6 +1014,12 @@ Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is mult
 
 ### 16.0 Conversational product contract
 
+**Implementation status, 2026-09-09:** the first recorded conversation terminal
+supports contextual follow-ups, queued messages, cancellation, private local saving
+and explicit same-user/workspace resume. See [usage and limits](CONVERSATIONS.md).
+The full product contract below remains the target; live conversation, review
+integration, active-request steering and the full composer are not yet available.
+
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain
 language is sufficient to explore, plan, implement, debug, and request independent

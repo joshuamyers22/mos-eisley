@@ -46,9 +46,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    exact 342-request remainder and its aggregate cost ceiling without authorizing
    execution. Next, build its one-use assignment execution decision, then wire
    OpenAI into critic/judge review before other providers.
-   In parallel, build the conversational session controller and minimal terminal
-   over recorded providers and explicit inputs: contextual follow-ups, visible
-   progress, queued steering, cancellation, private persistence, and safe resume.
+   A first [recorded conversation terminal](CONVERSATIONS.md) now implements
+   contextual follow-ups, visible progress, queued follow-up messages, cancellation,
+   private local snapshots and explicit same-user/workspace resume. A consumed
+   interrupted request is never replayed automatically. Next add session navigation,
+   retention controls and a review round-trip that preserves critic blindness;
+   active-request steering and the full composer remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
