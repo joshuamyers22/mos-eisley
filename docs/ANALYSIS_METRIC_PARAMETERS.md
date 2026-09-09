@@ -28,7 +28,11 @@ and evidence path, not independent domain correctness or model query-selection
 quality. Callers still need a reviewed metric and source configuration for their
 own data, and must use the current run identity when freezing an evaluation suite.
 
-Verification: the optional full Parquet integration passed (four tests collected,
-one PostgreSQL-only skip), covering the two new date windows and the preceding
-fixed-metric and six-case raw/promoted paths. The complete Mos quality gate is
-recorded here after completion. No provider calls or real-data access were used.
+Verification: all four optional cross-repository tests passed on the updated
+`4d50ece` base with explicit disposable PostgreSQL inputs, covering committed writes,
+the two new date windows and the preceding fixed-metric and six-case raw/promoted
+paths. The full source suite passed 725 tests with four optional cross-repository
+skips and 88% branch-inclusive coverage. Ruff, strict Pyright, locked-export
+verification and the package build passed. All 106 installed-wheel tests passed
+outside the checkout, completing `make check`. No provider calls or real-data
+access were used. The base PR #117 has since merged into main.
