@@ -3110,3 +3110,40 @@ the container reached `removed` on its first cleanup attempt. This completes F4 
 proves no OpenAI behavior, provider authorship, real token accounting, or billing.
 The 18-of-18 success matrix plus F1 through F4 are complete; only F5 and the reviewed
 aggregate gate report remain outstanding.
+
+### 25.57 Passed the installed-wheel F5 boundary
+
+The fifth controlled failure boundary ran through another separate installation of
+the reviewed Mos Eisley 0.1.0 wheel and the immutable image used for F3 and F4. The
+operator independently signed exact authorization payload
+`fcb4077d726d4c924b49d28c3121066c9efa53511814573fb869393db5647f25`.
+The installed harness refused to run with an OpenAI credential available and used a
+no-network transport that blocked only after normal broker admission and spending
+reservation. No provider request was sent.
+
+Assignment authorization
+`a1da497479fa4ceb729c5c7c2f22233d0aa97100fa0b324826722d36fbaaebf3`
+and admission
+`414adef78d436f07fa4a78cb51d20cf6687cc2866b3db57b8daf6ee7d809f5d3`
+preceded held reservation
+`d61a95be7e621a2ebb49cc55c30aaeee37e094ca2769cc8a77c10c0e7c8dbf1c`.
+After independently observing the held entry and armed watchdog, the harness killed
+its own launcher with SIGKILL. The launcher could not execute normal cleanup.
+Independent watchdog result
+`5166fca1bd66c9755ae6c82a6eb761830f2b0ca3f87077b930f6c73f5580a1a2`
+removed exact container
+`890bb4c6c1190c86c590d8910bcdc34cf6d85fedd9c9c0b1650c76278a480e30`
+on its first attempt, and a separate Docker query confirmed that it is absent.
+
+Dedicated disposable ledger
+`156724341d384d8746e90b240875633178d7fd0945f6a0d40562ef8be38e3635`
+now contains exactly one unresolved `held` entry, 635 micro-USD charged, and 9,365
+available. It will never be reset, released, retried, or reused. Read-only recovery
+reports phase `admitted`, with no terminal outcome, spend receipt, conformance
+artifact, success, or failure claim. Retry, automatic release, and promotion remain
+false. This completes F5 but proves no OpenAI behavior, provider receipt, or billing.
+
+All 18 success positions and F1 through F5 now exist, completing the 23 required
+execution positions. The overall gate remains open until a reviewed aggregate report
+reverifies the complete lineage and fixes every unsupported downstream claim to
+false. No calibration conversion or provider request is authorized by this result.

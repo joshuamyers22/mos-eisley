@@ -125,6 +125,16 @@ promotion authority. No OpenAI credential or request was involved, so this prove
 local strict-response rejection rather than provider authorship or billing. See
 [Milestone 83](MILESTONE_83_REVIEW.md).
 
+The installed-wheel F5 operation finally killed its exact launcher by SIGKILL only
+after broker admission, a persisted 635-micro-USD reservation, a held ledger entry,
+and an armed watchdog were independently observed. The watchdog removed the exact
+container on its first attempt, and a separate Docker lookup confirmed absence.
+Read-only recovery reports phase `admitted` and ledger status `held`; no terminal
+outcome, spend receipt, conformance artifact, retry, or automatic release exists.
+No OpenAI credential or request was involved, so this proves local crash-conservative
+recovery and watchdog cleanup rather than provider behavior or billing. See
+[Milestone 84](MILESTONE_84_REVIEW.md).
+
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.

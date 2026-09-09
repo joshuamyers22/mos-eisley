@@ -120,7 +120,7 @@ boundaries must each pass once using the installed wheel and retained artifacts:
 | F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Passed 2026-09-09 |
 | F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Passed 2026-09-09 |
 | F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Passed 2026-09-09 |
-| F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Outstanding |
+| F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Passed 2026-09-09 |
 
 F1, F3, F4, and F5 are controlled operational tests and do not claim OpenAI behavior.
 F2 contacts the real authentication boundary but does not prove that OpenAI inspected
@@ -186,6 +186,26 @@ was published, and the container was removed on its first cleanup attempt. This 
 a controlled local validation result, not provider authorship, token accounting, or
 billing. [Milestone 83](MILESTONE_83_REVIEW.md) records the adversarial disposition.
 F5 remains outstanding, so the overall gate remains open.
+
+F5 subsequently passed through another separate installation of the reviewed wheel
+and the same immutable image, without an OpenAI credential or provider request. The
+controlled launcher reached broker admission, persisted a 635-micro-USD reservation,
+and exposed exact ledger entry
+`e7eaea0ad124ca4be02e03febee9440740b4d42959ff61cf14f452756bfa6b60`
+as `held` before it was terminated by SIGKILL. Independent watchdog result
+`5166fca1bd66c9755ae6c82a6eb761830f2b0ca3f87077b930f6c73f5580a1a2`
+removed exact container
+`890bb4c6c1190c86c590d8910bcdc34cf6d85fedd9c9c0b1650c76278a480e30`
+on its first attempt; a separate Docker lookup confirmed absence. Read-only recovery
+reports phase `admitted` and ledger status `held`, with no terminal outcome, spend
+receipt, conformance artifact, retry, or automatic release. This is a controlled
+local launcher/watchdog result, not provider behavior or billing.
+[Milestone 84](MILESTONE_84_REVIEW.md) records the adversarial disposition.
+
+All 18 success positions and five failure boundaries now exist. The overall gate
+remains open until the aggregate report reverifies every retained lineage together
+and fixes unsupported provider, billing, quality, conversion, grading, scoring,
+promotion, and activation claims to false.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful
