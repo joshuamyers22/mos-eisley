@@ -22,6 +22,9 @@ def run_metric(name: str, revision: str) -> dict[str, JsonValue]:
         raise ValueError("unavailable metric or revision")
     return {
         "revision": REVISION,
+        "backend": "fixture",
+        "source": "synthetic",
+        "units": "items",
         "columns": ["total"],
         "rows": [[42]],
         "truncated": False,

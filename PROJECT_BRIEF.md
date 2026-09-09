@@ -38,7 +38,11 @@
   Schema compatibility adds bounded local references, local constraints and JSON
   wrappers while preserving validation and explicit write grants.
   OAuth supports explicit public-client PKCE login, native-keychain storage, refresh
-  and logout. Live provider and critic workflows still expose no MCP tools. See docs/MCP_DATA.md.
+  and logout. The opt-in analytical command exposes read-only MCP tools to OpenAI
+  under whole-run spending limits, with checked cells and optional private evidence.
+  Offline analytical evaluation compares reviewed expectations without provider calls.
+  The original one-prompt and critic workflows expose no MCP tools. See
+  docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
 - Non-goals for this phase: live adversarial review, general machine tools,
   sandboxing, test execution, repository config, GitHub writes, author agents,
   TUI and model pricing.
