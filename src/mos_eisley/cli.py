@@ -189,8 +189,15 @@ from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_calibration_campaign import (
+    OpenAICalibrationCampaignManifest,
     OpenAICalibrationCampaignPolicy,
     plan_openai_calibration_campaign,
+)
+from mos_eisley.run.openai_calibration_execution import (
+    OpenAICalibrationExecutionAuthorityPolicy,
+    SignedOpenAICalibrationExecutionDecision,
+    authenticate_openai_calibration_execution,
+    make_openai_calibration_execution_decision,
 )
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.openai_conformance_conversion import (
@@ -665,6 +672,65 @@ def parser() -> argparse.ArgumentParser:
         "--allow-offline-planning", action="store_true"
     )
     eval_plan_openai_campaign.add_argument("--output", type=Path, required=True)
+    derive_openai_campaign_execution = subcommands.add_parser(
+        "eval-derive-openai-calibration-execution",
+        help="Derive one exact signable OpenAI calibration execution decision",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+    ):
+        derive_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_openai_campaign_execution.add_argument("--sequence", type=int, required=True)
+    derive_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--request-timeout", type=int, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--allow-offline-decision", action="store_true"
+    )
+    derive_openai_campaign_execution.add_argument("--output", type=Path, required=True)
+    authenticate_openai_campaign_execution = subcommands.add_parser(
+        "eval-authenticate-openai-calibration-execution",
+        help="Authenticate one unused exact OpenAI calibration execution decision",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "signed-decision",
+    ):
+        authenticate_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    authenticate_openai_campaign_execution.add_argument(
+        "--allow-offline-authentication", action="store_true"
+    )
+    authenticate_openai_campaign_execution.add_argument(
+        "--output", type=Path, required=True
+    )
     prepare_evaluation_conformance = subcommands.add_parser(
         "eval-prepare-brokered-conformance-policy",
         help="Prepare an exact no-send policy for one OpenAI conformance probe",
@@ -2800,6 +2866,216 @@ def _plan_openai_calibration_campaign_command(args: argparse.Namespace) -> int:
                 "promotion_authorized": manifest.promotion_authorized,
                 "routing_activation_authorized": (
                     manifest.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _load_openai_calibration_execution_sources(
+    args: argparse.Namespace,
+) -> tuple[
+    ExecutionBatch,
+    OpenAIConformanceCalibrationSeed,
+    OpenAICalibrationCampaignPolicy,
+    OpenAICalibrationCampaignManifest,
+    SpendPolicy,
+    SpendLedger,
+    OpenAICalibrationExecutionAuthorityPolicy,
+]:
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    seed = OpenAIConformanceCalibrationSeed.model_validate_json(
+        read_bounded(cast(Path, args.calibration_seed), 2_000_000)
+    )
+    campaign_policy = OpenAICalibrationCampaignPolicy.model_validate_json(
+        read_bounded(cast(Path, args.campaign_policy), 128_000)
+    )
+    manifest = OpenAICalibrationCampaignManifest.model_validate_json(
+        read_bounded(cast(Path, args.campaign_manifest), 1_000_000)
+    )
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(cast(Path, args.spend_policy), 64_000)
+    )
+    ledger = SpendLedger(cast(Path, args.spend_ledger))
+    authority_policy = OpenAICalibrationExecutionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.execution_authority_policy), 128_000)
+    )
+    return (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    )
+
+
+def _openai_calibration_execution_paths(
+    args: argparse.Namespace, *, include_signed: bool
+) -> tuple[Path, ...]:
+    paths = (
+        cast(Path, args.batch),
+        cast(Path, args.calibration_seed),
+        cast(Path, args.campaign_policy),
+        cast(Path, args.campaign_manifest),
+        cast(Path, args.spend_policy),
+        cast(Path, args.spend_ledger),
+        cast(Path, args.execution_authority_policy),
+        cast(Path, args.audit_dir),
+    )
+    if include_signed:
+        return (*paths, cast(Path, args.signed_decision))
+    return paths
+
+
+def _derive_openai_calibration_execution_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_decision):
+        raise ValueError("offline calibration execution decision was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline calibration execution decision refuses credentials")
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(args, include_signed=False)
+    ):
+        raise ValueError("calibration execution decision output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    decision = make_openai_calibration_execution_decision(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        cast(int, args.sequence),
+        cast(Path, args.audit_dir),
+        cast(int, args.request_timeout),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "campaign_manifest_sha256": decision.campaign_manifest_sha256,
+                "sequence": decision.sequence,
+                "sample_id": decision.assignment_authorization.sample_id,
+                "provider_request_sha256": (
+                    decision.assignment_authorization.provider_request_sha256
+                ),
+                "ledger_entry_id": (decision.assignment_authorization.ledger_entry_id),
+                "max_cost_microusd": decision.max_cost_microusd,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_exact_attempt_authorized": (decision.one_exact_attempt_authorized),
+                "authenticated": False,
+                "credential_accessed": False,
+                "spend_reserved": False,
+                "provider_request_sent": False,
+                "grading_authorized": decision.grading_authorized,
+                "scoring_authorized": decision.scoring_authorized,
+                "promotion_authorized": decision.promotion_authorized,
+                "routing_activation_authorized": (
+                    decision.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_openai_calibration_execution_command(
+    args: argparse.Namespace,
+) -> int:
+    if not cast(bool, args.allow_offline_authentication):
+        raise ValueError(
+            "offline calibration execution authentication was not acknowledged"
+        )
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError(
+            "offline calibration execution authentication refuses credentials"
+        )
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(args, include_signed=True)
+    ):
+        raise ValueError("authenticated calibration execution output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    signed = SignedOpenAICalibrationExecutionDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_decision), 256_000)
+    )
+    authorization = authenticate_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        signed,
+        cast(Path, args.audit_dir),
+        datetime.now(UTC),
+    )
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "sequence": authorization.sequence,
+                "sample_id": authorization.assignment_authorization.sample_id,
+                "provider_request_sha256": (
+                    authorization.assignment_authorization.provider_request_sha256
+                ),
+                "ledger_entry_id": (
+                    authorization.assignment_authorization.ledger_entry_id
+                ),
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_exact_attempt_authorized": (
+                    authorization.one_exact_attempt_authorized
+                ),
+                "one_use_ledger_entry_required": (
+                    authorization.one_use_ledger_entry_required
+                ),
+                "explicit_local_consent_still_required": (
+                    authorization.explicit_local_consent_still_required
+                ),
+                "credential_accessed": authorization.credential_accessed,
+                "spend_reserved": authorization.spend_reserved,
+                "provider_request_sent": authorization.provider_request_sent,
+                "grading_authorized": authorization.grading_authorized,
+                "scoring_authorized": authorization.scoring_authorized,
+                "promotion_authorized": authorization.promotion_authorized,
+                "routing_activation_authorized": (
+                    authorization.routing_activation_authorized
                 ),
             }
         )
@@ -6355,6 +6631,12 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-convert-openai-conformance": _convert_openai_conformance_command,
         "eval-plan-openai-calibration-campaign": (
             _plan_openai_calibration_campaign_command
+        ),
+        "eval-derive-openai-calibration-execution": (
+            _derive_openai_calibration_execution_command
+        ),
+        "eval-authenticate-openai-calibration-execution": (
+            _authenticate_openai_calibration_execution_command
         ),
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command

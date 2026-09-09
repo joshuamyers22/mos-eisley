@@ -4,6 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add offline derive/authenticate commands for one independently signed, short-lived
+  OpenAI calibration execution decision bound to the fully reverified campaign,
+  exact strict provider request, schema-2 spend policy, canonical bounded ledger
+  policy, and fresh audit-path/ledger-entry identity.
+- Preserve credential, reservation, and send state as false during authentication;
+  require explicit local consent and future atomic ledger consumption while denying
+  retry, automatic release, grading, scoring, promotion, and routing activation.
+
 - Add backward-compatible schema-2 OpenAI spending policies with explicit
   cache-write rates, worst-case cache-write reservation, and exact cache-write
   settlement across direct, canary, conformance, and skill-runtime paths.
