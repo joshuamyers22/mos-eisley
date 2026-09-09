@@ -162,6 +162,7 @@ from mos_eisley.run.evaluation_broker import (
     make_assignment_broker,
 )
 from mos_eisley.run.evaluation_conformance import (
+    AuthenticatedEvaluationConformance,
     EvaluationConformancePolicy,
     SignedEvaluationConformanceObservation,
     TrustedEvaluationConformanceObserver,
@@ -188,6 +189,10 @@ from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
+from mos_eisley.run.openai_conformance_conversion import (
+    OpenAIConformanceConversionPolicy,
+    convert_openai_conformance_to_calibration_seed,
+)
 from mos_eisley.run.openai_responses_canary import (
     OpenAIResponsesCanaryAuthorityPolicy,
     OpenAIResponsesCanaryResult,
@@ -621,6 +626,25 @@ def parser() -> argparse.ArgumentParser:
         "--artifact", type=Path, action="append", required=True
     )
     eval_broker_results.add_argument("--output", type=Path, required=True)
+    eval_convert_conformance = subcommands.add_parser(
+        "eval-convert-openai-conformance",
+        help="Convert the reviewed qualifying OpenAI probes into an inert seed",
+    )
+    eval_convert_conformance.add_argument("--batch", type=Path, required=True)
+    eval_convert_conformance.add_argument("--gate-report", type=Path, required=True)
+    eval_convert_conformance.add_argument(
+        "--conversion-policy", type=Path, required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--authenticated-conformance", type=Path, action="append", required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--artifact", type=Path, action="append", required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--allow-offline-conversion", action="store_true"
+    )
+    eval_convert_conformance.add_argument("--output", type=Path, required=True)
     prepare_evaluation_conformance = subcommands.add_parser(
         "eval-prepare-brokered-conformance-policy",
         help="Prepare an exact no-send policy for one OpenAI conformance probe",
@@ -2643,6 +2667,71 @@ def _assemble_brokered_results_command(args: argparse.Namespace) -> int:
                     result.automatic_budget_release_authorized
                 ),
                 "promotion_eligible": result.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _convert_openai_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_conversion):
+        raise ValueError("offline OpenAI conformance conversion was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline conversion refuses provider credentials")
+    batch_path = cast(Path, args.batch)
+    gate_path = cast(Path, args.gate_report)
+    policy_path = cast(Path, args.conversion_policy)
+    receipt_paths = cast(list[Path], args.authenticated_conformance)
+    artifact_paths = cast(list[Path], args.artifact)
+    output = cast(Path, args.output)
+    if len(receipt_paths) != 18 or len(artifact_paths) != 18:
+        raise ValueError(
+            "offline conversion requires exactly 18 receipts and artifacts"
+        )
+    sources = (batch_path, gate_path, policy_path, *receipt_paths, *artifact_paths)
+    if any(_paths_overlap(output, source) for source in sources):
+        raise ValueError("calibration seed output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    gate_report = read_bounded(gate_path, 2_000_000)
+    policy = OpenAIConformanceConversionPolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    receipts = tuple(
+        AuthenticatedEvaluationConformance.model_validate_json(
+            read_bounded(path, 512_000)
+        )
+        for path in receipt_paths
+    )
+    artifacts = tuple(
+        BrokeredEvaluationArtifact.model_validate_json(read_bounded(path, 2_000_000))
+        for path in artifact_paths
+    )
+    seed = convert_openai_conformance_to_calibration_seed(
+        batch, gate_report, policy, receipts, artifacts
+    )
+    _write_contract(output, seed)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_conformance.calibration_seed_created",
+                "path": str(output),
+                "calibration_seed_sha256": seed.calibration_seed_sha256,
+                "converted_assignments": seed.converted_assignments,
+                "execution_batch_assignments": seed.execution_batch_assignments,
+                "complete_batch_coverage_verified": (
+                    seed.complete_batch_coverage_verified
+                ),
+                "live_raw_result_set_issued": seed.live_raw_result_set_issued,
+                "credential_accessed_during_conversion": (
+                    seed.credential_accessed_during_conversion
+                ),
+                "provider_request_sent_during_conversion": (
+                    seed.provider_request_sent_during_conversion
+                ),
+                "grading_authorized": seed.grading_authorized,
+                "scoring_authorized": seed.scoring_authorized,
+                "promotion_authorized": seed.promotion_authorized,
+                "routing_activation_authorized": (seed.routing_activation_authorized),
             }
         )
     )
@@ -6194,6 +6283,7 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
+        "eval-convert-openai-conformance": _convert_openai_conformance_command,
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command
         ),

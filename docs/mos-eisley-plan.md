@@ -3171,3 +3171,26 @@ grading, scoring, promotion, routing activation, and additional-request authorit
 remain literal false. Passing this gate permits only the design of a separate,
 reviewed offline converter for the 18 qualifying records. No conversion or empirical
 routing claim exists yet.
+
+### 25.59 Implemented partial OpenAI conformance calibration conversion
+
+A committed conversion policy now pins the exact passed aggregate-report digest,
+frozen plan and 360-assignment batch, six profiles, and 18 qualifying position names.
+The offline converter requires exactly those 18 authenticated receipts and their
+matching brokered artifacts. It rechecks canonical receipt/artifact hashes and every
+sample, route, request, authorization, outcome, response, ledger, latency, cost,
+usage, and critique binding against the aggregate before restoring frozen batch
+order. Invalidated historical successes, omissions, additions, substitutions,
+noncanonical reports, changed pass claims, and any newly granted authority fail
+closed.
+
+The command requires explicit offline consent and refuses to run while either
+supported OpenAI key variable is present. Its first real conversion accessed no
+credential, sent no request, and produced a private 30,592-byte seed with SHA-256
+`c67dfcfac073ba4946afd59b2f2960fb9de10740654cdaf8ad1183f91e8cf570`.
+The seed contains 18 of 360 assignments and the same 135,812 micro-USD local cost
+total as its sources. It is deliberately incompatible with `RawResultSet`, exposes
+route identity, and fixes complete-batch coverage, provider authorship, billing,
+quality, grading, scoring, promotion, activation, and further request authority to
+false. A complete-batch brokered calibration and separately reviewed gradeable
+issuance boundary remain required.

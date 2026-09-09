@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a credential-refusing offline OpenAI conformance converter pinned to the exact
+  passed aggregate gate, six reviewed profiles, and 18 qualifying receipt/artifact
+  lineages.
+- Emit only a private 18-of-360 partial calibration seed that is incompatible with
+  `RawResultSet` and denies complete coverage, grading, scoring, promotion,
+  activation, and any additional provider request.
+
 - Pin the OpenAI live-conformance exit criterion at three consecutive,
   precommitted, distinct authenticated successes for each of six exact profiles (18
   total), with complete failed-attempt retention and reset-after-failure semantics.

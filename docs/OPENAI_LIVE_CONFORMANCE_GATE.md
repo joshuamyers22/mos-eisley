@@ -234,5 +234,12 @@ compiler accessed no credential and sent no request. All unsupported downstream
 claims remain literal false. [Milestone 85](MILESTONE_85_REVIEW.md) records the
 evidence and adversarial limits.
 
+The separately reviewed offline converter subsequently consumed only the exact 18
+qualifying receipts and artifacts named by this report. It emitted a private
+18-of-360 partial calibration seed, not a gradeable `RawResultSet`, and made no
+credential access or provider request. All complete-batch, quality, grading, scoring,
+promotion, and activation gates remain closed. See
+[Milestone 86](MILESTONE_86_REVIEW.md).
+
 Changing the profile set, consecutive-success count, failure suite, or budget rules
 requires a new public adversarial disposition before additional results are observed.
