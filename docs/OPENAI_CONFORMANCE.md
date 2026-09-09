@@ -144,6 +144,15 @@ converter; provider authorship, billing, quality, conversion, grading, scoring,
 promotion, routing activation, and another provider request remain false. See
 [Milestone 85](MILESTONE_85_REVIEW.md).
 
+The subsequently reviewed offline converter pins that exact aggregate digest and
+accepts only the 18 qualifying receipts plus their matching artifacts. Its first real
+run issued a private 18-of-360 partial calibration seed without any credential or
+provider request. The distinct seed cannot parse as `RawResultSet` and keeps
+complete-batch coverage, provider authorship, billing, quality, grading, scoring,
+promotion, activation, and another request false. See the
+[converter contract](OPENAI_CONFORMANCE_CONVERSION.md) and
+[Milestone 86](MILESTONE_86_REVIEW.md).
+
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.

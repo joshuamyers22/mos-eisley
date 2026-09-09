@@ -69,3 +69,9 @@ bounded zero-retry broker path. It does not generalize to every documented effor
 feature and does not prove provider authorship, billing, or model quality. A separate
 calibration converter and the existing scoring, holdout, promotion, and activation
 controls remain mandatory before empirical routing or production use.
+
+The first separately reviewed converter is intentionally partial. It binds the exact
+aggregate report and 18 qualifying sources into a distinct 18-of-360 calibration
+seed while refusing provider credentials. It does not issue `RawResultSet` or grant
+grading, scoring, promotion, activation, or additional-request authority. Full batch
+execution and a later gradeable issuance boundary remain mandatory.

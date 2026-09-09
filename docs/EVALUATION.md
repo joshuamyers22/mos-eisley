@@ -76,6 +76,15 @@ One successful probe can now receive an
 assignment, independent authorization, audit, and ledger. The receipt explicitly does
 not establish complete batch conformance or permit conversion, grading, or scoring.
 
+After the separate aggregate gate passed, the reviewed
+[offline OpenAI conformance converter](OPENAI_CONFORMANCE_CONVERSION.md) projected
+only its exact 18 qualifying receipts and artifacts into a private partial
+calibration seed. The seed records 18 of the frozen batch's 360 assignments and is a
+distinct schema that cannot parse as `RawResultSet`; it authorizes no grading,
+scoring, promotion, activation, or additional request. Complete batch execution and
+another reviewed issuance boundary remain required before the grading flow below can
+consume live-derived results.
+
 Next, create the adjudicator packet. This joins references to completed outputs but
 removes route, model, backend, case ID, split and private assignment mapping. Give
 only this packet and the grading rubric to a human adjudicator. A candidate can

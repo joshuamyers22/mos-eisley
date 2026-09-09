@@ -1,0 +1,54 @@
+{
+  "batch_sha256": "dc9dbc076e3e55f45b1edc610f6c85f9b70e63ea76cecdc81aff955c423108cb",
+  "command": "eval-convert-openai-conformance",
+  "complete_batch_conversion_authorized": false,
+  "credential_access_authorized": false,
+  "exact_gate_report_binding_required": true,
+  "exact_qualifying_source_set_required": true,
+  "gate_report_sha256": "e58dc274b5087271fe1f241724fdd1f319956b4fffba8bf1e83e086db26ea72a",
+  "grading_authorized": false,
+  "mode": "openai_conformance_calibration_conversion_policy",
+  "offline_only": true,
+  "plan_sha256": "e8ddb3fcaf04422b745f858a575a3dceb90789dc54a45c168250b4b83eeb1411",
+  "policy_id": "openai-conformance-calibration-seed-v1",
+  "profiles": [
+    {
+      "effort": "low",
+      "model": "gpt-5.6-luna",
+      "positions": ["luna-low-1", "luna-low-2", "luna-low-3"]
+    },
+    {
+      "effort": "high",
+      "model": "gpt-5.6-sol",
+      "positions": ["sol-high-historical-1", "sol-high-2", "sol-high-3"]
+    },
+    {
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "positions": ["sol-medium-1", "sol-medium-2", "sol-medium-3"]
+    },
+    {
+      "effort": "medium",
+      "model": "gpt-5.6-terra",
+      "positions": ["terra-medium-1", "terra-medium-2", "terra-medium-3"]
+    },
+    {
+      "effort": "high",
+      "model": "gpt-6-astra",
+      "positions": ["astra-high-1", "astra-high-2", "astra-high-3"]
+    },
+    {
+      "effort": "max",
+      "model": "gpt-6-astra",
+      "positions": ["astra-max-1", "astra-max-2", "astra-max-3"]
+    }
+  ],
+  "promotion_authorized": false,
+  "provider": "openai",
+  "provider_request_authorized": false,
+  "required_qualifying_successes": 18,
+  "required_successes_per_profile": 3,
+  "routing_activation_authorized": false,
+  "schema_version": 1,
+  "scoring_authorized": false
+}

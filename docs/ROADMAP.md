@@ -40,9 +40,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    canary completed and offline verification confirmed 40 input tokens, 5 output
    tokens, 14 micro-USD retained, a settled unblocked ledger, and exact Responses
    access while billing and routing authority remained false. Those exact-profile
-   conformance prerequisites subsequently passed as described in item 4. Next,
-   convert only qualifying evidence through a separate reviewed offline boundary,
-   then wire OpenAI into critic/judge review before other providers.
+   conformance prerequisites subsequently passed as described in item 4. The
+   separate reviewed offline boundary has now converted only the 18 qualifying
+   records into a non-gradeable partial seed. Next, build the complete-batch
+   brokered calibration boundary, then wire OpenAI into critic/judge review before
+   other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.
@@ -135,9 +137,14 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    lineage-wide aggregate report passed on 2026-09-09. The report reauthenticated 20
    successful exchanges, counted only the 18 qualifying records, and retained
    literal false conversion, quality, scoring, promotion, activation, and
-   additional-request authority. Next, design and adversarially review the offline
-   calibration converter. Run the repeated backend × model × effort sweep on clean
-   and defective samples only through that future converter.
+   additional-request authority. A separately reviewed offline converter now pins
+   that exact aggregate digest and projects only its 18 qualifying receipts and
+   matching artifacts into a private 18-of-360 partial calibration seed. The seed is
+   deliberately incompatible with `RawResultSet` and fixes complete-batch coverage,
+   quality, grading, scoring, promotion, activation, and another request to false.
+   Next, design the complete-batch brokered calibration boundary and run the
+   remaining repeated backend × model × effort matrix on clean and defective
+   samples only through fresh request and spend authority.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
