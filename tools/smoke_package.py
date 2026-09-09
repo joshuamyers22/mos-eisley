@@ -144,11 +144,16 @@ def main() -> int:
         fixtures = root / "fixtures"
         fixtures.mkdir()
         (fixtures / "__init__.py").write_text("")
-        for name in ("mcp_http_server.py", "mcp_oauth_server.py"):
+        for name in (
+            "mcp_http_server.py",
+            "mcp_oauth_server.py",
+            "mcp_server.py",
+            "mcp_schema_server.py",
+            "mcp_schema_tools.py",
+        ):
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
-        (root / "test_mcp_oauth.py").write_text(
-            Path("tests/test_mcp_oauth.py").read_text()
-        )
+        for name in ("test_mcp_oauth.py", "test_mcp_schema.py"):
+            (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(
             [
                 str(python),
@@ -158,7 +163,7 @@ def main() -> int:
                 "-s",
                 str(root),
                 "-p",
-                "test_mcp_oauth.py",
+                "test_mcp_*.py",
             ],
             cwd=root,
             check=True,

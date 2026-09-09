@@ -149,6 +149,15 @@ Author once, emit per-provider.
 - Allowed: `object`, `string`, `number`, `integer`, `boolean`, `array`, `enum`, `required`, `description`
 - Forbidden: `$ref`, `oneOf`, `allOf`, `anyOf`, `format`, `patternProperties`, recursion, tuple-typed arrays
 
+Implementation status, 2026-09-09: the canonical subset above remains unchanged.
+The MCP adapter on `feat/mcp-schema-compatibility` now expands bounded local
+references, enforces supported constraints locally and wraps complex object
+arguments in one JSON string when necessary. It reports the encoding and changes;
+unsupported keywords/references still fail closed. See
+[configuration](MCP_DATA.md#tool-schema-compatibility) and
+[verification](MCP_SCHEMA_VERIFICATION.md). Paid-provider conformance remains a
+separate gate.
+
 Gemini's OpenAPI-subset dialect is the binding constraint. Validate at tool-registration time in CI, not on first call. **This applies to MCP-sourced schemas too** (§13) — many servers emit schemas Gemini rejects.
 
 ### 4.3 Sampling parameters are gone
@@ -794,10 +803,11 @@ registration methods and preserve M11A's no-duplicate-write invariant.
 
 #### Dependencies and separate acceptance gates
 
-Schema compatibility expansion (§4.2 and the adversarial finding in §23) remains
-a separate task: deterministic lowering or provider wrappers must preserve input
-validation and report every change. Unsupported schemas continue to fail closed
-over either transport; adding HTTP or OAuth does not resolve schema restrictions.
+Schema compatibility (§4.2 and the adversarial finding in §23) now has a bounded
+MCP implementation on `feat/mcp-schema-compatibility`: local reference expansion,
+locally enforced constraints and explicit JSON argument wrappers. See
+[schema verification](MCP_SCHEMA_VERIFICATION.md). Unsupported schemas still fail
+closed over either transport; this does not establish paid-provider conformance.
 
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,

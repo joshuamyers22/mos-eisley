@@ -7,10 +7,9 @@ import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self
 
 import httpx2
-from jsonschema import Draft202012Validator
 from mcp import Client
 from mcp.client.stdio import (
     DEFAULT_INHERITED_ENV_VARS,
@@ -29,7 +28,12 @@ from mos_eisley.core.protocol import (
     ToolSchema,
 )
 from mos_eisley.tools.mcp_http import MCPHTTPClient, MCPHTTPSettings, MCPHTTPTransport
-from mos_eisley.tools.mcp_schema import lower_schema
+from mos_eisley.tools.mcp_schema import (
+    PreparedSchema,
+    compile_schema,
+    prepare_schema,
+    valid_instance,
+)
 
 
 class MCPFailure(ValueError):
@@ -69,6 +73,7 @@ def redacted_sdk_logs() -> Generator[None]:
 class MCPConfig(Contract):
     schema_version: Literal[1] = 1
     transport: Literal["stdio", "streamable_http"] = "stdio"
+    schema_mode: Literal["auto", "json_object"] = "auto"
     command: Annotated[str, Field(min_length=1, max_length=4096)] | None = None
     args: Annotated[tuple[str, ...], Field(max_length=64)] = ()
     cwd: Annotated[str, Field(min_length=1, max_length=4096)] | None = None
@@ -133,6 +138,8 @@ class MCPDispatcher:
         self._config = MCPConfig.model_validate_json(config.model_dump_json())
         self._definitions: tuple[ToolDefinition, ...] = ()
         self._schemas: dict[str, dict[str, Any]] = {}
+        self._prepared: dict[str, PreparedSchema] = {}
+        self._outputs: dict[str, dict[str, Any]] = {}
         self._losses: dict[str, tuple[str, ...]] = {}
         self._used_ids: set[str] = set()
         self._ready = False
@@ -145,6 +152,10 @@ class MCPDispatcher:
     @property
     def schema_changes(self) -> dict[str, tuple[str, ...]]:
         return self._losses.copy()
+
+    @property
+    def argument_encodings(self) -> dict[str, str]:
+        return {name: item.encoding for name, item in self._prepared.items()}
 
     def close(self) -> None:
         self._ready = False
@@ -167,21 +178,31 @@ class MCPDispatcher:
                     seen.add(tool.name)
                     if tool.name not in self._config.tools:
                         continue
-                    schema, losses = lower_schema(tool.input_schema)
+                    prepared = prepare_schema(
+                        tool.input_schema,
+                        force_wrapper=self._config.schema_mode == "json_object",
+                    )
                     # The SDK validates structured results. External references
                     # are forbidden so that validation cannot fetch network data.
                     if tool.output_schema is not None:
-                        _check_output_schema(tool.output_schema)
+                        self._outputs[tool.name], _ = compile_schema(tool.output_schema)
                     definitions.append(
                         ToolDefinition(
                             name=tool.name,
-                            description=tool.description
-                            or "Operator-selected MCP tool",
-                            input_schema=schema,
+                            description=(
+                                (tool.description or "Operator-selected MCP tool")
+                                + (
+                                    "\n" + prepared.instructions
+                                    if prepared.instructions
+                                    else ""
+                                )
+                            ),
+                            input_schema=prepared.schema,
                         )
                     )
-                    self._schemas[tool.name] = tool.input_schema
-                    self._losses[tool.name] = losses
+                    self._schemas[tool.name] = prepared.validation
+                    self._prepared[tool.name] = prepared
+                    self._losses[tool.name] = prepared.changes
                 cursor = result.next_cursor
                 if cursor is None:
                     break
@@ -206,21 +227,33 @@ class MCPDispatcher:
             definition = next(d for d in self._definitions if d.name == call.name)
             # Check both the original server schema and the stricter canonical
             # object shape. In particular, undeclared arguments never pass through.
-            validator = Draft202012Validator(self._schemas[call.name])
-            # typeshed's deprecated overload has an untyped instance parameter.
-            valid = validator.is_valid(call.args)  # pyright: ignore[reportUnknownMemberType]
-            if (
-                len(canonical_bytes(call)) > self._config.max_argument_bytes
-                or not valid
-                or not _arguments_match(definition.input_schema, call.args)
+            if len(
+                canonical_bytes(call)
+            ) > self._config.max_argument_bytes or not _arguments_match(
+                definition.input_schema, call.args
             ):
+                return _error(call, "invalid MCP tool arguments")
+            try:
+                arguments = self._prepared[call.name].arguments(call.args)
+            except Exception:
                 return _error(call, "invalid MCP tool arguments")
             self._used_ids.add(call.id)
             try:
                 async with asyncio.timeout(self._config.timeout_seconds):
                     # Low-level API refuses input-required results; high-level
                     # Client.call_tool can repeat a call to satisfy elicitation.
-                    result = await self._client.session.call_tool(call.name, call.args)
+                    result = await self._client.session.call_tool(call.name, arguments)
+                if (
+                    not result.is_error
+                    and call.name in self._outputs
+                    and (
+                        result.structured_content is None
+                        or not valid_instance(
+                            self._outputs[call.name], result.structured_content
+                        )
+                    )
+                ):
+                    raise MCPFailure("MCP structured output violates its schema")
                 converted = _convert_result(call, result)
                 if len(canonical_bytes(converted)) > self._config.max_result_bytes:
                     raise MCPFailure("MCP result exceeds the byte limit")
@@ -253,23 +286,6 @@ def _arguments_match(schema: ToolSchema, value: JsonValue) -> bool:
             _arguments_match(item_schema, item) for item in value
         )
     return True  # Primitive types and required fields checked by original schema.
-
-
-def _check_output_schema(schema: dict[str, Any]) -> None:
-    def walk(value: Any, depth: int = 0) -> None:
-        if depth > 16:
-            raise MCPFailure("MCP output schema is too deep")
-        if isinstance(value, dict):
-            if any(key in value for key in ("$ref", "$dynamicRef", "$recursiveRef")):
-                raise MCPFailure("MCP output schema references are unsupported")
-            for item in cast(dict[str, Any], value).values():
-                walk(item, depth + 1)
-        elif isinstance(value, list):
-            for item in cast(list[Any], value):
-                walk(item, depth + 1)
-
-    walk(schema)
-    Draft202012Validator.check_schema(schema)
 
 
 def _error(call: ToolCallBlock, message: str) -> ToolResultBlock:

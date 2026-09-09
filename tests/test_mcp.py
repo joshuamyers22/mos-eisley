@@ -88,7 +88,7 @@ class MCPConfigTests(TestCase):
         self.assertEqual(schema.required, ("paths",))
         self.assertEqual(len(changes), 3)
         for value in (
-            {"type": "object", "additionalProperties": True},
+            {"type": "object", "patternProperties": {".*": {"type": "string"}}},
             {"type": "string", "pattern": ".*"},
             {"$ref": "https://example.invalid/schema"},
             {"type": ["string", "null"]},

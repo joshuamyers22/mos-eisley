@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Expand MCP schemas with bounded local reference inlining, constraint/format
+  validation, and explicit JSON argument wrappers for nullable fields, unions and
+  dictionaries. Report encodings and changes; validate declared structured output.
+
 - Add explicit MCP OAuth login/logout for pre-registered public clients, PKCE,
   constrained discovery, OS keychain storage, serialized refresh and revocation
   reporting. Authentication failures never automatically repeat tool calls.
