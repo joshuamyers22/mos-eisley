@@ -834,6 +834,13 @@ fixtures still need review; ontology-free execution, controlled live comparisons
 and statistical conclusions remain open. See [contract](ANALYSIS_EVALUATION.md)
 and [verification](ANALYSIS_EVALUATION_VERIFICATION.md).
 
+Status, 2026-09-09: `feat/analysis-raw-baseline` adds explicit raw source-discovery
+and SQL analysis through the same bounded controller. Semantic/custom/write tools
+are excluded; artifacts record raw mode with no semantic revision. Offline suites
+can now compare raw/promoted arms, but controlled execution, domain fixtures and
+quality assessment remain open. See [contract](ANALYSIS_RAW_BASELINE.md) and
+[verification](ANALYSIS_RAW_VERIFICATION.md).
+
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
 whole-run spending reservations, turn/token/tool/time limits, cancellation and

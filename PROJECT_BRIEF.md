@@ -41,6 +41,8 @@
   and logout. The opt-in analytical command exposes read-only MCP tools to OpenAI
   under whole-run spending limits, with checked cells and optional private evidence.
   Offline analytical evaluation compares reviewed expectations without provider calls.
+  Explicit raw mode supports the comparison arm through source discovery and SQL
+  with no promoted semantic catalog and the same spending/evidence controls.
   The original one-prompt and critic workflows expose no MCP tools. See
   docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
 - Non-goals for this phase: live adversarial review, general machine tools,

@@ -20,6 +20,7 @@ from mos_eisley.analysis.artifacts import (
 )
 from mos_eisley.analysis.controller import AnalysisConfig, run_analysis
 from mos_eisley.analysis.demo import Scenario, run_demo
+from mos_eisley.analysis.evidence import ContextMode
 from mos_eisley.analysis.spending import AnalysisSpending
 from mos_eisley.core.registry import openai_registry
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
@@ -84,12 +85,17 @@ def run_command(args: argparse.Namespace) -> int:
                     model="tool-reviewer-v1",
                     account="fixture",
                     question="Synthetic demo",
+                    context_mode=cast(ContextMode, args.context_mode),
                     retention="private" if args.allow_result_retention else "memory",
                     artifact_ttl_seconds=cast(int, args.artifact_ttl_seconds),
                 )
                 root = _retention_root(args, config)
                 result = asyncio.run(
-                    run_demo(cast(Scenario, args.scenario), retention=config.retention)
+                    run_demo(
+                        cast(Scenario, args.scenario),
+                        retention=config.retention,
+                        context_mode=config.context_mode,
+                    )
                 )
                 if root is None:
                     print(result.model_dump_json())

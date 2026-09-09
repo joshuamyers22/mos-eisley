@@ -265,7 +265,9 @@ profile, revision-bound metrics and whole-run spending reservations. Answers now
 use checked cell references, with a SQL/result trail and optional private
 [artifacts and captured-result exports](docs/ANALYSIS_EVIDENCE.md). The
 [offline evaluator](docs/ANALYSIS_EVALUATION.md) grades those bundles against reviewed
-SQL/source/cell expectations and counts missing or failed runs. Try
+SQL/source/cell expectations and counts missing or failed runs. An explicit
+[raw-data baseline](docs/ANALYSIS_RAW_BASELINE.md) uses source discovery and SQL
+without the promoted catalog: `mos analysis-demo --context-mode raw`. Try
 `mos analysis-eval-demo --result-root /absolute/private/directory`. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).

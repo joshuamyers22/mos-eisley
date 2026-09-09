@@ -147,6 +147,54 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
             self.assertEqual(answer.semantic_revision, context["revision"])
             self.assertEqual(answer.answer.claims[0].value, 1)
 
+            # The raw control uses the same file with no ontology loaded by its server.
+            server_config.write_text(
+                'access_mode = "analysis"\n'
+                f"[parquet.raw]\npath = {json.dumps(temporary)}\n"
+            )
+            raw = analysis.model_copy(
+                update={
+                    "tools": {
+                        "list_sources": "read",
+                        "describe_parquet": "read",
+                        "query_parquet": "read",
+                    }
+                }
+            )
+
+            class RawClient(AnalysisFixtureClient):
+                async def complete(self, request: ModelRequest) -> ModelResponse:
+                    response = await super().complete(request)
+                    return ModelResponse.model_validate_json(
+                        response.model_dump_json()
+                        .replace("synthetic", "raw")
+                        .replace("SUM(quantity) AS total", "COUNT(*) AS row_count")
+                        .replace(
+                            '\\"column\\": \\"total\\"', '\\"column\\": \\"row_count\\"'
+                        )
+                        .replace('\\"value\\": 42', '\\"value\\": 1')
+                    )
+
+            baseline = await run_analysis(
+                AnalysisConfig(
+                    provider="fixture",
+                    model="tool-reviewer-v1",
+                    account="fixture",
+                    question="How many fixture rows?",
+                    context_mode="raw",
+                ),
+                raw,
+                fixture_registry(),
+                RawClient(context_mode="raw"),
+            )
+            self.assertEqual(baseline.answer.claims[0].value, 1)
+            self.assertEqual(baseline.context_mode, "raw")
+            self.assertIsNone(baseline.semantic_revision)
+            self.assertEqual(
+                [item.tool for item in baseline.evidence],
+                ["list_sources", "query_parquet"],
+            )
+
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"
     )

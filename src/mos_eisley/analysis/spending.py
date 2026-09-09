@@ -38,7 +38,7 @@ class AnalysisSpending:
         accepted_microusd: int,
     ) -> None:
         self.config = AnalysisConfig.model_validate_json(config.model_dump_json())
-        self.mcp = analysis_mcp_config(mcp)
+        self.mcp = analysis_mcp_config(mcp, self.config.context_mode)
         self.policy = SpendPolicy.model_validate_json(policy.model_dump_json())
         self.ledger = ledger
         self.policy.check_current()
