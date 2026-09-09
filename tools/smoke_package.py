@@ -139,6 +139,30 @@ def main() -> int:
                     raise ValueError("installed HTTP MCP client returned wrong data")
         finally:
             fixture.close()
+        # Run the OAuth contract from the installed wheel. The fixture uses only
+        # synthetic credentials and an in-memory keychain, never the host vault.
+        fixtures = root / "fixtures"
+        fixtures.mkdir()
+        (fixtures / "__init__.py").write_text("")
+        for name in ("mcp_http_server.py", "mcp_oauth_server.py"):
+            (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
+        (root / "test_mcp_oauth.py").write_text(
+            Path("tests/test_mcp_oauth.py").read_text()
+        )
+        subprocess.run(
+            [
+                str(python),
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(root),
+                "-p",
+                "test_mcp_oauth.py",
+            ],
+            cwd=root,
+            check=True,
+        )
     return 0
 
 

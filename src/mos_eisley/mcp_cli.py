@@ -4,12 +4,15 @@ import argparse
 import asyncio
 import json
 import sys
+import webbrowser
 from pathlib import Path
 from typing import cast
 
 from mos_eisley.core.protocol import ToolCallBlock
 from mos_eisley.run.files import read_bounded
-from mos_eisley.tools.mcp import MCPConfig, MCPFailure, connect_mcp
+from mos_eisley.tools.mcp import MCPConfig, MCPFailure, connect_mcp, redacted_sdk_logs
+from mos_eisley.tools.mcp_oauth import OAuthController
+from mos_eisley.tools.mcp_oauth_store import OAuthFailure
 
 
 def run_mcp_command(args: argparse.Namespace) -> int:
@@ -23,6 +26,29 @@ def run_mcp_command(args: argparse.Namespace) -> int:
             raise ValueError("tool is not allowed by operator configuration")
 
     async def execute() -> int:
+        if args.command in {"mcp-login", "mcp-logout"}:
+            if config.http is None or config.http.oauth is None:
+                raise OAuthFailure("OAuth configuration is required")
+            controller = OAuthController(config.http)
+            with redacted_sdk_logs():
+                if args.command == "mcp-logout":
+                    print(
+                        json.dumps({"type": "mcp.logout", **await controller.logout()})
+                    )
+                else:
+
+                    async def show_url(url: str) -> None:
+                        print(
+                            "Open this URL to authorize the configured scopes:\n" + url,
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        if args.open_browser:
+                            await asyncio.to_thread(webbrowser.open, url)
+
+                    await controller.login(show_url)
+                    print(json.dumps({"type": "mcp.login", "authenticated": True}))
+            return 0
         async with connect_mcp(config) as dispatcher:
             if call is None:
                 print(
@@ -45,7 +71,7 @@ def run_mcp_command(args: argparse.Namespace) -> int:
 
     try:
         return asyncio.run(execute())
-    except MCPFailure:
+    except (MCPFailure, OAuthFailure, TimeoutError):
         print(
             "mos-eisley: MCP connection or call failed; check configuration and "
             "credentials. Inspect any submitted write before retrying.",

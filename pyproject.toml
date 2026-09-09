@@ -12,6 +12,7 @@ dependencies = [
     "httpcore2>=2.12,<3",
     "httpx2>=2.12,<3",
     "jsonschema>=4.26,<5",
+    "keyring>=25,<26",
     "mcp>=2.2,<3",
     "openai>=2,<3",
     "pydantic>=2.12,<3",

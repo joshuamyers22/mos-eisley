@@ -254,11 +254,13 @@ defines implementation scope and blocking acceptance tests:
    destinations, bounded streaming, existing tool/schema policy, cancellation and
    explicit uncertain-write outcomes. Verify with a remote fixture and the installed
    client; retain stdio compatibility.
-2. **M11B, after M11A:** OAuth discovery/login, secure user/server credential
+2. **M11B, implemented for pre-registered public clients:** OAuth discovery/login, secure user/server credential
    storage, scope authorization, refresh, reauthentication and logout. Verify
    malicious discovery/callbacks, denied access and concurrent credential isolation.
 
-M11B remains planned. See [M11A verification](MCP_HTTP_VERIFICATION.md).
+See [M11A verification](MCP_HTTP_VERIFICATION.md) and
+[M11B verification](MCP_OAUTH_VERIFICATION.md). Other OAuth registration methods
+remain unsupported.
 Schema compatibility expansion is a separate gate;
 remote connections still reject unsupported schemas. Paid models using connected
 tools require the analytical-agent workstream's transfer, spend, retention and

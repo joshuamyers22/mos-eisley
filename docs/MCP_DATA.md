@@ -5,8 +5,8 @@ Streamable HTTP endpoint, discover selected tools, and read/write through them. 
 [data-mcp](https://github.com/joshuamyers22/data-mcp): HDD Parquet and local/cloud
 PostgreSQL, plus Ana Lite's promoted semantic manifest and named metrics.
 
-Streamable HTTP with token authentication (M11A) is implemented. OAuth login and
-credential lifecycle (M11B) remain planned in
+Streamable HTTP with token authentication (M11A) and OAuth for pre-registered
+public clients (M11B) are implemented on their feature branches. See
 [the remote milestones](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b).
 Schema expansion and paid analytical-agent integration have separate gates.
 
@@ -94,8 +94,72 @@ deadlines. The client never automatically resubmits a tool call. Cancellation cl
 the client response but cannot guarantee that server work stopped or a write rolled
 back; inspect a submitted write before retrying after any failure.
 
-See [HTTP verification](MCP_HTTP_VERIFICATION.md) for the tested boundary. OAuth,
-remote hosting/deployment, broader schemas and paid-model tool use remain separate.
+See [HTTP verification](MCP_HTTP_VERIFICATION.md) and
+[OAuth verification](MCP_OAUTH_VERIFICATION.md) for the tested boundaries.
+Remote hosting/deployment, broader schemas and paid-model tool use remain separate.
+
+## OAuth login and logout
+
+Use [the OAuth example](../examples/mcp-oauth.json) for a server whose authorization
+provider offers a **pre-registered public native client** with PKCE S256. Obtain a
+client ID from that provider and register the exact callback
+`http://127.0.0.1:8765/oauth/callback` (or change `callback_port` in both places).
+Set your final MCP URL, expected issuer, a local account label, exact requested
+scopes and allowed tool names. This release supports public clients with token
+endpoint authentication `none`; confidential clients, dynamic registration, and
+hosted client metadata documents are not implemented.
+
+```sh
+mos mcp-login --config /absolute/path/mcp-oauth.json --open-browser
+mos mcp-list --config /absolute/path/mcp-oauth.json
+mos mcp-call --config /absolute/path/mcp-oauth.json --call /absolute/path/call.json
+mos mcp-logout --config /absolute/path/mcp-oauth.json
+```
+
+Without `--open-browser`, login prints the authorization URL and waits for you to
+open it. Login expires after 180 seconds by default. The callback listener binds
+only IPv4 loopback and closes on completion or cancellation. It validates state,
+issuer and one-use callback handling before exchanging the authorization code.
+Keep the authorization URL private while the login is pending. You approve the
+requested scopes at the provider; login never changes the configured tool grants.
+
+Protected-resource discovery uses the server's challenge or standard well-known
+locations. The configured issuer must match resource and authorization metadata.
+OAuth and OpenID discovery formats are supported. The resource metadata stays on
+the MCP origin; authorization/token/revocation endpoints stay on the issuer origin
+unless `allowed_auth_origins` explicitly names additional origins. All controller
+requests retain HTTPS, DNS/address checks, no redirects and pre-decoding byte
+limits. Discovery cannot introduce credential destinations outside those grants.
+The browser handles the provider's login pages and their navigation; its networking
+is outside Mos Eisley's socket transport. Use a trusted browser and issuer.
+
+Access and refresh tokens are stored in macOS Keychain or Linux Secret Service.
+An available, unlocked native keychain is required; there is no plaintext fallback.
+Credentials bind to the effective OS user, local account label, MCP resource,
+issuer, client ID and exact configured scopes. Account labels select independent
+local credential slots; they do not verify the human identity at the provider.
+Lock files in `~/.mos-eisley-oauth-locks` contain no credentials and must remain
+user-owned with directory mode 0700 and file mode 0600. Do not remove active locks.
+OS keychain unlock prompts may outlast network deadlines; an in-progress keychain
+mutation finishes before its lock is released so cancellation cannot undo logout.
+
+Tokens refresh before a request when expiry is within 30 seconds. Concurrent
+controllers serialize refreshes. The old local token record is removed before a
+refresh exchange: a lost response requires an explicit new login. An MCP 401/403
+removes the local credential and fails the session without retrying the request.
+Servers must return a positive integer `expires_in`, bearer tokens and the exact
+requested scope set (or omit `scope` to retain it). Different grants fail closed.
+Change scopes explicitly, then log in again; no automatic scope escalation occurs.
+
+Logout removes the selected local record first and attempts revocation of both
+access and refresh tokens when an approved endpoint is available. Its JSON output
+distinguishes provider acceptance, unavailable revocation, and failed/incomplete
+revocation; acceptance is not proof of revocation at every downstream service.
+Existing connections check the keychain before their next request. Requests already
+in flight can still complete. Log out with the original configuration before
+changing its identity/scope fields or deleting it, otherwise its old slot remains.
+Reauthentication replaces the selected local record; previously issued provider
+tokens can remain valid until revoked or expired.
 
 ## Ana Lite analysis profile
 
@@ -130,7 +194,7 @@ provider workflows are implemented.
 - Configuration is explicit trusted operator input. Stdio executes code with the
   user's privileges and is **not a process or network sandbox**. A local server can
   reach cloud PostgreSQL. HTTP applies the destination controls below. No automatic
-  repository discovery, OAuth or critic registration occurs. There are no sampling, elicitation or filesystem-roots callbacks.
+  repository discovery or critic registration occurs. OAuth login is explicit. There are no sampling, elicitation or filesystem-roots callbacks.
 - For stdio, environment values pass only for named variables, which must be set.
   The SDK's baseline environment keys are explicitly blanked unless allowlisted.
   Keep credentials in those variables, never command arguments or committed files.
@@ -156,7 +220,7 @@ provider workflows are implemented.
   Increase the client limit only within the selected agent's resolved output
   reserve (4,000/8,000/12,000 bytes by default for low/medium/high effort).
   The server's default 256 KiB is larger than these agent budgets.
-- These application limits apply after SDK decoding. They are **not a hard
+- For stdio, these application limits apply after SDK decoding. They are **not a hard
   memory bound on hostile wire traffic**. The named server executable and its
   dependencies must be trusted. Process isolation and protocol-frame byte limits
   remain necessary before supporting untrusted servers.

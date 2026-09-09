@@ -5,17 +5,23 @@ import json
 import socket
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import uvicorn
 from mcp.server import MCPServer
-from starlette.types import Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class MCPHTTPFixture:
     def __init__(
-        self, *, sse: bool = False, cert: Path | None = None, key: Path | None = None
+        self,
+        *,
+        sse: bool = False,
+        cert: Path | None = None,
+        key: Path | None = None,
+        middleware: Callable[[ASGIApp], ASGIApp] | None = None,
     ) -> None:
         self.fault = ""
         self.legacy_version: str | None = None
@@ -149,7 +155,7 @@ class MCPHTTPFixture:
         self.url = f"{'https' if cert else 'http'}://127.0.0.1:{self.socket.getsockname()[1]}/mcp"
         self.server = uvicorn.Server(
             uvicorn.Config(
-                wrapped,
+                middleware(wrapped) if middleware else wrapped,
                 log_level="critical",
                 lifespan="on",
                 timeout_graceful_shutdown=1,
