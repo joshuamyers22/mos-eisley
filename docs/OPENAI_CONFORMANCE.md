@@ -75,6 +75,15 @@ signatures and malformed inputs remain ordinary fail-closed errors and cannot mi
 this receipt. The receipt path must be fresh, have an existing parent, and not
 overlap any trusted input, ledger, audit, lifecycle, or normal output path.
 
+The first installed-wheel F1 operation passed on 2026-09-09 using a deliberately
+different source and target policy identity under one otherwise exact current
+binding. It retained receipt
+`6a0d132074a27272851ddc0affe08ba3ce096a59e0f7ff68dc450489080941bf`
+with an unchanged empty dedicated ledger and no credential, audit, normal output,
+container lifecycle, provider request, reservation, retry, or downstream authority.
+See [Milestone 79](MILESTONE_79_REVIEW.md). This controlled local result says
+nothing about OpenAI behavior.
+
 The trusted authorization and final artifact must be outside the audit directory
 and are created exclusively. The authorization is persisted before dispatch. The
 SDK client and bounded HTTP client are created and closed on the broker callback's

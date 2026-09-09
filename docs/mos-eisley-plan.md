@@ -2952,3 +2952,34 @@ credential accessor and broker dispatcher are never called. This completes the F
 instrumentation, not F1 itself. The boundary still requires a reviewed run from an
 installed wheel with retained operational evidence. F2 through F5 and all downstream
 conversion, quality, promotion, and activation gates also remain outstanding.
+
+### 25.52 Passed the installed-wheel F1 boundary
+
+The first controlled failure boundary ran through a separately installed 0.1.0
+wheel with SHA-256
+`a7519afe7df26cc66ca94695e6e90be41723bb0b0e6b27c480af77f856702545`.
+The operator independently signed authorization payload
+`9d8fd80cfa82952f5581b8fe4acd188134936b45450a727321d5dd0227466cba`
+against source conformance policy
+`ae921f5eaf46c023b23b07b55e578c7532362b9fedefc7d8b63e1bbfaa2011f6`.
+The installed command received target policy
+`304ce847061259308de7e55ca6bccede82e1509dc1e9dbadf7e293836973834b`,
+which differed only in the reviewed policy identity, and retained F1 receipt
+`6a0d132074a27272851ddc0affe08ba3ce096a59e0f7ff68dc450489080941bf`.
+
+Dedicated ledger
+`5fa56e12fa183b0af7b18a4eb601560390e0b6b986e9c181272003ef5b9d95ad`
+remained byte-for-byte unchanged with zero entries, zero charged, 10,000 micro-USD
+available, no unresolved exposure, and no block. The exact ledger entry was absent
+before and after. The receipt and independent filesystem check show no credential
+access, audit, assignment output, conformance artifact, container lifecycle,
+provider request, spend reservation, retry, grading, scoring, promotion, or routing
+activation.
+
+The first private verifier invocation completed and verified the one-use F1 command,
+then failed while serializing only its final local summary because it passed a plain
+dictionary to the contract serializer. The reporting wrapper was corrected and
+resumed from the already-retained receipt; the controlled command was not rerun.
+This post-boundary tooling defect does not alter the receipt or ledger evidence but
+is retained in the disposition. F1 is complete; F2 through F5 and the reviewed gate
+report remain outstanding.
