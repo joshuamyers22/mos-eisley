@@ -9,7 +9,11 @@ from typing import Any
 from unittest import IsolatedAsyncioTestCase, skipUnless
 from uuid import uuid4
 
-from mos_eisley.core.protocol import ToolCallBlock
+from mos_eisley.analysis.controller import AnalysisConfig, run_analysis
+from mos_eisley.analysis.demo import AnalysisFixtureClient
+from mos_eisley.analysis.fixture_server import REVISION
+from mos_eisley.core.protocol import ModelRequest, ModelResponse, ToolCallBlock
+from mos_eisley.core.registry import fixture_registry
 from mos_eisley.tools.mcp import MCPConfig, MCPDispatcher, connect_mcp
 
 DATA_PYTHON = os.environ.get("DATA_MCP_TEST_PYTHON", "")
@@ -112,6 +116,32 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
                     ToolCallBlock(id="deny", name="write_parquet", args={})
                 )
                 self.assertTrue(denied.is_error)
+
+            class MetricClient(AnalysisFixtureClient):
+                async def complete(self, request: ModelRequest) -> ModelResponse:
+                    response = await super().complete(request)
+                    return ModelResponse.model_validate_json(
+                        response.model_dump_json()
+                        .replace(REVISION, context["revision"])
+                        .replace("fixture_total", "row_count")
+                        .replace("42 items", "1 row")
+                    )
+
+            answer = await run_analysis(
+                AnalysisConfig(
+                    provider="fixture",
+                    model="tool-reviewer-v1",
+                    account="fixture",
+                    question="How many fixture rows?",
+                ),
+                analysis,
+                fixture_registry(),
+                MetricClient(),
+            )
+            self.assertEqual(answer.answer.status, "answer")
+            self.assertEqual(answer.answer.result_ids, ("result-0002",))
+            self.assertEqual(answer.semantic_revision, context["revision"])
+            self.assertIn("1 row", answer.answer.text)
 
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"

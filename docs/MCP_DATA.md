@@ -313,3 +313,10 @@ See [verification evidence](MCP_DATA_VERIFICATION.md) for the executed scope.
 The implementation uses the
 [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk),
 locked in `uv.lock`; SDK imports remain outside the canonical core.
+
+## Analytical conversations
+
+The [bounded analytical controller](ANALYSIS.md) uses this client with an explicit
+read-only profile and promoted context. It adds an opt-in OpenAI tool loop, run-wide
+limits and shared-ledger reservations. Direct MCP read/write commands remain
+available. See [fixture and package evidence](ANALYSIS_VERIFICATION.md).

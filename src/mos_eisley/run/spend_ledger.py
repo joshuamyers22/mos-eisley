@@ -201,9 +201,20 @@ class SpendLedger:
                 raise ValueError("spending reservation is not the exact held entry")
             yield status
 
-    def reserve(self, entry: LedgerEntry) -> None:
+    def reserve(
+        self, entry: LedgerEntry, *, max_unresolved_entries: int | None = None
+    ) -> None:
+        if max_unresolved_entries is not None and (
+            type(max_unresolved_entries) is not int or max_unresolved_entries < 1
+        ):
+            raise ValueError("invalid spending admission limit")
         with self._transaction() as connection:
             snapshot = self._snapshot(connection)
+            if (
+                max_unresolved_entries is not None
+                and snapshot.unresolved_entries >= max_unresolved_entries
+            ):
+                raise ValueError("spending admission slots are full")
             if snapshot.blocked:
                 raise ValueError("spending ledger is blocked by a pricing violation")
             if entry.reserved_microusd > snapshot.available_microusd:
