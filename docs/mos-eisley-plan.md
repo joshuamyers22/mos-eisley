@@ -3007,3 +3007,35 @@ local consent, one deliberately invalid credentialed request, and retained
 operational verification are still required. F3 through F5 and the aggregate gate
 report also remain outstanding, and no provider request or downstream authority is
 granted by this implementation.
+
+### 25.54 Passed the installed-wheel F2 boundary
+
+The second controlled failure boundary ran once through a separately installed
+Mos Eisley 0.1.0 wheel with SHA-256
+`6da01d8b82f5ac1de884be8c83e4daf351fdba84cfe7a0bdc3cbc7675d1bde17`
+and immutable image
+`sha256:711d60232e9f7c49da6a5e26ef2ec0b663f182f2f22b02731e679dc1dab74efe`.
+The operator independently signed authorization payload
+`f19b0576522be558de6a85c3f1254e1cabab4d515486c6a7659778d03bee3e40`
+and explicitly consented to one exact live token-count request using a deliberately
+invalid disposable credential.
+
+The request terminated after 1,498 ms with `authentication_error` at `token_count`.
+Assignment authorization
+`43c67406e1698bccbc401426278285c919906c6e81af777a2875e69a1754a8f2`
+and terminal outcome
+`c44cac0621f94234ee5029c3ccfc2dde9250924f1f2f7de0899fb3037d51cc14`
+bind canonical failure artifact
+`ee6cb8800a13985b38978d16b2d6cc54809fca23e6a1aa8930b0f466cb3bb3fa`.
+It contains no response, provider request ID, usage, critique, or cost; generation was
+never requested and retry, automatic release, live-result, promotion, and activation
+authority remain false.
+
+Dedicated ledger
+`e00ec143a109677ce9e4be5cb7c0858e2e5099820b24e00843cd33b9ba0115a8`
+remained unchanged at zero entries and zero charged with no unresolved or blocked
+state. The exact prospective entry and both spend files are absent. Container cleanup
+reached `removed` on its first attempt. This completes F2 but does not prove that
+OpenAI inspected a particular request body or establish provider billing. The
+18-of-18 success matrix plus F1 and F2 are complete; F3 through F5 and the reviewed
+aggregate gate report remain outstanding.
