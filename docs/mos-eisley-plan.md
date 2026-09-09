@@ -3039,3 +3039,38 @@ reached `removed` on its first attempt. This completes F2 but does not prove tha
 OpenAI inspected a particular request body or establish provider billing. The
 18-of-18 success matrix plus F1 and F2 are complete; F3 through F5 and the reviewed
 aggregate gate report remain outstanding.
+
+### 25.55 Passed the installed-wheel F3 boundary
+
+The third controlled failure boundary ran once through the separately installed
+Mos Eisley 0.1.0 wheel with SHA-256
+`6da01d8b82f5ac1de884be8c83e4daf351fdba84cfe7a0bdc3cbc7675d1bde17`
+and immutable image
+`sha256:711d60232e9f7c49da6a5e26ef2ec0b663f182f2f22b02731e679dc1dab74efe`.
+The operator independently signed exact authorization payload
+`582c3e0f4455e11e65344c806b7527979d6b805b44178027483ca89150661dbd`.
+The installed harness refused to run with an OpenAI credential available, used a
+precommitted synthetic input count only to trigger normal spending admission, and
+then injected one controlled `transport_error` at the `response` stage. No provider
+request was sent.
+
+Assignment authorization
+`3ae79a0f3255f72943237a67213b15e029e82cd399312cc3c44afd0328907722`
+and terminal outcome
+`3e6b99a8e473ffecc28d940a3511f8f412d90a529f4790762dbc71534504b2ee`
+bind reservation
+`7aee410d8e0ff1118d0623f328c41377049792655d5e35d8f181b40c316c1914`
+to uncertain spend receipt
+`93d0aef34a888b5e08bc5bfa809db86f11a9107829a1e4cbf66ca101318e805f`.
+The full 635-micro-USD reservation remains charged with null actual usage, and no
+conformance artifact was published.
+
+Dedicated disposable ledger
+`70bae33b7b19656582d5f36c1bf669c2194d82e0adb83aa3e8b5e603e6296de7`
+now contains exactly one unresolved `uncertain` entry, 635 micro-USD charged, and
+9,365 micro-USD available. It will never be reset, released, or reused for a
+successful probe. Retry and automatic release remain false; the container reached
+`removed` on its first cleanup attempt. This completes controlled local boundary F3
+but proves no OpenAI behavior, provider receipt, real token accounting, or billing.
+The 18-of-18 success matrix plus F1 through F3 are complete; F4, F5, and the reviewed
+aggregate gate report remain outstanding.

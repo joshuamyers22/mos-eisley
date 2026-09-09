@@ -118,7 +118,7 @@ boundaries must each pass once using the installed wheel and retained artifacts:
 | --- | --- | --- | --- |
 | F1 | Pre-credential authorization rejection | An expired or exact-binding-mismatched signed authorization fails before API-key access, audit creation, Docker start, ledger admission, or provider request | Passed 2026-09-09 |
 | F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Passed 2026-09-09 |
-| F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Outstanding |
+| F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Passed 2026-09-09 |
 | F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Outstanding |
 | F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Outstanding |
 
@@ -155,8 +155,22 @@ Its dedicated ledger remained empty, unchanged, and unblocked; the exact entry a
 both spend files are absent; generation was never requested; retry remains false;
 and the container was removed on its first cleanup attempt. This result does not
 prove that OpenAI inspected a particular body or establish provider billing.
-[Milestone 81](MILESTONE_81_REVIEW.md) records the adversarial disposition. F3
-through F5 remain outstanding, so the overall gate remains open.
+[Milestone 81](MILESTONE_81_REVIEW.md) records the adversarial disposition.
+
+F3 subsequently passed through the same separately installed reviewed wheel and
+immutable image without an OpenAI credential or provider request. A precommitted
+synthetic count caused the production spending controller to reserve 635 micro-USD;
+the controlled response-stage disconnect then retained the full amount as
+`uncertain` in dedicated disposable ledger
+`70bae33b7b19656582d5f36c1bf669c2194d82e0adb83aa3e8b5e603e6296de7`.
+Terminal audit outcome
+`3e6b99a8e473ffecc28d940a3511f8f412d90a529f4790762dbc71534504b2ee`
+records `transport_error` at `response`. No conformance artifact exists, retry and
+automatic release remain false, and the container was removed on its first cleanup
+attempt. This is a controlled local operational result and makes no claim about
+OpenAI availability, receipt, token accounting, or billing.
+[Milestone 82](MILESTONE_82_REVIEW.md) records the adversarial disposition. F4 and
+F5 remain outstanding, so the overall gate remains open.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful

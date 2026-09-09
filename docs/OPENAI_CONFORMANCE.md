@@ -105,6 +105,16 @@ Its dedicated ledger remained empty and no generation was requested. This proves
 the bounded authentication-rejection behavior, not remote request-body inspection or
 provider billing. See [Milestone 81](MILESTONE_81_REVIEW.md).
 
+The installed-wheel F3 operation subsequently exercised the generic
+post-reservation failure path with a controlled no-network response-stage
+disconnect. The production spending controller retained one 635-micro-USD
+reservation as `uncertain` in a dedicated disposable ledger, the terminal audit
+recorded `transport_error` at `response`, and no conformance artifact was written.
+The harness refused to run with an OpenAI credential available; this proves local
+conservative failure handling rather than OpenAI behavior or billing. Retry and
+automatic release remain unauthorized. See
+[Milestone 82](MILESTONE_82_REVIEW.md).
+
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.
