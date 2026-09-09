@@ -423,6 +423,20 @@ def parser() -> argparse.ArgumentParser:
         "replay", help="Verify artifacts and replay recorded responses"
     )
     replay.add_argument("run", type=Path)
+    analysis_demo = subcommands.add_parser(
+        "analysis-demo", help="Run a synthetic analytical conversation over local MCP"
+    )
+    analysis_demo.add_argument(
+        "--scenario", choices=("answer", "clarify", "unavailable"), default="answer"
+    )
+    analysis_run = subcommands.add_parser(
+        "analysis-run", help="Run explicitly budgeted read-only OpenAI analysis"
+    )
+    for name in ("config", "mcp-config", "spend-policy", "spend-ledger"):
+        analysis_run.add_argument("--" + name, type=Path, required=True)
+    analysis_run.add_argument("--ledger-id", required=True)
+    analysis_run.add_argument("--accept-max-cost-microusd", type=int, required=True)
+    analysis_run.add_argument("--allow-data-transfer", action="store_true")
     agent_demo = subcommands.add_parser(
         "agent-demo", help="Run a recorded two-turn canonical tool exchange"
     )
@@ -7370,6 +7384,10 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in {"analysis-run", "analysis-demo"}:
+            from mos_eisley.analysis.cli import run_command
+
+            return run_command(args)
         if args.command in {"mcp-list", "mcp-call", "mcp-login", "mcp-logout"}:
             from mos_eisley.mcp_cli import run_mcp_command
 

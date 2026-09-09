@@ -809,6 +809,15 @@ locally enforced constraints and explicit JSON argument wrappers. See
 [schema verification](MCP_SCHEMA_VERIFICATION.md). Unsupported schemas still fail
 closed over either transport; this does not establish paid-provider conformance.
 
+Status, 2026-09-09: `feat/bounded-mcp-analysis` implements the first opt-in OpenAI
+analytical loop, separate from evaluation/conformance authorization. It includes
+promoted-context bootstrap, read-only MCP grants, definition-revision checks,
+run-wide token/byte/turn/tool/deadline limits and an atomic whole-run reservation
+in the operator's shared local ledger. Fixture tests cover conversations, denials,
+concurrent admission and uncertain billing. It retains content in memory; SQL/result
+artifacts, independent numeric verification and paid analytical conformance remain
+open. See [operator contract](ANALYSIS.md) and [evidence](ANALYSIS_VERIFICATION.md).
+
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
 whole-run spending reservations, turn/token/tool/time limits, cancellation and
