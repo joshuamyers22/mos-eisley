@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit MCP OAuth login/logout for pre-registered public clients, PKCE,
+  constrained discovery, OS keychain storage, serialized refresh and revocation
+  reporting. Authentication failures never automatically repeat tool calls.
+
 - Add Streamable HTTP MCP with endpoint-bound bearer credentials, DNS pinning,
   TLS verification, pre-decoding response limits, and uncertain-write handling.
   Cover HTTP/SSE, legacy negotiation, TLS and fault cases with real fixtures.

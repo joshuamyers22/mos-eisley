@@ -6,7 +6,7 @@ import os
 import re
 import socket
 import ssl
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self, cast
 
@@ -17,6 +17,7 @@ import httpx2
 from pydantic import Field, SecretStr, model_validator
 
 from mos_eisley.core.models import Contract
+from mos_eisley.tools.mcp_oauth_config import MCPOAuthSettings
 
 
 class MCPHTTPError(httpx2.StreamError):
@@ -25,7 +26,8 @@ class MCPHTTPError(httpx2.StreamError):
 
 class MCPHTTPSettings(Contract):
     url: Annotated[str, Field(min_length=1, max_length=4096)]
-    authentication: Literal["bearer", "none"]
+    authentication: Literal["bearer", "none", "oauth"]
+    oauth: MCPOAuthSettings | None = None
     token_env: (
         Annotated[str, Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")] | None
     ) = None
@@ -37,6 +39,8 @@ class MCPHTTPSettings(Contract):
 
     @model_validator(mode="after")
     def valid_endpoint(self) -> Self:
+        if (self.authentication == "oauth") != (self.oauth is not None):
+            raise ValueError("OAuth authentication requires only OAuth settings")
         url = self.endpoint
         if (
             url.scheme not in {"https", "http"}
@@ -105,7 +109,7 @@ class MCPHTTPSettings(Contract):
         )
 
     def token(self) -> SecretStr | None:
-        if self.authentication == "none":
+        if self.authentication != "bearer":
             return None
         if self.token_owner_uid is not None and self.token_owner_uid != os.geteuid():
             raise MCPHTTPError("MCP credential owner does not match this process")
@@ -194,8 +198,17 @@ class LimitedMCPStream(httpx2.AsyncByteStream):
 class MCPHTTPTransport(httpx2.AsyncBaseTransport):
     """One controller/user/endpoint token binding; no redirects or resumptions."""
 
-    def __init__(self, settings: MCPHTTPSettings) -> None:
+    def __init__(
+        self,
+        settings: MCPHTTPSettings,
+        token_provider: Callable[[], Awaitable[SecretStr]] | None = None,
+        invalidate: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
         self.settings = MCPHTTPSettings.model_validate_json(settings.model_dump_json())
+        if settings.authentication == "oauth" and token_provider is None:
+            raise MCPHTTPError("OAuth requires the credential controller")
+        self.token_provider = token_provider
+        self.invalidate = invalidate
         self._token = self.settings.token()
         self._owner = os.geteuid()
         self.failed = False
@@ -225,6 +238,12 @@ class MCPHTTPTransport(httpx2.AsyncBaseTransport):
         request.headers.pop("cookie", None)
         request.headers["accept-encoding"] = "identity"
         request.headers["host"] = self.settings.endpoint.netloc.decode("ascii")
+        if self.token_provider is not None:
+            try:
+                self._token = await self.token_provider()
+            except Exception:
+                self.failed = True
+                raise MCPHTTPError("OAuth login or refresh is required") from None
         if self._token is not None:
             request.headers["authorization"] = (
                 "Bearer " + self._token.get_secret_value()
@@ -247,6 +266,9 @@ class MCPHTTPTransport(httpx2.AsyncBaseTransport):
                 )
             )
             headers = httpx2.Headers(response.headers)
+            if response.status in {401, 403} and self.invalidate is not None:
+                self.failed = True
+                await self.invalidate()
             if 300 <= response.status < 400:
                 raise MCPHTTPError(
                     "MCP redirects are not permitted; configure the final endpoint"

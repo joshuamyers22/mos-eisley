@@ -47,7 +47,7 @@ class _RedactSDKDiagnostic(logging.Filter):
 
 
 @contextmanager
-def _redacted_sdk_logs() -> Generator[None]:
+def redacted_sdk_logs() -> Generator[None]:
     # The locked SDK's stdio parser logs Pydantic exceptions, including rejected
     # wire values, before our boundary catches them. Filters must attach to the
     # emitting loggers: an ancestor logger's filter does not cover propagation.
@@ -304,12 +304,23 @@ async def connect_mcp(config: MCPConfig) -> AsyncGenerator[MCPDispatcher]:
     dispatcher: MCPDispatcher | None = None
     body_error: BaseException | None = None
     try:
-        with _redacted_sdk_logs(), open(os.devnull, "w") as stderr:
+        with redacted_sdk_logs(), open(os.devnull, "w") as stderr:
             async with AsyncExitStack() as stack:
                 if config.http is not None:
+                    from mos_eisley.tools.mcp_oauth import OAuthController
+
+                    oauth = (
+                        OAuthController(config.http)
+                        if config.http.authentication == "oauth"
+                        else None
+                    )
                     http_client = await stack.enter_async_context(
                         MCPHTTPClient(
-                            transport=MCPHTTPTransport(config.http),
+                            transport=MCPHTTPTransport(
+                                config.http,
+                                token_provider=oauth.access_token if oauth else None,
+                                invalidate=oauth.invalidate if oauth else None,
+                            ),
                             timeout=httpx2.Timeout(config.timeout_seconds),
                             trust_env=False,
                             follow_redirects=False,
