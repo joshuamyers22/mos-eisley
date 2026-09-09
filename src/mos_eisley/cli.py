@@ -138,7 +138,11 @@ from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
 )
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
+from mos_eisley.providers.openai_spend import (
+    BudgetedOpenAITransport,
+    PreReservedOpenAITransport,
+    SpendPolicy,
+)
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.run.activation_control import (
@@ -196,10 +200,12 @@ from mos_eisley.run.openai_calibration_campaign import (
 from mos_eisley.run.openai_calibration_execution import (
     AuthenticatedOpenAICalibrationExecution,
     OpenAICalibrationExecutionAuthorityPolicy,
+    PreparedOpenAICalibrationExecution,
     SignedOpenAICalibrationExecutionDecision,
     authenticate_openai_calibration_execution,
     consume_openai_calibration_execution,
     make_openai_calibration_execution_decision,
+    verify_prepared_openai_calibration_execution,
 )
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.openai_conformance_conversion import (
@@ -760,6 +766,38 @@ def parser() -> argparse.ArgumentParser:
         "--allow-spend-reservation", action="store_true"
     )
     consume_openai_campaign_execution.add_argument("--output", type=Path, required=True)
+    run_openai_campaign_execution = subcommands.add_parser(
+        "eval-run-openai-calibration",
+        help="Execute one prepared OpenAI calibration assignment",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "prepared-execution",
+    ):
+        run_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    run_openai_campaign_execution.add_argument("--audit-dir", type=Path, required=True)
+    run_openai_campaign_execution.add_argument("--docker", type=Path, required=True)
+    run_openai_campaign_execution.add_argument("--image", required=True)
+    run_openai_campaign_execution.add_argument(
+        "--lifecycle-root", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--authorization-output", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--artifact-output", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--allow-data-transfer", action="store_true"
+    )
     prepare_evaluation_conformance = subcommands.add_parser(
         "eval-prepare-brokered-conformance-policy",
         help="Prepare an exact no-send policy for one OpenAI conformance probe",
@@ -3108,6 +3146,124 @@ def _consume_openai_calibration_execution_command(args: argparse.Namespace) -> i
         )
     )
     return 0
+
+
+def _run_openai_calibration_command(  # pragma: no cover - integration boundary
+    args: argparse.Namespace,
+) -> int:
+    """Reverify and execute one held campaign assignment with a fresh consent."""
+
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI calibration data transfer was not acknowledged")
+    audit_directory = cast(Path, args.audit_dir)
+    prepared_path = cast(Path, args.prepared_execution)
+    authorization_output = cast(Path, args.authorization_output)
+    artifact_output = cast(Path, args.artifact_output)
+    lifecycle_root = cast(Path, args.lifecycle_root)
+    outputs = (audit_directory, authorization_output, artifact_output)
+    if any(path.exists() or path.is_symlink() for path in outputs):
+        raise ValueError("calibration execution output already exists")
+    if any(not path.parent.is_dir() for path in outputs):
+        raise ValueError("calibration execution output parent must already exist")
+    if not lifecycle_root.is_dir() or lifecycle_root.is_symlink():
+        raise ValueError("calibration lifecycle root must be an existing directory")
+    source_paths = (
+        *_openai_calibration_execution_paths(args),
+        prepared_path,
+        lifecycle_root,
+    )
+    if any(
+        _paths_overlap(left, right)
+        for index, left in enumerate(outputs)
+        for right in (*outputs[index + 1 :], *source_paths)
+        if left != audit_directory or right != audit_directory
+    ):
+        raise ValueError("calibration execution paths must not overlap")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    prepared = PreparedOpenAICalibrationExecution.model_validate_json(
+        read_bounded(prepared_path, 1_000_000)
+    )
+    checked_at = datetime.now(UTC)
+    verify_prepared_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        prepared,
+        audit_directory,
+        checked_at,
+    )
+    decision = prepared.authenticated_execution.signed_decision.decision
+    request = batch.requests[decision.batch_position - 1]
+    sdk_version = _openai_sdk_version()
+    if request.route.client_version != f"openai/{sdk_version}":
+        raise ValueError("installed OpenAI SDK differs from the frozen route")
+    timeout = decision.request_timeout_seconds
+    container = OfflineContainer(
+        cast(Path, args.docker), cast(str, args.image), lifecycle_root
+    )
+    payload = build_openai_conformance_payload(
+        batch,
+        prepared.authenticated_execution.assignment_authorization.sample_id,
+        spend_policy,
+    )
+    api_key = _required_openai_api_key()
+    # Environment access is intentionally bracketed by complete precredential
+    # verification and a final freshness/held-state check before any output or grant.
+    verify_prepared_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        prepared,
+        audit_directory,
+        datetime.now(UTC),
+    )
+    controlled = PreReservedOpenAITransport(
+        EphemeralOpenAITransport(api_key, timeout),
+        spend_policy,
+        audit_directory,
+        ledger,
+        prepared.spend_reservation,
+        prepared.ledger_entry,
+    )
+    authorization = authorize_assignment(batch, request.sample_id, payload, controlled)
+    if authorization != prepared.authenticated_execution.assignment_authorization:
+        raise ValueError("prepared calibration assignment changed before dispatch")
+    _write_contract(authorization_output, authorization)
+    broker = make_assignment_broker(
+        batch,
+        request.sample_id,
+        payload,
+        controlled,
+        audit_directory,
+        lifetime_seconds=timeout,
+    )
+    return _run_openai_conformance_broker(
+        broker,
+        container,
+        timeout=timeout,
+        authorization=authorization,
+        audit_directory=audit_directory,
+        ledger=ledger,
+        authorization_output=authorization_output,
+        artifact_output=artifact_output,
+        event_prefix="evaluation.openai_calibration",
+    )
 
 
 def _authenticate_openai_calibration_execution_command(
@@ -6752,6 +6908,7 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-consume-openai-calibration-execution": (
             _consume_openai_calibration_execution_command
         ),
+        "eval-run-openai-calibration": _run_openai_calibration_command,
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command
         ),
@@ -7078,6 +7235,7 @@ def _emit_openai_conformance_rejection(
     audit_directory: Path,
     artifact_output: Path,
     lifecycle_path: Path | None,
+    event_prefix: str = "openai.conformance",
 ) -> int:
     """Retain and report one terminal, non-retryable conformance rejection."""
 
@@ -7085,7 +7243,7 @@ def _emit_openai_conformance_rejection(
     print(
         json.dumps(
             {
-                "type": "openai.conformance.rejected",
+                "type": f"{event_prefix}.rejected",
                 "mode": artifact.mode,
                 "authorization_path": str(authorization_output),
                 "audit_path": str(audit_directory),
@@ -7118,6 +7276,7 @@ def _run_openai_conformance_broker(
     ledger: SpendLedger,
     authorization_output: Path,
     artifact_output: Path,
+    event_prefix: str = "openai.conformance",
 ) -> int:
     """Dispatch once and retain only complete success or exact terminal rejection."""
 
@@ -7150,6 +7309,7 @@ def _run_openai_conformance_broker(
             audit_directory=audit_directory,
             artifact_output=artifact_output,
             lifecycle_path=container.lifecycle_path,
+            event_prefix=event_prefix,
         )
     try:
         artifact = compile_brokered_evaluation(
@@ -7168,13 +7328,14 @@ def _run_openai_conformance_broker(
             audit_directory=audit_directory,
             artifact_output=artifact_output,
             lifecycle_path=container.lifecycle_path,
+            event_prefix=event_prefix,
         )
     assert artifact.usage is not None
     _write_contract(artifact_output, artifact)
     print(
         json.dumps(
             {
-                "type": "openai.conformance.completed",
+                "type": f"{event_prefix}.completed",
                 "mode": artifact.mode,
                 "authorization_path": str(authorization_output),
                 "audit_path": str(audit_directory),

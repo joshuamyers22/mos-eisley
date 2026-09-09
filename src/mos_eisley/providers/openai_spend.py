@@ -132,6 +132,97 @@ class CountedTransport(Protocol):
     ) -> dict[str, JsonValue]: ...
 
 
+class SpendControlledOpenAITransport(Protocol):
+    """Structural contract consumed by the request-bound broker."""
+
+    policy: SpendPolicy
+    ledger: SpendLedger | None
+    ledger_entry_id: str
+
+    async def create_response(
+        self, payload: dict[str, JsonValue]
+    ) -> dict[str, JsonValue]: ...
+
+
+def _normalized_text_request(
+    payload: dict[str, JsonValue], policy: SpendPolicy
+) -> tuple[dict[str, JsonValue], int]:
+    request = copy.deepcopy(payload)
+    if request.get("model") != policy.model:
+        raise ProviderError("spending policy model mismatch")
+    permitted = {
+        "model",
+        "instructions",
+        "input",
+        "tools",
+        "reasoning",
+        "max_output_tokens",
+        "parallel_tool_calls",
+        "include",
+        "store",
+        "text",
+        "truncation",
+        "service_tier",
+        "stream",
+        "background",
+    }
+    if (
+        set(request) - permitted
+        or request.get("tools")
+        or request.get("service_tier") not in (None, "default")
+        or (request.get("store") is not None and request.get("store") is not False)
+        or request.get("truncation") not in (None, "disabled")
+        or (request.get("stream") is not None and request.get("stream") is not False)
+        or (
+            request.get("background") is not None
+            and request.get("background") is not False
+        )
+    ):
+        raise ProviderError("spending controller requires a text-only request")
+    inputs = request.get("input")
+    if not isinstance(inputs, list) or not inputs:
+        raise ProviderError("spending controller requires explicit text input")
+    for item in inputs:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"role", "content"}
+            or item.get("role") not in ("user", "assistant", "system", "developer")
+            or not isinstance(item.get("content"), str)
+        ):
+            raise ProviderError("spending controller rejects non-text input")
+    output_cap = request.get("max_output_tokens")
+    if type(output_cap) is not int or not 1 <= output_cap <= policy.max_output_tokens:
+        raise ProviderError("output limit exceeds spending policy")
+    request["store"] = False
+    request["truncation"] = "disabled"
+    request["service_tier"] = "default"
+    return request, output_cap
+
+
+def _count_payload(request: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {
+        key: value
+        for key, value in request.items()
+        if key
+        not in (
+            "max_output_tokens",
+            "stream",
+            "background",
+            "store",
+            "include",
+            "service_tier",
+        )
+    }
+
+
+def _request_sha256(request: dict[str, JsonValue]) -> str:
+    return digest(
+        json.dumps(
+            request, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    )
+
+
 class BudgetedOpenAITransport:
     """Single use: uncertain responses retain the reservation and are never retried."""
 
@@ -155,75 +246,11 @@ class BudgetedOpenAITransport:
         if self._used:
             raise ProviderError("spending controller permits one response only")
         self._used = True  # Set before the first await, including concurrent callers.
-        request = copy.deepcopy(payload)
         self.policy.check_current()
-        if request.get("model") != self.policy.model:
-            raise ProviderError("spending policy model mismatch")
-        permitted = {
-            "model",
-            "instructions",
-            "input",
-            "tools",
-            "reasoning",
-            "max_output_tokens",
-            "parallel_tool_calls",
-            "include",
-            "store",
-            "text",
-            "truncation",
-            "service_tier",
-            "stream",
-            "background",
-        }
-        if (
-            set(request) - permitted
-            or request.get("tools")
-            or request.get("service_tier") not in (None, "default")
-            or (request.get("store") is not None and request.get("store") is not False)
-            or request.get("truncation") not in (None, "disabled")
-            or (
-                request.get("stream") is not None and request.get("stream") is not False
-            )
-            or (
-                request.get("background") is not None
-                and request.get("background") is not False
-            )
-        ):
-            raise ProviderError("spending controller requires a text-only request")
-        inputs = request.get("input")
-        if not isinstance(inputs, list) or not inputs:
-            raise ProviderError("spending controller requires explicit text input")
-        for item in inputs:
-            if (
-                not isinstance(item, dict)
-                or set(item) != {"role", "content"}
-                or item.get("role") not in ("user", "assistant", "system", "developer")
-                or not isinstance(item.get("content"), str)
-            ):
-                raise ProviderError("spending controller rejects non-text input")
-        output_cap = request.get("max_output_tokens")
-        if (
-            type(output_cap) is not int
-            or not 1 <= output_cap <= self.policy.max_output_tokens
-        ):
-            raise ProviderError("output limit exceeds spending policy")
-        request["store"] = False
-        request["truncation"] = "disabled"
-        request["service_tier"] = "default"
-        count_payload = {
-            key: value
-            for key, value in request.items()
-            if key
-            not in (
-                "max_output_tokens",
-                "stream",
-                "background",
-                "store",
-                "include",
-                "service_tier",
-            )
-        }
-        tokens = await self.transport.count_input_tokens(copy.deepcopy(count_payload))
+        request, output_cap = _normalized_text_request(payload, self.policy)
+        tokens = await self.transport.count_input_tokens(
+            copy.deepcopy(_count_payload(request))
+        )
         if type(tokens) is not int or not 0 <= tokens <= self.policy.max_input_tokens:
             raise ProviderError("input count exceeds spending policy")
         self.policy.check_current()
@@ -232,11 +259,7 @@ class BudgetedOpenAITransport:
             raise ProviderError("response reservation exceeds spending limit")
         reservation = SpendReservation(
             policy_sha256=self.policy.policy_sha256,
-            request_sha256=digest(
-                json.dumps(
-                    request, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-                ).encode()
-            ),
+            request_sha256=_request_sha256(request),
             input_tokens=tokens,
             max_output_tokens=output_cap,
             reserved_microusd=reserved,
@@ -333,6 +356,198 @@ class BudgetedOpenAITransport:
                     cache_write_tokens=cache_write_tokens,
                     ledger_id=self.ledger.policy.ledger_id if self.ledger else None,
                     ledger_entry_id=self.ledger_entry_id if self.ledger else None,
+                )
+            ),
+        )
+
+
+class PreReservedOpenAITransport:
+    """Spend controller for one exact request whose full envelope is already held."""
+
+    def __init__(
+        self,
+        transport: CountedTransport,
+        policy: SpendPolicy,
+        directory: Path,
+        ledger: SpendLedger,
+        reservation: SpendReservation,
+        ledger_entry: LedgerEntry,
+    ) -> None:
+        self.transport = transport
+        self.policy = policy
+        self.directory = directory
+        self.ledger: SpendLedger | None = ledger
+        self.reservation = reservation
+        self.ledger_entry = ledger_entry
+        self.ledger_entry_id = ledger_entry.entry_id
+        self._used = False
+
+    def _required_ledger(self) -> SpendLedger:
+        if self.ledger is None:  # Defensive parity with the broker protocol.
+            raise ValueError(
+                "pre-reserved controller requires shared spending admission"
+            )
+        return self.ledger
+
+    def _require_held(self) -> None:
+        status = self._required_ledger().entry_status(self.ledger_entry.entry_id)
+        if (
+            status is None
+            or status.entry_id != self.ledger_entry.entry_id
+            or status.reservation_sha256 != self.ledger_entry.reservation_sha256
+            or status.reserved_microusd != self.ledger_entry.reserved_microusd
+            or status.charged_microusd != self.ledger_entry.reserved_microusd
+            or status.status != "held"
+        ):
+            raise ValueError("spending reservation is not the exact held entry")
+
+    async def create_response(
+        self, payload: dict[str, JsonValue]
+    ) -> dict[str, JsonValue]:
+        if self._used:
+            raise ProviderError("spending controller permits one response only")
+        self._used = True
+        self.policy.check_current()
+        request, output_cap = _normalized_text_request(payload, self.policy)
+        reservation_hash = digest(canonical_bytes(self.reservation))
+        if (
+            self.reservation.policy_sha256 != self.policy.policy_sha256
+            or self.reservation.request_sha256 != _request_sha256(request)
+            or self.reservation.input_tokens != self.policy.max_input_tokens
+            or self.reservation.max_output_tokens != self.policy.max_output_tokens
+            or output_cap != self.reservation.max_output_tokens
+            or self.reservation.reserved_microusd
+            != self.policy.reservation_cost(
+                self.policy.max_input_tokens, self.policy.max_output_tokens
+            )
+            or self.reservation.reserved_microusd != self.ledger_entry.reserved_microusd
+            or reservation_hash != self.ledger_entry.reservation_sha256
+        ):
+            raise ValueError("pre-reserved spending envelope is inconsistent")
+        self._require_held()
+        private_write(
+            self.directory / "spend-reservation.json", canonical_bytes(self.reservation)
+        )
+        try:
+            tokens = await self.transport.count_input_tokens(
+                copy.deepcopy(_count_payload(request))
+            )
+        except BaseException:
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise
+        if type(tokens) is not int or tokens < 0:
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise ProviderError("provider returned an invalid input count")
+        if tokens > self.reservation.input_tokens:
+            self._receipt(
+                reservation_hash, "violation", self.reservation.reserved_microusd
+            )
+            raise ProviderError("input count exceeded the held spending envelope")
+        try:
+            self.policy.check_current()
+            self._require_held()
+        except BaseException:
+            # A current exact hold is mandatory immediately before generation. If
+            # another trusted process changed it, this process must not settle it.
+            raise
+        try:
+            response = await self.transport.create_response(request)
+        except BaseException:
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise
+        usage = response.get("usage")
+        if not isinstance(usage, dict):
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response omitted billable usage")
+        actual_input = usage.get("input_tokens")
+        actual_output = usage.get("output_tokens")
+        if (
+            type(actual_input) is not int
+            or type(actual_output) is not int
+            or actual_input < 0
+            or actual_output < 0
+        ):
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response returned invalid billable usage")
+        details = usage.get("input_tokens_details")
+        if not isinstance(details, dict):
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response omitted cache-write usage")
+        actual_cache_write = details.get("cache_write_tokens")
+        if type(actual_cache_write) is not int or actual_cache_write < 0:
+            self._receipt(
+                reservation_hash, "uncertain", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response returned invalid cache-write usage")
+        if (
+            actual_input > self.reservation.input_tokens
+            or actual_output > self.reservation.max_output_tokens
+            or actual_cache_write > actual_input
+            or response.get("service_tier") != "default"
+            or response.get("model") != self.policy.model
+        ):
+            self._receipt(
+                reservation_hash, "violation", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response violated reserved pricing assumptions")
+        actual = self.policy.cost(actual_input, actual_output, actual_cache_write)
+        if actual > self.reservation.reserved_microusd:
+            self._receipt(
+                reservation_hash, "violation", self.reservation.reserved_microusd
+            )
+            raise ProviderError("response cost exceeded the held spending envelope")
+        self._receipt(
+            reservation_hash,
+            "settled",
+            actual,
+            actual_input,
+            actual_output,
+            actual_cache_write,
+        )
+        return response
+
+    def _receipt(
+        self,
+        reservation_hash: str,
+        status: Literal["settled", "uncertain", "violation"],
+        retained: int,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        cache_write_tokens: int | None = None,
+    ) -> None:
+        ledger = self._required_ledger()
+        ledger.settle(
+            LedgerSettlement(
+                entry_id=self.ledger_entry_id,
+                reservation_sha256=reservation_hash,
+                status=status,
+                charged_microusd=retained,
+            )
+        )
+        private_write(
+            self.directory / "spend-receipt.json",
+            canonical_bytes(
+                SpendReceipt(
+                    reservation_sha256=reservation_hash,
+                    status=status,
+                    retained_microusd=retained,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cache_write_tokens=cache_write_tokens,
+                    ledger_id=ledger.policy.ledger_id,
+                    ledger_entry_id=self.ledger_entry_id,
                 )
             ),
         )
