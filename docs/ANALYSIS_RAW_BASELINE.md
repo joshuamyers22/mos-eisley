@@ -73,8 +73,10 @@ report them. Keep labels outside runtime-served directories.
 
 The existing evaluator can grade raw and promoted results for the same question
 in one suite. Swapping their assignments mismatches the context mode, identity and
-revision. Failed and missing runs remain in the planned totals. No comparison
-scheduler, automatic retries, holdout-driven edits or promotion is introduced.
+revision. Failed and missing runs remain in the planned totals. No automatic live
+scheduler, retries, holdout-driven edits or promotion is introduced.
+[Frozen comparison schedules](ANALYSIS_COMPARISON_SCHEDULE.md) now support offline
+ordering and assessment of recorded execution timestamps.
 
 ## Interpretation and remaining work
 
@@ -87,7 +89,7 @@ Both arms may benefit from the model's prior knowledge and the question itself.
 The prompts intentionally differ in their treatment-specific instructions, and the
 catalog arm may execute reviewed SQL unavailable to the raw arm. Record those
 information/tool differences when interpreting any benefit. Hashes do not freeze
-database contents or remote model versions. Reviewed domain fixtures, interleaved
+database contents or remote model versions. Reviewed domain fixtures, automatic
 assignment execution, probe/maintenance accounting, appropriate statistical design
 and actual paid analytical conformance remain open. All reports continue to leave
 controlled comparison, source truth, snapshots and promotion readiness unverified.

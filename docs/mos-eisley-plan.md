@@ -841,6 +841,14 @@ can now compare raw/promoted arms, but controlled execution, domain fixtures and
 quality assessment remain open. See [contract](ANALYSIS_RAW_BASELINE.md) and
 [verification](ANALYSIS_RAW_VERIFICATION.md).
 
+Status, 2026-09-09: `feat/analysis-comparison-schedule` freezes label-free case/arm
+orders with balanced positions and checks pinned artifacts for recorded ordering,
+overlap and pre-schedule starts. Missing/failed timing stays unknown and every
+assignment remains in the assessment. A synthetic four-run demo exercises both
+raw/promoted modes; live execution, source freezing and domain quality assessment
+remain open. See [contract](ANALYSIS_COMPARISON_SCHEDULE.md) and
+[verification](ANALYSIS_SCHEDULE_VERIFICATION.md).
+
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
 whole-run spending reservations, turn/token/tool/time limits, cancellation and

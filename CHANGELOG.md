@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add frozen, label-free analytical comparison schedules with reproducible case
+  blocks and balanced arm positions. Assess pinned artifacts for recorded ordering,
+  overlap and pre-schedule starts; keep failures and missing timing visible. Add
+  a synthetic raw/promoted comparison demo and installed-wheel checks.
+
 - Add explicit raw-data analytical mode with source discovery, a restricted raw
   read-tool profile and null semantic revision. Reuse spending, evidence and private
   export controls; compare raw/promoted arms in offline evaluation. Add examples,
