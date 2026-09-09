@@ -286,8 +286,10 @@ class RemoteRoundtripTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.fixture.writes, 1)
 
     async def test_timeout_and_cancellation(self) -> None:
-        async with connect_mcp(remote(self.fixture.url)) as dispatcher:
-            with self.assertRaises(MCPFailure):
+        # A timed-out transport may also fail while closing its SDK task group.
+        # The caller handles the failed session as one operation.
+        with self.assertRaises(MCPFailure):
+            async with connect_mcp(remote(self.fixture.url)) as dispatcher:
                 await dispatcher.dispatch(call("slow"))
         self.fixture.cancelled.clear()
         async with connect_mcp(remote(self.fixture.url)) as dispatcher:

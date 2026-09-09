@@ -261,8 +261,9 @@ defines implementation scope and blocking acceptance tests:
 See [M11A verification](MCP_HTTP_VERIFICATION.md) and
 [M11B verification](MCP_OAUTH_VERIFICATION.md). Other OAuth registration methods
 remain unsupported.
-Schema compatibility expansion is a separate gate;
-remote connections still reject unsupported schemas. Paid models using connected
+The [schema compatibility slice](MCP_SCHEMA_VERIFICATION.md) now provides bounded
+local references, local constraint checks and explicit JSON argument wrappers.
+Unsupported schemas still fail closed. Paid models using connected
 tools require the analytical-agent workstream's transfer, spend, retention and
 whole-run limits. Neither stage enables paid tool calls or critic access, or
 deploys an outward MCP service.
