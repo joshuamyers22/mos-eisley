@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -13,11 +15,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, JsonValue, field_validator, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.evaluation.execution import ExecutionBatch
-from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.providers.openai_spend import SpendPolicy, SpendReservation
 from mos_eisley.run.broker_audit import AssignmentAuthorization
 from mos_eisley.run.evaluation_broker import make_assignment_authorization
 from mos_eisley.run.openai_calibration_campaign import (
@@ -31,7 +33,8 @@ from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.openai_conformance_conversion import (
     OpenAIConformanceCalibrationSeed,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.provider_broker import ApprovedRequest
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerEntryStatus, SpendLedger
 
 _DOMAIN = b"mos-eisley/openai-calibration-execution/v1\x00"
 EncodedKey = Annotated[str, Field(min_length=44, max_length=44)]
@@ -276,6 +279,76 @@ class AuthenticatedOpenAICalibrationExecution(Contract):
             raise ValueError("calibration execution authorization is not current")
 
 
+class PreparedOpenAICalibrationExecution(Contract):
+    """Consumed one-use authority with held spend, but no credential or send."""
+
+    schema_version: Literal[1] = 1
+    mode: Literal["prepared_openai_calibration_execution"] = (
+        "prepared_openai_calibration_execution"
+    )
+    authenticated_execution: AuthenticatedOpenAICalibrationExecution
+    provider_request_sha256: Digest
+    spend_policy_sha256: Digest
+    spend_ledger_policy_sha256: Digest
+    spend_reservation: SpendReservation
+    ledger_entry: LedgerEntry
+    prepared_at: UtcTimestamp
+    valid_until: UtcTimestamp
+    data_transfer_consent_acknowledged: Literal[True] = True
+    spend_reservation_consent_acknowledged: Literal[True] = True
+    authenticated_receipt_is_historical: Literal[True] = True
+    execution_authority_consumed: Literal[True] = True
+    spend_reserved: Literal[True] = True
+    credential_accessed: Literal[False] = False
+    provider_request_sent: Literal[False] = False
+    broker_grant_issued: Literal[False] = False
+    provider_dispatch_authorized: Literal[False] = False
+    credential_access_still_requires_reverification: Literal[True] = True
+    automatic_retry_authorized: Literal[False] = False
+    automatic_budget_release_authorized: Literal[False] = False
+    grading_authorized: Literal[False] = False
+    scoring_authorized: Literal[False] = False
+    promotion_authorized: Literal[False] = False
+    routing_activation_authorized: Literal[False] = False
+
+    @field_validator("prepared_at", "valid_until")
+    @classmethod
+    def utc_timestamps(cls, value: datetime) -> datetime:
+        return _require_utc(value)
+
+    @model_validator(mode="after")
+    def bound_reservation(self) -> Self:
+        decision = self.authenticated_execution.signed_decision.decision
+        authorization = self.authenticated_execution.assignment_authorization
+        if (
+            self.valid_until <= self.prepared_at
+            or self.authenticated_execution.authenticated_at > self.prepared_at
+            or self.valid_until != self.authenticated_execution.valid_until
+            or self.provider_request_sha256 != authorization.provider_request_sha256
+            or self.spend_policy_sha256 != authorization.spend_policy_sha256
+            or self.spend_ledger_policy_sha256 != decision.spend_ledger_policy_sha256
+            or self.ledger_entry.entry_id != authorization.ledger_entry_id
+            or self.ledger_entry.reservation_sha256
+            != digest(canonical_bytes(self.spend_reservation))
+            or self.ledger_entry.reserved_microusd
+            != self.spend_reservation.reserved_microusd
+            or self.spend_reservation.policy_sha256 != self.spend_policy_sha256
+            or self.spend_reservation.reserved_microusd
+            != self.authenticated_execution.max_cost_microusd
+        ):
+            raise ValueError("prepared calibration reservation binding is invalid")
+        return self
+
+    @property
+    def preparation_sha256(self) -> str:
+        return digest(canonical_bytes(self))
+
+    def check_current(self, now: datetime) -> None:
+        current = _require_utc(now)
+        if not self.prepared_at <= current < self.valid_until:
+            raise ValueError("prepared calibration execution is not current")
+
+
 def trusted_openai_calibration_execution_authority(
     authority_id: str, public_key: bytes
 ) -> TrustedOpenAICalibrationExecutionAuthority:
@@ -296,6 +369,8 @@ def _verified_assignment(
     ledger: SpendLedger,
     authority_policy: OpenAICalibrationExecutionAuthorityPolicy,
     sequence: int,
+    *,
+    require_available_budget: bool,
 ) -> tuple[OpenAICalibrationCampaignAssignment, OpenAICalibrationProfilePlan]:
     batch = ExecutionBatch.model_validate_json(canonical_bytes(batch))
     seed = OpenAIConformanceCalibrationSeed.model_validate_json(canonical_bytes(seed))
@@ -370,13 +445,16 @@ def _verified_assignment(
     if (
         snapshot.policy.ceiling_microusd > campaign_policy.aggregate_max_cost_microusd
         or snapshot.blocked
-        or snapshot.available_microusd < profile.max_cost_microusd
+        or (
+            require_available_budget
+            and snapshot.available_microusd < profile.max_cost_microusd
+        )
     ):
         raise ValueError("campaign execution spending ledger is not admissible")
     return assignment, profile
 
 
-def make_openai_calibration_execution_decision(
+def _make_openai_calibration_execution_decision(
     batch: ExecutionBatch,
     seed: OpenAIConformanceCalibrationSeed,
     campaign_policy: OpenAICalibrationCampaignPolicy,
@@ -389,9 +467,9 @@ def make_openai_calibration_execution_decision(
     request_timeout_seconds: int,
     issued_at: datetime,
     valid_until: datetime,
+    *,
+    require_unused_ledger_entry: bool,
 ) -> OpenAICalibrationExecutionDecision:
-    """Derive an exact signable decision without credentials, spend, or dispatch."""
-
     issued = _require_utc(issued_at)
     expires = _require_utc(valid_until)
     assignment, profile = _verified_assignment(
@@ -403,6 +481,7 @@ def make_openai_calibration_execution_decision(
         ledger,
         authority_policy,
         sequence,
+        require_available_budget=require_unused_ledger_entry,
     )
     if audit_directory.exists() or not audit_directory.parent.is_dir():
         raise ValueError("calibration execution requires a fresh audit directory")
@@ -418,7 +497,7 @@ def make_openai_calibration_execution_decision(
     ):
         raise ValueError("calibration execution window exceeds a source policy")
     audit_sha256 = digest(str(audit_directory.resolve()).encode())
-    if ledger.entry_status(audit_sha256) is not None:
+    if require_unused_ledger_entry and ledger.entry_status(audit_sha256) is not None:
         raise ValueError("calibration execution ledger entry already exists")
     payload = build_openai_conformance_payload(
         batch, assignment.sample_id, spend_policy
@@ -455,6 +534,39 @@ def make_openai_calibration_execution_decision(
         request_timeout_seconds=request_timeout_seconds,
         issued_at=issued,
         valid_until=expires,
+    )
+
+
+def make_openai_calibration_execution_decision(
+    batch: ExecutionBatch,
+    seed: OpenAIConformanceCalibrationSeed,
+    campaign_policy: OpenAICalibrationCampaignPolicy,
+    manifest: OpenAICalibrationCampaignManifest,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    authority_policy: OpenAICalibrationExecutionAuthorityPolicy,
+    sequence: int,
+    audit_directory: Path,
+    request_timeout_seconds: int,
+    issued_at: datetime,
+    valid_until: datetime,
+) -> OpenAICalibrationExecutionDecision:
+    """Derive an exact signable decision without credentials, spend, or dispatch."""
+
+    return _make_openai_calibration_execution_decision(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        sequence,
+        audit_directory,
+        request_timeout_seconds,
+        issued_at,
+        valid_until,
+        require_unused_ledger_entry=True,
     )
 
 
@@ -559,3 +671,199 @@ def authenticate_openai_calibration_execution(
         authenticated_at=current,
         valid_until=signed.decision.valid_until,
     )
+
+
+def _spend_request_sha256(payload: dict[str, JsonValue]) -> str:
+    return digest(
+        json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    )
+
+
+def _calibration_reservation(
+    batch: ExecutionBatch,
+    spend_policy: SpendPolicy,
+    authenticated: AuthenticatedOpenAICalibrationExecution,
+) -> tuple[SpendReservation, LedgerEntry]:
+    authorization = authenticated.assignment_authorization
+    payload = build_openai_conformance_payload(
+        batch, authorization.sample_id, spend_policy
+    )
+    if (
+        digest(canonical_bytes(ApprovedRequest(payload=payload)))
+        != authorization.provider_request_sha256
+    ):
+        raise ValueError("prepared calibration provider request binding changed")
+    reserved = spend_policy.reservation_cost(
+        spend_policy.max_input_tokens, spend_policy.max_output_tokens
+    )
+    if reserved != authenticated.max_cost_microusd:
+        raise ValueError("prepared calibration spend envelope changed")
+    reservation = SpendReservation(
+        policy_sha256=spend_policy.policy_sha256,
+        request_sha256=_spend_request_sha256(payload),
+        input_tokens=spend_policy.max_input_tokens,
+        max_output_tokens=spend_policy.max_output_tokens,
+        reserved_microusd=reserved,
+    )
+    return reservation, LedgerEntry(
+        entry_id=authorization.ledger_entry_id,
+        reservation_sha256=digest(canonical_bytes(reservation)),
+        reserved_microusd=reserved,
+    )
+
+
+def _prepared_openai_calibration_execution(
+    batch: ExecutionBatch,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    authenticated: AuthenticatedOpenAICalibrationExecution,
+    prepared_at: datetime,
+) -> PreparedOpenAICalibrationExecution:
+    reservation, entry = _calibration_reservation(batch, spend_policy, authenticated)
+    return PreparedOpenAICalibrationExecution(
+        authenticated_execution=authenticated,
+        provider_request_sha256=(
+            authenticated.assignment_authorization.provider_request_sha256
+        ),
+        spend_policy_sha256=spend_policy.policy_sha256,
+        spend_ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
+        spend_reservation=reservation,
+        ledger_entry=entry,
+        prepared_at=prepared_at,
+        valid_until=authenticated.valid_until,
+    )
+
+
+def consume_openai_calibration_execution(
+    batch: ExecutionBatch,
+    seed: OpenAIConformanceCalibrationSeed,
+    campaign_policy: OpenAICalibrationCampaignPolicy,
+    manifest: OpenAICalibrationCampaignManifest,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    authority_policy: OpenAICalibrationExecutionAuthorityPolicy,
+    authenticated: AuthenticatedOpenAICalibrationExecution,
+    audit_directory: Path,
+    now: datetime,
+    *,
+    data_transfer_consent: bool,
+    spend_reservation_consent: bool,
+) -> PreparedOpenAICalibrationExecution:
+    """Burn one exact authority into worst-case held spend without credentials."""
+
+    if data_transfer_consent is not True:
+        raise ValueError("calibration data transfer was not acknowledged")
+    if spend_reservation_consent is not True:
+        raise ValueError("calibration spend reservation was not acknowledged")
+    current = _require_utc(now)
+    authenticated = AuthenticatedOpenAICalibrationExecution.model_validate_json(
+        canonical_bytes(authenticated)
+    )
+    decision = authenticated.signed_decision.decision
+    rebuilt = _make_openai_calibration_execution_decision(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        decision.sequence,
+        audit_directory,
+        decision.request_timeout_seconds,
+        decision.issued_at,
+        decision.valid_until,
+        require_unused_ledger_entry=False,
+    )
+    if rebuilt != decision:
+        raise ValueError("authenticated calibration execution provenance changed")
+    verify_signed_openai_calibration_execution_decision(
+        authenticated.signed_decision, authority_policy
+    )
+    authenticated.check_current(current)
+    spend_policy.check_current(current)
+    if (
+        current
+        + timedelta(
+            seconds=authenticated.signed_decision.decision.request_timeout_seconds
+        )
+        > authenticated.valid_until
+    ):
+        raise ValueError("calibration execution cannot cover its request timeout")
+    prepared = _prepared_openai_calibration_execution(
+        batch, spend_policy, ledger, authenticated, current
+    )
+    try:
+        ledger.reserve(prepared.ledger_entry)
+    except sqlite3.IntegrityError:
+        if ledger.entry_status(prepared.ledger_entry.entry_id) is not None:
+            raise ValueError(
+                "calibration execution authority was already consumed"
+            ) from None
+        raise
+    return prepared
+
+
+def verify_prepared_openai_calibration_execution(
+    batch: ExecutionBatch,
+    seed: OpenAIConformanceCalibrationSeed,
+    campaign_policy: OpenAICalibrationCampaignPolicy,
+    manifest: OpenAICalibrationCampaignManifest,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    authority_policy: OpenAICalibrationExecutionAuthorityPolicy,
+    prepared: PreparedOpenAICalibrationExecution,
+    audit_directory: Path,
+    now: datetime,
+) -> None:
+    """Reverify exact held preparation without credential access or dispatch."""
+
+    current = _require_utc(now)
+    prepared = PreparedOpenAICalibrationExecution.model_validate_json(
+        canonical_bytes(prepared)
+    )
+    authenticated = prepared.authenticated_execution
+    decision = authenticated.signed_decision.decision
+    rebuilt = _make_openai_calibration_execution_decision(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        decision.sequence,
+        audit_directory,
+        decision.request_timeout_seconds,
+        decision.issued_at,
+        decision.valid_until,
+        require_unused_ledger_entry=False,
+    )
+    if rebuilt != decision:
+        raise ValueError("prepared calibration execution provenance changed")
+    verify_signed_openai_calibration_execution_decision(
+        authenticated.signed_decision, authority_policy
+    )
+    authenticated.check_current(prepared.prepared_at)
+    spend_policy.check_current(current)
+    expected = _prepared_openai_calibration_execution(
+        batch, spend_policy, ledger, authenticated, prepared.prepared_at
+    )
+    status = ledger.entry_status(prepared.ledger_entry.entry_id)
+    required_status = LedgerEntryStatus(
+        entry_id=prepared.ledger_entry.entry_id,
+        reservation_sha256=prepared.ledger_entry.reservation_sha256,
+        reserved_microusd=prepared.ledger_entry.reserved_microusd,
+        charged_microusd=prepared.ledger_entry.reserved_microusd,
+        status="held",
+    )
+    if expected != prepared or status != required_status:
+        raise ValueError("prepared calibration reservation is not the exact held entry")
+    prepared.check_current(current)
+    if (
+        current + timedelta(seconds=decision.request_timeout_seconds)
+        > decision.valid_until
+    ):
+        raise ValueError("prepared calibration cannot cover its request timeout")

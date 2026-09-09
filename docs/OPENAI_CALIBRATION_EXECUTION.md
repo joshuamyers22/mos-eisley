@@ -5,7 +5,9 @@
 short-lived Ed25519 decision for one exact assignment in the 342-item campaign
 manifest. Both commands are offline: they reject supported OpenAI credential
 variables, make no provider request, create no spending reservation, and require an
-explicit offline acknowledgement.
+explicit offline acknowledgement. `eval-consume-openai-calibration-execution` then
+atomically burns that authority into held worst-case spend. It also refuses credentials
+and cannot issue a broker grant or send.
 
 The derivation fully reconstructs the campaign manifest from the frozen 360-item
 batch, reviewed 18-item seed, and public campaign policy. It then binds:
@@ -25,6 +27,12 @@ reservation, and provider request, but it is not itself a send command. The
 authenticated receipt still records `credential_accessed=false`,
 `spend_reserved=false`, and `provider_request_sent=false`. Explicit local transfer
 consent remains required at execution.
+
+Consumption requires separate `--allow-data-transfer` and
+`--allow-spend-reservation` acknowledgements. It reserves the profile's complete
+schema-2 envelope: every permitted input token at the conservative cache-write rate
+and every permitted output token at the output rate. The private preparation contains
+hashes and reservation metadata, not the blinded brief or provider payload.
 
 ## Ceremony
 
@@ -75,17 +83,42 @@ env -u OPENAI_API_KEY -u MOS_OPENAI_KEY \
   --output private/openai-calibration-attempts/0001/execution-authorization.json
 ```
 
+Consume it into one held reservation. The output parent must already exist, and the
+output and audit path must both still be fresh:
+
+```console
+env -u OPENAI_API_KEY -u MOS_OPENAI_KEY \
+  mos eval-consume-openai-calibration-execution \
+  --batch .mos-eisley/eval/calibration-batch.json \
+  --calibration-seed private/openai-live-conformance-gate-v1/calibration-seed.json \
+  --campaign-policy policies/openai-calibration-campaign-v1.json \
+  --campaign-manifest private/openai-calibration-campaign-v1/manifest.json \
+  --spend-policy private/campaign-spend-policy.json \
+  --spend-ledger private/campaign-spending.sqlite \
+  --execution-authority-policy private/campaign-execution-authorities.json \
+  --authenticated-execution private/openai-calibration-attempts/0001/execution-authorization.json \
+  --audit-dir private/openai-calibration-attempts/0001/audit \
+  --allow-data-transfer \
+  --allow-spend-reservation \
+  --output private/openai-calibration-attempts/0001/prepared.json
+```
+
 ## One-use boundary and remaining work
 
-The audit-path digest is the future ledger-entry ID. Authentication verifies that
-the ID is still absent, but does not consume it. Authentication can therefore be
-repeated harmlessly before execution. The paid boundary must atomically create the
-exact reservation under that ID before credential access and must reject duplicate,
-held, settled, uncertain, or violation entries. It must also reverify this complete
-lineage, the audit path, the installed SDK/client contract, freshness, and explicit
-local consent immediately before accessing a credential.
+The audit-path digest is the ledger-entry ID. Authentication verifies that the ID is
+absent; consumption relies on the ledger's immediate transaction to create the exact
+held entry or reject a concurrent duplicate. Held spend is never automatically
+released. If the process fails after reservation but before writing the preparation,
+the ledger remains conservatively held and `spend-ledger-status` provides recovery
+inventory; the signed authority must not be retried.
 
-Until that consumer exists, the authenticated receipt must not be passed directly
-to a generic provider client. It grants no retry, automatic budget release, grading,
-scoring, promotion, routing activation, provider-authorship claim, billing
-reconciliation, or account-wide spending guarantee.
+The nested authentication's `ledger_entry_absent_verified=true` is explicitly
+historical: it describes the earlier authentication timestamp. The outer preparation
+is the later current state and records that authority as consumed with spend held.
+
+The prepared receipt is not a bearer token or send authority. The next provider
+boundary must fully reverify it, require the exact held entry, check the installed
+SDK/client contract and remaining timeout, and obtain a fresh same-invocation transfer
+acknowledgement before credential access. It grants no retry, automatic budget
+release, grading, scoring, promotion, routing activation, provider-authorship claim,
+billing reconciliation, or account-wide spending guarantee.

@@ -4,6 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a credential-refusing consumption command that fully reverifies an authenticated
+  OpenAI calibration decision, requires explicit transfer and reservation consent,
+  and atomically burns its deterministic one-use ledger entry into a worst-case held
+  schema-2 reservation.
+- Add offline prepared-execution verification with exact request, pricing, ledger,
+  signature, freshness, and held-state checks; keep broker grant, provider dispatch,
+  retry, automatic release, grading, scoring, promotion, and activation disabled.
+
 - Add offline derive/authenticate commands for one independently signed, short-lived
   OpenAI calibration execution decision bound to the fully reverified campaign,
   exact strict provider request, schema-2 spend policy, canonical bounded ledger

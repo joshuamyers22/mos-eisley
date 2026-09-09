@@ -22,13 +22,16 @@ from mos_eisley.run.openai_calibration_execution import (
     AuthenticatedOpenAICalibrationExecution,
     OpenAICalibrationExecutionAuthorityPolicy,
     OpenAICalibrationExecutionDecision,
+    PreparedOpenAICalibrationExecution,
     SignedOpenAICalibrationExecutionDecision,
     authenticate_openai_calibration_execution,
+    consume_openai_calibration_execution,
     make_openai_calibration_execution_decision,
     sign_openai_calibration_execution_decision,
     trusted_openai_calibration_execution_authority,
+    verify_prepared_openai_calibration_execution,
 )
-from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 from mos_eisley.run.store import private_write
 from tests.test_openai_conformance_conversion import campaign_inputs
 
@@ -106,6 +109,20 @@ class OpenAICalibrationExecutionTests(TestCase):
     def signed(self) -> SignedOpenAICalibrationExecutionDecision:
         return sign_openai_calibration_execution_decision(
             self.decision(), "campaign-authorizer", self.key.private_bytes_raw()
+        )
+
+    def authenticated(self) -> AuthenticatedOpenAICalibrationExecution:
+        return authenticate_openai_calibration_execution(
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            self.signed(),
+            self.audit_directory,
+            self.now,
         )
 
     def write_cli_sources(self) -> dict[str, Path]:
@@ -383,6 +400,204 @@ class OpenAICalibrationExecutionTests(TestCase):
             signed,
         )
 
+    def test_consumes_exact_authority_into_one_held_reservation(self) -> None:
+        authenticated = self.authenticated()
+        prepared_at = self.now + timedelta(seconds=2)
+        prepared = consume_openai_calibration_execution(
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            authenticated,
+            self.audit_directory,
+            prepared_at,
+            data_transfer_consent=True,
+            spend_reservation_consent=True,
+        )
+        self.assertTrue(prepared.execution_authority_consumed)
+        self.assertTrue(prepared.spend_reserved)
+        self.assertTrue(prepared.data_transfer_consent_acknowledged)
+        self.assertTrue(prepared.authenticated_receipt_is_historical)
+        self.assertFalse(prepared.credential_accessed)
+        self.assertFalse(prepared.provider_request_sent)
+        self.assertFalse(prepared.provider_dispatch_authorized)
+        self.assertEqual(
+            prepared.ledger_entry.entry_id,
+            authenticated.assignment_authorization.ledger_entry_id,
+        )
+        self.assertEqual(
+            prepared.ledger_entry.reserved_microusd,
+            self.profile.max_cost_microusd,
+        )
+        status = self.ledger.entry_status(prepared.ledger_entry.entry_id)
+        self.assertIsNotNone(status)
+        assert status is not None
+        self.assertEqual(status.status, "held")
+        self.assertEqual(
+            status.reservation_sha256, prepared.ledger_entry.reservation_sha256
+        )
+        verify_prepared_openai_calibration_execution(
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            prepared,
+            self.audit_directory,
+            prepared_at + timedelta(seconds=1),
+        )
+
+    def test_consumption_is_atomic_and_duplicate_never_reserves_again(self) -> None:
+        authenticated = self.authenticated()
+        other_key = Ed25519PrivateKey.generate()
+        invalid_signature = authenticated.signed_decision.signature.model_copy(
+            update={
+                "signature_base64": base64.b64encode(
+                    other_key.sign(b"not-this-preparation")
+                ).decode()
+            }
+        )
+        invalid_signed = authenticated.signed_decision.model_copy(
+            update={"signature": invalid_signature}
+        )
+        invalid_authenticated = authenticated.model_copy(
+            update={"signed_decision": invalid_signed}
+        )
+        with self.assertRaisesRegex(ValueError, "signature is invalid"):
+            consume_openai_calibration_execution(
+                self.batch,
+                self.seed,
+                self.campaign_policy,
+                self.manifest,
+                self.spend_policy,
+                self.ledger,
+                self.authority_policy,
+                invalid_authenticated,
+                self.audit_directory,
+                self.now + timedelta(seconds=2),
+                data_transfer_consent=True,
+                spend_reservation_consent=True,
+            )
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+        arguments = (
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            authenticated,
+            self.audit_directory,
+            self.now + timedelta(seconds=2),
+        )
+        consume_openai_calibration_execution(
+            *arguments,
+            data_transfer_consent=True,
+            spend_reservation_consent=True,
+        )
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "already consumed"):
+            consume_openai_calibration_execution(
+                *arguments,
+                data_transfer_consent=True,
+                spend_reservation_consent=True,
+            )
+        self.assertEqual(self.ledger.snapshot(), before)
+        self.assertEqual(before.entries, 1)
+
+    def test_consumption_requires_both_consents_before_mutation(self) -> None:
+        authenticated = self.authenticated()
+        common = (
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            authenticated,
+            self.audit_directory,
+            self.now + timedelta(seconds=2),
+        )
+        with self.assertRaisesRegex(ValueError, "data transfer"):
+            consume_openai_calibration_execution(
+                *common,
+                data_transfer_consent=False,
+                spend_reservation_consent=True,
+            )
+        with self.assertRaisesRegex(ValueError, "spend reservation"):
+            consume_openai_calibration_execution(
+                *common,
+                data_transfer_consent=True,
+                spend_reservation_consent=False,
+            )
+        with self.assertRaisesRegex(ValueError, "cover its request timeout"):
+            consume_openai_calibration_execution(
+                *common[:-1],
+                self.now + timedelta(minutes=2, seconds=45),
+                data_transfer_consent=True,
+                spend_reservation_consent=True,
+            )
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+
+    def test_prepared_verification_rejects_settled_or_expiring_state(self) -> None:
+        authenticated = self.authenticated()
+        prepared_at = self.now + timedelta(seconds=2)
+        prepared = consume_openai_calibration_execution(
+            self.batch,
+            self.seed,
+            self.campaign_policy,
+            self.manifest,
+            self.spend_policy,
+            self.ledger,
+            self.authority_policy,
+            authenticated,
+            self.audit_directory,
+            prepared_at,
+            data_transfer_consent=True,
+            spend_reservation_consent=True,
+        )
+        with self.assertRaisesRegex(ValueError, "cover its request timeout"):
+            verify_prepared_openai_calibration_execution(
+                self.batch,
+                self.seed,
+                self.campaign_policy,
+                self.manifest,
+                self.spend_policy,
+                self.ledger,
+                self.authority_policy,
+                prepared,
+                self.audit_directory,
+                self.now + timedelta(minutes=2, seconds=45),
+            )
+        self.ledger.settle(
+            LedgerSettlement(
+                entry_id=prepared.ledger_entry.entry_id,
+                reservation_sha256=prepared.ledger_entry.reservation_sha256,
+                status="settled",
+                charged_microusd=0,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "exact held entry"):
+            verify_prepared_openai_calibration_execution(
+                self.batch,
+                self.seed,
+                self.campaign_policy,
+                self.manifest,
+                self.spend_policy,
+                self.ledger,
+                self.authority_policy,
+                prepared,
+                self.audit_directory,
+                prepared_at + timedelta(seconds=1),
+            )
+
     def test_cli_derives_and_authenticates_without_credential_or_spend(self) -> None:
         sources = self.write_cli_sources()
         decision_path = self.root / "decision.json"
@@ -482,3 +697,65 @@ class OpenAICalibrationExecutionTests(TestCase):
         self.assertNotIn("secret", stderr.getvalue())
         self.assertFalse(output.exists())
         self.assertEqual(self.ledger.snapshot().entries, 0)
+
+    def test_cli_consumes_only_with_both_consents_and_without_credentials(self) -> None:
+        sources = self.write_cli_sources()
+        authenticated = self.authenticated()
+        authenticated_path = self.root / "authenticated-for-consumption.json"
+        private_write(authenticated_path, canonical_bytes(authenticated))
+        output = self.root / "prepared.json"
+        base = [
+            "eval-consume-openai-calibration-execution",
+            *self.source_arguments(sources),
+            "--authenticated-execution",
+            str(authenticated_path),
+            "--audit-dir",
+            str(self.audit_directory),
+            "--output",
+            str(output),
+        ]
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(main(base), 2)
+            self.assertEqual(main([*base, "--allow-data-transfer"]), 2)
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+        approved = [
+            *base,
+            "--allow-data-transfer",
+            "--allow-spend-reservation",
+        ]
+        with (
+            patch.dict("os.environ", {"OPENAI_API_KEY": "secret"}, clear=True),
+            redirect_stderr(io.StringIO()) as stderr,
+        ):
+            self.assertEqual(main(approved), 2)
+        self.assertNotIn("secret", stderr.getvalue())
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+
+        existing = self.root / "existing-prepared.json"
+        private_write(existing, b"{}")
+        existing_output = [*base[:-1], str(existing), *approved[len(base) :]]
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            redirect_stderr(io.StringIO()),
+        ):
+            self.assertEqual(main(existing_output), 2)
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            redirect_stdout(io.StringIO()) as stdout,
+        ):
+            self.assertEqual(main(approved), 0)
+        event = json.loads(stdout.getvalue())
+        prepared = PreparedOpenAICalibrationExecution.model_validate_json(
+            output.read_bytes()
+        )
+        self.assertEqual(event["preparation_sha256"], prepared.preparation_sha256)
+        self.assertEqual(event["ledger_status"], "held")
+        self.assertTrue(event["execution_authority_consumed"])
+        self.assertTrue(event["data_transfer_consent_acknowledged"])
+        self.assertFalse(event["credential_accessed"])
+        self.assertFalse(event["provider_request_sent"])
+        self.assertFalse(event["provider_dispatch_authorized"])
+        self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.ledger.snapshot().entries, 1)
