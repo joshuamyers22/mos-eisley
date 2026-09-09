@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an opt-in read-only MCP analytical loop with promoted-context and metric
+  revision checks, whole-run OpenAI spending reservations, atomic local admission,
+  bounded conversations and memory-only content retention. Add synthetic demos,
+  adversarial/controller tests and installed-wheel verification.
 - Expand MCP schemas with bounded local reference inlining, constraint/format
   validation, and explicit JSON argument wrappers for nullable fields, unions and
   dictionaries. Report encodings and changes; validate declared structured output.

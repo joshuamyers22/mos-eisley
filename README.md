@@ -257,6 +257,14 @@ and critic/judge workflows retain their existing tool-free boundaries.
   a model request or overstating daily exclusivity and response-level attribution.
 - NDJSON result output, typed code, coverage, CI, package and container delivery.
 
+## Bounded analytical conversations
+
+`mos analysis-demo` answers a synthetic metric through a real local MCP server.
+The opt-in `analysis-run` command adds OpenAI tool conversations with a read-only
+profile, revision-bound metrics and whole-run spending reservations. See the
+[configuration and limits](docs/ANALYSIS.md) and
+[verification record](docs/ANALYSIS_VERIFICATION.md).
+
 ## Boundaries and limitations
 
 The OpenAI adapter and paid-capable conformance CLI are tested against captured
@@ -271,9 +279,9 @@ unverified. Live critic fan-out and judging are not wired yet. The explicit loca
 MCP adapter can execute configured data tools. There is no live sandbox executor,
 shell tool, Git checkout, test execution, publisher, or TUI. The fixture agent tool
 remains a bounded in-memory lookup.
-Byte and provider-token accounting are separate. Spending admission applies only
-to the explicit one-prompt command, relies on operator-reviewed rates and provider
-limits, and bounds participating runs sharing one local ledger. It does not provide
+Byte and provider-token accounting are separate. The explicit one-prompt and analytical commands use separate spending controllers.
+Both rely on operator-reviewed rates and provider limits and bound participating
+runs sharing one local ledger. It does not provide
 account-wide enforcement or enable the unimplemented live evaluation executor.
 
 Recorded workflows open only user-supplied input files. Explicit MCP commands
@@ -305,8 +313,10 @@ Run files contain the supplied brief and recorded responses. Keep the output roo
 private. File hashes detect accidental changes, not a malicious owner who can
 replace the manifest. Recorded agent runs fsync boundary events as they happen, but
 the journal contains hashes and status—not a standalone full transcript. Incomplete
-runs lack a valid manifest and cannot be replayed. Live runs preserve full canonical
+runs lack a valid manifest and cannot be replayed. The original one-prompt live runs preserve full canonical
 responses for inspection but cannot replay a provider execution. Retention is manual.
+The new analytical command retains content in memory and emits its result on stdout;
+it writes only spending metadata to its ledger.
 
 The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-telemetry)
 keeps retained data under one user's ownership while allowing user-configured local

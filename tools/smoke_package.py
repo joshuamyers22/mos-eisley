@@ -60,6 +60,15 @@ def main() -> int:
         subprocess.run(
             [command, "agent-replay", agent_event["path"]], cwd=root, check=True
         )
+        analysis = subprocess.run(
+            [command, "analysis-demo"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        if json.loads(analysis.stdout)["answer"]["result_ids"] != ["result-0002"]:
+            raise ValueError("installed analytical fixture returned wrong evidence")
         server = root / "mcp_fixture.py"
         server.write_text(Path("tests/fixtures/mcp_server.py").read_text())
         config = root / "mcp.json"
@@ -152,7 +161,12 @@ def main() -> int:
             "mcp_schema_tools.py",
         ):
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
-        for name in ("test_mcp_oauth.py", "test_mcp_schema.py"):
+        for name in (
+            "test_mcp_oauth.py",
+            "test_mcp_schema.py",
+            "test_analysis.py",
+            "test_analysis_spending.py",
+        ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(
             [
@@ -163,7 +177,7 @@ def main() -> int:
                 "-s",
                 str(root),
                 "-p",
-                "test_mcp_*.py",
+                "test_*.py",
             ],
             cwd=root,
             check=True,
