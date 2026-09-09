@@ -133,6 +133,10 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 - A fixture-tested [OpenAI conformance request contract](docs/OPENAI_CONFORMANCE.md)
   using blinded input and strict structured `Critique` output, plus an explicit
   one-assignment CLI whose provider and container boundaries are fixture-substituted.
+- An offline [one-assignment calibration execution decision](docs/OPENAI_CALIBRATION_EXECUTION.md)
+  that fully reverifies the frozen campaign, binds an independent signature to one
+  exact request and schema-2 spend envelope, and defers one-use consumption and all
+  credential access to a later atomic boundary.
 - [Ed25519 adjudication authentication](docs/ADJUDICATION_AUTHENTICATION.md)
   binding exact human grades to an independently supplied public-key trust policy.
 - [Dual authenticated grading](docs/DUAL_GRADE_RESOLUTION.md) that preserves both
@@ -298,6 +302,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [OpenAI model readiness](docs/OPENAI_READINESS.md),
 [OpenAI Responses canary](docs/OPENAI_RESPONSES_CANARY.md),
+[one-assignment OpenAI calibration execution](docs/OPENAI_CALIBRATION_EXECUTION.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
@@ -352,6 +357,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [live blinded-conformance adversarial review](docs/MILESTONE_52_REVIEW.md),
 [registry-bound model-readiness adversarial review](docs/MILESTONE_53_REVIEW.md),
 [OpenAI conformance-campaign commitment review](docs/MILESTONE_54_REVIEW.md),
+[calibration execution-decision adversarial review](docs/MILESTONE_89_REVIEW.md),
 [OpenAI live-conformance exit gate](docs/OPENAI_LIVE_CONFORMANCE_GATE.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),

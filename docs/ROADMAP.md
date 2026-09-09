@@ -149,9 +149,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    reserving spend, or granting execution. The shared spending controller now has
    backward-compatible schema-2 cache-write-aware worst-case reservation and exact
    settlement, including fail-closed usage validation; this is fixture-validated
-   infrastructure, not campaign authority. Next, derive and authenticate a
-   short-lived one-use execution
-   decision for one exact campaign assignment, then run the remaining repeated
+   infrastructure, not campaign authority. A credential-refusing offline boundary
+   now fully reverifies those sources and derives/authenticates an independently
+   signed, short-lived decision for one exact sequence, provider request, schema-2
+   spend envelope, ledger, and fresh audit identity. Authentication performs no
+   reservation or send; the next boundary must atomically consume that exact ledger
+   entry and recheck consent before credential access. Then run the remaining repeated
    backend × model × effort matrix on clean and defective samples only through fresh
    request, transfer, and spend authority.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
