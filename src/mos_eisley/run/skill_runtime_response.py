@@ -293,6 +293,10 @@ def _result_matches_response(
         and result.assistant == Turn(role="assistant", blocks=text)
         and result.usage.input == outcome.input_tokens
         and result.usage.output == outcome.output_tokens
+        and (
+            outcome.cache_write_tokens is None
+            or result.usage.cache_write == outcome.cache_write_tokens
+        )
         and response.get("model") == result.model
     )
 

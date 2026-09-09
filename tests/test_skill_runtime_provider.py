@@ -18,6 +18,7 @@ from pydantic import JsonValue
 from mos_eisley.cli import main
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.skill_runtime_grant import SkillRuntimeBrokerCapability
 from mos_eisley.run.skill_runtime_preflight import PreparedSkillRuntimeRequest
 from mos_eisley.run.skill_runtime_provider import (
@@ -29,6 +30,7 @@ from mos_eisley.run.skill_runtime_provider import (
 )
 from mos_eisley.run.store import private_write
 from tests import test_skill_runtime_grant as grant_module
+from tests import test_skill_runtime_preflight as preflight_module
 from tests.test_skill_runtime_preflight import SkillRuntimePreflightTests
 
 
@@ -217,6 +219,71 @@ class SkillRuntimeProviderTransactionTests(TestCase):
                     self.now,
                 )
             )
+
+    def test_schema_two_settles_exact_cache_write_usage(self) -> None:
+        def cache_write_policy(**values: object) -> SpendPolicy:
+            return SpendPolicy.model_validate(
+                values
+                | {
+                    "schema_version": 2,
+                    "cache_write_microusd_per_million": 1_250_000,
+                }
+            )
+
+        alternate = grant_module.SkillRuntimeBrokerGrantTests()
+        try:
+            with patch.object(preflight_module, "SpendPolicy", new=cache_write_policy):
+                alternate.setUp()
+            runtime = alternate.dispatch.runtime
+            with TemporaryDirectory() as directory:
+                store = SkillRuntimeProviderTransactionStore.create(
+                    Path(directory) / "provider-transactions.sqlite",
+                    alternate.dispatch.transaction_policy,
+                    alternate.store,
+                    runtime.sources.routing.control_anchor,
+                    runtime.sources.control_anchor,
+                    runtime.sources.default_store,
+                    runtime.ledger,
+                )
+                capability = alternate.issue()
+                response: dict[str, JsonValue] = {
+                    "id": "resp_schema_two_provider_transaction",
+                    "model": runtime.spend_policy.model,
+                    "service_tier": "default",
+                    "output": [],
+                    "usage": {
+                        "input_tokens": 12,
+                        "output_tokens": 7,
+                        "input_tokens_details": {"cache_write_tokens": 3},
+                    },
+                }
+                reply = asyncio.run(
+                    execute_skill_runtime_provider_transaction(
+                        runtime.sources,
+                        runtime.routing_preflight,
+                        alternate.dispatch.admission_fixture.prepared,
+                        capability,
+                        canonical_bytes(capability.claim()),
+                        runtime.spend_policy,
+                        runtime.ledger,
+                        alternate.store,
+                        store,
+                        FakeProviderTransport(response),
+                        alternate.issue_at + timedelta(seconds=1),
+                    )
+                )
+
+                self.assertEqual(
+                    alternate.dispatch.admission_fixture.prepared.spend_reservation.reserved_microusd,
+                    145,
+                )
+                self.assertEqual(reply.outcome.cache_write_tokens, 3)
+                entry = runtime.ledger.entry_status(capability.issuance.ledger_entry_id)
+                self.assertIsNotNone(entry)
+                assert entry is not None
+                self.assertEqual(entry.charged_microusd, 27)
+        finally:
+            alternate.doCleanups()
 
     def test_transport_failure_is_uncertain_and_retains_full_reservation(self) -> None:
         transport = FakeProviderTransport(RuntimeError("lost response"))

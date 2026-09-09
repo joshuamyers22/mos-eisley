@@ -598,7 +598,7 @@ def _verified_request(
     encoded = canonical_bytes(ApprovedRequest(payload=payload))
     if len(encoded) > min(MAX_REQUEST_BYTES, resolved.spec.context_bytes):
         raise ValueError("skill runtime provider request exceeds byte limit")
-    reserved = spend_policy.cost(
+    reserved = spend_policy.reservation_cost(
         spend_policy.max_input_tokens, request.max_output_tokens
     )
     if reserved > spend_policy.max_cost_microusd:

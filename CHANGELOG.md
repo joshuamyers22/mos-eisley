@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add backward-compatible schema-2 OpenAI spending policies with explicit
+  cache-write rates, worst-case cache-write reservation, and exact cache-write
+  settlement across direct, canary, conformance, and skill-runtime paths.
+- Fail closed on missing or incoherent schema-2 cache-write usage, preserve legacy
+  schema-1 canonical artifacts, and keep the calibration campaign non-authorizing.
+
 - Add a credential-refusing offline campaign planner that subtracts the exact
   18-record conformance seed from the frozen 360-assignment OpenAI calibration
   batch and commits the remaining 342 request hashes in original order.

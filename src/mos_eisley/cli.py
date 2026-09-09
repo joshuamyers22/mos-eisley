@@ -7317,7 +7317,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "input_tokens": result.usage.billed_input,
                 "output_tokens": result.usage.billed_output,
                 "cost_upper_bound_microusd": spend_policy.cost(
-                    result.usage.billed_input, result.usage.billed_output
+                    result.usage.billed_input,
+                    result.usage.billed_output,
+                    sum(response.usage.cache_write for response in result.responses),
                 ),
                 "spend_policy_sha256": spend_policy.policy_sha256,
                 "spend_ledger_id": ledger.policy.ledger_id,

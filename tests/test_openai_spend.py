@@ -45,6 +45,20 @@ def policy() -> SpendPolicy:
     )
 
 
+def cache_write_policy() -> SpendPolicy:
+    return SpendPolicy(
+        schema_version=2,
+        model="gpt-6-astra",
+        pricing_source="synthetic cache-write test rates",
+        valid_from=datetime.now(UTC) - timedelta(hours=1),
+        valid_until=datetime.now(UTC) + timedelta(hours=1),
+        input_microusd_per_million=1_000_000,
+        cache_write_microusd_per_million=1_250_000,
+        output_microusd_per_million=2_000_000,
+        max_cost_microusd=1000,
+    )
+
+
 def request() -> dict[str, JsonValue]:
     return {
         "model": "gpt-6-astra",
@@ -88,6 +102,61 @@ class FakeTransport:
 
 
 class SpendingTests(IsolatedAsyncioTestCase):
+    async def test_schema_two_reserves_and_settles_cache_write_exposure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = SpendLedger.create(root / "spend.sqlite", 500)
+            transport = FakeTransport(root)
+            transport.response["usage"] = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "input_tokens_details": {"cache_write_tokens": 2},
+            }
+            await BudgetedOpenAITransport(
+                transport, cache_write_policy(), root, ledger
+            ).create_response(request())
+            reservation = SpendReservation.model_validate_json(
+                (root / "spend-reservation.json").read_bytes()
+            )
+            receipt = SpendReceipt.model_validate_json(
+                (root / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(reservation.reserved_microusd, 213)
+            self.assertEqual(receipt.retained_microusd, 21)
+            self.assertEqual(receipt.cache_write_tokens, 2)
+            self.assertEqual(ledger.snapshot().charged_microusd, 21)
+
+    async def test_schema_two_missing_or_excess_cache_write_fails_closed(self) -> None:
+        cases: tuple[tuple[dict[str, JsonValue], str], ...] = (
+            (
+                {"input_tokens": 10, "output_tokens": 5},
+                "uncertain",
+            ),
+            (
+                {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "input_tokens_details": {"cache_write_tokens": 11},
+                },
+                "violation",
+            ),
+        )
+        for usage, status in cases:
+            with self.subTest(status=status), TemporaryDirectory() as directory:
+                root = Path(directory)
+                transport = FakeTransport(root)
+                transport.response["usage"] = usage
+                with self.assertRaises(ProviderError):
+                    await BudgetedOpenAITransport(
+                        transport, cache_write_policy(), root
+                    ).create_response(request())
+                receipt = SpendReceipt.model_validate_json(
+                    (root / "spend-receipt.json").read_bytes()
+                )
+                self.assertEqual(receipt.status, status)
+                self.assertEqual(receipt.retained_microusd, 213)
+                self.assertIsNone(receipt.cache_write_tokens)
+
     async def test_shared_budget_is_committed_before_generation_and_settles(
         self,
     ) -> None:
@@ -440,6 +509,37 @@ class SpendingTests(IsolatedAsyncioTestCase):
 
 
 class PolicyTests(TestCase):
+    def test_schema_two_requires_conservative_cache_write_pricing(self) -> None:
+        original = policy().model_dump()
+        for update in (
+            {"schema_version": 2},
+            {
+                "schema_version": 2,
+                "cache_write_microusd_per_million": 999_999,
+            },
+            {"cache_write_microusd_per_million": 1_250_000},
+        ):
+            with self.subTest(update=update), self.assertRaises(ValidationError):
+                SpendPolicy.model_validate(original | update)
+        upgraded = cache_write_policy()
+        self.assertEqual(upgraded.reservation_cost(10, 100), 213)
+        self.assertEqual(upgraded.cost(10, 5, 2), 21)
+        with self.assertRaises(ValueError):
+            upgraded.cost(10, 5, 11)
+        self.assertNotIn(b"cache_write", canonical_bytes(policy()))
+        self.assertNotIn(
+            b"cache_write",
+            canonical_bytes(
+                SpendReceipt(
+                    reservation_sha256="a" * 64,
+                    status="settled",
+                    retained_microusd=1,
+                    input_tokens=1,
+                    output_tokens=0,
+                )
+            ),
+        )
+
     def test_receipt_ledger_identity_must_be_complete(self) -> None:
         with self.assertRaises(ValidationError):
             SpendReceipt(

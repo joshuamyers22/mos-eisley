@@ -168,6 +168,9 @@ class SkillRuntimeProviderOutcome(Contract):
     provider_response_sha256: Digest | None = None
     input_tokens: Annotated[int, Field(ge=0)] | None = None
     output_tokens: Annotated[int, Field(ge=0)] | None = None
+    cache_write_tokens: Annotated[int, Field(ge=0)] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     completed_at: UtcTimestamp
     provider_transport_invoked_once: Literal[True] = True
     retry_permitted: Literal[False] = False
@@ -188,6 +191,12 @@ class SkillRuntimeProviderOutcome(Contract):
             raise ValueError("received provider outcome requires response and usage")
         if self.status != "response_received" and complete_usage:
             raise ValueError("non-settled provider outcome cannot claim exact usage")
+        if self.cache_write_tokens is not None and (
+            self.input_tokens is None
+            or self.cache_write_tokens > self.input_tokens
+            or self.status != "response_received"
+        ):
+            raise ValueError("provider outcome cache-write usage is inconsistent")
         return self
 
     @property
@@ -536,7 +545,7 @@ def _validate_exact_request(
         or prepared.spend_reservation.max_output_tokens
         != payload.get("max_output_tokens")
         or prepared.spend_reservation.reserved_microusd
-        != spend_policy.cost(
+        != spend_policy.reservation_cost(
             prepared.spend_reservation.input_tokens,
             prepared.spend_reservation.max_output_tokens,
         )
@@ -577,6 +586,7 @@ def _outcome(
     response: dict[str, JsonValue] | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
 ) -> SkillRuntimeProviderOutcome:
     return SkillRuntimeProviderOutcome(
         transaction_id=intent.transaction_id,
@@ -591,6 +601,7 @@ def _outcome(
         ),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        cache_write_tokens=cache_write_tokens,
         # A backward wall-clock step must not make an otherwise valid durable
         # outcome contradict its already committed send boundary.
         completed_at=max(datetime.now(UTC), intent.recorded_at),
@@ -724,16 +735,30 @@ async def execute_skill_runtime_provider_transaction(
         outcome = _outcome(intent, "uncertain", reserved, response)
         _settle_and_finish(ledger, transaction_store, intent, outcome)
         raise ProviderError("provider response returned invalid billable usage")
+    actual_cache_write = 0
+    if spend_policy.schema_version == 2:
+        details = usage.get("input_tokens_details")
+        if not isinstance(details, dict):
+            outcome = _outcome(intent, "uncertain", reserved, response)
+            _settle_and_finish(ledger, transaction_store, intent, outcome)
+            raise ProviderError("provider response omitted cache-write usage")
+        raw_cache_write = details.get("cache_write_tokens")
+        if type(raw_cache_write) is not int or raw_cache_write < 0:
+            outcome = _outcome(intent, "uncertain", reserved, response)
+            _settle_and_finish(ledger, transaction_store, intent, outcome)
+            raise ProviderError("provider response returned invalid cache-write usage")
+        actual_cache_write = raw_cache_write
     if (
         actual_input > prepared.spend_reservation.input_tokens
         or actual_output > prepared.spend_reservation.max_output_tokens
+        or actual_cache_write > actual_input
         or response.get("service_tier") != "default"
         or response.get("model") != spend_policy.model
     ):
         outcome = _outcome(intent, "violation", reserved, response)
         _settle_and_finish(ledger, transaction_store, intent, outcome)
         raise ProviderError("provider response violated reserved pricing assumptions")
-    charged = spend_policy.cost(actual_input, actual_output)
+    charged = spend_policy.cost(actual_input, actual_output, actual_cache_write)
     if charged > reserved:
         outcome = _outcome(intent, "violation", reserved, response)
         _settle_and_finish(ledger, transaction_store, intent, outcome)
@@ -745,6 +770,7 @@ async def execute_skill_runtime_provider_transaction(
         response,
         actual_input,
         actual_output,
+        actual_cache_write if spend_policy.schema_version == 2 else None,
     )
     _settle_and_finish(ledger, transaction_store, intent, outcome)
     # Recheck our hash before returning provider-controlled content to the caller.

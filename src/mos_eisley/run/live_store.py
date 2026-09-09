@@ -98,6 +98,9 @@ def _validate_spend(payloads: dict[str, bytes], result: AgentResult) -> None:
         payloads["spend-reservation.json"]
     )
     receipt = SpendReceipt.model_validate_json(payloads["spend-receipt.json"])
+    cache_write_tokens = sum(
+        response.usage.cache_write for response in result.responses
+    )
     if (
         reservation.policy_sha256 != policy.policy_sha256
         or receipt.reservation_sha256 != digest(canonical_bytes(reservation))
@@ -107,14 +110,25 @@ def _validate_spend(payloads: dict[str, bytes], result: AgentResult) -> None:
         or result.usage.tools != 0
         or receipt.input_tokens != result.usage.billed_input
         or receipt.output_tokens != result.usage.billed_output
+        or (
+            policy.schema_version == 2
+            and receipt.cache_write_tokens != cache_write_tokens
+        )
+        or (policy.schema_version == 1 and receipt.cache_write_tokens is not None)
         or result.usage.billed_input > reservation.input_tokens
         or result.usage.billed_output > reservation.max_output_tokens
         or reservation.input_tokens > policy.max_input_tokens
         or reservation.max_output_tokens > policy.max_output_tokens
         or reservation.reserved_microusd
-        != policy.cost(reservation.input_tokens, reservation.max_output_tokens)
+        != policy.reservation_cost(
+            reservation.input_tokens, reservation.max_output_tokens
+        )
         or receipt.retained_microusd
-        != policy.cost(result.usage.billed_input, result.usage.billed_output)
+        != policy.cost(
+            result.usage.billed_input,
+            result.usage.billed_output,
+            cache_write_tokens,
+        )
         or receipt.retained_microusd > reservation.reserved_microusd
         or reservation.reserved_microusd > policy.max_cost_microusd
     ):

@@ -8,16 +8,16 @@ enabled by this change. Tests use synthetic rates and fake transports, not credi
 
 ## Reviewed policy
 
-Create a JSON policy using this template. Replace every angle-bracket placeholder;
-the two rate placeholders must become JSON integers, not strings. The template
-intentionally fails validation until reviewed. Check the exact model's current
+Create a schema-2 JSON policy using this template. Replace every angle-bracket
+placeholder; the three rate placeholders must become JSON integers, not strings.
+The template intentionally fails validation until reviewed. Check the exact model's current
 [official pricing](https://developers.openai.com/api/docs/pricing) and account
 terms; rates must conservatively cover the entire permitted input range and any
 applicable pricing thresholds. There is no automatically trusted price feed.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "model": "gpt-6-astra",
   "currency": "USD",
   "service_tier": "default",
@@ -25,6 +25,7 @@ applicable pricing thresholds. There is no automatically trusted price feed.
   "valid_from": "<UTC ISO-8601 timestamp with timezone>",
   "valid_until": "<short-lived UTC ISO-8601 expiry with timezone>",
   "input_microusd_per_million": "<reviewed integer rate>",
+  "cache_write_microusd_per_million": "<reviewed integer rate>",
   "output_microusd_per_million": "<reviewed integer rate>",
   "max_cost_microusd": 1000000,
   "max_input_tokens": 64000,
@@ -57,15 +58,26 @@ not supported by this preview.
    **This already transfers prompt data**, even if generation is subsequently
    denied. Consent covers both calls. Counting is not an offline preflight, and
    this control does not establish or reserve any token-count endpoint charges.
-3. Recheck expiry and input limit. Compute the ceiling, rounding up to micro-USD:
-   `ceil((counted_input * input_rate + output_cap * output_rate) / 1000000)`.
+3. Recheck expiry and input limit. Compute the schema-2 ceiling by pricing every
+   counted input token at the cache-write rate, rounding up to micro-USD:
+   `ceil((counted_input * cache_write_rate + output_cap * output_rate) / 1000000)`.
    If it exceeds the policy ceiling, do not request generation.
 4. Exclusively create and file-fsync `spend-reservation.json` before generation.
    Request standard service tier, `store=false`, disabled truncation and the
    reserved output cap. SDK retries are disabled; the controller is single-use.
-5. Require nonnegative integer usage within the reservation and exact returned
-   model/service tier. Persist a settled receipt using actual tokens at policy
-   rates. Do not assume cache discounts or add reasoning a second time.
+5. Require nonnegative integer usage within the reservation, including explicit
+   `input_tokens_details.cache_write_tokens`, and the exact returned model/service
+   tier. Settle ordinary input at the input rate, cache-write input at the higher
+   cache-write rate, and output at the output rate. Do not assume cache-read
+   discounts or add reasoning a second time.
+
+Schema 1 remains readable for existing artifacts and preserves its original
+canonical representation. It cannot specify a cache-write rate and must not be
+used for the new calibration campaign. Schema 2 requires the cache-write rate to
+be at least the ordinary input rate. Missing or invalid cache-write usage retains
+the full reservation as `uncertain`; a cache-write count above total input is a
+pricing `violation`. This is deliberately conservative because the provider can
+only report actual cache-write usage after the request has incurred exposure.
 
 This follows OpenAI's [token counting guide](https://developers.openai.com/api/docs/guides/token-counting)
 and the installed SDK's input-token count contract. The documented
@@ -116,10 +128,10 @@ The host-built [conformance request](OPENAI_CONFORMANCE.md) may add a strict
 and in the exact request snapshot; it does not let the isolated worker alter the
 schema or bypass output-token and cost ceilings.
 
-Before live empirical sweeps: extend the first explicitly authorized credentialed
-probe across the intended model/effort and failure matrix, then add a separately
-reviewed conversion from validated broker artifacts to live evaluation provenance.
-One authenticated success does not prove general provider behavior or invoice limits.
+The repeated live conformance gate and its offline seed conversion are complete.
+The remaining calibration campaign is still non-authorizing: each future paid
+assignment needs a fresh short-lived execution decision, explicit transfer consent,
+and schema-2 policy whose short validity window reflects a fresh pricing review.
 
 The [skill-runtime aggregate billing-evidence layer](SKILL_RUNTIME_BILLING_EVIDENCE.md)
 can authenticate an independent auditor's exact match between one settled publication

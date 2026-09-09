@@ -19,7 +19,7 @@ Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 
 
 class SpendPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     model: Identifier
     currency: Literal["USD"] = "USD"
     service_tier: Literal["default"] = "default"
@@ -27,6 +27,9 @@ class SpendPolicy(Contract):
     valid_from: datetime
     valid_until: datetime
     input_microusd_per_million: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    cache_write_microusd_per_million: (
+        Annotated[int, Field(gt=0, le=1_000_000_000_000)] | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
     output_microusd_per_million: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
     max_cost_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
     max_input_tokens: Annotated[int, Field(gt=0, le=200_000)] = 64_000
@@ -38,6 +41,18 @@ class SpendPolicy(Contract):
             raise ValueError("pricing timestamps must include a timezone")
         if self.valid_until <= self.valid_from:
             raise ValueError("pricing validity window must be positive")
+        if (
+            self.schema_version == 1
+            and self.cache_write_microusd_per_million is not None
+        ):
+            raise ValueError("schema-1 spending policy cannot price cache writes")
+        if self.schema_version == 2 and (
+            self.cache_write_microusd_per_million is None
+            or self.cache_write_microusd_per_million < self.input_microusd_per_million
+        ):
+            raise ValueError(
+                "schema-2 spending policy requires a conservative cache-write rate"
+            )
         return self
 
     def check_current(self, now: datetime | None = None) -> None:
@@ -51,13 +66,36 @@ class SpendPolicy(Contract):
     def policy_sha256(self) -> str:
         return digest(canonical_bytes(self))
 
-    def cost(self, input_tokens: int, output_tokens: int) -> int:
-        # No cache discount is assumed; output_tokens already includes reasoning.
+    def cost(
+        self, input_tokens: int, output_tokens: int, cache_write_tokens: int = 0
+    ) -> int:
+        # No cache-read discount is assumed; output_tokens includes reasoning.
+        if (
+            type(input_tokens) is not int
+            or type(output_tokens) is not int
+            or type(cache_write_tokens) is not int
+            or input_tokens < 0
+            or output_tokens < 0
+            or not 0 <= cache_write_tokens <= input_tokens
+        ):
+            raise ValueError("spending cost requires coherent nonnegative token counts")
+        cache_write_rate = (
+            self.cache_write_microusd_per_million
+            if self.cache_write_microusd_per_million is not None
+            else self.input_microusd_per_million
+        )
         return (
             input_tokens * self.input_microusd_per_million
+            + cache_write_tokens * (cache_write_rate - self.input_microusd_per_million)
             + output_tokens * self.output_microusd_per_million
             + 999_999
         ) // 1_000_000
+
+    def reservation_cost(self, input_tokens: int, output_tokens: int) -> int:
+        """Reserve every input token at the highest applicable input rate."""
+
+        cache_write_tokens = input_tokens if self.schema_version == 2 else 0
+        return self.cost(input_tokens, output_tokens, cache_write_tokens)
 
 
 class SpendReservation(Contract):
@@ -74,6 +112,9 @@ class SpendReceipt(Contract):
     retained_microusd: Money
     input_tokens: Annotated[int, Field(ge=0)] | None = None
     output_tokens: Annotated[int, Field(ge=0)] | None = None
+    cache_write_tokens: Annotated[int, Field(ge=0)] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     ledger_id: Digest | None = None
     ledger_entry_id: Digest | None = None
 
@@ -186,7 +227,7 @@ class BudgetedOpenAITransport:
         if type(tokens) is not int or not 0 <= tokens <= self.policy.max_input_tokens:
             raise ProviderError("input count exceeds spending policy")
         self.policy.check_current()
-        reserved = self.policy.cost(tokens, output_cap)
+        reserved = self.policy.reservation_cost(tokens, output_cap)
         if reserved > self.policy.max_cost_microusd:
             raise ProviderError("response reservation exceeds spending limit")
         reservation = SpendReservation(
@@ -232,9 +273,21 @@ class BudgetedOpenAITransport:
         ):
             self._receipt(reservation_hash, "uncertain", reserved)
             raise ProviderError("response returned invalid billable usage")
+        actual_cache_write = 0
+        if self.policy.schema_version == 2:
+            details = usage.get("input_tokens_details")
+            if not isinstance(details, dict):
+                self._receipt(reservation_hash, "uncertain", reserved)
+                raise ProviderError("response omitted cache-write usage")
+            raw_cache_write = details.get("cache_write_tokens")
+            if type(raw_cache_write) is not int or raw_cache_write < 0:
+                self._receipt(reservation_hash, "uncertain", reserved)
+                raise ProviderError("response returned invalid cache-write usage")
+            actual_cache_write = raw_cache_write
         if (
             actual_input > tokens
             or actual_output > output_cap
+            or actual_cache_write > actual_input
             or response.get("service_tier") != "default"
             or response.get("model") != self.policy.model
         ):
@@ -243,9 +296,10 @@ class BudgetedOpenAITransport:
         self._receipt(
             reservation_hash,
             "settled",
-            self.policy.cost(actual_input, actual_output),
+            self.policy.cost(actual_input, actual_output, actual_cache_write),
             actual_input,
             actual_output,
+            actual_cache_write if self.policy.schema_version == 2 else None,
         )
         return response
 
@@ -256,6 +310,7 @@ class BudgetedOpenAITransport:
         retained: int,
         input_tokens: int | None = None,
         output_tokens: int | None = None,
+        cache_write_tokens: int | None = None,
     ) -> None:
         if self.ledger is not None:
             self.ledger.settle(
@@ -275,6 +330,7 @@ class BudgetedOpenAITransport:
                     retained_microusd=retained,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    cache_write_tokens=cache_write_tokens,
                     ledger_id=self.ledger.policy.ledger_id if self.ledger else None,
                     ledger_entry_id=self.ledger_entry_id if self.ledger else None,
                 )
