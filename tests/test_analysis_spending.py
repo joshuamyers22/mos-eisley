@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 from pydantic import JsonValue
 
+from mos_eisley.analysis.artifacts import load_artifact
 from mos_eisley.analysis.controller import AnalysisConfig
 from mos_eisley.analysis.demo import fixture_config
 from mos_eisley.analysis.fixture_server import REVISION
@@ -345,6 +346,14 @@ class ConversationalTransport(FakeTransport):
                                 {
                                     "status": "answer",
                                     "text": "Synthetic total: 42.",
+                                    "claims": [
+                                        {
+                                            "result_id": "result-0002",
+                                            "row": 0,
+                                            "column": "total",
+                                            "value": 42,
+                                        }
+                                    ],
                                     "result_ids": ["result-0002"],
                                 }
                             ),
@@ -364,12 +373,16 @@ class ConversationalTransport(FakeTransport):
 
 class LiveCLITests(TestCase):
     def test_synthetic_live_path_and_missing_key_settlement(self) -> None:
-        for key in ("synthetic-not-a-real-key", ""):
+        for key, retention in (
+            ("synthetic-not-a-real-key", "memory"),
+            ("synthetic-not-a-real-key", "private"),
+            ("", "memory"),
+        ):
             with TemporaryDirectory() as directory:
                 root = Path(directory)
                 ledger = SpendLedger.create(root / "ledger.sqlite", 1000000)
                 for name, value in (
-                    ("config", config()),
+                    ("config", config(retention=retention)),
                     ("mcp", fixture_config()),
                     ("policy", policy()),
                 ):
@@ -390,6 +403,10 @@ class LiveCLITests(TestCase):
                     "100000",
                     "--allow-data-transfer",
                 ]
+                if retention == "private":
+                    arguments.extend(
+                        ["--allow-result-retention", "--result-root", str(root)]
+                    )
                 fake = ConversationalTransport()
                 out, err = io.StringIO(), io.StringIO()
                 with (
@@ -405,9 +422,15 @@ class LiveCLITests(TestCase):
                 self.assertEqual(code, 0 if key else 2, err.getvalue())
                 self.assertEqual(ledger.snapshot().unresolved_entries, 0)
                 self.assertEqual(fake.calls, 2 if key else 0)
-                self.assertEqual(len(list(root.iterdir())), 4)
+                self.assertEqual(
+                    len(list(root.iterdir())), 5 if retention == "private" else 4
+                )
                 event = json.loads(out.getvalue() if key else err.getvalue())
                 self.assertEqual(event["spend_receipt"]["status"], "settled")
+                if retention == "private":
+                    _, artifact = load_artifact(Path(event["artifact_path"]))
+                    self.assertEqual(artifact.result.answer.claims[0].value, 42)
+                    self.assertIsNotNone(artifact.spend_receipt)
                 self.assertNotIn(
                     "synthetic-not-a-real-key", out.getvalue() + err.getvalue()
                 )

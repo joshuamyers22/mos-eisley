@@ -75,6 +75,16 @@ class AnalysisFixtureClient:
                             {
                                 "status": status,
                                 "text": texts[status],
+                                "claims": [
+                                    {
+                                        "result_id": "result-0002",
+                                        "row": 0,
+                                        "column": "total",
+                                        "value": 42,
+                                    }
+                                ]
+                                if status == "answer"
+                                else [],
                                 "result_ids": ["result-0002"]
                                 if status == "answer"
                                 else [],
@@ -93,12 +103,15 @@ class AnalysisFixtureClient:
         )
 
 
-async def run_demo(scenario: Scenario = "answer") -> AnalysisResult:
+async def run_demo(
+    scenario: Scenario = "answer", *, retention: Literal["memory", "private"] = "memory"
+) -> AnalysisResult:
     return await run_analysis(
         AnalysisConfig(
             provider="fixture",
             model="tool-reviewer-v1",
             account="fixture",
+            retention=retention,
             question="What is the synthetic total?",
         ),
         fixture_config(),

@@ -2,10 +2,20 @@
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 
 from pydantic import Field, JsonValue, model_validator
 
+from mos_eisley.analysis.evidence import (
+    AnalysisAnswer,
+    AnalysisEvidence,
+    SQLRecord,
+    ToolTrace,
+    checked_answer,
+    sql_records,
+    verify_evidence,
+)
 from mos_eisley.core.agent import AgentConfig, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
@@ -19,6 +29,7 @@ from mos_eisley.core.protocol import (
     ToolDefinition,
     ToolResultBlock,
     Turn,
+    Usage,
 )
 from mos_eisley.core.registry import ModelRegistry
 from mos_eisley.tools.mcp import MCPConfig, MCPDispatcher, connect_mcp
@@ -35,7 +46,8 @@ class AnalysisConfig(Contract):
     account: Identifier
     question: Annotated[str, Field(min_length=1, max_length=8000)]
     effort: Effort = "low"
-    retention: Literal["memory"] = "memory"
+    retention: Literal["memory", "private"] = "memory"
+    artifact_ttl_seconds: Annotated[int, Field(ge=60, le=604800)] = 86400
     max_model_turns: Annotated[int, Field(ge=1, le=16)] = 6
     max_tool_calls: Annotated[int, Field(ge=1, le=64)] = 12
     max_pending_tool_calls: Annotated[int, Field(ge=1, le=8)] = 2
@@ -51,27 +63,18 @@ class AnalysisConfig(Contract):
     max_result_bytes: Annotated[int, Field(ge=1024, le=12000)] = 4000
 
 
-class AnalysisAnswer(Contract):
-    status: Literal["answer", "clarify", "unavailable"]
-    text: Annotated[str, Field(min_length=1, max_length=8000)]
-    result_ids: Annotated[tuple[Identifier, ...], Field(max_length=64)] = ()
-
-    @model_validator(mode="after")
-    def unique_sources(self) -> "AnalysisAnswer":
-        if len(set(self.result_ids)) != len(self.result_ids):
-            raise ValueError("duplicate analytical evidence references")
-        return self
-
-
-class AnalysisEvidence(Contract):
-    result_id: Identifier
-    tool: Identifier
-    result_sha256: Digest
-    complete: bool
-
-
 class AnalysisResult(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
+    started_at: datetime
+    completed_at: datetime
+    provider: Identifier
+    model: Identifier
+    question: Annotated[str, Field(min_length=1, max_length=8000)]
+    question_sha256: Digest
+    sql_trail: tuple[SQLRecord, ...]
+    tool_trace: tuple[ToolTrace, ...]
+    provider_usage: tuple[Usage, ...]
+    value_verification: Literal["returned_cells", "not_applicable"]
     answer: AnalysisAnswer
     semantic_revision: Digest
     evidence: tuple[AnalysisEvidence, ...]
@@ -79,9 +82,41 @@ class AnalysisResult(Contract):
     tool_calls: int
     input_bytes: int
     output_bytes: int
-    retention: Literal["memory"] = "memory"
+    retention: Literal["memory", "private"] = "memory"
     source_snapshot_verified: Literal[False] = False
     claims_independently_verified: Literal[False] = False
+
+    @model_validator(mode="after")
+    def valid_lineage(self) -> "AnalysisResult":
+        if (
+            self.started_at.tzinfo is None
+            or self.completed_at.tzinfo is None
+            or self.completed_at < self.started_at
+            or self.tool_calls != len(self.tool_trace)
+            or self.model_turns != len(self.provider_usage)
+        ):
+            raise ValueError("invalid analytical envelope counts or timestamps")
+        if any(
+            t.started_at < self.started_at or t.completed_at > self.completed_at
+            for t in self.tool_trace
+        ):
+            raise ValueError("tool trace lies outside the run window")
+        if (
+            digest(self.question.encode()) != self.question_sha256
+            or sql_records(self.tool_trace) != self.sql_trail
+        ):
+            raise ValueError("question or SQL lineage mismatch")
+        verify_evidence(self.evidence, self.tool_trace, self.semantic_revision)
+        if checked_answer(self.answer, self.tool_trace) != self.answer:
+            raise ValueError("answer text differs from checked cell rendering")
+        expected = (
+            "returned_cells" if self.answer.status == "answer" else "not_applicable"
+        )
+        if self.value_verification != expected:
+            raise ValueError("value verification does not match answer status")
+        if len(canonical_bytes(self)) > 8_000_000:
+            raise ValueError("analytical envelope exceeds its byte limit")
+        return self
 
 
 SYSTEM = """Analyze only the user's question using the configured read tools.
@@ -91,9 +126,14 @@ Prefer run_metric for governed metrics and use the exact supplied semantic revis
 Use schema/SELECT tools for ad-hoc questions only. Ask for clarification when metric,
 source or time range is ambiguous. Do not guess unavailable data or infer a snapshot
 from a definition revision. Incomplete/error results cannot support an answer.
-Return one JSON object with status (answer, clarify, unavailable), text, and result_ids.
-An answer must cite at least one complete non-context result ID from tool output.
-Do not claim those references independently verify every numerical or causal claim.
+Return one JSON object with status (answer, clarify, unavailable), text, result_ids,
+and claims. For an answer, claims must list exact returned scalar cells with
+result_id, zero-based row, column name, and value preserving its JSON type.
+Only complete tables with truncated=false can support claims. Compute any requested
+aggregates in SQL, not prose. Cite exactly the claimed result IDs. The controller
+renders the answer from checked cells; your answer text is not used. For clarify or
+unavailable, provide text and empty result_ids/claims. Do not guess ambiguous cells
+or claim that matching a returned cell verifies source truth or causal conclusions.
 """
 
 
@@ -116,6 +156,8 @@ class AnalysisTools:
         self.revision: str | None = None
         self.calls = 0
         self.evidence: list[AnalysisEvidence] = []
+        self.trace: list[ToolTrace] = []
+        self._accepted_response: ToolResultBlock | None = None
 
     @property
     def definitions(self) -> tuple[ToolDefinition, ...]:
@@ -125,6 +167,27 @@ class AnalysisTools:
         if self.calls >= self.config.max_tool_calls:
             raise AnalysisFailure("analysis tool-call limit reached")
         self.calls += 1
+        started = datetime.now(UTC)
+        before = len(self.evidence)
+        self._accepted_response = None
+        try:
+            return await self._dispatch(call)
+        finally:
+            accepted = len(self.evidence) > before
+            self.trace.append(
+                ToolTrace(
+                    call=call,
+                    started_at=started,
+                    completed_at=datetime.now(UTC),
+                    outcome="accepted" if accepted else "error",
+                    result_id=self.evidence[-1].result_id if accepted else None,
+                    response=self._accepted_response if accepted else None,
+                )
+            )
+            if sum(len(canonical_bytes(item)) for item in self.trace) > 2_000_000:
+                raise AnalysisFailure("analytical tool trail exceeds its byte limit")
+
+    async def _dispatch(self, call: ToolCallBlock) -> ToolResultBlock:
         if call.name == "run_metric":
             try:
                 values = json.loads(cast(str, call.args["arguments_json"]))
@@ -183,6 +246,7 @@ class AnalysisTools:
             )
             if len(canonical_bytes(wrapped)) > self.config.max_result_bytes:
                 raise AnalysisFailure("analytical result exceeds its byte limit")
+            self._accepted_response = result
             self.evidence.append(
                 AnalysisEvidence(
                     result_id=result_id,
@@ -233,6 +297,7 @@ async def run_analysis(
     config = AnalysisConfig.model_validate_json(config.model_dump_json())
     mcp = analysis_mcp_config(mcp)
     registry.resolve(config.provider, config.model, config.effort)
+    started = datetime.now(UTC)
     limited = LimitedModel(client, config)
     async with asyncio.timeout(config.run_timeout_seconds):
         async with connect_mcp(mcp) as dispatcher:
@@ -280,19 +345,21 @@ async def run_analysis(
             try:
                 result = await run_agent(agent, registry, limited, tools)
                 answer = AnalysisAnswer.model_validate_json(result.final_text)
-                available = {
-                    item.result_id
-                    for item in tools.evidence
-                    if item.tool not in {"get_semantic_context", "list_metrics"}
-                    and item.complete
-                }
-                if not set(answer.result_ids) <= available or (
-                    answer.status == "answer" and not answer.result_ids
-                ):
-                    raise AnalysisFailure(
-                        "analytical answer lacks complete cited results"
-                    )
+                answer = checked_answer(answer, tuple(tools.trace))
                 return AnalysisResult(
+                    started_at=started,
+                    completed_at=datetime.now(UTC),
+                    provider=config.provider,
+                    model=config.model,
+                    question=config.question,
+                    question_sha256=digest(config.question.encode()),
+                    sql_trail=sql_records(tuple(tools.trace)),
+                    tool_trace=tuple(tools.trace),
+                    provider_usage=tuple(r.usage for r in result.responses),
+                    value_verification="returned_cells"
+                    if answer.status == "answer"
+                    else "not_applicable",
+                    retention=config.retention,
                     answer=answer,
                     semantic_revision=tools.revision,
                     evidence=tuple(tools.evidence),
