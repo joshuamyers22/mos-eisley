@@ -11,8 +11,16 @@ from uuid import uuid4
 
 from mos_eisley.analysis.controller import AnalysisConfig, run_analysis
 from mos_eisley.analysis.demo import AnalysisFixtureClient
+from mos_eisley.analysis.evidence import ContextMode
 from mos_eisley.analysis.fixture_server import REVISION
-from mos_eisley.core.protocol import ModelRequest, ModelResponse, ToolCallBlock
+from mos_eisley.core.protocol import (
+    ModelRequest,
+    ModelResponse,
+    TextBlock,
+    ToolCallBlock,
+    Turn,
+    Usage,
+)
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.tools.mcp import MCPConfig, MCPDispatcher, connect_mcp
 
@@ -195,6 +203,82 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
                 ["list_sources", "query_parquet"],
             )
 
+    async def test_synthetic_parquet_case_pack(self) -> None:
+        # Scripted requests/claims are plumbing regression evidence, not model quality.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            created = subprocess.run(
+                [
+                    DATA_PYTHON,
+                    "-m",
+                    "data_mcp.fixture",
+                    "create",
+                    "--output-root",
+                    str(root),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            receipt = json.loads(created.stdout)
+            pack = Path(receipt["pack"])
+            manifest = json.loads((pack / "manifest.json").read_text())
+            golden = json.loads((pack / "golden" / "cases.json").read_text())
+            revision = manifest["semantic_revision"]
+            modes: tuple[ContextMode, ...] = ("raw", "promoted")
+            for mode in modes:
+                config = MCPConfig(
+                    command=DATA_PYTHON,
+                    cwd=str(root),
+                    args=("-m", "data_mcp.cli", "--config", str(pack / f"{mode}.toml")),
+                    max_result_bytes=12000,
+                    tools={"list_sources": "read", "query_parquet": "read"}
+                    if mode == "raw"
+                    else {"get_semantic_context": "read", "run_metric": "read"},
+                )
+                for case in golden["cases"]:
+                    with self.subTest(mode=mode, case=case["id"]):
+                        result = await run_analysis(
+                            AnalysisConfig(
+                                provider="fixture",
+                                model="tool-reviewer-v1",
+                                account="fixture",
+                                context_mode=mode,
+                                question=golden["conventions"] + " " + case["question"],
+                                max_result_bytes=12000,
+                            ),
+                            config,
+                            fixture_registry(),
+                            ParquetCaseClient(mode, case, revision),
+                        )
+                        self.assertEqual(result.answer.status, "answer")
+                        self.assertEqual(
+                            result.answer.claims[0].value, case["expected"]
+                        )
+                        self.assertEqual(result.answer.claims[0].column, "total")
+                        self.assertEqual(
+                            result.semantic_revision,
+                            revision if mode == "promoted" else None,
+                        )
+                        self.assertEqual(len(result.evidence), 2)
+            # Check the original pack pin after all twelve conversations.
+            verified = subprocess.run(
+                [
+                    DATA_PYTHON,
+                    "-m",
+                    "data_mcp.fixture",
+                    "verify",
+                    "--pack",
+                    str(pack),
+                    "--manifest-sha256",
+                    receipt["manifest_sha256"],
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(json.loads(verified.stdout)["checked_answers"], 12)
+
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"
     )
@@ -269,3 +353,58 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
                     self.assertEqual(result["rows"], [])
         finally:
             setup(f"DROP SCHEMA {schema} CASCADE")
+
+
+class ParquetCaseClient:
+    """Fixed SQL and fixed labels are supplied only to this test driver."""
+
+    def __init__(self, mode: ContextMode, case: dict[str, Any], revision: str) -> None:
+        self.mode, self.case, self.revision = mode, case, revision
+        self.calls = 0
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        self.calls += 1
+        if self.calls == 1:
+            arguments = (
+                {"root": "fixture", "paths": ["lines.parquet"], "sql": self.case["sql"]}
+                if self.mode == "raw"
+                else {"name": self.case["id"], "revision": self.revision}
+            )
+            turn = Turn(
+                role="assistant",
+                blocks=(
+                    ToolCallBlock(
+                        id="case-query",
+                        name="query_parquet" if self.mode == "raw" else "run_metric",
+                        args={"arguments_json": json.dumps(arguments)},
+                    ),
+                ),
+            )
+            stop = "tool_use"
+        else:
+            turn = Turn(
+                role="assistant",
+                blocks=(
+                    TextBlock(
+                        text=json.dumps(
+                            {
+                                "status": "answer",
+                                "text": "Synthetic checked cell.",
+                                "result_ids": ["result-0002"],
+                                "claims": [
+                                    {
+                                        "result_id": "result-0002",
+                                        "row": 0,
+                                        "column": "total",
+                                        "value": self.case["expected"],
+                                    }
+                                ],
+                            }
+                        )
+                    ),
+                ),
+            )
+            stop = "end_turn"
+        return ModelResponse(
+            turn=turn, stop_reason=stop, usage=Usage(input=100, output=100)
+        )
