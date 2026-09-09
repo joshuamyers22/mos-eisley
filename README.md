@@ -278,7 +278,9 @@ exercises both arms. The optional
 [Parquet case integration](docs/ANALYSIS_PARQUET_CASES.md) also checks six
 nonconstant cases through the real data-mcp server.
 [Parameterized metric integration](docs/ANALYSIS_METRIC_PARAMETERS.md) adds checked
-date-window calls using the same controller. See the
+date-window calls using the same controller.
+[Output-contract regression](docs/ANALYSIS_OUTPUT_CONTRACTS.md) checks that changed
+database types cannot support an answer. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 
