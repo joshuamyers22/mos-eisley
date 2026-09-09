@@ -1,6 +1,7 @@
 """Spend is reserved before generation and never released on an unknown outcome."""
 
 import asyncio
+import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,16 +22,17 @@ from openai import (
 )
 from pydantic import JsonValue, ValidationError
 
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_responses import SDKOpenAITransport
 from mos_eisley.providers.openai_spend import (
     BudgetedOpenAITransport,
+    PreReservedOpenAITransport,
     SpendPolicy,
     SpendReceipt,
     SpendReservation,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 
 
 def policy() -> SpendPolicy:
@@ -102,6 +104,147 @@ class FakeTransport:
 
 
 class SpendingTests(IsolatedAsyncioTestCase):
+    def pre_reserved_controller(
+        self, root: Path, transport: FakeTransport
+    ) -> tuple[PreReservedOpenAITransport, SpendLedger, SpendReservation]:
+        spending = cache_write_policy().model_copy(
+            update={
+                "max_input_tokens": 100,
+                "max_output_tokens": 100,
+                "max_cost_microusd": 325,
+            }
+        )
+        normalized = request() | {"service_tier": "default"}
+        reservation = SpendReservation(
+            policy_sha256=spending.policy_sha256,
+            request_sha256=digest(
+                json.dumps(
+                    normalized,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode()
+            ),
+            input_tokens=100,
+            max_output_tokens=100,
+            reserved_microusd=325,
+        )
+        entry = LedgerEntry(
+            entry_id=digest(str(root.resolve()).encode()),
+            reservation_sha256=digest(canonical_bytes(reservation)),
+            reserved_microusd=325,
+        )
+        ledger = SpendLedger.create(root / "pre-reserved.sqlite", 500)
+        ledger.reserve(entry)
+        controller = PreReservedOpenAITransport(
+            transport, spending, root, ledger, reservation, entry
+        )
+        return controller, ledger, reservation
+
+    async def test_pre_reserved_controller_settles_hold_without_reserving_again(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            transport = FakeTransport(root)
+            transport.response["usage"] = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "input_tokens_details": {"cache_write_tokens": 2},
+            }
+            controller, ledger, reservation = self.pre_reserved_controller(
+                root, transport
+            )
+            before = ledger.snapshot()
+            await controller.create_response(request())
+            after = ledger.snapshot()
+            self.assertEqual(before.entries, 1)
+            self.assertEqual(after.entries, 1)
+            self.assertEqual(after.charged_microusd, 21)
+            self.assertEqual(after.unresolved_entries, 0)
+            self.assertEqual(
+                SpendReservation.model_validate_json(
+                    (root / "spend-reservation.json").read_bytes()
+                ),
+                reservation,
+            )
+            receipt = SpendReceipt.model_validate_json(
+                (root / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(receipt.status, "settled")
+            self.assertEqual(receipt.retained_microusd, 21)
+            self.assertEqual(len(transport.counts), 1)
+            self.assertEqual(len(transport.calls), 1)
+            with self.assertRaises(ProviderError):
+                await controller.create_response(request())
+
+    async def test_pre_reserved_controller_retains_failures_and_blocks_overrun(
+        self,
+    ) -> None:
+        cases = ("count", "generation", "overrun")
+        for case in cases:
+            with self.subTest(case=case), TemporaryDirectory() as directory:
+                root = Path(directory)
+                transport = FakeTransport(root)
+                transport.response["usage"] = {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "input_tokens_details": {"cache_write_tokens": 0},
+                }
+                controller, ledger, _ = self.pre_reserved_controller(root, transport)
+                context = (
+                    patch.object(
+                        transport,
+                        "count_input_tokens",
+                        side_effect=RuntimeError("private count failure"),
+                    )
+                    if case == "count"
+                    else patch.object(
+                        transport,
+                        "create_response",
+                        side_effect=RuntimeError("private generation failure"),
+                    )
+                    if case == "generation"
+                    else patch.object(transport, "count_input_tokens", return_value=101)
+                )
+                with (
+                    context as provider_call,
+                    self.assertRaises((RuntimeError, ProviderError)),
+                ):
+                    await controller.create_response(request())
+                receipt = SpendReceipt.model_validate_json(
+                    (root / "spend-receipt.json").read_bytes()
+                )
+                expected = "violation" if case == "overrun" else "uncertain"
+                self.assertEqual(receipt.status, expected)
+                self.assertEqual(receipt.retained_microusd, 325)
+                self.assertEqual(ledger.snapshot().blocked, case == "overrun")
+                self.assertEqual(provider_call.call_count, 1)
+                self.assertEqual(len(transport.calls), 0)
+
+    async def test_pre_reserved_controller_requires_exact_current_hold_before_provider(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            transport = FakeTransport(root)
+            controller, ledger, reservation = self.pre_reserved_controller(
+                root, transport
+            )
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=controller.ledger_entry_id,
+                    reservation_sha256=digest(canonical_bytes(reservation)),
+                    status="settled",
+                    charged_microusd=1,
+                )
+            )
+            with self.assertRaisesRegex(ValueError, "exact held entry"):
+                await controller.create_response(request())
+            self.assertEqual(transport.counts, [])
+            self.assertEqual(transport.calls, [])
+            self.assertFalse((root / "spend-reservation.json").exists())
+
     async def test_schema_two_reserves_and_settles_cache_write_exposure(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

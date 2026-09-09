@@ -13,7 +13,7 @@ from pydantic import Field, JsonValue
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
+from mos_eisley.providers.openai_spend import SpendControlledOpenAITransport
 from mos_eisley.run.broker_audit import BrokerAudit
 from mos_eisley.run.broker_wire import BrokerReply
 
@@ -41,7 +41,7 @@ class RequestBoundBroker:
     def __init__(
         self,
         payload: dict[str, JsonValue],
-        transport: BudgetedOpenAITransport,
+        transport: SpendControlledOpenAITransport,
         *,
         lifetime_seconds: float = 30,
         audit: BrokerAudit | None = None,

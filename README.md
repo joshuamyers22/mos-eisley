@@ -137,6 +137,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
   that fully reverifies the frozen campaign, binds an independent signature to one
   exact request and schema-2 spend envelope, then atomically consumes that authority
   into held worst-case spend without credential access or provider dispatch.
+- A guarded [held-reservation credentialed transport](docs/MILESTONE_91_REVIEW.md)
+  that rechecks an exact held entry before token counting and generation, then settles
+  that same entry at most once.
 - [Ed25519 adjudication authentication](docs/ADJUDICATION_AUTHENTICATION.md)
   binding exact human grades to an independently supplied public-key trust policy.
 - [Dual authenticated grading](docs/DUAL_GRADE_RESOLUTION.md) that preserves both
@@ -359,6 +362,7 @@ See the [project brief](PROJECT_BRIEF.md),
 [OpenAI conformance-campaign commitment review](docs/MILESTONE_54_REVIEW.md),
 [calibration execution-decision adversarial review](docs/MILESTONE_89_REVIEW.md),
 [calibration execution-consumption adversarial review](docs/MILESTONE_90_REVIEW.md),
+[held-reservation credentialed-transport adversarial review](docs/MILESTONE_91_REVIEW.md),
 [OpenAI live-conformance exit gate](docs/OPENAI_LIVE_CONFORMANCE_GATE.md),
 [blinded evaluation review](docs/MILESTONE_5_REVIEW.md),
 [statistical design](docs/STATISTICAL_DESIGN.md),
