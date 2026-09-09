@@ -42,9 +42,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    access while billing and routing authority remained false. Those exact-profile
    conformance prerequisites subsequently passed as described in item 4. The
    separate reviewed offline boundary has now converted only the 18 qualifying
-   records into a non-gradeable partial seed. Next, build the complete-batch
-   brokered calibration boundary, then wire OpenAI into critic/judge review before
-   other providers.
+   records into a non-gradeable partial seed. A second offline boundary commits the
+   exact 342-request remainder and its aggregate cost ceiling without authorizing
+   execution. Next, build its one-use assignment execution decision, then wire
+   OpenAI into critic/judge review before other providers.
    In parallel, build the conversational session controller and minimal terminal
    over recorded providers and explicit inputs: contextual follow-ups, visible
    progress, queued steering, cancellation, private persistence, and safe resume.
@@ -142,9 +143,14 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    matching artifacts into a private 18-of-360 partial calibration seed. The seed is
    deliberately incompatible with `RawResultSet` and fixes complete-batch coverage,
    quality, grading, scoring, promotion, activation, and another request to false.
-   Next, design the complete-batch brokered calibration boundary and run the
-   remaining repeated backend × model × effort matrix on clean and defective
-   samples only through fresh request and spend authority.
+   A credential-refusing offline campaign planner now binds the exact 342-request
+   remainder in frozen batch order, six current cache-write-aware standard-rate
+   token envelopes, and a $15.377973 aggregate maximum without embedding briefs,
+   reserving spend, or granting execution. Next, derive and authenticate a
+   short-lived one-use execution
+   decision for one exact campaign assignment, then run the remaining repeated
+   backend × model × effort matrix on clean and defective samples only through fresh
+   request, transfer, and spend authority.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
