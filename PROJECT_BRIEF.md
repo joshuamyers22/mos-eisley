@@ -43,6 +43,8 @@
   Offline analytical evaluation compares reviewed expectations without provider calls.
   Explicit raw mode supports the comparison arm through source discovery and SQL
   with no promoted semantic catalog and the same spending/evidence controls.
+  Frozen comparison schedules balance arm positions and check recorded execution
+  order offline; failed/missing assignments retain unknown timing.
   The original one-prompt and critic workflows expose no MCP tools. See
   docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
 - Non-goals for this phase: live adversarial review, general machine tools,
