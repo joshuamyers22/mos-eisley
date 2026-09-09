@@ -6,7 +6,10 @@ from pydantic import JsonValue
 
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.evaluation.execution import ExecutionBatch
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
+from mos_eisley.providers.openai_spend import (
+    SpendControlledOpenAITransport,
+    SpendPolicy,
+)
 from mos_eisley.run.broker_audit import AssignmentAuthorization, BrokerAudit
 from mos_eisley.run.provider_broker import ApprovedRequest, RequestBoundBroker
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -51,7 +54,7 @@ def authorize_assignment(
     batch: ExecutionBatch,
     sample_id: str,
     payload: dict[str, JsonValue],
-    transport: BudgetedOpenAITransport,
+    transport: SpendControlledOpenAITransport,
 ) -> AssignmentAuthorization:
     if transport.ledger is None:
         raise ValueError("unique assignment and shared ledger required")
@@ -69,7 +72,7 @@ def make_assignment_broker(
     batch: ExecutionBatch,
     sample_id: str,
     payload: dict[str, JsonValue],
-    transport: BudgetedOpenAITransport,
+    transport: SpendControlledOpenAITransport,
     audit_directory: Path,
     *,
     lifetime_seconds: float = 30,
