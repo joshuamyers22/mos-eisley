@@ -86,7 +86,9 @@ It also connects to user-selected Streamable HTTP servers with bearer tokens or 
 OAuth uses a pre-registered public client and the OS keychain.
 Explicit configuration selects the executable or URL, credential references and
 allowed tools. `mos mcp-list` discovers them; `mos mcp-call` executes one named call.
-The dispatcher also implements the canonical agent port. Paid provider commands
+Schema adapters support bounded local references and JSON argument wrappers for
+nullable fields, unions and dictionaries. The dispatcher implements the canonical
+agent port. Paid provider commands
 and critic/judge workflows retain their existing tool-free boundaries.
 
 ## Implemented

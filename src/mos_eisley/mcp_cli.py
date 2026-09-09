@@ -61,6 +61,7 @@ def run_mcp_command(args: argparse.Namespace) -> int:
                             ],
                             "capabilities": config.tools,
                             "schema_changes": dispatcher.schema_changes,
+                            "argument_encodings": dispatcher.argument_encodings,
                         }
                     )
                 )

@@ -35,6 +35,8 @@
 - Data connection: explicit stdio and Streamable HTTP MCP discovery/calls plus an agent
   dispatcher support the external data-mcp server. Operator config selects tools
   and write capability; Ana Lite can use a separate analysis server profile.
+  Schema compatibility adds bounded local references, local constraints and JSON
+  wrappers while preserving validation and explicit write grants.
   OAuth supports explicit public-client PKCE login, native-keychain storage, refresh
   and logout. Live provider and critic workflows still expose no MCP tools. See docs/MCP_DATA.md.
 - Non-goals for this phase: live adversarial review, general machine tools,

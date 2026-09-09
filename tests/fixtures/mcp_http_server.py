@@ -22,6 +22,7 @@ class MCPHTTPFixture:
         cert: Path | None = None,
         key: Path | None = None,
         middleware: Callable[[ASGIApp], ASGIApp] | None = None,
+        schema_tools: bool = False,
     ) -> None:
         self.fault = ""
         self.legacy_version: str | None = None
@@ -51,6 +52,10 @@ class MCPHTTPFixture:
         server.add_tool(read_value)
         server.add_tool(write_value)
         server.add_tool(slow)
+        if schema_tools:
+            from fixtures.mcp_schema_tools import add_schema_tools
+
+            add_schema_tools(server)
         app = server.streamable_http_app(json_response=not sse)
 
         async def wrapped(scope: Scope, receive: Receive, send: Send) -> None:

@@ -8,7 +8,8 @@ PostgreSQL, plus Ana Lite's promoted semantic manifest and named metrics.
 Streamable HTTP with token authentication (M11A) and OAuth for pre-registered
 public clients (M11B) are implemented on their feature branches. See
 [the remote milestones](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b).
-Schema expansion and paid analytical-agent integration have separate gates.
+Schema compatibility now has bounded lowering and JSON argument wrappers; paid
+analytical-agent integration remains a separate gate.
 
 ## Configure and use
 
@@ -161,6 +162,70 @@ changing its identity/scope fields or deleting it, otherwise its old slot remain
 Reauthentication replaces the selected local record; previously issued provider
 tokens can remain valid until revoked or expired.
 
+## Tool-schema compatibility
+
+`mcp-list` returns `argument_encodings` and `schema_changes` for each selected tool.
+With the default `schema_mode: "auto"`, simple schemas keep ordinary named arguments.
+Acyclic local `$ref` JSON Pointers are expanded from `$defs` or other local schema
+locations. Remote/file references, anchors, recursion and alternate dialects are
+rejected before a call. Schemas use JSON Schema 2020-12; an explicit `$schema` must
+name that revision.
+
+Numeric bounds, `multipleOf`, string/array/object length bounds and the supported
+formats (`date`, `uuid`, `ipv4`, `ipv6`) are enforced by the client. Native tool
+schemas include readable constraint hints and report their local enforcement.
+Primitive `const` values become single-value enums where representable. Source
+defaults remain metadata; the adapter does not insert values or coerce arguments.
+Native object schemas retain the previous closed-object restriction, with a report
+when the source omitted `additionalProperties`.
+
+Nullable fields, type unions, `anyOf`/`oneOf`/`allOf`, dictionary values, boolean
+subschemas and complex constants can use the `json_object` encoding. The tool's
+name and permissions stay the same; its canonical input becomes one required
+`arguments_json` string. Its description includes the resolved original schema.
+For example, a server tool accepting a nullable record and a labels dictionary:
+
+```json
+{
+  "id": "save-1",
+  "name": "save_record",
+  "args": {
+    "arguments_json": "{\"record\":{\"kind\":\"fixture\",\"value\":null},\"labels\":{\"source\":\"fixture\"}}"
+  }
+}
+```
+
+The adapter decodes that string and validates the resulting object before sending
+ordinary arguments to the server. Invalid inputs cause no server call. Duplicate
+JSON keys, nonfinite numbers, non-object values and extra wrapper fields fail.
+Conjunctions and exclusive unions retain their original validation semantics;
+`$ref` siblings remain additional constraints rather than replacing the target.
+Open dictionary keys are permitted only as the original schema allows.
+
+Set `schema_mode: "json_object"` in the client config to wrap every selected tool,
+including schemas that could use native arguments. This provides a required single
+field for provider adapters whose strict mode cannot represent optional fields.
+It does not enable a paid-provider tool workflow. Inspect `argument_encodings` and
+the tool description before constructing call files; native and wrapped calls have
+different argument shapes.
+
+Unknown keywords, arbitrary regex/`patternProperties`, unsupported formats
+(including `date-time` in this slice), conditional/dependent schemas, tuple arrays,
+`uniqueItems` and unevaluated-property rules remain rejected. The wrapper is not a
+bypass for unsupported validation. Structured outputs use the same bounded local
+schema compiler and format validation in addition to SDK checks; invalid declared
+output disables the session and does not retry a possibly committed write.
+
+Schemas are limited to 64 KiB before and after expansion, 512 expanded schema nodes,
+12 schema levels, 64 properties/definitions/enum/required entries per collection,
+and 16 branches per combinator. JSON values are limited to 8,192 nodes and 24 levels.
+Wrapper instructions are limited to 6,000 UTF-8 bytes and must also fit the existing
+8,000-character tool description limit. Oversized schemas fail; descriptions and
+constraints are never silently truncated. Existing argument, catalog and result
+byte limits still apply, including JSON-string escaping overhead.
+
+See [schema verification](MCP_SCHEMA_VERIFICATION.md) for the tested boundary.
+
 ## Ana Lite analysis profile
 
 Copy data-mcp's `config.ana.example.toml` to `config.ana.toml`. Update its mounted
@@ -207,12 +272,9 @@ provider workflows are implemented.
   A write can commit before an error, timeout or oversized response: inspect the
   target before issuing a new call. New CLI invocations do not deduplicate IDs.
 - Discovery is limited to 16 pages, 256 advertised tools, 64 selected tools and
-  256 KiB per decoded catalog page. Input schemas use the canonical subset;
-  unsupported constraints, references and unions fail registration. Omitted
-  title/default metadata and stricter closed objects appear in `schema_changes`.
-  Original input constraints are validated before dispatch. The SDK validates
-  structured output against declared output schemas; references are rejected
-  before calling to prevent schema retrieval. Binary/resource content is unsupported.
+  256 KiB per decoded catalog page. The schema adapter below validates supported
+  input/output schemas locally and reports input representation changes. Binary
+  and resource content remain unsupported.
 - The default 4,000-byte result limit includes the entire canonical result,
   including JSON escaping. Structured and textual content are retained, so the
   same server data may appear twice. No successful result is silently shortened.
