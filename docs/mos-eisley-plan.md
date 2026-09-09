@@ -2983,3 +2983,27 @@ resumed from the already-retained receipt; the controlled command was not rerun.
 This post-boundary tooling defect does not alter the receipt or ledger evidence but
 is retained in the disposition. F1 is complete; F2 through F5 and the reviewed gate
 report remain outstanding.
+
+### 25.53 Made F2 authentication rejection retainable
+
+The real `openai-conformance` path can now retain a canonical status-`error` artifact
+when an admitted request terminates specifically with `authentication_error` during
+`token_count`. The artifact is compiled against the independently persisted
+assignment authorization, terminal broker audit, and dedicated ledger. It requires
+absent ledger state and null cost, while retry, automatic release, live-result,
+grading, scoring, promotion, and routing authority remain false.
+
+This path is intentionally narrower than generic provider-failure recovery. The
+terminal audit classification and compiled artifact must agree on the exact F2
+tuple. Partial audits and all other failure stages or categories
+remain unable to publish an artifact; post-reservation ambiguity therefore retains
+the existing conservative F3 behavior. Automated tests additionally prove the token
+count is attempted once, generation is never attempted, no reservation or ledger
+entry appears, and the full ledger snapshot is unchanged.
+
+This completes F2 instrumentation, not F2 itself. A separately installed reviewed
+wheel, disposable ledger, independently signed short-lived authorization, explicit
+local consent, one deliberately invalid credentialed request, and retained
+operational verification are still required. F3 through F5 and the aggregate gate
+report also remain outstanding, and no provider request or downstream authority is
+granted by this implementation.

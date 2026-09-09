@@ -198,6 +198,7 @@ from mos_eisley.run.openai_responses_canary import (
     make_openai_responses_canary_authorization,
     verify_openai_responses_canary_authorization,
 )
+from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.routing_preflight import (
     RoutingRuntimePreflight,
     RoutingRuntimeSources,
@@ -6512,6 +6513,132 @@ def _recorded_review_command(args: argparse.Namespace) -> int:
     return EXIT_CODES[result.verdict.decision]
 
 
+def _emit_openai_conformance_rejection(
+    artifact: BrokeredEvaluationArtifact,
+    *,
+    authorization_output: Path,
+    audit_directory: Path,
+    artifact_output: Path,
+    lifecycle_path: Path | None,
+) -> int:
+    """Retain and report one terminal, non-retryable conformance rejection."""
+
+    _write_contract(artifact_output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "openai.conformance.rejected",
+                "mode": artifact.mode,
+                "authorization_path": str(authorization_output),
+                "audit_path": str(audit_directory),
+                "artifact_path": str(artifact_output),
+                "lifecycle_path": (
+                    str(lifecycle_path) if lifecycle_path is not None else None
+                ),
+                "artifact_sha256": artifact.artifact_sha256,
+                "outcome_status": artifact.outcome_status,
+                "ledger_status": artifact.ledger_status,
+                "error": artifact.error,
+                "failure_stage": artifact.failure_stage,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "retry_permitted": artifact.retry_permitted,
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 2
+
+
+def _run_openai_conformance_broker(
+    broker: RequestBoundBroker,
+    container: OfflineContainer,
+    *,
+    timeout: float,
+    authorization: AssignmentAuthorization,
+    audit_directory: Path,
+    ledger: SpendLedger,
+    authorization_output: Path,
+    artifact_output: Path,
+) -> int:
+    """Dispatch once and retain only complete success or exact terminal rejection."""
+
+    try:
+        reply = run_isolated_broker(broker, container, timeout=timeout)
+    except ProviderError as provider_error:
+        try:
+            artifact = compile_brokered_evaluation_failure(
+                authorization,
+                audit_directory,
+                ledger,
+            )
+        except (OSError, ValueError):
+            # A launcher or partial-audit failure is not trustworthy enough to turn
+            # into a terminal provider rejection artifact.
+            raise provider_error from None
+        if (
+            artifact.outcome_status != "failed"
+            or artifact.ledger_status != "absent"
+            or artifact.error != "authentication_error"
+            or artifact.failure_stage != "token_count"
+            or artifact.cost_microusd is not None
+        ):
+            # Only the pre-reservation F2 boundary publishes a provider-failure
+            # artifact. Post-reservation ambiguity remains recovery evidence only.
+            raise provider_error from None
+        return _emit_openai_conformance_rejection(
+            artifact,
+            authorization_output=authorization_output,
+            audit_directory=audit_directory,
+            artifact_output=artifact_output,
+            lifecycle_path=container.lifecycle_path,
+        )
+    try:
+        artifact = compile_brokered_evaluation(
+            reply, authorization, audit_directory, ledger
+        )
+    except BrokeredEvaluationResponseError:
+        artifact = compile_brokered_evaluation_failure(
+            authorization,
+            audit_directory,
+            ledger,
+            reply,
+        )
+        return _emit_openai_conformance_rejection(
+            artifact,
+            authorization_output=authorization_output,
+            audit_directory=audit_directory,
+            artifact_output=artifact_output,
+            lifecycle_path=container.lifecycle_path,
+        )
+    assert artifact.usage is not None
+    _write_contract(artifact_output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "openai.conformance.completed",
+                "mode": artifact.mode,
+                "authorization_path": str(authorization_output),
+                "audit_path": str(audit_directory),
+                "artifact_path": str(artifact_output),
+                "lifecycle_path": (
+                    str(container.lifecycle_path)
+                    if container.lifecycle_path is not None
+                    else None
+                ),
+                "artifact_sha256": artifact.artifact_sha256,
+                "provider_request_id": artifact.provider_request_id,
+                "input_tokens": artifact.usage.input,
+                "output_tokens": artifact.usage.output,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
@@ -6698,71 +6825,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 audit_directory,
                 lifetime_seconds=timeout,
             )
-            reply = run_isolated_broker(broker, container, timeout=timeout)
-            try:
-                artifact = compile_brokered_evaluation(
-                    reply, authorization, audit_directory, ledger
-                )
-            except BrokeredEvaluationResponseError:
-                artifact = compile_brokered_evaluation_failure(
-                    authorization,
-                    audit_directory,
-                    ledger,
-                    reply,
-                )
-                _write_contract(artifact_output, artifact)
-                print(
-                    json.dumps(
-                        {
-                            "type": "openai.conformance.rejected",
-                            "mode": artifact.mode,
-                            "authorization_path": str(authorization_output),
-                            "audit_path": str(audit_directory),
-                            "artifact_path": str(artifact_output),
-                            "lifecycle_path": (
-                                str(container.lifecycle_path)
-                                if container.lifecycle_path is not None
-                                else None
-                            ),
-                            "artifact_sha256": artifact.artifact_sha256,
-                            "outcome_status": artifact.outcome_status,
-                            "ledger_status": artifact.ledger_status,
-                            "error": artifact.error,
-                            "failure_stage": artifact.failure_stage,
-                            "latency_ms": artifact.latency_ms,
-                            "cost_microusd": artifact.cost_microusd,
-                            "retry_permitted": artifact.retry_permitted,
-                            "promotion_eligible": artifact.promotion_eligible,
-                        }
-                    )
-                )
-                return 2
-            assert artifact.usage is not None
-            _write_contract(artifact_output, artifact)
-            print(
-                json.dumps(
-                    {
-                        "type": "openai.conformance.completed",
-                        "mode": artifact.mode,
-                        "authorization_path": str(authorization_output),
-                        "audit_path": str(audit_directory),
-                        "artifact_path": str(artifact_output),
-                        "lifecycle_path": (
-                            str(container.lifecycle_path)
-                            if container.lifecycle_path is not None
-                            else None
-                        ),
-                        "artifact_sha256": artifact.artifact_sha256,
-                        "provider_request_id": artifact.provider_request_id,
-                        "input_tokens": artifact.usage.input,
-                        "output_tokens": artifact.usage.output,
-                        "latency_ms": artifact.latency_ms,
-                        "cost_microusd": artifact.cost_microusd,
-                        "promotion_eligible": artifact.promotion_eligible,
-                    }
-                )
+            return _run_openai_conformance_broker(
+                broker,
+                container,
+                timeout=timeout,
+                authorization=authorization,
+                audit_directory=audit_directory,
+                ledger=ledger,
+                authorization_output=authorization_output,
+                artifact_output=artifact_output,
             )
-            return 0
         if args.command == "broker-audit-status":
             return _broker_audit_status_command(args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):

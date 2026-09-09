@@ -89,11 +89,16 @@ and are created exclusively. The authorization is persisted before dispatch. The
 SDK client and bounded HTTP client are created and closed on the broker callback's
 event loop, while the credential and endpoint remain host-only. A completed reply
 must agree with the audit chain and settled ledger before the strict, explicitly
-non-scoreable artifact is written. After dispatch, failure leaves the authorization,
-audit, and conservative ledger receipt for recovery inspection and never writes an
-artifact or permits retry. Schema-4 audit diagnostics retain only a fixed local stage
-and coarse SDK exception category. They discard exception text and bodies and do not
-prove provider receipt, billing, or the exact remote cause.
+non-scoreable artifact is written. The one narrow pre-reservation exception is a
+terminal authentication rejection at input-token count: when the adapter, terminal
+audit, and absent ledger all agree, the command retains a status-`error` F2 artifact
+with null cost and no retry authority. Other dispatched failures leave the
+authorization, audit, and conservative ledger receipt for recovery inspection and do
+not write an artifact or permit retry. Schema-4 audit diagnostics retain only a fixed
+local stage and coarse SDK exception category. They discard exception text and bodies
+and do not prove provider receipt, billing, or the exact remote cause. See
+[Milestone 80](MILESTONE_80_REVIEW.md) for the retained-F2 implementation review;
+the live F2 boundary remains outstanding.
 
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
