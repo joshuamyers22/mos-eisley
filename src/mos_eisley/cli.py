@@ -377,13 +377,15 @@ def parser() -> argparse.ArgumentParser:
     )
     command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
     subcommands = command.add_subparsers(dest="command", required=True)
-    for name in ("mcp-list", "mcp-call"):
+    for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
         )
         mcp_command.add_argument("--config", type=Path, required=True)
         if name == "mcp-call":
             mcp_command.add_argument("--call", type=Path, required=True)
+        if name == "mcp-login":
+            mcp_command.add_argument("--open-browser", action="store_true")
     for name, help_text in (
         ("demo", "Run the synthetic recorded example"),
         ("review", "Review an explicit brief using a request-bound cassette"),
@@ -7368,7 +7370,7 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command in {"mcp-list", "mcp-call"}:
+        if args.command in {"mcp-list", "mcp-call", "mcp-login", "mcp-logout"}:
             from mos_eisley.mcp_cli import run_mcp_command
 
             return run_mcp_command(args)
