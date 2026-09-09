@@ -271,7 +271,9 @@ without the promoted catalog: `mos analysis-demo --context-mode raw`. Try
 `mos analysis-eval-demo --result-root /absolute/private/directory`. A
 [frozen comparison schedule](docs/ANALYSIS_COMPARISON_SCHEDULE.md) balances arm order
 and checks recorded timing; `mos analysis-comparison-demo --result-root /absolute/private/directory`
-exercises both arms. See the
+exercises both arms. The optional
+[Parquet case integration](docs/ANALYSIS_PARQUET_CASES.md) also checks six
+nonconstant cases through the real data-mcp server. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 
