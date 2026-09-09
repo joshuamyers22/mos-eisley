@@ -2,8 +2,9 @@
 
 A foundation for independent, multi-provider adversarial review of code changes.
 **Current maturity: live-provider preview.** Recorded review remains the default;
-an explicit one-prompt OpenAI command is available. This version does not yet run
-the adversarial critic/judge workflow live or expose host tools to a model. It can
+an explicit one-prompt OpenAI command is available. Paid commands remain tool-free;
+an explicit MCP adapter supplies data tools to the canonical agent port. This
+version does not yet run the adversarial critic/judge workflow live. It can
 plan and score offline model/effort evaluations, but automatic routing is disabled.
 
 Generated from the `python-cli` archetype of
@@ -76,6 +77,15 @@ scoring, promotion, or routing authority.
 Review exit codes: **0** accept; **1** revise/reject; **2** invalid input or
 infrastructure failure. Replay exits **0** when the recorded result reproduces,
 even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
+
+## Data MCP connection
+
+The [MCP client](docs/MCP_DATA.md) connects to the local `data-mcp` server for
+read/write Parquet and PostgreSQL access, including Ana Lite's analysis profile.
+Explicit configuration selects the executable, environment references and allowed
+tools. `mos mcp-list` discovers them; `mos mcp-call` executes one named call.
+The dispatcher also implements the canonical agent port. Paid provider commands
+and critic/judge workflows retain their existing tool-free boundaries.
 
 ## Implemented
 
@@ -256,15 +266,18 @@ conformance, or quality. The readiness command checks only model metadata; model
 availability, billing, and endpoint permissions remain account-dependent. The
 synthetic Responses canary also completed one operator-signed live generation that
 day, verifying only its exact fixed request; billing and future availability remain
-unverified. Live critic fan-out and judging are not wired yet. There is no
-machine-capable tool, live sandbox executor, shell, Git checkout, test execution,
-publisher, MCP, or TUI. The fixture agent tool remains a bounded in-memory lookup.
+unverified. Live critic fan-out and judging are not wired yet. The explicit local
+MCP adapter can execute configured data tools. There is no live sandbox executor,
+shell tool, Git checkout, test execution, publisher, or TUI. The fixture agent tool
+remains a bounded in-memory lookup.
 Byte and provider-token accounting are separate. Spending admission applies only
 to the explicit one-prompt command, relies on operator-reviewed rates and provider
 limits, and bounds participating runs sharing one local ledger. It does not provide
 account-wide enforcement or enable the unimplemented live evaluation executor.
 
-Only user-supplied input files are opened. Unknown schema fields are rejected;
+Recorded workflows open only user-supplied input files. Explicit MCP commands
+also launch the configured executable, which can access its configured sources.
+Unknown schema fields are rejected;
 repository `.mos-eisley/config.toml` and `AGENTS.md` have no authority in this milestone.
 The controller and parent directories are trusted. Symlink rejection applies to
 the final file component, not to every ancestor; this is not a host sandbox.

@@ -714,6 +714,98 @@ duplicate authentication, cancellation, session, and schema semantics. Add an ap
 server only when a concrete first-party client cannot be served by the chosen
 boundary.
 
+### 13.3 Remote MCP connections — planned M11A and M11B
+
+**User-directed addition, 2026-09-09.** Users must be able to register their own
+hosted MCP endpoint, authenticate when required, inspect its tools, and select
+the tools and read/write permissions Mos Eisley may use. Deliver the connection
+through explicit CLI/configuration first; the conversational interface can use
+the same controller operations when available. Owner: Josh Myers.
+
+The implemented local stdio adapter is the starting point. Both stages below are
+planned, not implemented. They extend the client to connect to existing hosted
+servers; deployment of an outward Mos Eisley server remains separate under §13.2.
+
+#### M11A — Streamable HTTP with token authentication
+
+- Add an explicit transport choice: local stdio command or remote MCP URL. Remote
+  configuration identifies the endpoint, credential reference, allowed tools,
+  write grants and resource limits. Keep existing stdio configurations compatible.
+  A server can be unauthenticated only when explicitly configured that way;
+  protected endpoints require an operator-selected access-token reference.
+- Use the installed MCP SDK's Streamable HTTP support for discovery and calls,
+  including JSON and streaming responses. Pin and test the supported protocol
+  revisions and compatibility behavior; unsupported versions must produce a clear
+  failure. Bound connection establishment, reads, whole calls and cancellation.
+- Require HTTPS for remote endpoints. Any local plaintext test endpoint requires
+  an explicit loopback exception. Enforce approved destinations during initial
+  connection, DNS resolution and redirects; private-network access is explicitly
+  scoped rather than enabled for every URL. Never forward a token to a different
+  origin. Do not accept credentials embedded in URLs, arbitrary credential header
+  maps, or authority supplied by repository content or server responses.
+- Reuse the canonical dispatcher, schema validation, per-tool allowlist and
+  explicit write grants. Remote access does not widen tool permissions. Enforce
+  bounded streaming/frame decoding before an oversized response can accumulate
+  in memory; keep existing catalog, argument and canonical-result limits.
+- Report connection/authentication failures and unavailable required tools.
+  Cancellation closes active responses. Do not automatically resubmit tool calls
+  after transport failure: a write can commit before its response is lost. Report
+  that uncertain outcome and require source inspection before a new write attempt.
+- Keep tokens in the credential-owning controller and associate them with the
+  owning user and approved endpoint. Redact transport errors, headers and logs;
+  provide disconnect/removal without persisting credentials in ordinary config.
+
+**Exit criteria:** a remote test server registers, lists approved tools, and
+executes a read plus an explicitly permitted write from the installed client.
+Tests reject invalid/expired tokens, unapproved tools and writes, disallowed
+destinations/redirects, invalid certificates, unsupported versions, malformed
+streams and oversized responses. An interrupted-write fixture proves there is
+no duplicate submission. Credential capture proves no cross-origin or cross-user
+disclosure. Cancellation, required-server failures and existing stdio tests pass.
+This gate uses fixtures and does not require a paid model call.
+
+#### M11B — OAuth login and credential lifecycle
+
+Depends on M11A's transport, destination controls and credential boundary.
+Implement the supported MCP authorization profile: protected-resource and
+authorization-server discovery, client identification/registration, browser login,
+PKCE, callback/state and issuer validation, and explicit scope selection. Validate
+discovered authentication URLs under the same destination policy as the endpoint;
+discovery itself grants no permission to transmit credentials elsewhere.
+
+Store access and refresh credentials securely under the owning user, server,
+issuer and client identity. Support expiry, refresh, denied/revoked access,
+reauthentication and logout/removal. Serialize concurrent refreshes and prevent
+credential crossover between accounts. Request additional scopes only through an
+explicit user authorization flow; login does not grant new Mos Eisley tools or
+write permissions. Refreshing a credential must not automatically repeat a tool
+call with an uncertain execution outcome. Logout removes local credentials and
+attempts provider revocation where supported, reporting what was actually revoked.
+
+**Exit criteria:** an OAuth-protected fixture server supports login, discovery,
+authorized calls, refresh, reauthentication and logout. Tests reject mismatched
+state/issuer/resource, replayed callbacks, denied scopes and malicious discovery
+redirects. Two-user/two-server tests prove credential and refresh isolation;
+revoked access cannot silently reconnect. Tests cover the documented supported
+registration methods and preserve M11A's no-duplicate-write invariant.
+
+#### Dependencies and separate acceptance gates
+
+Schema compatibility expansion (§4.2 and the adversarial finding in §23) remains
+a separate task: deterministic lowering or provider wrappers must preserve input
+validation and report every change. Unsupported schemas continue to fail closed
+over either transport; adding HTTP or OAuth does not resolve schema restrictions.
+
+Paid model selection and use of connected tools belongs to the analytical-agent
+workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
+whole-run spending reservations, turn/token/tool/time limits, cancellation and
+private result retention. M11A/M11B can finish using direct calls and fixture
+agents; neither stage enables paid model or critic access automatically.
+
+Protocol references: [MCP transports, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports)
+and [MCP authorization, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization).
+Recheck SDK/protocol compatibility when implementation begins.
+
 ---
 
 ## 14. Agent loop
@@ -1347,6 +1439,8 @@ The sandbox negative tests and the blindness assertions are the two most importa
 | **M9** | **GitHub integration + isolated publisher** | `mos review --pr N --post` posts inline comments; injection corpus shows no credential reach |
 | **M10** | CLI surface: profiles, TUI, `--json` events, resume/replay | `mos exec --json` usable from CI; `review` profile ships read-only |
 | **M11** | MCP client, tiered | An MCP server registers, is tiered, and its schemas pass the subset validator |
+| **M11A** | Remote MCP: Streamable HTTP and token authentication (planned) | Remote discovery/read/write, destination and credential isolation, bounded streams, cancellation and uncertain-write tests pass; stdio remains compatible (§13.3) |
+| **M11B** | Remote MCP: OAuth login and credential lifecycle (planned; after M11A) | Login, refresh, scope changes, reauthentication and logout pass issuer/callback, user/server isolation and no-duplicate-write tests (§13.3) |
 | **M12** | Mutation eval + (backend × model × effort) sweep | FP rate on clean commits measured; routing policy set from data |
 
 M2 and M3 moved ahead of the provider work deliberately. Once the harness can touch the machine, everything after it inherits whatever boundary you built — retrofitting a sandbox around an agent loop that already assumes free filesystem access is a rewrite.

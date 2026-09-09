@@ -32,8 +32,13 @@
   malformed evidence and malformed tool histories fail closed; identical recordings
   reproduce identical results; strict typing, tests, >=85% branch-inclusive coverage,
   packaging and CI are green.
-- Non-goals for this phase: live adversarial review, machine tools, sandboxing, test
-  execution, repository config, GitHub writes, author agents, TUI and model pricing.
+- Data connection: explicit stdio MCP discovery and calls plus a canonical agent
+  dispatcher support the external data-mcp server. Operator config selects tools
+  and write capability; Ana Lite can use a separate analysis server profile.
+  Live provider and critic workflows still expose no MCP tools. See docs/MCP_DATA.md.
+- Non-goals for this phase: live adversarial review, general machine tools,
+  sandboxing, test execution, repository config, GitHub writes, author agents,
+  TUI and model pricing.
 - Runtime: Python 3.12+, uv, macOS/Linux; non-root container for operational use.
 - Inputs: user-selected JSON files, bounded before parsing. At most eight critics,
   fifty findings per critic; request budgets and 10-second call deadlines enforced.

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "command": "/Users/josh/Projects/data-mcp/.venv/bin/data-mcp",
+  "args": [
+    "--config",
+    "/Users/josh/Projects/data-mcp/config.toml"
+  ],
+  "cwd": "/Users/josh/Projects/data-mcp",
+  "env": [
+    "DATA_MCP_LOCAL_DSN",
+    "DATA_MCP_CLOUD_DSN"
+  ],
+  "tools": {
+    "list_sources": "read",
+    "list_parquet": "read",
+    "describe_parquet": "read",
+    "query_parquet": "read",
+    "list_postgres_tables": "read",
+    "describe_postgres": "read",
+    "query_postgres": "read",
+    "write_parquet": "write",
+    "execute_postgres": "write"
+  },
+  "allow_writes": true,
+  "timeout_seconds": 35,
+  "max_result_bytes": 4000
+}
