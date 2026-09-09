@@ -1,14 +1,15 @@
-"""Explicit operator-configured stdio MCP tools for the canonical agent port."""
+"""Explicit operator-configured MCP tools for the canonical agent port."""
 
 import asyncio
 import json
 import logging
 import os
 from collections.abc import AsyncGenerator, Generator
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self, cast
 
+import httpx2
 from jsonschema import Draft202012Validator
 from mcp import Client
 from mcp.client.stdio import (
@@ -16,6 +17,7 @@ from mcp.client.stdio import (
     StdioServerParameters,
     stdio_client,
 )
+from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 from pydantic import Field, JsonValue, model_validator
 
@@ -26,6 +28,7 @@ from mos_eisley.core.protocol import (
     ToolResultBlock,
     ToolSchema,
 )
+from mos_eisley.tools.mcp_http import MCPHTTPClient, MCPHTTPSettings, MCPHTTPTransport
 from mos_eisley.tools.mcp_schema import lower_schema
 
 
@@ -51,7 +54,7 @@ def _redacted_sdk_logs() -> Generator[None]:
     loggers = [
         logging.getLogger(name)
         for name in tuple(logging.Logger.manager.loggerDict)
-        if name == "mcp" or name.startswith("mcp.")
+        if name.split(".")[0] in {"mcp", "httpx2", "httpcore2"}
     ]
     scrubber = _RedactSDKDiagnostic()
     for logger in loggers:
@@ -65,9 +68,11 @@ def _redacted_sdk_logs() -> Generator[None]:
 
 class MCPConfig(Contract):
     schema_version: Literal[1] = 1
-    command: Annotated[str, Field(min_length=1, max_length=4096)]
+    transport: Literal["stdio", "streamable_http"] = "stdio"
+    command: Annotated[str, Field(min_length=1, max_length=4096)] | None = None
     args: Annotated[tuple[str, ...], Field(max_length=64)] = ()
-    cwd: Annotated[str, Field(min_length=1, max_length=4096)]
+    cwd: Annotated[str, Field(min_length=1, max_length=4096)] | None = None
+    http: MCPHTTPSettings | None = None
     env: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     tools: Annotated[
         dict[Identifier, Literal["read", "write"]], Field(min_length=1, max_length=64)
@@ -79,6 +84,20 @@ class MCPConfig(Contract):
 
     @model_validator(mode="after")
     def valid_launch(self) -> Self:
+        if not self.allow_writes and "write" in self.tools.values():
+            raise ValueError("write tools require allow_writes in operator config")
+        if self.transport == "streamable_http":
+            if (
+                self.http is None
+                or self.command is not None
+                or self.cwd is not None
+                or self.args
+                or self.env
+            ):
+                raise ValueError("HTTP requires http settings and forbids stdio fields")
+            return self
+        if self.http is not None or self.command is None or self.cwd is None:
+            raise ValueError("stdio requires command/cwd and forbids HTTP settings")
         if not Path(self.command).is_absolute() or not Path(self.cwd).is_absolute():
             raise ValueError("MCP command and cwd must be absolute")
         if any("\0" in value or len(value) > 8192 for value in self.args):
@@ -87,11 +106,11 @@ class MCPConfig(Contract):
             not key.isascii() or not key.isidentifier() for key in self.env
         ):
             raise ValueError("invalid environment allowlist")
-        if not self.allow_writes and "write" in self.tools.values():
-            raise ValueError("write tools require allow_writes in operator config")
         return self
 
     def parameters(self) -> StdioServerParameters:
+        if self.transport != "stdio" or self.command is None:
+            raise MCPFailure("stdio parameters requested for HTTP configuration")
         # The SDK merges its default environment. Blank those keys explicitly so
         # no parent value passes through unless the operator names it below.
         environment = dict.fromkeys(DEFAULT_INHERITED_ENV_VARS, "")
@@ -280,25 +299,49 @@ def _convert_result(call: ToolCallBlock, result: CallToolResult) -> ToolResultBl
 
 @asynccontextmanager
 async def connect_mcp(config: MCPConfig) -> AsyncGenerator[MCPDispatcher]:
-    """Launch only the named server; release its process on exit or cancellation."""
+    """Connect only to the selected server and release resources on exit."""
     config = MCPConfig.model_validate_json(config.model_dump_json())
-    parameters = config.parameters()
     dispatcher: MCPDispatcher | None = None
     body_error: BaseException | None = None
     try:
         with _redacted_sdk_logs(), open(os.devnull, "w") as stderr:
-            async with Client(
-                stdio_client(parameters, errlog=stderr),
-                read_timeout_seconds=config.timeout_seconds,
-                cache=None,
-            ) as client:
-                dispatcher = MCPDispatcher(client, config)
-                await dispatcher.discover()
-                try:
-                    yield dispatcher
-                except BaseException as error:
-                    body_error = error
-                    raise
+            async with AsyncExitStack() as stack:
+                if config.http is not None:
+                    http_client = await stack.enter_async_context(
+                        MCPHTTPClient(
+                            transport=MCPHTTPTransport(config.http),
+                            timeout=httpx2.Timeout(config.timeout_seconds),
+                            trust_env=False,
+                            follow_redirects=False,
+                        )
+                    )
+                    transport = streamable_http_client(
+                        config.http.url, http_client=http_client
+                    )
+                else:
+                    transport = stdio_client(config.parameters(), errlog=stderr)
+                async with (
+                    asyncio.timeout(config.timeout_seconds) as startup,
+                    Client(
+                        transport,
+                        read_timeout_seconds=config.timeout_seconds,
+                        cache=None,
+                    ) as client,
+                ):
+                    if config.http is not None and client.protocol_version not in {
+                        "2026-07-28",
+                        "2025-11-25",
+                        "2025-06-18",
+                    }:
+                        raise MCPFailure("unsupported remote MCP protocol version")
+                    dispatcher = MCPDispatcher(client, config)
+                    await dispatcher.discover()
+                    startup.reschedule(None)
+                    try:
+                        yield dispatcher
+                    except BaseException as error:
+                        body_error = error
+                        raise
     except Exception:
         if body_error is not None:
             raise body_error from None

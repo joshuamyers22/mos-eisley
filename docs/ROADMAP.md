@@ -242,7 +242,7 @@ contract; comprehensive enforcement and remote adapters remain planned work.
     conversation, resume, and configurable storage belong to the product workstream
     above; shared analytics or team-wide database exports are excluded.
 
-## Remote MCP connections — planned
+## Remote MCP connections
 
 User-directed addition, 2026-09-09: extend the implemented explicit local stdio
 client so users can register their own hosted MCP URLs and select tool permissions.
@@ -250,7 +250,7 @@ Owner: Josh Myers. Deliver CLI/configuration support first, then reuse it in the
 conversational interface. [Plan §13.3](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b)
 defines implementation scope and blocking acceptance tests:
 
-1. **M11A:** Streamable HTTP with securely referenced tokens, approved network
+1. **M11A, implemented on the feature branch:** Streamable HTTP with securely referenced tokens, approved network
    destinations, bounded streaming, existing tool/schema policy, cancellation and
    explicit uncertain-write outcomes. Verify with a remote fixture and the installed
    client; retain stdio compatibility.
@@ -258,7 +258,8 @@ defines implementation scope and blocking acceptance tests:
    storage, scope authorization, refresh, reauthentication and logout. Verify
    malicious discovery/callbacks, denied access and concurrent credential isolation.
 
-These stages remain planned. Schema compatibility expansion is a separate gate;
+M11B remains planned. See [M11A verification](MCP_HTTP_VERIFICATION.md).
+Schema compatibility expansion is a separate gate;
 remote connections still reject unsupported schemas. Paid models using connected
 tools require the analytical-agent workstream's transfer, spend, retention and
 whole-run limits. Neither stage enables paid tool calls or critic access, or

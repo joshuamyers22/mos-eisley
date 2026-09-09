@@ -82,8 +82,9 @@ even if that result is revise/reject. `mos` is a short alias for `mos-eisley`.
 
 The [MCP client](docs/MCP_DATA.md) connects to the local `data-mcp` server for
 read/write Parquet and PostgreSQL access, including Ana Lite's analysis profile.
-Explicit configuration selects the executable, environment references and allowed
-tools. `mos mcp-list` discovers them; `mos mcp-call` executes one named call.
+It also connects to user-selected Streamable HTTP servers with bearer tokens.
+Explicit configuration selects the executable or URL, credential references and
+allowed tools. `mos mcp-list` discovers them; `mos mcp-call` executes one named call.
 The dispatcher also implements the canonical agent port. Paid provider commands
 and critic/judge workflows retain their existing tool-free boundaries.
 

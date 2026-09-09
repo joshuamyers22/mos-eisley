@@ -1,15 +1,14 @@
-# Local data MCP client
+# Data MCP client
 
-Mos Eisley can launch an explicitly configured stdio server, discover selected
-tools, and read/write data through them. The first target is
+Mos Eisley can launch an explicitly configured stdio server or connect to a
+Streamable HTTP endpoint, discover selected tools, and read/write through them. The first target is
 [data-mcp](https://github.com/joshuamyers22/data-mcp): HDD Parquet and local/cloud
 PostgreSQL, plus Ana Lite's promoted semantic manifest and named metrics.
 
-Remote HTTP connections and OAuth are planned as
-[M11A and M11B](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b):
-HTTP with token authentication first, then OAuth login and credential lifecycle.
-The current configuration remains local stdio only. Schema expansion and paid
-analytical-agent integration have separate acceptance gates.
+Streamable HTTP with token authentication (M11A) is implemented. OAuth login and
+credential lifecycle (M11B) remain planned in
+[the remote milestones](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b).
+Schema expansion and paid analytical-agent integration have separate gates.
 
 ## Configure and use
 
@@ -59,6 +58,45 @@ data for a successful call; protect terminal capture and output redirects. This
 command creates no transcript or query-history files. Exit 0 means discovery or
 the call succeeded; exit 2 means invalid input, tool error or infrastructure failure.
 
+## Connect your own hosted server
+
+Copy [the remote example](../examples/mcp-remote.json), set your server's final
+HTTPS endpoint and actual tool names, and provide the token through the named
+environment variable. Use the same `mcp-list` and `mcp-call` commands above with
+that config. Classifying a tool as `write` requires `allow_writes: true`.
+
+`transport: "streamable_http"` requires an `http` object and excludes stdio launch
+fields. `authentication: "bearer"` requires `token_env`; explicitly public servers
+use `authentication: "none"` without a credential reference. Secrets stay out of
+config. Each connection snapshots its token and binds it to the endpoint and
+current OS user; optional `token_owner_uid` requires a particular effective UID.
+This is a single-user controller boundary, not a multi-user credential vault.
+Disconnect by leaving `connect_mcp` or exiting the command; remove the config to
+remove the connection. No tokens, cookies or sessions are saved to disk.
+
+Remote endpoints require HTTPS with certificate and hostname validation. For a
+private CA, set an absolute `ca_file`. Public addresses are allowed; private HTTPS
+addresses require explicit `private_networks` CIDRs, for example `["10.2.0.0/16"]`.
+Every DNS answer must pass the address policy, and the socket connects to a
+validated literal address while preserving the original TLS identity. Link-local,
+metadata, multicast and special transition addresses remain denied. Proxy and CA
+environment settings are not inherited. For local testing only, a literal loopback
+HTTP URL also requires `allow_loopback_http: true`.
+
+The client supports protocol revisions `2026-07-28`, `2025-11-25` and `2025-06-18`,
+with JSON and request-scoped SSE responses. URLs with credentials, query strings
+or fragments, redirects, compressed responses and stream resumptions are rejected.
+Configure the final endpoint directly. `http.max_response_bytes` defaults to
+262144 bytes and bounds each complete JSON/SSE response before SDK decoding;
+`max_result_bytes` separately bounds the canonical tool result. These limits can
+reject large catalogs or long streams. Connection/discovery and calls have finite
+deadlines. The client never automatically resubmits a tool call. Cancellation closes
+the client response but cannot guarantee that server work stopped or a write rolled
+back; inspect a submitted write before retrying after any failure.
+
+See [HTTP verification](MCP_HTTP_VERIFICATION.md) for the tested boundary. OAuth,
+remote hosting/deployment, broader schemas and paid-model tool use remain separate.
+
 ## Ana Lite analysis profile
 
 Copy data-mcp's `config.ana.example.toml` to `config.ana.toml`. Update its mounted
@@ -89,12 +127,11 @@ provider workflows are implemented.
 
 ## Limits and failure behavior
 
-- Only explicit local stdio commands are supported. Configuration is trusted
-  operator input; it executes code with the user's privileges. This adapter is
-  **not a process or network sandbox**. A local server can reach cloud PostgreSQL.
-  No automatic repository discovery, remote MCP URL, OAuth or critic registration
-  occurs. There are no sampling, elicitation or filesystem-roots callbacks.
-- Environment values pass only for named variables, all of which must be set.
+- Configuration is explicit trusted operator input. Stdio executes code with the
+  user's privileges and is **not a process or network sandbox**. A local server can
+  reach cloud PostgreSQL. HTTP applies the destination controls below. No automatic
+  repository discovery, OAuth or critic registration occurs. There are no sampling, elicitation or filesystem-roots callbacks.
+- For stdio, environment values pass only for named variables, which must be set.
   The SDK's baseline environment keys are explicitly blanked unless allowlisted.
   Keep credentials in those variables, never command arguments or committed files.
   Child stderr is discarded and error diagnostics omit raw server messages.

@@ -722,9 +722,11 @@ the tools and read/write permissions Mos Eisley may use. Deliver the connection
 through explicit CLI/configuration first; the conversational interface can use
 the same controller operations when available. Owner: Josh Myers.
 
-The implemented local stdio adapter is the starting point. Both stages below are
-planned, not implemented. They extend the client to connect to existing hosted
-servers; deployment of an outward Mos Eisley server remains separate under §13.2.
+Status, 2026-09-09: M11A is implemented on the remote HTTP feature branch; see
+[configuration](MCP_DATA.md) and [verification](MCP_HTTP_VERIFICATION.md). M11B remains
+planned. These stages connect to existing hosted servers; deployment of an outward
+Mos Eisley server remains separate under §13.2. The original heading is retained
+to preserve links to this milestone specification.
 
 #### M11A — Streamable HTTP with token authentication
 
@@ -1439,7 +1441,7 @@ The sandbox negative tests and the blindness assertions are the two most importa
 | **M9** | **GitHub integration + isolated publisher** | `mos review --pr N --post` posts inline comments; injection corpus shows no credential reach |
 | **M10** | CLI surface: profiles, TUI, `--json` events, resume/replay | `mos exec --json` usable from CI; `review` profile ships read-only |
 | **M11** | MCP client, tiered | An MCP server registers, is tiered, and its schemas pass the subset validator |
-| **M11A** | Remote MCP: Streamable HTTP and token authentication (planned) | Remote discovery/read/write, destination and credential isolation, bounded streams, cancellation and uncertain-write tests pass; stdio remains compatible (§13.3) |
+| **M11A** | Remote MCP: Streamable HTTP and token authentication (implemented; feature branch) | Remote discovery/read/write, destination and credential isolation, bounded streams, cancellation and uncertain-write tests pass; stdio remains compatible (§13.3) |
 | **M11B** | Remote MCP: OAuth login and credential lifecycle (planned; after M11A) | Login, refresh, scope changes, reauthentication and logout pass issuer/callback, user/server isolation and no-duplicate-write tests (§13.3) |
 | **M12** | Mutation eval + (backend × model × effort) sweep | FP rate on clean commits measured; routing policy set from data |
 
