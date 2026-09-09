@@ -61,8 +61,19 @@ mos openai-conformance \
   --audit-dir private/audit \
   --authorization-output trusted/authorization.json \
   --artifact-output private/conformance.json \
+  --precredential-rejection-output private/f1-rejection.json \
   --allow-data-transfer
 ```
+
+The optional precredential-rejection output is created only when an authentic
+signed authorization is expired or differs from the current exact policy binding.
+Its canonical F1 receipt binds the request and policy identities to unchanged
+before/after ledger snapshots and literal false values for credential access, audit
+creation, assignment or artifact publication, container start, provider send,
+reservation, retry, grading, scoring, promotion, and routing activation. Invalid
+signatures and malformed inputs remain ordinary fail-closed errors and cannot mint
+this receipt. The receipt path must be fresh, have an existing parent, and not
+overlap any trusted input, ledger, audit, lifecycle, or normal output path.
 
 The trusted authorization and final artifact must be outside the audit directory
 and are created exclusively. The authorization is persisted before dispatch. The

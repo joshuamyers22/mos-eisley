@@ -172,9 +172,14 @@ from mos_eisley.run.evaluation_conformance import (
 )
 from mos_eisley.run.evaluation_conformance_authorization import (
     EvaluationConformanceAuthorityPolicy,
+    EvaluationConformanceAuthorization,
+    EvaluationConformanceAuthorizationRejected,
     SignedEvaluationConformanceAuthorization,
     make_evaluation_conformance_authorization,
     verify_evaluation_conformance_authorization,
+)
+from mos_eisley.run.evaluation_conformance_failure import (
+    make_precredential_rejection,
 )
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
@@ -318,7 +323,7 @@ from mos_eisley.run.skills import (
     discover_skills,
     verify_skill_archive,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntryStatus, LedgerSnapshot, SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -535,6 +540,11 @@ def parser() -> argparse.ArgumentParser:
     conformance.add_argument("--audit-dir", type=Path, required=True)
     conformance.add_argument("--authorization-output", type=Path, required=True)
     conformance.add_argument("--artifact-output", type=Path, required=True)
+    conformance.add_argument(
+        "--precredential-rejection-output",
+        type=Path,
+        help="Retain a canonical F1 receipt for an expired or mismatched authority",
+    )
     conformance.add_argument(
         "--lifecycle-root",
         type=Path,
@@ -2041,6 +2051,85 @@ def _paths_overlap(left: Path, right: Path) -> bool:
     )
 
 
+def _validate_precredential_rejection_output(
+    output: Path | None, protected_paths: tuple[Path, ...]
+) -> None:
+    if output is None:
+        return
+    if any(_paths_overlap(output, path) for path in protected_paths):
+        raise ValueError("precredential rejection output overlaps protected state")
+    if output.exists() or output.is_symlink():
+        raise ValueError("precredential rejection output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("precredential rejection output parent must exist")
+
+
+def _verify_or_retain_precredential_rejection(
+    *,
+    batch: ExecutionBatch,
+    spend_policy: SpendPolicy,
+    conformance_policy: EvaluationConformancePolicy,
+    authority_policy: EvaluationConformanceAuthorityPolicy,
+    signed_authorization: SignedEvaluationConformanceAuthorization,
+    ledger: SpendLedger,
+    ledger_before: LedgerSnapshot,
+    ledger_entry_before: LedgerEntryStatus | None,
+    audit_directory: Path,
+    authorization_output: Path,
+    artifact_output: Path,
+    container: OfflineContainer,
+    rejection_output: Path | None,
+    preflight_at: datetime,
+) -> EvaluationConformanceAuthorization | None:
+    try:
+        return verify_evaluation_conformance_authorization(
+            signed_authorization,
+            authority_policy,
+            conformance_policy,
+            spend_policy,
+            preflight_at,
+        )
+    except EvaluationConformanceAuthorizationRejected:
+        if rejection_output is None:
+            raise
+        receipt = make_precredential_rejection(
+            batch=batch,
+            spend_policy=spend_policy,
+            conformance_policy=conformance_policy,
+            authority_policy=authority_policy,
+            signed_authorization=signed_authorization,
+            ledger_before=ledger_before,
+            ledger_after=ledger.snapshot(),
+            ledger_entry_before=ledger_entry_before,
+            ledger_entry_after=ledger.entry_status(conformance_policy.ledger_entry_id),
+            audit_exists=audit_directory.exists(),
+            assignment_authorization_exists=authorization_output.exists(),
+            conformance_artifact_exists=artifact_output.exists(),
+            container_lifecycle_created=container.lifecycle_path is not None,
+            observed_at=preflight_at,
+            mos_eisley_version=distribution_version("mos-eisley"),
+            sdk_version=_openai_sdk_version(),
+        )
+        _write_contract(rejection_output, receipt)
+        print(
+            json.dumps(
+                {
+                    "type": "openai.conformance.precredential_rejected",
+                    "boundary_id": receipt.boundary_id,
+                    "output": str(rejection_output),
+                    "receipt_sha256": receipt.receipt_sha256,
+                    "rejection_kind": receipt.rejection_kind,
+                    "credential_accessed": receipt.credential_accessed,
+                    "provider_request_sent": receipt.provider_request_sent,
+                    "spend_reserved": receipt.spend_reserved,
+                    "retry_authorized": receipt.retry_authorized,
+                    "promotion_authorized": receipt.promotion_authorized,
+                }
+            )
+        )
+        return None
+
+
 def _aliases_broker_audit_authorization(
     expected_path: Path, audit_directory: Path
 ) -> bool:
@@ -2053,6 +2142,37 @@ def _aliases_broker_audit_authorization(
 
 def _openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY")
+
+
+def _required_openai_api_key() -> str:
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    return api_key
+
+
+def _broker_audit_status_command(args: argparse.Namespace) -> int:
+    audit_directory = cast(Path, args.audit_dir)
+    expected_path = cast(Path, args.expected_authorization)
+    if expected_path.resolve() == (audit_directory / "authorization.json").resolve():
+        raise ValueError("expected authorization must be independently supplied")
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    state = inspect_broker_recovery(
+        audit_directory,
+        expected,
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "broker.audit.status",
+                **state.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
 
 
 def _openai_sdk_version() -> str:
@@ -6427,6 +6547,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             signed_conformance_authorization_path = cast(
                 Path, args.signed_conformance_authorization
             )
+            precredential_rejection_output = cast(
+                Path | None, args.precredential_rejection_output
+            )
             batch = ExecutionBatch.model_validate_json(
                 read_bounded(batch_path, 16_000_000)
             )
@@ -6448,7 +6571,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             spend_policy.check_current()
             ledger = SpendLedger(ledger_path)
-            if ledger.snapshot().blocked:
+            ledger_before = ledger.snapshot()
+            ledger_entry_before = ledger.entry_status(
+                conformance_policy.ledger_entry_id
+            )
+            if ledger_before.blocked:
                 raise ValueError("shared spending ledger is blocked")
             sample_id = cast(str, args.sample_id)
             payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
@@ -6465,6 +6592,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             audit_directory = cast(Path, args.audit_dir)
             authorization_output = cast(Path, args.authorization_output)
             artifact_output = cast(Path, args.artifact_output)
+            lifecycle_root = cast(Path, args.lifecycle_root)
+            _validate_precredential_rejection_output(
+                precredential_rejection_output,
+                (
+                    batch_path,
+                    spend_policy_path,
+                    ledger_path,
+                    conformance_policy_path,
+                    conformance_authority_policy_path,
+                    signed_conformance_authorization_path,
+                    audit_directory,
+                    authorization_output,
+                    artifact_output,
+                    lifecycle_root,
+                ),
+            )
             if (
                 audit_directory.exists()
                 or authorization_output.exists()
@@ -6503,14 +6646,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 preflight_at,
             )
             verified_conformance_authorization = (
-                verify_evaluation_conformance_authorization(
-                    signed_conformance_authorization,
-                    conformance_authority_policy,
-                    conformance_policy,
-                    spend_policy,
-                    preflight_at,
+                _verify_or_retain_precredential_rejection(
+                    batch=batch,
+                    spend_policy=spend_policy,
+                    conformance_policy=conformance_policy,
+                    authority_policy=conformance_authority_policy,
+                    signed_authorization=signed_conformance_authorization,
+                    ledger=ledger,
+                    ledger_before=ledger_before,
+                    ledger_entry_before=ledger_entry_before,
+                    audit_directory=audit_directory,
+                    authorization_output=authorization_output,
+                    artifact_output=artifact_output,
+                    container=container,
+                    rejection_output=precredential_rejection_output,
+                    preflight_at=preflight_at,
                 )
             )
+            if verified_conformance_authorization is None:
+                return 2
             if preflight_at + timedelta(seconds=timeout) > min(
                 conformance_policy.valid_until,
                 verified_conformance_authorization.valid_until,
@@ -6518,9 +6672,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     "conformance authorization cannot cover the request timeout"
                 )
-            api_key = _openai_api_key()
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY is not configured")
+            api_key = _required_openai_api_key()
             budgeted = BudgetedOpenAITransport(
                 EphemeralOpenAITransport(api_key, timeout),
                 spend_policy,
@@ -6612,32 +6764,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
         if args.command == "broker-audit-status":
-            audit_directory = cast(Path, args.audit_dir)
-            expected_path = cast(Path, args.expected_authorization)
-            if (
-                expected_path.resolve()
-                == (audit_directory / "authorization.json").resolve()
-            ):
-                raise ValueError(
-                    "expected authorization must be independently supplied"
-                )
-            expected = AssignmentAuthorization.model_validate_json(
-                read_bounded(expected_path, 4096)
-            )
-            state = inspect_broker_recovery(
-                audit_directory,
-                expected,
-                SpendLedger(cast(Path, args.spend_ledger)),
-            )
-            print(
-                json.dumps(
-                    {
-                        "type": "broker.audit.status",
-                        **state.model_dump(mode="json"),
-                    }
-                )
-            )
-            return 0
+            return _broker_audit_status_command(args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(

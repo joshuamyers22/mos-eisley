@@ -2932,3 +2932,23 @@ do not count across the reset. The five-request v3 campaign is closed and its un
 ledger headroom authorizes no further send. The OpenAI live-conformance exit gate
 remains incomplete until controlled boundaries F1 through F5 pass; only then may a
 reviewed gate report consider calibration conversion.
+
+### 25.51 Made F1 precredential rejection retainable
+
+The real `openai-conformance` path can now write a canonical, content-addressed F1
+receipt when an authentic signed authorization is expired or mismatched against the
+current exact policy binding. The receipt binds the batch, sample, candidate,
+request, spend policy, conformance policy, authority policy, signed authorization,
+ledger, installed Mos Eisley version, and OpenAI SDK version. It records identical
+before/after ledger snapshots and fixes credential access, audit creation, normal
+output publication, container start, provider send, spend reservation, retry,
+grading, scoring, promotion, and routing activation to false.
+
+Receipt production is fail closed: malformed or invalidly signed authority cannot
+mint one; an existing or overlapping receipt path is rejected; and any ledger entry,
+ledger mutation, audit, assignment output, artifact, or lifecycle observation blocks
+issuance. Tests exercise the actual CLI path while independently asserting that the
+credential accessor and broker dispatcher are never called. This completes the F1
+instrumentation, not F1 itself. The boundary still requires a reviewed run from an
+installed wheel with retained operational evidence. F2 through F5 and all downstream
+conversion, quality, promotion, and activation gates also remain outstanding.

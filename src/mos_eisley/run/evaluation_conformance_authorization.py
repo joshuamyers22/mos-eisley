@@ -24,6 +24,16 @@ EncodedSignature = Annotated[str, Field(min_length=88, max_length=88)]
 UtcTimestamp = Annotated[datetime, Field()]
 
 
+class EvaluationConformanceAuthorizationRejected(ValueError):
+    """An authentic authorization is expired or differs from current policy."""
+
+    reason: Literal["expired_or_exact_binding_mismatch"]
+
+    def __init__(self) -> None:
+        super().__init__("conformance authorization does not match current policy")
+        self.reason = "expired_or_exact_binding_mismatch"
+
+
 def _require_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() != timedelta(0):
         raise ValueError("timestamp must use an explicit UTC offset")
@@ -341,5 +351,5 @@ def verify_evaluation_conformance_authorization(
         <= current
         <= signed.authorization.valid_until
     ):
-        raise ValueError("conformance authorization does not match current policy")
+        raise EvaluationConformanceAuthorizationRejected()
     return signed.authorization
