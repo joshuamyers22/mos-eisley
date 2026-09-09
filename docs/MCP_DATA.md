@@ -5,6 +5,12 @@ tools, and read/write data through them. The first target is
 [data-mcp](https://github.com/joshuamyers22/data-mcp): HDD Parquet and local/cloud
 PostgreSQL, plus Ana Lite's promoted semantic manifest and named metrics.
 
+Remote HTTP connections and OAuth are planned as
+[M11A and M11B](mos-eisley-plan.md#133-remote-mcp-connections--planned-m11a-and-m11b):
+HTTP with token authentication first, then OAuth login and credential lifecycle.
+The current configuration remains local stdio only. Schema expansion and paid
+analytical-agent integration have separate acceptance gates.
+
 ## Configure and use
 
 Install both projects with `uv sync --frozen --dev`. In data-mcp, copy
