@@ -1,5 +1,6 @@
-"""Install the wheel and exercise replay plus an actual MCP subprocess call."""
+"""Install the wheel and exercise replay plus stdio and HTTP MCP calls."""
 
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -94,6 +95,50 @@ def main() -> int:
             "structured_content"
         ] != {"value": "wheel-fixture"}:
             raise ValueError("installed MCP client returned the wrong fixture")
+        spec = importlib.util.spec_from_file_location(
+            "http_fixture", "tests/fixtures/mcp_http_server.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture = module.MCPHTTPFixture()
+        fixture.tokens = None
+        fixture.start()
+        try:
+            config.write_text(
+                json.dumps(
+                    {
+                        "transport": "streamable_http",
+                        "http": {
+                            "url": fixture.url,
+                            "authentication": "none",
+                            "allow_loopback_http": True,
+                        },
+                        "tools": {"read_value": "read", "write_value": "write"},
+                        "allow_writes": True,
+                    }
+                )
+            )
+            for name, args, expected in (
+                ("write_value", {"value": 42}, {"value": 42}),
+                ("read_value", {}, {"value": 42, "writes": 1}),
+            ):
+                call.write_text(json.dumps({"id": name, "name": name, "args": args}))
+                remote = subprocess.run(
+                    [command, "mcp-call", "--config", str(config), "--call", str(call)],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                result = json.loads(remote.stdout)
+                if (
+                    result["is_error"]
+                    or json.loads(result["content"])["structured_content"] != expected
+                ):
+                    raise ValueError("installed HTTP MCP client returned wrong data")
+        finally:
+            fixture.close()
     return 0
 
 

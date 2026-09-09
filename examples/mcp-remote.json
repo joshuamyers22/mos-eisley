@@ -1,0 +1,16 @@
+{
+  "transport": "streamable_http",
+  "http": {
+    "url": "https://mcp.example.com/mcp",
+    "authentication": "bearer",
+    "token_env": "MOS_MCP_TOKEN",
+    "max_response_bytes": 262144
+  },
+  "tools": {
+    "read_value": "read",
+    "write_value": "write"
+  },
+  "allow_writes": true,
+  "timeout_seconds": 30,
+  "max_result_bytes": 4000
+}

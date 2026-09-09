@@ -32,7 +32,7 @@
   malformed evidence and malformed tool histories fail closed; identical recordings
   reproduce identical results; strict typing, tests, >=85% branch-inclusive coverage,
   packaging and CI are green.
-- Data connection: explicit stdio MCP discovery and calls plus a canonical agent
+- Data connection: explicit stdio and Streamable HTTP MCP discovery/calls plus an agent
   dispatcher support the external data-mcp server. Operator config selects tools
   and write capability; Ana Lite can use a separate analysis server profile.
   Live provider and critic workflows still expose no MCP tools. See docs/MCP_DATA.md.
