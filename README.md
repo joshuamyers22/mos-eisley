@@ -268,7 +268,10 @@ use checked cell references, with a SQL/result trail and optional private
 SQL/source/cell expectations and counts missing or failed runs. An explicit
 [raw-data baseline](docs/ANALYSIS_RAW_BASELINE.md) uses source discovery and SQL
 without the promoted catalog: `mos analysis-demo --context-mode raw`. Try
-`mos analysis-eval-demo --result-root /absolute/private/directory`. See the
+`mos analysis-eval-demo --result-root /absolute/private/directory`. A
+[frozen comparison schedule](docs/ANALYSIS_COMPARISON_SCHEDULE.md) balances arm order
+and checks recorded timing; `mos analysis-comparison-demo --result-root /absolute/private/directory`
+exercises both arms. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 

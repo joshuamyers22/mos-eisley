@@ -456,6 +456,24 @@ def parser() -> argparse.ArgumentParser:
             )
         else:
             eval_command.add_argument("--inputs", type=Path, required=True)
+    comparison_demo = subcommands.add_parser(
+        "analysis-comparison-demo",
+        help="Run synthetic arms in a frozen comparison order",
+    )
+    comparison_demo.add_argument("--result-root", type=Path, required=True)
+    for name in ("analysis-eval-schedule", "analysis-eval-assess"):
+        schedule_command = subcommands.add_parser(name)
+        for field in ("suite", "output"):
+            schedule_command.add_argument("--" + field, type=Path, required=True)
+        if name == "analysis-eval-schedule":
+            schedule_command.add_argument(
+                "--split", choices=("development", "holdout"), required=True
+            )
+            schedule_command.add_argument("--seed", required=True)
+        else:
+            schedule_command.add_argument("--schedule", type=Path, required=True)
+            schedule_command.add_argument("--schedule-sha256", required=True)
+            schedule_command.add_argument("--inputs", type=Path, required=True)
     eval_demo = subcommands.add_parser(
         "analysis-eval-demo", help="Save and score synthetic analytical fixtures"
     )
@@ -7252,6 +7270,14 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in {
+            "analysis-eval-schedule",
+            "analysis-eval-assess",
+            "analysis-comparison-demo",
+        }:
+            from mos_eisley.analysis.schedule_cli import run_command
+
+            return run_command(args)
         if args.command in {
             "analysis-eval-plan",
             "analysis-evaluate",

@@ -135,7 +135,8 @@ frozen sources and recorded failures. An explicit
 [raw-data baseline](ANALYSIS_RAW_BASELINE.md) now runs the same controller without
 promoted context. Raw arms require `context_mode: "raw"`, a null semantic revision
 and raw query expectations. Promoted arms keep the default mode and their revision.
-Randomized/interleaved execution, probe/maintenance accounting and statistical
-inference remain unimplemented.
+[Frozen schedules and recorded-order assessment](ANALYSIS_COMPARISON_SCHEDULE.md)
+now provide reproducible case blocks with balanced arm positions. Automatic live
+execution, probe/maintenance accounting and statistical inference remain unimplemented.
 This offline grader supports part of Ana Lite Stages 0 and 6; it does not complete
 the controlled comparison or justify adding automatic learning.
