@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit stdio MCP discovery/calls and a canonical tool dispatcher with
+  operator-controlled read/write grants, schema lowering reports, environment
+  filtering, deadlines, result limits and no automatic write retries.
+- Add data-mcp read/write and Ana Lite analysis examples with cross-repository
+  Parquet, semantic metric and disposable PostgreSQL integration tests.
+
 - Add a credential-refusing consumption command that fully reverifies an authenticated
   OpenAI calibration decision, requires explicit transfer and reservation consent,
   and atomically burns its deterministic one-use ledger entry into a worst-case held
