@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add offline analytical evaluation of private result bundles against frozen
+  question, run-identity, source, SQL and cell expectations. Separate exported tasks
+  from golden labels, preserve failed/missing assignments, and report unknown usage
+  and spending explicitly. Add a packaged synthetic evaluation workflow.
+
 - Add schema-2 analytical answers rendered from checked captured cells, with
   SQL/result/timing/usage lineage, optional private UUID artifacts, offline
   verification, expiry cleanup and CSV exports tied to explicit result IDs.

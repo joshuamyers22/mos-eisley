@@ -826,6 +826,14 @@ truth, appropriate metric selection or source snapshots; unrestricted narrative
 verification and chart/UI work remain open. See [contract](ANALYSIS_EVIDENCE.md)
 and [evidence](ANALYSIS_EVIDENCE_VERIFICATION.md).
 
+Status, 2026-09-09: `feat/analysis-evaluation` adds an offline grader for saved
+analytical bundles, frozen expectations, label-free task exports and per-arm
+missing/failure accounting. It checks question/configuration/prompt/catalog identity,
+revision, reviewed SQL/source metadata and typed cells. Domain labels and stable
+fixtures still need review; ontology-free execution, controlled live comparisons
+and statistical conclusions remain open. See [contract](ANALYSIS_EVALUATION.md)
+and [verification](ANALYSIS_EVALUATION_VERIFICATION.md).
+
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
 whole-run spending reservations, turn/token/tool/time limits, cancellation and

@@ -116,6 +116,10 @@ store only monetary/identity metadata. See the
 [answer format, retention and export guide](ANALYSIS_EVIDENCE.md) and
 [verification record](ANALYSIS_EVIDENCE_VERIFICATION.md).
 
-Arbitrary narrative/arithmetic verification, a chart/download UI, domain quality
-evaluation, native OAuth/vault deployment, production HDD/cloud databases and
-actual paid multi-turn analytical conformance remain future work.
+New results also carry configuration, system-prompt and tool-catalog hashes for
+[offline comparison with reviewed expectations](ANALYSIS_EVALUATION.md). The grader
+checks saved evidence and counts missing/failed runs without provider calls.
+
+Arbitrary narrative/arithmetic verification, a chart/download UI, actual domain
+quality measurement, native OAuth/vault deployment, production HDD/cloud databases
+and paid multi-turn analytical conformance remain future work.
