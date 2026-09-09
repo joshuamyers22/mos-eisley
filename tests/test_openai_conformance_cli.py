@@ -39,6 +39,9 @@ from mos_eisley.run.evaluation_conformance_authorization import (
     sign_evaluation_conformance_authorization,
     trusted_evaluation_conformance_authority,
 )
+from mos_eisley.run.evaluation_conformance_failure import (
+    EvaluationConformancePrecredentialRejection,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -450,6 +453,60 @@ class OpenAIConformanceCLITests(TestCase):
                 self.assertEqual(main(options), 2)
                 credential.assert_not_called()
                 dispatch.assert_not_called()
+
+    def test_exact_binding_mismatch_retains_precredential_rejection(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            policy_path = root / "conformance-policy.json"
+            policy = EvaluationConformancePolicy.model_validate_json(
+                policy_path.read_bytes()
+            )
+            changed_path = root / "changed-conformance-policy.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    policy.model_copy(
+                        update={
+                            "valid_until": policy.valid_until - timedelta(minutes=1)
+                        }
+                    )
+                ),
+            )
+            options[options.index(str(policy_path))] = str(changed_path)
+            receipt_path = root / "evidence" / "f1-rejection.json"
+            receipt_path.parent.mkdir()
+            options.extend(["--precredential-rejection-output", str(receipt_path)])
+            before = ledger.snapshot()
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stdout(io.StringIO()) as stdout,
+                redirect_stderr(io.StringIO()) as stderr,
+            ):
+                self.assertEqual(main(options), 2)
+
+            credential.assert_not_called()
+            dispatch.assert_not_called()
+            self.assertEqual(stderr.getvalue(), "")
+            event = json.loads(stdout.getvalue())
+            receipt = EvaluationConformancePrecredentialRejection.model_validate_json(
+                receipt_path.read_bytes()
+            )
+            self.assertEqual(event["type"], "openai.conformance.precredential_rejected")
+            self.assertEqual(event["receipt_sha256"], receipt.receipt_sha256)
+            self.assertEqual(receipt.boundary_id, "F1")
+            self.assertTrue(receipt.precredential_rejection_proven)
+            self.assertFalse(receipt.credential_accessed)
+            self.assertFalse(receipt.provider_request_sent)
+            self.assertFalse(receipt.spend_reserved)
+            self.assertEqual(receipt.ledger_snapshot_before, before)
+            self.assertEqual(receipt.ledger_snapshot_after, before)
+            self.assertIsNone(ledger.entry_status(policy.ledger_entry_id))
+            self.assertFalse((root / "audit").exists())
+            self.assertFalse((root / "trusted-authorization.json").exists())
+            self.assertFalse((root / "artifact.json").exists())
+            self.assertFalse((root / "lifecycles").exists())
 
     def test_invalid_signed_authority_fails_before_credential_or_dispatch(self) -> None:
         with TemporaryDirectory() as directory:

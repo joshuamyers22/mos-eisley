@@ -126,6 +126,15 @@ F1, F3, F4, and F5 are controlled operational tests and do not claim OpenAI beha
 F2 contacts the real authentication boundary but does not prove that OpenAI inspected
 or rejected any particular body. All five remain non-scoreable.
 
+The F1 implementation now supports a canonical retained receipt from the real
+`openai-conformance` command. It issues that receipt only for an authentic expired
+or exact-binding-mismatched authorization after a valid no-side-effect preflight,
+and only when the ledger entry is absent, before/after ledger snapshots are equal,
+and no audit, normal output, or container lifecycle exists. Unit and CLI tests prove
+the credential accessor and broker dispatcher are not called. This instrumentation
+does not itself satisfy F1: a separately reviewed installed-wheel operational run
+and retained artifact are still required.
+
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful
 probes. An unexpected violation in any live success run stops the whole OpenAI gate
