@@ -3148,7 +3148,7 @@ def _consume_openai_calibration_execution_command(args: argparse.Namespace) -> i
     return 0
 
 
-def _run_openai_calibration_command(  # pragma: no cover - credentialed integration boundary
+def _run_openai_calibration_command(  # pragma: no cover - integration boundary
     args: argparse.Namespace,
 ) -> int:
     """Reverify and execute one held campaign assignment with a fresh consent."""
