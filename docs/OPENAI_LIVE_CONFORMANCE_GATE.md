@@ -136,7 +136,14 @@ Its dedicated ledger remained empty, unchanged, and unblocked; the exact entry w
 absent before and after; no credential, audit, normal output, container lifecycle,
 provider request, reservation, retry, grading, scoring, promotion, or activation
 occurred. [Milestone 79](MILESTONE_79_REVIEW.md) records the adversarial disposition.
-F2 through F5 remain outstanding, so the overall gate remains open.
+
+The production command can now retain the exact F2 terminal tuple only when the
+adapter, broker audit, and ledger independently agree on `authentication_error` at
+`token_count`, absent spend, and null cost. Automated tests also prove that partial,
+different, and post-reservation failures cannot mint that artifact. This is
+instrumentation readiness, not a live F2 pass; [Milestone 80](MILESTONE_80_REVIEW.md)
+records the adversarial disposition. F2 through F5 remain outstanding, so the
+overall gate remains open.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful

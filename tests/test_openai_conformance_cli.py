@@ -570,3 +570,137 @@ class OpenAIConformanceCLITests(TestCase):
                 ("finished", "uncertain", "failed"),
             )
             self.assertFalse((root / "artifact.json").exists())
+
+    def test_authentication_rejection_retains_absent_spend_failure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            before = ledger.snapshot()
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "invalid-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(
+                        side_effect=ProviderError(
+                            "synthetic authentication failure",
+                            failure_kind="authentication_error",
+                            failure_stage="token_count",
+                        )
+                    ),
+                ) as count,
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.create_response",
+                    new=AsyncMock(),
+                ) as create,
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(error.getvalue(), "")
+            event = json.loads(output.getvalue())
+            self.assertEqual(event["type"], "openai.conformance.rejected")
+            self.assertEqual(event["outcome_status"], "failed")
+            self.assertEqual(event["ledger_status"], "absent")
+            self.assertEqual(event["error"], "authentication_error")
+            self.assertEqual(event["failure_stage"], "token_count")
+            self.assertIsNone(event["cost_microusd"])
+            self.assertFalse(event["retry_permitted"])
+            self.assertFalse(event["promotion_eligible"])
+            count.assert_awaited_once()
+            create.assert_not_awaited()
+
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            artifact = BrokeredEvaluationArtifact.model_validate_json(
+                (root / "artifact.json").read_bytes()
+            )
+            self.assertEqual(artifact.authorization, authorization)
+            self.assertEqual(artifact.status, "error")
+            self.assertEqual(artifact.outcome_status, "failed")
+            self.assertEqual(artifact.ledger_status, "absent")
+            self.assertEqual(artifact.error, "authentication_error")
+            self.assertEqual(artifact.failure_stage, "token_count")
+            self.assertIsNone(artifact.cost_microusd)
+            self.assertFalse(artifact.retry_permitted)
+            self.assertFalse(artifact.promotion_eligible)
+            self.assertFalse((root / "audit" / "spend-reservation.json").exists())
+            self.assertEqual(ledger.snapshot(), before)
+            self.assertIsNone(ledger.entry_status(authorization.ledger_entry_id))
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(
+                (
+                    state.phase,
+                    state.ledger_status,
+                    state.outcome_status,
+                    state.error,
+                    state.failure_stage,
+                ),
+                (
+                    "finished",
+                    "absent",
+                    "failed",
+                    "authentication_error",
+                    "token_count",
+                ),
+            )
+
+    def test_partial_dispatch_failure_cannot_mint_terminal_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=ProviderError("synthetic launcher failure"),
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("ProviderError", error.getvalue())
+            self.assertFalse((root / "artifact.json").exists())
+
+    def test_non_authentication_token_failure_cannot_mint_f2_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(
+                        side_effect=ProviderError(
+                            "synthetic permission failure",
+                            failure_kind="permission_error",
+                            failure_stage="token_count",
+                        )
+                    ),
+                ),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("ProviderError", error.getvalue())
+            self.assertFalse((root / "artifact.json").exists())
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(state.ledger_status, "absent")
+            self.assertEqual(state.error, "permission_error")
+            self.assertEqual(state.failure_stage, "token_count")
