@@ -3074,3 +3074,39 @@ successful probe. Retry and automatic release remain false; the container reache
 but proves no OpenAI behavior, provider receipt, real token accounting, or billing.
 The 18-of-18 success matrix plus F1 through F3 are complete; F4, F5, and the reviewed
 aggregate gate report remain outstanding.
+
+### 25.56 Passed the installed-wheel F4 boundary
+
+The fourth controlled failure boundary ran through a separate installation of the
+same Mos Eisley 0.1.0 wheel and immutable image used for F3. The operator
+independently signed exact authorization payload
+`20645429198674bf74229005fc78805f47aee358ba01fcca91c42af0c2a1b7b9`.
+The installed harness refused to run with an OpenAI credential available and
+returned one controlled Responses envelope with precommitted synthetic usage of 100
+input and 20 output tokens but deliberately invalid `Critique` JSON. No provider
+request was sent.
+
+Assignment authorization
+`d575a9b6cdc99fd78ba160878aa9255429239c8a3d1f9310c65a93c77b7db230`
+and terminal response outcome
+`0955e1b82225476fc75fb033d8f9e8fb72d2ff98daf1a15dac1780f1cfd56c8b`
+bind response hash
+`3a1034b648e1c6de05def3b031ccfd88accba49a0a248c1b852a1f2399d99c4f`.
+The strict compiler rejected it and retained status-`error` artifact
+`16304946b61a491af26010f35350c2b24d1ced3b08f3a54f04b64ba11363098d`
+with `invalid_response` at `validation`. The artifact contains no provider request
+ID, usage, critique, completed-result eligibility, retry, automatic-release, or
+promotion authority.
+
+Reservation
+`67baaf6b9825d35837813a57957a5739eefd55d94688cc4c2c9faebb7029d7cc`
+and settled receipt
+`954bf0bad92ee966771d321b3b4cdeeaba2f7e2e0aa4ac6f8f2f1498ca78f2b0`
+leave dedicated disposable ledger
+`a89d76056904c1eb7702b52deea22c5706be1592e8b6d17279bb5ae2d7da4233`
+with one settled entry, 44 micro-USD charged, 9,956 available, no unresolved
+exposure, and no block. The ledger will not be reused for a successful probe, and
+the container reached `removed` on its first cleanup attempt. This completes F4 but
+proves no OpenAI behavior, provider authorship, real token accounting, or billing.
+The 18-of-18 success matrix plus F1 through F4 are complete; only F5 and the reviewed
+aggregate gate report remain outstanding.

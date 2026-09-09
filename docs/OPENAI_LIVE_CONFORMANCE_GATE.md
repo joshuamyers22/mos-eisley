@@ -119,7 +119,7 @@ boundaries must each pass once using the installed wheel and retained artifacts:
 | F1 | Pre-credential authorization rejection | An expired or exact-binding-mismatched signed authorization fails before API-key access, audit creation, Docker start, ledger admission, or provider request | Passed 2026-09-09 |
 | F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Passed 2026-09-09 |
 | F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Passed 2026-09-09 |
-| F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Outstanding |
+| F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Passed 2026-09-09 |
 | F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Outstanding |
 
 F1, F3, F4, and F5 are controlled operational tests and do not claim OpenAI behavior.
@@ -171,6 +171,21 @@ attempt. This is a controlled local operational result and makes no claim about
 OpenAI availability, receipt, token accounting, or billing.
 [Milestone 82](MILESTONE_82_REVIEW.md) records the adversarial disposition. F4 and
 F5 remain outstanding, so the overall gate remains open.
+
+F4 subsequently passed through a separate installation of the same reviewed wheel
+and immutable image, again without an OpenAI credential or provider request. A
+syntactically valid controlled response carried precommitted synthetic usage but
+deliberately invalid critique JSON. The spending controller settled 44 micro-USD in
+dedicated disposable ledger
+`a89d76056904c1eb7702b52deea22c5706be1592e8b6d17279bb5ae2d7da4233`;
+the strict compiler rejected the response and retained status-`error` artifact
+`16304946b61a491af26010f35350c2b24d1ced3b08f3a54f04b64ba11363098d`
+with `invalid_response` at `validation`. No completed conformance result, provider
+request ID, critique, usage claim, retry, automatic release, or promotion authority
+was published, and the container was removed on its first cleanup attempt. This is
+a controlled local validation result, not provider authorship, token accounting, or
+billing. [Milestone 83](MILESTONE_83_REVIEW.md) records the adversarial disposition.
+F5 remains outstanding, so the overall gate remains open.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful
