@@ -818,6 +818,14 @@ concurrent admission and uncertain billing. It retains content in memory; SQL/re
 artifacts, independent numeric verification and paid analytical conformance remain
 open. See [operator contract](ANALYSIS.md) and [evidence](ANALYSIS_VERIFICATION.md).
 
+Status, 2026-09-09: `feat/analysis-evidence-artifacts` adds schema-2 analytical
+answers rendered from checked returned cells, a SQL/result/timing/usage trail,
+explicit private retention, offline integrity/lineage verification and bounded CSV
+exports from a selected captured result. These checks do not establish source
+truth, appropriate metric selection or source snapshots; unrestricted narrative
+verification and chart/UI work remain open. See [contract](ANALYSIS_EVIDENCE.md)
+and [evidence](ANALYSIS_EVIDENCE_VERIFICATION.md).
+
 Paid model selection and use of connected tools belongs to the analytical-agent
 workstream (§14 and Ana Lite Stage 3). It requires per-user transfer authorization,
 whole-run spending reservations, turn/token/tool/time limits, cancellation and

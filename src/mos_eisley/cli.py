@@ -431,6 +431,18 @@ def parser() -> argparse.ArgumentParser:
     analysis_run.add_argument("--ledger-id", required=True)
     analysis_run.add_argument("--accept-max-cost-microusd", type=int, required=True)
     analysis_run.add_argument("--allow-data-transfer", action="store_true")
+    for analysis_command in (analysis_demo, analysis_run):
+        analysis_command.add_argument("--result-root", type=Path)
+        analysis_command.add_argument("--allow-result-retention", action="store_true")
+    analysis_demo.add_argument("--artifact-ttl-seconds", type=int, default=86400)
+    for name in ("analysis-verify", "analysis-export", "analysis-delete-expired"):
+        analysis_command = subcommands.add_parser(name)
+        analysis_command.add_argument("path", type=Path)
+        if name == "analysis-verify":
+            analysis_command.add_argument("--source", type=Path)
+        if name == "analysis-export":
+            analysis_command.add_argument("--result-id", required=True)
+            analysis_command.add_argument("--result-root", type=Path, required=True)
     agent_demo = subcommands.add_parser(
         "agent-demo", help="Run a recorded two-turn canonical tool exchange"
     )
@@ -7223,7 +7235,13 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command in {"analysis-run", "analysis-demo"}:
+        if args.command in {
+            "analysis-run",
+            "analysis-demo",
+            "analysis-verify",
+            "analysis-export",
+            "analysis-delete-expired",
+        }:
             from mos_eisley.analysis.cli import run_command
 
             return run_command(args)

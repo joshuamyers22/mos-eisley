@@ -124,6 +124,10 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
                         response.model_dump_json()
                         .replace(REVISION, context["revision"])
                         .replace("fixture_total", "row_count")
+                        .replace(
+                            '\\"column\\": \\"total\\"', '\\"column\\": \\"row_count\\"'
+                        )
+                        .replace('\\"value\\": 42', '\\"value\\": 1')
                         .replace("42 items", "1 row")
                     )
 
@@ -141,7 +145,7 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
             self.assertEqual(answer.answer.status, "answer")
             self.assertEqual(answer.answer.result_ids, ("result-0002",))
             self.assertEqual(answer.semantic_revision, context["revision"])
-            self.assertIn("1 row", answer.answer.text)
+            self.assertEqual(answer.answer.claims[0].value, 1)
 
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"

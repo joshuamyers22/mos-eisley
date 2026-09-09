@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add schema-2 analytical answers rendered from checked captured cells, with
+  SQL/result/timing/usage lineage, optional private UUID artifacts, offline
+  verification, expiry cleanup and CSV exports tied to explicit result IDs.
 - Add an opt-in read-only MCP analytical loop with promoted-context and metric
   revision checks, whole-run OpenAI spending reservations, atomic local admission,
   bounded conversations and memory-only content retention. Add synthetic demos,

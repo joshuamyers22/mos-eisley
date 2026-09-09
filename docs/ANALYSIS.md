@@ -101,22 +101,21 @@ protection against the ledger owner replacing/rolling back the database. SQLite
 lock waiting is bounded separately (250 ms). Cancellation propagates to client
 operations; it cannot guarantee that a remote query or provider generation stopped.
 
-## Result retention and remaining work
+## Checked answers, retention and remaining work
 
-The result includes final text, supporting result IDs and hashes, semantic revision,
-byte/turn/tool counts, and a spending receipt. Every cited ID must name a complete
-successful result other than semantic-context/metric-list metadata. The controller
-checks reference integrity, not whether the prose follows mathematically from rows.
-Both `claims_independently_verified` and `source_snapshot_verified` remain false.
+The schema-2 envelope now includes a SQL/result trail, timestamps, usage and explicit
+cell claims. The controller checks values against captured cells and renders answer
+text itself. Complete result IDs alone are no longer sufficient for an `answer`.
+This checks returned values, not source truth or metric selection; both
+`claims_independently_verified` and `source_snapshot_verified` remain false.
 
-Conversation and result content stay in process memory until stdout is emitted;
-this workflow writes only monetary/identity metadata to the ledger. It creates no
-transcript, SQL history or replay artifact. stdout contains the answer and may be
-retained by the caller; provider-side retention is governed separately even though
-requests set `store=false`. Errors omit source values and credentials.
+Memory-only content retention remains the default. An explicit private retention
+configuration plus CLI consent enables bounded UUID bundles, offline verification,
+expiry checks and exports tied to a chosen captured result. The ledger continues to
+store only monetary/identity metadata. See the
+[answer format, retention and export guide](ANALYSIS_EVIDENCE.md) and
+[verification record](ANALYSIS_EVIDENCE_VERIFICATION.md).
 
-Ana Lite Stage 4 remains open: a reviewable SQL/result trail, source timestamps and
-snapshot semantics, independently checked numeric claims, chart/export lineage,
-private artifact persistence and explicit retention policy. Native OAuth/vault,
-production HDD/cloud databases and actual paid multi-turn analysis still require
-operator deployment validation.
+Arbitrary narrative/arithmetic verification, a chart/download UI, domain quality
+evaluation, native OAuth/vault deployment, production HDD/cloud databases and
+actual paid multi-turn analytical conformance remain future work.
