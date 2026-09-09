@@ -264,7 +264,9 @@ and critic/judge workflows retain their existing tool-free boundaries.
 
 `mos analysis-demo` answers a synthetic metric through a real local MCP server.
 The opt-in `analysis-run` command adds OpenAI tool conversations with a read-only
-profile, revision-bound metrics and whole-run spending reservations. See the
+profile, revision-bound metrics and whole-run spending reservations. Answers now
+use checked cell references, with a SQL/result trail and optional private
+[artifacts and captured-result exports](docs/ANALYSIS_EVIDENCE.md). See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 
@@ -318,8 +320,9 @@ replace the manifest. Recorded agent runs fsync boundary events as they happen, 
 the journal contains hashes and status—not a standalone full transcript. Incomplete
 runs lack a valid manifest and cannot be replayed. The original one-prompt live runs preserve full canonical
 responses for inspection but cannot replay a provider execution. Retention is manual.
-The new analytical command retains content in memory and emits its result on stdout;
-it writes only spending metadata to its ledger.
+The analytical command defaults to memory-only content and emits its result on
+stdout. Explicit retention consent enables private result bundles and exports;
+the ledger still contains only spending metadata.
 
 The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-telemetry)
 keeps retained data under one user's ownership while allowing user-configured local

@@ -166,6 +166,7 @@ def main() -> int:
             "test_mcp_schema.py",
             "test_analysis.py",
             "test_analysis_spending.py",
+            "test_analysis_evidence.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(
