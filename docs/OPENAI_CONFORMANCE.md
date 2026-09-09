@@ -115,6 +115,16 @@ conservative failure handling rather than OpenAI behavior or billing. Retry and
 automatic release remain unauthorized. See
 [Milestone 82](MILESTONE_82_REVIEW.md).
 
+The installed-wheel F4 operation then exercised response validation using a
+controlled no-network Responses envelope with valid synthetic billable usage but
+deliberately invalid critique JSON. The spending controller settled 44 micro-USD in
+a dedicated disposable ledger, while the compiler retained only a status-`error`
+artifact with `invalid_response` at `validation`. It publishes no provider request
+ID, usage, critique, completed-result eligibility, retry, automatic release, or
+promotion authority. No OpenAI credential or request was involved, so this proves
+local strict-response rejection rather than provider authorship or billing. See
+[Milestone 83](MILESTONE_83_REVIEW.md).
+
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
 cost. Automated tests do not make live calls.
