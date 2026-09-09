@@ -152,9 +152,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    infrastructure, not campaign authority. A credential-refusing offline boundary
    now fully reverifies those sources and derives/authenticates an independently
    signed, short-lived decision for one exact sequence, provider request, schema-2
-   spend envelope, ledger, and fresh audit identity. Authentication performs no
-   reservation or send; the next boundary must atomically consume that exact ledger
-   entry and recheck consent before credential access. Then run the remaining repeated
+   spend envelope, ledger, and fresh audit identity. A separate credential-refusing
+   command now fully reverifies that lineage, requires explicit transfer and spend
+   consent, and atomically consumes the exact ledger entry into a worst-case held
+   reservation without issuing a broker grant or send. The next credential boundary
+   must reverify the held preparation and require fresh same-invocation consent before
+   key access. Then run the remaining repeated
    backend × model × effort matrix on clean and defective samples only through fresh
    request, transfer, and spend authority.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,

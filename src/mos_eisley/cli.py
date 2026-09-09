@@ -194,9 +194,11 @@ from mos_eisley.run.openai_calibration_campaign import (
     plan_openai_calibration_campaign,
 )
 from mos_eisley.run.openai_calibration_execution import (
+    AuthenticatedOpenAICalibrationExecution,
     OpenAICalibrationExecutionAuthorityPolicy,
     SignedOpenAICalibrationExecutionDecision,
     authenticate_openai_calibration_execution,
+    consume_openai_calibration_execution,
     make_openai_calibration_execution_decision,
 )
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
@@ -731,6 +733,33 @@ def parser() -> argparse.ArgumentParser:
     authenticate_openai_campaign_execution.add_argument(
         "--output", type=Path, required=True
     )
+    consume_openai_campaign_execution = subcommands.add_parser(
+        "eval-consume-openai-calibration-execution",
+        help="Consume one exact calibration authority into held spend",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "authenticated-execution",
+    ):
+        consume_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    consume_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    consume_openai_campaign_execution.add_argument(
+        "--allow-data-transfer", action="store_true"
+    )
+    consume_openai_campaign_execution.add_argument(
+        "--allow-spend-reservation", action="store_true"
+    )
+    consume_openai_campaign_execution.add_argument("--output", type=Path, required=True)
     prepare_evaluation_conformance = subcommands.add_parser(
         "eval-prepare-brokered-conformance-policy",
         help="Prepare an exact no-send policy for one OpenAI conformance probe",
@@ -2915,7 +2944,10 @@ def _load_openai_calibration_execution_sources(
 
 
 def _openai_calibration_execution_paths(
-    args: argparse.Namespace, *, include_signed: bool
+    args: argparse.Namespace,
+    *,
+    include_signed: bool = False,
+    include_authenticated: bool = False,
 ) -> tuple[Path, ...]:
     paths = (
         cast(Path, args.batch),
@@ -2929,6 +2961,8 @@ def _openai_calibration_execution_paths(
     )
     if include_signed:
         return (*paths, cast(Path, args.signed_decision))
+    if include_authenticated:
+        return (*paths, cast(Path, args.authenticated_execution))
     return paths
 
 
@@ -2940,7 +2974,7 @@ def _derive_openai_calibration_execution_command(args: argparse.Namespace) -> in
     output = cast(Path, args.output)
     if any(
         _paths_overlap(output, source)
-        for source in _openai_calibration_execution_paths(args, include_signed=False)
+        for source in _openai_calibration_execution_paths(args)
     ):
         raise ValueError("calibration execution decision output overlaps an input")
     (
@@ -2992,6 +3026,83 @@ def _derive_openai_calibration_execution_command(args: argparse.Namespace) -> in
                 "promotion_authorized": decision.promotion_authorized,
                 "routing_activation_authorized": (
                     decision.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _consume_openai_calibration_execution_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI calibration data transfer was not acknowledged")
+    if not cast(bool, args.allow_spend_reservation):
+        raise ValueError("OpenAI calibration spend reservation was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("calibration execution consumption refuses credentials")
+    output = cast(Path, args.output)
+    if output.exists() or output.is_symlink() or not output.parent.is_dir():
+        raise ValueError("prepared calibration execution requires a fresh output")
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(
+            args, include_authenticated=True
+        )
+    ):
+        raise ValueError("prepared calibration execution output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    authenticated = AuthenticatedOpenAICalibrationExecution.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_execution), 512_000)
+    )
+    prepared = consume_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        authenticated,
+        cast(Path, args.audit_dir),
+        datetime.now(UTC),
+        data_transfer_consent=True,
+        spend_reservation_consent=True,
+    )
+    _write_contract(output, prepared)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_consumed",
+                "path": str(output),
+                "preparation_sha256": prepared.preparation_sha256,
+                "sequence": prepared.authenticated_execution.sequence,
+                "sample_id": (
+                    prepared.authenticated_execution.assignment_authorization.sample_id
+                ),
+                "provider_request_sha256": prepared.provider_request_sha256,
+                "ledger_entry_id": prepared.ledger_entry.entry_id,
+                "reserved_microusd": prepared.ledger_entry.reserved_microusd,
+                "ledger_status": "held",
+                "valid_until": prepared.valid_until.isoformat(),
+                "execution_authority_consumed": (prepared.execution_authority_consumed),
+                "data_transfer_consent_acknowledged": (
+                    prepared.data_transfer_consent_acknowledged
+                ),
+                "credential_accessed": prepared.credential_accessed,
+                "provider_request_sent": prepared.provider_request_sent,
+                "broker_grant_issued": prepared.broker_grant_issued,
+                "provider_dispatch_authorized": (prepared.provider_dispatch_authorized),
+                "automatic_retry_authorized": (prepared.automatic_retry_authorized),
+                "automatic_budget_release_authorized": (
+                    prepared.automatic_budget_release_authorized
                 ),
             }
         )
@@ -6637,6 +6748,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         ),
         "eval-authenticate-openai-calibration-execution": (
             _authenticate_openai_calibration_execution_command
+        ),
+        "eval-consume-openai-calibration-execution": (
+            _consume_openai_calibration_execution_command
         ),
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command
