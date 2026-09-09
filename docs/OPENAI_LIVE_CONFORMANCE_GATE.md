@@ -114,26 +114,29 @@ in [Milestone 77](MILESTONE_77_REVIEW.md).
 The success matrix is necessary but not sufficient. The following five distinct
 boundaries must each pass once using the installed wheel and retained artifacts:
 
-| ID | Boundary | Required evidence |
-| --- | --- | --- |
-| F1 | Pre-credential authorization rejection | An expired or exact-binding-mismatched signed authorization fails before API-key access, audit creation, Docker start, ledger admission, or provider request |
-| F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry |
-| F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release |
-| F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry |
-| F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim |
+| ID | Boundary | Required evidence | Status |
+| --- | --- | --- | --- |
+| F1 | Pre-credential authorization rejection | An expired or exact-binding-mismatched signed authorization fails before API-key access, audit creation, Docker start, ledger admission, or provider request | Passed 2026-09-09 |
+| F2 | Live provider authentication rejection | A separately consented exact request with a deliberately invalid credential records terminal `token_count` / `authentication_error`, creates no successful artifact or reservation, and permits no retry | Outstanding |
+| F3 | Ambiguous post-reservation timeout or disconnect | A controlled fault after admission retains held or uncertain exposure in a dedicated ledger, writes a terminal classified audit, publishes no conformance artifact, and permits no retry or release | Outstanding |
+| F4 | Invalid or identity-mismatched structured response | A controlled fault response is rejected before conformance publication, preserves conservative ledger state, and permits no retry | Outstanding |
+| F5 | Launcher death after admission | A real-container fault proves exact-container watchdog removal and a read-only recovery result with no success or retry claim | Outstanding |
 
 F1, F3, F4, and F5 are controlled operational tests and do not claim OpenAI behavior.
 F2 contacts the real authentication boundary but does not prove that OpenAI inspected
 or rejected any particular body. All five remain non-scoreable.
 
-The F1 implementation now supports a canonical retained receipt from the real
-`openai-conformance` command. It issues that receipt only for an authentic expired
-or exact-binding-mismatched authorization after a valid no-side-effect preflight,
-and only when the ledger entry is absent, before/after ledger snapshots are equal,
-and no audit, normal output, or container lifecycle exists. Unit and CLI tests prove
-the credential accessor and broker dispatcher are not called. This instrumentation
-does not itself satisfy F1: a separately reviewed installed-wheel operational run
-and retained artifact are still required.
+F1 passed on 2026-09-09 through a separately installed wheel with hash
+`a7519afe7df26cc66ca94695e6e90be41723bb0b0e6b27c480af77f856702545`.
+An independently signed source policy was deliberately presented alongside a target
+policy differing only in its policy identity. The real `openai-conformance` command
+retained canonical receipt
+`6a0d132074a27272851ddc0affe08ba3ce096a59e0f7ff68dc450489080941bf`.
+Its dedicated ledger remained empty, unchanged, and unblocked; the exact entry was
+absent before and after; no credential, audit, normal output, container lifecycle,
+provider request, reservation, retry, grading, scoring, promotion, or activation
+occurred. [Milestone 79](MILESTONE_79_REVIEW.md) records the adversarial disposition.
+F2 through F5 remain outstanding, so the overall gate remains open.
 
 Deliberately ambiguous F3/F4 executions must use separately committed disposable
 failure ledgers. Those ledgers are never reset, released, or reused for successful
