@@ -4,6 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a credential-refusing offline campaign planner that subtracts the exact
+  18-record conformance seed from the frozen 360-assignment OpenAI calibration
+  batch and commits the remaining 342 request hashes in original order.
+- Pin six current standard-rate token envelopes and a $15.377973 aggregate maximum,
+  conservatively pricing every input token at the higher cache-write rate while
+  denying Batch, fast mode, cache discounts, spend reservation, execution, retry,
+  grading, scoring, promotion, and activation.
+
 - Add a credential-refusing offline OpenAI conformance converter pinned to the exact
   passed aggregate gate, six reviewed profiles, and 18 qualifying receipt/artifact
   lineages.

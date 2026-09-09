@@ -188,8 +188,13 @@ from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
+from mos_eisley.run.openai_calibration_campaign import (
+    OpenAICalibrationCampaignPolicy,
+    plan_openai_calibration_campaign,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.openai_conformance_conversion import (
+    OpenAIConformanceCalibrationSeed,
     OpenAIConformanceConversionPolicy,
     convert_openai_conformance_to_calibration_seed,
 )
@@ -645,6 +650,21 @@ def parser() -> argparse.ArgumentParser:
         "--allow-offline-conversion", action="store_true"
     )
     eval_convert_conformance.add_argument("--output", type=Path, required=True)
+    eval_plan_openai_campaign = subcommands.add_parser(
+        "eval-plan-openai-calibration-campaign",
+        help="Commit the exact unexecuted OpenAI calibration remainder offline",
+    )
+    eval_plan_openai_campaign.add_argument("--batch", type=Path, required=True)
+    eval_plan_openai_campaign.add_argument(
+        "--calibration-seed", type=Path, required=True
+    )
+    eval_plan_openai_campaign.add_argument(
+        "--campaign-policy", type=Path, required=True
+    )
+    eval_plan_openai_campaign.add_argument(
+        "--allow-offline-planning", action="store_true"
+    )
+    eval_plan_openai_campaign.add_argument("--output", type=Path, required=True)
     prepare_evaluation_conformance = subcommands.add_parser(
         "eval-prepare-brokered-conformance-policy",
         help="Prepare an exact no-send policy for one OpenAI conformance probe",
@@ -2732,6 +2752,55 @@ def _convert_openai_conformance_command(args: argparse.Namespace) -> int:
                 "scoring_authorized": seed.scoring_authorized,
                 "promotion_authorized": seed.promotion_authorized,
                 "routing_activation_authorized": (seed.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
+
+
+def _plan_openai_calibration_campaign_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_planning):
+        raise ValueError("offline OpenAI calibration planning was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline calibration planning refuses provider credentials")
+    batch_path = cast(Path, args.batch)
+    seed_path = cast(Path, args.calibration_seed)
+    policy_path = cast(Path, args.campaign_policy)
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in (batch_path, seed_path, policy_path)
+    ):
+        raise ValueError("campaign manifest output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    seed = OpenAIConformanceCalibrationSeed.model_validate_json(
+        read_bounded(seed_path, 2_000_000)
+    )
+    policy = OpenAICalibrationCampaignPolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    manifest = plan_openai_calibration_campaign(batch, seed, policy)
+    _write_contract(output, manifest)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.campaign_planned",
+                "path": str(output),
+                "campaign_manifest_sha256": manifest.campaign_manifest_sha256,
+                "seeded_assignments": manifest.seeded_assignments,
+                "planned_assignments": manifest.planned_assignments,
+                "aggregate_max_cost_microusd": (manifest.aggregate_max_cost_microusd),
+                "request_content_embedded": manifest.request_content_embedded,
+                "credential_accessed": manifest.credential_accessed,
+                "spend_reserved": manifest.spend_reserved,
+                "provider_request_sent": manifest.provider_request_sent,
+                "execution_authorized": manifest.execution_authorized,
+                "grading_authorized": manifest.grading_authorized,
+                "scoring_authorized": manifest.scoring_authorized,
+                "promotion_authorized": manifest.promotion_authorized,
+                "routing_activation_authorized": (
+                    manifest.routing_activation_authorized
+                ),
             }
         )
     )
@@ -6284,6 +6353,9 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
         "eval-convert-openai-conformance": _convert_openai_conformance_command,
+        "eval-plan-openai-calibration-campaign": (
+            _plan_openai_calibration_campaign_command
+        ),
         "eval-prepare-brokered-conformance-policy": (
             _prepare_evaluation_conformance_policy_command
         ),

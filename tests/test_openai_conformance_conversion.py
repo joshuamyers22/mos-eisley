@@ -32,6 +32,12 @@ from mos_eisley.run.evaluation_conformance import (
     EvaluationConformanceSignature,
     SignedEvaluationConformanceObservation,
 )
+from mos_eisley.run.openai_calibration_campaign import (
+    OpenAICalibrationCampaignManifest,
+    OpenAICalibrationCampaignPolicy,
+    OpenAICalibrationProfilePlan,
+    plan_openai_calibration_campaign,
+)
 from mos_eisley.run.openai_conformance_conversion import (
     OpenAIConformanceCalibrationSeed,
     OpenAIConformanceConversionPolicy,
@@ -431,4 +437,203 @@ class OpenAIConformanceConversionTests(TestCase):
             self.assertEqual(
                 event["calibration_seed_sha256"], parsed.calibration_seed_sha256
             )
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+
+
+def campaign_inputs() -> tuple[
+    ExecutionBatch,
+    OpenAIConformanceCalibrationSeed,
+    OpenAICalibrationCampaignPolicy,
+]:
+    base_batch, report, conversion_policy, receipts, artifacts = conversion_inputs()
+    base_seed = convert_openai_conformance_to_calibration_seed(
+        base_batch, report, conversion_policy, receipts, artifacts
+    )
+    routes = {
+        f"{request.route.model}/{request.route.effort}": request.route
+        for request in base_batch.requests[:18]
+    }
+    requests = list(base_batch.requests)
+    existing_counts: dict[str, int] = {}
+    for request in requests:
+        profile = f"{request.route.model}/{request.route.effort}"
+        existing_counts[profile] = existing_counts.get(profile, 0) + 1
+    for profile, route in sorted(routes.items()):
+        for offset in range(existing_counts.get(profile, 0), 60):
+            requests.append(
+                EvaluationRequest(
+                    sample_id=_sha(f"campaign-{profile}-{offset}"),
+                    route=route,
+                    brief=Brief(
+                        spec="Return a structured review.",
+                        diff=f"campaign change {profile} {offset}",
+                    ),
+                )
+            )
+    batch = ExecutionBatch(plan_sha256=base_batch.plan_sha256, requests=tuple(requests))
+    seed = base_seed.model_copy(
+        update={
+            "batch_sha256": batch.batch_sha256,
+            "execution_batch_assignments": len(batch.requests),
+        }
+    )
+    rates = {
+        "gpt-5.6-luna": (200_000, 1_200_000, 512),
+        "gpt-5.6-terra": (2_000_000, 12_000_000, 512),
+        "gpt-5.6-sol": (4_000_000, 20_000_000, 512),
+        "gpt-6-astra": (10_000_000, 50_000_000, 2048),
+    }
+    profiles: list[OpenAICalibrationProfilePlan] = []
+    for _profile, route in sorted(routes.items()):
+        input_rate, output_rate, output_cap = rates[route.model]
+        cache_write_rate = input_rate * 5 // 4
+        maximum = (
+            1000 * cache_write_rate + output_cap * output_rate + 999_999
+        ) // 1_000_000
+        profiles.append(
+            OpenAICalibrationProfilePlan(
+                model=route.model,
+                effort=route.effort,
+                pricing_source=f"https://example.test/{route.model}",
+                input_microusd_per_million=input_rate,
+                cache_write_microusd_per_million=cache_write_rate,
+                output_microusd_per_million=output_rate,
+                max_input_tokens=1000,
+                max_output_tokens=output_cap,
+                max_cost_microusd=maximum,
+            )
+        )
+    policy = OpenAICalibrationCampaignPolicy(
+        policy_id="test-openai-campaign-v1",
+        plan_sha256=batch.plan_sha256,
+        batch_sha256=batch.batch_sha256,
+        calibration_seed_sha256=seed.calibration_seed_sha256,
+        pricing_checked_at=datetime(2026, 9, 9, tzinfo=UTC),
+        profiles=tuple(profiles),
+        aggregate_max_cost_microusd=sum(
+            item.max_cost_microusd * 57 for item in profiles
+        ),
+    )
+    return batch, seed, policy
+
+
+class OpenAICalibrationCampaignTests(TestCase):
+    def test_plans_exact_hash_only_remainder_in_batch_order(self) -> None:
+        batch, seed, policy = campaign_inputs()
+        manifest = plan_openai_calibration_campaign(batch, seed, policy)
+        seed_samples = {item.sample_id for item in seed.results}
+        expected = tuple(
+            (position, request.sample_id)
+            for position, request in enumerate(batch.requests, start=1)
+            if request.sample_id not in seed_samples
+        )
+        self.assertEqual(len(manifest.assignments), 342)
+        self.assertEqual(
+            tuple(
+                (item.batch_position, item.sample_id) for item in manifest.assignments
+            ),
+            expected,
+        )
+        self.assertEqual(
+            manifest.aggregate_max_cost_microusd,
+            sum(item.max_cost_microusd for item in manifest.assignments),
+        )
+        self.assertTrue(manifest.exact_seed_lineage_verified)
+        self.assertTrue(manifest.exact_remaining_coverage_verified)
+        self.assertFalse(manifest.request_content_embedded)
+        self.assertFalse(manifest.credential_accessed)
+        self.assertFalse(manifest.spend_reserved)
+        self.assertFalse(manifest.provider_request_sent)
+        self.assertFalse(manifest.execution_authorized)
+        self.assertFalse(manifest.grading_authorized)
+        self.assertFalse(manifest.scoring_authorized)
+        self.assertFalse(manifest.promotion_authorized)
+        self.assertFalse(manifest.routing_activation_authorized)
+
+    def test_rejects_seed_lineage_and_budget_tampering(self) -> None:
+        batch, seed, policy = campaign_inputs()
+        changed_result = seed.results[0].model_copy(
+            update={"candidate_id": _sha("changed-candidate")}
+        )
+        changed_seed = seed.model_copy(
+            update={"results": (changed_result, *seed.results[1:])}
+        )
+        changed_policy = policy.model_copy(
+            update={"calibration_seed_sha256": changed_seed.calibration_seed_sha256}
+        )
+        with self.assertRaisesRegex(ValueError, "request lineage mismatch"):
+            plan_openai_calibration_campaign(batch, changed_seed, changed_policy)
+        with self.assertRaisesRegex(ValueError, "aggregate ceiling"):
+            OpenAICalibrationCampaignPolicy.model_validate(
+                policy.model_dump()
+                | {
+                    "aggregate_max_cost_microusd": (
+                        policy.aggregate_max_cost_microusd + 1
+                    )
+                }
+            )
+
+    def test_cli_requires_consent_and_refuses_credentials(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "manifest.json"
+            options = [
+                "eval-plan-openai-calibration-campaign",
+                "--batch",
+                str(root / "batch.json"),
+                "--calibration-seed",
+                str(root / "seed.json"),
+                "--campaign-policy",
+                str(root / "policy.json"),
+                "--output",
+                str(output),
+            ]
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(main(options), 2)
+            with (
+                patch.dict("os.environ", {"MOS_OPENAI_KEY": "secret"}),
+                redirect_stderr(io.StringIO()) as stderr,
+            ):
+                self.assertEqual(main([*options, "--allow-offline-planning"]), 2)
+            self.assertNotIn("secret", stderr.getvalue())
+            self.assertFalse(output.exists())
+
+    def test_cli_writes_private_non_authorizing_manifest(self) -> None:
+        batch, seed, policy = campaign_inputs()
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            batch_path = root / "batch.json"
+            seed_path = root / "seed.json"
+            policy_path = root / "policy.json"
+            output = root / "manifest.json"
+            private_write(batch_path, canonical_bytes(batch))
+            private_write(seed_path, canonical_bytes(seed))
+            private_write(policy_path, canonical_bytes(policy))
+            options = [
+                "eval-plan-openai-calibration-campaign",
+                "--batch",
+                str(batch_path),
+                "--calibration-seed",
+                str(seed_path),
+                "--campaign-policy",
+                str(policy_path),
+                "--allow-offline-planning",
+                "--output",
+                str(output),
+            ]
+            with (
+                patch.dict("os.environ", {}, clear=True),
+                redirect_stdout(io.StringIO()) as stdout,
+            ):
+                self.assertEqual(main(options), 0)
+            event = json.loads(stdout.getvalue())
+            parsed = OpenAICalibrationCampaignManifest.model_validate_json(
+                output.read_bytes()
+            )
+            self.assertEqual(event["planned_assignments"], 342)
+            self.assertEqual(
+                event["campaign_manifest_sha256"],
+                parsed.campaign_manifest_sha256,
+            )
+            self.assertFalse(event["execution_authorized"])
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
