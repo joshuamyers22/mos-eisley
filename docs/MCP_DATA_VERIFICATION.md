@@ -27,7 +27,9 @@ source access and hostile-process isolation are outside this slice.
 | Dependencies | `uv audit --locked --no-dev` | No known vulnerabilities or adverse statuses in 40 packages |
 
 The package smoke initially encountered sandbox-blocked dependency metadata
-downloads; its rerun with network access passed in a disposable environment. No live
+downloads; its rerun with network access passed in a disposable environment.
+The smoke test now also executes an MCP call from the installed wheel outside
+the source checkout. No live
 provider requests, production database changes or HDD data reads were performed.
 
 The initial full suite contained 12 MCP tests; four further regressions brought

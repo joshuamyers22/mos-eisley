@@ -1,4 +1,4 @@
-"""Install the wheel and exercise both deterministic replay paths."""
+"""Install the wheel and exercise replay plus an actual MCP subprocess call."""
 
 import json
 import subprocess
@@ -59,6 +59,41 @@ def main() -> int:
         subprocess.run(
             [command, "agent-replay", agent_event["path"]], cwd=root, check=True
         )
+        server = root / "mcp_fixture.py"
+        server.write_text(Path("tests/fixtures/mcp_server.py").read_text())
+        config = root / "mcp.json"
+        config.write_text(
+            json.dumps(
+                {
+                    "command": str(python),
+                    "args": [str(server)],
+                    "cwd": str(root),
+                    "tools": {"echo": "read"},
+                }
+            )
+        )
+        call = root / "call.json"
+        call.write_text(
+            json.dumps(
+                {
+                    "id": "wheel-call",
+                    "name": "echo",
+                    "args": {"value": "wheel-fixture"},
+                }
+            )
+        )
+        mcp = subprocess.run(
+            [command, "mcp-call", "--config", str(config), "--call", str(call)],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        result = json.loads(mcp.stdout)
+        if result["is_error"] or json.loads(result["content"])[
+            "structured_content"
+        ] != {"value": "wheel-fixture"}:
+            raise ValueError("installed MCP client returned the wrong fixture")
     return 0
 
 
