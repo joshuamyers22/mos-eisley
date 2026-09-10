@@ -99,10 +99,12 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    bytes when saving, preserving canonical hashes without rebuilding old artifact
    values. Queued reviews hydrate one admitted packet at execution; at most the
    latest result stays decoded for the renderer. Initial loads and external commits
-   still require full validation. Chat context uses a text-only selection
+   now verify historical entries one at a time under a separate input bound, then
+   stream the exact snapshot hash and logical size. Active memory/recording values
+   remain decoded. Chat context uses a text-only selection
    interface and a separately saved byte budget, checked before an attempt is
    consumed. It preserves completed history and steering, and pauses oversized
-   queued work with required/available byte counts. Bounded cold resume,
+   queued work with required/available byte counts. Active-input hydration budgets,
    smaller text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

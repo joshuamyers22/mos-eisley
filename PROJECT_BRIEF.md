@@ -36,10 +36,12 @@
   release historical artifact values after full verification and stream retained
   bytes when saving. Queued reviews hydrate one admitted packet at execution;
   at most the latest review result stays decoded. Initial loads and external commits
-  still require full validation. Chat context has a separately
+  verify historical entries one at a time under a separate input bound and stream
+  the exact snapshot hash, avoiding full-history artifact accumulation.
+  Chat context has a separately
   saved byte budget and text-only history selection; admission rejects oversized
   requests before consuming attempts and preserves queued work and steering.
-  Bounded cold resume,
+  Independent active memory/recording hydration budgets,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

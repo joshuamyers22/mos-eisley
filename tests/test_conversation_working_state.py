@@ -42,6 +42,7 @@ from mos_eisley.run.conversation_store import ConversationSnapshot, Conversation
 class ObservedStore(SQLiteConversationStore):
     allow_full_reads = True
     full_reads = 0
+    cold_reads = 0
     fail_stream = False
     chunks: list[int]
 
@@ -65,6 +66,10 @@ class ObservedStore(SQLiteConversationStore):
         if not self.allow_full_reads:
             raise AssertionError("unexpected full-state hydration")
         return super()._load(db)
+
+    def _load_working(self, db: sqlite3.Connection) -> WorkingConversationState | None:
+        self.cold_reads += 1
+        return super()._load_working(db)
 
     def trace(self, queries: list[str]) -> None:
         self._connection().set_trace_callback(queries.append)
@@ -284,15 +289,16 @@ class WorkingStateTests(TestCase):
             with self.subTest(position=position), self.assertRaises(ValueError):
                 self.store.load_working_entry(position, original)
 
-    def test_external_unrelated_commit_requires_one_full_revalidation(self) -> None:
+    def test_external_unrelated_commit_requires_one_cold_revalidation(self) -> None:
         other = ConversationController.fresh(self.root, self.cassette)
         with SQLiteConversationStore(
             self.storage, other.session_id, self.root
         ) as store:
             store.save(other)
-        before = self.store.full_reads
+        before = self.store.cold_reads
+        self.store.allow_full_reads = False
         self.chat.resize_context(4000)
-        self.assertEqual(self.store.full_reads, before + 1)
+        self.assertEqual(self.store.cold_reads, before + 1)
         self.store.allow_full_reads = False
         self.chat.resize_context(8000)
         self.check_snapshot()
@@ -359,13 +365,14 @@ class WorkingStateTests(TestCase):
         with self.assertRaisesRegex(ValueError, "persistence failed"):
             self.chat.submit("later")
 
-    def test_reconnect_requires_full_verification_before_reusing_references(
+    def test_reconnect_requires_cold_verification_before_reusing_references(
         self,
     ) -> None:
         self.store.reconnect()
-        before = self.store.full_reads
+        before = self.store.cold_reads
+        self.store.allow_full_reads = False
         self.chat.resize_context(4000)
-        self.assertEqual(self.store.full_reads, before + 1)
+        self.assertEqual(self.store.cold_reads, before + 1)
         self.check_snapshot()
 
     def test_rollback_and_post_commit_failure_require_reopen(self) -> None:
