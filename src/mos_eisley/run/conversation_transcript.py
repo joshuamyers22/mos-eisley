@@ -1,6 +1,7 @@
 """Bounded text pages with verified records and unexpanded artifact references."""
 
 import base64
+import sqlite3
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from mos_eisley.run.conversation_artifacts import ArtifactField, ArtifactSelecti
 from mos_eisley.run.conversation_sqlite import (
     MAX_RECORD_BYTES,
     PackedPart,
+    SessionIndex,
     read_sqlite_session_index,
     sqlite_read_transaction,
 )
@@ -133,48 +135,14 @@ def read_sqlite_transcript(
                 "FROM entries WHERE sid=? AND position=?",
                 (size, sid, position),
             ).fetchone()[0]
-            if (
-                not isinstance(payload, bytes)
-                or digest(payload) != index.entry_sha256[position]
-            ):
-                raise ValueError("transcript record integrity mismatch")
-            packed = PackedPart.model_validate_json(payload)
-            content = TranscriptText.model_validate(packed.body)
-            artifacts: list[TranscriptArtifact] = []
-            for field, sha in sorted(packed.refs.items()):
-                field = TypeAdapter[ArtifactField](ArtifactField).validate_python(field)
-                artifact = db.execute(
-                    "SELECT length(payload) FROM artifacts WHERE sid=? AND sha=?",
-                    (sid, sha),
-                ).fetchone()
-                if artifact is None:
-                    raise ValueError("missing transcript artifact")
-                artifacts.append(
-                    TranscriptArtifact(
-                        field=field,
-                        sha256=sha,
-                        bytes=artifact[0],
-                        selection=base64.urlsafe_b64encode(
-                            canonical_bytes(
-                                ArtifactSelection(
-                                    store_id=store_id,
-                                    owner_uid=index.owner_uid,
-                                    workspace=selected_workspace,
-                                    session_id=sid,
-                                    snapshot_sha256=summary.snapshot_sha256,
-                                    generation=generation,
-                                    position=position,
-                                    field=field,
-                                    sha256=sha,
-                                    bytes=artifact[0],
-                                )
-                            )
-                        ).decode(),
-                    )
-                )
             entries.append(
-                TranscriptEntry(
-                    position=position, content=content, artifacts=tuple(artifacts)
+                decode_transcript_entry(
+                    db,
+                    index,
+                    position,
+                    payload,
+                    store_id=store_id,
+                    generation=generation,
                 )
             )
             consumed += size
@@ -203,3 +171,62 @@ def read_sqlite_transcript(
             record_bytes=consumed,
             next_cursor=token,
         )
+
+
+def decode_transcript_entry(
+    db: sqlite3.Connection,
+    index: SessionIndex,
+    position: int,
+    payload: object,
+    *,
+    store_id: str,
+    generation: int,
+) -> TranscriptEntry:
+    """Verify one admitted message and describe its unexpanded references."""
+    sid = index.summary.session_id
+    summary = index.summary
+    selected_workspace = index.workspace
+    if index.entry_sha256 is None or not 0 <= position < len(index.entry_sha256):
+        raise ValueError("invalid transcript entry selection")
+    if (
+        not isinstance(payload, bytes)
+        or digest(payload) != index.entry_sha256[position]
+    ):
+        raise ValueError("transcript record integrity mismatch")
+    packed = PackedPart.model_validate_json(payload)
+    content = TranscriptText.model_validate(packed.body)
+    artifacts: list[TranscriptArtifact] = []
+    for field, sha in sorted(packed.refs.items()):
+        field = TypeAdapter[ArtifactField](ArtifactField).validate_python(field)
+        artifact = db.execute(
+            "SELECT length(payload) FROM artifacts WHERE sid=? AND sha=?",
+            (sid, sha),
+        ).fetchone()
+        if artifact is None:
+            raise ValueError("missing transcript artifact")
+        artifacts.append(
+            TranscriptArtifact(
+                field=field,
+                sha256=sha,
+                bytes=artifact[0],
+                selection=base64.urlsafe_b64encode(
+                    canonical_bytes(
+                        ArtifactSelection(
+                            store_id=store_id,
+                            owner_uid=index.owner_uid,
+                            workspace=selected_workspace,
+                            session_id=sid,
+                            snapshot_sha256=summary.snapshot_sha256,
+                            generation=generation,
+                            position=position,
+                            field=field,
+                            sha256=sha,
+                            bytes=artifact[0],
+                        )
+                    )
+                ).decode(),
+            )
+        )
+    return TranscriptEntry(
+        position=position, content=content, artifacts=tuple(artifacts)
+    )

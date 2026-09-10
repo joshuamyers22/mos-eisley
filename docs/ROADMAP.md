@@ -91,7 +91,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
    F7/F8 and `session-artifact` now expand one explicitly selected memory/review
    artifact with snapshot binding, integrity checks and a separate byte budget.
-   Bounded controller resume, bulk migration and the long-session acceptance gate
+   A separately verified resume checkpoint now supports `resume --inspect` with
+   the last four messages, all queued/running work and required steering ancestors,
+   under a fixed record-read budget. It leaves artifacts unexpanded and performs
+   no recovery. Actual bounded controller resume, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.

@@ -58,6 +58,7 @@ from mos_eisley.run.conversation_artifacts import (
     read_sqlite_artifact,
 )
 from mos_eisley.run.conversation_migration import ConversationMigration
+from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_sqlite import (
     SQLiteConversationStore,
     list_sqlite_conversations,
@@ -226,6 +227,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             selection = command.add_mutually_exclusive_group(required=True)
             selection.add_argument("session_id", nargs="?")
             selection.add_argument("--last", action="store_true")
+            command.add_argument(
+                "--inspect",
+                action="store_true",
+                help="Inspect a bounded SQLite working set without resuming work",
+            )
             command.add_argument(
                 "--refresh-memory",
                 action="store_true",
@@ -759,6 +765,43 @@ def run_command(args: argparse.Namespace) -> int:
         raise ValueError(
             "--catalog-max-bytes applies to snapshot storage; SQLite uses --limit"
         )
+    if args.command == "resume" and args.inspect:
+        if not sqlite_backend:
+            raise ValueError("--inspect requires --storage-backend sqlite")
+        if (
+            args.refresh_memory
+            or args.refresh_cassette is not None
+            or args.session_max_bytes is not None
+            or args.cassette is not None
+            or args.review_packet is not None
+            or args.no_memory
+            or args.tui
+            or args.plain
+        ):
+            raise ValueError("--inspect cannot use session changes or terminal options")
+        latest = None
+        if args.last:
+            page = list_sqlite_conversations(args.storage, args.workspace, limit=1)
+            if not page.sessions:
+                raise ValueError("No saved conversations in this workspace.")
+            latest = page.sessions[0]
+        inspection = inspect_sqlite_resume(
+            args.storage,
+            args.session_id if latest is None else latest.session_id,
+            args.workspace,
+            expected_sha256=None if latest is None else latest.snapshot_sha256,
+        )
+        print(
+            json.dumps(
+                {
+                    "type": "conversation.resume_inspected",
+                    **inspection.model_dump(mode="json"),
+                },
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if (
         args.command == "sessions"
         and (args.limit is not None or args.cursor is not None)

@@ -1490,8 +1490,30 @@ then verify its hash and typed schema. The CLI accepts an explicit limit up to
 32 MB; this budget covers stored payload bytes, not rendered output or RAM.
 The terminal retains at most one expanded artifact and clears it on selection,
 page, session or view changes; obsolete background results are discarded.
-Expansion grants no model or critic access. Bounded controller resume remains open;
-neither backend has passed the long-session gate below.
+Expansion grants no model or critic access.
+
+SQLite saves now include a derived resume checkpoint: the exact stored header hash
+and byte size, plus bounded message status, review kind, steering links and record
+sizes. Full loads verify it against the complete state. `mos resume --last
+--storage-backend sqlite --inspect` reads this checkpoint in a read-only transaction,
+verifies the header, and selects the last four messages, queued/running work and
+their complete steering ancestry. It verifies only selected message payloads and
+reference availability; artifacts stay unexpanded. Header plus selected records
+must fit 512,000 bytes, with admission before fetching message payloads. Inspection
+reports omitted-message count, pending positions and which running position would
+be interrupted on normal resume. It does not recover, save or dispatch work.
+Older indexes require the existing exact-hash `session-transcript --prepare` step,
+which now prepares both page and resume metadata while preserving state and raw
+records. The checkpoint still has a 16-message bound and needs a scalable layout
+before the message cap can be lifted.
+
+Actual bounded controller resume remains open. Next separate active controller
+state from historical artifact values, commit checkpoint-bound transitions without
+loading all retained state, and budget active memory/recording/review hydration at
+request boundaries. Preserve attempt accounting, interrupted-work recovery and
+steering ancestry. The inspection selection is not a provider context policy;
+context selection/compaction must explicitly preserve or account for earlier intent.
+Neither backend has passed the long-session gate below.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

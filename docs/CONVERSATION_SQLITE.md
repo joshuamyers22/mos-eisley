@@ -154,12 +154,13 @@ mos session-transcript SESSION_ID --prepare --expected-sha256 HASH --json
 ```
 
 Preparation locks the session, verifies the complete bounded state, checks the
-selected hash and transactionally adds the derived digests. It preserves the
+selected hash and transactionally adds the derived digests and resume checkpoint.
+It preserves the
 session hash, revision, saved timestamp, message/artifact records and consumed
 attempts. Repeating preparation verifies the state without rewriting the index.
 It cannot be combined with page options and never runs automatically during reads.
 A normal session save also writes the new index. Use this version of Mos Eisley
-for prepared/new indexes; older builds may reject the added index field. The digest
+for prepared/new indexes; older builds may reject the added index fields. The digest
 list is bounded by the current 16-message schema; lifting that cap also requires an
 index layout that stays bounded as history grows. Preparation still uses a full-state
 read, and neither paginated interactive resume nor the
@@ -195,6 +196,52 @@ other message payloads or other artifacts, and does not check cross-artifact sta
 relationships. Full resume still performs complete state validation. Unselected
 corruption may remain undiscovered. The terminal keeps one expanded artifact at a
 time; expansion never dispatches work or makes history available to models/critics.
+
+## Resume inspection
+
+Inspect a saved session before opening the controller:
+
+```sh
+mos resume SESSION_ID --storage-backend sqlite --inspect --json
+mos resume --last --storage-backend sqlite --inspect --storage PATH -C WORKSPACE
+```
+
+The command reads a derived resume checkpoint, verifies the stored header and
+selects the latest four messages, all queued/running work and their complete steering
+ancestry. It reports selected positions, omitted-message count, consumed recording
+attempts, pending positions and which running position normal resume would mark
+interrupted. Inspection itself does not recover work, construct a controller, read
+current memory files, consume an attempt or save anything. It also works while the
+session is open. It cannot be combined with memory/recording changes, storage-budget
+changes or terminal display flags. `--last` selects from the bounded SQLite catalog
+and rechecks the selected snapshot hash before reading its header.
+
+The byte budget is independent of session retention: at most 512,000 stored header
+and selected-message bytes, plus one separately bounded 32,000-byte session index.
+All selected record sizes are admitted before fetching any message payload. An
+over-budget working set produces an error; use transcript pages to inspect smaller
+sections. Returned message records use the same hash verification and artifact
+selection tokens as transcript pages. Memory, retained recordings, review packets
+and review results remain references. Header references report their digest and
+size; their content is not fetched. Output escapes terminal control characters.
+These are stored-payload limits, not physical disk/cache, output-size or RAM limits.
+
+New saves/imports write the checkpoint atomically with the session. It records the
+exact header hash/size and per-message status, review kind, steering target and raw
+record size. Full loads verify the checkpoint against the reconstructed state.
+Older sessions remain fully resumable, but inspection requires explicit preparation
+with `session-transcript SESSION_ID --prepare --expected-sha256 HASH` using the same
+storage/workspace. Preparation preserves raw header/message bytes, session hash,
+revision, timestamp and consumed attempts; it never runs implicitly during reads.
+
+Inspection verifies selected records and reference availability. Corrupt omitted
+records or artifact contents can remain undiscovered until selected or fully loaded.
+The owner-local index provides snapshot binding, not protection against deliberate
+same-user rewrites. This is a candidate working-set reader; **normal resume still
+loads and validates the full state**. Its selection does not change model context
+or authorize omitting earlier instructions. Controller transitions, bounded active
+artifact loading and a scalable replacement for the 16-entry checkpoint are the
+next steps toward long-session support.
 
 ## Incremental writes and recovery
 

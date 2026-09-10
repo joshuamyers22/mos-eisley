@@ -14,7 +14,9 @@ The transcript CLI and SQLite terminal's F5 browser now read bounded text pages 
 artifact references. F7/F8 and `session-artifact` explicitly expand one selected
 artifact under a separate 512,000-byte default read budget; the CLI can raise this
 up to 32 MB without changing session retention or model context limits.
-Bounded controller resume and bulk migration remain planned.
+`resume --inspect` now reads a candidate working set from a separately verified
+checkpoint without resuming the controller. Bounded controller resume and bulk
+migration remain planned.
 
 ## Current controls
 
@@ -73,7 +75,8 @@ still stop work through the existing persistence-failure path.
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
 reuse, transactional deletion and bounded metadata/transcript pages, including
-SQLite terminal history navigation and selected artifact expansion. It still reconstructs
+SQLite terminal history navigation, selected artifact expansion and bounded resume
+inspection. It still reconstructs
 full logical state for load/save and retains the preview's message cap. The stages
 below remain the complete target, including bulk migration and the long-session gate.
 
@@ -92,8 +95,14 @@ Implement these stages under the storage and ownership contract in
    browser and selected artifact reader, using stable cursors tied to a consistent
    view. Loading one page
    must not scan or decode all transcripts.
-   Opening/resuming a session loads a bounded working set plus explicitly selected
-   artifacts. Keep fresh-session isolation and critic isolation intact.
+   The implemented resume checkpoint/inspection selects four recent messages,
+   queued/running work and complete steering ancestry without expanding artifacts.
+   Next, separate the controller's working state from historical artifact values;
+   persist checkpoint-bound transitions without a full-state load, and admit only
+   the memory/recording/review inputs needed at an explicit request boundary.
+   Actual resume must load a bounded working set plus selected artifacts while
+   preserving consumed attempts, recovery and isolation. The inspection selection
+   is not yet a model-context policy and must not silently omit earlier intent.
 4. Separate disk retention, page/record read limits, active context, pending-input
    capacity and provider spending budgets. Make retention and total storage quotas
    configurable; show usage before admission fails. Keep current memory bounds
