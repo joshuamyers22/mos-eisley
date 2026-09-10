@@ -97,6 +97,12 @@ def _check_locations(plan: ConversationTransferPlan) -> None:
                 raise ValueError("selected transfer directory changed")
 
 
+def inspect_storage_location(root: Path) -> TransferLocation:
+    """Read an existing private storage directory identity without writing."""
+    with _root(root) as fd:
+        return _location(root, fd)
+
+
 def inspect_transfer_destination(root: Path) -> TransferLocation:
     """Read an existing private destination identity without creating metadata."""
     with _root(root) as fd:
