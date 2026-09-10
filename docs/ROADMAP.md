@@ -127,11 +127,15 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    prerequisites, while stop/quit still cancel pending handoffs. `/context` now
    previews selected turn sources, steering ancestry, omissions and canonical
    context usage through the same projection as dispatch, without saving or
-   starting work. This metadata preview is versioned and ephemeral; durable
-   request-selection records and visible compaction remain planned. Preview schema
+   starting work. This metadata preview is versioned and ephemeral. Preview schema
    2 now includes complete request bytes/hash, route, output reserve, headroom and
    the independent request fit result through the same builder used by dispatch.
-   A saved-context fit does not imply the complete request fits. Smaller
+   A saved-context fit does not imply the complete request fits. New chat attempts
+   now atomically retain versioned admission metadata with the running transition:
+   exact context/request fingerprints, limits and selected/omitted message positions.
+   Completion, failure and recovery preserve it; existing entries are not backfilled.
+   SQLite transcript/inspection reads expose this metadata without artifact hydration.
+   Admission does not prove provider receipt. Visible compaction, smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

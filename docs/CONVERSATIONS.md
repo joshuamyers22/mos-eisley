@@ -299,6 +299,11 @@ text, statuses, recorded chat usage and identity/configuration hashes. Explicit
 reviews additionally retain their selected packet and structured report in the
 same private snapshot.
 Current request configuration and limits are reconstructed from installed code.
+New chat attempts additionally save the admitted context/request hashes, byte
+budgets and source positions before dispatch. These records survive interruption
+and preserve the original admission when later configuration changes. They do not
+prove the provider received the request. Existing entries have no backfilled record.
+See [saved request admissions](CONVERSATION_STORAGE.md#saved-request-admissions).
 
 Storage is user-selected and retention is manual through `session-delete`. The
 JSON file contains the current transcript; `.lock` files are synchronization

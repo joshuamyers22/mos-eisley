@@ -11,25 +11,16 @@ from mos_eisley.conversation_context import (
     project_context,
 )
 from mos_eisley.conversation_limits import ContextByteLimit
+from mos_eisley.conversation_request_admission import (
+    RequestBudgetPreview as RequestBudgetPreview,
+)
+from mos_eisley.conversation_request_admission import describe_request
 from mos_eisley.conversation_state import RuntimeConversationState, SessionID
-from mos_eisley.core.models import Contract, Digest, Identifier, canonical_fingerprint
-from mos_eisley.core.protocol import Effort
+from mos_eisley.core.models import Contract, Digest, canonical_fingerprint
 
 
 class ContextPreviewUnavailable(ValueError):
     """A safe notice when there is no queued chat target."""
-
-
-class RequestBudgetPreview(Contract):
-    provider: Identifier
-    model: Identifier
-    effort: Effort
-    sha256: Digest
-    bytes: Annotated[int, Field(ge=1)]
-    max_bytes: Annotated[int, Field(ge=1)]
-    within_budget: bool
-    output_reserve_bytes: Annotated[int, Field(ge=1)]
-    headroom_bytes: Annotated[int, Field(ge=0)]
 
 
 class ContextPreview(Contract):
@@ -115,7 +106,6 @@ def preview_context(state: RuntimeConversationState) -> ContextPreview:
         RequestContext(system=config.system, turns=projected.turns)
     )
     request, budget = prepare_conversation_request(config)
-    request_fingerprint = canonical_fingerprint(request)
     return ContextPreview(
         session_id=state.session_id,
         revision=state.revision,
@@ -124,17 +114,7 @@ def preview_context(state: RuntimeConversationState) -> ContextPreview:
         context_bytes=fingerprint.bytes,
         context_max_bytes=state.context_byte_limit,
         within_context_budget=fingerprint.bytes <= state.context_byte_limit,
-        request=RequestBudgetPreview(
-            provider=request.provider,
-            model=request.model,
-            effort=request.effort,
-            sha256=request_fingerprint.sha256,
-            bytes=request_fingerprint.bytes,
-            max_bytes=budget.usable_input,
-            within_budget=request_fingerprint.bytes <= budget.usable_input,
-            output_reserve_bytes=budget.output_reserve,
-            headroom_bytes=budget.headroom,
-        ),
+        request=describe_request(request, budget),
         memory_selected=state.memory is not None,
         active_work=any(entry.status == "running" for entry in state.entries),
     )

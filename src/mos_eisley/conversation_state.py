@@ -12,6 +12,7 @@ from mos_eisley.conversation_limits import (
     SnapshotByteLimit,
 )
 from mos_eisley.conversation_memory import ConversationMemory
+from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
@@ -44,6 +45,9 @@ class ConversationEntry(Contract):
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    request_admission: RequestAdmission | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     memory_context: ConversationMemoryContext | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -71,6 +75,12 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.request_admission is not None and (
+            self.status == "queued" or self.is_review
+        ):
+            raise ValueError(
+                "only dispatched chat entries can retain request admission"
+            )
         if self.memory_context is not None and (
             self.status == "queued" or self.review_packet is not None
         ):
@@ -121,6 +131,9 @@ class ArchivedConversationEntry(Contract):
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    request_admission: RequestAdmission | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -147,6 +160,12 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.request_admission is not None and (
+            self.status == "queued" or self.is_review
+        ):
+            raise ValueError(
+                "only dispatched chat entries can retain request admission"
+            )
         refs = self.artifact_refs
         if not refs.keys() <= {"memory_context", "review_packet", "review_result"}:
             raise ValueError("invalid archived artifact field")
@@ -186,7 +205,15 @@ class ArchivedConversationEntry(Contract):
 
     def record_body(self) -> dict[str, object]:
         return self.model_dump(
-            mode="json", include={"text", "status", "answer", "usage", "steering_for"}
+            mode="json",
+            include={
+                "text",
+                "status",
+                "answer",
+                "usage",
+                "steering_for",
+                "request_admission",
+            },
         )
 
 
@@ -244,7 +271,20 @@ class ConversationState(Contract, Generic[EntryT]):
         if self.memory is not None:
             self.memory.validate_identity(self.owner_uid, self.workspace)
         targets: set[int] = set()
+        admitted_exchanges: set[int] = set()
         for index, entry in enumerate(self.entries):
+            if (admission := entry.request_admission) is not None:
+                if (
+                    admission.selection.message_index != index
+                    or admission.source_revision >= self.revision
+                    or admission.message_count > len(self.entries)
+                    or admission.exchange_index >= self.exchanges_consumed
+                    or admission.exchange_index in admitted_exchanges
+                ):
+                    raise ValueError(
+                        "request admission does not match its saved attempt"
+                    )
+                admitted_exchanges.add(admission.exchange_index)
             if (
                 entry.memory_context is not None
                 and entry.memory_context.memory is not None
@@ -266,10 +306,12 @@ class ConversationState(Contract, Generic[EntryT]):
         )
         # Cancelling a queued message does not consume an exchange.
         dispatched = sum(entry.status != "cancelled" for entry in started)
-        # A cancelled steering target must have consumed an attempt, unlike an
-        # ordinary queued message cancelled before dispatch.
+        # A cancelled steering target or an entry with admission metadata consumed
+        # an attempt, unlike an ordinary queue cancellation before dispatch.
         dispatched += sum(
-            self.entries[index].status == "cancelled" for index in targets
+            entry.status == "cancelled"
+            and (index in targets or entry.request_admission is not None)
+            for index, entry in enumerate(self.entries)
         )
         if not dispatched <= self.exchanges_consumed <= len(started):
             raise ValueError("invalid conversation exchange count")
