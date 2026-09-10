@@ -1622,6 +1622,17 @@ requiring exact agreement with the preflight size before commit/publication. Thi
 adds a record/metadata pass to successful saves; it avoids archived payload work
 on capacity rejection but does not provide bounded accepted transitions.
 
+Admitted working saves now reuse repeated small archived artifacts within a
+save-local cache capped at 64 KiB of encoded payload. Only complete, size- and
+SHA-256-verified immutable chunks enter it; partial reads and late failures leave
+no cached result. First eligible values that fit share their bytes across later
+references. Single-use, oversized, non-fitting and newly encoded values bypass
+the cache. Every occurrence still contributes its bytes to the canonical snapshot
+hash and logical size. The cache clears when streaming exits and never carries
+payloads into the next save or cold verification. This bounds added cached payload,
+not total process RAM, and reduces repeated disk reads rather than full-history
+hashing or working-state validation.
+
 Cold verification still reads all history. Admitted active memory/recording values
 remain decoded, and each save still hashes all logical history bytes. The current
 working state keeps text for all 16 messages. Next reduce text/record bookkeeping

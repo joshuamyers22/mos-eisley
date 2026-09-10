@@ -116,7 +116,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    buffer, including full schema validation of the excluded review cache. Working
    saves now preflight exact logical size from record structure and artifact lengths;
    a current checkpoint permits capacity rejection before artifact reads or writes.
-   Admitted saves still stream all history and verify the preflight size. Smaller
+   Admitted saves still stream all logical history and verify the preflight size.
+   Repeated small archived artifacts can now reuse verified chunks within a 64 KiB
+   cache for that save, reducing repeated disk reads without carrying payloads
+   between operations. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

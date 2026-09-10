@@ -215,6 +215,9 @@ Implement these stages under the storage and ownership contract in
    Working saves now preflight exact logical snapshot size using artifact lengths,
    rejecting capacity overflow before payload reads when the checkpoint is current.
    Admitted saves still verify all streamed history bytes and the measured size.
+   A 64 KiB cache now reuses completely verified chunks of repeated small archived
+   artifacts within that save; it clears when streaming exits. Larger/non-fitting
+   values bypass the cache, and full-history hashing remains necessary.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

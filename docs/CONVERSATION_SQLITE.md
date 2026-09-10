@@ -282,6 +282,18 @@ which can read artifacts. Admitted saves retain complete streamed hash verificat
 and must match the preflight size before publication. The metadata pass still walks
 all packed records and adds work to successful saves; it does not lift any limit.
 
+During an admitted working save, repeated archived artifacts may share a cache of
+at most 64 KiB of encoded payload. The first eligible values that fit are retained
+as immutable chunks only after the source finishes and exact size/SHA-256 checks
+pass. A partial read or late verification failure cannot populate the cache.
+Single-use, oversized and non-fitting values stream normally; new inputs already
+encoded by the save are not copied into this cache. Cached chunks still contribute
+to the complete snapshot hash and size on every reference. The cache is cleared
+when that streaming pass exits, including failures, and is never reused by another
+save, cold verification or resume. This reduces repeated disk reads, with a bounded
+payload-memory tradeoff; the 64 KiB limit excludes Python object overhead and is
+not a total process RAM limit. It does not remove full-history hashing.
+
 Each packed header/message record is encoded once during working-save preparation.
 Its admitted bytes and message digest are reused for archive checks, checkpoint
 metadata and writes, avoiding repeated encoding and a packed-record JSON round trip.
