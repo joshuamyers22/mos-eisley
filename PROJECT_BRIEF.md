@@ -16,6 +16,9 @@
   transcript, review expansion and persistent status using the same controller.
   Bare `mos` opens it in the current workspace with a built-in recorded preview
   and private default storage; `mos resume --last` reopens the latest session.
+  User/project memory now has private scoped storage, explicit CLI management,
+  startup loading, `/memory` inspection and stale-memory dispatch/resume checks.
+  A persistent directory header and `/directory` inspection show the workspace.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
@@ -72,10 +75,10 @@
 - Planned data contract: retain conversations and evidence in user-selected local
   or cloud storage with enforced per-user ownership. No cross-user aggregation,
   including anonymized model-selection statistics. Fresh sessions automatically
-  reuse the same user's minimal selection aggregates; planned user/project memory
+  reuse the same user's minimal selection aggregates; explicit user/project memory
   adds explicitly curated preferences and facts with scoped inspection, editing,
   deletion and disable controls (plan §16.0.2). Full saved conversations require
-  explicit resume/inspection. Memory, remote adapters and comprehensive enforcement remain
+  explicit resume/inspection. Advanced memory controls, remote adapters and comprehensive enforcement remain
   unimplemented; see plan §17 and the roadmap.
 - Recovery: run artifacts are authoritative. Missing/invalid manifests reject
   replay; an unavailable SQLite index does not discard completed evidence.

@@ -27,6 +27,12 @@ from mos_eisley.conversation_input import (
     ConversationInputQueue,
     ConversationSubmission,
 )
+from mos_eisley.conversation_memory import (
+    MEMORY_CHANGED_MESSAGE,
+    ConversationMemory,
+    MemoryChangedError,
+    MemoryStore,
+)
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -41,6 +47,8 @@ from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.demo import demo_inputs
+from mos_eisley.memory_cli import add_command as add_memory_command
+from mos_eisley.memory_cli import add_memory_options
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
 from mos_eisley.run.conversation_store import (
     ConversationStore,
@@ -69,6 +77,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--tui",
         "--plain",
         "--json",
+        "--no-memory",
+        "--memory-storage",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
@@ -76,7 +86,10 @@ def startup_arguments(argv: list[str]) -> list[str]:
 
 
 def demo_cassette(
-    review_text: str | None = None, *, multiline: bool = False
+    review_text: str | None = None,
+    *,
+    multiline: bool = False,
+    memory: ConversationMemory | None = None,
 ) -> AgentCassette:
     turns: tuple[Turn, ...] = ()
     exchanges: list[AgentExchange] = []
@@ -95,7 +108,7 @@ def demo_cassette(
             prompt = REVIEW_FOLLOWUP
             answer = "Restore quantity >= 10."
         turns += (Turn(role="user", blocks=(TextBlock(text=prompt),)),)
-        config = conversation_config(turns)
+        config = conversation_config(turns, memory)
         resolved = fixture_registry().resolve(
             config.provider, config.model, config.effort
         )
@@ -125,6 +138,9 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    add_memory_command(
+        add_parser("memory", help="Inspect or change user/project memory")
+    )
     demo = add_parser("conversation-demo", help="Write a synthetic chat cassette")
     demo.add_argument("--output", type=Path, required=True)
     demo.add_argument(
@@ -135,6 +151,9 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     )
     review_demo.add_argument("--output", type=Path, required=True)
     review_demo.add_argument("--review-output", type=Path, required=True)
+    for generator in (demo, review_demo):
+        add_memory_options(generator)
+        generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "resume":
@@ -145,6 +164,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
+            add_memory_options(command)
             command.add_argument(
                 "--cassette",
                 type=Path,
@@ -388,12 +408,14 @@ async def terminal(
                 assert active is not None
                 try:
                     active.result()
-                except (AgentFailure, ValueError):
+                except (AgentFailure, ValueError) as exc:
                     enabled = False
                     emit(
                         {
                             "type": "conversation.error",
-                            "text": "Recorded request failed; continuation is paused.",
+                            "text": MEMORY_CHANGED_MESSAGE
+                            if isinstance(exc, MemoryChangedError)
+                            else "Recorded request failed; continuation is paused.",
                         }
                     )
                 active = None
@@ -448,6 +470,24 @@ async def terminal(
                     pass
                 elif line == "/continue":
                     enabled = True
+                elif line == "/memory":
+                    emit(
+                        {
+                            "type": "conversation.memory",
+                            "text": (
+                                controller.state.memory.describe()
+                                if controller.state.memory is not None
+                                else "No memory is active in this session."
+                            ),
+                        }
+                    )
+                elif line == "/directory":
+                    emit(
+                        {
+                            "type": "conversation.directory",
+                            "text": controller.state.workspace,
+                        }
+                    )
                 elif line == "/steer" or line.startswith("/steer "):
                     if submit_text(
                         line.removeprefix("/steer").lstrip(), require_active=True
@@ -465,7 +505,8 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/steer TEXT, /review, /stop, /continue, /quit"
+                                    "/steer TEXT, /review, /memory, /directory, "
+                                    "/stop, /continue, /quit"
                                 ),
                             }
                         )
@@ -520,12 +561,32 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.command == "memory":
+        from mos_eisley.memory_cli import run_command as run_memory
+
+        return run_memory(args)
+    if getattr(args, "tui", False) and (
+        args.json or not sys.stdin.isatty() or not sys.stdout.isatty()
+    ):
+        print(
+            "mos-eisley: --tui requires terminal input/output and cannot use --json",
+            file=sys.stderr,
+        )
+        return 2
+    memory = None
+    if (
+        args.command
+        in {"chat", "resume", "conversation-demo", "conversation-review-demo"}
+        and not args.no_memory
+    ):
+        memory = MemoryStore(args.memory_storage, args.workspace).load()
     if args.command == "conversation-review-demo":
         brief, cassette = demo_inputs()
         packet = ConversationReviewPacket(brief=brief, cassette=cassette)
         result = asyncio.run(run_conversation_review(packet))
         private_write(
-            args.output, canonical_bytes(demo_cassette(review_summary(result)))
+            args.output,
+            canonical_bytes(demo_cassette(review_summary(result), memory=memory)),
         )
         private_write(args.review_output, canonical_bytes(packet))
         print(
@@ -539,17 +600,10 @@ def run_command(args: argparse.Namespace) -> int:
         )
         return 0
 
-    if getattr(args, "tui", False) and (
-        args.json or not sys.stdin.isatty() or not sys.stdout.isatty()
-    ):
-        print(
-            "mos-eisley: --tui requires terminal input/output and cannot use --json",
-            file=sys.stderr,
-        )
-        return 2
     if args.command == "conversation-demo":
         private_write(
-            args.output, canonical_bytes(demo_cassette(multiline=args.multiline))
+            args.output,
+            canonical_bytes(demo_cassette(multiline=args.multiline, memory=memory)),
         )
         prompts = (
             (MULTILINE_PROMPT, DEMO_PROMPTS[1]) if args.multiline else DEMO_PROMPTS
@@ -625,7 +679,7 @@ def run_command(args: argparse.Namespace) -> int:
         return 0
 
     cassette = (
-        demo_cassette()
+        demo_cassette(memory=memory)
         if args.cassette is None
         else AgentCassette.model_validate_json(read_bounded(args.cassette))
     )
@@ -639,7 +693,7 @@ def run_command(args: argparse.Namespace) -> int:
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None
     if args.command == "chat":
-        fresh = ConversationController.fresh(args.workspace, cassette)
+        fresh = ConversationController.fresh(args.workspace, cassette, memory)
         session_id = fresh.session_id
     elif args.last:
         summaries = list_conversations(args.storage, args.workspace)
@@ -662,12 +716,26 @@ def run_command(args: argparse.Namespace) -> int:
         if fresh is not None:
             store.save(fresh)
         state = fresh if fresh is not None else store.load()
+        if state.memory != memory:
+            print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
+            return 2
         if (
             selected is not None
             and digest(canonical_bytes(state)) != selected.snapshot_sha256
         ):
             raise ValueError("selected latest conversation changed; list again")
-        controller = ConversationController(state, cassette, store.save)
+        controller = ConversationController(
+            state,
+            cassette,
+            store.save,
+            validate_memory=(
+                None
+                if args.no_memory
+                else lambda: MemoryStore(args.memory_storage, args.workspace).check(
+                    memory
+                )
+            ),
+        )
         emit(
             {
                 "type": "conversation.opened",
@@ -685,6 +753,12 @@ def run_command(args: argparse.Namespace) -> int:
             if args.cassette is None
             else "Use the messages expected by your selected recording."
         )
+        welcome += (
+            "\nMemory: disabled for this launch."
+            if args.no_memory
+            else f"\nMemory storage: {args.memory_storage.absolute()}"
+        )
+        welcome += "\n/memory shows the context fixed for this session."
         if args.tui or (
             not args.plain
             and not args.json

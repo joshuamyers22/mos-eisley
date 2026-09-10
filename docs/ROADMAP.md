@@ -13,7 +13,7 @@ evaluation evidence, and model-selection records under one user's ownership.
 Default to private local files/SQLite, and support user-configured cloud database
 and object-storage adapters. No cross-user sharing, pooling, or aggregation,
 including anonymized model-selection telemetry. Fresh sessions may automatically
-reuse that user's minimal model-selection aggregates and, once implemented, enabled
+reuse that user's minimal model-selection aggregates and enabled
 user/project memory explicitly curated under §16.0.2. Full prior conversational
 content requires explicit same-owner resume or inspection. Plan §17 defines the
 contract; comprehensive enforcement and remote adapters remain planned work.
@@ -69,7 +69,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    Directory selection/visibility and separate user/project memory are now explicit
    requirements in plan §16.0.1–16.0.2. Deliver scoped memory inspection, editing,
    remember/forget and disable controls with precedence, project isolation and
-   retention tests. Memory loading/saving and the directory picker remain planned.
+   retention tests. The first [memory implementation](CONVERSATION_MEMORY.md) now
+   provides private owner/project storage, explicit CLI management, startup loading,
+   in-session inspection and changed-memory guards before dispatch/resume. Directory
+   status stays visible. Natural-language memory changes, safe in-session refresh,
+   project-root discovery and the directory picker remain planned.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

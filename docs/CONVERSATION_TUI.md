@@ -55,6 +55,11 @@ checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
 authentication, an initial positional prompt and an interactive resume picker
 remain future work; this is not complete Codex feature parity.
 
+The persistent header now shows the working directory and active user/project memory
+revisions. `/directory` shows the full path, and `/memory` toggles complete memory
+details in the scrollable transcript. See [memory management](CONVERSATION_MEMORY.md)
+for explicit saves, scope selection, no-memory launches and changed-memory recovery.
+
 ## Keyboard controls
 
 | Control | Action |

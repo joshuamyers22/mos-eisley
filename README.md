@@ -29,6 +29,11 @@ save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Live conversation is still pending. See the
 [terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
 
+Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
+Use `mos memory append --scope user --text "..."` for personal preferences, or
+`--scope project` for the current project. `/memory` inspects active context and
+`mos --no-memory` bypasses it. Changed memory requires a fresh conversation.
+
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
 ```sh
@@ -374,8 +379,9 @@ The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-tele
 keeps retained data under one user's ownership while allowing user-configured local
 or cloud backends. It prohibits cross-user aggregation, including model-selection
 statistics, and automatic retrieval of full prior conversations in fresh sessions.
-Planned [user/project memory](docs/mos-eisley-plan.md#1602-user-and-project-memory)
-adds explicitly curated facts and preferences with separate scopes and user controls.
+The first [user/project memory implementation](docs/CONVERSATION_MEMORY.md)
+adds explicitly curated facts and preferences with separate scopes and CLI controls;
+natural-language saving and safe in-session refresh remain planned.
 Remote storage adapters and comprehensive user-isolation enforcement are not yet
 implemented; the current private-file behavior is not a claim of those guarantees.
 

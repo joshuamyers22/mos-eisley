@@ -118,6 +118,8 @@ class ConversationTUI:
         )
         self.sending = False
         self.details = False
+        self.memory_visible = False
+        self.directory_visible = False
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
         self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
@@ -197,13 +199,8 @@ class ConversationTUI:
         layout = HSplit(
             [
                 Window(
-                    FormattedTextControl(
-                        lambda: display_text(
-                            "Mos Eisley • recorded conversation • "
-                            f"{controller.state.session_id[:8]}"
-                        )
-                    ),
-                    height=1,
+                    FormattedTextControl(self.header),
+                    height=2,
                     style="class:title",
                 ),
                 Frame(
@@ -250,6 +247,25 @@ class ConversationTUI:
     def set_notice(self, text: str) -> None:
         self.notice = text[:400]
         self.app.invalidate()
+
+    def header(self) -> str:
+        state = self.controller.state
+        memory = state.memory
+        scopes = " / ".join(
+            f"{scope} r{snapshot.document.revision}"
+            if snapshot is not None
+            else f"{scope} none"
+            for scope, snapshot in (
+                ("user", memory.user if memory else None),
+                ("project", memory.project if memory else None),
+            )
+        )
+        workspace = state.workspace
+        abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
+        return display_text(
+            f"Mos Eisley • recorded • {state.session_id[:8]} • memory {scopes}\n"
+            f"Directory: {abbreviated} • /directory shows full path"
+        )
 
     def status(self) -> str:
         state = self.controller.state
@@ -316,6 +332,14 @@ class ConversationTUI:
                     "Showing up to ten adjudicated findings. "
                     "The full report remains in the saved session."
                 )
+        if self.memory_visible:
+            parts.append(
+                state.memory.describe()
+                if state.memory is not None
+                else "No memory is active in this session."
+            )
+        if self.directory_visible:
+            parts.append(f"Working directory\n{state.workspace}")
         text = display_text(
             "\n\n".join(parts)
             or (
@@ -334,6 +358,24 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.memory":
+            self.memory_visible = not self.memory_visible
+            self.directory_visible = False
+            self.set_notice(
+                "Memory details shown. /memory hides them."
+                if self.memory_visible
+                else "Memory details hidden."
+            )
+            self.refresh()
+            return
+        if event["type"] == "conversation.directory":
+            self.directory_visible = not self.directory_visible
+            self.memory_visible = False
+            self.set_notice(
+                "Directory details toggled. /directory shows or hides them."
+            )
+            self.refresh()
+            return
         if str(event["type"]).startswith("conversation."):
             self.set_notice(str(event.get("text", "")))
         self.refresh()
