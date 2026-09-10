@@ -212,6 +212,9 @@ Implement these stages under the storage and ownership contract in
    and message digest; cold resume avoids a second preparation of verified entries.
    Runtime revalidation uses a fresh native data tree instead of a whole-state JSON
    buffer, preserving nested checks and the existing persisted-JSON decoder.
+   Working saves now preflight exact logical snapshot size using artifact lengths,
+   rejecting capacity overflow before payload reads when the checkpoint is current.
+   Admitted saves still verify all streamed history bytes and the measured size.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

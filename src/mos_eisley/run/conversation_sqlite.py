@@ -325,12 +325,12 @@ def _artifact_chunks(
         raise ValueError("archived artifact integrity mismatch")
 
 
-def _state_chunks(
+def _state_tokens(
     part: PackedPart,
-    read_artifact: Callable[[str], Generator[bytes]],
     *,
     entries: list[PackedPart] | None = None,
-) -> Generator[bytes]:
+) -> Generator[bytes | str]:
+    """Canonical JSON bytes interleaved with artifact digests, without payload reads."""
     # Module-level recursion avoids a self-referential closure retaining the
     # artifact reader, its store and encoded active inputs until cyclic GC runs.
     yield b"{"
@@ -344,17 +344,41 @@ def _state_chunks(
             yield b","
         yield _json(key) + b":"
         if key in part.refs:
-            yield from read_artifact(part.refs[key])
+            yield part.refs[key]
         elif entries is not None and key == "entries":
             yield b"["
             for index, entry in enumerate(entries):
                 if index:
                     yield b","
-                yield from _state_chunks(entry, read_artifact)
+                yield from _state_tokens(entry)
             yield b"]"
         else:
             yield _json(part.body[key])
     yield b"}"
+
+
+def _state_chunks(
+    part: PackedPart,
+    read_artifact: Callable[[str], Generator[bytes]],
+    *,
+    entries: list[PackedPart] | None = None,
+) -> Generator[bytes]:
+    with closing(_state_tokens(part, entries=entries)) as tokens:
+        for token in tokens:
+            if isinstance(token, str):
+                yield from read_artifact(token)
+            else:
+                yield token
+
+
+def _snapshot_size(
+    header: PackedPart, entries: list[PackedPart], artifact_sizes: dict[str, int]
+) -> int:
+    size = len(_json({"sha256": "0" * 64, "state": None})) - len(b"null")
+    with closing(_state_tokens(header, entries=entries)) as tokens:
+        for token in tokens:
+            size += artifact_sizes[token] if isinstance(token, str) else len(token)
+    return size
 
 
 def _files(root: int) -> None:
@@ -1193,6 +1217,26 @@ class SQLiteConversationStore(ConversationStore):
                 or not referenced <= artifacts.keys() | previous.artifacts
             ):
                 raise ValueError("invalid working artifact inventory")
+            artifact_sizes = {sha: len(payload) for sha, payload in artifacts.items()}
+            for sha in sorted(referenced - artifact_sizes.keys()):
+                row = db.execute(
+                    "SELECT length(payload) FROM artifacts WHERE sid=? AND sha=?",
+                    (self.session_id, sha),
+                ).fetchone()
+                if (
+                    row is None
+                    or type(row[0]) is not int
+                    or not 1 <= row[0] <= MAX_SNAPSHOT_BYTES
+                ):
+                    raise ValueError("missing or oversized archived artifact")
+                artifact_sizes[sha] = row[0]
+            required = _snapshot_size(header, parts, artifact_sizes)
+            if required > state.snapshot_byte_limit:
+                raise ValueError(
+                    "conversation snapshot exceeds its saved byte limit; "
+                    f"requires {required} bytes, limit {state.snapshot_byte_limit}; "
+                    "resume with --session-max-bytes BYTES"
+                )
             checksum = hashlib.sha256()
             size = len(_json({"sha256": "0" * 64, "state": None})) - len(b"null")
             with closing(
@@ -1212,6 +1256,8 @@ class SQLiteConversationStore(ConversationStore):
                             "resume with --session-max-bytes BYTES"
                         )
                     checksum.update(chunk)
+            if size != required:
+                raise ValueError("conversation snapshot size changed after admission")
             summary = ConversationSummary(
                 session_id=self.session_id,
                 snapshot_sha256=checksum.hexdigest(),

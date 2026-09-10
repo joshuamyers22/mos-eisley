@@ -271,6 +271,17 @@ preserving the exact canonical snapshot hash and logical byte count without
 reconstructing historical artifact objects or a complete proposed snapshot.
 It still hashes all logical history bytes; this is not constant-time persistence.
 
+Working saves first measure the exact logical snapshot from canonical record
+structure, new artifact sizes and stored artifact lengths. Repeated references
+count once per occurrence in the logical snapshot, even when storage deduplicates
+their bytes. This admission happens inside the write transaction after checkpoint
+and archive validation. With a current verified checkpoint, an oversized save reads
+no artifact payloads and performs no session writes; the storage error includes
+required and allowed bytes. External commits or a missing checkpoint still require prior cold verification,
+which can read artifacts. Admitted saves retain complete streamed hash verification
+and must match the preflight size before publication. The metadata pass still walks
+all packed records and adds work to successful saves; it does not lift any limit.
+
 Each packed header/message record is encoded once during working-save preparation.
 Its admitted bytes and message digest are reused for archive checks, checkpoint
 metadata and writes, avoiding repeated encoding and a packed-record JSON round trip.
