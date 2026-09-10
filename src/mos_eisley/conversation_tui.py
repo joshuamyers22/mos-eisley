@@ -25,7 +25,11 @@ from prompt_toolkit.widgets import Frame, TextArea
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_history import TranscriptHistory
-from mos_eisley.conversation_input import ConversationInput, ConversationSubmission
+from mos_eisley.conversation_input import (
+    ConversationInput,
+    ConversationSubmission,
+    submission_command,
+)
 from mos_eisley.conversation_review import ConversationReviewPacket
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
@@ -573,7 +577,7 @@ class ConversationTUI:
         if not text.strip():
             return
         literal = literal or self.editor.literal or "\n" in text
-        if not literal and text.startswith("/"):
+        if not literal and text.startswith("/") and submission_command(text) is None:
             if text in {"/compose", "/send", "/discard"}:
                 self.set_notice(
                     "Use Enter to send, Alt-Enter for a newline, and Ctrl-U to discard."
@@ -581,6 +585,9 @@ class ConversationTUI:
                 return
             if self.control(text, priority=text in {"/stop", "/quit"}):
                 self.editor.clear()
+            return
+        if self.queue.full():
+            self.set_notice("Input queue is full; draft retained.")
             return
         self.sending = True
         self.submission = asyncio.create_task(self.submit(text, literal))

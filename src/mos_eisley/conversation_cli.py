@@ -28,6 +28,7 @@ from mos_eisley.conversation_input import (
     ConversationInput,
     ConversationInputQueue,
     ConversationSubmission,
+    submission_command,
 )
 from mos_eisley.conversation_inputs import (
     DEFAULT_ACTIVE_MEMORY_BYTES,
@@ -612,7 +613,15 @@ async def terminal(
                         incoming = asyncio.create_task(queue.get())
                         continue
                     try:
-                        if (
+                        command = (
+                            None if line.literal else submission_command(line.text)
+                        )
+                        if command == "steer":
+                            accepted = submit_text(
+                                line.text.removeprefix("/steer").lstrip(),
+                                require_active=True,
+                            )
+                        elif command == "review" or (
                             not line.literal
                             and len(line.text) <= 8000
                             and line.text.count("\n") < 256
