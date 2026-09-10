@@ -12,6 +12,7 @@ from uuid import uuid4
 from typing_extensions import TypeVar
 
 from mos_eisley.conversation_context import admit_context, context_turns
+from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
 from mos_eisley.conversation_memory import (
     ConversationMemory,
     MemoryRefreshError,
@@ -102,7 +103,10 @@ class ConversationController(Generic[StateT]):
         validate_memory: Callable[[], None] | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
+        input_limits: ActiveInputLimits | None = None,
     ) -> None:
+        if input_limits is not None:
+            input_limits.admit(state.memory, cassette)
         if digest(canonical_bytes(cassette)) != state.cassette_sha256:
             raise ValueError("resume requires the exact recorded cassette")
         if state.exchanges_consumed > len(cassette.exchanges):
@@ -112,6 +116,7 @@ class ConversationController(Generic[StateT]):
         self.save = save
         self.validate_memory = validate_memory
         self.load_entry = load_entry
+        self.input_limits = input_limits
         self._busy = False
         self._broken = False
         if any(entry.status == "running" for entry in state.entries):
@@ -179,6 +184,8 @@ class ConversationController(Generic[StateT]):
     def _commit(self, updated: StateT) -> None:
         if self._broken:
             raise ValueError("session persistence failed; reopen before continuing")
+        if self.input_limits is not None:
+            self.input_limits.admit(updated.memory, self.cassette)
         try:
             saved = self.save(updated)
         except BaseException:
@@ -197,6 +204,11 @@ class ConversationController(Generic[StateT]):
     ) -> None:
         if self._busy or any(entry.status == "running" for entry in self.state.entries):
             raise MemoryRefreshError("Stop active work before changing session memory.")
+        try:
+            if self.input_limits is not None:
+                self.input_limits.admit(memory, cassette)
+        except ActiveInputLimitError as error:
+            raise MemoryRefreshError(str(error)) from None
         consumed = self.state.exchanges_consumed
         if (
             len(cassette.exchanges) < consumed
@@ -330,6 +342,8 @@ class ConversationController(Generic[StateT]):
         )
         if index is None:
             return False
+        if self.input_limits is not None:
+            self.input_limits.admit(self.state.memory, self.cassette)
         if self.validate_memory is not None:
             self.validate_memory()
         consumed = self.state.exchanges_consumed

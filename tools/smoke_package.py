@@ -182,6 +182,7 @@ def main() -> int:
             "test_conversation_context.py",
             "test_conversation_working_state.py",
             "test_conversation_cold_resume.py",
+            "test_conversation_input_limits.py",
             "test_mcp_oauth.py",
             "test_mcp_schema.py",
             "test_analysis.py",

@@ -1563,11 +1563,25 @@ summary before publication. Legacy record whitespace/defaults preserve semantics
 unprepared indexes and noncanonical artifacts keep the full-state compatibility path.
 Failed reads publish no new state/revision and clear the previous checkpoint.
 
-Cold verification still reads all history. Active memory/recording values remain
-decoded under the existing aggregate artifact ceiling, and each save still hashes
-all logical history bytes. The current working state keeps text for all 16 messages.
-Next reduce text/record bookkeeping into bounded transitions and independently
-budget active memory/recording hydration. Preserve
+Active inputs now have independent per-launch limits: `--active-memory-max-bytes`
+(131,072 default, 4,096–262,144 range) and `--recording-max-bytes` (2,000,000 default,
+4,096–32,000,000 range). SQLite checks both stored header inputs before fetching
+either artifact, including unprepared legacy loads and external-commit revalidation.
+Recording files are admitted before JSON decoding. Canonical selected memory and
+recording sizes also pass admission before controller recovery, memory refresh,
+transitions and dispatch. A rejected open does not recover/save/dispatch; a rejected
+refresh leaves the controller usable. The welcome and structured lifecycle event
+show the current limits. They are not persisted and cannot alter saved hashes,
+attempts, history, memory-content bounds or provider authority. Raising storage or
+context budgets does not raise these limits. Historical memory has separate bounds.
+JSON still decodes its whole bounded snapshot before controller admission; local
+memory files retain their existing bounded readers. These limits cover serialized
+inputs, not total process RAM.
+
+Cold verification still reads all history. Admitted active memory/recording values
+remain decoded, and each save still hashes all logical history bytes. The current
+working state keeps text for all 16 messages. Next reduce text/record bookkeeping
+into bounded transitions and reduce repeated active-input serialization. Preserve
 attempt accounting, interrupted-work recovery and
 steering ancestry. The inspection selection is not a provider context policy;
 context selection/compaction must explicitly preserve or account for earlier intent.

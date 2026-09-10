@@ -241,8 +241,9 @@ The owner-local index provides snapshot binding, not protection against delibera
 same-user rewrites. This is a candidate working-set reader; **normal resume verifies
 every entry and artifact**, using incremental hydration for current records as
 described below. Its selection does not change model context or authorize omitting
-earlier instructions. Active-input hydration budgets and a scalable replacement for
-the 16-entry checkpoint remain open.
+earlier instructions. Active-input limits apply to normal resume as described below;
+inspection rejects these unused options. A scalable replacement for the 16-entry
+checkpoint remains open.
 
 ## Controller working state
 
@@ -250,7 +251,8 @@ Normal SQLite chat/resume verifies historical memory and review artifacts one en
 at a time and releases their decoded values before validating the next entry.
 The controller retains message text,
 status, usage and steering links for the current 16-message preview, plus verified
-artifact references. Active memory and the selected recording remain decoded.
+artifact references. Active memory and the selected recording remain decoded within
+[per-launch input limits](CONVERSATION_STORAGE.md#active-memory-and-recording-input-limits).
 At most the latest review result stays decoded for the live F3 renderer; queued
 review packets remain references until explicit continuation starts their work.
 
@@ -303,9 +305,13 @@ failed reload discards the previous checkpoint before a later transition.
 
 This bounds historical hydration to one admitted entry, not total process RAM or
 cold-read work. It still reads all history and retains all 16 bounded text records.
-Active memory and recording values remain decoded under the existing aggregate
-32 MB artifact ceiling; their hydration and per-transition serialization still
-need independent budgets. Noncanonical artifacts that fit the cold entry bound
+Before hydrating active header values, the CLI now checks memory and recording
+sizes independently (131,072 and 2,000,000 bytes by default). Both sizes must pass
+before either payload is fetched; the check also precedes the legacy full reader.
+The existing aggregate 32 MB artifact ceiling still applies. Canonical input sizes
+are checked after validation, and configured saves check selected inputs before
+writing. Active values remain decoded; reducing repeated serialization remains
+open. Noncanonical artifacts that fit the cold entry bound
 and unprepared indexes use the full-state compatibility reader; opening does not
 rewrite them. A prepared entry exceeding the cold-input bound is rejected without
 a save or dispatch, including oversized legacy encodings.
@@ -358,7 +364,8 @@ referenced by the saved state are removed in that same transaction. Earlier memo
 remains retained while historical entries reference it. Explicit full loads and
 compatible full-state saves still reconstruct or serialize complete logical state.
 The working-state path verifies historical entries incrementally on cold load and
-external-commit revalidation. Independent active-input budgets remain planned.
+external-commit revalidation. Active-input limits are per-launch settings; reducing
+repeated serialization remains planned.
 Repeated artifact references count toward an expanded byte bound before their
 values are decoded, so corrupt references cannot bypass the input limits.
 
