@@ -333,6 +333,76 @@ A compaction inside a critic silently summarizes away the evidence under review.
 
 `[stable prefix: system + tools + brief] + [volatile: turns]`, explicit cache breakpoint at the boundary. With N critics on one brief, the prefix is the largest cost lever. Compaction invalidates it — a second reason to keep it off the critic path.
 
+### 6.6 Context reduction is a lossy evidence transform
+
+Adversarial review on 2026-09-10 of `context-management-plan.md` (input SHA-256 `9a2b957c352331df9304e4d23065022789456418816e5dd2362498860fea5c88`) accepts its direction but not its universal claims. Smaller, better-targeted context is a useful optimization hypothesis; it is not evidence that nothing relevant was lost. The numbers proposed there — five failures, 400 lines, a 5:1 delegation ratio, and compaction at 70% — are configuration candidates to evaluate, not protocol guarantees or release gates.
+
+The adopted boundary is:
+
+| Proposal | Disposition | Mos Eisley constraint |
+|---|---|---|
+| Bounded tool views | adopt | preserve an inspectable, immutable full-result artifact and disclose every omission |
+| Isolated subagents | already present, narrow | a structured report is a claim with provenance, never a substitute for required evidence |
+| External work state | adopt | typed, owner-scoped, revisioned, and advisory; retrieved text cannot gain instruction authority |
+| Deliberate compaction | adopt for `author` only | derivative state with lineage; never permitted for `critic` or `judge` |
+| Retrieval over stuffing | adopt typed/lexical retrieval first | no automatic trajectory retrieval; semantic retrieval remains deferred |
+| Cache-friendly prompt order | adopt as optimization | cache behavior must not change semantics, access, retention, or freshness |
+
+#### 6.6.1 Tool-result envelope
+
+Every command or file-read result that may be reduced has two representations:
+
+1. an owner-scoped, content-addressed full artifact, subject to the same redaction, retention, size, and access policy as its model-visible view; and
+2. a typed bounded view containing operation identity, repository/workspace and revision, exit status, stdout/stderr identity, byte and line counts, encoding, artifact digest, reduction policy/version, omitted ranges/count, and a `complete` flag.
+
+A filesystem path by itself is not durable evidence: files can mutate, disappear, cross an ownership boundary, or expose host layout. Required evidence binds the digest and metadata above. If the full artifact cannot be retained, the bounded view says so and may not claim completeness.
+
+Reduction is reversible and evidence-aware. It may prioritize failing tests and head/tail excerpts, collapse ANSI/control noise, and de-duplicate only semantically equivalent records. It must not blindly remove repeated events, framework frames, library frames, generated files, lockfiles, or passing-test output: each can carry timing, supply-chain, coverage, or causal evidence. Ordering, stream identity, exit status, and omission metadata survive. A verifier can request bounded pagination or the pinned artifact; if required evidence cannot fit, the operation fails visibly instead of silently truncating it.
+
+Read caching uses at least `(owner, project, workspace/repository identity, tree/revision, path and file identity, content digest, read policy/version)`. Mutations, symlink or metadata changes relevant to the operation, authority changes, and verifier freshness requirements invalidate the entry. “Unchanged bytes” alone is insufficient.
+
+#### 6.6.2 Externalized state and subagent reports
+
+Durable context separates `objective`, `constraint`, `decision`, `open_question`, and `work_item`. Each record carries source and authority, active/superseded status, owner/project, creation and verification revision, content digest, and provenance links. Updates are atomic and concurrency-safe. Privacy, retention, export, and deletion rules apply to these records exactly as they do to prompts and traces.
+
+Model-generated notes, summaries, retrieved documents, tool output, and subagent reports are untrusted advisory data. They cannot promote text to a user constraint, authorize an action, certify evidence, or override a later user request. A decision record names who authorized it and why; superseded instructions remain distinguishable from active ones.
+
+Subagent return schemas additionally carry status, scope attempted, sources and digests, completeness/coverage, uncertainty, unresolved conflicts, and budget usage. The parent or judge can inspect the bound artifacts and independently verify material claims. Delegation is chosen for isolation or parallel value under the aggregate budget, never solely because an estimated input/output ratio crosses a fixed threshold.
+
+#### 6.6.3 Author compaction contract
+
+An `author` compaction is an untrusted derivative, not a new authority source. Its manifest binds:
+
+- input transcript/state digests and prior-compaction lineage;
+- active objective and constraints with source/authority and supersession state;
+- material decisions with rationale, approvals, irreversible effects, spend, and unresolved questions;
+- current work item, referenced artifacts, and repository revision;
+- categories and ranges dropped, before/after token counts, and compactor/model/policy version.
+
+Exact sensitive text need not be copied into every prompt: a private, policy-governed artifact plus a digest-bound excerpt is preferable when it preserves reconstructability. The newest active user instruction wins over an earlier objective. Compaction never converts quoted or retrieved prompt-injection text into an instruction.
+
+After compaction, Mos Eisley checks structural validity, artifact availability, authority ordering, revision freshness, and semantic coverage of a fixture set. Failure restores the pre-compaction state or stops with `BudgetExceeded`; it does not continue from a partial summary. Repeated compaction is capped by §6.4, and changing bound inputs invalidates the derivative.
+
+#### 6.6.4 Retrieval and cache safety
+
+The first retrieval implementation uses local typed filters and lexical search over the bounded project memory in §17.6; it does not require Postgres or embeddings. Every query binds owner/project, corpus and index version, revision/time cutoff, policy, and limit. Results include provenance, rank basis, coverage/overflow, omission reasons, and a bounded continuation mechanism so a hard cap cannot masquerade as completeness.
+
+Semantic retrieval is a later, explicit capability. It requires evaluation for cross-owner leakage, stale embeddings, prompt injection, false omission, version drift, privacy/retention, and outcome quality before activation. Raw trajectory retrieval and automatic history injection remain out of scope.
+
+Prompt caching binds exact serialized segment hashes, provider/model and tool-schema versions, and applicable policy. Cache hits are telemetry, not evidence of correctness. Secrets are not retained longer, and stale content is not reused, merely to improve hit rate.
+
+#### 6.6.5 Evaluation and exit criteria
+
+Instrument category-level input/output counts, artifact bytes, truncation/overflow, cache hit/miss, retrieval coverage, compaction count, latency, and cost without recording raw content merely to obtain a metric. Evaluate context policies on representative and held-out tasks using independent outcome quality, completion rate, verifier disagreement, missed-evidence rate, harmful-action rate, latency, and whole-task cost. “Tokens per success” alone rewards cheap false confidence.
+
+Exit criteria:
+
+- bounded views are reproducible from digest-bound full artifacts and disclose loss;
+- owner/project isolation and instruction-authority tests pass for notes, reports, compactions, retrieval, and caches;
+- required evidence survives or causes an explicit stop, never a silent continuation;
+- threshold defaults are configurable and supported by evaluation rather than treated as universal constants;
+- compaction and retrieval improve whole-task outcomes on held-out cases without regressing safety gates.
+
 ---
 
 ## 7. Effort subsystem
@@ -2436,8 +2506,8 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 
 | Gate | Work and dependencies | Concrete exit evidence |
 |---|---|---|
-| G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry mapping | Versioned clause/decision/outcome fixtures, truthful unknowns, old replay compatibility, negative tests for stale IDs/probabilities, owner boundaries |
-| G1 — usable product slice | G0; conversational controller over recorded providers; L1 reading experiment | Conversation → frozen plan/review → visible result → cancel/resume demo; sealed reading leak tests; template/rubric revisions invalidate approval |
+| G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry mapping; §6.6 artifact/view, durable-state, and measurement contracts | Versioned clause/decision/outcome fixtures, truthful unknowns, old replay compatibility, negative tests for stale IDs/probabilities, owner boundaries, reproducible bounded views with disclosed loss |
+| G1 — usable product slice | G0; conversational controller over recorded providers; L1 reading experiment; `author` compaction and explicit memory selection | Conversation → frozen plan/review → visible result → cancel/resume demo; sealed reading leak tests; template/rubric revisions invalidate approval; compaction lineage/reconstructability and overflow-stop tests pass |
 | G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
 | G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; live claims require G2 | Sealed baseline/ablation design, attainable sample/assignment/cost calculation, independently graded clean/defective cases, held-out quality and total-cost report |
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
@@ -2462,6 +2532,7 @@ G0–G7 have shipped.
 | Measurement | Future features, same-task split leakage, holdout in cache/notes, selective labels/age-out, never-raised escaped bugs, zero successes, unattainable sample size |
 | Routing | Missing/zero-support propensity, changed eligibility after selection, unqualified exploration, effort/budget substitution, stale catalog/freshness, partial feedback/cost |
 | Dispatch/storage | Revocation between preflight/send, copied or rolled-back anchor, duplicate/uncertain dispatch, cross-owner aggregate access, reset with stale dependent policy |
+| Context reduction | Mutable/missing full artifact, digest mismatch, hidden omitted range, stdout/stderr reorder, meaningful duplicate collapse, stale file-read cache, superseded instruction revival, retrieved prompt injection, cross-owner memory/cache hit, compaction lineage break, hard-cap false completeness |
 
 Pass/fail fixtures prove controller enforcement; representative independent live
 evidence proves a quality or savings claim. Keep those statements separate in each
