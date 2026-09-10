@@ -138,8 +138,10 @@ controller loading and context management remain planned.
 Typing `/review`, `/steer TEXT`, `/stop`, `/continue`, or `/quit` and pressing
 Enter uses the existing conversation controls. `/context` toggles a read-only
 preview of the next queued chat's selected history, steering ancestry, omissions
-and context-byte usage. It returns from saved history to live view, does not enable
-paused work, and marks the report stale after the session revision changes. See the
+and context-byte usage, alongside the complete model request's independent byte
+budget, output reserve and headroom. It returns from saved history to live view,
+does not enable paused work, and marks the report stale after the session revision
+changes. See the
 [context preview contract](CONVERSATION_STORAGE.md#context-selection-preview).
 The line-mode `/compose`, `/send`
 and `/discard` commands are unnecessary here; use the editor controls above.

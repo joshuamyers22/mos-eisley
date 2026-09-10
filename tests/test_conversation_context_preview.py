@@ -15,10 +15,16 @@ from prompt_toolkit.output import DummyOutput
 from test_conversation_context import CapturingClient, TextMessage
 from test_conversation_tui import until
 
-from mos_eisley.conversation import ConversationController, conversation_config
+from mos_eisley.conversation import (
+    ConversationController,
+    ConversationEntry,
+    ConversationState,
+    conversation_config,
+)
 from mos_eisley.conversation_cli import DEMO_PROMPTS, demo_cassette, terminal
 from mos_eisley.conversation_context import RequestContext, project_context
 from mos_eisley.conversation_context_preview import (
+    ContextPreview,
     ContextPreviewUnavailable,
     preview_context,
 )
@@ -29,9 +35,11 @@ from mos_eisley.conversation_state import (
     WorkingConversationState,
 )
 from mos_eisley.conversation_tui import ConversationTUI
+from mos_eisley.core.agent import AgentUsage, RequestBudgetError
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import TextBlock
 from mos_eisley.demo import demo_inputs
+from mos_eisley.providers.agent_recorded import AgentCassette
 from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
 from mos_eisley.run.conversation_store import ConversationStore
 
@@ -90,10 +98,62 @@ class ContextPreviewTests(TestCase):
         self.assertEqual(preview.context_bytes, len(encoded))
         self.assertEqual(preview.context_sha256, digest(encoded))
         self.assertFalse(preview.within_context_budget)
+        self.assertTrue(preview.request.within_budget)
         self.assertIn("over saved context budget", preview.describe())
         self.assertEqual(preview.revision, before.revision)
         self.assertIs(chat.state, before)
         self.assertEqual(chat.state.exchanges_consumed, 0)
+
+    def test_request_envelope_reserves_affect_request_hash_and_usable_budget(
+        self,
+    ) -> None:
+        chat = controller()
+        chat.submit("question")
+        before = preview_context(chat.state)
+        config = conversation_config(project_context(chat.state.entries, 0).turns)
+        changed = config.model_copy(
+            update={
+                "budget": config.budget.model_copy(update={"reserve_high_bytes": 16000})
+            }
+        )
+        with patch(
+            "mos_eisley.conversation_context_preview.conversation_config",
+            return_value=changed,
+        ):
+            after = preview_context(chat.state)
+        self.assertEqual(before.context_sha256, after.context_sha256)
+        self.assertNotEqual(before.request.sha256, after.request.sha256)
+        self.assertEqual(
+            (
+                before.request.output_reserve_bytes,
+                before.request.headroom_bytes,
+                before.request.max_bytes,
+            ),
+            (12000, 4200, 79800),
+        )
+        self.assertEqual(
+            (
+                after.request.output_reserve_bytes,
+                after.request.headroom_bytes,
+                after.request.max_bytes,
+            ),
+            (16000, 4000, 76000),
+        )
+
+    def test_preview_schema_two_roundtrip_and_old_version_rejection(self) -> None:
+        chat = controller()
+        chat.submit("question")
+        preview = preview_context(chat.state)
+        self.assertEqual(preview.schema_version, 2)
+        self.assertEqual(preview.selection.policy_version, 1)
+        self.assertEqual(
+            ContextPreview.model_validate_json(preview.model_dump_json()), preview
+        )
+        old = preview.model_dump(mode="json")
+        old["schema_version"] = 1
+        old.pop("request")
+        with self.assertRaises(ValueError):
+            ContextPreview.model_validate_json(json.dumps(old))
 
     def test_saved_memory_is_measured_without_disclosing_its_text(self) -> None:
         with TemporaryDirectory() as directory:
@@ -187,6 +247,79 @@ class ContextPreviewTests(TestCase):
 
 
 class ContextPreviewTerminalTests(IsolatedAsyncioTestCase):
+    async def test_request_preview_agrees_with_exact_dispatch_limit(self) -> None:
+        cassette = AgentCassette(exchanges=demo_cassette().exchanges * 4)
+        initial = ConversationController.fresh(
+            Path.cwd(), cassette, context_max_bytes=1_000_000
+        )
+        usage = AgentUsage(
+            requests=1, tools=0, billed_input=1, billed_output=1, largest_request=1
+        )
+        entries = tuple(
+            ConversationEntry(
+                text="x" * 7200, answer="y" * 7200, status="completed", usage=usage
+            )
+            for _ in range(5)
+        )
+        state = ConversationState.model_validate(
+            initial.model_copy(
+                update={
+                    "entries": entries + (ConversationEntry(text="z"),),
+                    "exchanges_consumed": 5,
+                }
+            ).model_dump()
+        )
+        baseline = preview_context(state)
+        length = baseline.request.max_bytes - baseline.request.bytes + 1
+        self.assertTrue(1 <= length < 8000)
+        for overflow in (False, True):
+            with self.subTest(overflow=overflow):
+                selected = ConversationState.model_validate(
+                    state.model_copy(
+                        update={
+                            "entries": entries
+                            + (ConversationEntry(text="z" * (length + int(overflow))),),
+                        }
+                    ).model_dump()
+                )
+                preview = preview_context(selected)
+                self.assertTrue(preview.within_context_budget)
+                self.assertEqual(
+                    preview.request.bytes, preview.request.max_bytes + int(overflow)
+                )
+                self.assertEqual(preview.request.within_budget, not overflow)
+                self.assertEqual(
+                    (
+                        preview.request.provider,
+                        preview.request.model,
+                        preview.request.effort,
+                    ),
+                    ("fixture", "tool-reviewer-v1", "high"),
+                )
+                client = CapturingClient()
+                saves: list[ConversationState] = []
+                chat = ConversationController(selected, cassette, saves.append)
+                if overflow:
+                    with self.assertRaises(RequestBudgetError) as error:
+                        await chat.step(client)
+                    self.assertEqual(
+                        error.exception.required_bytes, preview.request.bytes
+                    )
+                    self.assertEqual(
+                        error.exception.maximum_bytes, preview.request.max_bytes
+                    )
+                    self.assertEqual(client.requests, [])
+                    self.assertEqual(saves, [])
+                    self.assertIs(chat.state, selected)
+                else:
+                    self.assertTrue(await chat.step(client))
+                    self.assertEqual(len(client.requests), 1)
+                    self.assertEqual(
+                        digest(canonical_bytes(client.requests[0])),
+                        preview.request.sha256,
+                    )
+                    self.assertEqual(chat.state.exchanges_consumed, 6)
+
     async def test_unavailable_target_is_a_notice_without_dispatch(self) -> None:
         for review in (False, True):
             with self.subTest(review=review):
@@ -227,6 +360,9 @@ class ContextPreviewTerminalTests(IsolatedAsyncioTestCase):
         await chat.step(client)
         self.assertEqual(len(client.requests), 1)
         request = client.requests[0]
+        self.assertEqual(preview.request.sha256, digest(canonical_bytes(request)))
+        self.assertEqual(preview.request.bytes, len(canonical_bytes(request)))
+        self.assertGreater(preview.request.bytes, preview.context_bytes)
         context = canonical_bytes(
             RequestContext(system=request.system, turns=request.turns)
         )
@@ -336,6 +472,9 @@ class ContextPreviewCLITests(TestCase):
                     event for event in events if event["type"] == "conversation.context"
                 )
                 self.assertEqual(preview["selection"]["message_index"], 0)
+                self.assertEqual(preview["schema_version"], 2)
+                self.assertTrue(preview["request"]["within_budget"])
+                self.assertEqual(preview["request"]["max_bytes"], 79800)
                 with store_type(
                     root / "sessions", state.session_id, root, create=False
                 ) as store:

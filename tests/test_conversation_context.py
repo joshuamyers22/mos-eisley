@@ -26,6 +26,7 @@ from mos_eisley.conversation_context import (
     admit_context,
     context_turns,
 )
+from mos_eisley.conversation_context_preview import preview_context
 from mos_eisley.conversation_input import ConversationInput
 from mos_eisley.conversation_limits import DEFAULT_CONTEXT_BYTES
 from mos_eisley.conversation_memory import MemoryStore
@@ -192,11 +193,16 @@ class ContextControllerTests(IsolatedAsyncioTestCase):
         )
         save = Mock()
         controller = ConversationController(state, cassette, save)
+        preview = preview_context(state)
+        self.assertTrue(preview.within_context_budget)
+        self.assertFalse(preview.request.within_budget)
+        self.assertIn("over request budget", preview.describe())
         client = CapturingClient()
         with self.assertRaises(RequestBudgetError) as caught:
             await controller.step(client)
         self.assertEqual(caught.exception.maximum_bytes, 79_800)
         self.assertGreater(caught.exception.required_bytes, 79_800)
+        self.assertEqual(caught.exception.required_bytes, preview.request.bytes)
         self.assertEqual(controller.state, state)
         self.assertEqual(client.requests, [])
         save.assert_not_called()
