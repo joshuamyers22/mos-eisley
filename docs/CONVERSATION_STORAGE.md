@@ -184,6 +184,26 @@ never sent. Resume marks that attempt interrupted and does not retry it. Rejecte
 queued work has no admission, and isolated reviews do not use this chat contract.
 The hashes cover local canonical JSON, not native HTTP bytes or provider tokens.
 
+Use `/context N` in an open terminal session to inspect the admission for the
+zero-based message number shown in the transcript. Unlike the next-queued `/context`
+preview, this reads saved metadata and does not rebuild a request using current
+configuration. It shows the original context/request SHA-256 values, byte budgets,
+route, memory-selection flag, source revision/message count and selected/omitted
+positions, together with the message's current status. Invalid or absent positions,
+queued work, isolated reviews and legacy entries without admission yield notices;
+no historical metadata is invented. Commands never echo invalid selector text.
+
+JSON mode emits `conversation.context_admission` with inspection `schema_version: 1`,
+`session_id`, current `revision`, `message_index`, current `status`, the original
+`admission` object and formatted `text`. This leaves preview schema 2 unchanged.
+The TUI toggles the view when the same command is repeated, returns from history
+browsing, and marks the displayed status/revision stale when the session changes.
+Re-run `/context N` to refresh it; the admission itself remains historical.
+Inspection of already loaded SQLite metadata does not hydrate artifacts, save,
+refresh memory, recover attempts or enable paused work. Normal cold resume still
+performs its existing integrity checks and running-attempt recovery before opening
+the terminal. Pasted/composed text retains its existing literal behavior.
+
 JSON snapshots retain the object inline. SQLite stores it in the bounded message
 record and includes it in existing record/snapshot integrity checks. JSON output
 from `session-transcript` and `resume --inspect` exposes it without expanding

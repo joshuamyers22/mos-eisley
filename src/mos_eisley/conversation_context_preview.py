@@ -8,6 +8,7 @@ from mos_eisley.conversation import conversation_config, prepare_conversation_re
 from mos_eisley.conversation_context import (
     ContextSelection,
     RequestContext,
+    describe_selection,
     project_context,
 )
 from mos_eisley.conversation_limits import ContextByteLimit
@@ -64,16 +65,7 @@ class ContextPreview(Contract):
                 else "no saved memory selected."
             ),
         ]
-        for turn, source in enumerate(self.selection.turn_sources):
-            positions = ", ".join(str(position) for position in source.positions)
-            lines.append(f"Turn {turn}: {source.role} from message(s) {positions}.")
-        for omission in self.selection.omitted:
-            reason = (
-                "after the selected message"
-                if omission.reason == "after_target"
-                else "no completed answer or required steering link"
-            )
-            lines.append(f"Omitted message {omission.position}: {reason}.")
+        lines.extend(describe_selection(self.selection))
         if self.active_work:
             lines.append("Active work may change this selection before dispatch.")
         lines.append(

@@ -146,6 +146,7 @@ class ConversationTUI:
         self.memory_visible = False
         self.directory_visible = False
         self.context_preview: tuple[int, str] | None = None
+        self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
         self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
@@ -438,7 +439,12 @@ class ConversationTUI:
             parts.append(
                 preview
                 if revision == state.revision
-                else "Context preview is stale; run /context again."
+                else (
+                    "Context preview is stale; run /context again."
+                    if self.context_command == "/context"
+                    else "Saved admission view is stale; "
+                    f"run {self.context_command} again."
+                )
             )
         text = display_text(
             "\n\n".join(parts)
@@ -528,18 +534,25 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
-        if event["type"] == "conversation.context":
+        if event["type"] in {"conversation.context", "conversation.context_admission"}:
             if self.history:
                 self.history.close()
             revision = event["revision"]
             if type(revision) is not int:
                 raise ValueError("invalid context preview revision")
+            command = "/context"
+            if event["type"] == "conversation.context_admission":
+                position = event["message_index"]
+                if type(position) is not int or not 0 <= position <= 15:
+                    raise ValueError("invalid admission message position")
+                command = f"/context {position}"
             selected = (revision, str(event["text"]))
             self.context_preview = (
                 None if self.context_preview == selected else selected
             )
+            self.context_command = command
             self.memory_visible = self.directory_visible = False
-            self.set_notice("Context preview toggled. /context shows or hides it.")
+            self.set_notice(f"Context report toggled. {command} shows or hides it.")
             self.refresh()
             return
         if event["type"] == "conversation.memory":

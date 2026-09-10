@@ -143,6 +143,13 @@ budget, output reserve and headroom. It returns from saved history to live view,
 does not enable paused work, and marks the report stale after the session revision
 changes. See the
 [context preview contract](CONVERSATION_STORAGE.md#context-selection-preview).
+`/context N` toggles the saved admission for message N, using the zero-based
+transcript number. The report shows historical hashes, budgets and source positions
+with the message's current status. Re-run the same command after a revision change
+to refresh the view; it does not change the admission. Switching to `/context`
+replaces it with the next queued preview. Reports do not start queued work. Pasted
+or composed command text stays literal message content. See
+[saved admissions](CONVERSATION_STORAGE.md#saved-request-admissions).
 The line-mode `/compose`, `/send`
 and `/discard` commands are unnecessary here; use the editor controls above.
 

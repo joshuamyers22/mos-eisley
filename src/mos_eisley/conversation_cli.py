@@ -22,6 +22,11 @@ from mos_eisley.conversation import (
     RuntimeConversationController,
     conversation_config,
 )
+from mos_eisley.conversation_admission_inspection import (
+    AdmissionInspectionUnavailable,
+    admission_position,
+    inspect_admission,
+)
 from mos_eisley.conversation_composer import ConversationComposer
 from mos_eisley.conversation_context import ContextBudgetError
 from mos_eisley.conversation_context_preview import (
@@ -719,6 +724,21 @@ async def terminal(
                                 "text": preview.describe(),
                             }
                         )
+                elif line.split(maxsplit=1)[:1] == ["/context"]:
+                    try:
+                        inspection = inspect_admission(
+                            controller.state, admission_position(line)
+                        )
+                    except AdmissionInspectionUnavailable as error:
+                        emit({"type": "conversation.unavailable", "text": str(error)})
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.context_admission",
+                                **inspection.model_dump(mode="json"),
+                                "text": inspection.describe(),
+                            }
+                        )
                 elif line == "/directory":
                     emit(
                         {
@@ -744,7 +764,7 @@ async def terminal(
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
                                     "/steer TEXT, /review, /memory, /directory, "
-                                    "/context, "
+                                    "/context [N], "
                                     "/stop, /continue, /quit"
                                 ),
                             }
@@ -1211,7 +1231,7 @@ def _run_command(args: argparse.Namespace) -> int:
                 "text": (
                     f"Session {session_id}. Recorded preview. "
                     "Commands: /compose, /send, /discard, "
-                    "/steer TEXT, /review, /context, /stop, /continue, /quit. "
+                    "/steer TEXT, /review, /context [N], /stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }
