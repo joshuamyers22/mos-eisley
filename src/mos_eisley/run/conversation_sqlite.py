@@ -25,6 +25,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from mos_eisley.conversation import ConversationState, SessionID
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
+from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint, resume_checkpoint
 from mos_eisley.run.conversation_store import (
     ConversationDeletion,
     ConversationSnapshot,
@@ -87,6 +88,9 @@ class SessionIndex(Contract):
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
     summary: ConversationSummary
     entry_sha256: Annotated[tuple[Digest, ...] | None, Field(max_length=16)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    resume_checkpoint: ResumeCheckpoint | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -477,11 +481,18 @@ class SQLiteConversationStore(ConversationStore):
             state,
             record.summary.modified_ns,
             entry_digests=False,
-        ) != record.model_copy(update={"entry_sha256": None}) or (
+        ) != record.model_copy(
+            update={"entry_sha256": None, "resume_checkpoint": None}
+        ) or (
             record.entry_sha256 is not None
             and record.entry_sha256 != tuple(digest(payload) for payload in encoded[1:])
         ):
             raise ValueError("SQLite conversation state integrity mismatch")
+        if record.resume_checkpoint is not None and (
+            record.resume_checkpoint
+            != resume_checkpoint(state, encoded[0], encoded[1:])
+        ):
+            raise ValueError("SQLite resume checkpoint integrity mismatch")
         return ConversationSnapshot(state=state, sha256=record.summary.snapshot_sha256)
 
     def _read(self) -> ConversationSnapshot:
@@ -520,7 +531,7 @@ class SQLiteConversationStore(ConversationStore):
             )
 
     def prepare_transcript(self, expected_sha256: str) -> ConversationSummary:
-        """Verify the full state and add a derived page index without changing it."""
+        """Verify full state and prepare page/resume indexes without changing it."""
         expected = TypeAdapter[str](Digest).validate_python(expected_sha256)
         db = self._connection()
         with conversation_transaction(db, write=True):
@@ -534,7 +545,7 @@ class SQLiteConversationStore(ConversationStore):
                 (self.session_id,),
             ).fetchone()
             current = _read_index(row)
-            if current.entry_sha256 is None:
+            if current.entry_sha256 is None or current.resume_checkpoint is None:
                 payloads = db.execute(
                     "SELECT payload FROM entries WHERE sid=? "
                     "ORDER BY position LIMIT 16",
@@ -542,13 +553,19 @@ class SQLiteConversationStore(ConversationStore):
                 ).fetchall()
                 # _load already bounded and verified these rows in this transaction.
                 # Hash their actual representation, including valid legacy whitespace.
-                index = _index(
-                    snapshot.state, current.summary.modified_ns, entry_digests=False
-                ).model_copy(
+                header = db.execute(
+                    "SELECT header FROM sessions WHERE sid=?", (self.session_id,)
+                ).fetchone()[0]
+                index = current.model_copy(
                     update={
                         "entry_sha256": tuple(
                             digest(payload) for (payload,) in payloads
-                        )
+                        ),
+                        "resume_checkpoint": resume_checkpoint(
+                            snapshot.state,
+                            header,
+                            [payload for (payload,) in payloads],
+                        ),
                     }
                 )
                 record = canonical_bytes(index)
@@ -590,7 +607,6 @@ class SQLiteConversationStore(ConversationStore):
         ):
             raise ValueError("invalid conversation save identity or revision")
         index = _index(state, time.time_ns() if modified_ns is None else modified_ns)
-        record = canonical_bytes(index)
         artifacts: dict[str, bytes] = {}
         body = state.model_dump(mode="json")
         entries = body.pop("entries")
@@ -601,6 +617,10 @@ class SQLiteConversationStore(ConversationStore):
             )
             for entry in entries
         ]
+        index = index.model_copy(
+            update={"resume_checkpoint": resume_checkpoint(state, header, parts)}
+        )
+        record = canonical_bytes(index)
         with conversation_transaction(db, write=True):
             _identity(db)
             try:

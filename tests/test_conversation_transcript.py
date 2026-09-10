@@ -63,6 +63,7 @@ class TranscriptTests(TestCase):
                 ).fetchone()[0]
             )
             del record["entry_sha256"]
+            record.pop("resume_checkpoint", None)
             payload = json.dumps(
                 record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             ).encode()

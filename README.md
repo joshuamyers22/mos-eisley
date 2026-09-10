@@ -47,8 +47,10 @@ verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects
 a memory or review reference; F8 opens/closes its verified content, one artifact
 at a time. `mos session-artifact SELECTION --json` also opens a reference returned
-by the transcript CLI, with an explicit `--max-bytes` override. Bounded
-controller resume and longer conversation limits remain planned.
+by the transcript CLI, with an explicit `--max-bytes` override.
+`mos resume --last --storage-backend sqlite --inspect` now previews a verified,
+bounded working set without resuming work. Actual bounded controller resume and
+longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
