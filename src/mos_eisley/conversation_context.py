@@ -56,12 +56,13 @@ def context_turns(entries: Sequence[ContextMessage], index: int) -> tuple[Turn, 
             raise ValueError("context steering must refer to an earlier message")
 
     def user_blocks(position: int) -> tuple[TextBlock, ...]:
-        entry = entries[position]
-        blocks: tuple[TextBlock, ...] = ()
-        target = entry.steering_for
-        if target is not None and entries[target].status != "completed":
-            blocks = user_blocks(target)
-        return blocks + (TextBlock(text=entry.text),)
+        positions = [position]
+        while (target := entries[position].steering_for) is not None and entries[
+            target
+        ].status != "completed":
+            positions.append(target)
+            position = target
+        return tuple(TextBlock(text=entries[item].text) for item in reversed(positions))
 
     turns: list[Turn] = []
     for position, entry in enumerate(entries[:index]):

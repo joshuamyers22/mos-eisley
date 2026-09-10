@@ -12,7 +12,7 @@ from unittest.mock import patch
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from mos_eisley.conversation import ConversationController, ConversationState
+from mos_eisley.conversation import ConversationController
 from mos_eisley.conversation_cli import (
     DEMO_PROMPTS,
     MULTILINE_PROMPT,
@@ -25,6 +25,7 @@ from mos_eisley.conversation_memory import (
 )
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
 from mos_eisley.conversation_review import ConversationReviewPacket
+from mos_eisley.conversation_state import RuntimeConversationState
 from mos_eisley.conversation_tui import ConversationTUI
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import ModelRequest, ModelResponse
@@ -143,7 +144,7 @@ class RefreshTests(IsolatedAsyncioTestCase):
             before, cassette = env.controller.state, env.controller.cassette
             env.store.change("user", "set", text="new")
 
-            def fail(state: ConversationState) -> None:
+            def fail(state: RuntimeConversationState) -> None:
                 raise OSError("disk failure")
 
             env.controller.save = fail

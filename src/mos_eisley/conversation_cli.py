@@ -19,6 +19,7 @@ from pathlib import Path
 from mos_eisley.conversation import (
     ConversationController,
     ConversationState,
+    RuntimeConversationController,
     conversation_config,
 )
 from mos_eisley.conversation_composer import ConversationComposer
@@ -49,6 +50,7 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
+from mos_eisley.conversation_state import WorkingConversationState
 from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
@@ -360,7 +362,7 @@ def _input_reader(
 
 
 async def terminal(
-    controller: ConversationController,
+    controller: RuntimeConversationController,
     queue: ConversationInputQueue,
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
@@ -490,8 +492,8 @@ async def terminal(
                 }
                 if entry.steering_for is not None:
                     event["steering_for"] = entry.steering_for
-                if entry.review_packet is not None:
-                    event["review_brief_id"] = entry.review_packet.brief.brief_id
+                if entry.review_brief_id is not None:
+                    event["review_brief_id"] = entry.review_brief_id
                 if entry.review_result is not None:
                     event["review_result"] = entry.review_result.model_dump(mode="json")
                 emit(event)
@@ -681,7 +683,7 @@ async def terminal(
 
 
 async def _run_terminal(
-    controller: ConversationController,
+    controller: RuntimeConversationController,
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
@@ -1024,10 +1026,21 @@ def run_command(args: argparse.Namespace) -> int:
     ) as store:
         if fresh is not None:
             store.save(fresh)
-        state = fresh if fresh is not None else store.load()
+        state = (
+            store.load_working()
+            if isinstance(store, SQLiteConversationStore)
+            else fresh
+            if fresh is not None
+            else store.load()
+        )
         if (
             selected is not None
-            and digest(canonical_bytes(state)) != selected.snapshot_sha256
+            and (
+                store.snapshot_sha256
+                if isinstance(store, SQLiteConversationStore)
+                else digest(canonical_bytes(state))
+            )
+            != selected.snapshot_sha256
         ):
             raise ValueError("selected latest conversation changed; list again")
         selected_refresh = args.command == "resume" and args.refresh_memory
@@ -1045,7 +1058,14 @@ def run_command(args: argparse.Namespace) -> int:
         if state.memory != memory and not selected_refresh:
             print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
             return 2
-        controller = ConversationController(state, cassette, store.save)
+        controller: RuntimeConversationController
+        if isinstance(state, WorkingConversationState):
+            assert isinstance(store, SQLiteConversationStore)
+            controller = ConversationController(
+                state, cassette, store.save_working, load_entry=store.load_working_entry
+            )
+        else:
+            controller = ConversationController(state, cassette, store.save)
         memory_runtime = ConversationMemoryRuntime(
             controller,
             memory_store,

@@ -1467,8 +1467,8 @@ The default JSON backend still reads and rewrites whole snapshots. An
 and session-scoped artifact references transactionally, with exact-state deletion
 and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
 generation; a changed catalog requires restarting pagination. SQLite currently
-reconstructs the complete bounded state on resume and validates/serializes a full
-proposed state for each save; its physical file has an
+reconstructs the complete bounded state on initial resume, then uses reference-based
+working state for current records; its physical file has an
 initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-root
 JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
@@ -1512,11 +1512,13 @@ Routine SQLite saves now reuse a verified checkpoint while the same connection
 observes no external commits or uncoordinated local writes. The write transaction
 checks the stored index and expected revision/hash, skips unchanged message and
 artifact writes, inserts new artifacts and removes only unreferenced ones. It does
-not reread old payloads into Python on this path. External commits anywhere in the
+not reread old payloads into Python for the full-state compatibility API; the
+reference-based controller path streams retained bytes as described below.
+External commits anywhere in the
 database trigger full session validation before another save. Failed operations,
 preparation, deletion and connection reopen clear the local checkpoint; publication
-happens only after a successful commit. No content or decoded state is cached in
-this checkpoint, only bounded metadata and artifact digests. Import and explicit
+happens only after a successful commit. No artifact payload is cached in this
+checkpoint, only bounded metadata, canonical verification status and artifact digests. Import and explicit
 load/delete retain full validation.
 
 Chat dispatch now builds context through a text-only message interface and admits
@@ -1536,10 +1538,25 @@ before the running transition; a larger context budget cannot bypass the recorde
 provider's 79,800-byte usable input limit. Provider-budget rejection likewise leaves
 work queued, reports required/available bytes and consumes no attempt.
 
-Actual bounded controller resume remains open. Next separate active controller
-state from historical artifact values, accept bounded transition changes instead
-of revalidating/serializing a complete proposed state, and budget active memory/recording/review hydration at
-request boundaries. Preserve attempt accounting, interrupted-work recovery and
+SQLite controllers now release historical memory/review values after full initial
+verification and retain their admitted references. Current saves validate working
+inputs and source-record hashes, stream archived bytes in 32 KiB chunks, and preserve
+the canonical snapshot hash and logical byte budget without rebuilding historical
+artifact objects. Changed records, artifact insertion/collection and generation
+updates remain atomic; checkpoint and working-state publication follow commit.
+Archived content cannot change through a reference; queued cancellation and
+running-to-interrupted recovery are the admitted status-only changes. Queued review
+packets hydrate at execution under a 512,000-byte aggregate record/artifact input
+limit. At most the latest result stays decoded for the live renderer. JSON snapshots
+reject runtime references. Older indexes and noncanonical artifact JSON retain the
+full-state compatibility path until an ordinary save and reopen.
+
+Bounded cold resume remains open: initial verification and external-commit recovery
+still reconstruct full state, active memory/recording values remain decoded, and
+each save still hashes all logical history bytes. The current working state keeps
+text for all 16 messages. Next bound cold loading, reduce text/record bookkeeping
+into bounded transitions, and budget active memory/recording hydration. Preserve
+attempt accounting, interrupted-work recovery and
 steering ancestry. The inspection selection is not a provider context policy;
 context selection/compaction must explicitly preserve or account for earlier intent.
 Neither backend has passed the long-session gate below.
