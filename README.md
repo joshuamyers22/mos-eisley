@@ -97,8 +97,9 @@ and critic/judge workflows retain their existing tool-free boundaries.
   follow-ups, queued messages, cancellation, private saving and explicit same-user,
   same-workspace resume, metadata-only session listing, latest-session selection
   and exact-snapshot deletion. Bounded multiline drafts support code blocks and
-  explicit send/discard while work runs. Live conversation and the full terminal
-  UI remain planned.
+  explicit send/discard while work runs. Queued steering links refinements to
+  active chat tasks and preserves unanswered intent across resume. Live
+  conversation and the full terminal UI remain planned.
 - An [explicit recorded review inside the conversation](docs/CONVERSATION_REVIEW.md),
   with isolated critic requests, retained review evidence and contextual follow-ups.
 - Immutable, versioned Pydantic contracts with strict input validation.

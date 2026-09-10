@@ -42,6 +42,9 @@ class ConversationEntry(Contract):
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     review_packet: ConversationReviewPacket | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -52,6 +55,8 @@ class ConversationEntry(Contract):
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
         if self.review_packet is not None:
+            if self.steering_for is not None:
+                raise ValueError("review packets cannot carry conversation steering")
             if self.text != REVIEW_PROMPT or self.usage is not None:
                 raise ValueError(
                     "review entries require canonical text and no chat usage"
@@ -97,6 +102,15 @@ class ConversationState(Contract):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        targets: set[int] = set()
+        for index, entry in enumerate(self.entries):
+            if entry.steering_for is not None:
+                if entry.steering_for >= index:
+                    raise ValueError("steering must refer to an earlier message")
+                target = self.entries[entry.steering_for]
+                if target.status == "queued" or target.review_packet is not None:
+                    raise ValueError("steering requires a dispatched chat target")
+                targets.add(entry.steering_for)
         started = tuple(
             entry
             for entry in self.entries
@@ -104,6 +118,11 @@ class ConversationState(Contract):
         )
         # Cancelling a queued message does not consume an exchange.
         dispatched = sum(entry.status != "cancelled" for entry in started)
+        # A cancelled steering target must have consumed an attempt, unlike an
+        # ordinary queued message cancelled before dispatch.
+        dispatched += sum(
+            self.entries[index].status == "cancelled" for index in targets
+        )
         if not dispatched <= self.exchanges_consumed <= len(started):
             raise ValueError("invalid conversation exchange count")
         if sum(entry.status == "running" for entry in self.entries) > 1:
@@ -124,21 +143,31 @@ def conversation_config(turns: tuple[Turn, ...]) -> AgentConfig:
 
 
 def context_for(state: ConversationState, index: int) -> tuple[Turn, ...]:
+    def user_blocks(position: int) -> tuple[TextBlock, ...]:
+        entry = state.entries[position]
+        blocks: tuple[TextBlock, ...] = ()
+        # An unanswered task contributes its intent, never a fabricated answer.
+        # Follow the earlier-only chain so interrupted refinements retain intent too.
+        target = entry.steering_for
+        if target is not None and state.entries[target].status != "completed":
+            blocks = user_blocks(target)
+        return blocks + (TextBlock(text=entry.text),)
+
     turns: list[Turn] = []
-    for entry in state.entries[:index]:
+    for position, entry in enumerate(state.entries[:index]):
         if entry.status == "completed" and entry.answer is not None:
             turns.extend(
                 (
-                    Turn(role="user", blocks=(TextBlock(text=entry.text),)),
+                    Turn(role="user", blocks=user_blocks(position)),
                     Turn(role="assistant", blocks=(TextBlock(text=entry.answer),)),
                 )
             )
-    turns.append(Turn(role="user", blocks=(TextBlock(text=state.entries[index].text),)))
+    turns.append(Turn(role="user", blocks=user_blocks(index)))
     return tuple(turns)
 
 
 class ConversationController:
-    """One request per message; queued input is applied after the active request.
+    """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
     only recorded clients. Live providers require a separate spending/transfer gate.
@@ -206,7 +235,26 @@ class ConversationController:
     def submit(self, text: str) -> None:
         if not text.strip():
             raise ValueError("message cannot be blank")
-        self._update(self.state.entries + (ConversationEntry(text=text),))
+        self._update(
+            self.state.entries
+            + (ConversationEntry(text=text, steering_for=self.active_chat_index),)
+        )
+
+    @property
+    def active_chat_index(self) -> int | None:
+        return next(
+            (
+                index
+                for index, entry in enumerate(self.state.entries)
+                if entry.status == "running" and entry.review_packet is None
+            ),
+            None,
+        )
+
+    def steer(self, text: str) -> None:
+        if self.active_chat_index is None:
+            raise ValueError("steering requires an active chat request")
+        self.submit(text)
 
     def submit_review(self, packet: ConversationReviewPacket) -> None:
         packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
@@ -294,6 +342,7 @@ class ConversationController:
                         )
                     completed = ConversationEntry(
                         text=entry.text,
+                        steering_for=entry.steering_for,
                         status="completed",
                         answer=result.final_text,
                         usage=result.usage,

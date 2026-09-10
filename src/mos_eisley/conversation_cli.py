@@ -200,7 +200,17 @@ async def terminal(
             composer.clear()
             emit({"type": "composer.discarded", "text": reason})
 
-    def submit_text(text: str) -> bool:
+    def submit_text(text: str, *, require_active: bool = False) -> bool:
+        if require_active and (
+            controller.active_chat_index is None or not text.strip()
+        ):
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "/steer TEXT requires text and an active chat request.",
+                }
+            )
+            return False
         if len(controller.state.entries) >= 16:
             emit(
                 {
@@ -209,7 +219,10 @@ async def terminal(
                 }
             )
             return False
-        controller.submit(text)
+        if require_active:
+            controller.steer(text)
+        else:
+            controller.submit(text)
         render()
         return True
 
@@ -270,6 +283,8 @@ async def terminal(
                     "text": entry.text,
                     "answer": entry.answer,
                 }
+                if entry.steering_for is not None:
+                    event["steering_for"] = entry.steering_for
                 if entry.review_packet is not None:
                     event["review_brief_id"] = entry.review_packet.brief.brief_id
                 if entry.review_result is not None:
@@ -341,6 +356,11 @@ async def terminal(
                     pass
                 elif line == "/continue":
                     enabled = True
+                elif line == "/steer" or line.startswith("/steer "):
+                    if submit_text(
+                        line.removeprefix("/steer").lstrip(), require_active=True
+                    ):
+                        enabled = True
                 elif line.strip().casefold().rstrip(".") in {
                     "/review",
                     "review this change",
@@ -366,7 +386,7 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/review, /stop, /continue, /quit"
+                                    "/steer TEXT, /review, /stop, /continue, /quit"
                                 ),
                             }
                         )
@@ -456,7 +476,11 @@ def run_command(args: argparse.Namespace) -> int:
             # Escape control sequences in all untrusted terminal text.
             value = str(event.get("answer") or event.get("text") or event)
             safe = json.dumps(value, ensure_ascii=True)[1:-1]
-            print(f"{event['type']}: {safe}", flush=True)
+            target = event.get("steering_for")
+            label = "" if target is None else f" (steering message {target})"
+            index = event.get("index")
+            message_id = "" if index is None else f" [{index}]"
+            print(f"{event['type']}{message_id}{label}: {safe}", flush=True)
 
     if args.command == "sessions":
         summaries = list_conversations(args.storage, args.workspace)
@@ -559,7 +583,7 @@ def run_command(args: argparse.Namespace) -> int:
                 "text": (
                     f"Session {session_id}. Recorded preview. "
                     "Commands: /compose, /send, /discard, "
-                    "/review, /stop, /continue, /quit. "
+                    "/steer TEXT, /review, /stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }

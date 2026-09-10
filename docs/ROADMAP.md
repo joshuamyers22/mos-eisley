@@ -57,7 +57,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    retained evidence plus a bounded summary for contextual follow-ups.
    [Multiline drafting](CONVERSATIONS.md#multiline-composition) now supports
    bounded code blocks, explicit send/discard and input backpressure during work.
-   Active-request steering, the full-screen composer and live review remain open.
+   [Queued steering](CONVERSATIONS.md#steering-during-work) now binds active chat
+   refinements to their task and preserves unanswered intent through explicit
+   resume. Mid-request interruption, the full-screen composer and live review
+   remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after

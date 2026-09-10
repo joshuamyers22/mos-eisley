@@ -11,6 +11,7 @@
   exact-snapshot deletion. Explicit recorded review now returns a retained report
   and contextual summary while keeping critic requests separate from chat history.
   Bounded multiline drafts support explicit send/discard during active work.
+  Queued steering preserves task links and unanswered user intent across resume.
   Live conversation/review, full TUI and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
