@@ -1134,14 +1134,21 @@ used by the session, following the terminal startup interaction in Codex.
 - Validate the selected directory before creating a session. Resolve aliases and
   symlinks consistently, show the resolved target, and retain the same binding for
   resume. A directory selection supplies context, not broader filesystem access.
-- The current startup implementation provides `-C` and the directory header.
-  The selector, persistent directory status and in-session switching are planned.
+- The current startup implementation provides `-C`, a persistent directory header
+  and `/directory` inspection. The selector and in-session switching are planned.
 
 ### 16.0.2 User and project memory
 
-**User direction, 2026-09-09 — planned:** provide two durable memory scopes in
-addition to saved conversations. The current recorded terminal does not load or
-write these memories yet.
+**User direction, 2026-09-09:** provide two durable memory scopes in addition to
+saved conversations. The [first implementation](CONVERSATION_MEMORY.md) now supports
+private user/project documents, explicit CLI show/set/append/clear/enable/disable,
+startup loading, active revision display and `/memory` inspection. Memory revisions
+are retained with sessions and bound into recorded chat requests; changed memory
+pauses before another dispatch and prevents stale resume. `--no-memory` bypasses
+loading. Existing memory contexts cannot yet be refreshed in-place: start a fresh
+session. Project scope currently uses the selected canonical workspace; Git-root
+discovery, mapping, natural-language saves and automatic extraction remain planned.
+The requirements below remain the complete target.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |

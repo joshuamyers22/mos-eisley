@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
+from mos_eisley.conversation_memory import ConversationMemory, memory_system
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
@@ -99,9 +100,14 @@ class ConversationState(Contract):
     revision: Annotated[int, Field(ge=0)] = 0
     exchanges_consumed: Annotated[int, Field(ge=0, le=16)] = 0
     entries: Annotated[tuple[ConversationEntry, ...], Field(max_length=16)] = ()
+    memory: ConversationMemory | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        if self.memory is not None:
+            self.memory.validate_identity(self.owner_uid, self.workspace)
         targets: set[int] = set()
         for index, entry in enumerate(self.entries):
             if entry.steering_for is not None:
@@ -130,12 +136,19 @@ class ConversationState(Contract):
         return self
 
 
-def conversation_config(turns: tuple[Turn, ...]) -> AgentConfig:
+def conversation_config(
+    turns: tuple[Turn, ...], memory: ConversationMemory | None = None
+) -> AgentConfig:
     return AgentConfig(
         provider="fixture",
         model="tool-reviewer-v1",
         effort="high",
-        system="Continue the conversation using only its explicit text history.",
+        system=(
+            "Continue the conversation using only its explicit text history."
+            if memory is None
+            else "Use the conversation's explicit history and saved context."
+        )
+        + memory_system(memory),
         initial_turns=turns,
         max_iterations=1,
         max_tool_calls=0,
@@ -178,6 +191,8 @@ class ConversationController:
         state: ConversationState,
         cassette: AgentCassette,
         save: Callable[[ConversationState], None],
+        *,
+        validate_memory: Callable[[], None] | None = None,
     ) -> None:
         if digest(canonical_bytes(cassette)) != state.cassette_sha256:
             raise ValueError("resume requires the exact recorded cassette")
@@ -186,6 +201,7 @@ class ConversationController:
         self.state = state
         self.cassette = cassette
         self.save = save
+        self.validate_memory = validate_memory
         self._busy = False
         self._broken = False
         if any(entry.status == "running" for entry in state.entries):
@@ -199,7 +215,11 @@ class ConversationController:
             )
 
     @staticmethod
-    def fresh(workspace: Path, cassette: AgentCassette) -> ConversationState:
+    def fresh(
+        workspace: Path,
+        cassette: AgentCassette,
+        memory: ConversationMemory | None = None,
+    ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
         return ConversationState(
@@ -207,6 +227,7 @@ class ConversationController:
             owner_uid=os.getuid(),
             workspace=str(workspace.resolve(strict=True)),
             cassette_sha256=digest(canonical_bytes(cassette)),
+            memory=memory,
         )
 
     def _update(
@@ -224,6 +245,7 @@ class ConversationController:
                 self.state.exchanges_consumed if consumed is None else consumed
             ),
             entries=entries,
+            memory=self.state.memory,
         )
         try:
             self.save(updated)
@@ -291,6 +313,8 @@ class ConversationController:
         )
         if index is None:
             return False
+        if self.validate_memory is not None:
+            self.validate_memory()
         consumed = self.state.exchanges_consumed
         entry = self.state.entries[index]
         is_review = entry.review_packet is not None
@@ -328,7 +352,9 @@ class ConversationController:
                         AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
                     )
                     result = await run_agent(
-                        conversation_config(context_for(self.state, index)),
+                        conversation_config(
+                            context_for(self.state, index), self.state.memory
+                        ),
                         fixture_registry(),
                         recorded if client is None else client,
                         NoToolsDispatcher(),

@@ -445,7 +445,10 @@ class TUIContractTests(TestCase):
                 deadline = time.monotonic() + 10
                 while text not in output:
                     if time.monotonic() >= deadline:
-                        raise AssertionError("expected terminal output did not arrive")
+                        raise AssertionError(
+                            "expected terminal output did not arrive: "
+                            + repr(output[-5000:])
+                        )
                     ready, _, _ = select.select([master], [], [], 0.1)
                     if ready:
                         data = os.read(master, 16384)
@@ -459,6 +462,10 @@ class TUIContractTests(TestCase):
                 if bare:
                     read_until(b"live conversations are not connected yet")
                 os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
+                # A differential repaint can reuse old glyphs via cursor moves.
+                # Request a full repaint before matching contiguous answer bytes.
+                read_until(b"completed")
+                os.write(master, b"\x0c")
                 read_until(b"The fixture boundary is ten.")
                 os.write(master, b"\x04")
                 read_until(b"conversation.saved")
