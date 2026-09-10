@@ -92,8 +92,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    Single-session and bounded batch cross-root copies now bind both directories
    and source selections to preview hashes, with per-session transactions and
    verified retries. Single-session `session-export` now copies SQLite back to JSON
-   in another private directory with exact-hash preview, atomic publication and
-   source preservation. Same-root/batch export and bulk retention remain open. The transcript CLI now
+   in the same or another private directory with exact-hash preview, atomic
+   publication and source preservation. Same-directory export reuses the shared
+   session lock and version-2 plans; existing cross-directory hashes retain version 1.
+   Batch export and bulk retention remain open. The transcript CLI now
    reads bounded text pages using saved entry hashes and stale-cursor guards, with
    explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
