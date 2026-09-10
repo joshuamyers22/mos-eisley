@@ -17,8 +17,8 @@ Use the same `--storage PATH`, `-C PATH` and `--storage-backend sqlite` selectio
 subsequent commands. The default root is `~/.mos-eisley-sessions`. SQLite and JSON
 sessions may coexist in that root, but listing and latest-session selection use
 only the explicitly selected backend. A missing SQLite session never falls back to
-JSON. Selecting SQLite neither imports nor rewrites existing snapshots; migration
-remains planned.
+JSON. Selecting SQLite neither imports nor rewrites existing snapshots. Use the
+explicit migration command below to copy a selected JSON session.
 
 `--session-max-bytes` works on launch/resume for either backend. In SQLite it limits
 the canonical **logical snapshot**, including all retained evidence and historical
@@ -30,6 +30,50 @@ memory/budget changes retain the same controller behavior.
 SQLite requires version 3.37 or newer for its
 [STRICT tables](https://www.sqlite.org/stricttables.html). It uses Python's bundled
 `sqlite3` module; no new package dependency or database service is required.
+
+## Import an existing JSON session
+
+Preview one session, then apply using the returned `snapshot_sha256`:
+
+```sh
+mos session-migrate SESSION_ID --json
+mos session-migrate SESSION_ID --apply --expected-sha256 HASH --json
+mos resume SESSION_ID --storage-backend sqlite
+```
+
+Pass the same `--storage PATH` and `-C WORKSPACE` to all three commands when using
+non-default locations. Migration copies `<SESSION_ID>.json` into `sessions.sqlite3`
+within that storage root. It preserves the session ID, owner, workspace, revision,
+canonical state hash, consumed attempts, historical memory and retained review/
+recording evidence. The source file's saved timestamp becomes the imported index
+timestamp. Running and queued entries remain unchanged during import; only an
+explicit resume performs interrupted-state recovery, without replaying attempts.
+
+The default command is a read-only preview and never creates storage or locks.
+Its receipt reports status (`planned` or `already_present`), paths, source bytes,
+canonical logical bytes, revision, message count and hash; it prints no transcript
+or memory content. Sizes do not predict database allocation or reserve free space.
+`--apply` requires an exact source hash and retains the original JSON file. A shared
+session lock excludes cooperating JSON and SQLite writers throughout selection and
+import. Ownership, file privacy, source integrity and destination schema are checked.
+The importer reconstructs and compares the complete destination state and rechecks
+the source hash before committing the transaction. The receipt reports `imported`
+only after commit. An identical existing state returns `already_present` without
+rewriting it; a different or subsequently advanced destination is rejected.
+
+After an interrupted import, retry the apply command with the same source hash.
+SQLite rolls back unfinished transactions; if the commit already completed, retry
+verifies the existing copy. A read-only preview cannot recover a hot rollback journal
+and returns an error without modifying it; the explicit apply path permits recovery.
+An incomplete initial database schema is still rejected and has no automatic repair.
+The JSON source remains available after failure. Migration can copy a session whose
+workspace was removed, but resume still requires that workspace to exist.
+
+The two copies can diverge after migration. Continue using `--storage-backend sqlite`
+to use the imported session. There is no automatic synchronization or source removal.
+Deleting the JSON copy is a separate `session-delete` operation using its current
+hash and the default snapshot backend. Bulk imports, cross-root moves and reverse
+migration remain planned; this command copies one local session in place.
 
 ## Metadata pages
 
@@ -85,7 +129,7 @@ failures are reported without automatically repeating a request. On an uncertain
 commit, reopen to inspect the durable state. Saved running entries become
 interrupted, queued messages stay paused, and consumed attempts are not replayed.
 An interrupted initial database setup that lacks a valid schema is rejected; this
-release has no automatic initializer repair or migration command.
+release has no automatic initializer repair.
 
 ## Privacy, retention and bounds
 
@@ -108,7 +152,7 @@ the shared database and empty session lock. The backend enables SQLite's
 [`secure_delete`](https://www.sqlite.org/pragma.html#pragma_secure_delete), but
 logical deletion is not a promise of erasure from filesystem snapshots, storage
 hardware, journals or backups. Database space can be reused without the file
-shrinking. Backup expiry, vacuum/compaction, bulk retention and migration remain
+shrinking. Backup expiry, vacuum/compaction, bulk retention and bulk migration remain
 explicit future work.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
@@ -118,6 +162,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are paginated transcript/artifact loading, context compaction,
-configurable physical retention, explicit legacy migration and the 1,000-message
+configurable physical retention, bulk migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

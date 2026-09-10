@@ -23,8 +23,10 @@
   A persistent directory header and `/directory` inspection show the workspace.
   Per-session snapshot budgets are configurable up to 32 MB with visible usage;
   an opt-in SQLite backend now writes incremental message/artifact records and
-  provides bounded metadata pages. Paginated transcript loading, migration and
-  longer conversation limits remain planned under plan §17.5.
+  provides bounded metadata pages. Explicit single-session JSON-to-SQLite migration
+  now previews sizing, verifies the exact import and preserves the source. Paginated
+  transcript loading, bulk migration and longer conversation limits remain planned
+  under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;

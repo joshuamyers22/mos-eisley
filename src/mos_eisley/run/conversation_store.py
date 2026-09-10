@@ -241,13 +241,17 @@ class ConversationStore:
         self.close()
 
     def _read(self) -> ConversationSnapshot:
+        return self.inspect_json_snapshot()[0]
+
+    def inspect_json_snapshot(self) -> tuple[ConversationSnapshot, int, int]:
+        """Read JSON and its filesystem metadata while this handle holds the lock."""
         if self._deleted:
             raise ValueError("conversation has been deleted")
-        snapshot, _, _ = _snapshot(self._root, self.session_id)
+        snapshot, modified_ns, size = _snapshot(self._root, self.session_id)
         state = snapshot.state
         if state.workspace != self.workspace:
             raise ValueError("conversation workspace mismatch")
-        return snapshot
+        return snapshot, modified_ns, size
 
     def load(self) -> ConversationState:
         snapshot = self._read()

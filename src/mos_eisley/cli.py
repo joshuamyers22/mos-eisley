@@ -7451,6 +7451,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "conversation-review-demo",
             "sessions",
             "session-delete",
+            "session-migrate",
         }:
             from mos_eisley.conversation_cli import run_command
 

@@ -53,6 +53,7 @@ from mos_eisley.demo import demo_inputs
 from mos_eisley.memory_cli import add_command as add_memory_command
 from mos_eisley.memory_cli import add_memory_options
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
+from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_sqlite import (
     SQLiteConversationStore,
     list_sqlite_conversations,
@@ -147,6 +148,19 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    migration = add_parser(
+        "session-migrate", help="Preview or apply a JSON session import into SQLite"
+    )
+    migration.add_argument("session_id")
+    migration.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    migration.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    migration.add_argument("--expected-sha256", help="Source hash from the preview")
+    migration.add_argument(
+        "--apply", action="store_true", help="Import the selected hash"
+    )
+    migration.add_argument("--json", action="store_true", help="Print a JSON receipt")
     add_memory_command(
         add_parser("memory", help="Inspect or change user/project memory")
     )
@@ -633,6 +647,18 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-migrate":
+        if args.apply and args.expected_sha256 is None:
+            raise ValueError("--apply requires --expected-sha256 from a preview")
+        with ConversationMigration(
+            args.storage, args.session_id, args.workspace
+        ) as migration:
+            receipt = migration.migrate(
+                expected_sha256=args.expected_sha256, apply=args.apply
+            )
+        payload = {"type": "conversation.migration", **receipt.model_dump(mode="json")}
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
     if args.command == "memory":
         from mos_eisley.memory_cli import run_command as run_memory
 

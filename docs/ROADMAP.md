@@ -83,8 +83,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    explicit migration and recovery tests before lifting the message cap.
    The first [SQLite adapter](CONVERSATION_SQLITE.md) now implements opt-in
    incremental message/artifact writes, atomic saves/deletes and bounded metadata
-   pages with generation-bound cursors. Full state reconstruction, transcript
-   pagination, migration and the long-session acceptance gate remain open.
+   pages with generation-bound cursors. Explicit same-root JSON-to-SQLite migration
+   now preserves exact state and source files, with dry-run sizing and verified
+   retries after transaction interruption. Bounded transcript reconstruction,
+   pagination, bulk migration and the long-session acceptance gate remain open.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
