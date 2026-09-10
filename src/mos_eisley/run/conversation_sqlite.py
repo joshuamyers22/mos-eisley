@@ -14,6 +14,7 @@ import os
 import sqlite3
 import threading
 import time
+from collections import Counter
 from collections.abc import Callable, Generator
 from contextlib import closing, contextmanager, suppress
 from dataclasses import dataclass, replace
@@ -36,6 +37,7 @@ from mos_eisley.conversation_state import (
 )
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint, resume_checkpoint
+from mos_eisley.run.conversation_read_cache import ArtifactReadCache
 from mos_eisley.run.conversation_store import (
     ConversationDeletion,
     ConversationSnapshot,
@@ -1209,9 +1211,10 @@ class SQLiteConversationStore(ConversationStore):
                     self._admit_archive(
                         db, previous, position, entry, prepared_entries[position]
                     )
-            referenced = frozenset(
+            reference_counts = Counter(
                 sha for part in (header, *parts) for sha in part.refs.values()
             )
+            referenced = frozenset(reference_counts)
             if (
                 len(referenced) > 50
                 or not referenced <= artifacts.keys() | previous.artifacts
@@ -1239,15 +1242,20 @@ class SQLiteConversationStore(ConversationStore):
                 )
             checksum = hashlib.sha256()
             size = len(_json({"sha256": "0" * 64, "state": None})) - len(b"null")
-            with closing(
-                _state_chunks(
-                    header,
+            with (
+                ArtifactReadCache(
                     lambda sha: self._artifact_chunks(
                         db, sha, artifacts, previous.artifacts
                     ),
-                    entries=parts,
-                )
-            ) as chunks:
+                    artifact_sizes,
+                    frozenset(
+                        sha
+                        for sha, count in reference_counts.items()
+                        if count > 1 and sha not in artifacts
+                    ),
+                ) as reader,
+                closing(_state_chunks(header, reader.read, entries=parts)) as chunks,
+            ):
                 for chunk in chunks:
                     size += len(chunk)
                     if size > state.snapshot_byte_limit:

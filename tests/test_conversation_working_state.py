@@ -276,6 +276,39 @@ class WorkingStateTests(TestCase):
             )
         )
 
+    def test_repeated_archived_memory_is_read_once_per_save(self) -> None:
+        self.chat.submit(DEMO_PROMPTS[1])
+        asyncio.run(self.chat.step())
+        first, second = self.chat.state.entries
+        assert isinstance(first, ArchivedConversationEntry)
+        assert isinstance(second, ArchivedConversationEntry)
+        sha = first.artifact_refs["memory_context"]
+        self.assertEqual(second.artifact_refs["memory_context"], sha)
+        source = self.store._artifact_chunks  # pyright: ignore[reportPrivateUsage]
+        with patch.object(self.store, "_artifact_chunks", wraps=source) as reads:
+            self.chat.resize_context(4000)
+            self.assertEqual(
+                sum(call.args[1] == sha for call in reads.call_args_list), 1
+            )
+            self.chat.resize_context(8000)
+            self.assertEqual(
+                sum(call.args[1] == sha for call in reads.call_args_list), 2
+            )
+        self.assertEqual(self.check_snapshot().exchanges_consumed, 2)
+
+    def test_corruption_after_cached_save_is_not_hidden_by_previous_reads(self) -> None:
+        self.chat.submit(DEMO_PROMPTS[1])
+        asyncio.run(self.chat.step())
+        self.chat.resize_context(4000)
+        before = self.chat.state
+        sha = self.store.snapshot_sha256
+        self.store.direct_corruption()
+        with self.assertRaises(ValueError):
+            self.chat.resize_context(8000)
+        self.assertEqual(self.chat.state, before)
+        self.assertEqual(self.store.snapshot_sha256, sha)
+        self.assertFalse(self.store.transaction_open())
+
     def test_memory_refresh_preserves_historical_selection_and_collects_old_header(
         self,
     ) -> None:
