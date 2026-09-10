@@ -377,6 +377,9 @@ def parser() -> argparse.ArgumentParser:
     )
     command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
     subcommands = command.add_subparsers(dest="command", required=True)
+    from mos_eisley.conversation_cli import add_commands
+
+    add_commands(subcommands.add_parser)
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7431,6 +7434,10 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in {"chat", "resume", "conversation-demo"}:
+            from mos_eisley.conversation_cli import run_command
+
+            return run_command(args)
         if args.command in {
             "analysis-eval-schedule",
             "analysis-eval-assess",
