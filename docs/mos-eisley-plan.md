@@ -1658,6 +1658,16 @@ This supplies the pending-text part of independent budgets, not a total RAM quot
 or bounded history transitions. See the
 [pending text contract](CONVERSATION_STORAGE.md#pending-text-budget).
 
+`/context` now provides an ephemeral, versioned selection preview for the next
+queued chat. Dispatch and preview share one projection function; the report maps
+turns to source positions, explains omitted positions, and hashes/measures exact
+canonical system-and-turns JSON with selected saved memory. It reports metadata
+without copying message or memory text, saves nothing and consumes no attempt.
+Queued reviews retain their isolated-packet boundary. Active work makes a preview
+provisional; the TUI marks it stale after revision changes. Existing context rules
+are preserved. This is visibility into current selection, not persisted dispatch
+provenance, compaction or evidence that the long-session gate has passed.
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following

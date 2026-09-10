@@ -24,6 +24,10 @@ from mos_eisley.conversation import (
 )
 from mos_eisley.conversation_composer import ConversationComposer
 from mos_eisley.conversation_context import ContextBudgetError
+from mos_eisley.conversation_context_preview import (
+    ContextPreviewUnavailable,
+    preview_context,
+)
 from mos_eisley.conversation_input import (
     ConversationInput,
     ConversationInputQueue,
@@ -702,6 +706,19 @@ async def terminal(
                             ),
                         }
                     )
+                elif line == "/context":
+                    try:
+                        preview = preview_context(controller.state)
+                    except ContextPreviewUnavailable as error:
+                        emit({"type": "conversation.unavailable", "text": str(error)})
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.context",
+                                **preview.model_dump(mode="json"),
+                                "text": preview.describe(),
+                            }
+                        )
                 elif line == "/directory":
                     emit(
                         {
@@ -727,6 +744,7 @@ async def terminal(
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
                                     "/steer TEXT, /review, /memory, /directory, "
+                                    "/context, "
                                     "/stop, /continue, /quit"
                                 ),
                             }
@@ -1193,7 +1211,7 @@ def _run_command(args: argparse.Namespace) -> int:
                 "text": (
                     f"Session {session_id}. Recorded preview. "
                     "Commands: /compose, /send, /discard, "
-                    "/steer TEXT, /review, /stop, /continue, /quit. "
+                    "/steer TEXT, /review, /context, /stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }

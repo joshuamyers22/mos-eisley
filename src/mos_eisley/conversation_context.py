@@ -1,7 +1,7 @@
 """Text-only conversation context selection and independent byte admission."""
 
 from collections.abc import Sequence
-from typing import Annotated, Protocol
+from typing import Annotated, Literal, NamedTuple, Protocol
 
 from pydantic import Field, TypeAdapter
 
@@ -29,6 +29,33 @@ class RequestContext(Contract):
     turns: Annotated[tuple[Turn, ...], Field(min_length=1, max_length=31)]
 
 
+Position = Annotated[int, Field(ge=0, le=15)]
+
+
+class ContextTurnSource(Contract):
+    role: Literal["user", "assistant"]
+    positions: Annotated[tuple[Position, ...], Field(min_length=1, max_length=16)]
+
+
+class ContextOmission(Contract):
+    position: Position
+    reason: Literal["after_target", "no_completed_answer_or_required_link"]
+
+
+class ContextSelection(Contract):
+    policy_version: Literal[1] = 1
+    message_index: Position
+    turn_sources: Annotated[
+        tuple[ContextTurnSource, ...], Field(min_length=1, max_length=31)
+    ]
+    omitted: Annotated[tuple[ContextOmission, ...], Field(max_length=15)]
+
+
+class ContextProjection(NamedTuple):
+    turns: tuple[Turn, ...]
+    selection: ContextSelection
+
+
 class ContextBudgetError(ValueError):
     """A local admission rejection whose message contains only sizes and guidance."""
 
@@ -43,6 +70,10 @@ class ContextBudgetError(ValueError):
 
 
 def context_turns(entries: Sequence[ContextMessage], index: int) -> tuple[Turn, ...]:
+    return project_context(entries, index).turns
+
+
+def project_context(entries: Sequence[ContextMessage], index: int) -> ContextProjection:
     """Preserve all completed exchanges and unanswered steering intent.
 
     This interface needs only text and links, so callers need not hydrate memory
@@ -55,26 +86,53 @@ def context_turns(entries: Sequence[ContextMessage], index: int) -> tuple[Turn, 
         if entry.steering_for is not None and not 0 <= entry.steering_for < position:
             raise ValueError("context steering must refer to an earlier message")
 
-    def user_blocks(position: int) -> tuple[TextBlock, ...]:
+    def user_positions(position: int) -> tuple[int, ...]:
         positions = [position]
         while (target := entries[position].steering_for) is not None and entries[
             target
         ].status != "completed":
             positions.append(target)
             position = target
-        return tuple(TextBlock(text=entries[item].text) for item in reversed(positions))
+        return tuple(reversed(positions))
 
-    turns: list[Turn] = []
+    sources: list[ContextTurnSource] = []
     for position, entry in enumerate(entries[:index]):
         if entry.status == "completed" and entry.answer is not None:
-            turns.extend(
+            sources.extend(
                 (
-                    Turn(role="user", blocks=user_blocks(position)),
-                    Turn(role="assistant", blocks=(TextBlock(text=entry.answer),)),
+                    ContextTurnSource(role="user", positions=user_positions(position)),
+                    ContextTurnSource(role="assistant", positions=(position,)),
                 )
             )
-    turns.append(Turn(role="user", blocks=user_blocks(index)))
-    return tuple(turns)
+    sources.append(ContextTurnSource(role="user", positions=user_positions(index)))
+    selected = {position for source in sources for position in source.positions}
+    selection = ContextSelection(
+        message_index=index,
+        turn_sources=tuple(sources),
+        omitted=tuple(
+            ContextOmission(
+                position=position,
+                reason="after_target"
+                if position > index
+                else "no_completed_answer_or_required_link",
+            )
+            for position in range(len(entries))
+            if position not in selected
+        ),
+    )
+    turns: list[Turn] = []
+    for source in sources:
+        blocks: list[TextBlock] = []
+        for position in source.positions:
+            text = (
+                entries[position].text
+                if source.role == "user"
+                else entries[position].answer
+            )
+            assert text is not None
+            blocks.append(TextBlock(text=text))
+        turns.append(Turn(role=source.role, blocks=tuple(blocks)))
+    return ContextProjection(tuple(turns), selection)
 
 
 def admit_context(system: str, turns: tuple[Turn, ...], maximum: int) -> int:
