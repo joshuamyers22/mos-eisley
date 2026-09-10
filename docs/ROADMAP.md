@@ -85,8 +85,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    incremental message/artifact writes, atomic saves/deletes and bounded metadata
    pages with generation-bound cursors. Explicit same-root JSON-to-SQLite migration
    now preserves exact state and source files, with dry-run sizing and verified
-   retries after transaction interruption. Bounded transcript reconstruction,
-   pagination, bulk migration and the long-session acceptance gate remain open.
+   retries after transaction interruption. The transcript CLI now reads bounded
+   text pages using saved entry hashes and stale-cursor guards, with explicit
+   preparation for legacy indexes. Bounded interactive resume, transcript scrolling,
+   artifact expansion, bulk migration and the long-session acceptance gate remain open.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

@@ -1473,8 +1473,12 @@ JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
 inside the transaction and retains the JSON source. Verified retries cover rollback
 and an already committed import. Bulk/cross-root migration, incomplete database
-initializer repair and paginated transcript loading remain open. Neither backend
-has passed the long-session gate below.
+initializer repair remain open. `mos session-transcript SESSION_ID` now reads
+bounded, verified text pages without loading the header or artifact contents.
+Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
+indexes require an explicit exact-hash preparation step. This adds CLI navigation;
+bounded interactive resume, transcript scrolling and selected artifact expansion
+remain open. Neither backend has passed the long-session gate below.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

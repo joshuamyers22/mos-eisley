@@ -81,6 +81,9 @@ class SessionIndex(Contract):
     owner_uid: Annotated[int, Field(ge=0)]
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
     summary: ConversationSummary
+    entry_sha256: Annotated[tuple[Digest, ...] | None, Field(max_length=16)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class PageCursor(Contract):
@@ -129,7 +132,9 @@ def _unpack(
     return part.body
 
 
-def _index(state: ConversationState, modified_ns: int) -> SessionIndex:
+def _index(
+    state: ConversationState, modified_ns: int, *, entry_digests: bool = True
+) -> SessionIndex:
     sha = digest(canonical_bytes(state))
     size = len(canonical_bytes(ConversationSnapshot(state=state, sha256=sha)))
     if size > state.snapshot_byte_limit:
@@ -151,6 +156,20 @@ def _index(state: ConversationState, modified_ns: int) -> SessionIndex:
             active=False,
             snapshot_bytes=size,
             snapshot_max_bytes=state.snapshot_byte_limit,
+        ),
+        entry_sha256=(
+            tuple(
+                digest(
+                    _pack(
+                        entry.model_dump(mode="json"),
+                        ("memory_context", "review_packet", "review_result"),
+                        {},
+                    )
+                )
+                for entry in state.entries
+            )
+            if entry_digests
+            else None
         ),
     )
 
@@ -448,7 +467,14 @@ class SQLiteConversationStore(ConversationStore):
         if used != artifacts.keys():
             raise ValueError("unreferenced SQLite conversation artifacts")
         state = ConversationState.model_validate_json(_json(body))
-        if _index(state, record.summary.modified_ns) != record:
+        if _index(
+            state,
+            record.summary.modified_ns,
+            entry_digests=False,
+        ) != record.model_copy(update={"entry_sha256": None}) or (
+            record.entry_sha256 is not None
+            and record.entry_sha256 != tuple(digest(payload) for payload in encoded[1:])
+        ):
             raise ValueError("SQLite conversation state integrity mismatch")
         return ConversationSnapshot(state=state, sha256=record.summary.snapshot_sha256)
 
@@ -460,6 +486,46 @@ class SQLiteConversationStore(ConversationStore):
 
     def save(self, state: ConversationState) -> None:
         self._save(state)
+
+    def prepare_transcript(self, expected_sha256: str) -> ConversationSummary:
+        """Verify the full state and add a derived page index without changing it."""
+        expected = TypeAdapter[str](Digest).validate_python(expected_sha256)
+        db = self._connection()
+        with conversation_transaction(db, write=True):
+            _identity(db)
+            snapshot = self._load(db)
+            if snapshot.sha256 != expected:
+                raise ValueError("conversation changed since transcript was selected")
+            row = db.execute(
+                "SELECT sid, workspace, modified_ns, record, record_sha "
+                "FROM sessions WHERE sid=?",
+                (self.session_id,),
+            ).fetchone()
+            current = _read_index(row)
+            if current.entry_sha256 is None:
+                payloads = db.execute(
+                    "SELECT payload FROM entries WHERE sid=? "
+                    "ORDER BY position LIMIT 16",
+                    (self.session_id,),
+                ).fetchall()
+                # _load already bounded and verified these rows in this transaction.
+                # Hash their actual representation, including valid legacy whitespace.
+                index = _index(
+                    snapshot.state, current.summary.modified_ns, entry_digests=False
+                ).model_copy(
+                    update={
+                        "entry_sha256": tuple(
+                            digest(payload) for (payload,) in payloads
+                        )
+                    }
+                )
+                record = canonical_bytes(index)
+                db.execute(
+                    "UPDATE sessions SET record=?, record_sha=? WHERE sid=?",
+                    (record, digest(record), self.session_id),
+                )
+                db.execute("UPDATE metadata SET generation=generation+1 WHERE id=1")
+            return current.summary
 
     def import_snapshot(
         self,
@@ -590,6 +656,41 @@ class SQLiteConversationStore(ConversationStore):
             snapshot_sha256=expected,
             removed_temporary_files=0,
         )
+
+
+@contextmanager
+def sqlite_read_transaction(
+    root: Path,
+) -> Generator[tuple[sqlite3.Connection, str, int]]:
+    """Open one owner-validated read-only transaction without creating storage."""
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    db: sqlite3.Connection | None = None
+    try:
+        validate_private_storage(root_fd, directory=True)
+        db = _connect(root.absolute(), root_fd, create=False, writable=False)
+        with conversation_transaction(db):
+            store_id, generation = _identity(db)
+            yield db, store_id, generation
+    finally:
+        if db is not None:
+            db.close()
+        os.close(root_fd)
+
+
+def read_sqlite_session_index(
+    db: sqlite3.Connection, session_id: str, workspace: str
+) -> SessionIndex:
+    row = db.execute(
+        "SELECT sid, workspace, modified_ns, CASE WHEN length(record)<=? "
+        "THEN record END, record_sha FROM sessions WHERE sid=?",
+        (MAX_INDEX_BYTES, session_id),
+    ).fetchone()
+    if row is None:
+        raise FileNotFoundError("saved SQLite conversation is unavailable")
+    record = _read_index(row)
+    if record.workspace != workspace:
+        raise ValueError("conversation workspace mismatch")
+    return record
 
 
 def list_sqlite_conversations(
