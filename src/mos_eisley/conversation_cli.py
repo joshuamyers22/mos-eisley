@@ -12,6 +12,7 @@ import stat
 import sys
 from collections.abc import Callable
 from contextlib import suppress
+from datetime import UTC, datetime
 from pathlib import Path
 
 from mos_eisley.conversation import (
@@ -25,7 +26,11 @@ from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
-from mos_eisley.run.conversation_store import ConversationStore
+from mos_eisley.run.conversation_store import (
+    ConversationStore,
+    ConversationSummary,
+    list_conversations,
+)
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -77,11 +82,17 @@ def demo_cassette() -> AgentCassette:
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     demo = add_parser("conversation-demo", help="Write a synthetic chat cassette")
     demo.add_argument("--output", type=Path, required=True)
-    for name in ("chat", "resume"):
+    for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "resume":
+            selection = command.add_mutually_exclusive_group(required=True)
+            selection.add_argument("session_id", nargs="?")
+            selection.add_argument("--last", action="store_true")
+        if name == "session-delete":
             command.add_argument("session_id")
-        command.add_argument("--cassette", type=Path, required=True)
+            command.add_argument("--expected-sha256", required=True)
+        if name in {"chat", "resume"}:
+            command.add_argument("--cassette", type=Path, required=True)
         command.add_argument("--storage", type=Path, required=True)
         command.add_argument("--workspace", type=Path, default=Path.cwd())
         command.add_argument(
@@ -286,18 +297,92 @@ def run_command(args: argparse.Namespace) -> int:
             safe = json.dumps(value, ensure_ascii=True)[1:-1]
             print(f"{event['type']}: {safe}", flush=True)
 
+    if args.command == "sessions":
+        summaries = list_conversations(args.storage, args.workspace)
+        if args.json:
+            emit(
+                {
+                    "type": "conversations.listed",
+                    "sessions": [
+                        summary.model_dump(mode="json") for summary in summaries
+                    ],
+                }
+            )
+        elif not summaries:
+            emit(
+                {
+                    "type": "conversations.listed",
+                    "text": "No saved conversations in this workspace.",
+                }
+            )
+        else:
+            for summary in summaries:
+                saved = datetime.fromtimestamp(
+                    summary.modified_ns / 1e9, UTC
+                ).isoformat()
+                emit(
+                    {
+                        "type": "conversation.summary",
+                        "text": (
+                            f"{summary.session_id} | {saved} | "
+                            f"{summary.messages} messages | "
+                            f"{'active' if summary.active else 'available'} | "
+                            f"snapshot {summary.snapshot_sha256}"
+                        ),
+                    }
+                )
+        return 0
+    if args.command == "session-delete":
+        emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
+        with ConversationStore(
+            args.storage,
+            args.session_id,
+            args.workspace,
+            create=False,
+            require_workspace=False,
+        ) as store:
+            receipt = store.delete(args.expected_sha256)
+        emit(
+            {
+                "type": "conversation.deleted",
+                **receipt.model_dump(mode="json"),
+                "text": f"Deleted saved session {receipt.session_id}.",
+            }
+        )
+        return 0
+
     cassette = AgentCassette.model_validate_json(read_bounded(args.cassette))
     fresh: ConversationState | None = None
+    selected: ConversationSummary | None = None
     if args.command == "chat":
         fresh = ConversationController.fresh(args.workspace, cassette)
         session_id = fresh.session_id
+    elif args.last:
+        summaries = list_conversations(args.storage, args.workspace)
+        if not summaries:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "No saved conversations in this workspace.",
+                }
+            )
+            return 2
+        selected = summaries[0]
+        session_id = selected.session_id
     else:
         session_id = args.session_id
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
-    with ConversationStore(args.storage, session_id, args.workspace) as store:
+    with ConversationStore(
+        args.storage, session_id, args.workspace, create=fresh is not None
+    ) as store:
         if fresh is not None:
             store.save(fresh)
         state = fresh if fresh is not None else store.load()
+        if (
+            selected is not None
+            and digest(canonical_bytes(state)) != selected.snapshot_sha256
+        ):
+            raise ValueError("selected latest conversation changed; list again")
         controller = ConversationController(state, cassette, store.save)
         emit(
             {

@@ -95,7 +95,8 @@ and critic/judge workflows retain their existing tool-free boundaries.
 
 - A [recorded conversation terminal](docs/CONVERSATIONS.md) with contextual
   follow-ups, queued messages, cancellation, private saving and explicit same-user,
-  same-workspace resume. Live conversation and the full terminal UI remain planned.
+  same-workspace resume, metadata-only session listing, latest-session selection
+  and exact-snapshot deletion. Live conversation and the full terminal UI remain planned.
 - Immutable, versioned Pydantic contracts with strict input validation.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.

@@ -7434,7 +7434,13 @@ def _run_openai_conformance_broker(
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command in {"chat", "resume", "conversation-demo"}:
+        if args.command in {
+            "chat",
+            "resume",
+            "conversation-demo",
+            "sessions",
+            "session-delete",
+        }:
             from mos_eisley.conversation_cli import run_command
 
             return run_command(args)

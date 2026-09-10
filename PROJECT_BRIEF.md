@@ -7,7 +7,8 @@
   inert fixture tool. Both paths produce private, content-verified offline replays.
 - Conversation preview: a recorded text terminal now supports contextual follow-ups,
   queued input, cancellation, private local snapshots and explicit same-owner,
-  same-workspace resume. Live conversation, full TUI, review integration and remote
+  same-workspace resume, metadata-only listing, latest-session selection and
+  exact-snapshot deletion. Live conversation, full TUI, review integration and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed

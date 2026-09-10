@@ -2,8 +2,9 @@
 
 `mos chat` now keeps a text conversation across messages and saves it privately.
 `mos resume <session-id>` explicitly restores that conversation in the same
-workspace. This first milestone uses request-bound recorded responses: it does
-not generate arbitrary answers or call a live provider. Every recorded response
+workspace. `mos sessions`, `mos resume --last` and `mos session-delete` provide
+navigation for the selected workspace and manual retention. This preview uses
+request-bound recorded responses: it does not generate arbitrary answers or call a live provider. Every recorded response
 must match the hash of the full current request, including prior completed turns.
 
 ## Try it
@@ -35,6 +36,64 @@ mos resume <session-id> --cassette /tmp/mos-chat-cassette.json --storage /tmp/mo
 current directory). Selecting a workspace does not read its repository files.
 Resume requires the same canonical workspace and exact cassette. A new `chat`
 starts empty and never retrieves other sessions' content.
+
+## Finding and removing sessions
+
+List saved sessions for the current workspace, newest first:
+
+```sh
+mos sessions --storage /tmp/mos-chat-sessions
+mos sessions --storage /tmp/mos-chat-sessions --json
+mos resume --last --cassette /tmp/mos-chat-cassette.json --storage /tmp/mos-chat-sessions
+```
+
+Listings show session IDs, last-save filesystem timestamps, message counts,
+active/available status and the exact snapshot hash. JSON includes revision,
+completed/pending counts and nanosecond modification times. No transcript text is
+returned. The adapter validates bounded snapshots owned by the current user before
+filtering to the selected canonical workspace; it writes no catalog or additional copy.
+Listing an empty existing store succeeds. Missing storage produces an error and
+is never created by listing, resume or deletion.
+
+`--last` selects the most recently modified snapshot observed in that workspace.
+Tied timestamps use descending session ID for deterministic selection. Recency
+comes from filesystem metadata and can change when files are restored or touched.
+The catalog is not an atomic snapshot across sessions. Resume acquires the selected
+session's exclusive lock and rechecks its hash before restoring context. Busy or
+changed selections, a different cassette, or an invalid catalog entry fail the
+operation. They do not cause a fallback to another session. Pending messages still
+require explicit continuation, as with resume by ID.
+
+To delete a saved conversation, replace `SESSION_ID` and `SNAPSHOT_SHA256` below
+with values from a fresh listing:
+
+```sh
+mos session-delete SESSION_ID --expected-sha256 SNAPSHOT_SHA256 --storage /tmp/mos-chat-sessions
+```
+
+Deletion immediately removes that exact local snapshot. It requires the current
+owner and canonical workspace, rejects an active session, and refuses a snapshot
+that changed since selection. Under the session lock it validates and removes
+only that session's private, singly linked temporary snapshot files, then removes
+the committed snapshot and fsyncs the directory. Invalid targeted files stop the
+operation before any removal. A cleanup failure can leave some temporary files
+removed while retaining the committed snapshot for explicit retry; a final fsync
+failure can mean removal occurred without durability confirmation. The command
+does not automatically retry or report success after a failure.
+
+The empty lock file remains to preserve synchronization with other handles. It
+contains no transcript. Backup/version expiry and physical secure erasure are
+outside this local operation. Orphan temporary files without any committed
+snapshot still require manual inspection/cleanup. Automatic expiry and bulk
+deletion are future work.
+
+Use `--workspace /original/canonical/workspace` to list or delete records after
+that workspace directory has been removed. Resume continues to require an existing
+workspace. Catalog scans are limited to 4,096 directory entries, 256 candidate
+snapshots and 8 MB of aggregate snapshot input (2 MB per snapshot). Invalid or
+over-limit catalogs fail instead of returning a partial selection. Retained lock
+files count toward the directory limit. Use a dedicated private storage directory;
+pagination and cleanup of unused lock files remain future work.
 
 ## Interaction and automation
 
@@ -88,18 +147,17 @@ tools or live-provider credentials. The retained state includes only explicit
 conversation text, statuses, recorded usage and identity/configuration hashes.
 Current request configuration and limits are reconstructed from installed code.
 
-Storage is user-selected and retention is manual. The JSON file contains the
-current transcript; `.lock` files are synchronization metadata and must not be
-removed while a session is open. An abnormal process exit can leave a private
-temporary file with transcript content. Close all handles before deleting a
-session's files. Version history, compaction, a local listing/deletion interface,
-SQLite indexing and remote adapters remain future work.
+Storage is user-selected and retention is manual through `session-delete`. The
+JSON file contains the current transcript; `.lock` files are synchronization
+metadata and must not be removed while a session is open. An abnormal process
+exit can leave a private temporary file with transcript content. Version history,
+compaction, SQLite indexing and remote adapters remain future work.
 
 ## Scope and verification
 
 This is the first recorded conversation milestone in plan §16.0. The plain `mos`
-entry point still displays command usage. Live conversation, automatic session
-selection, integrated blind review, repository execution, shared `exec` routing,
+entry point still displays command usage. Live conversation,
+integrated blind review, repository execution, shared `exec` routing,
 and the full terminal UI remain open. The existing MCP and analysis commands are
 independent of this preview.
 
@@ -117,3 +175,13 @@ also runs this file from outside the checkout. Validation on 2026-09-09:
   All 146 local documentation link targets resolved.
 
 All conversation tests use synthetic inputs and make no provider calls.
+
+The navigation milestone additionally exercises workspace-only metadata, active
+session detection, bounded scans, stale/latest-selection races, deletion failure
+and temporary-file validation, missing workspace retention, and a real separate
+process resuming the latest matching-workspace conversation. Validation on
+2026-09-09: all 36 focused conversation tests passed, followed by the full quality
+gate with 760 source tests (three optional integration skips), 88% branch-inclusive
+coverage, lint/format, strict typing, locked export, build and 142 installed-wheel
+smoke tests. A human-output list/delete/empty-list walkthrough and all 146 local
+documentation link targets also passed.
