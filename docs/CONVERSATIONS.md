@@ -100,9 +100,10 @@ pagination and cleanup of unused lock files remain future work.
 The preview is a line-oriented terminal with user input, assistant answers, and
 visible queued/running/completed/cancelled/interrupted/failed states. The composer
 accepts additional lines while a response is active. They enter a bounded queue
-and become separate contextual follow-ups after that response. Use `/compose`
-for a multiline draft, then `/send` to queue it as one literal message.
-Active-request steering and the full-screen composer remain future work.
+and apply after that response. Messages submitted during an active chat request
+are now bound to its task as queued steering. Use `/compose` for a multiline
+draft, then `/send` to queue it as one literal message. Mid-request interruption
+and the full-screen composer remain future work.
 
 - `/stop` or Ctrl-C cancels the active request and queued messages, retaining their
   text and status, and discards an unsent draft. The session remains open for
@@ -127,11 +128,54 @@ message/answer. The existing agent request and response byte budgets still apply
 Each ordinary chat message permits one request, no tools, no retries, and a
 30-second timeout. Explicit reviews use their separately bounded critic/judge
 workflow and do not consume a chat cassette position.
-Failed/cancelled/interrupted messages remain visible but are excluded from future
-model context. Completed messages include recorded usage; failed attempts retain
+Failed/cancelled/interrupted answers are excluded from future model context.
+Their user text is included only when retained steering explicitly links to that
+unanswered task; unrelated unfinished messages remain excluded. Completed messages include recorded usage; failed attempts retain
 their consumed cassette position without inventing usage. A failed recorded
 request pauses dispatch and emits an error; the session itself remains usable.
 Unexpected text cannot match this synthetic demo's exact request hashes.
+
+## Steering during work
+
+Plain messages sent while a chat request is running are saved as refinements of
+that task. `/steer TEXT` explicitly requires an active chat request; if it has
+already finished, no message is queued and the session does not start work. Use
+an ordinary message for a follow-up after completion. A draft binds to the task
+active at `/send`, not when `/compose` opens. Inside a draft, `/steer TEXT` is
+literal text, like `/review`.
+
+The transcript labels each message with its zero-based index. Bound refinements
+also show `steering message N`; NDJSON includes the same `steering_for` index on
+queued, running and terminal lifecycle events. The snapshot saves that link
+before publishing the queued event. Target indices must refer to earlier,
+dispatched chat messages; review entries cannot be targets or carry steering.
+Old snapshots without links preserve their canonical encoding. An older install
+that does not understand steering fields rejects a new linked snapshot.
+
+Steering applies at the next request boundary in FIFO order. It does not mutate
+an already dispatched request, cancel it, replay it, or grant additional tool or
+provider authority. If the target completes, its ordinary user/assistant context
+is available to the refinement. Multiple refinements retain their submission
+order and see earlier completed answers. General tool-boundary steering,
+streaming and immediate status replies remain future work.
+
+If the target fails, dispatch pauses with the refinement still queued. `/quit`
+or process interruption also preserves a queued refinement; resume marks any
+saved running attempt interrupted and waits for explicit continuation. On
+`/continue`, the new request includes the unanswered original user text followed
+by its refinement as separate text blocks in one user turn. Chained unanswered
+refinements preserve the same sequence. No failed answer is invented, no prior
+cassette position is reused, and later context retains the combined user turn
+that actually received an answer. The existing request byte budget still applies
+to this expanded intent. `/stop` cancels the active request and queued
+refinements together, without erasing their text or links.
+
+Reviews remain separate: `/steer` is unavailable while a review is running.
+Ordinary input and sent drafts queue as unbound follow-ups after its report;
+they cannot modify the selected packet or enter an in-flight critic request.
+A newly requested review likewise remains a frozen packet rather than a chat
+refinement. Recorded responses may complete immediately, so an explicit
+`/steer` can correctly report that there is no active chat by the time it arrives.
 
 ## Multiline composition
 
@@ -174,8 +218,9 @@ the follow-up. The `--multiline` demo is synthetic and still requires exact text
   still obey the session's 16-message and agent byte limits. A full session leaves
   the draft open for explicit discard, without dispatching saved queued work.
 - Drafting remains usable while chat or review runs. A sent draft queues behind
-  active work and receives its completed context; it does not alter a dispatched
-  request. Merely drafting or discarding does not continue a paused session.
+  active work and receives its completed context. During chat, it also retains
+  a steering link to that active task; it does not alter a dispatched request.
+  Merely drafting or discarding does not continue a paused session.
 - Unsent drafts exist only in process memory. They are absent from snapshots,
   model requests and application event text, and are discarded on stop, quit,
   EOF or session failure. Terminal echo or an external terminal recorder can
@@ -265,3 +310,16 @@ without discarded content. The full quality gate passed with 787 source tests
 (three optional integration skips), 88% branch-inclusive coverage, lint/format,
 strict typing, locked export, build and 169 installed-wheel tests. All 285 local
 documentation targets resolved.
+
+The steering milestone exercises automatic and explicit task binding, request
+serialization, frozen review boundaries, storage failure, chained unanswered
+intent, unavailable steering, stop, composer submission, legacy snapshot encoding
+and invalid target/attempt-count rejection. A killed CLI process retains a queued
+refinement; a separate resume process stays paused until explicit continuation
+and verifies exact request-bound recovery and later context. All 75 focused
+conversation tests passed, along with strict typing and lint. A real PTY verified
+visible task links, queued steering, serialized completion and durable state.
+The full quality gate passed with 799 source tests (three optional integration
+skips), 88% branch-inclusive coverage, lint/format, strict typing, locked export,
+build and 181 installed-wheel tests. All 287 local documentation targets resolved
+(2026-09-09).
