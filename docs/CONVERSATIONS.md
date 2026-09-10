@@ -100,7 +100,10 @@ deletion are future work.
 Use `--workspace /original/canonical/workspace` to list or delete records after
 that workspace directory has been removed. Resume continues to require an existing
 workspace. Catalog scans are limited to 4,096 directory entries, 256 candidate
-snapshots and 8 MB of aggregate snapshot input (2 MB per snapshot). Invalid or
+snapshots and 8 MB of aggregate snapshot input by default. Each snapshot has a
+saved byte budget, initially 2 MB and configurable up to 32 MB; the catalog scan
+budget is independently configurable up to 128 MB. See
+[storage budgets and expansion](CONVERSATION_STORAGE.md). Invalid or
 over-limit catalogs fail instead of returning a partial selection. Retained lock
 files count toward the directory limit. Use a dedicated private storage directory;
 pagination and cleanup of unused lock files remain future work.

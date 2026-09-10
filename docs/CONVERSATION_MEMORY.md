@@ -143,7 +143,8 @@ characters may use more bytes. No truncation occurs. Individually valid document
 can exceed the combined limit; shorten/disable a scope, or use `--no-memory` while
 correcting it. Normal request/history budgets still apply. Serialized records are
 bounded at 256 KiB, including metadata and escaping. Retained historical context and
-recordings must fit the existing 2 MB session snapshot limit; oversized saves fail
+recordings must fit the session's saved snapshot budget (2 MB by default; see
+[storage controls](CONVERSATION_STORAGE.md)); oversized saves fail
 without publishing the new selection. No background memory generation,
 network access, credential lookup or cross-user pooling is introduced.
 

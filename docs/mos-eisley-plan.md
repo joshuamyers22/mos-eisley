@@ -1451,6 +1451,36 @@ encrypted with tighter access and retention; ordinary replay and display always 
 the redacted form. Data minimization and capability isolation remain primary—the
 redactor is defense in depth.
 
+### 17.5 Long-session storage and independent budgets
+
+**Direction following the 2 MB capacity discussion:** the snapshot limit is an
+interim preview constraint, not a long-session product target. The first
+[storage-budget implementation](CONVERSATION_STORAGE.md) now lets the user save a
+64 KB–32 MB snapshot budget with `--session-max-bytes` on launch or resume. The
+default remains 2 MB; legacy canonical hashes remain unchanged. `mos sessions`
+reports actual bytes and the saved limit. Listing/latest selection has a separate
+8 MB scan budget, explicitly adjustable up to 128 MB with `--catalog-max-bytes`.
+Budget changes preserve history and consumed attempts and do not dispatch work.
+
+The backend still reads and rewrites whole snapshots, and the recorded preview
+still caps messages/attempts at 16. Raising the snapshot budget does not lift
+model context, memory, message, tool, or spending bounds. Complete the following
+work before claiming support for long coding sessions:
+
+| Stage | Required behavior and acceptance |
+| --- | --- |
+| Incremental persistence | Versioned local SQLite metadata and incremental records, with private owner-scoped immutable artifact/memory references. Commit each transition and its references before dispatch without rewriting all earlier content. Retain revision checks, consumed attempts and steering ancestry. |
+| Bounded navigation | Stable cursors and bounded pages for listings and transcript reads. Resume loads a bounded working set; listing does not parse every transcript. Concurrent writes, stale cursors and missing references produce defined recoverable outcomes. |
+| Independent budgets | Separate disk/retention quotas, page/record read limits, pending-input capacity, active model context, memory and provider spending. Report usage before capacity rejection. A storage increase grants no inference or tool authority. |
+| Context management | Visible, versioned compaction preserves current user instructions, decisions, unresolved work and required task links. Retain original evidence and record request selection/omissions. Fresh sessions and independent critics cannot retrieve ambient history. |
+| Migration and retention | Explicit owner-preserving migration with dry-run sizing, interruption recovery and count/digest verification. Retention previews and crash-safe cleanup include unreferenced objects and journals/backups under their documented expiry. Listing never silently migrates data. |
+| Capacity and recovery gate | Demonstrate at least 1,000 messages and retained content above 32 MB with bounded page reads. Test crash boundaries, disk-full/truncated writes, concurrent writers, corrupt objects, stale cursors, interrupted migration, retention races, ownership and critic isolation using fixtures. |
+
+The [implementation sequence](CONVERSATION_STORAGE.md#planned-incremental-storage)
+defines this local work before remote SQL/object adapters, which must enforce
+equivalent server-side ownership and retention guarantees. Do not substitute a
+larger monolithic snapshot constant for these acceptance criteria.
+
 ---
 
 ## 18. Evaluation harness

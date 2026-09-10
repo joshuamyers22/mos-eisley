@@ -15,9 +15,13 @@ from uuid import uuid4
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import ConversationState, SessionID
+from mos_eisley.conversation_limits import (
+    MAX_CATALOG_SCAN_BYTES,
+    MAX_SNAPSHOT_BYTES,
+)
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 
-MAX_BYTES = 2_000_000
+MAX_BYTES = MAX_SNAPSHOT_BYTES
 MAX_DIRECTORY_ENTRIES = 4096
 MAX_CATALOG_BYTES = 8_000_000
 MAX_SESSIONS = 256
@@ -37,6 +41,8 @@ class ConversationSummary(Contract):
     completed: Annotated[int, Field(ge=0, le=16)]
     pending: Annotated[int, Field(ge=0, le=16)]
     active: bool
+    snapshot_bytes: Annotated[int, Field(ge=0, le=MAX_SNAPSHOT_BYTES)]
+    snapshot_max_bytes: Annotated[int, Field(ge=1, le=MAX_SNAPSHOT_BYTES)]
 
 
 class ConversationDeletion(Contract):
@@ -81,9 +87,16 @@ def _snapshot(
         modified_ns = os.fstat(stream.fileno()).st_mtime_ns
         payload = stream.read(byte_limit + 1)
     if len(payload) > byte_limit:
+        if byte_limit < MAX_BYTES:
+            raise ValueError(
+                "conversation catalog scan exceeds byte limit; "
+                "use --catalog-max-bytes BYTES to change the scan budget"
+            )
         raise ValueError("conversation snapshot exceeds byte limit")
     snapshot = ConversationSnapshot.model_validate_json(payload)
     state = snapshot.state
+    if len(payload) > state.snapshot_byte_limit:
+        raise ValueError("conversation snapshot exceeds its saved byte limit")
     if (
         state.owner_uid != os.getuid()
         or state.session_id != session_id
@@ -93,12 +106,17 @@ def _snapshot(
     return snapshot, modified_ns, len(payload)
 
 
-def list_conversations(root: Path, workspace: Path) -> tuple[ConversationSummary, ...]:
+def list_conversations(
+    root: Path, workspace: Path, *, max_bytes: int | None = None
+) -> tuple[ConversationSummary, ...]:
     """Read bounded snapshots; return only metadata for this user's workspace.
 
     Listing does not write directories, lock files, snapshots or recency metadata.
     A bad candidate aborts the catalog rather than silently selecting an older one.
     """
+    maximum = MAX_CATALOG_BYTES if max_bytes is None else max_bytes
+    if type(maximum) is not int or not 1 <= maximum <= MAX_CATALOG_SCAN_BYTES:
+        raise ValueError("invalid conversation catalog byte limit")
     if workspace.exists() and not workspace.is_dir():
         raise ValueError("conversation workspace must be a directory")
     selected_workspace = str(workspace.resolve())
@@ -118,7 +136,7 @@ def list_conversations(root: Path, workspace: Path) -> tuple[ConversationSummary
             snapshot, modified_ns, size = _snapshot(
                 root_fd,
                 session_id,
-                byte_limit=min(MAX_BYTES, MAX_CATALOG_BYTES - total_bytes),
+                byte_limit=min(MAX_BYTES, maximum - total_bytes),
             )
             total_bytes += size
             state = snapshot.state
@@ -148,6 +166,8 @@ def list_conversations(root: Path, workspace: Path) -> tuple[ConversationSummary
                     active=active,
                     completed=sum(e.status == "completed" for e in state.entries),
                     pending=sum(e.status == "queued" for e in state.entries),
+                    snapshot_bytes=size,
+                    snapshot_max_bytes=state.snapshot_byte_limit,
                 )
             )
         return tuple(
@@ -259,8 +279,11 @@ class ConversationStore:
             state=state, sha256=digest(canonical_bytes(state))
         )
         payload = canonical_bytes(snapshot)
-        if len(payload) > MAX_BYTES:
-            raise ValueError("conversation snapshot exceeds byte limit")
+        if len(payload) > state.snapshot_byte_limit:
+            raise ValueError(
+                "conversation snapshot exceeds its saved byte limit; "
+                "resume with --session-max-bytes BYTES to change the budget"
+            )
         temporary = f".{self.session_id}.{uuid4().hex}.tmp"
         fd = os.open(
             temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=self._root

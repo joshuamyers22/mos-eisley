@@ -35,6 +35,11 @@ Use `mos memory append --scope user --text "..."` for personal preferences, or
 `mos --no-memory` bypasses it. Use `/memory refresh` to apply changes to the
 current session, or `/memory off` to disable its memory; `/continue` resumes work.
 
+[Session storage budgets](docs/CONVERSATION_STORAGE.md) are now configurable:
+`mos --session-max-bytes 8000000` saves an 8 MB budget, and the same flag on
+`mos resume --last` changes an existing session. `mos sessions` reports usage.
+Incremental history storage and longer conversation limits remain planned.
+
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
 ```sh

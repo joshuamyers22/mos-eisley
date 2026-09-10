@@ -21,6 +21,8 @@
   Explicit refresh/off controls now persist the session selection, preserve earlier
   request context and support resume without replaying consumed recording exchanges.
   A persistent directory header and `/directory` inspection show the workspace.
+  Per-session snapshot budgets are configurable up to 32 MB with visible usage;
+  incremental storage and paginated history remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;

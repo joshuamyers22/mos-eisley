@@ -68,8 +68,9 @@ request hashes.
 
 Human and NDJSON output share the controller. Review is one queued entry, shares
 the 16-entry session cap, and leaves the chat cassette position unchanged. A packet
-is limited to 128 KB and a result to 256 KB. The existing 2 MB aggregate snapshot
-limit applies. Policy timeouts may be at most ten seconds per critic/judge call,
+is limited to 128 KB and a result to 256 KB. The session's aggregate snapshot
+budget (2 MB by default) also applies; see [storage controls](CONVERSATION_STORAGE.md).
+Policy timeouts may be at most ten seconds per critic/judge call,
 with a 25-second outer deadline. Existing roster, request-size and finding limits
 remain in effect.
 
