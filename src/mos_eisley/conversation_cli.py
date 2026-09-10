@@ -51,6 +51,12 @@ from mos_eisley.conversation_memory import (
     MemoryStore,
 )
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
+from mos_eisley.conversation_pending import (
+    DEFAULT_PENDING_TEXT_BYTES,
+    PendingTextBudgetError,
+    PendingTextLimits,
+    pending_text_byte_limit,
+)
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -113,6 +119,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--context-max-bytes",
         "--active-memory-max-bytes",
         "--recording-max-bytes",
+        "--pending-text-max-bytes",
         "--storage-backend",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
@@ -291,6 +298,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 type=Path,
                 help="Use an explicit recording instead of the built-in preview",
             )
+            command.add_argument(
+                "--pending-text-max-bytes",
+                type=pending_text_byte_limit,
+                help="Queued UTF-8 text bytes this launch (4000–512000; default 64000)",
+            )
             command.add_argument("--review-packet", type=Path)
             display = command.add_mutually_exclusive_group()
             display.add_argument(
@@ -420,7 +432,11 @@ async def terminal(
             return False
         if not has_capacity():
             return False
-        controller.submit_review(review_packet)
+        try:
+            controller.submit_review(review_packet)
+        except PendingTextBudgetError as error:
+            reject_pending(error)
+            return False
         render()
         return True
 
@@ -447,12 +463,29 @@ async def terminal(
             return False
         if not has_capacity():
             return False
-        if require_active:
-            controller.steer(text)
-        else:
-            controller.submit(text)
+        try:
+            if require_active:
+                controller.steer(text)
+            else:
+                controller.submit(text)
+        except PendingTextBudgetError as error:
+            reject_pending(error)
+            return False
         render()
         return True
+
+    def reject_pending(error: PendingTextBudgetError) -> None:
+        emit(
+            {
+                "type": "conversation.unavailable",
+                "reason": "pending_text_budget",
+                "queued_bytes": error.queued_bytes,
+                "submitted_bytes": error.submitted_bytes,
+                "required_bytes": error.required_bytes,
+                "maximum_bytes": error.maximum_bytes,
+                "text": str(error),
+            }
+        )
 
     def compose(line: str) -> bool:
         """Handle drafts before intent routing; submitted draft text stays literal."""
@@ -829,6 +862,7 @@ def _run_command(args: argparse.Namespace) -> int:
             or args.context_max_bytes is not None
             or args.active_memory_max_bytes is not None
             or args.recording_max_bytes is not None
+            or args.pending_text_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
             or args.no_memory
@@ -1011,6 +1045,9 @@ def _run_command(args: argparse.Namespace) -> int:
         memory_max_bytes=args.active_memory_max_bytes or DEFAULT_ACTIVE_MEMORY_BYTES,
         recording_max_bytes=args.recording_max_bytes or DEFAULT_RECORDING_BYTES,
     )
+    pending_limits = PendingTextLimits(
+        max_bytes=args.pending_text_max_bytes or DEFAULT_PENDING_TEXT_BYTES
+    )
     explicit_cassette = (
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
@@ -1104,10 +1141,15 @@ def _run_command(args: argparse.Namespace) -> int:
                 store.save_working,
                 load_entry=store.load_working_entry,
                 input_limits=input_limits,
+                pending_limits=pending_limits,
             )
         else:
             controller = ConversationController(
-                state, cassette, store.save, input_limits=input_limits
+                state,
+                cassette,
+                store.save,
+                input_limits=input_limits,
+                pending_limits=pending_limits,
             )
         memory_runtime = ConversationMemoryRuntime(
             controller,
@@ -1182,6 +1224,21 @@ def _run_command(args: argparse.Namespace) -> int:
         welcome += (
             f"\nActive input limits: memory {input_limits.memory_max_bytes} bytes; "
             f"recording {input_limits.recording_max_bytes} bytes (this launch)."
+        )
+        emit(
+            {
+                "type": "conversation.pending_text",
+                "queued_bytes": controller.pending_text_bytes,
+                "maximum_bytes": pending_limits.max_bytes,
+                "text": (
+                    f"Pending text: {controller.pending_text_bytes}/"
+                    f"{pending_limits.max_bytes} UTF-8 bytes (this launch)."
+                ),
+            }
+        )
+        welcome += (
+            f"\nPending text budget: {pending_limits.max_bytes} UTF-8 bytes "
+            "(queued messages; this launch)."
         )
         if sqlite_backend:
             welcome += (

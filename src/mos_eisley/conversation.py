@@ -18,6 +18,7 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     memory_system,
 )
+from mos_eisley.conversation_pending import PendingTextLimits, pending_text_bytes
 from mos_eisley.conversation_review import (
     REVIEW_PROMPT,
     ConversationReviewPacket,
@@ -104,6 +105,7 @@ class ConversationController(Generic[StateT]):
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
+        pending_limits: PendingTextLimits | None = None,
     ) -> None:
         if input_limits is not None:
             input_limits.admit_memory(state.memory)
@@ -120,6 +122,7 @@ class ConversationController(Generic[StateT]):
         self.validate_memory = validate_memory
         self.load_entry = load_entry
         self.input_limits = input_limits
+        self.pending_limits = pending_limits
         self._busy = False
         self._broken = False
         if any(entry.status == "running" for entry in state.entries):
@@ -298,10 +301,18 @@ class ConversationController(Generic[StateT]):
     def submit(self, text: str) -> None:
         if not text.strip():
             raise ValueError("message cannot be blank")
-        self._update(
-            self.state.entries
-            + (ConversationEntry(text=text, steering_for=self.active_chat_index),)
-        )
+        self._append(ConversationEntry(text=text, steering_for=self.active_chat_index))
+
+    @property
+    def pending_text_bytes(self) -> int:
+        return pending_text_bytes(self.state.entries)
+
+    def _append(self, entry: ConversationEntry) -> None:
+        if self._broken:
+            raise ValueError("session persistence failed; reopen before continuing")
+        if self.pending_limits is not None:
+            self.pending_limits.admit(self.state.entries, entry.text)
+        self._update(self.state.entries + (entry,))
 
     @property
     def active_chat_index(self) -> int | None:
@@ -321,10 +332,7 @@ class ConversationController(Generic[StateT]):
 
     def submit_review(self, packet: ConversationReviewPacket) -> None:
         packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
-        self._update(
-            self.state.entries
-            + (ConversationEntry(text=REVIEW_PROMPT, review_packet=packet),)
-        )
+        self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
 
     def cancel_queued(self) -> None:
         self._update(
