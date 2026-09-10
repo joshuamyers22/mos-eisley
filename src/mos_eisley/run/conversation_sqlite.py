@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import base64
 import fcntl
+import hashlib
 import json
 import os
 import sqlite3
 import threading
 import time
 from collections.abc import Callable, Generator
-from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from contextlib import closing, contextmanager, suppress
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self
 from urllib.parse import quote
@@ -25,6 +26,13 @@ from pydantic import Field, TypeAdapter, model_validator
 
 from mos_eisley.conversation import ConversationState, SessionID
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
+from mos_eisley.conversation_state import (
+    ArchivedConversationEntry,
+    ConversationEntry,
+    RuntimeConversationState,
+    WorkingConversationState,
+    validate_runtime_state,
+)
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint, resume_checkpoint
 from mos_eisley.run.conversation_store import (
@@ -103,6 +111,8 @@ class _SaveCheckpoint:
     data_version: int
     total_changes: int
     artifacts: frozenset[str]
+    canonical_artifacts: bool = False
+    review_brief_ids: tuple[str | None, ...] | None = None
 
 
 def _data_version(db: sqlite3.Connection) -> int:
@@ -198,6 +208,134 @@ def _index(
             else None
         ),
     )
+
+
+STREAM_CHUNK_BYTES = 32_768
+MAX_ACTIVE_ENTRY_BYTES = 512_000
+
+
+def _working_parts(
+    state: RuntimeConversationState,
+) -> tuple[PackedPart, list[PackedPart], dict[str, bytes]]:
+    artifacts: dict[str, bytes] = {}
+    body = state.model_dump(mode="json", exclude={"entries"})
+    header = PackedPart.model_validate_json(
+        _pack(body, ("memory", "retained_cassette"), artifacts)
+    )
+    parts: list[PackedPart] = []
+    for entry in state.entries:
+        if isinstance(entry, ArchivedConversationEntry):
+            part = PackedPart(body=entry.record_body(), refs=dict(entry.artifact_refs))
+        else:
+            part = PackedPart.model_validate_json(
+                _pack(
+                    entry.model_dump(mode="json"),
+                    ("memory_context", "review_packet", "review_result"),
+                    artifacts,
+                )
+            )
+        if len(canonical_bytes(part)) > MAX_RECORD_BYTES:
+            raise ValueError("SQLite conversation record exceeds byte limit")
+        parts.append(part)
+    return header, parts, artifacts
+
+
+def _compact_working(
+    state: RuntimeConversationState, parts: list[PackedPart], digests: tuple[str, ...]
+) -> WorkingConversationState:
+    latest = next(
+        (
+            i
+            for i in range(len(state.entries) - 1, -1, -1)
+            if "review_result" in parts[i].refs
+        ),
+        None,
+    )
+    entries: list[ConversationEntry | ArchivedConversationEntry] = []
+    for position, (entry, part, sha) in enumerate(
+        zip(state.entries, parts, digests, strict=True)
+    ):
+        if part.refs:
+            entries.append(
+                ArchivedConversationEntry.model_validate(
+                    {
+                        **part.body,
+                        "artifact_refs": part.refs,
+                        "source_sha256": sha,
+                        "review_brief_id": entry.review_brief_id,
+                        "review_result": entry.review_result
+                        if position == latest
+                        else None,
+                    }
+                )
+            )
+        else:
+            entries.append(ConversationEntry.model_validate_json(_json(part.body)))
+    return WorkingConversationState.model_validate(
+        {**dict(state), "entries": tuple(entries)}
+    )
+
+
+def _artifact_chunks(
+    db: sqlite3.Connection,
+    sid: str,
+    sha: str,
+    artifacts: dict[str, bytes],
+    retained: frozenset[str],
+) -> Generator[bytes]:
+    if sha in artifacts:
+        payload = artifacts[sha]
+        for offset in range(0, len(payload), STREAM_CHUNK_BYTES):
+            yield payload[offset : offset + STREAM_CHUNK_BYTES]
+        return
+    if sha not in retained:
+        raise ValueError("unverified archived artifact reference")
+    row = db.execute(
+        "SELECT rowid, length(payload) FROM artifacts WHERE sid=? AND sha=?", (sid, sha)
+    ).fetchone()
+    if row is None or not 1 <= row[1] <= MAX_SNAPSHOT_BYTES:
+        raise ValueError("missing or oversized archived artifact")
+    checksum = hashlib.sha256()
+    with db.blobopen("artifacts", "payload", row[0], readonly=True) as blob:
+        if len(blob) != row[1]:
+            raise ValueError("archived artifact size changed")
+        while chunk := blob.read(STREAM_CHUNK_BYTES):
+            checksum.update(chunk)
+            yield chunk
+    if checksum.hexdigest() != sha:
+        raise ValueError("archived artifact integrity mismatch")
+
+
+def _state_chunks(
+    part: PackedPart,
+    read_artifact: Callable[[str], Generator[bytes]],
+    *,
+    entries: list[PackedPart] | None = None,
+) -> Generator[bytes]:
+    # Module-level recursion avoids a self-referential closure retaining the
+    # artifact reader, its store and encoded active inputs until cyclic GC runs.
+    yield b"{"
+    keys = sorted(
+        part.body.keys()
+        | part.refs.keys()
+        | ({"entries"} if entries is not None else set())
+    )
+    for position, key in enumerate(keys):
+        if position:
+            yield b","
+        yield _json(key) + b":"
+        if key in part.refs:
+            yield from read_artifact(part.refs[key])
+        elif entries is not None and key == "entries":
+            yield b"["
+            for index, entry in enumerate(entries):
+                if index:
+                    yield b","
+                yield from _state_chunks(entry, read_artifact)
+            yield b"]"
+        else:
+            yield _json(part.body[key])
+    yield b"}"
 
 
 def _files(root: int) -> None:
@@ -566,6 +704,321 @@ class SQLiteConversationStore(ConversationStore):
     def save(self, state: ConversationState) -> None:
         with self._transcript_guard:
             self._save(state)
+
+    @property
+    def snapshot_sha256(self) -> str | None:
+        return self._sha256
+
+    def load_working(self) -> RuntimeConversationState:
+        """Fully verify once, then release historical artifact values.
+
+        Older indexes or noncanonical artifacts use the full-state controller
+        until an ordinary save upgrades them and the user reopens the session.
+        """
+        with self._transcript_guard:
+            state = self.load()
+            checkpoint = self._verified_checkpoint
+            assert checkpoint is not None
+            _, parts, artifacts = _working_parts(state)
+            if (
+                checkpoint.index.entry_sha256 is None
+                or checkpoint.index.resume_checkpoint is None
+                or artifacts.keys() != checkpoint.artifacts
+            ):
+                return state
+            working = _compact_working(state, parts, checkpoint.index.entry_sha256)
+            self._verified_checkpoint = replace(
+                checkpoint,
+                canonical_artifacts=True,
+                review_brief_ids=tuple(
+                    entry.review_brief_id for entry in state.entries
+                ),
+            )
+            return working
+
+    def _working_checkpoint(
+        self, db: sqlite3.Connection, store_id: str
+    ) -> _SaveCheckpoint:
+        checkpoint = self._current_checkpoint(db, store_id)
+        if (
+            checkpoint is None
+            or not checkpoint.canonical_artifacts
+            or checkpoint.review_brief_ids is None
+        ):
+            snapshot = self._load(db)
+            checkpoint = self._capture_checkpoint(db, store_id, snapshot.sha256)
+            _, _, artifacts = _working_parts(snapshot.state)
+            if (
+                artifacts.keys() != checkpoint.artifacts
+                or checkpoint.index.entry_sha256 is None
+                or checkpoint.index.resume_checkpoint is None
+            ):
+                raise ValueError("archived storage changed; reopen this session")
+            checkpoint = replace(
+                checkpoint,
+                canonical_artifacts=True,
+                review_brief_ids=tuple(
+                    entry.review_brief_id for entry in snapshot.state.entries
+                ),
+            )
+        if (
+            checkpoint.index.summary.snapshot_sha256 != self._sha256
+            or checkpoint.index.summary.revision != self._revision
+        ):
+            raise ValueError("saved conversation changed outside this handle")
+        return checkpoint
+
+    def _admit_archive(
+        self,
+        db: sqlite3.Connection,
+        checkpoint: _SaveCheckpoint,
+        position: int,
+        entry: ArchivedConversationEntry,
+        part: PackedPart,
+    ) -> None:
+        digests = checkpoint.index.entry_sha256
+        brief_ids = checkpoint.review_brief_ids
+        if (
+            digests is None
+            or brief_ids is None
+            or type(position) is not int
+            or not 0 <= position < len(digests)
+            or entry.source_sha256 != digests[position]
+            or entry.review_brief_id != brief_ids[position]
+            or not set(part.refs.values()) <= checkpoint.artifacts
+        ):
+            raise ValueError("archived message does not match the verified checkpoint")
+        if digest(canonical_bytes(part)) == entry.source_sha256:
+            return
+        row = db.execute(
+            "SELECT CASE WHEN length(payload)<=? THEN payload END FROM entries "
+            "WHERE sid=? AND position=?",
+            (MAX_RECORD_BYTES, self.session_id, position),
+        ).fetchone()
+        if (
+            row is None
+            or not isinstance(row[0], bytes)
+            or digest(row[0]) != entry.source_sha256
+        ):
+            raise ValueError("archived message integrity mismatch")
+        stored = PackedPart.model_validate_json(row[0])
+        original = ArchivedConversationEntry.model_validate(
+            {
+                **stored.body,
+                "artifact_refs": stored.refs,
+                "source_sha256": entry.source_sha256,
+                "review_brief_id": entry.review_brief_id,
+            }
+        )
+        expected = original.record_body()
+        if entry.status != original.status:
+            if (original.status, entry.status) not in {
+                ("running", "interrupted"),
+                ("queued", "cancelled"),
+            }:
+                raise ValueError("invalid archived message transition")
+            expected["status"] = entry.status
+        if stored.refs != part.refs or expected != part.body:
+            raise ValueError("archived message content changed")
+
+    def load_working_entry(
+        self, position: int, entry: ArchivedConversationEntry
+    ) -> ConversationEntry:
+        """Hydrate one admitted entry, under a separate aggregate input bound."""
+        with self._transcript_guard:
+            db = self._connection()
+            with conversation_transaction(db):
+                store_id, _ = _identity(db)
+                checkpoint = self._working_checkpoint(db, store_id)
+                part = PackedPart(
+                    body=entry.record_body(), refs=dict(entry.artifact_refs)
+                )
+                self._admit_archive(db, checkpoint, position, entry, part)
+                sizes: dict[str, int] = {}
+                for sha in set(part.refs.values()):
+                    row = db.execute(
+                        "SELECT length(payload) FROM artifacts WHERE sid=? AND sha=?",
+                        (self.session_id, sha),
+                    ).fetchone()
+                    if (
+                        row is None
+                        or type(row[0]) is not int
+                        or not 1 <= row[0] <= MAX_ACTIVE_ENTRY_BYTES
+                    ):
+                        raise ValueError(
+                            "active entry artifact is unavailable or oversized"
+                        )
+                    sizes[sha] = row[0]
+                total = len(canonical_bytes(part)) + sum(sizes.values())
+                if total > MAX_ACTIVE_ENTRY_BYTES:
+                    raise ValueError(
+                        f"active entry needs {total} bytes; "
+                        f"limit is {MAX_ACTIVE_ENTRY_BYTES}"
+                    )
+                artifacts: dict[str, bytes] = {}
+                for sha in sizes:
+                    payload = b"".join(
+                        self._artifact_chunks(db, sha, {}, checkpoint.artifacts)
+                    )
+                    if len(payload) != sizes[sha]:
+                        raise ValueError("active entry artifact size changed")
+                    artifacts[sha] = payload
+                body = _unpack(
+                    part,
+                    ("memory_context", "review_packet", "review_result"),
+                    artifacts,
+                    set(),
+                )
+                result = ConversationEntry.model_validate_json(_json(body))
+            self._verified_checkpoint = checkpoint
+            return result
+
+    def save_working(self, state: WorkingConversationState) -> WorkingConversationState:
+        with self._transcript_guard:
+            try:
+                return self._write_working(state)
+            except BaseException:
+                self._verified_checkpoint = None
+                raise
+
+    def _write_working(
+        self, state: WorkingConversationState
+    ) -> WorkingConversationState:
+        state = validate_runtime_state(state)
+        if (
+            state.owner_uid != os.getuid()
+            or state.session_id != self.session_id
+            or state.workspace != self.workspace
+            or state.revision != self._revision + 1
+        ):
+            raise ValueError("invalid conversation save identity or revision")
+        header, parts, artifacts = _working_parts(state)
+        header_bytes = canonical_bytes(header)
+        payloads = [canonical_bytes(part) for part in parts]
+        digests = tuple(digest(payload) for payload in payloads)
+        db = self._connection()
+        with conversation_transaction(db, write=True):
+            store_id, _ = _identity(db)
+            previous = self._working_checkpoint(db, store_id)
+            for position, entry in enumerate(state.entries):
+                if isinstance(entry, ArchivedConversationEntry):
+                    self._admit_archive(db, previous, position, entry, parts[position])
+            referenced = frozenset(
+                sha for part in (header, *parts) for sha in part.refs.values()
+            )
+            if (
+                len(referenced) > 50
+                or not referenced <= artifacts.keys() | previous.artifacts
+            ):
+                raise ValueError("invalid working artifact inventory")
+            checksum = hashlib.sha256()
+            size = len(_json({"sha256": "0" * 64, "state": None})) - len(b"null")
+            with closing(
+                _state_chunks(
+                    header,
+                    lambda sha: self._artifact_chunks(
+                        db, sha, artifacts, previous.artifacts
+                    ),
+                    entries=parts,
+                )
+            ) as chunks:
+                for chunk in chunks:
+                    size += len(chunk)
+                    if size > state.snapshot_byte_limit:
+                        raise ValueError(
+                            "conversation snapshot exceeds its saved byte limit; "
+                            "resume with --session-max-bytes BYTES"
+                        )
+                    checksum.update(chunk)
+            summary = ConversationSummary(
+                session_id=self.session_id,
+                snapshot_sha256=checksum.hexdigest(),
+                revision=state.revision,
+                modified_ns=time.time_ns(),
+                messages=len(parts),
+                completed=sum(entry.status == "completed" for entry in state.entries),
+                pending=sum(entry.status == "queued" for entry in state.entries),
+                active=False,
+                snapshot_bytes=size,
+                snapshot_max_bytes=state.snapshot_byte_limit,
+            )
+            index = SessionIndex(
+                owner_uid=state.owner_uid,
+                workspace=state.workspace,
+                summary=summary,
+                entry_sha256=digests,
+                resume_checkpoint=resume_checkpoint(state, header_bytes, payloads),
+            )
+            record = canonical_bytes(index)
+            if len(record) > MAX_INDEX_BYTES:
+                raise ValueError("SQLite working index exceeds byte limit")
+            working = _compact_working(state, parts, digests)
+            db.execute(
+                "UPDATE sessions SET modified_ns=?, record=?, record_sha=?, "
+                "header=? WHERE sid=?",
+                (
+                    summary.modified_ns,
+                    record,
+                    digest(record),
+                    header_bytes,
+                    self.session_id,
+                ),
+            )
+            previous_digests = previous.index.entry_sha256
+            assert previous_digests is not None
+            for position, payload in enumerate(payloads):
+                if (
+                    position < len(previous_digests)
+                    and digests[position] == previous_digests[position]
+                ):
+                    continue
+                db.execute(
+                    "INSERT INTO entries VALUES (?, ?, ?, ?) ON CONFLICT(sid, "
+                    "position) DO UPDATE SET payload=excluded.payload, "
+                    "revision=excluded.revision",
+                    (self.session_id, position, payload, state.revision),
+                )
+            if len(parts) < len(previous_digests):
+                db.execute(
+                    "DELETE FROM entries WHERE sid=? AND position>=?",
+                    (self.session_id, len(parts)),
+                )
+            for sha, payload in artifacts.items():
+                if sha not in previous.artifacts:
+                    db.execute(
+                        "INSERT INTO artifacts VALUES (?, ?, ?)",
+                        (self.session_id, sha, payload),
+                    )
+            for sha in previous.artifacts - referenced:
+                db.execute(
+                    "DELETE FROM artifacts WHERE sid=? AND sha=?",
+                    (self.session_id, sha),
+                )
+            db.execute("UPDATE metadata SET generation=generation+1 WHERE id=1")
+            checkpoint = _SaveCheckpoint(
+                index=index,
+                store_id=store_id,
+                data_version=_data_version(db),
+                total_changes=db.total_changes,
+                artifacts=referenced,
+                canonical_artifacts=True,
+                review_brief_ids=tuple(
+                    entry.review_brief_id for entry in state.entries
+                ),
+            )
+        self._revision = state.revision
+        self._sha256 = summary.snapshot_sha256
+        self._verified_checkpoint = checkpoint
+        return working
+
+    def _artifact_chunks(
+        self,
+        db: sqlite3.Connection,
+        sha: str,
+        artifacts: dict[str, bytes],
+        retained: frozenset[str],
+    ) -> Generator[bytes]:
+        yield from _artifact_chunks(db, self.session_id, sha, artifacts, retained)
 
     def transcript_page(self, cursor: str | None) -> TranscriptPage:
         """Read with a separate connection, excluding this handle's session saves."""

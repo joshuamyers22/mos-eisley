@@ -109,18 +109,22 @@ queued until it can be admitted. When combined with memory/storage changes, the
 context resize is a separate saved transition. Legacy sessions omit the optional
 field and preserve their canonical hashes until a transition is saved.
 
-The controller still retains and loads the full saved state. This request boundary
-does not complete bounded controller resume or the long-session acceptance gate.
+SQLite now releases historical artifact values after initial verification and uses
+[reference-based working state](CONVERSATION_SQLITE.md#controller-working-state).
+Initial load still reconstructs full state. Context admission alone does not
+complete bounded cold resume or the long-session acceptance gate.
 
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
 reuse, transactional deletion and bounded metadata/transcript pages, including
 SQLite terminal history navigation, selected artifact expansion and bounded resume
-inspection. Verified checkpoints now remove routine full-state rereads during
-saves and skip unchanged message/artifact writes. Full resume and external-commit
-revalidation still reconstruct complete state; each transition still validates and
-serializes its full proposed state in memory. The preview's message cap remains. The stages
+inspection. Verified checkpoints skip unchanged message/artifact writes. Current
+SQLite controllers retain references to historical artifacts and stream their bytes
+when computing snapshot hashes, without rebuilding their decoded values. Initial
+resume and external-commit revalidation still reconstruct complete state. JSON and
+legacy compatibility saves still serialize full proposed state. The preview's
+message cap remains. The stages
 below remain the complete target, including bulk migration and the long-session gate.
 
 Implement these stages under the storage and ownership contract in
@@ -141,10 +145,11 @@ Implement these stages under the storage and ownership contract in
    The implemented resume checkpoint/inspection selects four recent messages,
    queued/running work and complete steering ancestry without expanding artifacts.
    Routine saves now reuse a same-connection verified checkpoint, with full
-   revalidation after external commits. Next, separate the controller's working
-   state from historical artifact values; accept bounded transition changes in
-   place of a complete proposed state, and admit only
-   the memory/recording/review inputs needed at an explicit request boundary.
+   revalidation after external commits. The controller now separates historical
+   artifact values from its reference-based working state; saves stream retained
+   bytes, and queued reviews hydrate one admitted packet at dispatch. Next reduce
+   text/record bookkeeping into bounded transitions and bound cold loading plus
+   active memory/recording hydration.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

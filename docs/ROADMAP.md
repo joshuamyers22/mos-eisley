@@ -94,14 +94,16 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    A separately verified resume checkpoint now supports `resume --inspect` with
    the last four messages, all queued/running work and required steering ancestors,
    under a fixed record-read budget. It leaves artifacts unexpanded and performs
-   no recovery. Routine saves now reuse a verified checkpoint on the same connection,
-   avoid old payload reads and skip unchanged message/artifact writes. External
-   commits and uncertain saves require full revalidation. Controller transition
-   inputs still contain full state. Chat context now uses a text-only selection
+   no recovery. Routine saves reuse a verified checkpoint and skip unchanged writes.
+   SQLite controllers now retain historical artifact references and stream stored
+   bytes when saving, preserving canonical hashes without rebuilding old artifact
+   values. Queued reviews hydrate one admitted packet at execution; at most the
+   latest result stays decoded for the renderer. Initial loads and external commits
+   still require full validation. Chat context uses a text-only selection
    interface and a separately saved byte budget, checked before an attempt is
    consumed. It preserves completed history and steering, and pauses oversized
-   queued work with required/available byte counts. Actual bounded controller
-   resume, bulk migration and the long-session acceptance gate
+   queued work with required/available byte counts. Bounded cold resume,
+   smaller text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.

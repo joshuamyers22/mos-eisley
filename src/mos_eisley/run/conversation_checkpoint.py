@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from mos_eisley.conversation import ConversationState, Status
+from mos_eisley.conversation_state import RuntimeConversationState, Status
 from mos_eisley.core.models import Contract, Digest, digest
 
 
@@ -23,7 +23,7 @@ class ResumeCheckpoint(Contract):
 
 
 def resume_checkpoint(
-    state: ConversationState, header: bytes, entries: Sequence[bytes]
+    state: RuntimeConversationState, header: bytes, entries: Sequence[bytes]
 ) -> ResumeCheckpoint:
     return ResumeCheckpoint(
         header_sha256=digest(header),
@@ -31,7 +31,7 @@ def resume_checkpoint(
         entries=tuple(
             EntryCheckpoint(
                 status=entry.status,
-                review=entry.review_packet is not None,
+                review=entry.is_review,
                 steering_for=entry.steering_for,
                 bytes=len(payload),
             )

@@ -49,12 +49,14 @@ a memory or review reference; F8 opens/closes its verified content, one artifact
 at a time. `mos session-artifact SELECTION --json` also opens a reference returned
 by the transcript CLI, with an explicit `--max-bytes` override.
 `mos resume --last --storage-backend sqlite --inspect` now previews a verified,
-bounded working set without resuming work. Repeated SQLite saves now reuse a
-verified checkpoint to avoid reloading unchanged stored content; external commits
-force full validation again. Chat requests now check a separate saved
+bounded working set without resuming work. After full verification, SQLite's
+controller now retains references to historical artifacts and streams their bytes
+when saving; external commits force full validation again. See
+[controller working state](docs/CONVERSATION_SQLITE.md#controller-working-state).
+Chat requests check a separate saved
 `--context-max-bytes` budget before consuming an attempt; oversized messages stay
 queued with their history intact. See [context admission](docs/CONVERSATION_STORAGE.md#independent-chat-context-budget).
-Actual bounded controller resume and
+Bounded cold resume and
 longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:

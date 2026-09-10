@@ -22,7 +22,7 @@ from prompt_toolkit.output import Output
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import Frame, TextArea
 
-from mos_eisley.conversation import ConversationController
+from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_history import TranscriptHistory
 from mos_eisley.conversation_input import ConversationInput, ConversationSubmission
@@ -105,7 +105,7 @@ class EditorBuffer(Buffer):
 class ConversationTUI:
     def __init__(
         self,
-        controller: ConversationController,
+        controller: RuntimeConversationController,
         review_packet: ConversationReviewPacket | None = None,
         *,
         welcome: str = "",
@@ -350,7 +350,7 @@ class ConversationTUI:
             "idle"
             if active is None
             else "reviewing"
-            if active.review_packet
+            if active.is_review
             else "responding"
         )
         usage = sum(

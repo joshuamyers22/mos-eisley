@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from mos_eisley.conversation import ConversationController
+from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_memory import (
     ConversationMemory,
     MemoryRefreshError,
@@ -14,7 +14,7 @@ from mos_eisley.providers.agent_recorded import AgentCassette
 class ConversationMemoryRuntime:
     def __init__(
         self,
-        controller: ConversationController,
+        controller: RuntimeConversationController,
         store: MemoryStore,
         factory: Callable[[ConversationMemory | None], AgentCassette],
         *,

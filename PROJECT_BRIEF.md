@@ -32,11 +32,14 @@
   review artifact, with an independent read budget. A derived resume checkpoint
   now supports read-only `resume --inspect`, selecting recent messages, unfinished
   work and steering ancestry without loading artifacts. Routine SQLite transitions
-  now reuse verified checkpoints, skip unchanged row writes and avoid old payload
-  reads; external commits force full validation. Chat context now has a separately
+  now reuse verified checkpoints and skip unchanged row writes. SQLite controllers
+  release historical artifact values after full verification and stream retained
+  bytes when saving. Queued reviews hydrate one admitted packet at execution;
+  at most the latest review result stays decoded. Initial loads and external commits
+  still require full validation. Chat context has a separately
   saved byte budget and text-only history selection; admission rejects oversized
   requests before consuming attempts and preserves queued work and steering.
-  Bounded controller resume,
+  Bounded cold resume,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
