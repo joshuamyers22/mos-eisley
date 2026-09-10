@@ -11,11 +11,12 @@ import fcntl
 import json
 import os
 import sqlite3
+import threading
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import TYPE_CHECKING, Annotated, Any, Self
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -31,6 +32,9 @@ from mos_eisley.run.conversation_store import (
     ConversationSummary,
     validate_private_storage,
 )
+
+if TYPE_CHECKING:
+    from mos_eisley.run.conversation_transcript import TranscriptPage
 
 MAX_DATABASE_BYTES = 256_000_000
 MAX_RECORD_BYTES = 128_000
@@ -361,6 +365,7 @@ class SQLiteConversationStore(ConversationStore):
         require_workspace: bool = True,
     ) -> None:
         self._db: sqlite3.Connection | None = None
+        self._transcript_guard = threading.Lock()
         self._path = root.absolute()
         super().__init__(
             root,
@@ -485,7 +490,21 @@ class SQLiteConversationStore(ConversationStore):
             return self._load(db)
 
     def save(self, state: ConversationState) -> None:
-        self._save(state)
+        with self._transcript_guard:
+            self._save(state)
+
+    def transcript_page(self, cursor: str | None) -> TranscriptPage:
+        """Read with a separate connection, excluding this handle's session saves."""
+        from mos_eisley.run.conversation_transcript import read_sqlite_transcript
+
+        with self._transcript_guard:
+            return read_sqlite_transcript(
+                self._path,
+                self.session_id,
+                Path(self.workspace),
+                limit=4,
+                cursor=cursor,
+            )
 
     def prepare_transcript(self, expected_sha256: str) -> ConversationSummary:
         """Verify the full state and add a derived page index without changing it."""

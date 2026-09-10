@@ -84,6 +84,45 @@ F4, `/continue`, or a newly submitted message continues it.
 | Page Up / Page Down | Focus and scroll the transcript; Tab returns to editing. |
 | F3 | Expand/collapse the latest review's findings and evidence. |
 | F4 | Explicitly continue saved or paused queued work. |
+| F5 | In SQLite sessions, browse saved history or return to the live view. |
+| F6 | Reload saved history from its first page after a change or read error. |
+
+## Saved SQLite history
+
+SQLite's live transcript shows the four most recent messages. Press F5 to browse
+earlier saved messages, four per page, using the verified
+[transcript reader](CONVERSATION_SQLITE.md#transcript-pages). Page Up/Page Down
+scroll within the current page; pressing again at its top/bottom loads the previous/
+next page. Arrow keys also scroll within the page. F5 returns to the live view and
+composer, preserving the unsent draft. Tab allows editing while browsing.
+
+The browser retains one page of text plus visited cursors. It reads in a background
+thread, with one read in flight and at most one pending reload; repeated key presses
+do not accumulate threads or pages. Results from a closed or replaced view are
+discarded. History reads and saves from the same terminal share a guard so the
+background reader cannot cause its own save to fail with a busy-database error.
+A save waits for an active read to finish. Quit stops the terminal worker, clears the draft, and joins an in-flight
+read before completing cleanup. Storage reads have bounded inputs but no separate
+wall-clock timeout; slow filesystem I/O can delay saves and final exit. Other
+processes retain the backend's existing busy/failure behavior.
+
+Browsing never saves a session, consumes a recorded attempt, or continues queued
+work. If the session changes while browsing, the old page clears and F6 reloads it.
+Changes in another session can invalidate the cursor on the next page read. Missing,
+corrupt or inaccessible records show an error without falling back to an unchecked
+copy from controller memory. Memory and review artifacts remain references in this
+view; F3 review details are available after returning to live view. `/memory` and
+`/directory` inspection also return to live view to show current session information.
+
+Older SQLite indexes may require explicit preparation. Exit the active session,
+follow the reader's `session-transcript --prepare --expected-sha256 HASH` instructions,
+then resume and press F5. Paging never prepares an index automatically. JSON snapshot
+sessions keep their existing transcript view; F5 explains that paging requires SQLite.
+The controller still reconstructs the full bounded state on resume/save. This is
+bounded display navigation, with the 16-message preview cap still in place; bounded
+controller loading and context management remain planned.
+
+## Input behavior
 
 Typing `/review`, `/steer TEXT`, `/stop`, `/continue`, or `/quit` and pressing
 Enter uses the existing conversation controls. The line-mode `/compose`, `/send`

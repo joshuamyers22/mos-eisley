@@ -26,7 +26,9 @@
   provides bounded metadata pages. Explicit single-session JSON-to-SQLite migration
   now previews sizing, verifies the exact import and preserves the source. A separate
   transcript CLI now reads verified text pages with bounded payload reads and
-  unexpanded artifact references. Bounded interactive resume, transcript scrolling,
+  unexpanded artifact references. SQLite's terminal now uses those pages for F5
+  history browsing, with background reads and draft-preserving navigation.
+  Bounded controller resume,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

@@ -1022,6 +1022,9 @@ def run_command(args: argparse.Namespace) -> int:
                         review_packet,
                         welcome=welcome,
                         refresh_memory=memory_runtime.refresh,
+                        load_transcript=store.transcript_page
+                        if isinstance(store, SQLiteConversationStore)
+                        else None,
                     ).run()
                 )
             finally:

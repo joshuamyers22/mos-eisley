@@ -1,6 +1,7 @@
 """Explicit, source-preserving JSON-to-SQLite migration under one session lock."""
 
 import os
+import threading
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -34,6 +35,7 @@ class ConversationMigration(SQLiteConversationStore):
         # Acquire the existing source lock without creating a database or any lock
         # file. JSON and SQLite share that session lock within this storage root.
         self._db = None
+        self._transcript_guard = threading.Lock()
         self._path = root.absolute()
         ConversationStore.__init__(
             self, root, session_id, workspace, create=False, require_workspace=False

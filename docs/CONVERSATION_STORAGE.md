@@ -10,8 +10,8 @@ backend unless specified; SQLite shares the per-session logical budget but uses
 `--limit`/`--cursor` for listing. Explicit single-session migration now previews and
 copies JSON into SQLite in the same root while preserving the source; see the
 [migration guide](CONVERSATION_SQLITE.md#import-an-existing-json-session).
-The transcript CLI now reads bounded SQLite text pages with artifact references;
-interactive transcript paging, bounded resume and bulk migration remain planned.
+The transcript CLI and SQLite terminal's F5 browser now read bounded text pages with
+artifact references. Bounded controller resume and bulk migration remain planned.
 
 ## Current controls
 
@@ -69,7 +69,8 @@ still stop work through the existing persistence-failure path.
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
-reuse, transactional deletion and bounded metadata/transcript CLI pages. It still reconstructs
+reuse, transactional deletion and bounded metadata/transcript pages, including
+SQLite terminal history navigation. It still reconstructs
 full logical state for load/save and retains the preview's message cap. The stages
 below remain the complete target, including bulk migration and the long-session gate.
 
@@ -84,8 +85,8 @@ Implement these stages under the storage and ownership contract in
    Preserve revision checks, exclusive session ownership, consumed attempts,
    steering links and historical memory. Detect incomplete writes on recovery;
    never replay an uncertain tool effect or provider request automatically.
-3. Extend the implemented metadata and transcript CLI pages into interactive
-   navigation using stable cursors tied to a consistent view. Loading one page
+3. Build on the implemented metadata/transcript CLI pages and terminal history
+   browser, using stable cursors tied to a consistent view. Loading one page
    must not scan or decode all transcripts.
    Opening/resuming a session loads a bounded working set plus explicitly selected
    artifacts. Keep fresh-session isolation and critic isolation intact.
