@@ -374,6 +374,11 @@ def parser() -> argparse.ArgumentParser:
             "Mos Eisley: recorded adversarial review, offline evals, and an opt-in "
             "OpenAI preview."
         ),
+        epilog=(
+            "Run mos with no arguments to open a conversation in this directory. "
+            "Use mos -C PATH to select a workspace, mos resume --last to return, "
+            "or mos chat --help for session options."
+        ),
     )
     command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
     subcommands = command.add_subparsers(dest="command", required=True)
@@ -7432,7 +7437,11 @@ def _run_openai_conformance_broker(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = parser().parse_args(argv)
+    from mos_eisley.conversation_cli import startup_arguments
+
+    args = parser().parse_args(
+        startup_arguments(list(sys.argv[1:] if argv is None else argv))
+    )
     try:
         if args.command in {
             "chat",

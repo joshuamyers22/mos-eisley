@@ -407,17 +407,21 @@ class TUIContractTests(TestCase):
             self.assertFalse((root / "sessions").exists())
 
     def test_real_terminal_defaults_to_tui_and_restores_terminal_modes(self) -> None:
+        for bare in (False, True):
+            with self.subTest(bare=bare):
+                self.check_real_terminal(bare=bare)
+
+    def check_real_terminal(self, *, bare: bool) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             cassette = root / "cassette.json"
             cassette.write_bytes(canonical_bytes(demo_cassette()))
             master, slave = pty.openpty()
             original = termios.tcgetattr(slave)
-            process = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "mos_eisley.cli",
+            arguments = (
+                []
+                if bare
+                else [
                     "chat",
                     "--cassette",
                     str(cassette),
@@ -425,11 +429,14 @@ class TUIContractTests(TestCase):
                     str(root / "sessions"),
                     "--workspace",
                     str(root),
-                ],
+                ]
+            )
+            process = subprocess.Popen(
+                [sys.executable, "-m", "mos_eisley.cli", *arguments],
                 stdin=slave,
                 stdout=slave,
                 stderr=slave,
-                env={**os.environ, "TERM": "xterm-256color"},
+                env={**os.environ, "TERM": "xterm-256color", "HOME": str(root)},
                 start_new_session=True,
             )
             output = bytearray()
@@ -448,6 +455,9 @@ class TUIContractTests(TestCase):
 
             try:
                 read_until(b"\x1b[?1049h")
+                read_until(b"Directory:")
+                if bare:
+                    read_until(b"live conversations are not connected yet")
                 os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
                 read_until(b"The fixture boundary is ten.")
                 os.write(master, b"\x04")
@@ -460,6 +470,8 @@ class TUIContractTests(TestCase):
                 restored[3] &= ~getattr(termios, "PENDIN", 0)
                 original[3] &= ~getattr(termios, "PENDIN", 0)
                 self.assertEqual(restored, original)
+                storage = root / (".mos-eisley-sessions" if bare else "sessions")
+                self.assertEqual(len(list(storage.glob("*.json"))), 1)
             finally:
                 if process.poll() is None:
                     process.kill()

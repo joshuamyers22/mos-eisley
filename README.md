@@ -16,6 +16,29 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
 
+Start the interactive recorded conversation from your project directory:
+
+```sh
+uv run --frozen mos
+# After installing the CLI on PATH, simply run: mos
+uv run --frozen mos resume --last
+```
+
+The welcome screen shows the workspace and supported preview messages. Sessions
+save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
+`--storage PATH` overrides storage. Live conversation is still pending. See the
+[terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+
+To install `mos` on your PATH from this checkout with the pinned runtime versions:
+
+```sh
+make build
+uv tool install --python 3.12 --constraints requirements.runtime.txt dist/mos_eisley-0.1.0-py3-none-any.whl
+```
+
+Then run `mos` from any project directory. The standalone installation must be
+updated after later source changes; it does not track the checkout automatically.
+
 ```sh
 make setup
 uv run --frozen mos demo --json
@@ -348,7 +371,9 @@ the ledger still contains only spending metadata.
 The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-telemetry)
 keeps retained data under one user's ownership while allowing user-configured local
 or cloud backends. It prohibits cross-user aggregation, including model-selection
-statistics, and automatic reuse of prior conversational content in fresh sessions.
+statistics, and automatic retrieval of full prior conversations in fresh sessions.
+Planned [user/project memory](docs/mos-eisley-plan.md#1602-user-and-project-memory)
+adds explicitly curated facts and preferences with separate scopes and user controls.
 Remote storage adapters and comprehensive user-isolation enforcement are not yet
 implemented; the current private-file behavior is not a claim of those guarantees.
 

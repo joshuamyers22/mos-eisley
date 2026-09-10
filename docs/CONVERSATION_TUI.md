@@ -1,7 +1,7 @@
 # Interactive terminal conversation
 
-Mos Eisley's primary interface is an ongoing terminal conversation. `mos chat`
-and `mos resume` now open a full-screen transcript and editable composer when
+Mos Eisley's primary interface is an ongoing terminal conversation. Bare `mos`,
+`mos chat` and `mos resume` open a full-screen transcript and editable composer when
 both input and output are terminals. This is the first implementation of the
 terminal interaction requested in plan §16.0, with Codex and Claude Code as the
 interaction references. It uses recorded responses; arbitrary live answers,
@@ -9,31 +9,51 @@ repository tools and provider/model switching are not enabled by this screen.
 
 ## Start a conversation
 
-Use new output names and a private storage directory whose parent already exists:
+Open your project directory and run:
 
 ```sh
-mos conversation-demo --output /tmp/mos-screen-cassette.json
-mos chat --cassette /tmp/mos-screen-cassette.json --storage /tmp/mos-screen-sessions
+mos
 ```
 
 Type `Remember that the fixture boundary is ten.` and press Enter. After the
 answer, type `What boundary did I give you?` and press Enter. The second answer
 uses the first exchange. Ctrl-D exits; the normal terminal returns with the saved
-session ID. Resume explicitly with the same workspace and cassette:
+session ID. Resume from the same project directory:
 
 ```sh
-mos resume --last --cassette /tmp/mos-screen-cassette.json --storage /tmp/mos-screen-sessions
+mos resume --last
 ```
 
 Saved queued messages remain paused until F4, `/continue`, or a new submitted
 message explicitly continues them. Opening the screen and editing a draft do
-not start work. A fresh `chat` starts with an empty conversation.
+not start work. Each bare `mos` or `mos chat` starts an empty conversation.
+
+`mos -C /path/to/project` selects another workspace without changing your shell's
+directory. The welcome screen shows the canonical workspace, session ID and the
+two supported preview messages. Session files use `~/.mos-eisley-sessions` by
+default, created privately on the first new session. `mos sessions` lists only
+your current workspace's sessions. `mos resume SESSION_ID` selects one explicitly.
+The existing owner, permissions, locking and workspace checks apply to default
+storage too; an unsafe existing directory is rejected, never repaired silently.
+
+Use `--storage /private/path` to select another location; its parent must exist.
+Use `--cassette /path/to/recording.json` for a custom recording, passing the same
+recording and storage when resuming. Missing, invalid or mismatched recordings
+fail; they never fall back to the built-in preview. The built-in recording is
+request-bound too, so arbitrary prompts cannot receive live answers. No setup
+files, credentials or network connections are needed to open the default preview.
 
 `--plain` keeps the line-oriented interface. Pipes, redirected input, and `--json`
 also use that interface automatically. `--tui` explicitly requires terminal
-input/output and rejects `--json` before creating storage. The bare `mos` command
-still shows command help: this preview requires an explicit cassette and storage
-selection rather than inventing a live provider configuration.
+input/output and rejects `--json` before creating storage. Bare launches with piped
+input use the same saved line-mode conversation. `mos --help` and `mos --version`
+remain informational; unknown commands still fail instead of becoming prompts.
+Launch options may follow `mos` directly; use `mos chat --help` for their full list.
+
+The startup reference is [Codex's documented project-directory launch](https://learn.chatgpt.com/docs/codex/cli),
+checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
+authentication, an initial positional prompt and an interactive resume picker
+remain future work; this is not complete Codex feature parity.
 
 ## Keyboard controls
 

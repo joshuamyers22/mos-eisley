@@ -13,7 +13,8 @@ evaluation evidence, and model-selection records under one user's ownership.
 Default to private local files/SQLite, and support user-configured cloud database
 and object-storage adapters. No cross-user sharing, pooling, or aggregation,
 including anonymized model-selection telemetry. Fresh sessions may automatically
-reuse only that user's minimal model-selection aggregates; prior conversational
+reuse that user's minimal model-selection aggregates and, once implemented, enabled
+user/project memory explicitly curated under §16.0.2. Full prior conversational
 content requires explicit same-owner resume or inspection. Plan §17 defines the
 contract; comprehensive enforcement and remote adapters remain planned work.
 
@@ -61,7 +62,15 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    refinements to their task and preserves unanswered intent through explicit
    resume. The [interactive terminal](CONVERSATION_TUI.md) now opens by default
    for terminal chat/resume, with an editable composer, scrollable transcript,
-   review expansion and status bar. Mid-request interruption and live review
+   review expansion and status bar. Bare `mos` now launches in the current workspace
+   with built-in recorded responses and private default storage; `-C` selects a
+   workspace and `mos resume --last` returns without repeating paths. Initial
+   positional prompts, a resume picker and live setup remain planned.
+   Directory selection/visibility and separate user/project memory are now explicit
+   requirements in plan §16.0.1–16.0.2. Deliver scoped memory inspection, editing,
+   remember/forget and disable controls with precedence, project isolation and
+   retention tests. Memory loading/saving and the directory picker remain planned.
+   Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while
