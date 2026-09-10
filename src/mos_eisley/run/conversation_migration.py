@@ -35,6 +35,7 @@ class ConversationMigration(SQLiteConversationStore):
         # Acquire the existing source lock without creating a database or any lock
         # file. JSON and SQLite share that session lock within this storage root.
         self._db = None
+        self.input_limits = None
         self._verified_checkpoint = None
         self._transcript_guard = threading.Lock()
         self._path = root.absolute()

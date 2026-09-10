@@ -25,6 +25,7 @@ from uuid import uuid4
 from pydantic import Field, TypeAdapter, model_validator
 
 from mos_eisley.conversation import ConversationState, SessionID
+from mos_eisley.conversation_inputs import ActiveInputLimits, InputField
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
@@ -523,7 +524,9 @@ class SQLiteConversationStore(ConversationStore):
         *,
         create: bool = True,
         require_workspace: bool = True,
+        input_limits: ActiveInputLimits | None = None,
     ) -> None:
+        self.input_limits = input_limits
         self._db: sqlite3.Connection | None = None
         self._verified_checkpoint: _SaveCheckpoint | None = None
         self._transcript_guard = threading.Lock()
@@ -573,6 +576,7 @@ class SQLiteConversationStore(ConversationStore):
         record = _read_index(row[:5])
         if record.workspace != self.workspace:
             raise ValueError("conversation workspace mismatch")
+        self._admit_stored_active_inputs(db)
         if not isinstance(row[5], bytes):
             raise ValueError("SQLite conversation header exceeds byte limit")
         entries = db.execute(
@@ -635,6 +639,8 @@ class SQLiteConversationStore(ConversationStore):
         if used != artifacts.keys():
             raise ValueError("unreferenced SQLite conversation artifacts")
         state = ConversationState.model_validate_json(_json(body))
+        if self.input_limits is not None:
+            self.input_limits.admit(state.memory, state.retained_cassette)
         if _index(
             state,
             record.summary.modified_ns,
@@ -812,6 +818,7 @@ class SQLiteConversationStore(ConversationStore):
         Active header values and all bounded text records remain resident.
         """
         index = read_sqlite_session_index(db, self.session_id, self.workspace)
+        self._admit_stored_active_inputs(db)
         checkpoint, digests = index.resume_checkpoint, index.entry_sha256
         if checkpoint is None or digests is None:
             return None
@@ -907,6 +914,8 @@ class SQLiteConversationStore(ConversationStore):
         )
         state = state.model_copy(update={"entries": tuple(entries)})
         del body
+        if self.input_limits is not None:
+            self.input_limits.admit(state.memory, state.retained_cassette)
         if (
             state.session_id != self.session_id
             or state.owner_uid != os.getuid()
@@ -950,6 +959,33 @@ class SQLiteConversationStore(ConversationStore):
         if summary != index.summary:
             raise ValueError("cold-resume state integrity mismatch")
         return state
+
+    def _admit_stored_active_inputs(self, db: sqlite3.Connection) -> None:
+        """Admit both header inputs before either payload, including legacy loads."""
+        if self.input_limits is None:
+            return
+        row = db.execute(
+            "SELECT CASE WHEN length(header)<=? THEN header END "
+            "FROM sessions WHERE sid=?",
+            (MAX_RECORD_BYTES, self.session_id),
+        ).fetchone()
+        if row is None or not isinstance(row[0], bytes):
+            raise ValueError("active-input header is unavailable or oversized")
+        part = PackedPart.model_validate_json(row[0])
+        fields: tuple[InputField, ...] = ("memory", "retained_cassette")
+        if not part.refs.keys() <= set(fields):
+            raise ValueError("invalid active-input artifact field")
+        for field in fields:
+            if field in part.refs:
+                size = db.execute(
+                    "SELECT length(payload) FROM artifacts WHERE sid=? AND sha=?",
+                    (self.session_id, part.refs[field]),
+                ).fetchone()
+                if size is None or type(size[0]) is not int or size[0] < 1:
+                    raise ValueError("active-input artifact is unavailable")
+                self.input_limits.admit_size(field, size[0])
+            elif part.body.get(field) is not None:
+                self.input_limits.admit_size(field, len(_json(part.body[field])))
 
     def _working_checkpoint(
         self, db: sqlite3.Connection, store_id: str
@@ -1097,6 +1133,8 @@ class SQLiteConversationStore(ConversationStore):
     def _write_working(
         self, state: WorkingConversationState
     ) -> WorkingConversationState:
+        if self.input_limits is not None:
+            self.input_limits.admit(state.memory, state.retained_cassette)
         state = validate_runtime_state(state)
         if (
             state.owner_uid != os.getuid()
@@ -1341,6 +1379,8 @@ class SQLiteConversationStore(ConversationStore):
         modified_ns: int | None = None,
         validate_source: Callable[[], None] | None = None,
     ) -> bool:
+        if self.input_limits is not None:
+            self.input_limits.admit(state.memory, state.retained_cassette)
         db = self._connection()
         state = ConversationState.model_validate_json(state.model_dump_json())
         if (

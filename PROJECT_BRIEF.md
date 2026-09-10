@@ -41,8 +41,11 @@
   Chat context has a separately
   saved byte budget and text-only history selection; admission rejects oversized
   requests before consuming attempts and preserves queued work and steering.
-  Independent active memory/recording hydration budgets,
-  bulk migration and longer conversation limits remain planned under plan §17.5.
+  Per-launch active memory/recording limits now reject oversized SQLite header
+  inputs before hydration and bound recording-file reads; recovery/refresh/dispatch
+  also admit selected inputs. They preserve saved hashes and do not expand storage,
+  memory-content or provider bounds. Smaller state transitions, bulk migration and
+  longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;

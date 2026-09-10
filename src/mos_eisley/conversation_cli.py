@@ -29,6 +29,15 @@ from mos_eisley.conversation_input import (
     ConversationInputQueue,
     ConversationSubmission,
 )
+from mos_eisley.conversation_inputs import (
+    DEFAULT_ACTIVE_MEMORY_BYTES,
+    DEFAULT_RECORDING_BYTES,
+    ActiveInputLimitError,
+    ActiveInputLimits,
+    active_memory_byte_limit,
+    read_recording,
+    recording_byte_limit,
+)
 from mos_eisley.conversation_limits import (
     catalog_byte_limit,
     context_byte_limit,
@@ -102,6 +111,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--memory-storage",
         "--session-max-bytes",
         "--context-max-bytes",
+        "--active-memory-max-bytes",
+        "--recording-max-bytes",
         "--storage-backend",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
@@ -264,6 +275,16 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--context-max-bytes",
                 type=context_byte_limit,
                 help="Save a chat context budget (4000–1000000 bytes; default 256000)",
+            )
+            command.add_argument(
+                "--active-memory-max-bytes",
+                type=active_memory_byte_limit,
+                help="Memory bytes for this launch (4096–262144; default 131072)",
+            )
+            command.add_argument(
+                "--recording-max-bytes",
+                type=recording_byte_limit,
+                help="Recording bytes for this launch (4096–32000000; default 2000000)",
             )
             command.add_argument(
                 "--cassette",
@@ -529,7 +550,7 @@ async def terminal(
                     message = "Recorded request failed; continuation is paused."
                     if isinstance(exc, MemoryChangedError):
                         message = MEMORY_CHANGED_MESSAGE
-                    elif isinstance(exc, ContextBudgetError):
+                    elif isinstance(exc, (ContextBudgetError, ActiveInputLimitError)):
                         message = str(exc)
                     elif isinstance(exc, RequestBudgetError):
                         message = (
@@ -720,6 +741,15 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    try:
+        return _run_command(args)
+    except ActiveInputLimitError as error:
+        # Only byte counts and fixed guidance, never rejected payloads or paths.
+        print(f"mos-eisley: {error}", file=sys.stderr)
+        return 2
+
+
+def _run_command(args: argparse.Namespace) -> int:
     if args.command == "session-artifact":
         artifact = read_sqlite_artifact(
             args.storage, args.workspace, args.selection, max_bytes=args.max_bytes
@@ -797,6 +827,8 @@ def run_command(args: argparse.Namespace) -> int:
             or args.refresh_cassette is not None
             or args.session_max_bytes is not None
             or args.context_max_bytes is not None
+            or args.active_memory_max_bytes is not None
+            or args.recording_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
             or args.no_memory
@@ -975,10 +1007,12 @@ def run_command(args: argparse.Namespace) -> int:
         )
         return 0
 
+    input_limits = ActiveInputLimits(
+        memory_max_bytes=args.active_memory_max_bytes or DEFAULT_ACTIVE_MEMORY_BYTES,
+        recording_max_bytes=args.recording_max_bytes or DEFAULT_RECORDING_BYTES,
+    )
     explicit_cassette = (
-        None
-        if args.cassette is None
-        else AgentCassette.model_validate_json(read_bounded(args.cassette))
+        None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
     review_packet = (
         ConversationReviewPacket.model_validate_json(
@@ -991,6 +1025,7 @@ def run_command(args: argparse.Namespace) -> int:
     selected: ConversationSummary | None = None
     if args.command == "chat":
         cassette = explicit_cassette or demo_cassette(memory=memory)
+        input_limits.admit(memory, cassette)
         fresh = ConversationController.fresh(
             args.workspace,
             cassette,
@@ -1024,6 +1059,8 @@ def run_command(args: argparse.Namespace) -> int:
     with store_type(
         args.storage, session_id, args.workspace, create=fresh is not None
     ) as store:
+        if isinstance(store, SQLiteConversationStore):
+            store.input_limits = input_limits
         if fresh is not None:
             store.save(fresh)
         state = (
@@ -1062,10 +1099,16 @@ def run_command(args: argparse.Namespace) -> int:
         if isinstance(state, WorkingConversationState):
             assert isinstance(store, SQLiteConversationStore)
             controller = ConversationController(
-                state, cassette, store.save_working, load_entry=store.load_working_entry
+                state,
+                cassette,
+                store.save_working,
+                load_entry=store.load_working_entry,
+                input_limits=input_limits,
             )
         else:
-            controller = ConversationController(state, cassette, store.save)
+            controller = ConversationController(
+                state, cassette, store.save, input_limits=input_limits
+            )
         memory_runtime = ConversationMemoryRuntime(
             controller,
             memory_store,
@@ -1077,9 +1120,7 @@ def run_command(args: argparse.Namespace) -> int:
             replacement = (
                 None
                 if args.refresh_cassette is None
-                else AgentCassette.model_validate_json(
-                    read_bounded(args.refresh_cassette)
-                )
+                else read_recording(args.refresh_cassette, input_limits)
             )
             try:
                 memory_runtime.refresh(
@@ -1126,6 +1167,21 @@ def run_command(args: argparse.Namespace) -> int:
         welcome += (
             f"\nChat context budget: {controller.state.context_byte_limit} bytes "
             "(system and history JSON; separate from storage and tokens)."
+        )
+        emit(
+            {
+                "type": "conversation.input_limits",
+                **input_limits.model_dump(mode="json"),
+                "text": (
+                    "Input limits for this launch: "
+                    f"active memory {input_limits.memory_max_bytes} "
+                    f"bytes; recording {input_limits.recording_max_bytes} bytes."
+                ),
+            }
+        )
+        welcome += (
+            f"\nActive input limits: memory {input_limits.memory_max_bytes} bytes; "
+            f"recording {input_limits.recording_max_bytes} bytes (this launch)."
         )
         if sqlite_backend:
             welcome += (

@@ -104,8 +104,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    remain decoded. Chat context uses a text-only selection
    interface and a separately saved byte budget, checked before an attempt is
    consumed. It preserves completed history and steering, and pauses oversized
-   queued work with required/available byte counts. Active-input hydration budgets,
-   smaller text/record transitions, bulk migration and the long-session acceptance gate
+   queued work with required/available byte counts. Per-launch memory/recording limits
+   now admit SQLite header sizes before either artifact is fetched, including legacy
+   loads, and bound recording-file reads. Controller recovery, refresh and dispatch
+   check canonical selected inputs; limits leave saved hashes unchanged. Smaller
+   text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.

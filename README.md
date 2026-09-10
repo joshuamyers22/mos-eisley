@@ -56,8 +56,11 @@ bytes when saving. External commits force the same incremental verification agai
 Chat requests check a separate saved
 `--context-max-bytes` budget before consuming an attempt; oversized messages stay
 queued with their history intact. See [context admission](docs/CONVERSATION_STORAGE.md#independent-chat-context-budget).
-Independent active memory/recording hydration budgets and longer conversation
-limits remain planned.
+Active input limits are now independent, per-launch settings:
+`--active-memory-max-bytes` (default 131072) and `--recording-max-bytes` (default
+2000000). SQLite checks stored sizes before loading either active artifact; opening
+with larger limits preserves saved hashes. See [input limits](docs/CONVERSATION_STORAGE.md#active-memory-and-recording-input-limits).
+Smaller state transitions and longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 

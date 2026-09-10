@@ -115,6 +115,46 @@ Current cold loads avoid accumulating decoded historical artifacts. Active memor
 recordings and all 16 text records remain resident; context admission alone does
 not complete the long-session acceptance gate.
 
+## Active memory and recording input limits
+
+`chat`, bare `mos`, and `resume` accept two independent limits for the current
+launch. They are not saved in the session:
+
+| Option | Default | Allowed range | Input measured |
+| --- | --- | --- | --- |
+| `--active-memory-max-bytes` | 131,072 | 4,096–262,144 | Serialized active memory, including snapshot metadata |
+| `--recording-max-bytes` | 2,000,000 | 4,096–32,000,000 | Recording file/stored artifact bytes and the canonical selected recording |
+
+For example, to open a session whose recording exceeds the default:
+
+```sh
+mos resume --last --storage-backend sqlite --recording-max-bytes 4000000
+```
+
+SQLite checks both stored header inputs' byte sizes before fetching either
+artifact, including the full-state legacy reader and revalidation after external
+commits. Rejected stored inputs cause no recovery, save or dispatch. Recording files
+passed through `--cassette` or `--refresh-cassette` use bounded reads before JSON
+decoding. Canonical selected inputs are checked again before controller recovery,
+refresh, transitions and dispatch. A rejected refresh leaves the current controller
+usable. Errors show byte counts and the relevant override; malformed input errors
+remain redacted.
+
+The terminal welcome and `conversation.input_limits` JSON event show the current
+limits. Reopening without overrides restores defaults. Limits do not change saved
+hashes, revisions, history or attempts. A storage/context increase does not raise
+them, and they do not raise the 32 KiB memory-content bound, review packet limits,
+provider input budget or message cap. Historical memory remains available under
+the separate historical-entry/artifact read limits.
+
+These are serialized-input limits, not total RAM quotas. SQLite preflights stored
+active artifacts before hydration; the JSON backend still decodes its bounded
+whole snapshot before controller admission. User/project memory files retain their
+existing bounded readers before selection admission. Admitted active values still
+remain decoded and are serialized during transitions. Python callers can pass the
+same `ActiveInputLimits` to the controller and SQLite store; calls without a policy
+retain the existing API behavior.
+
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
@@ -125,7 +165,7 @@ SQLite controllers retain references to historical artifacts and stream their by
 when computing snapshot hashes, without rebuilding their decoded values. Initial
 resume and external-commit revalidation now verify historical entries one at a time
 under a 512,000-byte entry input bound, then stream the exact snapshot hash and size.
-Active memory and recordings still hydrate in full. JSON and
+Active memory and recordings hydrate within per-launch input limits. JSON and
 legacy compatibility saves still serialize full proposed state. The preview's
 message cap remains. The stages
 below remain the complete target, including bulk migration and the long-session gate.
@@ -152,8 +192,9 @@ Implement these stages under the storage and ownership contract in
    artifact values from its reference-based working state; saves stream retained
    bytes, and queued reviews hydrate one admitted packet at dispatch. Cold loading
    now releases each historical entry's decoded values before verifying the next.
-   Next reduce text/record bookkeeping into bounded transitions and independently
-   budget active memory/recording hydration.
+   SQLite now preflights active memory and recording bytes under independent
+   per-launch limits. Next reduce text/record bookkeeping into bounded transitions
+   and reduce repeated active-input serialization.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.
