@@ -125,17 +125,30 @@ The report maps each user/assistant turn to its source message positions and
 explains omissions (after the target, or no completed answer/required steering link).
 These are existing selection rules; the preview adds no truncation or compaction.
 
-The `conversation.context` NDJSON event contains `schema_version: 1`, session and
+The `conversation.context` NDJSON event now uses `schema_version: 2`, session and
 revision, `selection` with `policy_version: 1`, `message_index`, `turn_sources` and
 `omitted`, plus `context_sha256`, `context_bytes`, `context_max_bytes`,
-`within_context_budget`, `memory_selected` and `active_work`. Counts/hash cover the
-exact canonical system-and-turns JSON, including selected saved memory. The report
+`within_context_budget`, `memory_selected` and `active_work`. Context counts/hash
+cover the exact canonical system-and-turns JSON, including selected saved memory.
+The new `request` object describes the complete model request: `provider`, `model`,
+`effort`, `sha256`, `bytes`, `max_bytes`, `within_budget`, `output_reserve_bytes` and
+`headroom_bytes`. Preview and dispatch share the same request builder and budget
+resolution. The request fingerprint includes its envelope, model/effort, tool
+definitions and output ceiling. The recorded route currently reserves 12,000 output
+bytes and 4,200 headroom bytes from a 96,000-byte cap, leaving 79,800 usable input
+bytes. The report
 does not copy message, answer, memory or review evidence text. The terminal's
 ordinary transcript still displays its own messages.
 
-An over-budget context remains inspectable. Fitting this saved context budget is
-not dispatch admission: current memory, complete provider request bounds and
-recording availability are checked when work runs. An active request may finish
+Both budgets remain inspectable when exceeded. A context may fit its saved budget
+while the complete request exceeds the independently resolved request budget;
+the report shows each result separately. These are local canonical JSON byte
+limits, not provider token counts or native HTTP payload sizes. Preview schema 2
+replaces the ephemeral schema-1 output; selection policy stays at version 1 and
+saved session formats/hashes are unchanged.
+Fitting either or both byte limits is not dispatch admission: current memory,
+complete request bounds and recording availability are checked when work runs.
+An active request may finish
 before the selected queued message, so the report is explicitly provisional then.
 No queued message yields a notice; a queued review yields an isolated-packet notice
 instead of skipping ahead to later chat. Compose/paste/literal input keeps its

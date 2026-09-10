@@ -128,7 +128,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    previews selected turn sources, steering ancestry, omissions and canonical
    context usage through the same projection as dispatch, without saving or
    starting work. This metadata preview is versioned and ephemeral; durable
-   request-selection records and visible compaction remain planned. Smaller
+   request-selection records and visible compaction remain planned. Preview schema
+   2 now includes complete request bytes/hash, route, output reserve, headroom and
+   the independent request fit result through the same builder used by dispatch.
+   A saved-context fit does not imply the complete request fits. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

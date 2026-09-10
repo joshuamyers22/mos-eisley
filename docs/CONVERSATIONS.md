@@ -132,7 +132,10 @@ has an editable multiline composer with Enter to send. Mid-request interruption
 remains future work.
 
 - `/context` previews the next queued chat's selected message positions, steering
-  ancestry, omitted positions and context-byte usage without starting work.
+  ancestry, omitted positions and context-byte usage without starting work. It
+  also reports the complete model request's byte count, independent input limit,
+  output reserve and headroom, so a context that fits can still show a request
+  budget rejection before dispatch.
   The report contains metadata and a context hash rather than message/memory text.
   It uses saved memory and the current history; active work can change the selection.
   A queued review retains its isolated packet and is not treated as a chat target.

@@ -53,10 +53,10 @@ from mos_eisley.core.agent import (
     check_request_budget,
     run_agent,
 )
-from mos_eisley.core.budget import resolve_budget
+from mos_eisley.core.budget import Budget, resolve_budget
 from mos_eisley.core.models import canonical_fingerprint
 from mos_eisley.core.ports import ModelClient
-from mos_eisley.core.protocol import TextBlock, Turn
+from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.providers.agent_recorded import AgentCassette, RecordedAgentClient
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -79,6 +79,16 @@ def conversation_config(
         max_iterations=1,
         max_tool_calls=0,
     )
+
+
+def prepare_conversation_request(config: AgentConfig) -> tuple[ModelRequest, Budget]:
+    """Build the complete fixture request and resolve its local byte budget."""
+    resolved = fixture_registry().resolve(config.provider, config.model, config.effort)
+    budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
+    request = build_request(
+        config, resolved, budget, NoToolsDispatcher(), config.initial_turns
+    )
+    return request, budget
 
 
 def context_for(state: RuntimeConversationState, index: int) -> tuple[Turn, ...]:
@@ -393,16 +403,8 @@ class ConversationController(Generic[StateT]):
             admit_context(
                 config.system, config.initial_turns, self.state.context_byte_limit
             )
-            resolved = fixture_registry().resolve(
-                config.provider, config.model, config.effort
-            )
-            budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
-            check_request_budget(
-                build_request(
-                    config, resolved, budget, NoToolsDispatcher(), config.initial_turns
-                ),
-                budget,
-            )
+            request, budget = prepare_conversation_request(config)
+            check_request_budget(request, budget)
         self._busy = True
 
         def replace(entry: ConversationEntry, *, started: bool = False) -> None:

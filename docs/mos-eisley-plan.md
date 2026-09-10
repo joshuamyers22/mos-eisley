@@ -1668,6 +1668,15 @@ provisional; the TUI marks it stale after revision changes. Existing context rul
 are preserved. This is visibility into current selection, not persisted dispatch
 provenance, compaction or evidence that the long-session gate has passed.
 
+The preview now also measures and fingerprints the complete canonical model request
+through the same builder and budget resolution used before dispatch. Ephemeral
+preview schema 2 adds route, request bytes/hash, usable input limit, output reserve,
+headroom and an independent fit result. Selection policy remains version 1.
+A context may fit the saved context budget while the complete request is too large;
+both results remain visible without consuming an attempt. These are local byte
+budgets, not native provider payload/token estimates. Actual dispatch still
+revalidates all limits, current memory and recording availability.
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following
