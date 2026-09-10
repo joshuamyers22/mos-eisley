@@ -288,7 +288,10 @@ RuntimeConversationState = ConversationState | WorkingConversationState
 
 
 def validate_runtime_state[StateT: RuntimeConversationState](state: StateT) -> StateT:
-    validated = type(state).model_validate_json(state.model_dump_json())
+    # Dump nested models to fresh data so strict validation cannot trust shallowly
+    # frozen instances. Native tuples/timestamps need no JSON encode/decode cycle.
+    # Persisted JSON readers retain their separate decoding/compatibility boundary.
+    validated = type(state).model_validate(state.model_dump(mode="python"))
     entries: list[ConversationEntry | ArchivedConversationEntry] = []
     for old, entry in zip(state.entries, validated.entries, strict=True):
         if (
@@ -297,7 +300,12 @@ def validate_runtime_state[StateT: RuntimeConversationState](state: StateT) -> S
             and old.review_result is not None
         ):
             entry = ArchivedConversationEntry.model_validate(
-                {**dict(entry), "review_result": old.review_result}
+                {
+                    **dict(entry),
+                    "review_result": ReviewResult.model_validate(
+                        old.review_result.model_dump(mode="python")
+                    ),
+                }
             )
         entries.append(entry)
     return validated.model_copy(update={"entries": tuple(entries)})

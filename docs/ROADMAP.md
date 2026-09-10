@@ -111,7 +111,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    checks now stream canonical JSON and reuse the recording fingerprint within an
    operation; nested mutations are checked anew at the next boundary. Working saves
    now encode each packed record once and reuse its bytes/digest for admission and
-   persistence; cold resume skips redundant preparation of verified entries. Smaller
+   persistence; cold resume skips redundant preparation of verified entries. Runtime
+   revalidation now checks a fresh native data tree without a whole-state JSON
+   buffer, including full schema validation of the excluded review cache. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

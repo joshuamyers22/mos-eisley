@@ -184,6 +184,7 @@ def main() -> int:
             "test_conversation_cold_resume.py",
             "test_conversation_input_limits.py",
             "test_conversation_streamed_inputs.py",
+            "test_conversation_native_validation.py",
             "test_mcp_oauth.py",
             "test_mcp_schema.py",
             "test_analysis.py",

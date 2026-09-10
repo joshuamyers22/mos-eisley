@@ -1598,6 +1598,18 @@ verified message records again when normalizing the header. Prepared records are
 operation-local, with no persistent payload or model-identity cache. Existing
 validation, exact snapshot hashes, record limits and atomic publication still apply.
 
+Runtime-state revalidation now rebuilds a Python data tree and applies the strict
+schema without encoding and parsing a complete state JSON buffer. Nested models
+and mutable containers are revalidated and detached; tuples and UTC timestamps
+retain their native types. The excluded latest-review cache also receives full
+nested schema validation before its hash/summary checks and reattachment. Malformed
+runtime values cannot rely on JSON conversion to coerce their types. Persisted JSON
+readers keep their existing decoding boundary, including legacy defaults and date/
+tuple conversion; valid runtime states preserve exact canonical bytes. The complete
+working data tree still exists, and active-input integrity checks still serialize
+their selected values. This reduces allocation but does not bound a transition to
+only its changed fields.
+
 Cold verification still reads all history. Admitted active memory/recording values
 remain decoded, and each save still hashes all logical history bytes. The current
 working state keeps text for all 16 messages. Next reduce text/record bookkeeping
