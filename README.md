@@ -60,7 +60,9 @@ Active input limits are now independent, per-launch settings:
 `--active-memory-max-bytes` (default 131072) and `--recording-max-bytes` (default
 2000000). SQLite checks stored sizes before loading either active artifact; opening
 with larger limits preserves saved hashes. See [input limits](docs/CONVERSATION_STORAGE.md#active-memory-and-recording-input-limits).
-Smaller state transitions and longer conversation limits remain planned.
+Active size/hash checks stream canonical JSON and reuse the checked recording digest
+within startup and refresh. Smaller state transitions and longer conversation
+limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 

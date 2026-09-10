@@ -310,7 +310,9 @@ sizes independently (131,072 and 2,000,000 bytes by default). Both sizes must pa
 before either payload is fetched; the check also precedes the legacy full reader.
 The existing aggregate 32 MB artifact ceiling still applies. Canonical input sizes
 are checked after validation, and configured saves check selected inputs before
-writing. Active values remain decoded; reducing repeated serialization remains
+writing. Size and retained-recording digest checks now stream canonical encoder
+segments, avoiding complete encoded byte buffers for those checks. Active values
+remain decoded; reducing remaining state/persistence serialization remains
 open. Noncanonical artifacts that fit the cold entry bound
 and unprepared indexes use the full-state compatibility reader; opening does not
 rewrite them. A prepared entry exceeding the cold-input bound is rejected without

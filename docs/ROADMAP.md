@@ -107,7 +107,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    queued work with required/available byte counts. Per-launch memory/recording limits
    now admit SQLite header sizes before either artifact is fetched, including legacy
    loads, and bound recording-file reads. Controller recovery, refresh and dispatch
-   check canonical selected inputs; limits leave saved hashes unchanged. Smaller
+   check canonical selected inputs; limits leave saved hashes unchanged. Size/hash
+   checks now stream canonical JSON and reuse the recording fingerprint within an
+   operation; nested mutations are checked anew at the next boundary. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
