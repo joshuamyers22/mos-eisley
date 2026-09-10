@@ -210,6 +210,8 @@ Implement these stages under the storage and ownership contract in
    checks now stream bytes and reuse their fingerprint within each operation.
    Working saves now prepare each packed record once and reuse its admitted bytes
    and message digest; cold resume avoids a second preparation of verified entries.
+   Runtime revalidation uses a fresh native data tree instead of a whole-state JSON
+   buffer, preserving nested checks and the existing persisted-JSON decoder.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

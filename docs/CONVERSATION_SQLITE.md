@@ -279,7 +279,17 @@ byte admission. These prepared values live only within the operation; subsequent
 saves revalidate inputs and prepare fresh records, including nested reference
 changes. Cold resume skips a second preparation pass over already verified entries
 when normalizing its header. All text records still participate in each save, and
-working-state validation still serializes active values.
+working-state validation still rebuilds the complete runtime data tree.
+
+Runtime revalidation now passes that fresh Python tree through the strict schema,
+avoiding a complete state JSON encode/decode buffer. Nested models and mutable
+containers are checked anew; native tuples and timestamps are preserved. The
+excluded latest-review cache receives full nested schema validation before its
+hash/summary checks. Persisted JSON still uses the existing compatibility decoder.
+This preserves canonical bytes for valid states, while malformed runtime values
+must satisfy their native types instead of relying on JSON conversion. Active
+integrity checks still serialize selected inputs; validation remains proportional
+to the complete working state.
 
 The latest completed review event still carries its full result. On resume, older
 review events retain their brief ID and text summary; use F5/F7/F8 or the transcript
