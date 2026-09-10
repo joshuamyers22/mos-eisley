@@ -44,7 +44,9 @@
   Per-launch active memory/recording limits now reject oversized SQLite header
   inputs before hydration and bound recording-file reads; recovery/refresh/dispatch
   also admit selected inputs. They preserve saved hashes and do not expand storage,
-  memory-content or provider bounds. Smaller state transitions, bulk migration and
+  memory-content or provider bounds. Size/hash checks now stream canonical JSON and
+  reuse the checked recording digest within startup and refresh, avoiding complete
+  byte buffers without caching model identities. Smaller state transitions, bulk migration and
   longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

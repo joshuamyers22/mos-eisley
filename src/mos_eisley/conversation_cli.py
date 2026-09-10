@@ -1025,7 +1025,6 @@ def _run_command(args: argparse.Namespace) -> int:
     selected: ConversationSummary | None = None
     if args.command == "chat":
         cassette = explicit_cassette or demo_cassette(memory=memory)
-        input_limits.admit(memory, cassette)
         fresh = ConversationController.fresh(
             args.workspace,
             cassette,
@@ -1033,6 +1032,7 @@ def _run_command(args: argparse.Namespace) -> int:
             memory_disabled=args.no_memory,
             snapshot_max_bytes=args.session_max_bytes,
             context_max_bytes=args.context_max_bytes,
+            input_limits=input_limits,
         )
         session_id = fresh.session_id
     elif args.last:

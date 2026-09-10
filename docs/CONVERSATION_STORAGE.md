@@ -155,6 +155,18 @@ remain decoded and are serialized during transitions. Python callers can pass th
 same `ActiveInputLimits` to the controller and SQLite store; calls without a policy
 retain the existing API behavior.
 
+Input size checks and recording-integrity checks now stream canonical JSON segments
+instead of joining a complete JSON string and byte buffer. A recording's byte count
+and SHA-256 are computed together; fresh launch, controller startup and refresh
+reuse that checked digest within the operation. No fingerprint is cached across
+operations, so later nested changes are measured again and cannot bypass admission
+or the saved recording hash.
+
+The JSON-compatible model tree and one encoder segment still occupy memory; a
+large string can produce a large segment. State validation and persistence still
+serialize active values at other boundaries. This reduces temporary byte buffers
+and duplicate admission/hash work, not total history traversal or all serialization.
+
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
@@ -194,7 +206,8 @@ Implement these stages under the storage and ownership contract in
    now releases each historical entry's decoded values before verifying the next.
    SQLite now preflights active memory and recording bytes under independent
    per-launch limits. Next reduce text/record bookkeeping into bounded transitions
-   and reduce repeated active-input serialization.
+   and reduce remaining active-input serialization. Admission and recording hash
+   checks now stream bytes and reuse their fingerprint within each operation.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

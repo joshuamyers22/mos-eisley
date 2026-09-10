@@ -26,6 +26,7 @@ from mos_eisley.core.models import (
     ReviewResult,
     Text,
     canonical_bytes,
+    canonical_fingerprint,
     digest,
 )
 from mos_eisley.providers.agent_recorded import AgentCassette
@@ -234,7 +235,7 @@ class ConversationState(Contract, Generic[EntryT]):
         if self.memory_disabled and self.memory is not None:
             raise ValueError("disabled memory must not contain active context")
         if self.retained_cassette is not None and (
-            digest(canonical_bytes(self.retained_cassette)) != self.cassette_sha256
+            canonical_fingerprint(self.retained_cassette).sha256 != self.cassette_sha256
             or self.exchanges_consumed > len(self.retained_cassette.exchanges)
         ):
             raise ValueError("retained recording does not match the session")

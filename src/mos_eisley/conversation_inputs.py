@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from mos_eisley.conversation_memory import ConversationMemory
-from mos_eisley.core.models import Contract, canonical_bytes
+from mos_eisley.core.models import CanonicalFingerprint, Contract, canonical_fingerprint
 from mos_eisley.providers.agent_recorded import AgentCassette
 from mos_eisley.run.files import read_bounded
 
@@ -53,10 +53,18 @@ class ActiveInputLimits(Contract):
     def admit(
         self, memory: ConversationMemory | None, cassette: AgentCassette | None
     ) -> None:
-        if memory is not None:
-            self.admit_size("memory", len(canonical_bytes(memory)))
+        self.admit_memory(memory)
         if cassette is not None:
-            self.admit_size("retained_cassette", len(canonical_bytes(cassette)))
+            self.admit_recording(cassette)
+
+    def admit_memory(self, memory: ConversationMemory | None) -> None:
+        if memory is not None:
+            self.admit_size("memory", canonical_fingerprint(memory).bytes)
+
+    def admit_recording(self, cassette: AgentCassette) -> CanonicalFingerprint:
+        fingerprint = canonical_fingerprint(cassette)
+        self.admit_size("retained_cassette", fingerprint.bytes)
+        return fingerprint
 
 
 def active_memory_byte_limit(value: str) -> int:

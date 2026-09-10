@@ -53,7 +53,7 @@ from mos_eisley.core.agent import (
     run_agent,
 )
 from mos_eisley.core.budget import resolve_budget
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import canonical_fingerprint
 from mos_eisley.core.ports import ModelClient
 from mos_eisley.core.protocol import TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
@@ -106,8 +106,11 @@ class ConversationController(Generic[StateT]):
         input_limits: ActiveInputLimits | None = None,
     ) -> None:
         if input_limits is not None:
-            input_limits.admit(state.memory, cassette)
-        if digest(canonical_bytes(cassette)) != state.cassette_sha256:
+            input_limits.admit_memory(state.memory)
+        recording = canonical_fingerprint(cassette)
+        if input_limits is not None:
+            input_limits.admit_size("retained_cassette", recording.bytes)
+        if recording.sha256 != state.cassette_sha256:
             raise ValueError("resume requires the exact recorded cassette")
         if state.exchanges_consumed > len(cassette.exchanges):
             raise ValueError("cassette does not cover saved attempts")
@@ -138,14 +141,20 @@ class ConversationController(Generic[StateT]):
         memory_disabled: bool = False,
         snapshot_max_bytes: int | None = None,
         context_max_bytes: int | None = None,
+        input_limits: ActiveInputLimits | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
+        if input_limits is not None:
+            input_limits.admit_memory(memory)
+        recording = canonical_fingerprint(cassette)
+        if input_limits is not None:
+            input_limits.admit_size("retained_cassette", recording.bytes)
         return ConversationState(
             session_id=uuid4().hex,
             owner_uid=os.getuid(),
             workspace=str(workspace.resolve(strict=True)),
-            cassette_sha256=digest(canonical_bytes(cassette)),
+            cassette_sha256=recording.sha256,
             memory=memory,
             memory_disabled=memory_disabled,
             snapshot_max_bytes=snapshot_max_bytes,
@@ -206,7 +215,10 @@ class ConversationController(Generic[StateT]):
             raise MemoryRefreshError("Stop active work before changing session memory.")
         try:
             if self.input_limits is not None:
-                self.input_limits.admit(memory, cassette)
+                self.input_limits.admit_memory(memory)
+            recording = canonical_fingerprint(cassette)
+            if self.input_limits is not None:
+                self.input_limits.admit_size("retained_cassette", recording.bytes)
         except ActiveInputLimitError as error:
             raise MemoryRefreshError(str(error)) from None
         consumed = self.state.exchanges_consumed
@@ -245,7 +257,7 @@ class ConversationController(Generic[StateT]):
                     memory=memory,
                     memory_disabled=disabled,
                     retained_cassette=cassette,
-                    cassette_sha256=digest(canonical_bytes(cassette)),
+                    cassette_sha256=recording.sha256,
                     builtin_recording=builtin,
                     context_max_bytes=self.state.context_max_bytes,
                     snapshot_max_bytes=(

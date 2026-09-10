@@ -1578,6 +1578,17 @@ JSON still decodes its whole bounded snapshot before controller admission; local
 memory files retain their existing bounded readers. These limits cover serialized
 inputs, not total process RAM.
 
+Active-input size checks and retained-recording integrity checks now stream
+canonical JSON encoder segments instead of allocating a complete encoded string
+and byte buffer. One fingerprint contains the exact SHA-256 and byte count; fresh
+launch, controller startup and refresh reuse that checked recording digest within
+the operation. There is no cache keyed by model identity: nested changes are
+measured again at later boundaries, and changed recordings still fail resume or
+retained-state validation. The JSON-compatible model tree and one encoder segment
+remain resident; large scalar fields can produce large segments. Other state and
+persistence boundaries still serialize active values, so this does not complete
+bounded transitions or establish a latency improvement.
+
 Cold verification still reads all history. Admitted active memory/recording values
 remain decoded, and each save still hashes all logical history bytes. The current
 working state keeps text for all 16 messages. Next reduce text/record bookkeeping
