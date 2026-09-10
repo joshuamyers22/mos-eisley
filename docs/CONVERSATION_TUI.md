@@ -162,9 +162,11 @@ position when progress arrives; returning to the composer follows new output.
 
 The persistent status bar shows the fixed fixture model and effort, tools-off
 state, current activity, pending-message count, consumed cassette attempts, and
-recorded byte usage. Those bytes are fixture usage, not live token or dollar
-accounting. This version shows complete answers and lifecycle progress; it does
-not stream provider tokens.
+recorded byte usage. Configured launches also show current queued UTF-8 text bytes
+against the [pending text budget](CONVERSATION_STORAGE.md#pending-text-budget).
+Rejected message drafts remain in the editor. Recorded bytes are fixture usage,
+not live token or dollar accounting. This version shows complete answers and
+lifecycle progress; it does not stream provider tokens.
 
 F3 expands up to ten adjudicated findings from the latest completed review,
 including quoted evidence. The full structured report remains in the same saved

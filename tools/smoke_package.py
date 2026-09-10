@@ -183,6 +183,7 @@ def main() -> int:
             "test_conversation_working_state.py",
             "test_conversation_cold_resume.py",
             "test_conversation_input_limits.py",
+            "test_conversation_pending.py",
             "test_conversation_streamed_inputs.py",
             "test_conversation_native_validation.py",
             "test_conversation_read_cache.py",

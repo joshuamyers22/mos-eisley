@@ -1642,6 +1642,18 @@ steering ancestry. The inspection selection is not a provider context policy;
 context selection/compaction must explicitly preserve or account for earlier intent.
 Neither backend has passed the long-session gate below.
 
+Pending message text now has an independent per-launch budget through
+`--pending-text-max-bytes` (default 64,000 UTF-8 bytes; range 4,000–512,000).
+Chat, steering and review-prompt submissions count queued text before saving;
+rejection reports usage without changing saved work or attempts. The composer and
+TUI message editor retain rejected drafts. Running/finished text, review artifacts
+and unsent input buffers retain separate bounds. A lower limit on resume does not
+block existing queued work from running or being cancelled. The setting is not
+persisted, and SQLite needs no queued artifact hydration to perform admission.
+This supplies the pending-text part of independent budgets, not a total RAM quota
+or bounded history transitions. See the
+[pending text contract](CONVERSATION_STORAGE.md#pending-text-budget).
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following

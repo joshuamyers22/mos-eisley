@@ -358,11 +358,17 @@ class ConversationTUI:
             for entry in state.entries
             if entry.usage is not None
         )
+        pending = (
+            ""
+            if self.controller.pending_limits is None
+            else f"{self.controller.pending_text_bytes}/"
+            f"{self.controller.pending_limits.max_bytes} queued text bytes • "
+        )
         return (
             f" fixture/tool-reviewer-v1 • high • tools off • {phase} • "
             f"{queued} queued • {state.exchanges_consumed}/"
             f"{len(self.controller.cassette.exchanges)} attempts • "
-            f"{usage} recorded bytes "
+            f"{pending}{usage} recorded bytes "
         )
 
     def refresh(self) -> None:

@@ -167,6 +167,36 @@ large string can produce a large segment. State validation and persistence still
 serialize active values at other boundaries. This reduces temporary byte buffers
 and duplicate admission/hash work, not total history traversal or all serialization.
 
+## Pending text budget
+
+Bare launches, `chat` and `resume` accept `--pending-text-max-bytes BYTES` for this
+launch (default 64,000; range 4,000–512,000). It counts UTF-8 bytes in all queued
+message text, including steering and the review command's canonical prompt.
+Running, completed, cancelled and interrupted messages do not count. Review
+packets, recordings, memory, JSON overhead and unsent editor/input-channel buffers
+retain their separate limits; this is not a total queue-memory or process RAM quota.
+
+New submissions are admitted before persistence and attempt accounting. Rejection
+reports queued, submitted, required and allowed bytes without echoing the input.
+Existing queued work is preserved. The multiline composer and TUI message editor
+retain a rejected draft. Continue or cancel queued work, shorten the submission,
+or reopen with a larger limit. A resumed queue already above a lower launch limit
+can still run or be cancelled; new submissions must fit. Starting a request releases
+its queued-text capacity, and later cancellation preserves the original steering
+links and attempt accounting.
+
+The terminal welcome and `conversation.pending_text` JSON event report the budget
+and opening usage; the TUI status shows current usage. Rejection events use
+`conversation.unavailable` with `reason: pending_text_budget` and numeric
+`queued_bytes`, `submitted_bytes`, `required_bytes`, and `maximum_bytes` fields.
+The limit is not saved and does not change the session hash or revision on reopen.
+Without an override, the next launch returns to the default. Python callers opt
+in with `PendingTextLimits` on the controller; unconfigured callers retain their
+existing behavior. SQLite admission counts the text of archived queued records
+without hydrating their referenced artifacts. Read-only `resume --inspect` rejects
+this unused terminal option. The 16-message cap, storage, context, per-message and
+provider limits still apply independently.
+
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
@@ -226,8 +256,10 @@ Implement these stages under the storage and ownership contract in
    configurable; show usage before admission fails. Keep current memory bounds
    independently configurable only through their own future policy work.
    Chat context now has an independent saved byte budget and pre-dispatch admission,
-   with complete text history and steering preserved. Artifact hydration and
-   retention quotas remain separate work.
+   with complete text history and steering preserved. Pending text now has a
+   per-launch UTF-8 byte budget, with recoverable admission before saving a new
+   submission and no blocking of existing work on a tighter resume. Artifact
+   hydration and retention quotas remain separate work.
 5. Add visible, versioned context compaction that retains user instructions,
    decisions, unresolved work and required steering ancestry. Preserve original
    evidence in storage and record what was selected or omitted from each request.

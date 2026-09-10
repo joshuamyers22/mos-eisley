@@ -119,7 +119,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    Admitted saves still stream all logical history and verify the preflight size.
    Repeated small archived artifacts can now reuse verified chunks within a 64 KiB
    cache for that save, reducing repeated disk reads without carrying payloads
-   between operations. Smaller
+   between operations. Queued message text now has a per-launch UTF-8 byte budget
+   checked before saving new chat, steering or review-prompt submissions. Rejection
+   preserves queued work, attempts and message drafts; tighter resume limits allow
+   existing work to run or be cancelled. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
