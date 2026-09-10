@@ -1467,7 +1467,8 @@ The default JSON backend still reads and rewrites whole snapshots. An
 and session-scoped artifact references transactionally, with exact-state deletion
 and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
 generation; a changed catalog requires restarting pagination. SQLite currently
-reconstructs the complete bounded state on load/save, and its physical file has an
+reconstructs the complete bounded state on resume and validates/serializes a full
+proposed state for each save; its physical file has an
 initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-root
 JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
@@ -1507,9 +1508,20 @@ which now prepares both page and resume metadata while preserving state and raw
 records. The checkpoint still has a 16-message bound and needs a scalable layout
 before the message cap can be lifted.
 
+Routine SQLite saves now reuse a verified checkpoint while the same connection
+observes no external commits or uncoordinated local writes. The write transaction
+checks the stored index and expected revision/hash, skips unchanged message and
+artifact writes, inserts new artifacts and removes only unreferenced ones. It does
+not reread old payloads into Python on this path. External commits anywhere in the
+database trigger full session validation before another save. Failed operations,
+preparation, deletion and connection reopen clear the local checkpoint; publication
+happens only after a successful commit. No content or decoded state is cached in
+this checkpoint, only bounded metadata and artifact digests. Import and explicit
+load/delete retain full validation.
+
 Actual bounded controller resume remains open. Next separate active controller
-state from historical artifact values, commit checkpoint-bound transitions without
-loading all retained state, and budget active memory/recording/review hydration at
+state from historical artifact values, accept bounded transition changes instead
+of revalidating/serializing a complete proposed state, and budget active memory/recording/review hydration at
 request boundaries. Preserve attempt accounting, interrupted-work recovery and
 steering ancestry. The inspection selection is not a provider context policy;
 context selection/compaction must explicitly preserve or account for earlier intent.

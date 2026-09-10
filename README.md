@@ -49,7 +49,9 @@ a memory or review reference; F8 opens/closes its verified content, one artifact
 at a time. `mos session-artifact SELECTION --json` also opens a reference returned
 by the transcript CLI, with an explicit `--max-bytes` override.
 `mos resume --last --storage-backend sqlite --inspect` now previews a verified,
-bounded working set without resuming work. Actual bounded controller resume and
+bounded working set without resuming work. Repeated SQLite saves now reuse a
+verified checkpoint to avoid reloading unchanged stored content; external commits
+force full validation again. Actual bounded controller resume and
 longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:

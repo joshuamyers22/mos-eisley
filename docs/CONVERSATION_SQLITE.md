@@ -100,7 +100,8 @@ revalidates the complete saved state and its selected hash.
 
 Metadata pages verify their index records and ownership, not every referenced
 artifact. Corruption in an artifact can therefore leave its metadata visible while
-resume rejects it. Full load/save/delete validates the retained state. Listing
+resume rejects it. Full load/delete validate retained state; saves reuse a verified
+checkpoint or fully revalidate after external commits as described below. Listing
 uses a read-only connection; it does not repair, migrate or initialize storage.
 
 ## Transcript pages
@@ -245,6 +246,32 @@ next steps toward long-session support.
 
 ## Incremental writes and recovery
 
+Routine saves now reuse a verified checkpoint held by the same database connection.
+A successful full load or committed save establishes it. Before reusing it, the
+write transaction checks the database identity, connection change indicators,
+stored index and expected snapshot hash/revision. On a match, saving reads bounded
+metadata without loading previous message or artifact payloads into Python.
+Unchanged messages do not reach an upsert; unchanged artifacts are neither reread
+nor reinserted. New artifacts are inserted, and only no-longer-referenced artifacts
+are deleted. The existing read/save guard and transaction-before-dispatch rule apply.
+
+This relies on [SQLite's connection-local data version](https://www.sqlite.org/pragma.html#pragma_data_version),
+which changes after commits from another connection. Any such commit, including
+another session's save, forces full validation of this session before another save.
+The connection's total-change counter also detects direct writes on the same
+connection. Versions are captured inside the transaction, and the replacement
+checkpoint is published only after commit succeeds. Failed saves, index preparation,
+deletion and connection reopen discard it. A failed or uncertain controller save
+still stops that controller and requires reopening; the checkpoint cannot authorize
+retrying consumed work or overwriting a changed revision.
+
+The checkpoint retains only the bounded session index and at most 50 artifact
+digests, with no decoded history or payload cache. It uses the existing owner-local
+storage trust boundary. Explicit load, deletion and migration still verify full
+state. Each new transition also still validates and serializes its complete proposed
+state in memory. This reduces routine persistence reads and redundant writes; it
+does not yet implement bounded controller state or lift the 16-message limit.
+
 The private `sessions.sqlite3` file contains versioned owner/database metadata,
 session heads, message records and immutable artifact values keyed by session and
 content digest. Memories, review packets/results and retained recordings are
@@ -255,9 +282,9 @@ A save validates the current state and revision, then commits the updated head,
 changed message rows, new artifact references and catalog generation in one
 transaction. Unchanged message rows/artifacts are not rewritten. Objects no longer
 referenced by the saved state are removed in that same transaction. Earlier memory
-remains retained while historical entries reference it. The current implementation
-still reconstructs and validates the complete bounded logical state on load and
-save; this is incremental disk persistence, not yet bounded transcript loading.
+remains retained while historical entries reference it. Full loads and external-commit
+revalidation reconstruct complete logical state; saves still validate and serialize
+a complete proposed state. Bounded controller loading remains planned.
 Repeated artifact references count toward an expanded byte bound before their
 values are decoded, so corrupt references cannot bypass the input limits.
 

@@ -31,7 +31,9 @@
   F7/F8 and a separate artifact CLI now explicitly open one verified memory or
   review artifact, with an independent read budget. A derived resume checkpoint
   now supports read-only `resume --inspect`, selecting recent messages, unfinished
-  work and steering ancestry without loading artifacts. Bounded controller resume,
+  work and steering ancestry without loading artifacts. Routine SQLite transitions
+  now reuse verified checkpoints, skip unchanged row writes and avoid old payload
+  reads; external commits force full validation. Bounded controller resume,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
