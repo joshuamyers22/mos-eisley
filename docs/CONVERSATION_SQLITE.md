@@ -103,6 +103,66 @@ artifact. Corruption in an artifact can therefore leave its metadata visible whi
 resume rejects it. Full load/save/delete validates the retained state. Listing
 uses a read-only connection; it does not repair, migrate or initialize storage.
 
+## Transcript pages
+
+Read SQLite conversation text without opening the interactive session:
+
+```sh
+mos session-transcript SESSION_ID --limit 4 --json
+mos session-transcript SESSION_ID --limit 4 --cursor TOKEN --json
+```
+
+This command selects SQLite explicitly; use the same `--storage PATH` and
+`-C WORKSPACE` as the saved session. Pages run in read-only transactions and can
+inspect committed content while the session is open. They create no files, do not
+recover running entries, and do not dispatch work. Missing storage or a hot rollback
+journal produces an error rather than an implicit initialization or recovery.
+
+Each page returns positions, text, status, answers, usage and steering links, plus
+artifact field names, hashes and byte sizes. Memory, review packets/results and the
+retained recording are not loaded. Reference availability and size are checked only
+for returned entries; artifact content integrity is still verified on full resume.
+Explicit artifact expansion and terminal scroll integration remain planned. This
+reader is a user-invoked CLI/library operation, not an ambient-history tool for
+models or independent critics.
+
+`--limit` accepts 1–16 messages, defaulting to four. Pages also admit at most 512,000
+stored message-record bytes, checking lengths before fetching payloads. They may
+return fewer messages than requested with a continuation cursor. Record bounds,
+contiguous positions and saved per-entry hashes are checked before returning any
+page. Reads touch one bounded session index, at most the requested number of row
+lengths, admitted message payloads and selected reference lengths. They never load
+the session header, other message payloads or artifact values. The byte count covers
+stored records, not escaped JSON output or physical disk reads/cache allocation.
+
+Cursors bind the owner, database, workspace, session, snapshot hash, catalog
+generation and next position. Any committed save, deletion or index preparation
+invalidates outstanding cursors, including changes in other sessions. Restart from
+the first page after a stale-cursor error. Pages use chronological message positions;
+cursor tokens are continuation data, not credentials. Corrupt unread pages can
+remain undiscovered until selected; page verification does not replace a full-state
+integrity check.
+
+New saves and imports include per-entry digests in the derived session index.
+Older SQLite sessions remain resumable, but page reads require explicit preparation:
+
+```sh
+mos sessions --storage-backend sqlite --json
+mos session-transcript SESSION_ID --prepare --expected-sha256 HASH --json
+```
+
+Preparation locks the session, verifies the complete bounded state, checks the
+selected hash and transactionally adds the derived digests. It preserves the
+session hash, revision, saved timestamp, message/artifact records and consumed
+attempts. Repeating preparation verifies the state without rewriting the index.
+It cannot be combined with page options and never runs automatically during reads.
+A normal session save also writes the new index. Use this version of Mos Eisley
+for prepared/new indexes; older builds may reject the added index field. The digest
+list is bounded by the current 16-message schema; lifting that cap also requires an
+index layout that stays bounded as history grows. Preparation still uses a full-state
+read, and neither paginated interactive resume nor the
+long-session capacity gate is implemented by this milestone.
+
 ## Incremental writes and recovery
 
 The private `sessions.sqlite3` file contains versioned owner/database metadata,
@@ -161,7 +221,8 @@ bounded. This is separate from the per-session logical budget, is not a disk-spa
 reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
-The next stages are paginated transcript/artifact loading, context compaction,
+The next stages are bounded interactive resume, transcript scrolling and selected
+artifact loading, context compaction,
 configurable physical retention, bulk migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

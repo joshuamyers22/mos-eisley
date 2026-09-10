@@ -63,6 +63,7 @@ from mos_eisley.run.conversation_store import (
     ConversationSummary,
     list_conversations,
 )
+from mos_eisley.run.conversation_transcript import read_sqlite_transcript
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -148,6 +149,27 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    transcript = add_parser(
+        "session-transcript", help="Read verified SQLite transcript pages"
+    )
+    transcript.add_argument("session_id")
+    transcript.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    transcript.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    transcript.add_argument(
+        "--limit", type=int, help="Messages per page (1–16; default 4)"
+    )
+    transcript.add_argument("--cursor", help="Continue a transcript page")
+    transcript.add_argument(
+        "--prepare",
+        action="store_true",
+        help="Verify and index an older SQLite session",
+    )
+    transcript.add_argument(
+        "--expected-sha256", help="Exact session hash for --prepare"
+    )
+    transcript.add_argument("--json", action="store_true", help="Print JSON")
     migration = add_parser(
         "session-migrate", help="Preview or apply a JSON session import into SQLite"
     )
@@ -647,6 +669,42 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-transcript":
+        if args.prepare:
+            if (
+                args.expected_sha256 is None
+                or args.cursor is not None
+                or args.limit is not None
+            ):
+                raise ValueError(
+                    "--prepare requires --expected-sha256 "
+                    "and cannot use --cursor or --limit"
+                )
+            with SQLiteConversationStore(
+                args.storage,
+                args.session_id,
+                args.workspace,
+                create=False,
+                require_workspace=False,
+            ) as store:
+                summary = store.prepare_transcript(args.expected_sha256)
+            result = {
+                "type": "conversation.transcript_prepared",
+                **summary.model_dump(),
+            }
+        else:
+            if args.expected_sha256 is not None:
+                raise ValueError("--expected-sha256 requires --prepare")
+            page = read_sqlite_transcript(
+                args.storage,
+                args.session_id,
+                args.workspace,
+                limit=4 if args.limit is None else args.limit,
+                cursor=args.cursor,
+            )
+            result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
+        print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
     if args.command == "session-migrate":
         if args.apply and args.expected_sha256 is None:
             raise ValueError("--apply requires --expected-sha256 from a preview")

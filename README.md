@@ -42,8 +42,9 @@ current session, or `/memory off` to disable its memory; `/continue` resumes wor
 `mos --storage-backend sqlite`; use the same option to resume or list its sessions.
 Metadata listing supports `--limit` and `--cursor`. `mos session-migrate SESSION_ID`
 previews a JSON-to-SQLite import; apply it with `--apply --expected-sha256 HASH`.
-The original JSON is retained. Paginated transcript loading and longer conversation
-limits remain planned.
+The original JSON is retained. `mos session-transcript SESSION_ID --limit 4` reads
+verified SQLite transcript pages without loading retained artifacts. Bounded
+interactive resume, transcript scrolling and longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
