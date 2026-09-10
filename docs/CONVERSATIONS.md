@@ -105,6 +105,9 @@ steering and a multiline/full-screen composer remain future work.
 
 - `/stop` or Ctrl-C cancels the active request and queued messages, retaining their
   text and status. The session remains open for new input.
+- `/review` or `Review this change.` runs a configured explicit recorded review
+  packet and returns a bounded summary. See the
+  [review workflow](CONVERSATION_REVIEW.md) for setup, isolation and evidence limits.
 - `/quit` cancels active work, saves queued messages without executing them, and
   exits. On resume, `/continue` or a new message explicitly starts queued work.
 - EOF finishes work already enabled in this invocation, then exits. Opening a
@@ -116,7 +119,9 @@ steering and a multiline/full-screen composer remain future work.
 
 There are at most 16 submitted messages per session and 8,000 characters per
 message/answer. The existing agent request and response byte budgets still apply.
-Each message permits one request, no tools, no retries, and a 30-second timeout.
+Each ordinary chat message permits one request, no tools, no retries, and a
+30-second timeout. Explicit reviews use their separately bounded critic/judge
+workflow and do not consume a chat cassette position.
 Failed/cancelled/interrupted messages remain visible but are excluded from future
 model context. Completed messages include recorded usage; failed attempts retain
 their consumed cassette position without inventing usage. A failed recorded
@@ -143,8 +148,10 @@ The consumed cassette position and `running` state are saved before dispatch.
 After a crash, resume changes that state to `interrupted` without retrying it.
 A storage failure prevents further dispatch from that controller; reopen to
 inspect the durable snapshot. Reopening a session restores no approvals, machine
-tools or live-provider credentials. The retained state includes only explicit
-conversation text, statuses, recorded usage and identity/configuration hashes.
+tools or live-provider credentials. Retained state includes explicit conversation
+text, statuses, recorded chat usage and identity/configuration hashes. Explicit
+reviews additionally retain their selected packet and structured report in the
+same private snapshot.
 Current request configuration and limits are reconstructed from installed code.
 
 Storage is user-selected and retention is manual through `session-delete`. The
@@ -157,7 +164,7 @@ compaction, SQLite indexing and remote adapters remain future work.
 
 This is the first recorded conversation milestone in plan §16.0. The plain `mos`
 entry point still displays command usage. Live conversation,
-integrated blind review, repository execution, shared `exec` routing,
+live review, repository execution, shared `exec` routing,
 and the full terminal UI remain open. The existing MCP and analysis commands are
 independent of this preview.
 

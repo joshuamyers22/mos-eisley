@@ -8,7 +8,9 @@
 - Conversation preview: a recorded text terminal now supports contextual follow-ups,
   queued input, cancellation, private local snapshots and explicit same-owner,
   same-workspace resume, metadata-only listing, latest-session selection and
-  exact-snapshot deletion. Live conversation, full TUI, review integration and remote
+  exact-snapshot deletion. Explicit recorded review now returns a retained report
+  and contextual summary while keeping critic requests separate from chat history.
+  Live conversation/review, full TUI and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed

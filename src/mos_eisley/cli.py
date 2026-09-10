@@ -7438,6 +7438,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "chat",
             "resume",
             "conversation-demo",
+            "conversation-review-demo",
             "sessions",
             "session-delete",
         }:

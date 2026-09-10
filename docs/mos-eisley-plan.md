@@ -1019,8 +1019,10 @@ supports contextual follow-ups, queued messages, cancellation, private local sav
 and explicit same-user/workspace resume. Metadata-only session listing, latest
 selection and locked exact-snapshot deletion now provide navigation and manual
 retention. See [usage and limits](CONVERSATIONS.md).
-The full product contract below remains the target; live conversation, review
-integration, active-request steering and the full composer are not yet available.
+An [explicit recorded review round-trip](CONVERSATION_REVIEW.md) now preserves
+separate critic requests and returns a retained report and contextual summary.
+The full product contract below remains the target; live conversation/review,
+active-request steering and the full composer are not yet available.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain

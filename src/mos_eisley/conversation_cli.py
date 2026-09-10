@@ -20,11 +20,20 @@ from mos_eisley.conversation import (
     ConversationState,
     conversation_config,
 )
+from mos_eisley.conversation_review import (
+    MAX_REVIEW_PACKET_BYTES,
+    REVIEW_FOLLOWUP,
+    REVIEW_PROMPT,
+    ConversationReviewPacket,
+    review_summary,
+    run_conversation_review,
+)
 from mos_eisley.core.agent import AgentFailure, build_request
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
 from mos_eisley.core.registry import fixture_registry
+from mos_eisley.demo import demo_inputs
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
 from mos_eisley.run.conversation_store import (
     ConversationStore,
@@ -41,7 +50,7 @@ DEMO_PROMPTS = (
 )
 
 
-def demo_cassette() -> AgentCassette:
+def demo_cassette(review_text: str | None = None) -> AgentCassette:
     turns: tuple[Turn, ...] = ()
     exchanges: list[AgentExchange] = []
     for prompt, answer in zip(
@@ -49,6 +58,13 @@ def demo_cassette() -> AgentCassette:
         ("The fixture boundary is ten.", "You gave me a boundary of ten."),
         strict=True,
     ):
+        if prompt == DEMO_PROMPTS[1] and review_text is not None:
+            turns += (
+                Turn(role="user", blocks=(TextBlock(text=REVIEW_PROMPT),)),
+                Turn(role="assistant", blocks=(TextBlock(text=review_text),)),
+            )
+            prompt = REVIEW_FOLLOWUP
+            answer = "Restore quantity >= 10."
         turns += (Turn(role="user", blocks=(TextBlock(text=prompt),)),)
         config = conversation_config(turns)
         resolved = fixture_registry().resolve(
@@ -82,6 +98,11 @@ def demo_cassette() -> AgentCassette:
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     demo = add_parser("conversation-demo", help="Write a synthetic chat cassette")
     demo.add_argument("--output", type=Path, required=True)
+    review_demo = add_parser(
+        "conversation-review-demo", help="Write a synthetic chat and review packet"
+    )
+    review_demo.add_argument("--output", type=Path, required=True)
+    review_demo.add_argument("--review-output", type=Path, required=True)
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "resume":
@@ -93,6 +114,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
             command.add_argument("--cassette", type=Path, required=True)
+            command.add_argument("--review-packet", type=Path)
         command.add_argument("--storage", type=Path, required=True)
         command.add_argument("--workspace", type=Path, default=Path.cwd())
         command.add_argument(
@@ -152,6 +174,7 @@ async def terminal(
     controller: ConversationController,
     queue: asyncio.Queue[str | Exception | None],
     emit: Callable[[dict[str, object]], None],
+    review_packet: ConversationReviewPacket | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -160,14 +183,17 @@ async def terminal(
         for index, entry in enumerate(controller.state.entries):
             if seen.get(index) != entry.status:
                 seen[index] = entry.status
-                emit(
-                    {
-                        "type": f"message.{entry.status}",
-                        "index": index,
-                        "text": entry.text,
-                        "answer": entry.answer,
-                    }
-                )
+                event: dict[str, object] = {
+                    "type": f"message.{entry.status}",
+                    "index": index,
+                    "text": entry.text,
+                    "answer": entry.answer,
+                }
+                if entry.review_packet is not None:
+                    event["review_brief_id"] = entry.review_packet.brief.brief_id
+                if entry.review_result is not None:
+                    event["review_result"] = entry.review_result.model_dump(mode="json")
+                emit(event)
 
     render()
     incoming: asyncio.Task[str | Exception | None] | None = asyncio.create_task(
@@ -230,12 +256,30 @@ async def terminal(
                         return
                 elif line == "/continue":
                     enabled = True
+                elif line.strip().casefold().rstrip(".") in {
+                    "/review",
+                    "review this change",
+                }:
+                    if review_packet is None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": (
+                                    "Review requires an explicit "
+                                    "--review-packet at startup."
+                                ),
+                            }
+                        )
+                    else:
+                        controller.submit_review(review_packet)
+                        render()
+                        enabled = True
                 elif line.strip():
                     if line.startswith("/"):
                         emit(
                             {
                                 "type": "conversation.help",
-                                "text": "Commands: /stop, /continue, /quit",
+                                "text": "Commands: /review, /stop, /continue, /quit",
                             }
                         )
                     else:
@@ -253,7 +297,9 @@ async def terminal(
 
 
 async def _run_terminal(
-    controller: ConversationController, emit: Callable[[dict[str, object]], None]
+    controller: ConversationController,
+    emit: Callable[[dict[str, object]], None],
+    review_packet: ConversationReviewPacket | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -275,7 +321,7 @@ async def _run_terminal(
 
     loop.add_signal_handler(signal.SIGINT, interrupt)
     try:
-        await terminal(controller, queue, emit)
+        await terminal(controller, queue, emit, review_packet)
     finally:
         stop()
         loop.remove_signal_handler(signal.SIGINT)
@@ -283,6 +329,24 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.command == "conversation-review-demo":
+        brief, cassette = demo_inputs()
+        packet = ConversationReviewPacket(brief=brief, cassette=cassette)
+        result = asyncio.run(run_conversation_review(packet))
+        private_write(
+            args.output, canonical_bytes(demo_cassette(review_summary(result)))
+        )
+        private_write(args.review_output, canonical_bytes(packet))
+        print(
+            json.dumps(
+                {
+                    "cassette": str(args.output),
+                    "review_packet": str(args.review_output),
+                    "prompts": [DEMO_PROMPTS[0], "/review", REVIEW_FOLLOWUP],
+                }
+            )
+        )
+        return 0
     if args.command == "conversation-demo":
         private_write(args.output, canonical_bytes(demo_cassette()))
         print(json.dumps({"cassette": str(args.output), "prompts": DEMO_PROMPTS}))
@@ -352,6 +416,13 @@ def run_command(args: argparse.Namespace) -> int:
         return 0
 
     cassette = AgentCassette.model_validate_json(read_bounded(args.cassette))
+    review_packet = (
+        ConversationReviewPacket.model_validate_json(
+            read_bounded(args.review_packet, MAX_REVIEW_PACKET_BYTES)
+        )
+        if args.review_packet is not None
+        else None
+    )
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None
     if args.command == "chat":
@@ -390,12 +461,12 @@ def run_command(args: argparse.Namespace) -> int:
                 "session_id": session_id,
                 "text": (
                     f"Session {session_id}. Recorded preview. "
-                    "Commands: /stop, /continue, /quit. "
+                    "Commands: /review, /stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }
         )
-        asyncio.run(_run_terminal(controller, emit))
+        asyncio.run(_run_terminal(controller, emit, review_packet))
         emit(
             {
                 "type": "conversation.saved",
