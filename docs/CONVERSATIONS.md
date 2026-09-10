@@ -100,22 +100,27 @@ pagination and cleanup of unused lock files remain future work.
 The preview is a line-oriented terminal with user input, assistant answers, and
 visible queued/running/completed/cancelled/interrupted/failed states. The composer
 accepts additional lines while a response is active. They enter a bounded queue
-and become separate contextual follow-ups after that response. Active-request
-steering and a multiline/full-screen composer remain future work.
+and become separate contextual follow-ups after that response. Use `/compose`
+for a multiline draft, then `/send` to queue it as one literal message.
+Active-request steering and the full-screen composer remain future work.
 
 - `/stop` or Ctrl-C cancels the active request and queued messages, retaining their
-  text and status. The session remains open for new input.
+  text and status, and discards an unsent draft. The session remains open for
+  new input.
 - `/review` or `Review this change.` runs a configured explicit recorded review
   packet and returns a bounded summary. See the
   [review workflow](CONVERSATION_REVIEW.md) for setup, isolation and evidence limits.
 - `/quit` cancels active work, saves queued messages without executing them, and
-  exits. On resume, `/continue` or a new message explicitly starts queued work.
-- EOF finishes work already enabled in this invocation, then exits. Opening a
-  resumed session followed by EOF only displays/saves it; it does not execute its
+  exits. Unsent drafts are discarded. On resume, `/continue` or a newly submitted
+  message explicitly starts queued work; opening or editing a draft does not.
+- EOF discards any unsent draft, finishes work already enabled in this invocation,
+  then exits. Opening a resumed session followed by EOF only displays/saves it;
+  it does not execute its
   pending messages. Ctrl-C remains effective while finishing work after EOF.
 - `--json` emits NDJSON lifecycle events using the same controller. Input is still
-  one plain-text message or command per line. Pipes, redirected files and terminals
-  are supported. Control characters are escaped in terminal output.
+  line-oriented, including the same compose/send/discard controls. Pipes, redirected
+  files and terminals are supported. Control characters are escaped in terminal
+  output.
 
 There are at most 16 submitted messages per session and 8,000 characters per
 message/answer. The existing agent request and response byte budgets still apply.
@@ -127,6 +132,63 @@ model context. Completed messages include recorded usage; failed attempts retain
 their consumed cassette position without inventing usage. A failed recorded
 request pauses dispatch and emits an error; the session itself remains usable.
 Unexpected text cannot match this synthetic demo's exact request hashes.
+
+## Multiline composition
+
+Create a cassette for the multiline demo, then start a fresh session:
+
+```sh
+mos conversation-demo --multiline --output /tmp/mos-multiline-cassette.json
+mos chat --cassette /tmp/mos-multiline-cassette.json --storage /tmp/mos-multiline-sessions
+```
+
+Enter this sequence. Blank lines, indentation and code fences are part of the
+single submitted message:
+
+````text
+/compose
+Remember this fixture boundary:
+
+```python
+boundary = 10
+```
+/send
+What boundary did I give you?
+````
+
+The first response remembers ten; the follow-up uses that completed turn. You can
+quit after the first response and resume with the same cassette before sending
+the follow-up. The `--multiline` demo is synthetic and still requires exact text.
+
+- `/compose` opens one draft. Subsequent lines append to it; status events show
+  its line and character counts. `/send` queues the entire draft through the normal
+  durable controller. `/discard` drops it and returns to ordinary line input.
+- `/compose`, `/send`, `/discard`, `/stop` and `/quit` remain controls in draft
+  mode. Prefix a literal leading slash with another slash: `//send` inserts
+  `/send`, and `///path` inserts `//path`. Other lines, including `/review`,
+  `/continue` and `Review this change.`, become literal draft content. Sending
+  a draft never invokes a review panel through text-intent routing.
+- A draft allows 8,000 characters including inserted newlines and at most 256
+  lines. Empty sends leave it open. Exceeding either limit invalidates the whole
+  draft until `/discard`; it cannot submit a truncated paste. Submitted messages
+  still obey the session's 16-message and agent byte limits. A full session leaves
+  the draft open for explicit discard, without dispatching saved queued work.
+- Drafting remains usable while chat or review runs. A sent draft queues behind
+  active work and receives its completed context; it does not alter a dispatched
+  request. Merely drafting or discarding does not continue a paused session.
+- Unsent drafts exist only in process memory. They are absent from snapshots,
+  model requests and application event text, and are discarded on stop, quit,
+  EOF or session failure. Terminal echo or an external terminal recorder can
+  still display/capture typed input. Sent text enters the existing transcript
+  and event stream. No draft autosave or resume is provided.
+- Input uses a bounded 32-line queue and reads at most 4 KB at a time, pausing
+  while the queue is full. Pasting more than 32 short lines does not silently drop
+  them. Invalid UTF-8 or an input line over 8,000 characters ends input with an
+  error. Ctrl-C drops already buffered input and the draft before stopping work.
+
+The same behavior applies to NDJSON output and piped/redirected input. This is
+append-only multiline drafting with terminal line editing; moving among earlier
+draft lines, paste framing and the full-screen layout remain future work.
 
 ## Persistence and recovery
 
@@ -192,3 +254,14 @@ gate with 760 source tests (three optional integration skips), 88% branch-inclus
 coverage, lint/format, strict typing, locked export, build and 142 installed-wheel
 smoke tests. A human-output list/delete/empty-list walkthrough and all 146 local
 documentation link targets also passed.
+
+The multiline milestone adds coverage for exact code-block context, unsent draft
+isolation, literal command text, active-response queueing, empty/oversized/full
+session rejection, storage failure, Unicode read boundaries, backpressure,
+redirected input and separate-process resume. Validation on 2026-09-09: all 63
+focused conversation tests, strict typing and lint passed. A real PTY exercised
+an unsent draft, SIGINT discard, a multiline completion and a durable snapshot
+without discarded content. The full quality gate passed with 787 source tests
+(three optional integration skips), 88% branch-inclusive coverage, lint/format,
+strict typing, locked export, build and 169 installed-wheel tests. All 285 local
+documentation targets resolved.

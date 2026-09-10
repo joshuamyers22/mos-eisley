@@ -20,6 +20,7 @@ from mos_eisley.conversation import (
     ConversationState,
     conversation_config,
 )
+from mos_eisley.conversation_composer import ConversationComposer
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -48,9 +49,12 @@ DEMO_PROMPTS = (
     "Remember that the fixture boundary is ten.",
     "What boundary did I give you?",
 )
+MULTILINE_PROMPT = "Remember this fixture boundary:\n\n```python\nboundary = 10\n```"
 
 
-def demo_cassette(review_text: str | None = None) -> AgentCassette:
+def demo_cassette(
+    review_text: str | None = None, *, multiline: bool = False
+) -> AgentCassette:
     turns: tuple[Turn, ...] = ()
     exchanges: list[AgentExchange] = []
     for prompt, answer in zip(
@@ -58,6 +62,8 @@ def demo_cassette(review_text: str | None = None) -> AgentCassette:
         ("The fixture boundary is ten.", "You gave me a boundary of ten."),
         strict=True,
     ):
+        if prompt == DEMO_PROMPTS[0] and multiline:
+            prompt = MULTILINE_PROMPT
         if prompt == DEMO_PROMPTS[1] and review_text is not None:
             turns += (
                 Turn(role="user", blocks=(TextBlock(text=REVIEW_PROMPT),)),
@@ -98,6 +104,9 @@ def demo_cassette(review_text: str | None = None) -> AgentCassette:
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     demo = add_parser("conversation-demo", help="Write a synthetic chat cassette")
     demo.add_argument("--output", type=Path, required=True)
+    demo.add_argument(
+        "--multiline", action="store_true", help="Record a multiline code-block prompt"
+    )
     review_demo = add_parser(
         "conversation-review-demo", help="Write a synthetic chat and review packet"
     )
@@ -126,47 +135,53 @@ def _input_reader(
     fd: int, queue: asyncio.Queue[str | Exception | None]
 ) -> Callable[[], None]:
     loop = asyncio.get_running_loop()
-    decoder = codecs.getincrementaldecoder("utf-8")(errors="strict")
-    pending = ""
     regular = stat.S_ISREG(os.fstat(fd).st_mode)
-    stopped = False
 
-    def stop() -> None:
-        nonlocal stopped
-        stopped = True
-        if not regular:
-            loop.remove_reader(fd)
-
-    def readable() -> None:
-        nonlocal pending
-        if stopped:
-            return
+    async def produce() -> None:
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="strict")
+        pending = ""
         try:
-            chunk = os.read(fd, 4096)
-            pending += decoder.decode(chunk, final=not chunk)
-            while "\n" in pending:
-                line, pending = pending.split("\n", 1)
-                queue.put_nowait(line.rstrip("\r"))
-            if len(pending) > 8000:
-                raise ValueError("terminal message exceeds text limit")
-            if not chunk:
-                if pending:
-                    queue.put_nowait(pending)
-                queue.put_nowait(None)
-                stop()
-            elif regular:
-                loop.call_soon(readable)
-        except (OSError, UnicodeError, ValueError, asyncio.QueueFull):
-            stop()
-            # Reserve a terminal failure even when input overwhelmed the bounded queue.
+            while True:
+                if not regular:
+                    ready: asyncio.Future[None] = loop.create_future()
+
+                    def readable(waiter: asyncio.Future[None] = ready) -> None:
+                        if not waiter.done():
+                            waiter.set_result(None)
+
+                    loop.add_reader(fd, readable)
+                    try:
+                        await ready
+                    finally:
+                        loop.remove_reader(fd)
+                chunk = os.read(fd, 4096)
+                pending += decoder.decode(chunk, final=not chunk)
+                while "\n" in pending:
+                    line, pending = pending.split("\n", 1)
+                    line = line.rstrip("\r")
+                    if len(line) > 8000:
+                        raise ValueError("terminal message exceeds text limit")
+                    # Pause reading while the bounded consumer queue is full.
+                    await queue.put(line)
+                if len(pending) > 8000:
+                    raise ValueError("terminal message exceeds text limit")
+                if not chunk:
+                    if pending:
+                        await queue.put(pending)
+                    await queue.put(None)
+                    return
+                if regular:
+                    await asyncio.sleep(0)
+        except (OSError, UnicodeError, ValueError):
             while not queue.empty():
                 queue.get_nowait()
             queue.put_nowait(ValueError("invalid or excessive terminal input"))
 
-    if regular:
-        loop.call_soon(readable)
-    else:
-        loop.add_reader(fd, readable)
+    task = asyncio.create_task(produce())
+
+    def stop() -> None:
+        task.cancel()
+
     return stop
 
 
@@ -178,6 +193,72 @@ async def terminal(
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
+    composer = ConversationComposer()
+
+    def discard_draft(reason: str) -> None:
+        if composer.active:
+            composer.clear()
+            emit({"type": "composer.discarded", "text": reason})
+
+    def submit_text(text: str) -> bool:
+        if len(controller.state.entries) >= 16:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Session message limit reached; start a new conversation.",
+                }
+            )
+            return False
+        controller.submit(text)
+        render()
+        return True
+
+    def compose(line: str) -> bool:
+        """Handle drafts before intent routing; submitted draft text stays literal."""
+        nonlocal enabled
+        message: str | None = None
+        try:
+            if line == "/compose":
+                composer.begin()
+                emit(
+                    {
+                        "type": "composer.started",
+                        "text": (
+                            "Draft open. /send submits; /discard clears. "
+                            "Use // to escape a leading slash."
+                        ),
+                    }
+                )
+            elif line == "/discard":
+                if not composer.active:
+                    raise ValueError("No draft is open; use /compose to start one.")
+                discard_draft("Unsent draft discarded.")
+            elif line == "/send":
+                message = composer.message()
+            elif composer.active:
+                composer.append(line[1:] if line.startswith("//") else line)
+                emit(
+                    {
+                        "type": "composer.updated",
+                        "lines": len(composer.lines),
+                        "characters": composer.characters,
+                        "text": (
+                            f"Draft: {len(composer.lines)} lines, "
+                            f"{composer.characters} characters. /send or /discard."
+                        ),
+                    }
+                )
+            else:
+                return False
+        except ValueError as exc:
+            emit({"type": "composer.error", "text": str(exc)})
+            return True
+        # Storage errors propagate; only input errors become recoverable notices.
+        if message is not None and submit_text(message):
+            composer.clear()
+            emit({"type": "composer.sent", "text": "Draft queued."})
+            enabled = True
+        return True
 
     def render() -> None:
         for index, entry in enumerate(controller.state.entries):
@@ -240,9 +321,11 @@ async def terminal(
                 if isinstance(line, Exception):
                     raise line
                 if line is None:
+                    discard_draft("Input closed; unsent draft discarded.")
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
                 if line in {"/stop", "/quit"}:
+                    discard_draft("Unsent draft discarded.")
                     enabled = False
                     if active is not None:
                         active.cancel()
@@ -254,6 +337,8 @@ async def terminal(
                     render()
                     if line == "/quit":
                         return
+                elif compose(line):
+                    pass
                 elif line == "/continue":
                     enabled = True
                 elif line.strip().casefold().rstrip(".") in {
@@ -279,15 +364,18 @@ async def terminal(
                         emit(
                             {
                                 "type": "conversation.help",
-                                "text": "Commands: /review, /stop, /continue, /quit",
+                                "text": (
+                                    "Commands: /compose, /send, /discard, "
+                                    "/review, /stop, /continue, /quit"
+                                ),
                             }
                         )
                     else:
-                        controller.submit(line)
-                        render()
-                        enabled = True
+                        if submit_text(line):
+                            enabled = True
                 incoming = asyncio.create_task(queue.get())
     finally:
+        discard_draft("Session closed; unsent draft discarded.")
         for task in (active, incoming):
             if task is not None:
                 task.cancel()
@@ -307,6 +395,10 @@ async def _run_terminal(
     previous = signal.getsignal(signal.SIGINT)
 
     def interrupt() -> None:
+        nonlocal stop
+        # Drop the reader's pending paste as well as the queued input on Ctrl-C.
+        stop()
+        stop = _input_reader(sys.stdin.fileno(), queue)
         # Ctrl-C must remain effective even when pasted input fills the queue.
         terminal_input: Exception | None = None
         input_ended = False
@@ -348,8 +440,13 @@ def run_command(args: argparse.Namespace) -> int:
         )
         return 0
     if args.command == "conversation-demo":
-        private_write(args.output, canonical_bytes(demo_cassette()))
-        print(json.dumps({"cassette": str(args.output), "prompts": DEMO_PROMPTS}))
+        private_write(
+            args.output, canonical_bytes(demo_cassette(multiline=args.multiline))
+        )
+        prompts = (
+            (MULTILINE_PROMPT, DEMO_PROMPTS[1]) if args.multiline else DEMO_PROMPTS
+        )
+        print(json.dumps({"cassette": str(args.output), "prompts": prompts}))
         return 0
 
     def emit(event: dict[str, object]) -> None:
@@ -461,7 +558,8 @@ def run_command(args: argparse.Namespace) -> int:
                 "session_id": session_id,
                 "text": (
                     f"Session {session_id}. Recorded preview. "
-                    "Commands: /review, /stop, /continue, /quit. "
+                    "Commands: /compose, /send, /discard, "
+                    "/review, /stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }
