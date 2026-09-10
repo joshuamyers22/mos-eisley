@@ -11,8 +11,22 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
+from mos_eisley.conversation_review import (
+    MAX_REVIEW_RESULT_BYTES,
+    REVIEW_PROMPT,
+    ConversationReviewPacket,
+    review_summary,
+    run_conversation_review,
+)
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentUsage, run_agent
-from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
+from mos_eisley.core.models import (
+    Contract,
+    Digest,
+    ReviewResult,
+    Text,
+    canonical_bytes,
+    digest,
+)
 from mos_eisley.core.ports import ModelClient
 from mos_eisley.core.protocol import TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
@@ -28,9 +42,40 @@ class ConversationEntry(Contract):
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    review_packet: ConversationReviewPacket | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    review_result: ReviewResult | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.review_packet is not None:
+            if self.text != REVIEW_PROMPT or self.usage is not None:
+                raise ValueError(
+                    "review entries require canonical text and no chat usage"
+                )
+            if self.review_result is not None:
+                result = self.review_result
+                expected_status = (
+                    "failed"
+                    if result.verdict.decision == "infrastructure_error"
+                    else "completed"
+                )
+                if (
+                    self.status != expected_status
+                    or result.verdict.brief_id != self.review_packet.brief.brief_id
+                    or self.answer != review_summary(result)
+                    or len(canonical_bytes(result)) > MAX_REVIEW_RESULT_BYTES
+                ):
+                    raise ValueError("review result does not match its entry")
+                return self
+            if self.status == "completed" or self.answer is not None:
+                raise ValueError("completed review requires retained evidence")
+            return self
+        if self.review_result is not None:
+            raise ValueError("review result requires an explicit packet")
         if self.status == "completed":
             if self.answer is None or self.usage is None:
                 raise ValueError("completed messages require an answer and usage")
@@ -52,7 +97,11 @@ class ConversationState(Contract):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
-        started = tuple(entry for entry in self.entries if entry.status != "queued")
+        started = tuple(
+            entry
+            for entry in self.entries
+            if entry.status != "queued" and entry.review_packet is None
+        )
         # Cancelling a queued message does not consume an exchange.
         dispatched = sum(entry.status != "cancelled" for entry in started)
         if not dispatched <= self.exchanges_consumed <= len(started):
@@ -159,6 +208,13 @@ class ConversationController:
             raise ValueError("message cannot be blank")
         self._update(self.state.entries + (ConversationEntry(text=text),))
 
+    def submit_review(self, packet: ConversationReviewPacket) -> None:
+        packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+        self._update(
+            self.state.entries
+            + (ConversationEntry(text=REVIEW_PROMPT, review_packet=packet),)
+        )
+
     def cancel_queued(self) -> None:
         self._update(
             tuple(
@@ -188,42 +244,60 @@ class ConversationController:
         if index is None:
             return False
         consumed = self.state.exchanges_consumed
-        if consumed >= len(self.cassette.exchanges):
+        entry = self.state.entries[index]
+        is_review = entry.review_packet is not None
+        if not is_review and consumed >= len(self.cassette.exchanges):
             raise ValueError("recorded conversation has no remaining exchange")
         self._busy = True
 
         def replace(entry: ConversationEntry, *, started: bool = False) -> None:
             entries = list(self.state.entries)
             entries[index] = entry
-            self._update(tuple(entries), consumed=consumed + 1 if started else None)
+            self._update(
+                tuple(entries),
+                consumed=consumed + 1 if started and not is_review else None,
+            )
 
-        entry = self.state.entries[index]
         try:
             # Burn this recorded position before awaiting; resume never retries it.
             replace(entry.model_copy(update={"status": "running"}), started=True)
             if on_started is not None:
                 on_started()
-            recorded = RecordedAgentClient(
-                AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
-            )
             try:
-                result = await run_agent(
-                    conversation_config(context_for(self.state, index)),
-                    fixture_registry(),
-                    recorded if client is None else client,
-                    NoToolsDispatcher(),
-                )
-                if any(
-                    not isinstance(block, TextBlock)
-                    for block in result.turns[-1].blocks
-                ):
-                    raise AgentFailure("conversation preview requires text responses")
-                completed = ConversationEntry(
-                    text=entry.text,
-                    status="completed",
-                    answer=result.final_text,
-                    usage=result.usage,
-                )
+                if entry.review_packet is not None:
+                    review_result = await run_conversation_review(entry.review_packet)
+                    completed = ConversationEntry(
+                        text=entry.text,
+                        status="failed"
+                        if review_result.verdict.decision == "infrastructure_error"
+                        else "completed",
+                        answer=review_summary(review_result),
+                        review_packet=entry.review_packet,
+                        review_result=review_result,
+                    )
+                else:
+                    recorded = RecordedAgentClient(
+                        AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
+                    )
+                    result = await run_agent(
+                        conversation_config(context_for(self.state, index)),
+                        fixture_registry(),
+                        recorded if client is None else client,
+                        NoToolsDispatcher(),
+                    )
+                    if any(
+                        not isinstance(block, TextBlock)
+                        for block in result.turns[-1].blocks
+                    ):
+                        raise AgentFailure(
+                            "conversation preview requires text responses"
+                        )
+                    completed = ConversationEntry(
+                        text=entry.text,
+                        status="completed",
+                        answer=result.final_text,
+                        usage=result.usage,
+                    )
             except asyncio.CancelledError:
                 replace(entry.model_copy(update={"status": "cancelled"}))
                 raise
@@ -231,6 +305,8 @@ class ConversationController:
                 replace(entry.model_copy(update={"status": "failed"}))
                 raise
             replace(completed)
+            if completed.status == "failed":
+                raise AgentFailure("recorded review did not satisfy its review policy")
             return True
         finally:
             self._busy = False
