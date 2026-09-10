@@ -5,6 +5,9 @@ privately. Run it from your project directory; the built-in recorded preview and
 `~/.mos-eisley-sessions` storage require no setup. Use `mos resume --last` to return
 to that workspace's latest session. See [terminal startup](CONVERSATION_TUI.md)
 for workspace selection, custom recordings and keyboard controls.
+`--storage-backend sqlite` selects [incremental local storage](CONVERSATION_SQLITE.md)
+with paginated metadata listing. Repeat that option for its resume/list/delete
+commands; the examples below otherwise use the default JSON snapshot backend.
 New sessions also load enabled [user/project memory](CONVERSATION_MEMORY.md).
 `--no-memory` bypasses loading; saved sessions retain their effective revisions.
 A terminal opens the [interactive screen](CONVERSATION_TUI.md) automatically;

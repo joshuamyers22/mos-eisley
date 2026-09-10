@@ -40,6 +40,8 @@ Use `--storage /private/path` to select another location; its parent must exist.
 `--session-max-bytes BYTES` on launch or resume saves a per-session snapshot budget;
 the welcome screen shows it and `mos sessions` reports usage. See
 [storage budgets](CONVERSATION_STORAGE.md) for bounds and the expansion plan.
+`--storage-backend sqlite` uses the [incremental SQLite backend](CONVERSATION_SQLITE.md)
+through the same terminal controller. Repeat the backend option when resuming.
 Use `--cassette /path/to/recording.json` for a custom recording, passing the same
 recording and storage when resuming. After an explicit memory refresh, the retained
 replacement recording is used unless you supply a cassette. Missing, invalid or mismatched recordings

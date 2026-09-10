@@ -81,6 +81,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    remains an interim preview limit. Plan §17.5 now sequences incremental records,
    paginated listing/transcript reads, independent context/retention budgets,
    explicit migration and recovery tests before lifting the message cap.
+   The first [SQLite adapter](CONVERSATION_SQLITE.md) now implements opt-in
+   incremental message/artifact writes, atomic saves/deletes and bounded metadata
+   pages with generation-bound cursors. Full state reconstruction, transcript
+   pagination, migration and the long-session acceptance gate remain open.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

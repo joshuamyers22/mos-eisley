@@ -1462,8 +1462,17 @@ reports actual bytes and the saved limit. Listing/latest selection has a separat
 8 MB scan budget, explicitly adjustable up to 128 MB with `--catalog-max-bytes`.
 Budget changes preserve history and consumed attempts and do not dispatch work.
 
-The backend still reads and rewrites whole snapshots, and the recorded preview
-still caps messages/attempts at 16. Raising the snapshot budget does not lift
+The default JSON backend still reads and rewrites whole snapshots. An
+[opt-in SQLite adapter](CONVERSATION_SQLITE.md) now commits changed message records
+and session-scoped artifact references transactionally, with exact-state deletion
+and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
+generation; a changed catalog requires restarting pagination. SQLite currently
+reconstructs the complete bounded state on load/save, and its physical file has an
+initial 256 MB ceiling. Explicit migration and paginated transcript loading remain
+open. Neither backend has passed the long-session gate below.
+
+The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
+does not lift
 model context, memory, message, tool, or spending bounds. Complete the following
 work before claiming support for long coding sessions:
 

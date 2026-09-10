@@ -51,7 +51,7 @@ class ConversationDeletion(Contract):
     removed_temporary_files: Annotated[int, Field(ge=0)]
 
 
-def _private(fd: int, *, directory: bool = False) -> None:
+def validate_private_storage(fd: int, *, directory: bool = False) -> None:
     info = os.fstat(fd)
     correct_type = (
         stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)
@@ -78,12 +78,12 @@ def _names(root: int) -> tuple[str, ...]:
 def _snapshot(
     root: int, session_id: str, *, byte_limit: int = MAX_BYTES
 ) -> tuple[ConversationSnapshot, int, int]:
-    _private(root, directory=True)
+    validate_private_storage(root, directory=True)
     fd = os.open(
         f"{session_id}.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root
     )
     with os.fdopen(fd, "rb") as stream:
-        _private(stream.fileno())
+        validate_private_storage(stream.fileno())
         modified_ns = os.fstat(stream.fileno()).st_mtime_ns
         payload = stream.read(byte_limit + 1)
     if len(payload) > byte_limit:
@@ -122,7 +122,7 @@ def list_conversations(
     selected_workspace = str(workspace.resolve())
     root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        _private(root_fd, directory=True)
+        validate_private_storage(root_fd, directory=True)
         candidates = tuple(
             name[:-5]
             for name in _names(root_fd)
@@ -148,7 +148,7 @@ def list_conversations(
                 dir_fd=root_fd,
             )
             try:
-                _private(lock)
+                validate_private_storage(lock)
                 try:
                     fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
                     active = False
@@ -205,7 +205,7 @@ class ConversationStore:
         self._root = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self._lock = -1
         try:
-            _private(self._root, directory=True)
+            validate_private_storage(self._root, directory=True)
             self._lock = os.open(
                 f"{session_id}.lock",
                 os.O_RDWR
@@ -215,7 +215,7 @@ class ConversationStore:
                 0o600,
                 dir_fd=self._root,
             )
-            _private(self._lock)
+            validate_private_storage(self._lock)
             fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BaseException:
             self.close()
@@ -258,7 +258,7 @@ class ConversationStore:
     def save(self, state: ConversationState) -> None:
         if self._deleted:
             raise ValueError("conversation has been deleted")
-        _private(self._root, directory=True)
+        validate_private_storage(self._root, directory=True)
         state = ConversationState.model_validate_json(state.model_dump_json())
         if (
             state.owner_uid != os.getuid()
@@ -323,7 +323,7 @@ class ConversationStore:
                 name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=self._root
             )
             try:
-                _private(fd)
+                validate_private_storage(fd)
             finally:
                 os.close(fd)
         for name in temporary:

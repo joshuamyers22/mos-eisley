@@ -53,6 +53,10 @@ from mos_eisley.demo import demo_inputs
 from mos_eisley.memory_cli import add_command as add_memory_command
 from mos_eisley.memory_cli import add_memory_options
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
+from mos_eisley.run.conversation_sqlite import (
+    SQLiteConversationStore,
+    list_sqlite_conversations,
+)
 from mos_eisley.run.conversation_store import (
     ConversationStore,
     ConversationSummary,
@@ -83,6 +87,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--no-memory",
         "--memory-storage",
         "--session-max-bytes",
+        "--storage-backend",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
@@ -205,6 +210,15 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 type=catalog_byte_limit,
                 help="Bound listing/latest scan bytes (default 8000000; max 128000000)",
             )
+        if name == "sessions":
+            command.add_argument("--limit", type=int, help="SQLite page size (1–100)")
+            command.add_argument("--cursor", help="Continue a SQLite metadata page")
+        command.add_argument(
+            "--storage-backend",
+            choices=("snapshot", "sqlite"),
+            default="snapshot",
+            help="Session backend (default: snapshot; SQLite is opt-in)",
+        )
         command.add_argument(
             "--storage",
             type=Path,
@@ -623,6 +637,18 @@ def run_command(args: argparse.Namespace) -> int:
         from mos_eisley.memory_cli import run_command as run_memory
 
         return run_memory(args)
+    sqlite_backend = getattr(args, "storage_backend", "snapshot") == "sqlite"
+    if getattr(args, "catalog_max_bytes", None) is not None and sqlite_backend:
+        raise ValueError(
+            "--catalog-max-bytes applies to snapshot storage; SQLite uses --limit"
+        )
+    if (
+        args.command == "sessions"
+        and (args.limit is not None or args.cursor is not None)
+        and not sqlite_backend
+    ):
+        raise ValueError("--limit and --cursor require --storage-backend sqlite")
+    store_type = SQLiteConversationStore if sqlite_backend else ConversationStore
     if getattr(args, "tui", False) and (
         args.json or not sys.stdin.isatty() or not sys.stdout.isatty()
     ):
@@ -689,9 +715,19 @@ def run_command(args: argparse.Namespace) -> int:
             print(f"{event['type']}{message_id}{label}: {safe}", flush=True)
 
     if args.command == "sessions":
-        summaries = list_conversations(
-            args.storage, args.workspace, max_bytes=args.catalog_max_bytes
-        )
+        next_cursor = None
+        if sqlite_backend:
+            page = list_sqlite_conversations(
+                args.storage,
+                args.workspace,
+                limit=50 if args.limit is None else args.limit,
+                cursor=args.cursor,
+            )
+            summaries, next_cursor = page.sessions, page.next_cursor
+        else:
+            summaries = list_conversations(
+                args.storage, args.workspace, max_bytes=args.catalog_max_bytes
+            )
         if args.json:
             emit(
                 {
@@ -699,6 +735,7 @@ def run_command(args: argparse.Namespace) -> int:
                     "sessions": [
                         summary.model_dump(mode="json") for summary in summaries
                     ],
+                    **({"next_cursor": next_cursor} if sqlite_backend else {}),
                 }
             )
         elif not summaries:
@@ -726,10 +763,17 @@ def run_command(args: argparse.Namespace) -> int:
                         ),
                     }
                 )
+        if next_cursor is not None and not args.json:
+            emit(
+                {
+                    "type": "conversations.next",
+                    "text": f"Next page: --cursor {next_cursor}",
+                }
+            )
         return 0
     if args.command == "session-delete":
         emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
-        with ConversationStore(
+        with store_type(
             args.storage,
             args.session_id,
             args.workspace,
@@ -771,8 +815,12 @@ def run_command(args: argparse.Namespace) -> int:
         )
         session_id = fresh.session_id
     elif args.last:
-        summaries = list_conversations(
-            args.storage, args.workspace, max_bytes=args.catalog_max_bytes
+        summaries = (
+            list_sqlite_conversations(args.storage, args.workspace, limit=1).sessions
+            if sqlite_backend
+            else list_conversations(
+                args.storage, args.workspace, max_bytes=args.catalog_max_bytes
+            )
         )
         if not summaries:
             emit(
@@ -787,7 +835,7 @@ def run_command(args: argparse.Namespace) -> int:
     else:
         session_id = args.session_id
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
-    with ConversationStore(
+    with store_type(
         args.storage, session_id, args.workspace, create=fresh is not None
     ) as store:
         if fresh is not None:
@@ -869,6 +917,10 @@ def run_command(args: argparse.Namespace) -> int:
         welcome += (
             f"\nSession snapshot budget: {controller.state.snapshot_byte_limit} bytes."
         )
+        if sqlite_backend:
+            welcome += (
+                "\nStorage: SQLite (logical snapshot budget; incremental records)."
+            )
         if args.tui or (
             not args.plain
             and not args.json

@@ -38,7 +38,10 @@ current session, or `/memory off` to disable its memory; `/continue` resumes wor
 [Session storage budgets](docs/CONVERSATION_STORAGE.md) are now configurable:
 `mos --session-max-bytes 8000000` saves an 8 MB budget, and the same flag on
 `mos resume --last` changes an existing session. `mos sessions` reports usage.
-Incremental history storage and longer conversation limits remain planned.
+[Incremental SQLite storage](docs/CONVERSATION_SQLITE.md) is now available with
+`mos --storage-backend sqlite`; use the same option to resume or list its sessions.
+Metadata listing supports `--limit` and `--cursor`. Paginated transcript loading
+and longer conversation limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
