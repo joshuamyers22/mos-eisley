@@ -1646,7 +1646,11 @@ Pending message text now has an independent per-launch budget through
 `--pending-text-max-bytes` (default 64,000 UTF-8 bytes; range 4,000–512,000).
 Chat, steering and review-prompt submissions count queued text before saving;
 rejection reports usage without changing saved work or attempts. The composer and
-TUI message editor retain rejected drafts. Running/finished text, review artifacts
+TUI message editor retain rejected drafts. Typed `/steer TEXT` and `/review` now
+wait for durable admission before clearing the editor, so budget/capacity or
+missing-prerequisite rejections preserve the exact command. Stop and quit still
+cancel pending handoffs; pasted or explicitly literal commands remain text.
+Running/finished text, review artifacts
 and unsent input buffers retain separate bounds. A lower limit on resume does not
 block existing queued work from running or being cancelled. The setting is not
 persisted, and SQLite needs no queued artifact hydration to perform admission.

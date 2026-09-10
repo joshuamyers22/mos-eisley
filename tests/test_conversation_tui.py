@@ -22,6 +22,7 @@ from prompt_toolkit.output import DummyOutput
 from mos_eisley.conversation import ConversationController
 from mos_eisley.conversation_cli import DEMO_PROMPTS, MULTILINE_PROMPT, demo_cassette
 from mos_eisley.conversation_input import ConversationSubmission
+from mos_eisley.conversation_pending import PendingTextLimits
 from mos_eisley.conversation_review import (
     REVIEW_FOLLOWUP,
     ConversationReviewPacket,
@@ -48,6 +49,140 @@ def controller(*, multiline: bool = False) -> ConversationController:
 
 
 class TUITests(IsolatedAsyncioTestCase):
+    async def test_rejected_slash_submissions_remain_editable(self) -> None:
+        for text, reason, setup in (
+            ("/review", "--review-packet", "missing"),
+            ("/steer keep this instruction", "requires text and an active", "missing"),
+            ("/steer", "Message requires text", "missing"),
+            ("/review", "Pending text needs", "budget"),
+            ("/review", "message limit", "full"),
+        ):
+            with self.subTest(text=text, setup=setup), create_pipe_input() as input:
+                chat = controller()
+                packet = None
+                if setup != "missing":
+                    brief, cassette = demo_inputs()
+                    packet = ConversationReviewPacket(brief=brief, cassette=cassette)
+                    if setup == "budget":
+                        chat.pending_limits = PendingTextLimits(max_bytes=4000)
+                        chat.submit("x" * 4000)
+                    else:
+                        for _ in range(16):
+                            chat.submit("saved pending message")
+                before = chat.state
+                ui = ConversationTUI(chat, packet, input=input, output=DummyOutput())
+                task = asyncio.create_task(ui.run())
+                try:
+                    await until(lambda ui=ui: ui.app.is_running)
+                    input.send_text(text + "\r")
+                    await until(
+                        lambda ui=ui, reason=reason: (
+                            reason in ui.notice and not ui.sending
+                        )
+                    )
+                    self.assertEqual(ui.editor.text, text)
+                    self.assertIs(chat.state, before)
+                    # The rejected command can be edited, with no latent submission.
+                    input.send_text("\x7f")
+                    await until(lambda ui=ui, text=text: ui.editor.text == text[:-1])
+                    self.assertIs(chat.state, before)
+                finally:
+                    input.send_text("\x04")
+                    await asyncio.wait_for(task, 3)
+
+    async def test_steering_budget_rejection_retains_command_during_active_work(
+        self,
+    ) -> None:
+        from test_conversation import WaitingClient
+
+        chat = controller()
+        chat.pending_limits = PendingTextLimits(max_bytes=4000)
+        client = WaitingClient()
+        step = chat.step
+
+        async def waiting_step(*, on_started: Callable[[], None] | None = None) -> bool:
+            return await step(client, on_started=on_started)
+
+        with (
+            create_pipe_input() as input,
+            patch.object(chat, "step", side_effect=waiting_step),
+        ):
+            ui = ConversationTUI(chat, input=input, output=DummyOutput())
+            task = asyncio.create_task(ui.run())
+            try:
+                await until(lambda: ui.app.is_running)
+                input.send_text(DEMO_PROMPTS[0] + "\r")
+                await asyncio.wait_for(client.started.wait(), 3)
+                await until(lambda: not ui.sending)
+                chat.steer("x" * 4000)
+                before = chat.state
+                input.send_text("/steer preserve this refinement\r")
+                await until(
+                    lambda: "Pending text needs" in ui.notice and not ui.sending
+                )
+                self.assertEqual(ui.editor.text, "/steer preserve this refinement")
+                self.assertIs(chat.state, before)
+                self.assertEqual(chat.state.entries[1].steering_for, 0)
+                self.assertEqual(chat.state.exchanges_consumed, 1)
+            finally:
+                input.send_text("\x04")
+                await asyncio.wait_for(task, 3)
+
+    async def test_submission_command_waits_for_acceptance_before_clearing(
+        self,
+    ) -> None:
+        for text in ("/review", "/steer refinement"):
+            with self.subTest(text=text), create_pipe_input() as input:
+                ui = ConversationTUI(controller(), input=input, output=DummyOutput())
+                ui.editor.insert_text(text)
+                ui.send()
+                item = await asyncio.wait_for(ui.queue.get(), 3)
+                self.assertIsInstance(item, ConversationSubmission)
+                assert isinstance(item, ConversationSubmission)
+                self.assertEqual(item.text, text)
+                self.assertFalse(item.literal)
+                self.assertEqual(ui.editor.text, text)
+                self.assertTrue(ui.sending)
+                item.accepted.set_result(True)
+                assert ui.submission is not None
+                await asyncio.wait_for(ui.submission, 3)
+                self.assertEqual(ui.editor.text, "")
+                self.assertFalse(ui.sending)
+
+    async def test_priority_controls_cancel_command_handoffs_before_admission(
+        self,
+    ) -> None:
+        from mos_eisley.conversation_cli import terminal
+
+        for text in ("/review", "/steer unsent refinement"):
+            for control in ("/stop", "/quit"):
+                for ready in (False, True):
+                    with (
+                        self.subTest(text=text, control=control, ready=ready),
+                        create_pipe_input() as input,
+                    ):
+                        ui = ConversationTUI(
+                            controller(), input=input, output=DummyOutput()
+                        )
+                        ui.editor.insert_text(text)
+                        ui.send()
+                        if ready:
+                            await asyncio.sleep(0)
+                            self.assertEqual(ui.queue.qsize(), 1)
+                        ui.control(control, priority=True)
+                        assert ui.submission is not None
+                        await asyncio.gather(ui.submission, return_exceptions=True)
+                        self.assertEqual(ui.queue.qsize(), 1)
+                        self.assertEqual(ui.editor.text, "")
+                        self.assertFalse(ui.sending)
+                        if control == "/stop":
+                            ui.queue.put_nowait("/quit")
+                        await asyncio.wait_for(
+                            terminal(ui.controller, ui.queue, lambda _: None), 3
+                        )
+                        self.assertEqual(ui.controller.state.entries, ())
+                        self.assertEqual(ui.controller.state.exchanges_consumed, 0)
+
     async def test_full_session_rejects_review_without_losing_draft(self) -> None:
         chat = controller()
         for _ in range(16):
@@ -162,18 +297,24 @@ class TUITests(IsolatedAsyncioTestCase):
                 await asyncio.wait_for(task, 3)
 
     async def test_pasted_slash_command_is_literal_even_when_single_line(self) -> None:
+        for text in ("/quit", "/review", "/steer retained text", "/review\n/stop"):
+            with self.subTest(text=text):
+                await self.check_literal_paste(text)
+
+    async def check_literal_paste(self, text: str) -> None:
         with create_pipe_input() as input:
             ui = ConversationTUI(controller(), input=input, output=DummyOutput())
             task = asyncio.create_task(ui.run())
             try:
                 await until(lambda: ui.app.is_running)
-                input.send_text("\x1b[200~/quit\x1b[201~")
-                await until(lambda: ui.editor.text == "/quit")
+                input.send_text("\x1b[200~" + text + "\x1b[201~")
+                await until(lambda: ui.editor.text == text)
                 self.assertFalse(task.done())
                 self.assertEqual(ui.controller.state.entries, ())
                 input.send_text("\r")
                 await until(lambda: len(ui.controller.state.entries) == 1)
-                self.assertEqual(ui.controller.state.entries[0].text, "/quit")
+                self.assertEqual(ui.controller.state.entries[0].text, text)
+                self.assertIsNone(ui.controller.state.entries[0].steering_for)
                 self.assertIsNone(ui.controller.state.entries[0].review_packet)
                 self.assertFalse(task.done())
             finally:
@@ -275,10 +416,11 @@ class TUITests(IsolatedAsyncioTestCase):
         self,
     ) -> None:
         for stop in (True, False):
-            with self.subTest(stop=stop):
-                await self.check_stop(stop)
+            for command in (False, True):
+                with self.subTest(stop=stop, command=command):
+                    await self.check_stop(stop, command)
 
-    async def check_stop(self, stop: bool) -> None:
+    async def check_stop(self, stop: bool, command: bool) -> None:
         with create_pipe_input() as input:
             chat = controller()
             started = asyncio.Event()
@@ -303,7 +445,9 @@ class TUITests(IsolatedAsyncioTestCase):
                     await until(lambda: ui.app.is_running)
                     input.send_text(DEMO_PROMPTS[0] + "\r")
                     await asyncio.wait_for(started.wait(), 2)
-                    input.send_text(DEMO_PROMPTS[1] + "\r")
+                    input.send_text(
+                        ("/steer " if command else "") + DEMO_PROMPTS[1] + "\r"
+                    )
                     await until(lambda: len(chat.state.entries) == 2 and not ui.sending)
                     input.send_text("PRIVATE UNSENT")
                     await until(lambda: ui.editor.text == "PRIVATE UNSENT")
@@ -322,6 +466,7 @@ class TUITests(IsolatedAsyncioTestCase):
                 chat.state.entries[1].status, "cancelled" if stop else "queued"
             )
             self.assertEqual(chat.state.entries[1].steering_for, 0)
+            self.assertEqual(chat.state.entries[1].text, DEMO_PROMPTS[1])
             self.assertNotIn("PRIVATE UNSENT", repr(chat.state))
 
     async def test_stop_before_submission_task_starts_does_not_send_later(self) -> None:

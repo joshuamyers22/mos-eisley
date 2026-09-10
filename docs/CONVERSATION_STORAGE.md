@@ -179,7 +179,8 @@ retain their separate limits; this is not a total queue-memory or process RAM qu
 New submissions are admitted before persistence and attempt accounting. Rejection
 reports queued, submitted, required and allowed bytes without echoing the input.
 Existing queued work is preserved. The multiline composer and TUI message editor
-retain a rejected draft. Continue or cancel queued work, shorten the submission,
+retain a rejected draft, including typed `/steer TEXT` and `/review` submissions.
+Continue or cancel queued work, shorten the submission,
 or reopen with a larger limit. A resumed queue already above a lower launch limit
 can still run or be cancelled; new submissions must fit. Starting a request releases
 its queued-text capacity, and later cancellation preserves the original steering

@@ -122,7 +122,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    between operations. Queued message text now has a per-launch UTF-8 byte budget
    checked before saving new chat, steering or review-prompt submissions. Rejection
    preserves queued work, attempts and message drafts; tighter resume limits allow
-   existing work to run or be cancelled. Smaller
+   existing work to run or be cancelled. Typed `/steer` and `/review` submissions
+   now retain editor text until durable admission, including rejection for missing
+   prerequisites, while stop/quit still cancel pending handoffs. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

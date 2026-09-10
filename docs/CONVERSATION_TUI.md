@@ -181,10 +181,14 @@ cannot be submitted accidentally. Undo/redo retains at most 32 edit snapshots.
 There is no persistent input history, draft autosave, external-editor launch,
 shell shortcut, or automatic repository scan.
 
-Ordinary text and natural-language review submissions clear the editor only
-after the shared terminal confirms durable queue admission; rejected messages
-remain editable. Typed slash controls clear when handed to the input queue and
-report any unavailable operation in the notice area.
+Ordinary text, natural-language reviews, and typed `/steer TEXT` and `/review`
+submissions clear the editor only after the shared terminal confirms durable queue
+admission. Rejection for a full session, pending-text budget, missing review packet
+or unavailable steering leaves the exact submission editable. These commands use
+the same controller validation as line input; accepted steering retains its link
+to the active chat. Pasted/multiline text and explicit literal submissions keep
+their existing literal behavior. Other slash controls clear when handed to the
+input queue and report any unavailable operation in the notice area.
 Stop and quit take priority over pending editor handoffs, and cancelled handoffs
 cannot later dispatch. A full input queue retains an unsent message or command.
 Fatal storage/UI failure closes the screen and discards its unsaved draft;
