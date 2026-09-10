@@ -113,6 +113,13 @@ pagination and cleanup of unused lock files remain future work.
 
 ## Interaction and automation
 
+Chat context has a separately saved `--context-max-bytes` budget: 256,000 bytes by
+default, configurable from 4,000 to 1,000,000. It counts system/history JSON,
+including active memory, before consuming an attempt. Oversized messages remain
+queued and continuation pauses with required/available byte counts; history and
+steering are preserved. See [context admission](CONVERSATION_STORAGE.md#independent-chat-context-budget)
+for resizing and measurement details.
+
 The [interactive screen](CONVERSATION_TUI.md) and the `--plain` line-oriented
 interface share user input, assistant answers, and visible
 queued/running/completed/cancelled/interrupted/failed states. The line-mode

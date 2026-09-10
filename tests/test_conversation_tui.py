@@ -474,7 +474,11 @@ class TUIContractTests(TestCase):
                 read_until(b"\x1b[?1049h")
                 read_until(b"Directory:")
                 if bare:
+                    # Startup details can exceed the live viewport. Scroll to the
+                    # welcome notice instead of assuming it is initially visible.
+                    os.write(master, b"\x1b[5~\x0c")
                     read_until(b"live conversations are not connected yet")
+                    os.write(master, b"\t")
                 os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
                 # A differential repaint can reuse old glyphs via cursor moves.
                 # Request a full repaint before matching contiguous answer bytes.

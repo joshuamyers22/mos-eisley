@@ -71,6 +71,47 @@ budgets increase disk use, serialization cost and peak memory; they are an inter
 control, not incremental storage or a disk-space reservation. Disk-full failures
 still stop work through the existing persistence-failure path.
 
+## Independent chat context budget
+
+Both backends save a separate chat context limit. It defaults to 256,000 bytes;
+`--context-max-bytes` accepts 4,000–1,000,000 bytes on launch or resume:
+
+```sh
+mos --context-max-bytes 128000
+mos resume --last --context-max-bytes 512000
+```
+
+Startup displays the saved budget. Each chat request counts the canonical UTF-8
+JSON object containing its `system` and `turns`, including roles, text blocks, JSON
+escaping and active memory instructions. This is a content byte budget, not a
+provider token limit, complete wire-request size, or peak RAM bound. Provider
+request/spending limits and the separate 32 KiB memory limit still apply.
+The current recorded provider admits at most 79,800 bytes for the complete
+serialized model request after its output reserve and headroom. The controller
+checks this independently with the same budget check used by the agent loop,
+also before consuming an attempt. Its rejection reports that limit and keeps the
+message queued. Raising the saved context limit cannot raise the provider limit.
+
+Selection preserves every earlier completed exchange, the current prompt and
+unanswered steering ancestry. It uses only message text/status/links; historical
+memory and review artifacts do not enter that selection. Active memory contributes
+through the system instructions; a completed review contributes its existing text
+summary. No automatic truncation or compaction occurs. Explicit review execution
+continues to use its isolated packet and existing review limits.
+
+Both admission checks happen before persisting `running` or consuming an attempt.
+Rejection reports required bytes and the saved limit, leaves the message queued,
+and pauses continuation in both terminal modes. Resume with a sufficient context
+budget and explicitly continue, or start a fresh session. Changing the storage
+budget cannot bypass context admission. Context resizing saves a revision without
+dispatch; it can also lower the limit below pending context, which then stays
+queued until it can be admitted. When combined with memory/storage changes, the
+context resize is a separate saved transition. Legacy sessions omit the optional
+field and preserve their canonical hashes until a transition is saved.
+
+The controller still retains and loads the full saved state. This request boundary
+does not complete bounded controller resume or the long-session acceptance gate.
+
 ## Planned incremental storage
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
@@ -111,6 +152,9 @@ Implement these stages under the storage and ownership contract in
    capacity and provider spending budgets. Make retention and total storage quotas
    configurable; show usage before admission fails. Keep current memory bounds
    independently configurable only through their own future policy work.
+   Chat context now has an independent saved byte budget and pre-dispatch admission,
+   with complete text history and steering preserved. Artifact hydration and
+   retention quotas remain separate work.
 5. Add visible, versioned context compaction that retains user instructions,
    decisions, unresolved work and required steering ancestry. Preserve original
    evidence in storage and record what was selected or omitted from each request.
