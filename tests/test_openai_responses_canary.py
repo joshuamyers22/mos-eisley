@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import JsonValue
@@ -252,6 +253,11 @@ class OpenAIResponsesCanaryAuthorizationTests(TestCase):
 
 
 class OpenAIResponsesCanaryExecutionTests(IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        # Discovery can precede this class by more than the five-minute fixture
+        # window on CI. Keep execution fixtures fresh without widening authority.
+        self.enterContext(patch(f"{__name__}.NOW", datetime.now(UTC)))
+
     async def test_insufficient_worst_case_ledger_blocks_token_count(self) -> None:
         key = Ed25519PrivateKey.generate()
         with TemporaryDirectory() as temporary:
