@@ -1025,8 +1025,10 @@ separate critic requests and returns a retained report and contextual summary.
 messages with explicit send/discard and keeps unsent content out of saved state.
 [Queued steering](CONVERSATIONS.md#steering-during-work) now links refinements
 to active chat tasks and preserves unanswered intent at explicit continuation.
+The [interactive terminal](CONVERSATION_TUI.md) now provides a scrollable
+transcript, editable multiline composer, review expansion and persistent status.
 The full product contract below remains the target; live conversation/review,
-mid-request interruption and the full-screen composer are not yet available.
+mid-request interruption and advanced terminal controls are not yet available.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain

@@ -10,6 +10,7 @@ import os
 import signal
 import stat
 import sys
+import termios
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -21,6 +22,11 @@ from mos_eisley.conversation import (
     conversation_config,
 )
 from mos_eisley.conversation_composer import ConversationComposer
+from mos_eisley.conversation_input import (
+    ConversationInput,
+    ConversationInputQueue,
+    ConversationSubmission,
+)
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -124,6 +130,15 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         if name in {"chat", "resume"}:
             command.add_argument("--cassette", type=Path, required=True)
             command.add_argument("--review-packet", type=Path)
+            display = command.add_mutually_exclusive_group()
+            display.add_argument(
+                "--tui",
+                action="store_true",
+                help="Open the full-screen recorded terminal",
+            )
+            display.add_argument(
+                "--plain", action="store_true", help="Use line-oriented terminal input"
+            )
         command.add_argument("--storage", type=Path, required=True)
         command.add_argument("--workspace", type=Path, default=Path.cwd())
         command.add_argument(
@@ -187,7 +202,7 @@ def _input_reader(
 
 async def terminal(
     controller: ConversationController,
-    queue: asyncio.Queue[str | Exception | None],
+    queue: ConversationInputQueue,
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
 ) -> None:
@@ -200,7 +215,43 @@ async def terminal(
             composer.clear()
             emit({"type": "composer.discarded", "text": reason})
 
+    def has_capacity() -> bool:
+        if len(controller.state.entries) >= 16:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Session message limit reached; start a new conversation.",
+                }
+            )
+            return False
+        return True
+
+    def submit_review() -> bool:
+        if review_packet is None:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": ("Review requires an explicit --review-packet at startup."),
+                }
+            )
+            return False
+        if not has_capacity():
+            return False
+        controller.submit_review(review_packet)
+        render()
+        return True
+
     def submit_text(text: str, *, require_active: bool = False) -> bool:
+        if not text.strip() or len(text) > 8000 or text.count("\n") >= 256:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": (
+                        "Message requires text within 8,000 characters and 256 lines."
+                    ),
+                }
+            )
+            return False
         if require_active and (
             controller.active_chat_index is None or not text.strip()
         ):
@@ -211,13 +262,7 @@ async def terminal(
                 }
             )
             return False
-        if len(controller.state.entries) >= 16:
-            emit(
-                {
-                    "type": "conversation.unavailable",
-                    "text": "Session message limit reached; start a new conversation.",
-                }
-            )
+        if not has_capacity():
             return False
         if require_active:
             controller.steer(text)
@@ -292,9 +337,7 @@ async def terminal(
                 emit(event)
 
     render()
-    incoming: asyncio.Task[str | Exception | None] | None = asyncio.create_task(
-        queue.get()
-    )
+    incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
     active: asyncio.Task[bool] | None = None
     enabled = False  # Resume displays pending input; only explicit input starts work.
     eof = False
@@ -335,6 +378,29 @@ async def terminal(
                 incoming = None
                 if isinstance(line, Exception):
                     raise line
+                if isinstance(line, ConversationSubmission):
+                    if line.accepted.cancelled():
+                        incoming = asyncio.create_task(queue.get())
+                        continue
+                    try:
+                        if (
+                            not line.literal
+                            and len(line.text) <= 8000
+                            and line.text.count("\n") < 256
+                            and line.text.strip().casefold().rstrip(".")
+                            == "review this change"
+                        ):
+                            accepted = submit_review()
+                        else:
+                            accepted = submit_text(line.text)
+                        if not line.accepted.done():
+                            line.accepted.set_result(accepted)
+                        enabled = enabled or accepted
+                    except BaseException:
+                        line.accepted.cancel()
+                        raise
+                    incoming = asyncio.create_task(queue.get())
+                    continue
                 if line is None:
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
@@ -365,20 +431,7 @@ async def terminal(
                     "/review",
                     "review this change",
                 }:
-                    if review_packet is None:
-                        emit(
-                            {
-                                "type": "conversation.unavailable",
-                                "text": (
-                                    "Review requires an explicit "
-                                    "--review-packet at startup."
-                                ),
-                            }
-                        )
-                    else:
-                        controller.submit_review(review_packet)
-                        render()
-                        enabled = True
+                    enabled = submit_review() or enabled
                 elif line.strip():
                     if line.startswith("/"):
                         emit(
@@ -459,6 +512,15 @@ def run_command(args: argparse.Namespace) -> int:
             )
         )
         return 0
+
+    if getattr(args, "tui", False) and (
+        args.json or not sys.stdin.isatty() or not sys.stdout.isatty()
+    ):
+        print(
+            "mos-eisley: --tui requires terminal input/output and cannot use --json",
+            file=sys.stderr,
+        )
+        return 2
     if args.command == "conversation-demo":
         private_write(
             args.output, canonical_bytes(demo_cassette(multiline=args.multiline))
@@ -588,7 +650,22 @@ def run_command(args: argparse.Namespace) -> int:
                 ),
             }
         )
-        asyncio.run(_run_terminal(controller, emit, review_packet))
+        if args.tui or (
+            not args.plain
+            and not args.json
+            and sys.stdin.isatty()
+            and sys.stdout.isatty()
+        ):
+            from mos_eisley.conversation_tui import ConversationTUI
+
+            fd = sys.stdin.fileno()
+            original_modes = termios.tcgetattr(fd)
+            try:
+                asyncio.run(ConversationTUI(controller, review_packet).run())
+            finally:
+                termios.tcsetattr(fd, termios.TCSANOW, original_modes)
+        else:
+            asyncio.run(_run_terminal(controller, emit, review_packet))
         emit(
             {
                 "type": "conversation.saved",

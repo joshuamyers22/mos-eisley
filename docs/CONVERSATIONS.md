@@ -1,6 +1,8 @@
 # Recorded conversation preview
 
 `mos chat` now keeps a text conversation across messages and saves it privately.
+A terminal opens the [interactive screen](CONVERSATION_TUI.md) automatically;
+`--plain`, pipes and `--json` use the line-oriented interface.
 `mos resume <session-id>` explicitly restores that conversation in the same
 workspace. `mos sessions`, `mos resume --last` and `mos session-delete` provide
 navigation for the selected workspace and manual retention. This preview uses
@@ -97,13 +99,16 @@ pagination and cleanup of unused lock files remain future work.
 
 ## Interaction and automation
 
-The preview is a line-oriented terminal with user input, assistant answers, and
-visible queued/running/completed/cancelled/interrupted/failed states. The composer
+The [interactive screen](CONVERSATION_TUI.md) and the `--plain` line-oriented
+interface share user input, assistant answers, and visible
+queued/running/completed/cancelled/interrupted/failed states. The line-mode
+controls below are also available to pipes and JSON automation. The composer
 accepts additional lines while a response is active. They enter a bounded queue
 and apply after that response. Messages submitted during an active chat request
 are now bound to its task as queued steering. Use `/compose` for a multiline
-draft, then `/send` to queue it as one literal message. Mid-request interruption
-and the full-screen composer remain future work.
+draft, then `/send` to queue it as one literal message in line mode. The screen
+has an editable multiline composer with Enter to send. Mid-request interruption
+remains future work.
 
 - `/stop` or Ctrl-C cancels the active request and queued messages, retaining their
   text and status, and discards an unsent draft. The session remains open for
@@ -183,7 +188,7 @@ Create a cassette for the multiline demo, then start a fresh session:
 
 ```sh
 mos conversation-demo --multiline --output /tmp/mos-multiline-cassette.json
-mos chat --cassette /tmp/mos-multiline-cassette.json --storage /tmp/mos-multiline-sessions
+mos chat --plain --cassette /tmp/mos-multiline-cassette.json --storage /tmp/mos-multiline-sessions
 ```
 
 Enter this sequence. Blank lines, indentation and code fences are part of the
@@ -231,9 +236,9 @@ the follow-up. The `--multiline` demo is synthetic and still requires exact text
   them. Invalid UTF-8 or an input line over 8,000 characters ends input with an
   error. Ctrl-C drops already buffered input and the draft before stopping work.
 
-The same behavior applies to NDJSON output and piped/redirected input. This is
-append-only multiline drafting with terminal line editing; moving among earlier
-draft lines, paste framing and the full-screen layout remain future work.
+The same line-mode behavior applies to NDJSON output and piped/redirected input.
+The [interactive screen](CONVERSATION_TUI.md) additionally supports moving among
+earlier draft lines, bracketed paste and a scrollable transcript.
 
 ## Persistence and recovery
 
@@ -272,7 +277,7 @@ compaction, SQLite indexing and remote adapters remain future work.
 This is the first recorded conversation milestone in plan §16.0. The plain `mos`
 entry point still displays command usage. Live conversation,
 live review, repository execution, shared `exec` routing,
-and the full terminal UI remain open. The existing MCP and analysis commands are
+and advanced terminal features remain open. The existing MCP and analysis commands are
 independent of this preview.
 
 `tests/test_conversation.py` exercises exact contextual follow-ups, fresh-session
