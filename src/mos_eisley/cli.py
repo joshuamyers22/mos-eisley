@@ -7453,6 +7453,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "session-delete",
             "session-migrate",
             "session-transcript",
+            "session-artifact",
         }:
             from mos_eisley.conversation_cli import run_command
 

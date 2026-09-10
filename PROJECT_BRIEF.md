@@ -28,7 +28,8 @@
   transcript CLI now reads verified text pages with bounded payload reads and
   unexpanded artifact references. SQLite's terminal now uses those pages for F5
   history browsing, with background reads and draft-preserving navigation.
-  Bounded controller resume,
+  F7/F8 and a separate artifact CLI now explicitly open one verified memory or
+  review artifact, with an independent read budget. Bounded controller resume,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

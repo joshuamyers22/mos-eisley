@@ -53,6 +53,10 @@ from mos_eisley.demo import demo_inputs
 from mos_eisley.memory_cli import add_command as add_memory_command
 from mos_eisley.memory_cli import add_memory_options
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
+from mos_eisley.run.conversation_artifacts import (
+    DEFAULT_ARTIFACT_BYTES,
+    read_sqlite_artifact,
+)
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_sqlite import (
     SQLiteConversationStore,
@@ -149,6 +153,23 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    artifact = add_parser(
+        "session-artifact", help="Expand one selected SQLite artifact"
+    )
+    artifact.add_argument(
+        "selection", help="Artifact selection token from session-transcript"
+    )
+    artifact.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    artifact.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    artifact.add_argument(
+        "--max-bytes",
+        type=int,
+        default=DEFAULT_ARTIFACT_BYTES,
+        help="Explicit artifact read budget (default 512000; max 32000000)",
+    )
+    artifact.add_argument("--json", action="store_true", help="Print JSON")
     transcript = add_parser(
         "session-transcript", help="Read verified SQLite transcript pages"
     )
@@ -669,6 +690,18 @@ async def _run_terminal(
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-artifact":
+        artifact = read_sqlite_artifact(
+            args.storage, args.workspace, args.selection, max_bytes=args.max_bytes
+        )
+        print(
+            json.dumps(
+                {"type": "conversation.artifact", **artifact.model_dump(mode="json")},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "session-transcript":
         if args.prepare:
             if (
@@ -1023,6 +1056,9 @@ def run_command(args: argparse.Namespace) -> int:
                         welcome=welcome,
                         refresh_memory=memory_runtime.refresh,
                         load_transcript=store.transcript_page
+                        if isinstance(store, SQLiteConversationStore)
+                        else None,
+                        load_artifact=store.transcript_artifact
                         if isinstance(store, SQLiteConversationStore)
                         else None,
                     ).run()

@@ -86,6 +86,8 @@ F4, `/continue`, or a newly submitted message continues it.
 | F4 | Explicitly continue saved or paused queued work. |
 | F5 | In SQLite sessions, browse saved history or return to the live view. |
 | F6 | Reload saved history from its first page after a change or read error. |
+| F7 | Select the next memory or review reference on the saved history page. |
+| F8 | Open/close the selected artifact; only one stays expanded. |
 
 ## Saved SQLite history
 
@@ -97,7 +99,7 @@ next page. Arrow keys also scroll within the page. F5 returns to the live view a
 composer, preserving the unsent draft. Tab allows editing while browsing.
 
 The browser retains one page of text plus visited cursors. It reads in a background
-thread, with one read in flight and at most one pending reload; repeated key presses
+thread, with one page/artifact read in flight and at most one pending replacement; repeated key presses
 do not accumulate threads or pages. Results from a closed or replaced view are
 discarded. History reads and saves from the same terminal share a guard so the
 background reader cannot cause its own save to fail with a busy-database error.
@@ -110,8 +112,17 @@ Browsing never saves a session, consumes a recorded attempt, or continues queued
 work. If the session changes while browsing, the old page clears and F6 reloads it.
 Changes in another session can invalidate the cursor on the next page read. Missing,
 corrupt or inaccessible records show an error without falling back to an unchecked
-copy from controller memory. Memory and review artifacts remain references in this
-view; F3 review details are available after returning to live view. `/memory` and
+copy from controller memory. Memory and review artifacts initially appear as
+references. F7 cycles the selection; F8 explicitly opens or closes its verified
+JSON content. Nothing expands automatically. Expansion reads at most 512,000 stored
+artifact bytes after checking the reference, owner, workspace and snapshot. Larger
+artifacts show their required size; use the [artifact CLI](CONVERSATION_SQLITE.md#selected-artifacts)
+with an explicit larger budget to inspect them. The terminal retains one expanded
+artifact, clearing it when the selection, page, session or view changes. Stale
+selections require F6 reload. Artifact reads use the same serialized background
+worker and read/save guard as pages; switching selection discards obsolete results.
+Content is escaped for terminal display and is never sent to a model or critic.
+F3 review details are available after returning to live view. `/memory` and
 `/directory` inspection also return to live view to show current session information.
 
 Older SQLite indexes may require explicit preparation. Exit the active session,

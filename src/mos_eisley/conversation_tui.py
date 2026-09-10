@@ -27,6 +27,7 @@ from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_history import TranscriptHistory
 from mos_eisley.conversation_input import ConversationInput, ConversationSubmission
 from mos_eisley.conversation_review import ConversationReviewPacket
+from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
 
 
@@ -110,6 +111,7 @@ class ConversationTUI:
         welcome: str = "",
         refresh_memory: Callable[[bool], None] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
+        load_artifact: Callable[[str], ArtifactContent] | None = None,
         input: Input | None = None,
         output: Output | None = None,
     ) -> None:
@@ -128,6 +130,7 @@ class ConversationTUI:
                     len(self.controller.state.entries),
                 ),
                 self.refresh,
+                load_artifact,
             )
         )
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
@@ -233,6 +236,15 @@ class ConversationTUI:
         def continue_work(event: KeyPressEvent) -> None:
             self.control("/continue")
 
+        def select_artifact(event: KeyPressEvent) -> None:
+            if self.history and self.history.visible:
+                self.history.select_next_artifact()
+
+        def expand_artifact(event: KeyPressEvent) -> None:
+            if self.history and self.history.visible:
+                self.app.layout.focus(self.transcript)
+                self.history.toggle_artifact()
+
         keys.add(
             "enter",
             filter=Condition(lambda: self.app.layout.has_focus(self.editor_control)),
@@ -252,6 +264,8 @@ class ConversationTUI:
         keys.add("f4")(continue_work)
         keys.add("f5")(history)
         keys.add("f6")(reload_history)
+        keys.add("f7")(select_artifact)
+        keys.add("f8")(expand_artifact)
 
         layout = HSplit(
             [
@@ -428,6 +442,7 @@ class ConversationTUI:
         history = self.history
         assert history is not None
         page = history.page
+        expansion_position = 0
         if history.error:
             text = "Saved history unavailable\n" + history.error
         elif page is None:
@@ -438,6 +453,7 @@ class ConversationTUI:
                 f"{page.total_messages} messages\n"
                 "PgUp/PgDn scroll, then change page • F6 reload • F5 live"
             ]
+            reference_number = 0
             for entry in page.entries:
                 content = entry.content
                 link = (
@@ -450,14 +466,28 @@ class ConversationTUI:
                 )
                 if content.answer is not None:
                     parts.append(f"Mos\n{content.answer}")
-                if entry.artifacts:
-                    parts.append(
-                        "Retained references: "
-                        + ", ".join(
-                            ref.field.replace("_", " ") for ref in entry.artifacts
-                        )
-                        + ". Contents are not expanded in this view."
+                for ref in entry.artifacts:
+                    marker = (
+                        "→" if reference_number == history.selected_artifact else " "
                     )
+                    parts.append(
+                        f"{marker} Artifact {reference_number + 1}: "
+                        f"{ref.field.replace('_', ' ')} • {ref.bytes} bytes • "
+                        "F7 select • F8 open/close"
+                    )
+                    reference_number += 1
+            if history.artifact_error:
+                parts.append("Artifact unavailable\n" + history.artifact_error)
+            elif history.expanded is not None:
+                expanded = history.expanded
+                expansion_position = len(display_text("\n\n".join(parts))) + 2
+                parts.append(
+                    f"Expanded {expanded.field.replace('_', ' ')} "
+                    f"for message {expanded.position} • F8 closes\n"
+                    + json.dumps(expanded.content, ensure_ascii=True, indent=2)
+                )
+            elif history.loading:
+                parts.append("Loading selected artifact…")
             if not page.entries:
                 parts.append("No saved messages yet.")
             parts.append(
@@ -471,7 +501,7 @@ class ConversationTUI:
         position = (
             self.transcript.buffer.cursor_position
             if text == self.transcript.text
-            else 0
+            else expansion_position
         )
         self.transcript.buffer.set_document(
             Document(text, position), bypass_readonly=True

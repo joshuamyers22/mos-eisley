@@ -2,13 +2,14 @@
 
 import base64
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID, Status
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
+from mos_eisley.run.conversation_artifacts import ArtifactField, ArtifactSelection
 from mos_eisley.run.conversation_sqlite import (
     MAX_RECORD_BYTES,
     PackedPart,
@@ -17,7 +18,6 @@ from mos_eisley.run.conversation_sqlite import (
 )
 
 MAX_TRANSCRIPT_PAGE_BYTES = 512_000
-ArtifactField = Literal["memory_context", "review_packet", "review_result"]
 
 
 class TranscriptText(Contract):
@@ -32,6 +32,7 @@ class TranscriptArtifact(Contract):
     field: ArtifactField
     sha256: Digest
     bytes: Annotated[int, Field(ge=1, le=32_000_000)]
+    selection: str | None = None
 
 
 class TranscriptEntry(Contract):
@@ -149,7 +150,27 @@ def read_sqlite_transcript(
                 if artifact is None:
                     raise ValueError("missing transcript artifact")
                 artifacts.append(
-                    TranscriptArtifact(field=field, sha256=sha, bytes=artifact[0])
+                    TranscriptArtifact(
+                        field=field,
+                        sha256=sha,
+                        bytes=artifact[0],
+                        selection=base64.urlsafe_b64encode(
+                            canonical_bytes(
+                                ArtifactSelection(
+                                    store_id=store_id,
+                                    owner_uid=index.owner_uid,
+                                    workspace=selected_workspace,
+                                    session_id=sid,
+                                    snapshot_sha256=summary.snapshot_sha256,
+                                    generation=generation,
+                                    position=position,
+                                    field=field,
+                                    sha256=sha,
+                                    bytes=artifact[0],
+                                )
+                            )
+                        ).decode(),
+                    )
                 )
             entries.append(
                 TranscriptEntry(

@@ -176,6 +176,7 @@ def main() -> int:
             "test_conversation_migration.py",
             "test_conversation_transcript.py",
             "test_conversation_history.py",
+            "test_conversation_artifacts.py",
             "test_mcp_oauth.py",
             "test_mcp_schema.py",
             "test_analysis.py",
