@@ -1,6 +1,10 @@
 # Recorded conversation preview
 
-`mos chat` now keeps a text conversation across messages and saves it privately.
+Bare `mos` (also `mos chat`) keeps a text conversation across messages and saves it
+privately. Run it from your project directory; the built-in recorded preview and
+`~/.mos-eisley-sessions` storage require no setup. Use `mos resume --last` to return
+to that workspace's latest session. See [terminal startup](CONVERSATION_TUI.md)
+for workspace selection, custom recordings and keyboard controls.
 A terminal opens the [interactive screen](CONVERSATION_TUI.md) automatically;
 `--plain`, pipes and `--json` use the line-oriented interface.
 `mos resume <session-id>` explicitly restores that conversation in the same

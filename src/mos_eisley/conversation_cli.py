@@ -58,6 +58,23 @@ DEMO_PROMPTS = (
 MULTILINE_PROMPT = "Remember this fixture boundary:\n\n```python\nboundary = 10\n```"
 
 
+def startup_arguments(argv: list[str]) -> list[str]:
+    """Route a bare launch and session options without hiding command typos."""
+    launch_options = {
+        "-C",
+        "--workspace",
+        "--storage",
+        "--cassette",
+        "--review-packet",
+        "--tui",
+        "--plain",
+        "--json",
+    }
+    if not argv or argv[0].split("=", 1)[0] in launch_options:
+        return ["chat", *argv]
+    return argv
+
+
 def demo_cassette(
     review_text: str | None = None, *, multiline: bool = False
 ) -> AgentCassette:
@@ -128,7 +145,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
-            command.add_argument("--cassette", type=Path, required=True)
+            command.add_argument(
+                "--cassette",
+                type=Path,
+                help="Use an explicit recording instead of the built-in preview",
+            )
             command.add_argument("--review-packet", type=Path)
             display = command.add_mutually_exclusive_group()
             display.add_argument(
@@ -139,8 +160,13 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             display.add_argument(
                 "--plain", action="store_true", help="Use line-oriented terminal input"
             )
-        command.add_argument("--storage", type=Path, required=True)
-        command.add_argument("--workspace", type=Path, default=Path.cwd())
+        command.add_argument(
+            "--storage",
+            type=Path,
+            default=Path.home() / ".mos-eisley-sessions",
+            help="Private session directory (default: ~/.mos-eisley-sessions)",
+        )
+        command.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
         command.add_argument(
             "--json", action="store_true", help="Print NDJSON lifecycle events"
         )
@@ -598,7 +624,11 @@ def run_command(args: argparse.Namespace) -> int:
         )
         return 0
 
-    cassette = AgentCassette.model_validate_json(read_bounded(args.cassette))
+    cassette = (
+        demo_cassette()
+        if args.cassette is None
+        else AgentCassette.model_validate_json(read_bounded(args.cassette))
+    )
     review_packet = (
         ConversationReviewPacket.model_validate_json(
             read_bounded(args.review_packet, MAX_REVIEW_PACKET_BYTES)
@@ -650,6 +680,11 @@ def run_command(args: argparse.Namespace) -> int:
                 ),
             }
         )
+        welcome = "Recorded preview: live conversations are not connected yet.\n" + (
+            "Try these messages in order:\n" + "\n".join(DEMO_PROMPTS)
+            if args.cassette is None
+            else "Use the messages expected by your selected recording."
+        )
         if args.tui or (
             not args.plain
             and not args.json
@@ -661,10 +696,13 @@ def run_command(args: argparse.Namespace) -> int:
             fd = sys.stdin.fileno()
             original_modes = termios.tcgetattr(fd)
             try:
-                asyncio.run(ConversationTUI(controller, review_packet).run())
+                asyncio.run(
+                    ConversationTUI(controller, review_packet, welcome=welcome).run()
+                )
             finally:
                 termios.tcsetattr(fd, termios.TCSANOW, original_modes)
         else:
+            emit({"type": "conversation.welcome", "text": welcome})
             asyncio.run(_run_terminal(controller, emit, review_packet))
         emit(
             {

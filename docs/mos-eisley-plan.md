@@ -1027,6 +1027,12 @@ messages with explicit send/discard and keeps unsent content out of saved state.
 to active chat tasks and preserves unanswered intent at explicit continuation.
 The [interactive terminal](CONVERSATION_TUI.md) now provides a scrollable
 transcript, editable multiline composer, review expansion and persistent status.
+Bare `mos` now opens that interface in the current workspace, displays the workspace
+and session ID, and uses a built-in recording with private default storage.
+`mos -C PATH` selects another workspace; `mos resume --last` reopens the latest
+session in that workspace without requiring cassette/storage flags. Initial
+positional prompts, an interactive resume picker and live authentication/setup
+remain planned. The default preview needs no credentials or network connection.
 The full product contract below remains the target; live conversation/review,
 mid-request interruption and advanced terminal controls are not yet available.
 
@@ -1073,10 +1079,12 @@ product decisions, not a claim of complete Codex parity or current availability.
   never restores expired approvals or repeats uncertain side effects automatically.
   Conversation compaction preserves user intent, decisions, and remaining work;
   frozen critic contexts retain their separate compaction rules.
-- A fresh session starts with fresh conversational context. Only the owning user's
-  minimal model-selection statistics may be reused automatically across sessions.
+- A fresh session starts with fresh conversational context. The owning user's
+  minimal model-selection statistics and enabled, explicitly curated user/project
+  memory (§16.0.2) may be reused across sessions.
   Resuming a selected conversation or explicitly opening a prior run retrieves only
-  that user's requested records; saved content is never ambient memory for new tasks.
+  that user's requested records; full saved conversations are never ambient memory
+  for new tasks. Saving a specific fact to memory is a separate, scoped action.
 
 **Terminal layout:** a scrollable conversation, compact expandable tool/review
 details, a multiline composer, and the persistent status line specified in §16.4.
@@ -1109,10 +1117,90 @@ without losing the session, safe save/resume, and a review round-trip that prese
 critic blindness. Interactive and non-interactive paths share orchestration and
 policy; the renderer owns no separate execution authority.
 
+### 16.0.1 Directory selection and visibility
+
+**User direction, 2026-09-09:** users must be able to select and see the directory
+used by the session, following the terminal startup interaction in Codex.
+
+- Bare `mos` starts in the shell's current directory. `mos -C PATH` selects a
+  directory explicitly. Show its canonical path in the startup header; keep the
+  active directory visible in a compact header/status area during work, with the
+  full path available when abbreviated. Display the project root separately when
+  it differs from the working directory.
+- Add a directory selector and `/directory` inspection/switch flow. Selecting a
+  new project opens a fresh session with that project's memory and capabilities.
+  Resolve active work and unsent input before switching; never silently retarget
+  an in-flight operation or carry the previous project's context into another.
+- Validate the selected directory before creating a session. Resolve aliases and
+  symlinks consistently, show the resolved target, and retain the same binding for
+  resume. A directory selection supplies context, not broader filesystem access.
+- The current startup implementation provides `-C` and the directory header.
+  The selector, persistent directory status and in-session switching are planned.
+
+### 16.0.2 User and project memory
+
+**User direction, 2026-09-09 — planned:** provide two durable memory scopes in
+addition to saved conversations. The current recorded terminal does not load or
+write these memories yet.
+
+| Scope | Contents and reach | Initial storage design |
+| --- | --- | --- |
+| User | Personal preferences and facts the user chooses to reuse across projects. | Private user memory under the configured Mos home. |
+| Project | Project decisions, conventions, setup details and ongoing context the user chooses to retain for that project. | Private memory keyed by owner and canonical project root under the configured Mos home. |
+
+Use readable Markdown content with versioned metadata (scope, project identity,
+source, revision and update time). The UI exposes the exact storage location.
+Project memory is private to its owner by default; storing it beside source or
+sharing it through Git is an explicit export choice. A shared remote URL does not
+merge project identities or users' memories. Project moves and worktree sharing
+require an explicit mapping, with the effective project identity shown to the user.
+
+- **Loading and precedence:** load enabled user memory and the selected project's
+  memory at session start. Specific project preferences override general user
+  defaults; the user's current instructions override both. Memory never overrides
+  application policy or grants approvals, credentials, tools or spending authority.
+  Show which scopes and revisions are active and make conflicts inspectable.
+- **User controls:** `/memory` shows active user/project entries and their sources.
+  Support scoped add, edit, delete, clear and enable/disable controls, plus a
+  session-level option to start without memory. A request such as "remember this
+  for this project" directly authorizes that scoped save; "remember this everywhere"
+  selects user memory. Resolve an ambiguous scope before persisting it. Report the
+  actual saved change and scope. Model-suggested memories remain proposals until
+  accepted; never silently promote tool output, repository text or whole transcripts.
+- **Session consistency:** retain the effective memory revisions with session
+  state and request evidence. Changes apply at an explicit next-turn refresh, never
+  to a dispatched request. Resume shows stale/deleted revisions and offers current
+  memory or no memory; it must not silently restore a forgotten item as active memory.
+  Clearing memory stops future inclusion and explains any copies retained in saved
+  sessions/backups, with deletion controls for those records under §17.
+- **Scope and context limits:** initially cap combined memory at 32 KiB and account
+  for it separately from conversation and project-instruction budgets. Make omitted,
+  oversized, unreadable or invalid content visible; never silently truncate a rule.
+  Apply bounded file reads and private, atomic writes. User memory is available
+  across projects only because it was explicitly saved to that scope; project facts
+  never migrate into user memory automatically. Keep secrets out of generated
+  memory, and apply provider transfer policy to memory included in live requests.
+- **Review isolation:** independent critics/judges receive only memory-derived
+  requirements deliberately materialized in their scoped brief. They do not load
+  ambient personal memory or conversational history. Memory remains distinct from
+  repository `AGENTS.md` instructions and minimal model-selection aggregates.
+
+The scope/precedence reference is [Codex's global and project guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+checked 2026-09-09. The memory storage, controls and retention rules above are Mos
+product decisions; they do not assert that Codex implements this memory design.
+
+**Acceptance:** demonstrate visible directory selection, isolated projects and
+users, user preferences surviving a new project session, project overrides and
+current-message precedence, scoped remember/forget, disabled memory, bounded
+loading, concurrent-edit conflict detection, safe resume after edits/deletion,
+and unchanged critic isolation. Deliver inspectable, explicit memory first;
+automatic memory extraction remains a later, separately configurable feature.
+
 ### 16.1 Commands
 
 ```
 mos                                    # interactive TUI in cwd
+mos -C /path/to/project                 # select and display the working directory
 mos "prompt"                           # TUI with initial prompt
 mos exec "prompt"                      # non-interactive
 mos exec --json "prompt"               # NDJSON events, one per state change
@@ -1294,7 +1382,10 @@ of the design.
   user records. Removing names or hashing identifiers does not create an exception.
 - Fresh sessions cannot automatically retrieve earlier prompts, code, transcripts,
   summaries, embeddings, findings, or artifacts. The owner can explicitly resume
-  a saved conversation or inspect selected prior records. Independent critics still
+  a saved conversation or inspect selected prior records. Enabled user/project
+  memory (§16.0.2) is a separate exception for explicitly curated facts and
+  preferences, not permission to search historical content. Apply these ownership,
+  retention and deletion rules to memory and its revisions too. Independent critics still
   receive only their materialized brief, even within the same user's session.
 - Ownership covers replicas, object versions, temporary spools, database journals,
   and backups. Retention and deletion are user-controlled and cover derived records;

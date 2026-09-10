@@ -105,11 +105,13 @@ class ConversationTUI:
         controller: ConversationController,
         review_packet: ConversationReviewPacket | None = None,
         *,
+        welcome: str = "",
         input: Input | None = None,
         output: Output | None = None,
     ) -> None:
         self.controller = controller
         self.review_packet = review_packet
+        self.welcome = welcome
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
         self.notice = (
             "Enter sends • Alt-Enter adds a line • Ctrl-C stops • Ctrl-D quits"
@@ -275,7 +277,12 @@ class ConversationTUI:
         )
 
     def refresh(self) -> None:
-        parts: list[str] = []
+        state = self.controller.state
+        parts = [
+            f"Mos Eisley\nDirectory: {state.workspace}\nSession: {state.session_id}"
+        ]
+        if self.welcome:
+            parts.append(self.welcome)
         for index, entry in enumerate(self.controller.state.entries):
             link = (
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
