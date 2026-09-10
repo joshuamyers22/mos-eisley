@@ -580,7 +580,11 @@ class SQLiteConversationStore(ConversationStore):
         create: bool = True,
         require_workspace: bool = True,
         input_limits: ActiveInputLimits | None = None,
+        writable: bool = True,
+        expected_root_identity: tuple[int, int] | None = None,
     ) -> None:
+        if create and not writable:
+            raise ValueError("read-only SQLite handles cannot create storage")
         self.input_limits = input_limits
         self._db: sqlite3.Connection | None = None
         self._verified_checkpoint: _SaveCheckpoint | None = None
@@ -592,9 +596,10 @@ class SQLiteConversationStore(ConversationStore):
             workspace,
             create=create,
             require_workspace=require_workspace,
+            expected_root_identity=expected_root_identity,
         )
         try:
-            self._open_database(create=create, writable=True)
+            self._open_database(create=create, writable=writable)
         except BaseException:
             self.close()
             raise

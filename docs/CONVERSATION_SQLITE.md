@@ -73,7 +73,53 @@ The two copies can diverge after migration. Continue using `--storage-backend sq
 to use the imported session. There is no automatic synchronization or source removal.
 Deleting the JSON copy is a separate `session-delete` operation using its current
 hash and the default snapshot backend. The bounded batch command below handles
-multiple explicit sessions. Cross-root moves and reverse migration remain planned.
+multiple explicit sessions. The transfer command below copies one session across
+storage roots. Reverse migration and automatic source removal remain planned.
+
+## Copy a JSON session to another storage directory
+
+Create a private destination directory, preview one selected JSON session, and
+apply using the returned `transfer_sha256`:
+
+```sh
+mkdir -m 700 /path/to/destination
+mos session-transfer SESSION_ID --storage /path/to/source --destination-storage /path/to/destination -C /path/to/project --json
+mos session-transfer SESSION_ID --storage /path/to/source --destination-storage /path/to/destination -C /path/to/project --apply --expected-sha256 TRANSFER_HASH --json
+mos resume SESSION_ID --storage /path/to/destination --storage-backend sqlite -C /path/to/project
+```
+
+Both storage roots must already exist, be private and belong to the current user.
+Preview creates no directories, locks or database files. The version-1 transfer
+plan binds both absolute paths and device/inode identities, owner, workspace,
+session ID, canonical state hash, revision, message count and source/logical bytes.
+The receipt exposes metadata, without copied conversation or evidence text. Apply
+requires that exact plan hash before opening the writable destination. Changing a
+selected source, serialization size, workspace or directory requires a fresh
+preview. Destination status and source timestamps do not affect the hash.
+
+Transfer preserves the complete state, admission records, memory, retained evidence,
+consumed attempts and original workspace identity. It copies the source timestamp
+to the destination index without changing source bytes or modification time. Running
+and queued messages remain as saved until an explicit resume. This command changes
+session storage, not project identity or the location of user/project memory files.
+
+The source lock is held throughout selection and transfer; destination access uses
+its own session lock. Apply checks both directory identities before creating
+destination metadata and rechecks identities and source selection inside the atomic
+import transaction. An identical existing destination returns `already_present`;
+an advanced or different destination is never overwritten. A retry after a lost
+commit acknowledgment verifies the committed copy with the same transfer hash.
+Other destination sessions are retained. These checks assume trusted parent
+directories and do not isolate storage from another process with the same user ID.
+
+Read-only preview refuses hot rollback journals without recovering them. Explicit
+apply with a previously reviewed transfer hash permits SQLite recovery. A failed
+first import can leave an empty database or lock files; incomplete initial schemas
+are rejected and are not automatically repaired. Both copies can later diverge:
+there is no synchronization, source deletion or implicit backend switch. Individual
+32 MB snapshot, saved logical and physical SQLite limits still apply; selection and
+verification decode bounded complete sessions. Cross-root batches, reverse migration,
+retention and the long-session capacity gate remain open.
 
 ## Import a selected batch of JSON sessions
 
@@ -501,7 +547,7 @@ the shared database and empty session lock. The backend enables SQLite's
 [`secure_delete`](https://www.sqlite.org/pragma.html#pragma_secure_delete), but
 logical deletion is not a promise of erasure from filesystem snapshots, storage
 hardware, journals or backups. Database space can be reused without the file
-shrinking. Backup expiry, vacuum/compaction, bulk retention and cross-root migration remain
+shrinking. Backup expiry, vacuum/compaction, bulk retention and cross-root batches remain
 explicit future work.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
@@ -511,6 +557,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, cross-root migration and the 1,000-message
+configurable physical retention, cross-root batches, reverse migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

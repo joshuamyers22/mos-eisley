@@ -55,6 +55,33 @@ class ConversationMigrationReceipt(Contract):
     source_retained: Literal[True] = True
 
 
+def migration_database_exists(root: int) -> bool:
+    """Check an existing private root, refusing orphan sidecars without writes."""
+    validate_private_storage(root, directory=True)
+    try:
+        os.stat(DATABASE, dir_fd=root, follow_symlinks=False)
+        return True
+    except FileNotFoundError:
+        pass
+    for name in (
+        "sqlite.lock",
+        DATABASE + "-journal",
+        DATABASE + "-wal",
+        DATABASE + "-shm",
+    ):
+        try:
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
+        except FileNotFoundError:
+            continue
+        try:
+            validate_private_storage(fd)
+            if name != "sqlite.lock":
+                raise ValueError("orphan SQLite sidecar prevents migration")
+        finally:
+            os.close(fd)
+    return False
+
+
 class ConversationMigration(SQLiteConversationStore):
     def __init__(self, root: Path, session_id: str, workspace: Path) -> None:
         # Acquire the existing source lock without creating a database or any lock
@@ -82,33 +109,10 @@ class ConversationMigration(SQLiteConversationStore):
         return _selection(snapshot, source_bytes)
 
     def _preflight_destination(self, *, writable: bool) -> bool:
-        exists = False
-        try:
-            os.stat(DATABASE, dir_fd=self._root, follow_symlinks=False)
-            exists = True
-        except FileNotFoundError:
-            pass
+        exists = migration_database_exists(self._root)
         if exists:
             self._open_database(create=False, writable=writable)
             return True
-        for name in (
-            "sqlite.lock",
-            DATABASE + "-journal",
-            DATABASE + "-wal",
-            DATABASE + "-shm",
-        ):
-            try:
-                fd = os.open(
-                    name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=self._root
-                )
-            except FileNotFoundError:
-                continue
-            try:
-                validate_private_storage(fd)
-                if name != "sqlite.lock":
-                    raise ValueError("orphan SQLite sidecar prevents migration")
-            finally:
-                os.close(fd)
         return False
 
     def migrate(

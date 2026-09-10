@@ -16,6 +16,8 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from mos_eisley.conversation import (
     ConversationController,
     ConversationState,
@@ -105,6 +107,7 @@ from mos_eisley.run.conversation_store import (
     list_conversations,
 )
 from mos_eisley.run.conversation_transcript import read_sqlite_transcript
+from mos_eisley.run.conversation_transfer import transfer_conversation
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -256,6 +259,31 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     batch.add_argument("--expected-sha256", help="Batch hash from its preview")
     batch.add_argument("--apply", action="store_true", help="Import the selected batch")
     batch.add_argument("--json", action="store_true", help="Print a JSON batch receipt")
+    transfer = add_parser(
+        "session-transfer",
+        help="Preview or copy JSON to a different SQLite storage root",
+    )
+    transfer.add_argument("session_id")
+    transfer.add_argument(
+        "--storage",
+        type=Path,
+        default=Path.home() / ".mos-eisley-sessions",
+        help="Source JSON storage root",
+    )
+    transfer.add_argument(
+        "--destination-storage",
+        type=Path,
+        required=True,
+        help="Existing private destination directory",
+    )
+    transfer.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    transfer.add_argument("--expected-sha256", help="Transfer hash from its preview")
+    transfer.add_argument(
+        "--apply", action="store_true", help="Copy the selected session"
+    )
+    transfer.add_argument(
+        "--json", action="store_true", help="Print a JSON transfer receipt"
+    )
     add_memory_command(
         add_parser("memory", help="Inspect or change user/project memory")
     )
@@ -892,6 +920,26 @@ def _run_command(args: argparse.Namespace) -> int:
             )
             result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
+    if args.command == "session-transfer":
+        try:
+            transfer_receipt = transfer_conversation(
+                args.storage,
+                args.destination_storage,
+                args.session_id,
+                args.workspace,
+                expected_sha256=args.expected_sha256,
+                apply=args.apply,
+            )
+        except ValidationError:
+            raise ValueError(
+                "Transfer source or destination failed schema validation."
+            ) from None
+        payload = {
+            "type": "conversation.transfer",
+            **transfer_receipt.model_dump(mode="json"),
+        }
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
         return 0
     if args.command == "session-migrate-batch":
         batch_error = None

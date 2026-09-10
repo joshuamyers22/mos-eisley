@@ -144,8 +144,13 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    It reads existing metadata without rebuilding requests, saving or enabling work;
    missing/legacy admissions produce notices and the TUI marks changed views stale.
    Admission does not prove provider receipt. Visible compaction, smaller
-   text/record transitions, cross-root migration and the long-session acceptance gate
+   text/record transitions, cross-root batches and the long-session acceptance gate
    remain open.
+   Single-session cross-root JSON-to-SQLite transfer now previews both directory
+   identities and source sizes/hashes, then requires its transfer hash for apply.
+   It retains source/workspace identity, admission records and attempts; retries
+   verify existing copies without overwriting advanced destinations. Reverse
+   migration and retention remain open.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

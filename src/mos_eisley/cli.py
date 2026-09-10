@@ -7453,6 +7453,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "session-delete",
             "session-migrate",
             "session-migrate-batch",
+            "session-transfer",
             "session-transcript",
             "session-artifact",
         }:

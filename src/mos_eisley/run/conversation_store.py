@@ -192,7 +192,16 @@ class ConversationStore:
         *,
         create: bool = True,
         require_workspace: bool = True,
+        expected_root_identity: tuple[int, int] | None = None,
     ) -> None:
+        if expected_root_identity is not None and (
+            type(expected_root_identity) is not tuple
+            or len(expected_root_identity) != 2
+            or any(
+                type(value) is not int or value < 0 for value in expected_root_identity
+            )
+        ):
+            raise ValueError("invalid expected storage directory identity")
         self.session_id = TypeAdapter[str](SessionID).validate_python(session_id)
         if not workspace.is_dir() and (require_workspace or workspace.exists()):
             raise ValueError("conversation workspace must be a directory")
@@ -200,12 +209,18 @@ class ConversationStore:
         self._revision = -1
         self._sha256: str | None = None
         self._deleted = False
-        if create:
+        if create and expected_root_identity is None:
             root.mkdir(mode=0o700, exist_ok=True)
         self._root = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         self._lock = -1
         try:
             validate_private_storage(self._root, directory=True)
+            info = os.fstat(self._root)
+            if (
+                expected_root_identity is not None
+                and (info.st_dev, info.st_ino) != expected_root_identity
+            ):
+                raise ValueError("selected storage directory changed")
             self._lock = os.open(
                 f"{session_id}.lock",
                 os.O_RDWR

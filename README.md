@@ -44,6 +44,8 @@ Metadata listing supports `--limit` and `--cursor`. `mos session-migrate SESSION
 previews a JSON-to-SQLite import; apply it with `--apply --expected-sha256 HASH`.
 `mos session-migrate-batch ID_A ID_B` previews up to 32 selected sessions under a
 64 MB source budget; apply with its batch hash and retry to verify completed copies.
+`mos session-transfer SESSION_ID --destination-storage PATH` previews a copy into
+SQLite in another existing private directory; apply with its transfer hash.
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects
