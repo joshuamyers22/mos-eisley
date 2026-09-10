@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
+from mos_eisley.conversation_limits import DEFAULT_SNAPSHOT_BYTES, SnapshotByteLimit
 from mos_eisley.conversation_memory import (
     ConversationMemory,
     MemoryRefreshError,
@@ -123,6 +124,13 @@ class ConversationState(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     builtin_recording: bool = Field(default=False, exclude_if=lambda value: not value)
+    snapshot_max_bytes: SnapshotByteLimit | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @property
+    def snapshot_byte_limit(self) -> int:
+        return self.snapshot_max_bytes or DEFAULT_SNAPSHOT_BYTES
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
@@ -257,6 +265,7 @@ class ConversationController:
         memory: ConversationMemory | None = None,
         *,
         memory_disabled: bool = False,
+        snapshot_max_bytes: int | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -267,6 +276,7 @@ class ConversationController:
             cassette_sha256=digest(canonical_bytes(cassette)),
             memory=memory,
             memory_disabled=memory_disabled,
+            snapshot_max_bytes=snapshot_max_bytes,
         )
 
     def _update(
@@ -288,6 +298,7 @@ class ConversationController:
             memory_disabled=self.state.memory_disabled,
             retained_cassette=self.state.retained_cassette,
             builtin_recording=self.state.builtin_recording,
+            snapshot_max_bytes=self.state.snapshot_max_bytes,
         )
         self._commit(updated)
 
@@ -308,6 +319,7 @@ class ConversationController:
         *,
         disabled: bool = False,
         builtin: bool = False,
+        snapshot_max_bytes: int | None = None,
     ) -> None:
         if self._busy or any(entry.status == "running" for entry in self.state.entries):
             raise MemoryRefreshError("Stop active work before changing session memory.")
@@ -348,6 +360,11 @@ class ConversationController:
                 retained_cassette=cassette,
                 cassette_sha256=digest(canonical_bytes(cassette)),
                 builtin_recording=builtin,
+                snapshot_max_bytes=(
+                    self.state.snapshot_max_bytes
+                    if snapshot_max_bytes is None
+                    else snapshot_max_bytes
+                ),
             )
             updated = ConversationState.model_validate_json(updated.model_dump_json())
         except ValueError:
@@ -356,6 +373,16 @@ class ConversationController:
             ) from None
         self._commit(updated)
         self.cassette = cassette
+
+    def resize_storage(self, maximum: int) -> None:
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise ValueError("stop active work before changing the storage budget")
+        updated = self.state.model_copy(
+            update={"snapshot_max_bytes": maximum, "revision": self.state.revision + 1}
+        )
+        updated = ConversationState.model_validate_json(updated.model_dump_json())
+        if maximum != self.state.snapshot_max_bytes:
+            self._commit(updated)
 
     def submit(self, text: str) -> None:
         if not text.strip():

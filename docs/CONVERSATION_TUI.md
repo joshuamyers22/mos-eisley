@@ -37,6 +37,9 @@ The existing owner, permissions, locking and workspace checks apply to default
 storage too; an unsafe existing directory is rejected, never repaired silently.
 
 Use `--storage /private/path` to select another location; its parent must exist.
+`--session-max-bytes BYTES` on launch or resume saves a per-session snapshot budget;
+the welcome screen shows it and `mos sessions` reports usage. See
+[storage budgets](CONVERSATION_STORAGE.md) for bounds and the expansion plan.
 Use `--cassette /path/to/recording.json` for a custom recording, passing the same
 recording and storage when resuming. After an explicit memory refresh, the retained
 replacement recording is used unless you supply a cassette. Missing, invalid or mismatched recordings

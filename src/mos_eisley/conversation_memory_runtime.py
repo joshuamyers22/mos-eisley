@@ -33,7 +33,11 @@ class ConversationMemoryRuntime:
             self.store.check(self.controller.state.memory)
 
     def refresh(
-        self, disabled: bool, *, replacement: AgentCassette | None = None
+        self,
+        disabled: bool,
+        *,
+        replacement: AgentCassette | None = None,
+        snapshot_max_bytes: int | None = None,
     ) -> None:
         try:
             memory = None if disabled else self.store.load()
@@ -58,7 +62,11 @@ class ConversationMemoryRuntime:
                 )
             )
         self.controller.refresh_memory(
-            memory, replacement, disabled=disabled, builtin=builtin
+            memory,
+            replacement,
+            disabled=disabled,
+            builtin=builtin,
+            snapshot_max_bytes=snapshot_max_bytes,
         )
         self.builtin = builtin
         self.ignore_memory = disabled

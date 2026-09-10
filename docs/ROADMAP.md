@@ -76,6 +76,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. Natural-language memory changes, project-root discovery
    and the directory picker remain planned.
+   [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
+   with visible usage and a separate bounded catalog scan override. The 2 MB default
+   remains an interim preview limit. Plan §17.5 now sequences incremental records,
+   paginated listing/transcript reads, independent context/retention budgets,
+   explicit migration and recovery tests before lifting the message cap.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

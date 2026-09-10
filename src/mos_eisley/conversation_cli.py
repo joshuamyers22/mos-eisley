@@ -27,6 +27,7 @@ from mos_eisley.conversation_input import (
     ConversationInputQueue,
     ConversationSubmission,
 )
+from mos_eisley.conversation_limits import catalog_byte_limit, snapshot_byte_limit
 from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
     ConversationMemory,
@@ -81,6 +82,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--json",
         "--no-memory",
         "--memory-storage",
+        "--session-max-bytes",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
@@ -178,6 +180,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         if name in {"chat", "resume"}:
             add_memory_options(command)
             command.add_argument(
+                "--session-max-bytes",
+                type=snapshot_byte_limit,
+                help="Save a per-session snapshot budget (64000–32000000 bytes)",
+            )
+            command.add_argument(
                 "--cassette",
                 type=Path,
                 help="Use an explicit recording instead of the built-in preview",
@@ -191,6 +198,12 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             )
             display.add_argument(
                 "--plain", action="store_true", help="Use line-oriented terminal input"
+            )
+        if name in {"sessions", "resume"}:
+            command.add_argument(
+                "--catalog-max-bytes",
+                type=catalog_byte_limit,
+                help="Bound listing/latest scan bytes (default 8000000; max 128000000)",
             )
         command.add_argument(
             "--storage",
@@ -676,7 +689,9 @@ def run_command(args: argparse.Namespace) -> int:
             print(f"{event['type']}{message_id}{label}: {safe}", flush=True)
 
     if args.command == "sessions":
-        summaries = list_conversations(args.storage, args.workspace)
+        summaries = list_conversations(
+            args.storage, args.workspace, max_bytes=args.catalog_max_bytes
+        )
         if args.json:
             emit(
                 {
@@ -705,6 +720,8 @@ def run_command(args: argparse.Namespace) -> int:
                             f"{summary.session_id} | {saved} | "
                             f"{summary.messages} messages | "
                             f"{'active' if summary.active else 'available'} | "
+                            f"{summary.snapshot_bytes}/"
+                            f"{summary.snapshot_max_bytes} bytes | "
                             f"snapshot {summary.snapshot_sha256}"
                         ),
                     }
@@ -746,11 +763,17 @@ def run_command(args: argparse.Namespace) -> int:
     if args.command == "chat":
         cassette = explicit_cassette or demo_cassette(memory=memory)
         fresh = ConversationController.fresh(
-            args.workspace, cassette, memory, memory_disabled=args.no_memory
+            args.workspace,
+            cassette,
+            memory,
+            memory_disabled=args.no_memory,
+            snapshot_max_bytes=args.session_max_bytes,
         )
         session_id = fresh.session_id
     elif args.last:
-        summaries = list_conversations(args.storage, args.workspace)
+        summaries = list_conversations(
+            args.storage, args.workspace, max_bytes=args.catalog_max_bytes
+        )
         if not summaries:
             emit(
                 {
@@ -807,10 +830,16 @@ def run_command(args: argparse.Namespace) -> int:
                 )
             )
             try:
-                memory_runtime.refresh(args.no_memory, replacement=replacement)
+                memory_runtime.refresh(
+                    args.no_memory,
+                    replacement=replacement,
+                    snapshot_max_bytes=args.session_max_bytes,
+                )
             except MemoryRefreshError as exc:
                 print(str(exc), file=sys.stderr)
                 return 2
+        elif args.command == "resume" and args.session_max_bytes is not None:
+            controller.resize_storage(args.session_max_bytes)
         emit(
             {
                 "type": "conversation.opened",
@@ -836,6 +865,9 @@ def run_command(args: argparse.Namespace) -> int:
         welcome += (
             "\n/memory inspects context; /memory refresh applies changes; "
             "/memory off disables it."
+        )
+        welcome += (
+            f"\nSession snapshot budget: {controller.state.snapshot_byte_limit} bytes."
         )
         if args.tui or (
             not args.plain
