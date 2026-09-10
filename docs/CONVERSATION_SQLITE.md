@@ -118,7 +118,8 @@ first import can leave an empty database or lock files; incomplete initial schem
 are rejected and are not automatically repaired. Both copies can later diverge:
 there is no synchronization, source deletion or implicit backend switch. Individual
 32 MB snapshot, saved logical and physical SQLite limits still apply; selection and
-verification decode bounded complete sessions. Cross-root batches, reverse migration,
+verification decode bounded complete sessions. Cross-root batches are described
+below. Reverse migration,
 retention and the long-session capacity gate remain open.
 
 ## Import a selected batch of JSON sessions
@@ -174,8 +175,55 @@ before a result was lost. The command exits 2 on failure. Invalid selection or
 source preflight errors exit before a batch result is available and print a safe
 notice. No source text, memory or review evidence is included in these reports.
 
-Cross-root/reverse migration, bulk retention and the long-session capacity gate
+Reverse migration, bulk retention and the long-session capacity gate
 remain separate work.
+
+## Copy a selected batch to another storage directory
+
+`session-transfer-batch` combines the bounded source selection of same-root batches
+with cross-root transfer. Both directories must already exist and be private and
+owned by the current user. Preview one to 32 explicit JSON session IDs, then apply
+using the returned `batch_sha256`:
+
+```sh
+mos session-transfer-batch SESSION_A SESSION_B --storage /path/to/source --destination-storage /path/to/destination -C /path/to/project --json
+mos session-transfer-batch SESSION_A SESSION_B --storage /path/to/source --destination-storage /path/to/destination -C /path/to/project --apply --expected-sha256 BATCH_TRANSFER_HASH --json
+```
+
+The version-1 plan nests source selection metadata under `sources` and the other
+directory's path/device/inode under `destination`. Source metadata binds sorted,
+distinct IDs, owner, workspace, source directory identity, state hashes, revisions,
+message counts and source/logical byte totals. At most 64 MB of source JSON is
+selected; per-session reads also respect the 32 MB ceiling and saved session limit.
+Every source is preflighted before destination inspection, retaining only metadata
+between sessions. Reverification limits each source read to its selected byte count.
+This bounds admitted source bytes, not total Python memory or reserved disk space.
+
+Apply requires the complete batch transfer hash before opening a writable
+destination. It reuses the single-session transfer checks, including both root
+identities and a source selection recheck inside each import transaction. The hash
+excludes destination status and source timestamps, so an unchanged selection can
+retry after earlier commits or single-session imports. An advanced destination is
+never overwritten. Preview creates no files and never repairs a hot journal;
+explicit apply permits SQLite recovery after validating the batch selection.
+
+**Each session commits independently.** Sources are locked one at a time, rather
+than frozen as one batch. A late lock, source change, directory replacement or
+destination conflict can stop after earlier copies committed. The
+`conversation.transfer_batch` result reports `mode`, `status`, `batch_sha256`, the
+plan, ordered single-transfer `receipts`, and `imported`/`already_present` counts.
+A stopped result also identifies `failed_session_id` and a bounded `failure`
+category; CLI exit status is 2. The reported prefix includes only returned,
+verified results. The failing session may have committed before its acknowledgment
+was lost; retry verifies that copy. Invalid selection and source-preflight failures
+occur before a batch result exists and produce a safe notice without source text.
+
+The source files, workspace identity, memory, review/recording evidence, admission
+records, timestamps and consumed attempts retain the single-transfer guarantees.
+Transfer does not resume queued/running work, synchronize copies or remove sources.
+Use `mos resume SESSION_ID --storage /path/to/destination --storage-backend sqlite
+-C /path/to/project` to resume an imported session explicitly. Reverse migration,
+retention and the long-session capacity gate remain separate work.
 
 ## Metadata pages
 
@@ -547,7 +595,7 @@ the shared database and empty session lock. The backend enables SQLite's
 [`secure_delete`](https://www.sqlite.org/pragma.html#pragma_secure_delete), but
 logical deletion is not a promise of erasure from filesystem snapshots, storage
 hardware, journals or backups. Database space can be reused without the file
-shrinking. Backup expiry, vacuum/compaction, bulk retention and cross-root batches remain
+shrinking. Backup expiry, vacuum/compaction and bulk retention remain
 explicit future work.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
@@ -557,6 +605,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, cross-root batches, reverse migration and the 1,000-message
+configurable physical retention, reverse migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

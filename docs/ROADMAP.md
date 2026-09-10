@@ -89,7 +89,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    to 32 explicit sessions under a 64 MB source budget, bind the selection to a
    versioned batch hash and commit one import at a time. Partial results and retries
    verify completed copies without overwriting or recovering uncertain attempts.
-   Cross-root migration and bulk retention remain open. The transcript CLI now
+   Single-session and bounded batch cross-root copies now bind both directories
+   and source selections to preview hashes, with per-session transactions and
+   verified retries. Reverse migration and bulk retention remain open. The transcript CLI now
    reads bounded text pages using saved entry hashes and stale-cursor guards, with
    explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
@@ -144,7 +146,7 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    It reads existing metadata without rebuilding requests, saving or enabling work;
    missing/legacy admissions produce notices and the TUI marks changed views stale.
    Admission does not prove provider receipt. Visible compaction, smaller
-   text/record transitions, cross-root batches and the long-session acceptance gate
+   text/record transitions and the long-session acceptance gate
    remain open.
    Single-session cross-root JSON-to-SQLite transfer now previews both directory
    identities and source sizes/hashes, then requires its transfer hash for apply.

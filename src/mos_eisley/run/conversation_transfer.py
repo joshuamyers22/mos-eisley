@@ -97,6 +97,14 @@ def _check_locations(plan: ConversationTransferPlan) -> None:
                 raise ValueError("selected transfer directory changed")
 
 
+def inspect_transfer_destination(root: Path) -> TransferLocation:
+    """Read an existing private destination identity without creating metadata."""
+    with _root(root) as fd:
+        location = _location(root, fd)
+        migration_database_exists(fd)
+        return location
+
+
 def _preview_destination(
     plan: ConversationTransferPlan,
 ) -> Literal["planned", "already_present"]:
@@ -202,6 +210,7 @@ def transfer_conversation(
     *,
     expected_sha256: str | None = None,
     apply: bool = False,
+    source_max_bytes: int = MAX_SNAPSHOT_BYTES,
 ) -> ConversationTransferReceipt:
     try:
         sid = TypeAdapter[str](SessionID).validate_python(session_id)
@@ -215,11 +224,9 @@ def transfer_conversation(
     if apply and expected is None:
         raise ValueError("--apply requires --expected-sha256 from a transfer preview")
     with ConversationMigration(source_root, sid, workspace) as source:
-        selected = source.inspect_selection(source_max_bytes=MAX_SNAPSHOT_BYTES)
+        selected = source.inspect_selection(source_max_bytes=source_max_bytes)
         source_identity = source.storage_identity()
-        with _root(destination_root) as fd:
-            destination = _location(destination_root, fd)
-            migration_database_exists(fd)
+        destination = inspect_transfer_destination(destination_root)
         if source_identity == destination.identity:
             raise ValueError(
                 "transfer requires different roots; use session-migrate here"
