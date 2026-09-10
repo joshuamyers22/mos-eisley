@@ -59,7 +59,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    bounded code blocks, explicit send/discard and input backpressure during work.
    [Queued steering](CONVERSATIONS.md#steering-during-work) now binds active chat
    refinements to their task and preserves unanswered intent through explicit
-   resume. Mid-request interruption, the full-screen composer and live review
+   resume. The [interactive terminal](CONVERSATION_TUI.md) now opens by default
+   for terminal chat/resume, with an editable composer, scrollable transcript,
+   review expansion and status bar. Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while

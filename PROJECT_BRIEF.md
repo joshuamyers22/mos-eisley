@@ -12,7 +12,9 @@
   and contextual summary while keeping critic requests separate from chat history.
   Bounded multiline drafts support explicit send/discard during active work.
   Queued steering preserves task links and unanswered user intent across resume.
-  Live conversation/review, full TUI and remote
+  The first full-screen terminal now provides multiline editing, a scrollable
+  transcript, review expansion and persistent status using the same controller.
+  Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed
@@ -58,7 +60,7 @@
   docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
 - Non-goals for this phase: live adversarial review, general machine tools,
   sandboxing, test execution, repository config, GitHub writes, author agents,
-  TUI and model pricing.
+  advanced TUI features and model pricing.
 - Runtime: Python 3.12+, uv, macOS/Linux; non-root container for operational use.
 - Inputs: user-selected JSON files, bounded before parsing. At most eight critics,
   fifty findings per critic; request budgets and 10-second call deadlines enforced.
