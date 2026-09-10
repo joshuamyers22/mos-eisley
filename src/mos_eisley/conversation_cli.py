@@ -89,6 +89,10 @@ from mos_eisley.run.conversation_artifacts import (
     DEFAULT_ARTIFACT_BYTES,
     read_sqlite_artifact,
 )
+from mos_eisley.run.conversation_batch_migration import (
+    BatchMigrationError,
+    migrate_batch,
+)
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_sqlite import (
@@ -241,6 +245,17 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         "--apply", action="store_true", help="Import the selected hash"
     )
     migration.add_argument("--json", action="store_true", help="Print a JSON receipt")
+    batch = add_parser(
+        "session-migrate-batch", help="Preview or apply a bounded JSON-to-SQLite batch"
+    )
+    batch.add_argument("session_ids", nargs="+", help="1–32 explicit session IDs")
+    batch.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    batch.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    batch.add_argument("--expected-sha256", help="Batch hash from its preview")
+    batch.add_argument("--apply", action="store_true", help="Import the selected batch")
+    batch.add_argument("--json", action="store_true", help="Print a JSON batch receipt")
     add_memory_command(
         add_parser("memory", help="Inspect or change user/project memory")
     )
@@ -878,6 +893,31 @@ def _run_command(args: argparse.Namespace) -> int:
             result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
         return 0
+    if args.command == "session-migrate-batch":
+        batch_error = None
+        try:
+            batch_receipt = migrate_batch(
+                args.storage,
+                tuple(args.session_ids),
+                args.workspace,
+                expected_sha256=args.expected_sha256,
+                apply=args.apply,
+            )
+        except BatchMigrationError as error:
+            batch_receipt = error.receipt
+            batch_error = str(error)
+        batch_payload = {
+            "type": "conversation.migration_batch",
+            **batch_receipt.model_dump(mode="json"),
+        }
+        if batch_error is not None:
+            batch_payload["text"] = batch_error
+        print(
+            json.dumps(
+                batch_payload, ensure_ascii=True, indent=None if args.json else 2
+            )
+        )
+        return 0 if batch_error is None else 2
     if args.command == "session-migrate":
         if args.apply and args.expected_sha256 is None:
             raise ValueError("--apply requires --expected-sha256 from a preview")

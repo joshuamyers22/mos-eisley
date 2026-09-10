@@ -72,8 +72,64 @@ workspace was removed, but resume still requires that workspace to exist.
 The two copies can diverge after migration. Continue using `--storage-backend sqlite`
 to use the imported session. There is no automatic synchronization or source removal.
 Deleting the JSON copy is a separate `session-delete` operation using its current
-hash and the default snapshot backend. Bulk imports, cross-root moves and reverse
-migration remain planned; this command copies one local session in place.
+hash and the default snapshot backend. The bounded batch command below handles
+multiple explicit sessions. Cross-root moves and reverse migration remain planned.
+
+## Import a selected batch of JSON sessions
+
+Preview the explicit session IDs, then apply using the returned `batch_sha256`:
+
+```sh
+mos session-migrate-batch SESSION_A SESSION_B --json
+mos session-migrate-batch SESSION_A SESSION_B --apply --expected-sha256 BATCH_HASH --json
+```
+
+Pass the same `--storage PATH` and `-C WORKSPACE` when using non-default locations.
+A batch accepts 1–32 distinct session IDs, sorted into a stable order. It does not
+scan for other sessions. All selected sources must belong to the current user and
+the selected workspace. The command copies them into SQLite in the same storage
+root and retains every JSON source. It preserves the same state, ownership,
+attempt, admission-record and evidence guarantees as single-session migration.
+
+The version-1 plan contains the selected IDs and canonical state hashes, revisions,
+message counts, source/logical byte counts, owner, workspace and storage directory
+path/device/inode. Selected JSON source bytes total at most 64,000,000; each read
+also respects the individual 32 MB ceiling and saved session limit. Source
+preflight reads one bounded snapshot at a time and retains only metadata between
+sessions. This byte admission does not reserve database space or bound total Python
+memory; verification rereads sources and the existing importer decodes one complete
+destination for comparison. Physical SQLite and artifact limits remain independent.
+
+Both modes validate every selected source before touching destination data. Preview
+then checks each destination through the existing read-only importer. Apply requires
+the exact batch hash before opening a writable destination. The hash binds the
+complete source selection, including source byte sizes and directory identity,
+and excludes destination status and source timestamps. Reordering IDs has no effect.
+Changed source content, serialization size, selected IDs, root or workspace require
+a new preview. Each source is checked again against its selected hash and sizes
+under its session lock, including a final check inside an import transaction.
+
+**Transactions are per session.** A later conflict, lock, storage failure or source
+change can stop a batch after earlier imports committed. No completed import is
+rolled back to compensate. Retrying with the same source selection and batch hash
+verifies those existing copies as `already_present` and imports the remainder.
+An advanced or different destination is never overwritten. A process can exit after
+commit but before returning a result; retry verification resolves that uncertainty.
+A read-only preview refuses a hot rollback journal without recovering it. An apply
+with the previously verified batch hash permits the existing SQLite recovery path.
+An incomplete schema still requires separate investigation; it is not repaired.
+
+The `conversation.migration_batch` JSON result contains `schema_version: 1`, `mode`,
+`status` (`planned`, `completed` or `stopped`), `batch_sha256`, `plan`, ordered
+per-session `receipts`, and `imported`/`already_present` counts. A stopped result
+also identifies `failed_session_id` and a bounded `failure` category. Its receipts
+cover the successfully verified prefix; the failing session may have committed
+before a result was lost. The command exits 2 on failure. Invalid selection or
+source preflight errors exit before a batch result is available and print a safe
+notice. No source text, memory or review evidence is included in these reports.
+
+Cross-root/reverse migration, bulk retention and the long-session capacity gate
+remain separate work.
 
 ## Metadata pages
 
@@ -445,7 +501,7 @@ the shared database and empty session lock. The backend enables SQLite's
 [`secure_delete`](https://www.sqlite.org/pragma.html#pragma_secure_delete), but
 logical deletion is not a promise of erasure from filesystem snapshots, storage
 hardware, journals or backups. Database space can be reused without the file
-shrinking. Backup expiry, vacuum/compaction, bulk retention and bulk migration remain
+shrinking. Backup expiry, vacuum/compaction, bulk retention and cross-root migration remain
 explicit future work.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
@@ -455,6 +511,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, bulk migration and the 1,000-message
+configurable physical retention, cross-root migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

@@ -42,7 +42,9 @@ current session, or `/memory off` to disable its memory; `/continue` resumes wor
 `mos --storage-backend sqlite`; use the same option to resume or list its sessions.
 Metadata listing supports `--limit` and `--cursor`. `mos session-migrate SESSION_ID`
 previews a JSON-to-SQLite import; apply it with `--apply --expected-sha256 HASH`.
-The original JSON is retained. `mos session-transcript SESSION_ID --limit 4` reads
+`mos session-migrate-batch ID_A ID_B` previews up to 32 selected sessions under a
+64 MB source budget; apply with its batch hash and retry to verify completed copies.
+Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects
 a memory or review reference; F8 opens/closes its verified content, one artifact
