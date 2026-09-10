@@ -1,8 +1,13 @@
 # Session storage budgets and expansion
 
-The recorded preview stores each conversation in one private JSON snapshot. Its
+The default recorded preview stores each conversation in one private JSON snapshot. Its
 default budget is 2 MB (2,000,000 bytes). That default suits a bounded preview;
 it is not the long-term capacity target for a coding conversation.
+
+An [opt-in SQLite backend](CONVERSATION_SQLITE.md) now provides incremental message
+and artifact persistence plus metadata pages. The controls below describe the JSON
+backend unless specified; SQLite shares the per-session logical budget but uses
+`--limit`/`--cursor` for listing. Transcript pagination and migration remain planned.
 
 ## Current controls
 
@@ -58,6 +63,11 @@ control, not incremental storage or a disk-space reservation. Disk-full failures
 still stop work through the existing persistence-failure path.
 
 ## Planned incremental storage
+
+The first SQLite adapter implements incremental writes, session-scoped artifact
+reuse, transactional deletion and bounded metadata pages. It still reconstructs
+full logical state for load/save and retains the preview's message cap. The stages
+below remain the complete target, including migration and the long-session gate.
 
 Implement these stages under the storage and ownership contract in
 [plan §17](mos-eisley-plan.md#17-run-artifacts-and-telemetry):
