@@ -1610,6 +1610,18 @@ working data tree still exists, and active-input integrity checks still serializ
 their selected values. This reduces allocation but does not bound a transition to
 only its changed fields.
 
+SQLite working saves now preflight their exact logical snapshot size inside the
+write transaction, after checkpoint and archive validation. A shared canonical
+traversal counts record structure and artifact lengths, including every repeated
+reference and the snapshot envelope. When the checkpoint is current, oversized
+saves reject before artifact payload reads or session writes; the storage error
+carries required/allowed bytes. Changed or missing checkpoints still undergo cold
+verification first.
+Admitted saves continue streaming every logical history byte, verifying hashes and
+requiring exact agreement with the preflight size before commit/publication. This
+adds a record/metadata pass to successful saves; it avoids archived payload work
+on capacity rejection but does not provide bounded accepted transitions.
+
 Cold verification still reads all history. Admitted active memory/recording values
 remain decoded, and each save still hashes all logical history bytes. The current
 working state keeps text for all 16 messages. Next reduce text/record bookkeeping

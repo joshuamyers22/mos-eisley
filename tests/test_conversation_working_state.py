@@ -437,18 +437,149 @@ class WorkingStateTests(TestCase):
         self.assertEqual(self.chat.state, before)
         self.assertEqual(self.store.load(), updated)
 
-    def test_logical_budget_rejection_preserves_snapshot_and_closes_stream(
+    def test_logical_budget_rejection_precedes_artifact_reads_and_writes(
         self,
     ) -> None:
         for _ in range(8):
             self.chat.submit("x" * 8000)
         before = self.chat.state
         sha = self.store.snapshot_sha256
-        with self.assertRaisesRegex(ValueError, "saved byte limit"):
+        queries: list[str] = []
+        self.store.trace(queries)
+        with (
+            patch.object(
+                self.store,
+                "_artifact_chunks",
+                side_effect=AssertionError("artifact read before size admission"),
+            ),
+            self.assertRaisesRegex(ValueError, "saved byte limit"),
+        ):
             self.chat.resize_storage(64_000)
         self.assertEqual(self.chat.state, before)
         self.assertFalse(self.store.transaction_open())
+        self.assertFalse(
+            any(query.startswith(("INSERT", "UPDATE", "DELETE")) for query in queries)
+        )
         self.assertEqual(digest(canonical_bytes(self.store.load())), sha)
+
+    def test_preflight_counts_repeated_references_and_json_escaping(self) -> None:
+        sha = "f" * 64
+        value = {"text": 'é🪐\n"\\' * 1000}
+        payload = json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        header = backend.PackedPart(
+            body={"literal": sha, "nested": [-0.0, None, True, {"empty": []}]},
+            refs={"first": sha, "escaped\nkey": sha},
+        )
+        entries = [
+            backend.PackedPart(body={"text": 'quoted "é"'}, refs={"result": sha}),
+            backend.PackedPart(body={}, refs={}),
+        ]
+        expected = json.dumps(
+            {
+                "sha256": "0" * 64,
+                "state": {
+                    **header.body,
+                    "first": value,
+                    "escaped\nkey": value,
+                    "entries": [{**entries[0].body, "result": value}, {}],
+                },
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        actual = backend._snapshot_size(header, entries, {sha: len(payload)})  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(actual, len(expected))
+        self.assertGreater(actual, 3 * len(payload))
+
+    def test_preflight_empty_header_and_entries_matches_json(self) -> None:
+        actual = backend._snapshot_size(backend.PackedPart(body={}, refs={}), [], {})  # pyright: ignore[reportPrivateUsage]
+        expected = json.dumps(
+            {"sha256": "0" * 64, "state": {"entries": []}},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        self.assertEqual(actual, len(expected))
+
+    def test_preflight_rejects_one_byte_below_exact_limit_then_accepts_exact(
+        self,
+    ) -> None:
+        for _ in range(8):
+            self.chat.submit('é\n"\\' * 1000)
+        full = self.store.load()
+        required = 64_000
+        candidate = full
+        size = 0
+        for _ in range(4):
+            candidate = full.model_copy(
+                update={"revision": full.revision + 1, "snapshot_max_bytes": required}
+            )
+            size = len(
+                canonical_bytes(
+                    ConversationSnapshot(
+                        state=candidate, sha256=digest(canonical_bytes(candidate))
+                    )
+                )
+            )
+            if size == required:
+                break
+            required = size
+        self.assertEqual(size, required)
+        self.assertEqual(candidate.snapshot_max_bytes, required)
+        self.assertGreater(required, 64_000)
+        # Reestablish a working checkpoint after the explicit compatibility read.
+        working = self.store.load_working()
+        assert isinstance(working, WorkingConversationState)
+        self.chat = ConversationController(
+            working,
+            self.cassette,
+            self.store.save_working,
+            load_entry=self.store.load_working_entry,
+        )
+        before = self.store.snapshot_sha256
+        with (
+            patch.object(
+                self.store, "_artifact_chunks", side_effect=AssertionError("read")
+            ),
+            self.assertRaisesRegex(ValueError, f"requires {required} bytes"),
+        ):
+            self.chat.resize_storage(required - 1)
+        self.assertEqual(self.store.snapshot_sha256, before)
+        working = self.store.load_working()
+        assert isinstance(working, WorkingConversationState)
+        self.chat = ConversationController(
+            working,
+            self.cassette,
+            self.store.save_working,
+            load_entry=self.store.load_working_entry,
+        )
+        self.chat.resize_storage(required)
+        self.assertEqual(self.store.snapshot_sha256, digest(canonical_bytes(candidate)))
+        self.assertEqual(self.check_snapshot(), candidate)
+
+    def test_streamed_size_must_match_preflight_before_publication(self) -> None:
+        measure = backend._snapshot_size  # pyright: ignore[reportPrivateUsage]
+
+        def wrong_size(
+            header: backend.PackedPart,
+            entries: list[backend.PackedPart],
+            sizes: dict[str, int],
+        ) -> int:
+            return measure(header, entries, sizes) + 1
+
+        before = self.chat.state
+        sha = self.store.snapshot_sha256
+        with (
+            patch.object(backend, "_snapshot_size", side_effect=wrong_size),
+            self.assertRaisesRegex(ValueError, "size changed after admission"),
+        ):
+            self.chat.resize_context(4000)
+        self.assertEqual(self.chat.state, before)
+        self.assertEqual(self.store.snapshot_sha256, sha)
+        self.assertFalse(self.store.transaction_open())
+        self.assertEqual(self.store.load(), self.original)
 
     def test_direct_corruption_rejects_next_transition_and_poisoned_controller(
         self,

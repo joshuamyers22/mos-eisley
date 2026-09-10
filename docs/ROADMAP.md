@@ -113,7 +113,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    now encode each packed record once and reuse its bytes/digest for admission and
    persistence; cold resume skips redundant preparation of verified entries. Runtime
    revalidation now checks a fresh native data tree without a whole-state JSON
-   buffer, including full schema validation of the excluded review cache. Smaller
+   buffer, including full schema validation of the excluded review cache. Working
+   saves now preflight exact logical size from record structure and artifact lengths;
+   a current checkpoint permits capacity rejection before artifact reads or writes.
+   Admitted saves still stream all history and verify the preflight size. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
