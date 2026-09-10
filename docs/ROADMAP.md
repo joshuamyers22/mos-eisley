@@ -87,7 +87,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    now preserves exact state and source files, with dry-run sizing and verified
    retries after transaction interruption. The transcript CLI now reads bounded
    text pages using saved entry hashes and stale-cursor guards, with explicit
-   preparation for legacy indexes. Bounded interactive resume, transcript scrolling,
+   preparation for legacy indexes. SQLite's terminal now browses those pages with
+   F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
+   Bounded controller resume,
    artifact expansion, bulk migration and the long-session acceptance gate remain open.
    Mid-request interruption and live review
    remain open.

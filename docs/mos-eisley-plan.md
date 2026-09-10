@@ -1476,9 +1476,13 @@ and an already committed import. Bulk/cross-root migration, incomplete database
 initializer repair remain open. `mos session-transcript SESSION_ID` now reads
 bounded, verified text pages without loading the header or artifact contents.
 Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
-indexes require an explicit exact-hash preparation step. This adds CLI navigation;
-bounded interactive resume, transcript scrolling and selected artifact expansion
-remain open. Neither backend has passed the long-session gate below.
+indexes require an explicit exact-hash preparation step. The SQLite terminal now
+uses this reader for F5 history browsing, Page Up/Down navigation and F6 reload.
+It retains one page plus visited cursors, serializes background reads, discards
+obsolete results and preserves the draft. Session changes clear the selected page;
+browsing never dispatches or saves work. Its live display shows four recent messages.
+Bounded controller resume and selected artifact expansion remain open. Neither
+backend has passed the long-session gate below.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

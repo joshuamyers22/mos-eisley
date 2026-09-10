@@ -122,8 +122,9 @@ Each page returns positions, text, status, answers, usage and steering links, pl
 artifact field names, hashes and byte sizes. Memory, review packets/results and the
 retained recording are not loaded. Reference availability and size are checked only
 for returned entries; artifact content integrity is still verified on full resume.
-Explicit artifact expansion and terminal scroll integration remain planned. This
-reader is a user-invoked CLI/library operation, not an ambient-history tool for
+The [terminal's F5 browser](CONVERSATION_TUI.md#saved-sqlite-history) now uses this
+reader with one-page retention and background reads. Explicit artifact expansion
+remains planned. This reader is a user-invoked CLI/terminal/library operation, not an ambient-history tool for
 models or independent critics.
 
 `--limit` accepts 1–16 messages, defaulting to four. Pages also admit at most 512,000
@@ -221,7 +222,7 @@ bounded. This is separate from the per-session logical budget, is not a disk-spa
 reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
-The next stages are bounded interactive resume, transcript scrolling and selected
+The next stages are bounded controller resume and selected
 artifact loading, context compaction,
 configurable physical retention, bulk migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).

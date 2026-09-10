@@ -24,8 +24,10 @@ from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import ConversationController
 from mos_eisley.conversation_cli import terminal
+from mos_eisley.conversation_history import TranscriptHistory
 from mos_eisley.conversation_input import ConversationInput, ConversationSubmission
 from mos_eisley.conversation_review import ConversationReviewPacket
+from mos_eisley.run.conversation_transcript import TranscriptPage
 
 
 def display_text(text: str) -> str:
@@ -107,6 +109,7 @@ class ConversationTUI:
         *,
         welcome: str = "",
         refresh_memory: Callable[[bool], None] | None = None,
+        load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         input: Input | None = None,
         output: Output | None = None,
     ) -> None:
@@ -114,6 +117,19 @@ class ConversationTUI:
         self.review_packet = review_packet
         self.welcome = welcome
         self.refresh_memory = refresh_memory
+        self.history = (
+            None
+            if load_transcript is None
+            else TranscriptHistory(
+                load_transcript,
+                lambda: (
+                    self.controller.state.session_id,
+                    self.controller.state.revision,
+                    len(self.controller.state.entries),
+                ),
+                self.refresh,
+            )
+        )
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
         self.notice = (
             "Enter sends • Alt-Enter adds a line • Ctrl-C stops • Ctrl-D quits"
@@ -167,15 +183,52 @@ class ConversationTUI:
 
         def previous_page(event: KeyPressEvent) -> None:
             self.app.layout.focus(self.transcript)
-            self.transcript.buffer.cursor_up(count=10)
+            if (
+                self.history
+                and self.history.visible
+                and self.transcript.buffer.document.cursor_position_row == 0
+            ):
+                self.history.move(-1)
+            else:
+                self.transcript.buffer.cursor_up(count=10)
 
         def next_page(event: KeyPressEvent) -> None:
             self.app.layout.focus(self.transcript)
-            self.transcript.buffer.cursor_down(count=10)
+            document = self.transcript.buffer.document
+            if (
+                self.history
+                and self.history.visible
+                and document.cursor_position_row == document.line_count - 1
+            ):
+                self.history.move(1)
+            else:
+                self.transcript.buffer.cursor_down(count=10)
 
         def details(event: KeyPressEvent) -> None:
+            if self.history and self.history.visible:
+                self.set_notice("F5 returns to live view for latest review details.")
+                return
             self.details = not self.details
             self.refresh()
+
+        def history(event: KeyPressEvent) -> None:
+            if self.history is None:
+                self.set_notice(
+                    "Saved history paging is available for SQLite sessions."
+                )
+                return
+            if self.history.visible:
+                self.history.close()
+                self.app.layout.focus(self.editor_control)
+                self.refresh()
+            else:
+                self.details = self.memory_visible = self.directory_visible = False
+                self.app.layout.focus(self.transcript)
+                self.history.reload()
+
+        def reload_history(event: KeyPressEvent) -> None:
+            if self.history and self.history.visible:
+                self.history.reload()
 
         def continue_work(event: KeyPressEvent) -> None:
             self.control("/continue")
@@ -197,6 +250,8 @@ class ConversationTUI:
         keys.add("pagedown")(next_page)
         keys.add("f3")(details)
         keys.add("f4")(continue_work)
+        keys.add("f5")(history)
+        keys.add("f6")(reload_history)
 
         layout = HSplit(
             [
@@ -207,7 +262,7 @@ class ConversationTUI:
                 ),
                 Frame(
                     self.transcript,
-                    title="Conversation • Tab / PgUp / PgDn • F3 review details",
+                    title="Conversation • Tab / PgUp / PgDn • F3 review • F5 history",
                 ),
                 Frame(
                     Window(
@@ -298,12 +353,20 @@ class ConversationTUI:
 
     def refresh(self) -> None:
         state = self.controller.state
+        if self.history:
+            self.history.check_revision()
+            if self.history.visible:
+                self.refresh_history()
+                return
         parts = [
             f"Mos Eisley\nDirectory: {state.workspace}\nSession: {state.session_id}"
         ]
         if self.welcome:
             parts.append(self.welcome)
-        for index, entry in enumerate(self.controller.state.entries):
+        start = max(0, len(state.entries) - 4) if self.history else 0
+        if self.history:
+            parts.append("Recent messages • F5 browses saved history")
+        for index, entry in enumerate(state.entries[start:], start=start):
             link = (
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
             )
@@ -361,8 +424,64 @@ class ConversationTUI:
         )
         self.app.invalidate()
 
+    def refresh_history(self) -> None:
+        history = self.history
+        assert history is not None
+        page = history.page
+        if history.error:
+            text = "Saved history unavailable\n" + history.error
+        elif page is None:
+            text = "Loading saved history… • F5 returns to live"
+        else:
+            parts = [
+                f"Saved history • page {history.index + 1} • "
+                f"{page.total_messages} messages\n"
+                "PgUp/PgDn scroll, then change page • F6 reload • F5 live"
+            ]
+            for entry in page.entries:
+                content = entry.content
+                link = (
+                    ""
+                    if content.steering_for is None
+                    else f" • refines {content.steering_for}"
+                )
+                parts.append(
+                    f"You [{entry.position}] • {content.status}{link}\n{content.text}"
+                )
+                if content.answer is not None:
+                    parts.append(f"Mos\n{content.answer}")
+                if entry.artifacts:
+                    parts.append(
+                        "Retained references: "
+                        + ", ".join(
+                            ref.field.replace("_", " ") for ref in entry.artifacts
+                        )
+                        + ". Contents are not expanded in this view."
+                    )
+            if not page.entries:
+                parts.append("No saved messages yet.")
+            parts.append(
+                "End of saved history."
+                if page.next_cursor is None
+                else "More messages below."
+            )
+            text = "\n\n".join(parts)
+        text = display_text(text)
+        # A newly selected page starts at its top; redraws retain its scroll position.
+        position = (
+            self.transcript.buffer.cursor_position
+            if text == self.transcript.text
+            else 0
+        )
+        self.transcript.buffer.set_document(
+            Document(text, position), bypass_readonly=True
+        )
+        self.app.invalidate()
+
     def emit(self, event: dict[str, object]) -> None:
         if event["type"] == "conversation.memory":
+            if self.history:
+                self.history.close()
             self.memory_visible = not self.memory_visible
             self.directory_visible = False
             self.set_notice(
@@ -373,6 +492,8 @@ class ConversationTUI:
             self.refresh()
             return
         if event["type"] == "conversation.directory":
+            if self.history:
+                self.history.close()
             self.directory_visible = not self.directory_visible
             self.memory_visible = False
             self.set_notice(
@@ -482,3 +603,5 @@ class ConversationTUI:
                 return_exceptions=True,
             )
             self.editor.clear()
+            if self.history:
+                await self.history.shutdown()
