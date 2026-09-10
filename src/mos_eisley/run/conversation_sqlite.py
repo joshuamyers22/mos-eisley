@@ -12,7 +12,7 @@ import json
 import os
 import sqlite3
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Annotated, Any, Self
@@ -351,10 +351,16 @@ class SQLiteConversationStore(ConversationStore):
             require_workspace=require_workspace,
         )
         try:
-            self._db = _connect(self._path, self._root, create=create, writable=True)
+            self._open_database(create=create, writable=True)
         except BaseException:
             self.close()
             raise
+
+    def _open_database(self, *, create: bool, writable: bool) -> None:
+        if self._db is not None:
+            self._db.close()
+            self._db = None
+        self._db = _connect(self._path, self._root, create=create, writable=writable)
 
     def close(self) -> None:
         if self._db is not None:
@@ -453,16 +459,39 @@ class SQLiteConversationStore(ConversationStore):
             return self._load(db)
 
     def save(self, state: ConversationState) -> None:
+        self._save(state)
+
+    def import_snapshot(
+        self,
+        state: ConversationState,
+        modified_ns: int,
+        *,
+        validate_source: Callable[[], None],
+    ) -> bool:
+        """Insert an exact legacy revision; never replace an existing conversation."""
+        if self._revision != -1:
+            raise ValueError("snapshot import requires a fresh destination handle")
+        return self._save(
+            state, modified_ns=modified_ns, validate_source=validate_source
+        )
+
+    def _save(
+        self,
+        state: ConversationState,
+        *,
+        modified_ns: int | None = None,
+        validate_source: Callable[[], None] | None = None,
+    ) -> bool:
         db = self._connection()
         state = ConversationState.model_validate_json(state.model_dump_json())
         if (
             state.owner_uid != os.getuid()
             or state.session_id != self.session_id
             or state.workspace != self.workspace
-            or state.revision != self._revision + 1
+            or (validate_source is None and state.revision != self._revision + 1)
         ):
             raise ValueError("invalid conversation save identity or revision")
-        index = _index(state, time.time_ns())
+        index = _index(state, time.time_ns() if modified_ns is None else modified_ns)
         record = canonical_bytes(index)
         artifacts: dict[str, bytes] = {}
         body = state.model_dump(mode="json")
@@ -482,6 +511,13 @@ class SQLiteConversationStore(ConversationStore):
                 if self._revision != -1:
                     raise ValueError("saved conversation disappeared") from None
             else:
+                if validate_source is not None:
+                    if current.state != state:
+                        raise ValueError(
+                            "SQLite destination contains a different session state"
+                        )
+                    validate_source()
+                    return False
                 if current.sha256 != self._sha256:
                     raise ValueError("saved conversation changed outside this handle")
             db.execute(
@@ -529,8 +565,13 @@ class SQLiteConversationStore(ConversationStore):
                 (self.session_id, *artifacts),
             )
             db.execute("UPDATE metadata SET generation=generation+1 WHERE id=1")
+            if validate_source is not None:
+                if self._load(db).state != state:
+                    raise ValueError("SQLite migration verification failed")
+                validate_source()
         self._revision = state.revision
         self._sha256 = index.summary.snapshot_sha256
+        return True
 
     def delete(self, expected_sha256: str) -> ConversationDeletion:
 

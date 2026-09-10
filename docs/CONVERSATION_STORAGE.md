@@ -7,7 +7,10 @@ it is not the long-term capacity target for a coding conversation.
 An [opt-in SQLite backend](CONVERSATION_SQLITE.md) now provides incremental message
 and artifact persistence plus metadata pages. The controls below describe the JSON
 backend unless specified; SQLite shares the per-session logical budget but uses
-`--limit`/`--cursor` for listing. Transcript pagination and migration remain planned.
+`--limit`/`--cursor` for listing. Explicit single-session migration now previews and
+copies JSON into SQLite in the same root while preserving the source; see the
+[migration guide](CONVERSATION_SQLITE.md#import-an-existing-json-session).
+Transcript pagination and bulk migration remain planned.
 
 ## Current controls
 
@@ -67,7 +70,7 @@ still stop work through the existing persistence-failure path.
 The first SQLite adapter implements incremental writes, session-scoped artifact
 reuse, transactional deletion and bounded metadata pages. It still reconstructs
 full logical state for load/save and retains the preview's message cap. The stages
-below remain the complete target, including migration and the long-session gate.
+below remain the complete target, including bulk migration and the long-session gate.
 
 Implement these stages under the storage and ownership contract in
 [plan §17](mos-eisley-plan.md#17-run-artifacts-and-telemetry):
@@ -92,8 +95,9 @@ Implement these stages under the storage and ownership contract in
    decisions, unresolved work and required steering ancestry. Preserve original
    evidence in storage and record what was selected or omitted from each request.
    A disk quota increase never authorizes sending more content to a provider.
-6. Provide explicit, owner-preserving legacy migration with dry-run sizing,
-   interruption recovery and verifiable counts/digests. Do not silently rewrite
+6. Extend the implemented single-session JSON-to-SQLite import to bulk and
+   cross-root migration with owner preservation, dry-run sizing, interruption
+   recovery and verifiable counts/digests. Do not silently rewrite
    old snapshots when listing. Add retention previews and safe cleanup of
    unreferenced objects, including interrupted writes; explain backup/journal
    expiry instead of claiming secure erasure.

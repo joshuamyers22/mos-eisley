@@ -40,8 +40,10 @@ current session, or `/memory off` to disable its memory; `/continue` resumes wor
 `mos resume --last` changes an existing session. `mos sessions` reports usage.
 [Incremental SQLite storage](docs/CONVERSATION_SQLITE.md) is now available with
 `mos --storage-backend sqlite`; use the same option to resume or list its sessions.
-Metadata listing supports `--limit` and `--cursor`. Paginated transcript loading
-and longer conversation limits remain planned.
+Metadata listing supports `--limit` and `--cursor`. `mos session-migrate SESSION_ID`
+previews a JSON-to-SQLite import; apply it with `--apply --expected-sha256 HASH`.
+The original JSON is retained. Paginated transcript loading and longer conversation
+limits remain planned.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 

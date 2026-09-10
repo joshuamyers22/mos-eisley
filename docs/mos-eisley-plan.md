@@ -1468,8 +1468,13 @@ and session-scoped artifact references transactionally, with exact-state deletio
 and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
 generation; a changed catalog requires restarting pagination. SQLite currently
 reconstructs the complete bounded state on load/save, and its physical file has an
-initial 256 MB ceiling. Explicit migration and paginated transcript loading remain
-open. Neither backend has passed the long-session gate below.
+initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-root
+JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
+owner, revision, history and consumed attempts, verifies the reconstructed state
+inside the transaction and retains the JSON source. Verified retries cover rollback
+and an already committed import. Bulk/cross-root migration, incomplete database
+initializer repair and paginated transcript loading remain open. Neither backend
+has passed the long-session gate below.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
