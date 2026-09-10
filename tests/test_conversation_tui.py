@@ -297,7 +297,13 @@ class TUITests(IsolatedAsyncioTestCase):
                 await asyncio.wait_for(task, 3)
 
     async def test_pasted_slash_command_is_literal_even_when_single_line(self) -> None:
-        for text in ("/quit", "/review", "/steer retained text", "/review\n/stop"):
+        for text in (
+            "/quit",
+            "/review",
+            "/context",
+            "/steer retained text",
+            "/review\n/stop",
+        ):
             with self.subTest(text=text):
                 await self.check_literal_paste(text)
 

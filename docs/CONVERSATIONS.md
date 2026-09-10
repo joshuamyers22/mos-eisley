@@ -131,6 +131,12 @@ draft, then `/send` to queue it as one literal message in line mode. The screen
 has an editable multiline composer with Enter to send. Mid-request interruption
 remains future work.
 
+- `/context` previews the next queued chat's selected message positions, steering
+  ancestry, omitted positions and context-byte usage without starting work.
+  The report contains metadata and a context hash rather than message/memory text.
+  It uses saved memory and the current history; active work can change the selection.
+  A queued review retains its isolated packet and is not treated as a chat target.
+  See [context previews](CONVERSATION_STORAGE.md#context-selection-preview).
 - `/memory` inspects active user/project context. `/memory refresh` loads current
   saved memory; `/memory off` disables it for the session without reading storage.
   Stop or finish active work first. Successful changes save the selection and pause

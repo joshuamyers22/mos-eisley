@@ -145,6 +145,7 @@ class ConversationTUI:
         self.details = False
         self.memory_visible = False
         self.directory_visible = False
+        self.context_preview: tuple[int, str] | None = None
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
         self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
@@ -230,6 +231,7 @@ class ConversationTUI:
                 self.refresh()
             else:
                 self.details = self.memory_visible = self.directory_visible = False
+                self.context_preview = None
                 self.app.layout.focus(self.transcript)
                 self.history.reload()
 
@@ -431,6 +433,13 @@ class ConversationTUI:
             )
         if self.directory_visible:
             parts.append(f"Working directory\n{state.workspace}")
+        if self.context_preview is not None:
+            revision, preview = self.context_preview
+            parts.append(
+                preview
+                if revision == state.revision
+                else "Context preview is stale; run /context again."
+            )
         text = display_text(
             "\n\n".join(parts)
             or (
@@ -519,11 +528,26 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.context":
+            if self.history:
+                self.history.close()
+            revision = event["revision"]
+            if type(revision) is not int:
+                raise ValueError("invalid context preview revision")
+            selected = (revision, str(event["text"]))
+            self.context_preview = (
+                None if self.context_preview == selected else selected
+            )
+            self.memory_visible = self.directory_visible = False
+            self.set_notice("Context preview toggled. /context shows or hides it.")
+            self.refresh()
+            return
         if event["type"] == "conversation.memory":
             if self.history:
                 self.history.close()
             self.memory_visible = not self.memory_visible
             self.directory_visible = False
+            self.context_preview = None
             self.set_notice(
                 "Memory details shown. /memory hides them."
                 if self.memory_visible
@@ -536,6 +560,7 @@ class ConversationTUI:
                 self.history.close()
             self.directory_visible = not self.directory_visible
             self.memory_visible = False
+            self.context_preview = None
             self.set_notice(
                 "Directory details toggled. /directory shows or hides them."
             )

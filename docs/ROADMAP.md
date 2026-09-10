@@ -124,7 +124,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    preserves queued work, attempts and message drafts; tighter resume limits allow
    existing work to run or be cancelled. Typed `/steer` and `/review` submissions
    now retain editor text until durable admission, including rejection for missing
-   prerequisites, while stop/quit still cancel pending handoffs. Smaller
+   prerequisites, while stop/quit still cancel pending handoffs. `/context` now
+   previews selected turn sources, steering ancestry, omissions and canonical
+   context usage through the same projection as dispatch, without saving or
+   starting work. This metadata preview is versioned and ephemeral; durable
+   request-selection records and visible compaction remain planned. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

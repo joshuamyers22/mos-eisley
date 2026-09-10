@@ -115,6 +115,39 @@ Current cold loads avoid accumulating decoded historical artifacts. Active memor
 recordings and all 16 text records remain resident; context admission alone does
 not complete the long-session acceptance gate.
 
+## Context selection preview
+
+`/context` reports the next queued chat's context without saving, consuming an
+attempt, hydrating historical artifacts, refreshing memory or enabling continuation.
+It uses the same text-selection function as dispatch: completed exchanges and
+required unanswered steering ancestry are retained in their original order.
+The report maps each user/assistant turn to its source message positions and
+explains omissions (after the target, or no completed answer/required steering link).
+These are existing selection rules; the preview adds no truncation or compaction.
+
+The `conversation.context` NDJSON event contains `schema_version: 1`, session and
+revision, `selection` with `policy_version: 1`, `message_index`, `turn_sources` and
+`omitted`, plus `context_sha256`, `context_bytes`, `context_max_bytes`,
+`within_context_budget`, `memory_selected` and `active_work`. Counts/hash cover the
+exact canonical system-and-turns JSON, including selected saved memory. The report
+does not copy message, answer, memory or review evidence text. The terminal's
+ordinary transcript still displays its own messages.
+
+An over-budget context remains inspectable. Fitting this saved context budget is
+not dispatch admission: current memory, complete provider request bounds and
+recording availability are checked when work runs. An active request may finish
+before the selected queued message, so the report is explicitly provisional then.
+No queued message yields a notice; a queued review yields an isolated-packet notice
+instead of skipping ahead to later chat. Compose/paste/literal input keeps its
+existing behavior. Inspecting an already open session does not make normal cold
+resume bounded or skip its integrity checks.
+
+The TUI toggles the report with `/context`, returns from history browsing, and
+marks it stale after a saved revision changes. Re-run the command for current
+selection metadata. The report is ephemeral; it is not a persisted record of an
+actual provider request or a compaction receipt. That durable provenance, visible
+compaction and the long-session capacity gate remain planned.
+
 ## Active memory and recording input limits
 
 `chat`, bare `mos`, and `resume` accept two independent limits for the current

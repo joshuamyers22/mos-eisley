@@ -180,6 +180,7 @@ def main() -> int:
             "test_conversation_resume.py",
             "test_conversation_checkpoint_saves.py",
             "test_conversation_context.py",
+            "test_conversation_context_preview.py",
             "test_conversation_working_state.py",
             "test_conversation_cold_resume.py",
             "test_conversation_input_limits.py",
