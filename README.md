@@ -276,7 +276,9 @@ without the promoted catalog: `mos analysis-demo --context-mode raw`. Try
 and checks recorded timing; `mos analysis-comparison-demo --result-root /absolute/private/directory`
 exercises both arms. The optional
 [Parquet case integration](docs/ANALYSIS_PARQUET_CASES.md) also checks six
-nonconstant cases through the real data-mcp server. See the
+nonconstant cases through the real data-mcp server.
+[Parameterized metric integration](docs/ANALYSIS_METRIC_PARAMETERS.md) adds checked
+date-window calls using the same controller. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 
