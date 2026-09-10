@@ -208,6 +208,8 @@ Implement these stages under the storage and ownership contract in
    per-launch limits. Next reduce text/record bookkeeping into bounded transitions
    and reduce remaining active-input serialization. Admission and recording hash
    checks now stream bytes and reuse their fingerprint within each operation.
+   Working saves now prepare each packed record once and reuse its admitted bytes
+   and message digest; cold resume avoids a second preparation of verified entries.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

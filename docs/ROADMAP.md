@@ -109,7 +109,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    loads, and bound recording-file reads. Controller recovery, refresh and dispatch
    check canonical selected inputs; limits leave saved hashes unchanged. Size/hash
    checks now stream canonical JSON and reuse the recording fingerprint within an
-   operation; nested mutations are checked anew at the next boundary. Smaller
+   operation; nested mutations are checked anew at the next boundary. Working saves
+   now encode each packed record once and reuse its bytes/digest for admission and
+   persistence; cold resume skips redundant preparation of verified entries. Smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review

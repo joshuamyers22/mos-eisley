@@ -1589,6 +1589,15 @@ remain resident; large scalar fields can produce large segments. Other state and
 persistence boundaries still serialize active values, so this does not complete
 bounded transitions or establish a latency improvement.
 
+Working-state saves now encode each packed header/message record once per operation.
+The admitted bytes and message digests are reused for archive checks, checkpoint
+metadata and writes; new records no longer undergo an encode/parse round trip during
+preparation. Selected-entry hydration likewise reuses its record encoding for
+source verification and byte admission. Cold resume does not prepare the already
+verified message records again when normalizing the header. Prepared records are
+operation-local, with no persistent payload or model-identity cache. Existing
+validation, exact snapshot hashes, record limits and atomic publication still apply.
+
 Cold verification still reads all history. Admitted active memory/recording values
 remain decoded, and each save still hashes all logical history bytes. The current
 working state keeps text for all 16 messages. Next reduce text/record bookkeeping
