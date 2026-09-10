@@ -149,6 +149,102 @@ class WorkingStateTests(TestCase):
             ConversationState.model_validate_json(self.chat.state.model_dump_json())
         self.assertEqual(self.check_snapshot(), self.original)
 
+    def test_save_encodes_each_record_once_without_packed_json_roundtrip(self) -> None:
+        with (
+            patch.object(backend, "canonical_bytes", wraps=canonical_bytes) as encoded,
+            patch.object(
+                backend.PackedPart,
+                "model_validate_json",
+                side_effect=AssertionError("prepared record parsed again"),
+            ),
+        ):
+            self.chat.submit('new prompt é\n"')
+        records = [
+            call.args[0]
+            for call in encoded.call_args_list
+            if isinstance(call.args[0], backend.PackedPart)
+        ]
+        self.assertEqual(len(records), len(self.chat.state.entries) + 1)
+        self.assertEqual(sum("memory" in part.refs for part in records), 1)
+        self.assertEqual(self.check_snapshot().entries[-1].text, 'new prompt é\n"')
+
+    def test_archive_hydration_reuses_record_encoding_for_proof_and_bound(self) -> None:
+        brief, cassette = demo_inputs()
+        packet = ConversationReviewPacket(brief=brief, cassette=cassette)
+        self.chat.submit_review(packet)
+        position = len(self.chat.state.entries) - 1
+        pending = self.chat.state.entries[position]
+        assert isinstance(pending, ArchivedConversationEntry)
+        before = self.store.snapshot_sha256
+        with patch.object(backend, "canonical_bytes", wraps=canonical_bytes) as encoded:
+            hydrated = self.store.load_working_entry(position, pending)
+        self.assertEqual(
+            sum(
+                isinstance(call.args[0], backend.PackedPart)
+                for call in encoded.call_args_list
+            ),
+            1,
+        )
+        self.assertEqual(hydrated.review_packet, packet)
+        self.assertEqual(self.store.snapshot_sha256, before)
+
+    def test_cold_resume_does_not_prepare_verified_entries_again(self) -> None:
+        with patch.object(
+            backend,
+            "_working_parts",
+            side_effect=AssertionError("historical records prepared again"),
+        ):
+            loaded = self.store.load_working()
+        self.assertIsInstance(loaded, WorkingConversationState)
+        self.assertEqual(
+            self.store.snapshot_sha256, digest(canonical_bytes(self.original))
+        )
+
+    def test_prepared_record_preserves_canonical_bytes_and_exact_size_bound(
+        self,
+    ) -> None:
+        part = backend.PackedPart(
+            body={"text": 'é\n"\\', "nested": [None, True, {"float": -0.0}]},
+            refs={"memory_context": "a" * 64},
+        )
+        expected = canonical_bytes(part)
+        with patch.object(backend, "MAX_RECORD_BYTES", len(expected)):
+            prepared = backend._prepare_part(part)  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(prepared.payload, expected)
+        self.assertEqual(prepared.sha256, digest(expected))
+        with (
+            patch.object(backend, "MAX_RECORD_BYTES", len(expected) - 1),
+            self.assertRaisesRegex(ValueError, "record exceeds byte limit"),
+        ):
+            backend._prepare_part(part)  # pyright: ignore[reportPrivateUsage]
+
+    def test_next_save_rechecks_mutated_archived_references(self) -> None:
+        self.chat.resize_context(4000)
+        before = self.store.snapshot_sha256
+        entry = self.chat.state.entries[0]
+        assert isinstance(entry, ArchivedConversationEntry)
+        entry.artifact_refs["memory_context"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "verified checkpoint"):
+            self.chat.resize_context(8000)
+        self.assertEqual(self.store.snapshot_sha256, before)
+        self.assertFalse(self.store.transaction_open())
+        loaded = self.store.load_working()
+        self.assertNotEqual(loaded.entries[0], entry)
+        self.assertEqual(self.store.snapshot_sha256, before)
+
+    def test_oversized_prepared_record_does_not_publish_a_save(self) -> None:
+        before = self.chat.state
+        sha = self.store.snapshot_sha256
+        with (
+            patch.object(backend, "MAX_RECORD_BYTES", 1),
+            self.assertRaisesRegex(ValueError, "record exceeds byte limit"),
+        ):
+            self.chat.submit("queued")
+        self.assertEqual(self.chat.state, before)
+        self.assertEqual(self.store.snapshot_sha256, sha)
+        self.assertFalse(self.store.transaction_open())
+        self.assertEqual(self.store.load(), self.original)
+
     def test_healthy_transitions_stream_old_artifacts_without_full_state_hydration(
         self,
     ) -> None:

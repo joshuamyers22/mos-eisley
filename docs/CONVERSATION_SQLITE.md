@@ -271,6 +271,16 @@ preserving the exact canonical snapshot hash and logical byte count without
 reconstructing historical artifact objects or a complete proposed snapshot.
 It still hashes all logical history bytes; this is not constant-time persistence.
 
+Each packed header/message record is encoded once during working-save preparation.
+Its admitted bytes and message digest are reused for archive checks, checkpoint
+metadata and writes, avoiding repeated encoding and a packed-record JSON round trip.
+Selected-entry hydration also shares one encoding between source verification and
+byte admission. These prepared values live only within the operation; subsequent
+saves revalidate inputs and prepare fresh records, including nested reference
+changes. Cold resume skips a second preparation pass over already verified entries
+when normalizing its header. All text records still participate in each save, and
+working-state validation still serializes active values.
+
 The latest completed review event still carries its full result. On resume, older
 review events retain their brief ID and text summary; use F5/F7/F8 or the transcript
 and artifact CLI to expand older evidence explicitly. The saved evidence is intact.

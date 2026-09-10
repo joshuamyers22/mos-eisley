@@ -137,9 +137,30 @@ class ConversationPage(Contract):
     next_cursor: str | None = None
 
 
-def _pack(
+@dataclass(frozen=True)
+class _PreparedPart:
+    """Canonical record bytes and proof, scoped to one storage operation."""
+
+    part: PackedPart
+    payload: bytes
+    sha256: str
+
+
+def _record_bytes(part: PackedPart) -> bytes:
+    payload = canonical_bytes(part)
+    if len(payload) > MAX_RECORD_BYTES:
+        raise ValueError("SQLite conversation record exceeds byte limit")
+    return payload
+
+
+def _prepare_part(part: PackedPart) -> _PreparedPart:
+    payload = _record_bytes(part)
+    return _PreparedPart(part=part, payload=payload, sha256=digest(payload))
+
+
+def _pack_part(
     body: dict[str, Any], fields: tuple[str, ...], artifacts: dict[str, bytes]
-) -> bytes:
+) -> PackedPart:
     refs: dict[str, str] = {}
     for field in fields:
         if body.get(field) is not None:
@@ -147,10 +168,13 @@ def _pack(
             sha = digest(payload)
             artifacts[sha] = payload
             refs[field] = sha
-    payload = canonical_bytes(PackedPart(body=body, refs=refs))
-    if len(payload) > MAX_RECORD_BYTES:
-        raise ValueError("SQLite conversation record exceeds byte limit")
-    return payload
+    return PackedPart(body=body, refs=refs)
+
+
+def _pack(
+    body: dict[str, Any], fields: tuple[str, ...], artifacts: dict[str, bytes]
+) -> bytes:
+    return _record_bytes(_pack_part(body, fields, artifacts))
 
 
 def _unpack(
@@ -217,27 +241,21 @@ MAX_ACTIVE_ENTRY_BYTES = 512_000
 
 def _working_parts(
     state: RuntimeConversationState,
-) -> tuple[PackedPart, list[PackedPart], dict[str, bytes]]:
+) -> tuple[_PreparedPart, list[_PreparedPart], dict[str, bytes]]:
     artifacts: dict[str, bytes] = {}
     body = state.model_dump(mode="json", exclude={"entries"})
-    header = PackedPart.model_validate_json(
-        _pack(body, ("memory", "retained_cassette"), artifacts)
-    )
-    parts: list[PackedPart] = []
+    header = _prepare_part(_pack_part(body, ("memory", "retained_cassette"), artifacts))
+    parts: list[_PreparedPart] = []
     for entry in state.entries:
         if isinstance(entry, ArchivedConversationEntry):
             part = PackedPart(body=entry.record_body(), refs=dict(entry.artifact_refs))
         else:
-            part = PackedPart.model_validate_json(
-                _pack(
-                    entry.model_dump(mode="json"),
-                    ("memory_context", "review_packet", "review_result"),
-                    artifacts,
-                )
+            part = _pack_part(
+                entry.model_dump(mode="json"),
+                ("memory_context", "review_packet", "review_result"),
+                artifacts,
             )
-        if len(canonical_bytes(part)) > MAX_RECORD_BYTES:
-            raise ValueError("SQLite conversation record exceeds byte limit")
-        parts.append(part)
+        parts.append(_prepare_part(part))
     return header, parts, artifacts
 
 
@@ -922,7 +940,14 @@ class SQLiteConversationStore(ConversationStore):
             or state.workspace != self.workspace
         ):
             raise ValueError("cold-resume state identity mismatch")
-        canonical_header, _, artifacts = _working_parts(state)
+        artifacts: dict[str, bytes] = {}
+        canonical_header = _prepare_part(
+            _pack_part(
+                state.model_dump(mode="json", exclude={"entries"}),
+                ("memory", "retained_cassette"),
+                artifacts,
+            )
+        ).part
         if canonical_header.refs != header.refs:
             return None
         del artifacts
@@ -1023,8 +1048,9 @@ class SQLiteConversationStore(ConversationStore):
         checkpoint: _SaveCheckpoint,
         position: int,
         entry: ArchivedConversationEntry,
-        part: PackedPart,
+        prepared: _PreparedPart,
     ) -> None:
+        part = prepared.part
         digests = checkpoint.index.entry_sha256
         brief_ids = checkpoint.review_brief_ids
         if (
@@ -1037,7 +1063,7 @@ class SQLiteConversationStore(ConversationStore):
             or not set(part.refs.values()) <= checkpoint.artifacts
         ):
             raise ValueError("archived message does not match the verified checkpoint")
-        if digest(canonical_bytes(part)) == entry.source_sha256:
+        if prepared.sha256 == entry.source_sha256:
             return
         row = db.execute(
             "SELECT CASE WHEN length(payload)<=? THEN payload END FROM entries "
@@ -1082,7 +1108,8 @@ class SQLiteConversationStore(ConversationStore):
                 part = PackedPart(
                     body=entry.record_body(), refs=dict(entry.artifact_refs)
                 )
-                self._admit_archive(db, checkpoint, position, entry, part)
+                prepared = _prepare_part(part)
+                self._admit_archive(db, checkpoint, position, entry, prepared)
                 sizes: dict[str, int] = {}
                 for sha in set(part.refs.values()):
                     row = db.execute(
@@ -1098,7 +1125,7 @@ class SQLiteConversationStore(ConversationStore):
                             "active entry artifact is unavailable or oversized"
                         )
                     sizes[sha] = row[0]
-                total = len(canonical_bytes(part)) + sum(sizes.values())
+                total = len(prepared.payload) + sum(sizes.values())
                 if total > MAX_ACTIVE_ENTRY_BYTES:
                     raise ValueError(
                         f"active entry needs {total} bytes; "
@@ -1143,17 +1170,21 @@ class SQLiteConversationStore(ConversationStore):
             or state.revision != self._revision + 1
         ):
             raise ValueError("invalid conversation save identity or revision")
-        header, parts, artifacts = _working_parts(state)
-        header_bytes = canonical_bytes(header)
-        payloads = [canonical_bytes(part) for part in parts]
-        digests = tuple(digest(payload) for payload in payloads)
+        prepared_header, prepared_entries, artifacts = _working_parts(state)
+        header = prepared_header.part
+        parts = [prepared.part for prepared in prepared_entries]
+        header_bytes = prepared_header.payload
+        payloads = [prepared.payload for prepared in prepared_entries]
+        digests = tuple(prepared.sha256 for prepared in prepared_entries)
         db = self._connection()
         with conversation_transaction(db, write=True):
             store_id, _ = _identity(db)
             previous = self._working_checkpoint(db, store_id)
             for position, entry in enumerate(state.entries):
                 if isinstance(entry, ArchivedConversationEntry):
-                    self._admit_archive(db, previous, position, entry, parts[position])
+                    self._admit_archive(
+                        db, previous, position, entry, prepared_entries[position]
+                    )
             referenced = frozenset(
                 sha for part in (header, *parts) for sha in part.refs.values()
             )
