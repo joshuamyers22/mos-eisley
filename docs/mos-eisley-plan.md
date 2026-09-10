@@ -1481,8 +1481,17 @@ uses this reader for F5 history browsing, Page Up/Down navigation and F6 reload.
 It retains one page plus visited cursors, serializes background reads, discards
 obsolete results and preserves the draft. Session changes clear the selected page;
 browsing never dispatches or saves work. Its live display shows four recent messages.
-Bounded controller resume and selected artifact expansion remain open. Neither
-backend has passed the long-session gate below.
+F7 selects a memory/review reference on the current page; F8 opens or closes one
+artifact. `mos session-artifact SELECTION` provides the same explicit read through
+the CLI. Selections bind the store, owner, workspace, session, snapshot, catalog
+generation, message position, field, hash and byte size. Reads verify the selected
+message reference, enforce a 512,000-byte default before fetching the artifact,
+then verify its hash and typed schema. The CLI accepts an explicit limit up to
+32 MB; this budget covers stored payload bytes, not rendered output or RAM.
+The terminal retains at most one expanded artifact and clears it on selection,
+page, session or view changes; obsolete background results are discarded.
+Expansion grants no model or critic access. Bounded controller resume remains open;
+neither backend has passed the long-session gate below.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

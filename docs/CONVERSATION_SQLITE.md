@@ -119,12 +119,13 @@ recover running entries, and do not dispatch work. Missing storage or a hot roll
 journal produces an error rather than an implicit initialization or recovery.
 
 Each page returns positions, text, status, answers, usage and steering links, plus
-artifact field names, hashes and byte sizes. Memory, review packets/results and the
+artifact field names, hashes, byte sizes and opaque selection tokens. Memory, review packets/results and the
 retained recording are not loaded. Reference availability and size are checked only
-for returned entries; artifact content integrity is still verified on full resume.
+for returned entries; artifact content integrity is verified on explicit expansion
+or full resume.
 The [terminal's F5 browser](CONVERSATION_TUI.md#saved-sqlite-history) now uses this
-reader with one-page retention and background reads. Explicit artifact expansion
-remains planned. This reader is a user-invoked CLI/terminal/library operation, not an ambient-history tool for
+reader with one-page retention and background reads. F7/F8 select and expand one
+artifact as described below. This reader is a user-invoked CLI/terminal/library operation, not an ambient-history tool for
 models or independent critics.
 
 `--limit` accepts 1–16 messages, defaulting to four. Pages also admit at most 512,000
@@ -163,6 +164,37 @@ list is bounded by the current 16-message schema; lifting that cap also requires
 index layout that stays bounded as history grows. Preparation still uses a full-state
 read, and neither paginated interactive resume nor the
 long-session capacity gate is implemented by this milestone.
+
+## Selected artifacts
+
+Copy an artifact's `selection` from `session-transcript --json`, then open it:
+
+```sh
+mos session-artifact SELECTION --storage PATH -C WORKSPACE --json
+mos session-artifact SELECTION --storage PATH -C WORKSPACE --max-bytes 2000000 --json
+```
+
+This explicitly reads one memory context, review packet or review result. The
+default limit is 512,000 stored artifact bytes; `--max-bytes` accepts 1–32,000,000.
+The reader checks the size before fetching the payload, rejects an over-budget
+selection without truncation, verifies its SHA-256 hash and validates its typed
+schema. Historical memory also must match the owning user and workspace. Output
+contains normalized typed JSON and selection metadata, with terminal controls
+escaped. The budget covers stored payload bytes, not escaped output size, physical
+disk reads or peak RAM. It is independent of session storage and model context.
+
+Selections bind the owner, store, workspace, session, snapshot, catalog generation,
+message position, field, digest and size. They are selection data, not credentials;
+the private storage and ownership checks still apply. Any committed catalog change
+invalidates them, including another session's save. Reload the transcript to select
+again. No index preparation or storage mutation happens during expansion.
+
+Each read checks one bounded session index and the selected message's stored hash
+and reference, then loads only the selected artifact. It does not load the header,
+other message payloads or other artifacts, and does not check cross-artifact state
+relationships. Full resume still performs complete state validation. Unselected
+corruption may remain undiscovered. The terminal keeps one expanded artifact at a
+time; expansion never dispatches work or makes history available to models/critics.
 
 ## Incremental writes and recovery
 
@@ -222,8 +254,7 @@ bounded. This is separate from the per-session logical budget, is not a disk-spa
 reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
-The next stages are bounded controller resume and selected
-artifact loading, context compaction,
+The next stages are bounded controller resume, context compaction,
 configurable physical retention, bulk migration and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

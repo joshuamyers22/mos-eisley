@@ -34,6 +34,7 @@ from mos_eisley.run.conversation_store import (
 )
 
 if TYPE_CHECKING:
+    from mos_eisley.run.conversation_artifacts import ArtifactContent
     from mos_eisley.run.conversation_transcript import TranscriptPage
 
 MAX_DATABASE_BYTES = 256_000_000
@@ -504,6 +505,18 @@ class SQLiteConversationStore(ConversationStore):
                 Path(self.workspace),
                 limit=4,
                 cursor=cursor,
+            )
+
+    def transcript_artifact(self, selection: str) -> ArtifactContent:
+        """Expand one selection with the terminal's read/save coordination."""
+        from mos_eisley.run.conversation_artifacts import read_sqlite_artifact
+
+        with self._transcript_guard:
+            return read_sqlite_artifact(
+                self._path,
+                Path(self.workspace),
+                selection,
+                expected_session_id=self.session_id,
             )
 
     def prepare_transcript(self, expected_sha256: str) -> ConversationSummary:

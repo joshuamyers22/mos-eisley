@@ -89,8 +89,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    text pages using saved entry hashes and stale-cursor guards, with explicit
    preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
-   Bounded controller resume,
-   artifact expansion, bulk migration and the long-session acceptance gate remain open.
+   F7/F8 and `session-artifact` now expand one explicitly selected memory/review
+   artifact with snapshot binding, integrity checks and a separate byte budget.
+   Bounded controller resume, bulk migration and the long-session acceptance gate
+   remain open.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session

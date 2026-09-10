@@ -11,7 +11,10 @@ backend unless specified; SQLite shares the per-session logical budget but uses
 copies JSON into SQLite in the same root while preserving the source; see the
 [migration guide](CONVERSATION_SQLITE.md#import-an-existing-json-session).
 The transcript CLI and SQLite terminal's F5 browser now read bounded text pages with
-artifact references. Bounded controller resume and bulk migration remain planned.
+artifact references. F7/F8 and `session-artifact` explicitly expand one selected
+artifact under a separate 512,000-byte default read budget; the CLI can raise this
+up to 32 MB without changing session retention or model context limits.
+Bounded controller resume and bulk migration remain planned.
 
 ## Current controls
 
@@ -70,7 +73,7 @@ still stop work through the existing persistence-failure path.
 
 The first SQLite adapter implements incremental writes, session-scoped artifact
 reuse, transactional deletion and bounded metadata/transcript pages, including
-SQLite terminal history navigation. It still reconstructs
+SQLite terminal history navigation and selected artifact expansion. It still reconstructs
 full logical state for load/save and retains the preview's message cap. The stages
 below remain the complete target, including bulk migration and the long-session gate.
 
@@ -86,7 +89,8 @@ Implement these stages under the storage and ownership contract in
    steering links and historical memory. Detect incomplete writes on recovery;
    never replay an uncertain tool effect or provider request automatically.
 3. Build on the implemented metadata/transcript CLI pages and terminal history
-   browser, using stable cursors tied to a consistent view. Loading one page
+   browser and selected artifact reader, using stable cursors tied to a consistent
+   view. Loading one page
    must not scan or decode all transcripts.
    Opening/resuming a session loads a bounded working set plus explicitly selected
    artifacts. Keep fresh-session isolation and critic isolation intact.
