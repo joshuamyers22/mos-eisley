@@ -1021,8 +1021,10 @@ selection and locked exact-snapshot deletion now provide navigation and manual
 retention. See [usage and limits](CONVERSATIONS.md).
 An [explicit recorded review round-trip](CONVERSATION_REVIEW.md) now preserves
 separate critic requests and returns a retained report and contextual summary.
+[Multiline drafting](CONVERSATIONS.md#multiline-composition) now queues bounded
+messages with explicit send/discard and keeps unsent content out of saved state.
 The full product contract below remains the target; live conversation/review,
-active-request steering and the full composer are not yet available.
+active-request steering and the full-screen composer are not yet available.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain

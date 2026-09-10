@@ -55,7 +55,9 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    An [explicit recorded review round-trip](CONVERSATION_REVIEW.md) now freezes a
    selected packet, keeps critic requests separate from chat history, and returns
    retained evidence plus a bounded summary for contextual follow-ups.
-   Active-request steering, the full composer and live review remain open.
+   [Multiline drafting](CONVERSATIONS.md#multiline-composition) now supports
+   bounded code blocks, explicit send/discard and input backpressure during work.
+   Active-request steering, the full-screen composer and live review remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
