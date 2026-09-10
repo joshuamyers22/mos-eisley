@@ -1,6 +1,7 @@
 """Bounded text pages with verified records and unexpanded artifact references."""
 
 import base64
+import json
 import sqlite3
 from pathlib import Path
 from typing import Annotated
@@ -8,6 +9,7 @@ from typing import Annotated
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID, Status
+from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
 from mos_eisley.run.conversation_artifacts import ArtifactField, ArtifactSelection
@@ -27,6 +29,9 @@ class TranscriptText(Contract):
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    request_admission: RequestAdmission | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = None
 
 
@@ -194,7 +199,7 @@ def decode_transcript_entry(
     ):
         raise ValueError("transcript record integrity mismatch")
     packed = PackedPart.model_validate_json(payload)
-    content = TranscriptText.model_validate(packed.body)
+    content = TranscriptText.model_validate_json(json.dumps(packed.body))
     artifacts: list[TranscriptArtifact] = []
     for field, sha in sorted(packed.refs.items()):
         field = TypeAdapter[ArtifactField](ArtifactField).validate_python(field)

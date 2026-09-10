@@ -157,9 +157,44 @@ resume bounded or skip its integrity checks.
 
 The TUI toggles the report with `/context`, returns from history browsing, and
 marks it stale after a saved revision changes. Re-run the command for current
-selection metadata. The report is ephemeral; it is not a persisted record of an
-actual provider request or a compaction receipt. That durable provenance, visible
-compaction and the long-session capacity gate remain planned.
+selection metadata. The preview is ephemeral. Admitted chat attempts separately
+retain the durable metadata described below. Visible compaction and the long-session
+capacity gate remain planned.
+
+## Saved request admissions
+
+New chat attempts save a version-1 `request_admission` object on their message in
+the same atomic transition that marks it `running` and consumes its recorded
+exchange. This happens after context, request, memory and recording admission and
+before calling the model client. If this save fails, the client is not called.
+Completion, failure, cancellation and crash recovery retain the same record.
+
+The object includes the source revision, message count at admission, zero-based
+recorded exchange index, versioned selection with source positions and omissions,
+context bytes/hash and saved context limit, whether memory was selected, and the
+complete `request` metadata used by `/context`. Both byte budgets must fit.
+The record contains no message, answer, memory or review evidence text. Subsequent
+queue submissions, memory refreshes and limit changes do not rewrite it. Positions
+refer to the messages present at admission; later submissions are outside that
+record's message count.
+
+This records admitted inputs, **not proof of transmission or provider receipt**.
+A crash immediately after saving can leave an admission for a request that was
+never sent. Resume marks that attempt interrupted and does not retry it. Rejected
+queued work has no admission, and isolated reviews do not use this chat contract.
+The hashes cover local canonical JSON, not native HTTP bytes or provider tokens.
+
+JSON snapshots retain the object inline. SQLite stores it in the bounded message
+record and includes it in existing record/snapshot integrity checks. JSON output
+from `session-transcript` and `resume --inspect` exposes it without expanding
+historical artifacts. Full loads, working saves and JSON-to-SQLite migration retain
+the exact object. This is optional additive metadata in the existing session
+schema: old entries remain readable and are not backfilled, so reading/resaving
+them does not manufacture provenance or change their canonical bytes. A new
+admission changes the normal saved revision/hash and counts toward existing record
+and snapshot limits. Older installations that do not recognize this field cannot
+read sessions containing it. Snapshot hashes detect corruption, not owner rewriting
+or rollback. Original evidence retention and visible compaction remain separate work.
 
 ## Active memory and recording input limits
 

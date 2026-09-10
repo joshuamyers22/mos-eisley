@@ -11,7 +11,11 @@ from uuid import uuid4
 
 from typing_extensions import TypeVar
 
-from mos_eisley.conversation_context import admit_context, context_turns
+from mos_eisley.conversation_context import (
+    admit_context,
+    context_turns,
+    project_context,
+)
 from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
 from mos_eisley.conversation_memory import (
     ConversationMemory,
@@ -19,6 +23,7 @@ from mos_eisley.conversation_memory import (
     memory_system,
 )
 from mos_eisley.conversation_pending import PendingTextLimits, pending_text_bytes
+from mos_eisley.conversation_request_admission import record_admission
 from mos_eisley.conversation_review import (
     REVIEW_PROMPT,
     ConversationReviewPacket,
@@ -397,14 +402,27 @@ class ConversationController(Generic[StateT]):
         # or burning an attempt. The config is reused after dispatch admission.
         config: AgentConfig | None = None
         if not is_review:
-            config = conversation_config(
-                context_for(self.state, index), self.state.memory
-            )
+            projected = project_context(self.state.entries, index)
+            config = conversation_config(projected.turns, self.state.memory)
             admit_context(
                 config.system, config.initial_turns, self.state.context_byte_limit
             )
             request, budget = prepare_conversation_request(config)
             check_request_budget(request, budget)
+            entry = entry.model_copy(
+                update={
+                    "request_admission": record_admission(
+                        source_revision=self.state.revision,
+                        message_count=len(self.state.entries),
+                        exchange_index=consumed,
+                        selection=projected.selection,
+                        context_max_bytes=self.state.context_byte_limit,
+                        request=request,
+                        budget=budget,
+                        memory_selected=self.state.memory is not None,
+                    )
+                }
+            )
         self._busy = True
 
         def replace(entry: ConversationEntry, *, started: bool = False) -> None:
@@ -454,6 +472,7 @@ class ConversationController(Generic[StateT]):
                         text=entry.text,
                         steering_for=entry.steering_for,
                         memory_context=entry.memory_context,
+                        request_admission=entry.request_admission,
                         status="completed",
                         answer=result.final_text,
                         usage=result.usage,

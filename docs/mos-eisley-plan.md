@@ -1677,6 +1677,20 @@ both results remain visible without consuming an attempt. These are local byte
 budgets, not native provider payload/token estimates. Actual dispatch still
 revalidates all limits, current memory and recording availability.
 
+New recorded chat attempts now persist a version-1 request admission on the message
+in the same save as the running status and consumed exchange, before model-client
+dispatch. It records the source revision and message count, exchange index,
+versioned source selection/omissions, context fingerprint/limit, selected-memory
+flag and complete request fingerprint/budgets. Outcomes and crash recovery retain
+it unchanged; later queue, memory and limit changes do not rewrite historical
+admission. It contains no copied input text. SQLite keeps the metadata inline in
+bounded records for transcript and resume inspection without artifact expansion;
+both backends and migration preserve it. Existing entries remain unmodified with
+no invented historical provenance. This records admitted inputs and may survive a
+crash before transmission; it is not proof of provider receipt. Visible compaction,
+bulk migration and the long-session capacity gate remain open. See the
+[saved admission contract](CONVERSATION_STORAGE.md#saved-request-admissions).
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following

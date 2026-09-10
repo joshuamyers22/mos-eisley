@@ -28,6 +28,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from mos_eisley.conversation import ConversationState, SessionID
 from mos_eisley.conversation_inputs import ActiveInputLimits, InputField
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
+from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     ConversationEntry,
@@ -261,6 +262,16 @@ def _working_parts(
     return header, parts, artifacts
 
 
+def _runtime_record_body(part: PackedPart) -> dict[str, object]:
+    """Decode persisted admission metadata before strict native validation."""
+    body: dict[str, object] = dict(part.body)
+    if body.get("request_admission") is not None:
+        body["request_admission"] = RequestAdmission.model_validate_json(
+            _json(body["request_admission"])
+        )
+    return body
+
+
 def _compact_working(
     state: RuntimeConversationState, parts: list[PackedPart], digests: tuple[str, ...]
 ) -> WorkingConversationState:
@@ -280,7 +291,7 @@ def _compact_working(
             entries.append(
                 ArchivedConversationEntry.model_validate(
                     {
-                        **part.body,
+                        **_runtime_record_body(part),
                         "artifact_refs": part.refs,
                         "source_sha256": sha,
                         "review_brief_id": entry.review_brief_id,
@@ -846,7 +857,7 @@ class SQLiteConversationStore(ConversationStore):
             return entry, normalized
         archived = ArchivedConversationEntry.model_validate(
             {
-                **normalized.body,
+                **_runtime_record_body(normalized),
                 "artifact_refs": normalized.refs,
                 "source_sha256": sha,
                 "review_brief_id": entry.review_brief_id,
@@ -1105,7 +1116,7 @@ class SQLiteConversationStore(ConversationStore):
         stored = PackedPart.model_validate_json(row[0])
         original = ArchivedConversationEntry.model_validate(
             {
-                **stored.body,
+                **_runtime_record_body(stored),
                 "artifact_refs": stored.refs,
                 "source_sha256": entry.source_sha256,
                 "review_brief_id": entry.review_brief_id,
