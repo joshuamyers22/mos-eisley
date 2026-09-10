@@ -1,0 +1,4 @@
+# False positive: Python call arguments `token, max_bytes=size - 1` in the
+# artifact byte-budget test. No credential value is present. Scope this exception
+# to the exact finding in its introducing commit; keep future findings enabled.
+a4ff0d7b3cd231462e05687419091c538d839fd2:tests/test_conversation_artifacts.py:generic-api-key:106
