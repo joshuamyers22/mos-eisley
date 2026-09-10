@@ -131,6 +131,11 @@ class TUITests(IsolatedAsyncioTestCase):
                         and chat.state.entries[1].status == "completed"
                     )
                 )
+                # The controller publishes completion before the terminal handles
+                # its event and refreshes the transcript.
+                await until(
+                    lambda: "You gave me a boundary of ten." in ui.transcript.text
+                )
                 self.assertIn("You gave me a boundary of ten.", ui.transcript.text)
                 self.assertIn("2/2 attempts", ui.status())
             finally:
