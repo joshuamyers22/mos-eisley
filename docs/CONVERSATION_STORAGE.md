@@ -109,10 +109,11 @@ queued until it can be admitted. When combined with memory/storage changes, the
 context resize is a separate saved transition. Legacy sessions omit the optional
 field and preserve their canonical hashes until a transition is saved.
 
-SQLite now releases historical artifact values after initial verification and uses
+SQLite now validates historical artifacts one entry at a time and uses
 [reference-based working state](CONVERSATION_SQLITE.md#controller-working-state).
-Initial load still reconstructs full state. Context admission alone does not
-complete bounded cold resume or the long-session acceptance gate.
+Current cold loads avoid accumulating decoded historical artifacts. Active memory,
+recordings and all 16 text records remain resident; context admission alone does
+not complete the long-session acceptance gate.
 
 ## Planned incremental storage
 
@@ -122,7 +123,9 @@ SQLite terminal history navigation, selected artifact expansion and bounded resu
 inspection. Verified checkpoints skip unchanged message/artifact writes. Current
 SQLite controllers retain references to historical artifacts and stream their bytes
 when computing snapshot hashes, without rebuilding their decoded values. Initial
-resume and external-commit revalidation still reconstruct complete state. JSON and
+resume and external-commit revalidation now verify historical entries one at a time
+under a 512,000-byte entry input bound, then stream the exact snapshot hash and size.
+Active memory and recordings still hydrate in full. JSON and
 legacy compatibility saves still serialize full proposed state. The preview's
 message cap remains. The stages
 below remain the complete target, including bulk migration and the long-session gate.
@@ -147,9 +150,10 @@ Implement these stages under the storage and ownership contract in
    Routine saves now reuse a same-connection verified checkpoint, with full
    revalidation after external commits. The controller now separates historical
    artifact values from its reference-based working state; saves stream retained
-   bytes, and queued reviews hydrate one admitted packet at dispatch. Next reduce
-   text/record bookkeeping into bounded transitions and bound cold loading plus
-   active memory/recording hydration.
+   bytes, and queued reviews hydrate one admitted packet at dispatch. Cold loading
+   now releases each historical entry's decoded values before verifying the next.
+   Next reduce text/record bookkeeping into bounded transitions and independently
+   budget active memory/recording hydration.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection
    is not yet a model-context policy and must not silently omit earlier intent.

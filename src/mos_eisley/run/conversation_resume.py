@@ -64,8 +64,8 @@ class ResumeInspection(Contract):
     )
     read_only: Literal[True] = True
     notice: Literal[
-        "Inspection only. Normal resume still loads and verifies the full state."
-    ] = "Inspection only. Normal resume still loads and verifies the full state."
+        "Inspection only. Normal resume verifies every entry and artifact."
+    ] = "Inspection only. Normal resume verifies every entry and artifact."
 
 
 def selected_positions(checkpoint: ResumeCheckpoint, consumed: int) -> list[int]:

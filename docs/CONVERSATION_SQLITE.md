@@ -238,16 +238,17 @@ revision, timestamp and consumed attempts; it never runs implicitly during reads
 Inspection verifies selected records and reference availability. Corrupt omitted
 records or artifact contents can remain undiscovered until selected or fully loaded.
 The owner-local index provides snapshot binding, not protection against deliberate
-same-user rewrites. This is a candidate working-set reader; **normal resume still
-loads and validates the full state**. Its selection does not change model context
-or authorize omitting earlier instructions. After verification, current sessions
-use the reference-based controller described below. Bounded cold loading and a
-scalable replacement for the 16-entry checkpoint remain open.
+same-user rewrites. This is a candidate working-set reader; **normal resume verifies
+every entry and artifact**, using incremental hydration for current records as
+described below. Its selection does not change model context or authorize omitting
+earlier instructions. Active-input hydration budgets and a scalable replacement for
+the 16-entry checkpoint remain open.
 
 ## Controller working state
 
-Normal SQLite chat/resume now releases historical memory and review artifact
-values after the initial full verification. The controller retains message text,
+Normal SQLite chat/resume verifies historical memory and review artifacts one entry
+at a time and releases their decoded values before validating the next entry.
+The controller retains message text,
 status, usage and steering links for the current 16-message preview, plus verified
 artifact references. Active memory and the selected recording remain decoded.
 At most the latest review result stays decoded for the live F3 renderer; queued
@@ -273,21 +274,49 @@ review events retain their brief ID and text summary; use F5/F7/F8 or the transc
 and artifact CLI to expand older evidence explicitly. The saved evidence is intact.
 Working-state references are internal and are not accepted as JSON snapshots.
 
-Older indexes without preparation metadata, and valid artifacts stored in
-noncanonical JSON, use the compatible full-state controller. An ordinary save
+Older indexes without preparation metadata, and admitted artifacts stored in
+valid noncanonical JSON, use the compatible full-state controller. An ordinary save
 prepares canonical records; reopening then enables the working-state path.
 Opening a session does not silently rewrite those records. Current prepared records
 with legacy whitespace or omitted defaults retain their semantics when saved.
 
-Initial load and revalidation after external commits still reconstruct full state.
-Active memory/recording serialization also remains part of each transition. Cold
-resume memory, larger histories, and smaller text/record transition inputs still
-need work before the long-session gate can pass.
+### Incremental cold verification
+
+Current prepared sessions no longer reconstruct one complete decoded snapshot on
+open or after external commits. Inside one read transaction, the loader verifies
+the index, stored header digest/size, contiguous entry records and their saved
+digests/sizes, and the complete artifact inventory. Each historical entry admits
+its packed record plus referenced artifact bytes against a 512,000-byte limit
+before fetching those artifacts. Repeated field references count separately.
+Artifacts are read through 32 KiB blob chunks, checked against their hashes, and
+validated with the complete entry schema, including review evidence/summary matching
+and historical memory ownership. Only verified references and text survive each
+entry's validation; at most the latest review result remains decoded.
+
+The assembled working state still validates cross-entry progress, steering, active
+memory identity and retained-recording consistency. The loader then streams the
+canonical logical snapshot to verify its exact hash, byte count, saved limit and
+summary. Header/entry defaults and legacy record whitespace retain their original
+meaning. The verified state, revision and checkpoint become usable only after the
+read transaction succeeds. Interrupted streams close their blob handles, and a
+failed reload discards the previous checkpoint before a later transition.
+
+This bounds historical hydration to one admitted entry, not total process RAM or
+cold-read work. It still reads all history and retains all 16 bounded text records.
+Active memory and recording values remain decoded under the existing aggregate
+32 MB artifact ceiling; their hydration and per-transition serialization still
+need independent budgets. Noncanonical artifacts that fit the cold entry bound
+and unprepared indexes use the full-state compatibility reader; opening does not
+rewrite them. A prepared entry exceeding the cold-input bound is rejected without
+a save or dispatch, including oversized legacy encodings.
+Larger histories and smaller text/record transition inputs also remain open before
+the long-session gate can pass.
 
 ## Incremental writes and recovery
 
 Routine saves now reuse a verified checkpoint held by the same database connection.
-A successful full load or committed save establishes it. Before reusing it, the
+A successful full or incremental verification, or committed save, establishes it.
+Before reusing it, the
 write transaction checks the database identity, connection change indicators,
 stored index and expected snapshot hash/revision. Unchanged messages do not reach
 an upsert; unchanged artifacts are not reinserted. The working-state path streams
@@ -298,7 +327,9 @@ read/save guard and transaction-before-dispatch rule apply.
 
 This relies on [SQLite's connection-local data version](https://www.sqlite.org/pragma.html#pragma_data_version),
 which changes after commits from another connection. Any such commit, including
-another session's save, forces full validation of this session before another save.
+another session's save, forces complete validation of this session before another
+save. The working-state controller uses incremental cold verification; the
+full-state compatibility API retains its original full reader.
 The connection's total-change counter also detects direct writes on the same
 connection. Versions are captured inside the transaction, and the replacement
 checkpoint is published only after commit succeeds. Failed saves, index preparation,
@@ -324,9 +355,10 @@ A save validates the current state and revision, then commits the updated head,
 changed message rows, new artifact references and catalog generation in one
 transaction. Unchanged message rows/artifacts are not rewritten. Objects no longer
 referenced by the saved state are removed in that same transaction. Earlier memory
-remains retained while historical entries reference it. Full loads and external-commit
-revalidation reconstruct complete logical state; compatible full-state saves still
-serialize a complete proposed state. Bounded cold loading remains planned.
+remains retained while historical entries reference it. Explicit full loads and
+compatible full-state saves still reconstruct or serialize complete logical state.
+The working-state path verifies historical entries incrementally on cold load and
+external-commit revalidation. Independent active-input budgets remain planned.
 Repeated artifact references count toward an expanded byte bound before their
 values are decoded, so corrupt references cannot bypass the input limits.
 

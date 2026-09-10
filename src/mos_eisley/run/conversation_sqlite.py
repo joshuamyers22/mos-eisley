@@ -710,31 +710,246 @@ class SQLiteConversationStore(ConversationStore):
         return self._sha256
 
     def load_working(self) -> RuntimeConversationState:
-        """Fully verify once, then release historical artifact values.
+        """Verify current sessions one entry at a time before publishing state.
 
         Older indexes or noncanonical artifacts use the full-state controller
         until an ordinary save upgrades them and the user reopens the session.
         """
         with self._transcript_guard:
-            state = self.load()
-            checkpoint = self._verified_checkpoint
-            assert checkpoint is not None
-            _, parts, artifacts = _working_parts(state)
+            self._verified_checkpoint = None
+            db = self._connection()
+            with conversation_transaction(db):
+                store_id, _ = _identity(db)
+                state = self._load_working(db)
+                if state is None:
+                    snapshot = self._load(db)
+                    state = snapshot.state
+                    sha = snapshot.sha256
+                else:
+                    sha = read_sqlite_session_index(
+                        db, self.session_id, self.workspace
+                    ).summary.snapshot_sha256
+                checkpoint = self._capture_checkpoint(db, store_id, sha)
+                if isinstance(state, WorkingConversationState):
+                    checkpoint = replace(
+                        checkpoint,
+                        canonical_artifacts=True,
+                        review_brief_ids=tuple(
+                            entry.review_brief_id for entry in state.entries
+                        ),
+                    )
+            self._revision = state.revision
+            self._sha256 = sha
+            self._verified_checkpoint = checkpoint
+            return state
+
+    def _cold_part(
+        self,
+        db: sqlite3.Connection,
+        part: PackedPart,
+        sizes: dict[str, int],
+        fields: tuple[str, ...],
+        limit: int,
+    ) -> dict[str, Any]:
+        if (
+            not part.refs.keys() <= set(fields)
+            or not set(part.refs.values()) <= sizes.keys()
+        ):
+            raise ValueError("invalid cold-resume artifact reference")
+        # Count repeated field references too: each expands into a decoded value.
+        size = len(canonical_bytes(part)) + sum(
+            sizes[sha] for sha in part.refs.values()
+        )
+        if size > limit:
+            raise ValueError(f"cold-resume input needs {size} bytes; limit is {limit}")
+        body = dict(part.body)
+        for field, sha in part.refs.items():
+            with closing(
+                self._artifact_chunks(db, sha, {}, frozenset(sizes))
+            ) as chunks:
+                payload = b"".join(chunks)
+            if len(payload) != sizes[sha]:
+                raise ValueError("cold-resume artifact size changed")
+            body[field] = json.loads(payload)
+        return body
+
+    def _cold_entry(
+        self,
+        db: sqlite3.Connection,
+        part: PackedPart,
+        sizes: dict[str, int],
+        sha: str,
+        *,
+        retain_result: bool,
+    ) -> tuple[ConversationEntry | ArchivedConversationEntry, PackedPart] | None:
+        fields = ("memory_context", "review_packet", "review_result")
+        body = self._cold_part(db, part, sizes, fields, MAX_ACTIVE_ENTRY_BYTES)
+        entry = ConversationEntry.model_validate_json(_json(body))
+        if entry.memory_context is not None and entry.memory_context.memory is not None:
+            entry.memory_context.memory.validate_identity(os.getuid(), self.workspace)
+        normalized = PackedPart.model_validate_json(
+            _pack(entry.model_dump(mode="json"), fields, {})
+        )
+        if normalized.refs != part.refs:
+            return None  # Noncanonical or inline legacy artifacts need the old reader.
+        if not part.refs:
+            return entry, normalized
+        archived = ArchivedConversationEntry.model_validate(
+            {
+                **normalized.body,
+                "artifact_refs": normalized.refs,
+                "source_sha256": sha,
+                "review_brief_id": entry.review_brief_id,
+                "review_result": entry.review_result if retain_result else None,
+            }
+        )
+        return archived, normalized
+
+    def _load_working(self, db: sqlite3.Connection) -> WorkingConversationState | None:
+        """Cold verification without accumulating decoded historical artifacts.
+
+        None selects the full-state compatibility reader, never a partial result.
+        Active header values and all bounded text records remain resident.
+        """
+        index = read_sqlite_session_index(db, self.session_id, self.workspace)
+        checkpoint, digests = index.resume_checkpoint, index.entry_sha256
+        if checkpoint is None or digests is None:
+            return None
+        row = db.execute(
+            "SELECT CASE WHEN length(header)<=? THEN header END "
+            "FROM sessions WHERE sid=?",
+            (MAX_RECORD_BYTES, self.session_id),
+        ).fetchone()
+        if (
+            row is None
+            or not isinstance(row[0], bytes)
+            or len(row[0]) != checkpoint.header_bytes
+            or digest(row[0]) != checkpoint.header_sha256
+        ):
+            raise ValueError("cold-resume header integrity mismatch")
+        raw_header = row[0]
+        rows = db.execute(
+            "SELECT position, CASE WHEN length(payload)<=? THEN payload END "
+            "FROM entries WHERE sid=? ORDER BY position LIMIT 17",
+            (MAX_RECORD_BYTES, self.session_id),
+        ).fetchall()
+        if (
+            not len(rows)
+            == len(digests)
+            == len(checkpoint.entries)
+            == index.summary.messages
+        ):
+            raise ValueError("invalid cold-resume entry count")
+        raw_entries: list[bytes] = []
+        for expected, (position, payload) in enumerate(rows):
             if (
-                checkpoint.index.entry_sha256 is None
-                or checkpoint.index.resume_checkpoint is None
-                or artifacts.keys() != checkpoint.artifacts
+                position != expected
+                or not isinstance(payload, bytes)
+                or len(payload) != checkpoint.entries[expected].bytes
+                or digest(payload) != digests[expected]
             ):
-                return state
-            working = _compact_working(state, parts, checkpoint.index.entry_sha256)
-            self._verified_checkpoint = replace(
-                checkpoint,
-                canonical_artifacts=True,
-                review_brief_ids=tuple(
-                    entry.review_brief_id for entry in state.entries
-                ),
+                raise ValueError("cold-resume entry integrity mismatch")
+            raw_entries.append(payload)
+        inventory = db.execute(
+            "SELECT sha, length(payload) FROM artifacts WHERE sid=? LIMIT 51",
+            (self.session_id,),
+        ).fetchall()
+        if (
+            len(inventory) > 50
+            or any(
+                type(size) is not int or not 1 <= size <= MAX_SNAPSHOT_BYTES
+                for _, size in inventory
             )
-            return working
+            or sum(size for _, size in inventory) > MAX_SNAPSHOT_BYTES
+        ):
+            raise ValueError("cold-resume artifacts exceed byte limit")
+        sizes = dict(inventory)
+        header = PackedPart.model_validate_json(raw_header)
+        parts = [PackedPart.model_validate_json(payload) for payload in raw_entries]
+        if {
+            sha for part in (header, *parts) for sha in part.refs.values()
+        } != sizes.keys():
+            raise ValueError("missing or unreferenced cold-resume artifacts")
+        body = self._cold_part(
+            db,
+            header,
+            sizes,
+            ("memory", "retained_cassette"),
+            MAX_SNAPSHOT_BYTES + MAX_RECORD_BYTES,
+        )
+        latest = next(
+            (
+                i
+                for i in range(len(parts) - 1, -1, -1)
+                if "review_result" in parts[i].refs
+            ),
+            None,
+        )
+        entries: list[ConversationEntry | ArchivedConversationEntry] = []
+        normalized: list[PackedPart] = []
+        for position, part in enumerate(parts):
+            verified = self._cold_entry(
+                db, part, sizes, digests[position], retain_result=position == latest
+            )
+            if verified is None:
+                return None
+            entry, canonical = verified
+            entries.append(entry)
+            normalized.append(canonical)
+        # JSON validation preserves legacy coercions (e.g. cassette tuple fields).
+        state = WorkingConversationState.model_validate_json(
+            _json(
+                {
+                    **body,
+                    "entries": [entry.model_dump(mode="json") for entry in entries],
+                }
+            )
+        )
+        state = state.model_copy(update={"entries": tuple(entries)})
+        del body
+        if (
+            state.session_id != self.session_id
+            or state.owner_uid != os.getuid()
+            or state.workspace != self.workspace
+        ):
+            raise ValueError("cold-resume state identity mismatch")
+        canonical_header, _, artifacts = _working_parts(state)
+        if canonical_header.refs != header.refs:
+            return None
+        del artifacts
+        if resume_checkpoint(state, raw_header, raw_entries) != checkpoint:
+            raise ValueError("cold-resume checkpoint integrity mismatch")
+        checksum = hashlib.sha256()
+        size = len(_json({"sha256": "0" * 64, "state": None})) - len(b"null")
+        with closing(
+            _state_chunks(
+                canonical_header,
+                lambda sha: self._artifact_chunks(db, sha, {}, frozenset(sizes)),
+                entries=normalized,
+            )
+        ) as chunks:
+            for chunk in chunks:
+                size += len(chunk)
+                if size > state.snapshot_byte_limit:
+                    raise ValueError(
+                        "cold-resume snapshot exceeds its saved byte limit"
+                    )
+                checksum.update(chunk)
+        summary = ConversationSummary(
+            session_id=state.session_id,
+            snapshot_sha256=checksum.hexdigest(),
+            revision=state.revision,
+            modified_ns=index.summary.modified_ns,
+            messages=len(entries),
+            completed=sum(e.status == "completed" for e in entries),
+            pending=sum(e.status == "queued" for e in entries),
+            active=False,
+            snapshot_bytes=size,
+            snapshot_max_bytes=state.snapshot_byte_limit,
+        )
+        if summary != index.summary:
+            raise ValueError("cold-resume state integrity mismatch")
+        return state
 
     def _working_checkpoint(
         self, db: sqlite3.Connection, store_id: str
@@ -745,20 +960,18 @@ class SQLiteConversationStore(ConversationStore):
             or not checkpoint.canonical_artifacts
             or checkpoint.review_brief_ids is None
         ):
-            snapshot = self._load(db)
-            checkpoint = self._capture_checkpoint(db, store_id, snapshot.sha256)
-            _, _, artifacts = _working_parts(snapshot.state)
-            if (
-                artifacts.keys() != checkpoint.artifacts
-                or checkpoint.index.entry_sha256 is None
-                or checkpoint.index.resume_checkpoint is None
-            ):
+            state = self._load_working(db)
+            if state is None:
                 raise ValueError("archived storage changed; reopen this session")
+            sha = read_sqlite_session_index(
+                db, self.session_id, self.workspace
+            ).summary.snapshot_sha256
+            checkpoint = self._capture_checkpoint(db, store_id, sha)
             checkpoint = replace(
                 checkpoint,
                 canonical_artifacts=True,
                 review_brief_ids=tuple(
-                    entry.review_brief_id for entry in snapshot.state.entries
+                    entry.review_brief_id for entry in state.entries
                 ),
             )
         if (

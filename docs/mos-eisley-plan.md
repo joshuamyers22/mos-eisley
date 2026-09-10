@@ -1467,8 +1467,8 @@ The default JSON backend still reads and rewrites whole snapshots. An
 and session-scoped artifact references transactionally, with exact-state deletion
 and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
 generation; a changed catalog requires restarting pagination. SQLite currently
-reconstructs the complete bounded state on initial resume, then uses reference-based
-working state for current records; its physical file has an
+verifies historical entries one at a time on initial resume, then uses reference-based
+working state for current records; active memory/recordings remain decoded. Its physical file has an
 initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-root
 JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
@@ -1538,8 +1538,8 @@ before the running transition; a larger context budget cannot bypass the recorde
 provider's 79,800-byte usable input limit. Provider-budget rejection likewise leaves
 work queued, reports required/available bytes and consumes no attempt.
 
-SQLite controllers now release historical memory/review values after full initial
-verification and retain their admitted references. Current saves validate working
+SQLite controllers now release historical memory/review values during incremental
+initial verification and retain their admitted references. Current saves validate working
 inputs and source-record hashes, stream archived bytes in 32 KiB chunks, and preserve
 the canonical snapshot hash and logical byte budget without rebuilding historical
 artifact objects. Changed records, artifact insertion/collection and generation
@@ -1551,11 +1551,23 @@ limit. At most the latest result stays decoded for the live renderer. JSON snaps
 reject runtime references. Older indexes and noncanonical artifact JSON retain the
 full-state compatibility path until an ordinary save and reopen.
 
-Bounded cold resume remains open: initial verification and external-commit recovery
-still reconstruct full state, active memory/recording values remain decoded, and
-each save still hashes all logical history bytes. The current working state keeps
-text for all 16 messages. Next bound cold loading, reduce text/record bookkeeping
-into bounded transitions, and budget active memory/recording hydration. Preserve
+Current prepared sessions now verify cold loads and external commits one historical
+entry at a time. Header/entry hashes and sizes, contiguous positions and the complete
+artifact inventory are verified inside one transaction. Each entry admits its packed
+record plus referenced artifacts against 512,000 bytes before fetching them, then
+checks hashes, complete typed entry constraints and historical memory identity.
+Decoded historical values are released before the next entry; only the latest
+review result remains cached. Cross-entry progress and steering still validate,
+and streamed canonical bytes must match the exact snapshot hash, logical size and
+summary before publication. Legacy record whitespace/defaults preserve semantics;
+unprepared indexes and noncanonical artifacts keep the full-state compatibility path.
+Failed reads publish no new state/revision and clear the previous checkpoint.
+
+Cold verification still reads all history. Active memory/recording values remain
+decoded under the existing aggregate artifact ceiling, and each save still hashes
+all logical history bytes. The current working state keeps text for all 16 messages.
+Next reduce text/record bookkeeping into bounded transitions and independently
+budget active memory/recording hydration. Preserve
 attempt accounting, interrupted-work recovery and
 steering ancestry. The inspection selection is not a provider context policy;
 context selection/compaction must explicitly preserve or account for earlier intent.
