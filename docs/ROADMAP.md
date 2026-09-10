@@ -135,6 +135,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    exact context/request fingerprints, limits and selected/omitted message positions.
    Completion, failure and recovery preserve it; existing entries are not backfilled.
    SQLite transcript/inspection reads expose this metadata without artifact hydration.
+   `/context N` now exposes a saved message's admission in both terminal modes,
+   showing historical hashes, budgets and selections with its current status.
+   It reads existing metadata without rebuilding requests, saving or enabling work;
+   missing/legacy admissions produce notices and the TUI marks changed views stale.
    Admission does not prove provider receipt. Visible compaction, smaller
    text/record transitions, bulk migration and the long-session acceptance gate
    remain open.

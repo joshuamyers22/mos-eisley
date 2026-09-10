@@ -301,6 +301,7 @@ class TUITests(IsolatedAsyncioTestCase):
             "/quit",
             "/review",
             "/context",
+            "/context 0",
             "/steer retained text",
             "/review\n/stop",
         ):

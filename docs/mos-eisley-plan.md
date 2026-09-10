@@ -1691,6 +1691,16 @@ crash before transmission; it is not proof of provider receipt. Visible compacti
 bulk migration and the long-session capacity gate remain open. See the
 [saved admission contract](CONVERSATION_STORAGE.md#saved-request-admissions).
 
+`/context N` now inspects that saved metadata directly from a zero-based transcript
+position in the line and screen terminals. It shows the original hashes, byte
+budgets and source selection with the current message status, without rebuilding
+requests, loading historical artifacts, saving or enabling paused work. Missing,
+queued, review and legacy targets yield notices without reconstructing admission.
+The version-1 inspection event is separate from the schema-2 next-queued preview.
+The screen toggles the selected report and marks the displayed status/revision
+stale after session changes; refreshing leaves the admission unchanged. Pasted and
+composed command text remains literal input.
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following

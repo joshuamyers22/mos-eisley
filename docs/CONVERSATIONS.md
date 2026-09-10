@@ -140,6 +140,12 @@ remains future work.
   It uses saved memory and the current history; active work can change the selection.
   A queued review retains its isolated packet and is not treated as a chat target.
   See [context previews](CONVERSATION_STORAGE.md#context-selection-preview).
+- `/context N` inspects message N's saved request admission, using the zero-based
+  number shown in the transcript. It shows the original context/request hashes,
+  budgets, selected positions and omissions without starting work. Later memory,
+  history and limit changes do not recalculate the admission. Queued messages,
+  reviews and older messages without admission metadata produce a notice.
+  See [saved request admissions](CONVERSATION_STORAGE.md#saved-request-admissions).
 - `/memory` inspects active user/project context. `/memory refresh` loads current
   saved memory; `/memory off` disables it for the session without reading storage.
   Stop or finish active work first. Successful changes save the selection and pause

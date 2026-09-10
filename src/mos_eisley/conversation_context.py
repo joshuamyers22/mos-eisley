@@ -56,6 +56,22 @@ class ContextProjection(NamedTuple):
     selection: ContextSelection
 
 
+def describe_selection(selection: ContextSelection) -> list[str]:
+    """Describe source positions without accessing message or artifact content."""
+    lines: list[str] = []
+    for turn, source in enumerate(selection.turn_sources):
+        positions = ", ".join(str(position) for position in source.positions)
+        lines.append(f"Turn {turn}: {source.role} from message(s) {positions}.")
+    for omission in selection.omitted:
+        reason = (
+            "after the selected message"
+            if omission.reason == "after_target"
+            else "no completed answer or required steering link"
+        )
+        lines.append(f"Omitted message {omission.position}: {reason}.")
+    return lines
+
+
 class ContextBudgetError(ValueError):
     """A local admission rejection whose message contains only sizes and guidance."""
 
