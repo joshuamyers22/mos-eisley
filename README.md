@@ -32,7 +32,8 @@ save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and
-`mos --no-memory` bypasses it. Changed memory requires a fresh conversation.
+`mos --no-memory` bypasses it. Use `/memory refresh` to apply changes to the
+current session, or `/memory off` to disable its memory; `/continue` resumes work.
 
 To install `mos` on your PATH from this checkout with the pinned runtime versions:
 
@@ -379,7 +380,7 @@ or cloud backends. It prohibits cross-user aggregation, including model-selectio
 statistics, and automatic retrieval of full prior conversations in fresh sessions.
 The first [user/project memory implementation](docs/CONVERSATION_MEMORY.md)
 adds explicitly curated facts and preferences with separate scopes and CLI controls;
-natural-language saving and safe in-session refresh remain planned.
+explicit in-session refresh is available; natural-language saving remains planned.
 Remote storage adapters and comprehensive user-isolation enforcement are not yet
 implemented; the current private-file behavior is not a claim of those guarantees.
 

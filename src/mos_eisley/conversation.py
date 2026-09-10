@@ -11,7 +11,11 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
-from mos_eisley.conversation_memory import ConversationMemory, memory_system
+from mos_eisley.conversation_memory import (
+    ConversationMemory,
+    MemoryRefreshError,
+    memory_system,
+)
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
@@ -38,11 +42,18 @@ SessionID = Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
 Status = Literal["queued", "running", "completed", "cancelled", "interrupted", "failed"]
 
 
+class ConversationMemoryContext(Contract):
+    memory: ConversationMemory | None = None
+
+
 class ConversationEntry(Contract):
     text: Text
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
+    memory_context: ConversationMemoryContext | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -55,6 +66,10 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.memory_context is not None and (
+            self.status == "queued" or self.review_packet is not None
+        ):
+            raise ValueError("queued messages and reviews cannot bind chat memory")
         if self.review_packet is not None:
             if self.steering_for is not None:
                 raise ValueError("review packets cannot carry conversation steering")
@@ -103,13 +118,34 @@ class ConversationState(Contract):
     memory: ConversationMemory | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    memory_disabled: bool = Field(default=False, exclude_if=lambda value: not value)
+    retained_cassette: AgentCassette | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    builtin_recording: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        if self.memory_disabled and self.memory is not None:
+            raise ValueError("disabled memory must not contain active context")
+        if self.retained_cassette is not None and (
+            digest(canonical_bytes(self.retained_cassette)) != self.cassette_sha256
+            or self.exchanges_consumed > len(self.retained_cassette.exchanges)
+        ):
+            raise ValueError("retained recording does not match the session")
+        if self.builtin_recording and self.retained_cassette is None:
+            raise ValueError("refreshed builtin recording must be retained")
         if self.memory is not None:
             self.memory.validate_identity(self.owner_uid, self.workspace)
         targets: set[int] = set()
         for index, entry in enumerate(self.entries):
+            if (
+                entry.memory_context is not None
+                and entry.memory_context.memory is not None
+            ):
+                entry.memory_context.memory.validate_identity(
+                    self.owner_uid, self.workspace
+                )
             if entry.steering_for is not None:
                 if entry.steering_for >= index:
                     raise ValueError("steering must refer to an earlier message")
@@ -219,6 +255,8 @@ class ConversationController:
         workspace: Path,
         cassette: AgentCassette,
         memory: ConversationMemory | None = None,
+        *,
+        memory_disabled: bool = False,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -228,6 +266,7 @@ class ConversationController:
             workspace=str(workspace.resolve(strict=True)),
             cassette_sha256=digest(canonical_bytes(cassette)),
             memory=memory,
+            memory_disabled=memory_disabled,
         )
 
     def _update(
@@ -246,13 +285,77 @@ class ConversationController:
             ),
             entries=entries,
             memory=self.state.memory,
+            memory_disabled=self.state.memory_disabled,
+            retained_cassette=self.state.retained_cassette,
+            builtin_recording=self.state.builtin_recording,
         )
+        self._commit(updated)
+
+    def _commit(self, updated: ConversationState) -> None:
+        if self._broken:
+            raise ValueError("session persistence failed; reopen before continuing")
         try:
             self.save(updated)
         except BaseException:
             self._broken = True
             raise
         self.state = updated
+
+    def refresh_memory(
+        self,
+        memory: ConversationMemory | None,
+        cassette: AgentCassette,
+        *,
+        disabled: bool = False,
+        builtin: bool = False,
+    ) -> None:
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise MemoryRefreshError("Stop active work before changing session memory.")
+        consumed = self.state.exchanges_consumed
+        if (
+            len(cassette.exchanges) < consumed
+            or cassette.exchanges[:consumed] != self.cassette.exchanges[:consumed]
+        ):
+            raise MemoryRefreshError(
+                "A replacement recording must preserve every consumed exchange."
+            )
+        # Legacy entries inherit the old session selection. Freeze it before
+        # changing the active selection; historical context never enters new prompts.
+        entries = tuple(
+            entry.model_copy(
+                update={
+                    "memory_context": ConversationMemoryContext(
+                        memory=self.state.memory
+                    )
+                }
+            )
+            if entry.status != "queued"
+            and entry.review_packet is None
+            and entry.memory_context is None
+            else entry
+            for entry in self.state.entries
+        )
+        try:
+            updated = ConversationState(
+                session_id=self.state.session_id,
+                owner_uid=self.state.owner_uid,
+                workspace=self.state.workspace,
+                revision=self.state.revision + 1,
+                exchanges_consumed=consumed,
+                entries=entries,
+                memory=memory,
+                memory_disabled=disabled,
+                retained_cassette=cassette,
+                cassette_sha256=digest(canonical_bytes(cassette)),
+                builtin_recording=builtin,
+            )
+            updated = ConversationState.model_validate_json(updated.model_dump_json())
+        except ValueError:
+            raise MemoryRefreshError(
+                "The selected memory or recording is invalid for this session."
+            ) from None
+        self._commit(updated)
+        self.cassette = cassette
 
     def submit(self, text: str) -> None:
         if not text.strip():
@@ -318,6 +421,14 @@ class ConversationController:
         consumed = self.state.exchanges_consumed
         entry = self.state.entries[index]
         is_review = entry.review_packet is not None
+        if not is_review and self.state.retained_cassette is not None:
+            entry = entry.model_copy(
+                update={
+                    "memory_context": ConversationMemoryContext(
+                        memory=self.state.memory
+                    )
+                }
+            )
         if not is_review and consumed >= len(self.cassette.exchanges):
             raise ValueError("recorded conversation has no remaining exchange")
         self._busy = True
@@ -369,6 +480,7 @@ class ConversationController:
                     completed = ConversationEntry(
                         text=entry.text,
                         steering_for=entry.steering_for,
+                        memory_context=entry.memory_context,
                         status="completed",
                         answer=result.final_text,
                         usage=result.usage,

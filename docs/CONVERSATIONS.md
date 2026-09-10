@@ -42,7 +42,9 @@ mos resume <session-id> --cassette /tmp/mos-chat-cassette.json --storage /tmp/mo
 
 `--workspace /absolute/workspace` explicitly selects the workspace (default: the
 current directory). Selecting a workspace does not read its repository files.
-Resume requires the same canonical workspace and exact cassette. A new `chat`
+Resume requires the same canonical workspace and exact cassette, except for an
+explicit [memory refresh](CONVERSATION_MEMORY.md#session-consistency-and-retention)
+that preserves consumed exchanges and retains its replacement recording. A new `chat`
 starts empty and never retrieves other sessions' content.
 
 ## Finding and removing sessions
@@ -116,6 +118,10 @@ draft, then `/send` to queue it as one literal message in line mode. The screen
 has an editable multiline composer with Enter to send. Mid-request interruption
 remains future work.
 
+- `/memory` inspects active user/project context. `/memory refresh` loads current
+  saved memory; `/memory off` disables it for the session without reading storage.
+  Stop or finish active work first. Successful changes save the selection and pause
+  queued work until explicit continuation. See [memory management](CONVERSATION_MEMORY.md).
 - `/stop` or Ctrl-C cancels the active request and queued messages, retaining their
   text and status, and discards an unsent draft. The session remains open for
   new input.

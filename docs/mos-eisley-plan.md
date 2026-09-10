@@ -1145,8 +1145,13 @@ private user/project documents, explicit CLI show/set/append/clear/enable/disabl
 startup loading, active revision display and `/memory` inspection. Memory revisions
 are retained with sessions and bound into recorded chat requests; changed memory
 pauses before another dispatch and prevents stale resume. `--no-memory` bypasses
-loading. Existing memory contexts cannot yet be refreshed in-place: start a fresh
-session. Project scope currently uses the selected canonical workspace; Git-root
+loading. `/memory refresh` and `/memory off` now explicitly replace the active
+selection between requests and leave queued work paused until `/continue`.
+`resume --refresh-memory` provides the same transition for saved sessions, with
+`--no-memory` to disable loading. Earlier messages retain their historical context;
+consumed recording exchanges remain unchanged. Custom recordings require an explicit
+replacement via `--refresh-cassette`, retained privately for subsequent resumes.
+Project scope currently uses the selected canonical workspace; Git-root
 discovery, mapping, natural-language saves and automatic extraction remain planned.
 The requirements below remain the complete target.
 

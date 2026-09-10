@@ -18,6 +18,8 @@
   and private default storage; `mos resume --last` reopens the latest session.
   User/project memory now has private scoped storage, explicit CLI management,
   startup loading, `/memory` inspection and stale-memory dispatch/resume checks.
+  Explicit refresh/off controls now persist the session selection, preserve earlier
+  request context and support resume without replaying consumed recording exchanges.
   A persistent directory header and `/directory` inspection show the workspace.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

@@ -72,8 +72,10 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    retention tests. The first [memory implementation](CONVERSATION_MEMORY.md) now
    provides private owner/project storage, explicit CLI management, startup loading,
    in-session inspection and changed-memory guards before dispatch/resume. Directory
-   status stays visible. Natural-language memory changes, safe in-session refresh,
-   project-root discovery and the directory picker remain planned.
+   status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
+   now persist the selected context while preserving consumed recording exchanges
+   and historical memory. Natural-language memory changes, project-root discovery
+   and the directory picker remain planned.
    Mid-request interruption and live review
    remain open.
    Live conversation requires conformance, transfer policy, and aggregate session
