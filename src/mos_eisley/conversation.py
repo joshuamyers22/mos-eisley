@@ -11,7 +11,13 @@ from uuid import uuid4
 
 from pydantic import Field, model_validator
 
-from mos_eisley.conversation_limits import DEFAULT_SNAPSHOT_BYTES, SnapshotByteLimit
+from mos_eisley.conversation_context import admit_context, context_turns
+from mos_eisley.conversation_limits import (
+    DEFAULT_CONTEXT_BYTES,
+    DEFAULT_SNAPSHOT_BYTES,
+    ContextByteLimit,
+    SnapshotByteLimit,
+)
 from mos_eisley.conversation_memory import (
     ConversationMemory,
     MemoryRefreshError,
@@ -24,7 +30,15 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
-from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentUsage, run_agent
+from mos_eisley.core.agent import (
+    AgentConfig,
+    AgentFailure,
+    AgentUsage,
+    build_request,
+    check_request_budget,
+    run_agent,
+)
+from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import (
     Contract,
     Digest,
@@ -127,6 +141,13 @@ class ConversationState(Contract):
     snapshot_max_bytes: SnapshotByteLimit | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    context_max_bytes: ContextByteLimit | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @property
+    def context_byte_limit(self) -> int:
+        return self.context_max_bytes or DEFAULT_CONTEXT_BYTES
 
     @property
     def snapshot_byte_limit(self) -> int:
@@ -200,27 +221,7 @@ def conversation_config(
 
 
 def context_for(state: ConversationState, index: int) -> tuple[Turn, ...]:
-    def user_blocks(position: int) -> tuple[TextBlock, ...]:
-        entry = state.entries[position]
-        blocks: tuple[TextBlock, ...] = ()
-        # An unanswered task contributes its intent, never a fabricated answer.
-        # Follow the earlier-only chain so interrupted refinements retain intent too.
-        target = entry.steering_for
-        if target is not None and state.entries[target].status != "completed":
-            blocks = user_blocks(target)
-        return blocks + (TextBlock(text=entry.text),)
-
-    turns: list[Turn] = []
-    for position, entry in enumerate(state.entries[:index]):
-        if entry.status == "completed" and entry.answer is not None:
-            turns.extend(
-                (
-                    Turn(role="user", blocks=user_blocks(position)),
-                    Turn(role="assistant", blocks=(TextBlock(text=entry.answer),)),
-                )
-            )
-    turns.append(Turn(role="user", blocks=user_blocks(index)))
-    return tuple(turns)
+    return context_turns(state.entries, index)
 
 
 class ConversationController:
@@ -266,6 +267,7 @@ class ConversationController:
         *,
         memory_disabled: bool = False,
         snapshot_max_bytes: int | None = None,
+        context_max_bytes: int | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -277,6 +279,7 @@ class ConversationController:
             memory=memory,
             memory_disabled=memory_disabled,
             snapshot_max_bytes=snapshot_max_bytes,
+            context_max_bytes=context_max_bytes,
         )
 
     def _update(
@@ -299,6 +302,7 @@ class ConversationController:
             retained_cassette=self.state.retained_cassette,
             builtin_recording=self.state.builtin_recording,
             snapshot_max_bytes=self.state.snapshot_max_bytes,
+            context_max_bytes=self.state.context_max_bytes,
         )
         self._commit(updated)
 
@@ -360,6 +364,7 @@ class ConversationController:
                 retained_cassette=cassette,
                 cassette_sha256=digest(canonical_bytes(cassette)),
                 builtin_recording=builtin,
+                context_max_bytes=self.state.context_max_bytes,
                 snapshot_max_bytes=(
                     self.state.snapshot_max_bytes
                     if snapshot_max_bytes is None
@@ -382,6 +387,16 @@ class ConversationController:
         )
         updated = ConversationState.model_validate_json(updated.model_dump_json())
         if maximum != self.state.snapshot_max_bytes:
+            self._commit(updated)
+
+    def resize_context(self, maximum: int) -> None:
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise ValueError("stop active work before changing the context budget")
+        updated = self.state.model_copy(
+            update={"context_max_bytes": maximum, "revision": self.state.revision + 1}
+        )
+        updated = ConversationState.model_validate_json(updated.model_dump_json())
+        if maximum != self.state.context_max_bytes:
             self._commit(updated)
 
     def submit(self, text: str) -> None:
@@ -458,6 +473,26 @@ class ConversationController:
             )
         if not is_review and consumed >= len(self.cassette.exchanges):
             raise ValueError("recorded conversation has no remaining exchange")
+        # Select and admit the exact immutable context before persisting running
+        # or burning an attempt. The config is reused after dispatch admission.
+        config: AgentConfig | None = None
+        if not is_review:
+            config = conversation_config(
+                context_for(self.state, index), self.state.memory
+            )
+            admit_context(
+                config.system, config.initial_turns, self.state.context_byte_limit
+            )
+            resolved = fixture_registry().resolve(
+                config.provider, config.model, config.effort
+            )
+            budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
+            check_request_budget(
+                build_request(
+                    config, resolved, budget, NoToolsDispatcher(), config.initial_turns
+                ),
+                budget,
+            )
         self._busy = True
 
         def replace(entry: ConversationEntry, *, started: bool = False) -> None:
@@ -486,13 +521,12 @@ class ConversationController:
                         review_result=review_result,
                     )
                 else:
+                    assert config is not None
                     recorded = RecordedAgentClient(
                         AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
                     )
                     result = await run_agent(
-                        conversation_config(
-                            context_for(self.state, index), self.state.memory
-                        ),
+                        config,
                         fixture_registry(),
                         recorded if client is None else client,
                         NoToolsDispatcher(),

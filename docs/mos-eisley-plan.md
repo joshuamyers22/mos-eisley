@@ -1519,6 +1519,23 @@ happens only after a successful commit. No content or decoded state is cached in
 this checkpoint, only bounded metadata and artifact digests. Import and explicit
 load/delete retain full validation.
 
+Chat dispatch now builds context through a text-only message interface and admits
+the canonical UTF-8 JSON for system instructions and selected turns before saving
+`running` or consuming an attempt. Both backends retain an independent
+`--context-max-bytes` budget (256,000 default; 4,000–1,000,000 range). Selection
+preserves all earlier completed exchanges and unanswered steering ancestry;
+active memory contributes through the system instructions, while historical
+memory/review artifacts stay outside selection. An oversized request reports its
+required size and saved limit, remains queued and pauses continuation. No automatic
+compaction or omission occurs. This budget is neither provider tokens nor a bound
+on complete wire requests or peak RAM; review execution retains its isolated packet
+limits. The selected config is frozen before the running transition and reused for
+dispatch. Context resizing preserves attempts and saves its own transition.
+The complete model request also passes the agent loop's shared byte-budget check
+before the running transition; a larger context budget cannot bypass the recorded
+provider's 79,800-byte usable input limit. Provider-budget rejection likewise leaves
+work queued, reports required/available bytes and consumes no attempt.
+
 Actual bounded controller resume remains open. Next separate active controller
 state from historical artifact values, accept bounded transition changes instead
 of revalidating/serializing a complete proposed state, and budget active memory/recording/review hydration at

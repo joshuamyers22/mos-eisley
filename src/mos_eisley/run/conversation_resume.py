@@ -6,7 +6,11 @@ from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID
-from mos_eisley.conversation_limits import DEFAULT_SNAPSHOT_BYTES, SnapshotByteLimit
+from mos_eisley.conversation_limits import (
+    DEFAULT_SNAPSHOT_BYTES,
+    ContextByteLimit,
+    SnapshotByteLimit,
+)
 from mos_eisley.core.models import Contract, Digest, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint
 from mos_eisley.run.conversation_sqlite import (
@@ -34,6 +38,7 @@ class ResumeHeader(Contract):
     memory_disabled: bool = False
     builtin_recording: bool = False
     snapshot_max_bytes: SnapshotByteLimit | None = None
+    context_max_bytes: ContextByteLimit | None = None
 
 
 class HeaderArtifact(Contract):

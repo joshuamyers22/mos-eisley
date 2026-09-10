@@ -97,8 +97,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    no recovery. Routine saves now reuse a verified checkpoint on the same connection,
    avoid old payload reads and skip unchanged message/artifact writes. External
    commits and uncertain saves require full revalidation. Controller transition
-   inputs still contain full state. Actual bounded controller resume, bulk migration
-   and the long-session acceptance gate
+   inputs still contain full state. Chat context now uses a text-only selection
+   interface and a separately saved byte budget, checked before an attempt is
+   consumed. It preserves completed history and steering, and pauses oversized
+   queued work with required/available byte counts. Actual bounded controller
+   resume, bulk migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.

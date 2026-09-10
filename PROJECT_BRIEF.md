@@ -33,7 +33,10 @@
   now supports read-only `resume --inspect`, selecting recent messages, unfinished
   work and steering ancestry without loading artifacts. Routine SQLite transitions
   now reuse verified checkpoints, skip unchanged row writes and avoid old payload
-  reads; external commits force full validation. Bounded controller resume,
+  reads; external commits force full validation. Chat context now has a separately
+  saved byte budget and text-only history selection; admission rejects oversized
+  requests before consuming attempts and preserves queued work and steering.
+  Bounded controller resume,
   bulk migration and longer conversation limits remain planned under plan §17.5.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.

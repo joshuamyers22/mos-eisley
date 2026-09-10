@@ -22,12 +22,17 @@ from mos_eisley.conversation import (
     conversation_config,
 )
 from mos_eisley.conversation_composer import ConversationComposer
+from mos_eisley.conversation_context import ContextBudgetError
 from mos_eisley.conversation_input import (
     ConversationInput,
     ConversationInputQueue,
     ConversationSubmission,
 )
-from mos_eisley.conversation_limits import catalog_byte_limit, snapshot_byte_limit
+from mos_eisley.conversation_limits import (
+    catalog_byte_limit,
+    context_byte_limit,
+    snapshot_byte_limit,
+)
 from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
     ConversationMemory,
@@ -44,7 +49,7 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
-from mos_eisley.core.agent import AgentFailure, build_request
+from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
@@ -94,6 +99,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--no-memory",
         "--memory-storage",
         "--session-max-bytes",
+        "--context-max-bytes",
         "--storage-backend",
     }
     if not argv or argv[0].split("=", 1)[0] in launch_options:
@@ -251,6 +257,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--session-max-bytes",
                 type=snapshot_byte_limit,
                 help="Save a per-session snapshot budget (64000–32000000 bytes)",
+            )
+            command.add_argument(
+                "--context-max-bytes",
+                type=context_byte_limit,
+                help="Save a chat context budget (4000–1000000 bytes; default 256000)",
             )
             command.add_argument(
                 "--cassette",
@@ -513,12 +524,23 @@ async def terminal(
                     active.result()
                 except (AgentFailure, ValueError) as exc:
                     enabled = False
+                    message = "Recorded request failed; continuation is paused."
+                    if isinstance(exc, MemoryChangedError):
+                        message = MEMORY_CHANGED_MESSAGE
+                    elif isinstance(exc, ContextBudgetError):
+                        message = str(exc)
+                    elif isinstance(exc, RequestBudgetError):
+                        message = (
+                            f"Model request needs {exc.required_bytes} bytes; "
+                            f"provider input limit is {exc.maximum_bytes}. "
+                            "Message remains queued; no attempt was consumed. "
+                            "Storage/context resizing cannot raise this limit. "
+                            "Start a fresh session with the required task context."
+                        )
                     emit(
                         {
                             "type": "conversation.error",
-                            "text": MEMORY_CHANGED_MESSAGE
-                            if isinstance(exc, MemoryChangedError)
-                            else "Recorded request failed; continuation is paused.",
+                            "text": message,
                         }
                     )
                 active = None
@@ -772,6 +794,7 @@ def run_command(args: argparse.Namespace) -> int:
             args.refresh_memory
             or args.refresh_cassette is not None
             or args.session_max_bytes is not None
+            or args.context_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
             or args.no_memory
@@ -972,6 +995,7 @@ def run_command(args: argparse.Namespace) -> int:
             memory,
             memory_disabled=args.no_memory,
             snapshot_max_bytes=args.session_max_bytes,
+            context_max_bytes=args.context_max_bytes,
         )
         session_id = fresh.session_id
     elif args.last:
@@ -1048,6 +1072,8 @@ def run_command(args: argparse.Namespace) -> int:
                 return 2
         elif args.command == "resume" and args.session_max_bytes is not None:
             controller.resize_storage(args.session_max_bytes)
+        if args.command == "resume" and args.context_max_bytes is not None:
+            controller.resize_context(args.context_max_bytes)
         emit(
             {
                 "type": "conversation.opened",
@@ -1076,6 +1102,10 @@ def run_command(args: argparse.Namespace) -> int:
         )
         welcome += (
             f"\nSession snapshot budget: {controller.state.snapshot_byte_limit} bytes."
+        )
+        welcome += (
+            f"\nChat context budget: {controller.state.context_byte_limit} bytes "
+            "(system and history JSON; separate from storage and tokens)."
         )
         if sqlite_backend:
             welcome += (
