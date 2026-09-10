@@ -10,9 +10,10 @@ import secrets
 import sqlite3
 import sys
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from importlib.metadata import version as distribution_version
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from openai import AsyncOpenAI
 from pydantic import ValidationError
@@ -22,7 +23,12 @@ from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
 from mos_eisley.core.ports import Journal, ProviderError
 from mos_eisley.core.protocol import Effort, TextBlock, Turn
-from mos_eisley.core.registry import default_registry, fixture_registry, openai_registry
+from mos_eisley.core.registry import (
+    ModelRegistry,
+    default_registry,
+    fixture_registry,
+    openai_registry,
+)
 from mos_eisley.core.skills import SkillPackageArchive, SkillRoster
 from mos_eisley.demo import demo_inputs
 from mos_eisley.demo_agent import agent_demo_inputs
@@ -55,6 +61,7 @@ from mos_eisley.evaluation.lineage_scoring import (
     score_dual_graded_observations,
 )
 from mos_eisley.evaluation.models import (
+    MAX_ASSIGNMENTS,
     CandidateGrid,
     EvaluationDataset,
     EvaluationGate,
@@ -117,18 +124,25 @@ from mos_eisley.evaluation.skill_comparison import (
 from mos_eisley.evaluation.skill_promotion import (
     AuthenticatedSkillPromotion,
     SignedSkillPromotionDecision,
+    SkillEvaluationLineage,
     SkillPromotionAuthorityPolicy,
     authenticate_skill_promotion,
     make_skill_promotion_decision,
 )
 from mos_eisley.providers.agent_recorded import RecordedAgentClient
+from mos_eisley.providers.openai_billing import EphemeralOpenAIAdminBillingTransport
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
+from mos_eisley.providers.openai_readiness import probe_openai_readiness
 from mos_eisley.providers.openai_responses import (
     OpenAIResponsesClient,
     SDKOpenAITransport,
 )
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
+from mos_eisley.providers.openai_spend import (
+    BudgetedOpenAITransport,
+    PreReservedOpenAITransport,
+    SpendPolicy,
+)
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.run.activation_control import (
@@ -140,10 +154,37 @@ from mos_eisley.run.broker_audit import (
     AssignmentAuthorization,
     inspect_broker_recovery,
 )
-from mos_eisley.run.brokered_evaluation import compile_brokered_evaluation
+from mos_eisley.run.brokered_evaluation import (
+    BrokeredEvaluationArtifact,
+    BrokeredEvaluationResponseError,
+    compile_brokered_evaluation,
+    compile_brokered_evaluation_failure,
+    compile_brokered_evaluation_result_set,
+)
 from mos_eisley.run.evaluation_broker import (
     authorize_assignment,
     make_assignment_broker,
+)
+from mos_eisley.run.evaluation_conformance import (
+    AuthenticatedEvaluationConformance,
+    EvaluationConformancePolicy,
+    SignedEvaluationConformanceObservation,
+    TrustedEvaluationConformanceObserver,
+    authenticate_evaluation_conformance,
+    make_evaluation_conformance_observation,
+    prepare_evaluation_conformance_policy,
+    validate_evaluation_conformance_preflight,
+)
+from mos_eisley.run.evaluation_conformance_authorization import (
+    EvaluationConformanceAuthorityPolicy,
+    EvaluationConformanceAuthorization,
+    EvaluationConformanceAuthorizationRejected,
+    SignedEvaluationConformanceAuthorization,
+    make_evaluation_conformance_authorization,
+    verify_evaluation_conformance_authorization,
+)
+from mos_eisley.run.evaluation_conformance_failure import (
+    make_precredential_rejection,
 )
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.holdout_use import claim_holdout_use, claim_skill_holdout_use
@@ -151,15 +192,164 @@ from mos_eisley.run.isolated_broker import run_isolated_broker
 from mos_eisley.run.isolation import OfflineContainer, run_isolated_recorded
 from mos_eisley.run.journal import MemoryJournal
 from mos_eisley.run.live_store import begin_live_run
+from mos_eisley.run.openai_calibration_campaign import (
+    OpenAICalibrationCampaignManifest,
+    OpenAICalibrationCampaignPolicy,
+    plan_openai_calibration_campaign,
+)
+from mos_eisley.run.openai_calibration_execution import (
+    AuthenticatedOpenAICalibrationExecution,
+    OpenAICalibrationExecutionAuthorityPolicy,
+    PreparedOpenAICalibrationExecution,
+    SignedOpenAICalibrationExecutionDecision,
+    authenticate_openai_calibration_execution,
+    consume_openai_calibration_execution,
+    make_openai_calibration_execution_decision,
+    verify_prepared_openai_calibration_execution,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
-from mos_eisley.run.routing_preflight import perform_routing_runtime_preflight
-from mos_eisley.run.skill_release import bind_skill_release_evidence
+from mos_eisley.run.openai_conformance_conversion import (
+    OpenAIConformanceCalibrationSeed,
+    OpenAIConformanceConversionPolicy,
+    convert_openai_conformance_to_calibration_seed,
+)
+from mos_eisley.run.openai_responses_canary import (
+    OpenAIResponsesCanaryAuthorityPolicy,
+    OpenAIResponsesCanaryResult,
+    SignedOpenAIResponsesCanaryAuthorization,
+    begin_openai_responses_canary,
+    execute_openai_responses_canary,
+    load_openai_responses_canary,
+    make_openai_responses_canary_authorization,
+    verify_openai_responses_canary_authorization,
+)
+from mos_eisley.run.provider_broker import RequestBoundBroker
+from mos_eisley.run.routing_preflight import (
+    RoutingRuntimePreflight,
+    RoutingRuntimeSources,
+    perform_routing_runtime_preflight,
+)
+from mos_eisley.run.skill_default import (
+    AuthenticatedSkillDefault,
+    SignedSkillDefaultDecision,
+    SkillDefaultAuthorityPolicy,
+    SkillDefaultStore,
+    SkillDefaultStorePolicy,
+    authenticate_skill_default,
+    make_skill_default_decision,
+    select_authenticated_skill_default,
+)
+from mos_eisley.run.skill_health import (
+    SignedSkillHealthObservation,
+    SignedSkillHealthPolicy,
+    SkillHealthAuthorityPolicy,
+    SkillHealthEligibility,
+    issue_skill_health_eligibility,
+)
+from mos_eisley.run.skill_installation import (
+    AuthenticatedSkillInstallation,
+    SignedSkillInstallationDecision,
+    SkillInstallationAuthorityPolicy,
+    SkillInstallationClaimStore,
+    SkillInstallationClaimStorePolicy,
+    authenticate_skill_installation,
+    make_skill_installation_decision,
+)
+from mos_eisley.run.skill_installed_store import (
+    SkillInstalledStore,
+    SkillInstalledStorePolicy,
+    inspect_skill_install_recovery,
+    install_authenticated_skill_release,
+)
+from mos_eisley.run.skill_release import (
+    SkillReleaseEvidence,
+    bind_skill_release_evidence,
+)
+from mos_eisley.run.skill_release_control import (
+    AuthenticatedSkillReleaseControl,
+    SignedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillReleaseControlAnchorPolicy,
+    SkillReleaseControlAuthorityPolicy,
+    authenticate_skill_release_control,
+    make_skill_release_control_decision,
+)
+from mos_eisley.run.skill_runtime_admission import (
+    SkillRuntimeAdmissionStore,
+    SkillRuntimeAdmissionStorePolicy,
+    SkillRuntimeBrokerAdmission,
+    inspect_skill_runtime_admission,
+    make_skill_runtime_broker_admission,
+)
+from mos_eisley.run.skill_runtime_billing import (
+    SignedSkillRuntimeBillingObservation,
+    SkillRuntimeBillingPolicy,
+    authenticate_skill_runtime_billing_evidence,
+    make_skill_runtime_billing_observation,
+    make_skill_runtime_billing_observation_from_collection,
+)
+from mos_eisley.run.skill_runtime_billing_collection import (
+    CollectedSkillRuntimeBillingEvidence,
+    collect_skill_runtime_billing_evidence,
+)
+from mos_eisley.run.skill_runtime_conformance import (
+    AuthenticatedSkillRuntimeConformance,
+    SignedSkillRuntimeConformanceObservation,
+    SkillRuntimeConformancePolicy,
+    authenticate_skill_runtime_conformance,
+    make_skill_runtime_conformance_observation,
+)
+from mos_eisley.run.skill_runtime_dispatch import (
+    SignedSkillRuntimeDispatchDecision,
+    SkillRuntimeDispatchAuthorityPolicy,
+    SkillRuntimeDispatchClaimStore,
+    SkillRuntimeDispatchClaimStorePolicy,
+    consume_skill_runtime_dispatch_authority,
+    inspect_skill_runtime_dispatch,
+    make_skill_runtime_dispatch_decision,
+)
+from mos_eisley.run.skill_runtime_grant import (
+    IssuedSkillRuntimeBrokerGrant,
+    SkillRuntimeBrokerGrantStore,
+    SkillRuntimeBrokerGrantStorePolicy,
+    inspect_skill_runtime_broker_grant,
+)
+from mos_eisley.run.skill_runtime_preflight import (
+    PreparedSkillRuntimeRequest,
+    SignedSkillRuntimeDecision,
+    SkillRuntimeAuthorityPolicy,
+    SkillRuntimeRequest,
+    SkillRuntimeSources,
+    inspect_skill_runtime_preflight,
+    make_skill_runtime_decision,
+    prepare_signed_skill_runtime_request,
+)
+from mos_eisley.run.skill_runtime_provider import (
+    SkillRuntimeProviderTransactionStore,
+    SkillRuntimeProviderTransactionStorePolicy,
+    inspect_skill_runtime_provider_transaction,
+)
+from mos_eisley.run.skill_runtime_response import (
+    SkillRuntimeResponseStore,
+    SkillRuntimeResponseStorePolicy,
+)
+from mos_eisley.run.skill_runtime_witness import (
+    SignedSkillRuntimePublicationCheckpoint,
+    SkillRuntimePublicationWitnessPolicy,
+    make_skill_runtime_publication_checkpoint,
+    verify_skill_runtime_publication_checkpoint,
+)
+from mos_eisley.run.skill_staging import (
+    SkillStagingStore,
+    SkillStagingStorePolicy,
+    stage_authenticated_skill_release,
+)
 from mos_eisley.run.skills import (
     bind_skill_roster,
     discover_skills,
     verify_skill_archive,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntryStatus, LedgerSnapshot, SpendLedger
 from mos_eisley.run.store import index_run, load_run, private_write, save_run
 from mos_eisley.tools.fixture import FixtureDispatcher
 from mos_eisley.tools.none import NoToolsDispatcher
@@ -184,9 +374,26 @@ def parser() -> argparse.ArgumentParser:
             "Mos Eisley: recorded adversarial review, offline evals, and an opt-in "
             "OpenAI preview."
         ),
+        epilog=(
+            "Run mos with no arguments to open a conversation in this directory. "
+            "Use mos -C PATH to select a workspace, mos resume --last to return, "
+            "or mos chat --help for session options."
+        ),
     )
     command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
     subcommands = command.add_subparsers(dest="command", required=True)
+    from mos_eisley.conversation_cli import add_commands
+
+    add_commands(subcommands.add_parser)
+    for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
+        mcp_command = subcommands.add_parser(
+            name, help="Connect to an explicitly configured MCP server"
+        )
+        mcp_command.add_argument("--config", type=Path, required=True)
+        if name == "mcp-call":
+            mcp_command.add_argument("--call", type=Path, required=True)
+        if name == "mcp-login":
+            mcp_command.add_argument("--open-browser", action="store_true")
     for name, help_text in (
         ("demo", "Run the synthetic recorded example"),
         ("review", "Review an explicit brief using a request-bound cassette"),
@@ -224,6 +431,67 @@ def parser() -> argparse.ArgumentParser:
         "replay", help="Verify artifacts and replay recorded responses"
     )
     replay.add_argument("run", type=Path)
+    analysis_demo = subcommands.add_parser(
+        "analysis-demo", help="Run a synthetic analytical conversation over local MCP"
+    )
+    analysis_demo.add_argument(
+        "--scenario", choices=("answer", "clarify", "unavailable"), default="answer"
+    )
+    analysis_demo.add_argument(
+        "--context-mode", choices=("promoted", "raw"), default="promoted"
+    )
+    analysis_run = subcommands.add_parser(
+        "analysis-run", help="Run explicitly budgeted read-only OpenAI analysis"
+    )
+    for name in ("config", "mcp-config", "spend-policy", "spend-ledger"):
+        analysis_run.add_argument("--" + name, type=Path, required=True)
+    analysis_run.add_argument("--ledger-id", required=True)
+    analysis_run.add_argument("--accept-max-cost-microusd", type=int, required=True)
+    analysis_run.add_argument("--allow-data-transfer", action="store_true")
+    for analysis_command in (analysis_demo, analysis_run):
+        analysis_command.add_argument("--result-root", type=Path)
+        analysis_command.add_argument("--allow-result-retention", action="store_true")
+    analysis_demo.add_argument("--artifact-ttl-seconds", type=int, default=86400)
+    for name in ("analysis-verify", "analysis-export", "analysis-delete-expired"):
+        analysis_command = subcommands.add_parser(name)
+        analysis_command.add_argument("path", type=Path)
+        if name == "analysis-verify":
+            analysis_command.add_argument("--source", type=Path)
+        if name == "analysis-export":
+            analysis_command.add_argument("--result-id", required=True)
+            analysis_command.add_argument("--result-root", type=Path, required=True)
+    for name in ("analysis-eval-plan", "analysis-evaluate"):
+        eval_command = subcommands.add_parser(name)
+        eval_command.add_argument("--suite", type=Path, required=True)
+        eval_command.add_argument("--output", type=Path, required=True)
+        if name == "analysis-eval-plan":
+            eval_command.add_argument(
+                "--split", choices=("development", "holdout"), required=True
+            )
+        else:
+            eval_command.add_argument("--inputs", type=Path, required=True)
+    comparison_demo = subcommands.add_parser(
+        "analysis-comparison-demo",
+        help="Run synthetic arms in a frozen comparison order",
+    )
+    comparison_demo.add_argument("--result-root", type=Path, required=True)
+    for name in ("analysis-eval-schedule", "analysis-eval-assess"):
+        schedule_command = subcommands.add_parser(name)
+        for field in ("suite", "output"):
+            schedule_command.add_argument("--" + field, type=Path, required=True)
+        if name == "analysis-eval-schedule":
+            schedule_command.add_argument(
+                "--split", choices=("development", "holdout"), required=True
+            )
+            schedule_command.add_argument("--seed", required=True)
+        else:
+            schedule_command.add_argument("--schedule", type=Path, required=True)
+            schedule_command.add_argument("--schedule-sha256", required=True)
+            schedule_command.add_argument("--inputs", type=Path, required=True)
+    eval_demo = subcommands.add_parser(
+        "analysis-eval-demo", help="Save and score synthetic analytical fixtures"
+    )
+    eval_demo.add_argument("--result-root", type=Path, required=True)
     agent_demo = subcommands.add_parser(
         "agent-demo", help="Run a recorded two-turn canonical tool exchange"
     )
@@ -263,6 +531,57 @@ def parser() -> argparse.ArgumentParser:
         help="Acknowledge that prompt content will be sent to OpenAI",
     )
     openai_run.add_argument("--json", action="store_true")
+    openai_readiness = subcommands.add_parser(
+        "openai-readiness",
+        help="Check registry-bound OpenAI model visibility without a prompt",
+    )
+    openai_readiness.add_argument(
+        "--model",
+        choices=tuple(model.id for model in openai_registry().models),
+        default="gpt-5.6-luna",
+    )
+    openai_readiness.add_argument("--output", type=Path, required=True)
+    openai_readiness.add_argument("--timeout", type=float, default=10.0)
+    openai_readiness.add_argument(
+        "--allow-provider-access",
+        action="store_true",
+        help="Acknowledge that the API key and selected model ID reach OpenAI",
+    )
+    derive_openai_canary = subcommands.add_parser(
+        "openai-derive-responses-canary-authorization",
+        help="Derive exact synthetic Responses canary authority for external signing",
+    )
+    for option in ("spend-policy", "spend-ledger", "authority-policy"):
+        derive_openai_canary.add_argument(f"--{option}", type=Path, required=True)
+    derive_openai_canary.add_argument("--run-dir", type=Path, required=True)
+    derive_openai_canary.add_argument("--timeout", type=float, default=10.0)
+    derive_openai_canary.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_canary.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_canary.add_argument("--output", type=Path, required=True)
+    openai_canary = subcommands.add_parser(
+        "openai-responses-canary",
+        help="Run one independently authorized fixed synthetic Responses request",
+    )
+    for option in ("spend-policy", "spend-ledger", "authority-policy"):
+        openai_canary.add_argument(f"--{option}", type=Path, required=True)
+    openai_canary.add_argument("--signed-authorization", type=Path, required=True)
+    openai_canary.add_argument("--run-dir", type=Path, required=True)
+    openai_canary.add_argument("--timeout", type=float, default=10.0)
+    openai_canary.add_argument(
+        "--allow-data-transfer",
+        action="store_true",
+        help="Acknowledge transfer of the fixed synthetic prompt to OpenAI",
+    )
+    verify_openai_canary = subcommands.add_parser(
+        "openai-verify-responses-canary",
+        help="Reverify a completed synthetic Responses canary and its ledger entry",
+    )
+    verify_openai_canary.add_argument("--run-dir", type=Path, required=True)
+    verify_openai_canary.add_argument("--spend-ledger", type=Path, required=True)
     ledger_create = subcommands.add_parser(
         "spend-ledger-create", help="Create a new local spending scope; never overwrite"
     )
@@ -313,6 +632,11 @@ def parser() -> argparse.ArgumentParser:
     conformance.add_argument("--sample-id", required=True)
     conformance.add_argument("--spend-policy", type=Path, required=True)
     conformance.add_argument("--spend-ledger", type=Path, required=True)
+    conformance.add_argument("--conformance-policy", type=Path, required=True)
+    conformance.add_argument("--conformance-authority-policy", type=Path, required=True)
+    conformance.add_argument(
+        "--signed-conformance-authorization", type=Path, required=True
+    )
     conformance.add_argument("--docker", type=Path, required=True)
     conformance.add_argument(
         "--image", required=True, help="Locally built immutable sha256 image ID"
@@ -320,6 +644,11 @@ def parser() -> argparse.ArgumentParser:
     conformance.add_argument("--audit-dir", type=Path, required=True)
     conformance.add_argument("--authorization-output", type=Path, required=True)
     conformance.add_argument("--artifact-output", type=Path, required=True)
+    conformance.add_argument(
+        "--precredential-rejection-output",
+        type=Path,
+        help="Retain a canonical F1 receipt for an expired or mismatched authority",
+    )
     conformance.add_argument(
         "--lifecycle-root",
         type=Path,
@@ -330,6 +659,26 @@ def parser() -> argparse.ArgumentParser:
         "--allow-data-transfer",
         action="store_true",
         help="Acknowledge that the blinded brief will be sent to OpenAI",
+    )
+    billing_collect = subcommands.add_parser(
+        "openai-billing-collect",
+        help="Collect private bounded OpenAI Admin API billing evidence",
+    )
+    for option in (
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+        "billing-policy",
+    ):
+        billing_collect.add_argument(f"--{option}", type=Path, required=True)
+    billing_collect.add_argument("--project-id", required=True)
+    billing_collect.add_argument("--api-key-id", required=True)
+    billing_collect.add_argument("--output", type=Path, required=True)
+    billing_collect.add_argument("--timeout", type=float, default=30.0)
+    billing_collect.add_argument(
+        "--allow-account-billing-read",
+        action="store_true",
+        help="Acknowledge access to private OpenAI organization billing metadata",
     )
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
@@ -356,6 +705,270 @@ def parser() -> argparse.ArgumentParser:
     eval_run.add_argument("--batch", type=Path, required=True)
     eval_run.add_argument("--cassette", type=Path, required=True)
     eval_run.add_argument("--output", type=Path, required=True)
+    eval_broker_failure = subcommands.add_parser(
+        "eval-compile-brokered-failure",
+        help="Compile one terminal broker failure into inert evaluation evidence",
+    )
+    eval_broker_failure.add_argument(
+        "--expected-authorization", type=Path, required=True
+    )
+    eval_broker_failure.add_argument("--audit-dir", type=Path, required=True)
+    eval_broker_failure.add_argument("--spend-ledger", type=Path, required=True)
+    eval_broker_failure.add_argument("--output", type=Path, required=True)
+    eval_broker_results = subcommands.add_parser(
+        "eval-assemble-brokered-results",
+        help="Require exact batch coverage without issuing live scoring evidence",
+    )
+    eval_broker_results.add_argument("--batch", type=Path, required=True)
+    eval_broker_results.add_argument(
+        "--artifact", type=Path, action="append", required=True
+    )
+    eval_broker_results.add_argument("--output", type=Path, required=True)
+    eval_convert_conformance = subcommands.add_parser(
+        "eval-convert-openai-conformance",
+        help="Convert the reviewed qualifying OpenAI probes into an inert seed",
+    )
+    eval_convert_conformance.add_argument("--batch", type=Path, required=True)
+    eval_convert_conformance.add_argument("--gate-report", type=Path, required=True)
+    eval_convert_conformance.add_argument(
+        "--conversion-policy", type=Path, required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--authenticated-conformance", type=Path, action="append", required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--artifact", type=Path, action="append", required=True
+    )
+    eval_convert_conformance.add_argument(
+        "--allow-offline-conversion", action="store_true"
+    )
+    eval_convert_conformance.add_argument("--output", type=Path, required=True)
+    eval_plan_openai_campaign = subcommands.add_parser(
+        "eval-plan-openai-calibration-campaign",
+        help="Commit the exact unexecuted OpenAI calibration remainder offline",
+    )
+    eval_plan_openai_campaign.add_argument("--batch", type=Path, required=True)
+    eval_plan_openai_campaign.add_argument(
+        "--calibration-seed", type=Path, required=True
+    )
+    eval_plan_openai_campaign.add_argument(
+        "--campaign-policy", type=Path, required=True
+    )
+    eval_plan_openai_campaign.add_argument(
+        "--allow-offline-planning", action="store_true"
+    )
+    eval_plan_openai_campaign.add_argument("--output", type=Path, required=True)
+    derive_openai_campaign_execution = subcommands.add_parser(
+        "eval-derive-openai-calibration-execution",
+        help="Derive one exact signable OpenAI calibration execution decision",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+    ):
+        derive_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_openai_campaign_execution.add_argument("--sequence", type=int, required=True)
+    derive_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--request-timeout", type=int, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_openai_campaign_execution.add_argument(
+        "--allow-offline-decision", action="store_true"
+    )
+    derive_openai_campaign_execution.add_argument("--output", type=Path, required=True)
+    authenticate_openai_campaign_execution = subcommands.add_parser(
+        "eval-authenticate-openai-calibration-execution",
+        help="Authenticate one unused exact OpenAI calibration execution decision",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "signed-decision",
+    ):
+        authenticate_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    authenticate_openai_campaign_execution.add_argument(
+        "--allow-offline-authentication", action="store_true"
+    )
+    authenticate_openai_campaign_execution.add_argument(
+        "--output", type=Path, required=True
+    )
+    consume_openai_campaign_execution = subcommands.add_parser(
+        "eval-consume-openai-calibration-execution",
+        help="Consume one exact calibration authority into held spend",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "authenticated-execution",
+    ):
+        consume_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    consume_openai_campaign_execution.add_argument(
+        "--audit-dir", type=Path, required=True
+    )
+    consume_openai_campaign_execution.add_argument(
+        "--allow-data-transfer", action="store_true"
+    )
+    consume_openai_campaign_execution.add_argument(
+        "--allow-spend-reservation", action="store_true"
+    )
+    consume_openai_campaign_execution.add_argument("--output", type=Path, required=True)
+    run_openai_campaign_execution = subcommands.add_parser(
+        "eval-run-openai-calibration",
+        help="Execute one prepared OpenAI calibration assignment",
+    )
+    for option in (
+        "batch",
+        "calibration-seed",
+        "campaign-policy",
+        "campaign-manifest",
+        "spend-policy",
+        "spend-ledger",
+        "execution-authority-policy",
+        "prepared-execution",
+    ):
+        run_openai_campaign_execution.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    run_openai_campaign_execution.add_argument("--audit-dir", type=Path, required=True)
+    run_openai_campaign_execution.add_argument("--docker", type=Path, required=True)
+    run_openai_campaign_execution.add_argument("--image", required=True)
+    run_openai_campaign_execution.add_argument(
+        "--lifecycle-root", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--authorization-output", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--artifact-output", type=Path, required=True
+    )
+    run_openai_campaign_execution.add_argument(
+        "--allow-data-transfer", action="store_true"
+    )
+    prepare_evaluation_conformance = subcommands.add_parser(
+        "eval-prepare-brokered-conformance-policy",
+        help="Prepare an exact no-send policy for one OpenAI conformance probe",
+    )
+    prepare_evaluation_conformance.add_argument("--batch", type=Path, required=True)
+    prepare_evaluation_conformance.add_argument("--sample-id", required=True)
+    prepare_evaluation_conformance.add_argument(
+        "--spend-policy", type=Path, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--spend-ledger", type=Path, required=True
+    )
+    prepare_evaluation_conformance.add_argument("--audit-dir", type=Path, required=True)
+    prepare_evaluation_conformance.add_argument("--policy-id", required=True)
+    prepare_evaluation_conformance.add_argument(
+        "--valid-from", type=_utc_datetime_argument, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--max-observation-age-seconds", type=int, required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--observer", type=Path, action="append", required=True
+    )
+    prepare_evaluation_conformance.add_argument(
+        "--sdk-version", action="append", required=True
+    )
+    prepare_evaluation_conformance.add_argument("--output", type=Path, required=True)
+    derive_conformance_authorization = subcommands.add_parser(
+        "eval-derive-brokered-conformance-authorization",
+        help="Derive exact OpenAI conformance authority for external signing",
+    )
+    for option in ("conformance-policy", "spend-policy", "authority-policy"):
+        derive_conformance_authorization.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_conformance_authorization.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    derive_conformance_authorization.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    derive_conformance_authorization.add_argument("--output", type=Path, required=True)
+    derive_evaluation_conformance = subcommands.add_parser(
+        "eval-derive-brokered-conformance",
+        help="Derive signable metadata for one credentialed evaluation probe",
+    )
+    for option in (
+        "batch",
+        "artifact",
+        "expected-authorization",
+        "audit-dir",
+        "spend-ledger",
+        "conformance-policy",
+    ):
+        derive_evaluation_conformance.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    derive_evaluation_conformance.add_argument(
+        "--observed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_evaluation_conformance.add_argument("--sdk-version", required=True)
+    derive_evaluation_conformance.add_argument(
+        "--transport-evidence-sha256", required=True
+    )
+    derive_evaluation_conformance.add_argument(
+        "--attest-credentialed-exchange", action="store_true"
+    )
+    derive_evaluation_conformance.add_argument("--output", type=Path, required=True)
+    authenticate_evaluation_conformance_parser = subcommands.add_parser(
+        "eval-authenticate-brokered-conformance",
+        help="Authenticate one observed probe against its batch and artifact",
+    )
+    for option in (
+        "signed-observation",
+        "conformance-policy",
+        "batch",
+        "artifact",
+        "expected-authorization",
+        "audit-dir",
+        "spend-ledger",
+    ):
+        authenticate_evaluation_conformance_parser.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_evaluation_conformance_parser.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_evaluation_conformance_parser.add_argument(
+        "--output", type=Path, required=True
+    )
     isolated = subcommands.add_parser(
         "eval-run-isolated", help="Run recorded evaluation in an offline container"
     )
@@ -583,6 +1196,851 @@ def parser() -> argparse.ArgumentParser:
             eval_bind_skill_release.add_argument(
                 f"--{prefix}-{option}", type=Path, required=True
             )
+    eval_derive_skill_release_control = subcommands.add_parser(
+        "eval-derive-skill-release-control",
+        help="Derive exact expiring skill release control for external signing",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "output",
+    ):
+        eval_derive_skill_release_control.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    eval_derive_skill_release_control.add_argument("--rollback-archive", type=Path)
+    eval_derive_skill_release_control.add_argument(
+        "--sequence", type=int, required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--disposition", choices=("allowed", "revoked"), required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_release_control.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_skill_release_control = subcommands.add_parser(
+        "eval-authenticate-skill-release-control",
+        help="Reverify release lineage and authenticate signed release control",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "signed-control",
+        "control-authority-policy",
+        "output",
+    ):
+        eval_authenticate_skill_release_control.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    eval_authenticate_skill_release_control.add_argument(
+        "--rollback-archive", type=Path
+    )
+    for control_parser in (
+        eval_derive_skill_release_control,
+        eval_authenticate_skill_release_control,
+    ):
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                control_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    for control_command, help_text in (
+        (
+            "skill-release-control-anchor-create",
+            "Create a private monotonic anchor for one exact skill release",
+        ),
+        (
+            "skill-release-control-anchor-advance",
+            "Append a current signed state to a skill release anchor",
+        ),
+        (
+            "skill-release-control-anchor-status",
+            "Verify and inspect a complete skill release control anchor",
+        ),
+    ):
+        control_anchor = subcommands.add_parser(control_command, help=help_text)
+        if control_command.endswith("create"):
+            control_anchor.add_argument("path", type=Path)
+            control_anchor.add_argument("--anchor-policy", type=Path, required=True)
+        else:
+            control_anchor.add_argument("--anchor", type=Path, required=True)
+        control_anchor.add_argument(
+            "--control-authority-policy", type=Path, required=True
+        )
+        if control_command.endswith("advance"):
+            control_anchor.add_argument("--signed-control", type=Path, required=True)
+    staging_create = subcommands.add_parser(
+        "skill-staging-store-create",
+        help="Create a private quarantine store pinned to release control",
+    )
+    staging_create.add_argument("path", type=Path)
+    staging_create.add_argument("--store-policy", type=Path, required=True)
+    staging_create.add_argument("--anchor-policy", type=Path, required=True)
+    staging_status = subcommands.add_parser(
+        "skill-staging-store-status",
+        help="Verify staged packages and inventory incomplete transactions",
+    )
+    staging_status.add_argument("--store", type=Path, required=True)
+    eval_stage_skill = subcommands.add_parser(
+        "eval-stage-skill-release",
+        help="Transactionally stage exact latest-controlled bytes into quarantine",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "staging-store",
+        "output",
+    ):
+        eval_stage_skill.add_argument(f"--{option}", type=Path, required=True)
+    eval_stage_skill.add_argument("--rollback-archive", type=Path)
+    eval_stage_skill.add_argument(
+        "--action", choices=("candidate", "rollback"), required=True
+    )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_stage_skill.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_derive_installation = subcommands.add_parser(
+        "eval-derive-skill-installation",
+        help="Derive exact one-use skill installation authority for signing",
+    )
+    eval_authenticate_installation = subcommands.add_parser(
+        "eval-authenticate-skill-installation",
+        help="Authenticate exact one-use skill installation authority",
+    )
+    for installation_parser in (
+        eval_derive_installation,
+        eval_authenticate_installation,
+    ):
+        for option in (
+            "dataset",
+            "plan",
+            "sealed-comparison",
+            "holdout-use-claim",
+            "calibration-report",
+            "holdout-report",
+            "promotion-receipt",
+            "promotion-authority-policy",
+            "archive",
+            "release-evidence",
+            "control-authority-policy",
+            "authenticated-control",
+            "control-anchor",
+            "staging-store",
+            "installation-authority-policy",
+            "output",
+        ):
+            installation_parser.add_argument(f"--{option}", type=Path, required=True)
+        installation_parser.add_argument("--rollback-archive", type=Path)
+        installation_parser.add_argument(
+            "--action", choices=("candidate", "rollback"), required=True
+        )
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                installation_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    eval_derive_installation.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_installation.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_installation.add_argument(
+        "--signed-installation", type=Path, required=True
+    )
+    installation_claim_create = subcommands.add_parser(
+        "skill-installation-claim-store-create",
+        help="Create a private at-most-once skill installation claim store",
+    )
+    installation_claim_create.add_argument("path", type=Path)
+    installation_claim_create.add_argument("--store-policy", type=Path, required=True)
+    installation_claim_create.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    installation_claim_status = subcommands.add_parser(
+        "skill-installation-claim-store-status",
+        help="Verify and inspect consumed skill installation authorities",
+    )
+    installation_claim_status.add_argument("--store", type=Path, required=True)
+    installation_claim_status.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    installed_create = subcommands.add_parser(
+        "skill-installed-store-create",
+        help="Create a private inert installed-skill store",
+    )
+    installed_create.add_argument("path", type=Path)
+    for option in (
+        "store-policy",
+        "installation-authority-policy",
+        "staging-store",
+        "claim-store-policy",
+    ):
+        installed_create.add_argument(f"--{option}", type=Path, required=True)
+    installed_status = subcommands.add_parser(
+        "skill-installed-store-status",
+        help="Verify installed packages and inventory incomplete transactions",
+    )
+    installed_status.add_argument("--store", type=Path, required=True)
+    installed_status.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    installed_recovery = subcommands.add_parser(
+        "skill-install-recovery-status",
+        help="Correlate consumed claims with completed and incomplete installs",
+    )
+    installed_recovery.add_argument("--installed-store", type=Path, required=True)
+    installed_recovery.add_argument("--claim-store", type=Path, required=True)
+    installed_recovery.add_argument(
+        "--installation-authority-policy", type=Path, required=True
+    )
+    eval_install_skill = subcommands.add_parser(
+        "eval-install-skill-release",
+        help="Consume exact authority and atomically install inert skill bytes",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "staging-store",
+        "authenticated-installation",
+        "installation-authority-policy",
+        "claim-store",
+        "installed-store",
+        "output",
+    ):
+        eval_install_skill.add_argument(f"--{option}", type=Path, required=True)
+    eval_install_skill.add_argument("--rollback-archive", type=Path)
+    eval_install_skill.add_argument(
+        "--action", choices=("candidate", "rollback"), required=True
+    )
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_install_skill.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_derive_default = subcommands.add_parser(
+        "eval-derive-skill-default",
+        help="Derive one exact state-bound skill default change for signing",
+    )
+    eval_authenticate_default = subcommands.add_parser(
+        "eval-authenticate-skill-default",
+        help="Authenticate one exact state-bound skill default change",
+    )
+    eval_select_default = subcommands.add_parser(
+        "eval-select-skill-default",
+        help="Atomically consume authority and change the inert default pointer",
+    )
+    for default_parser in (
+        eval_derive_default,
+        eval_authenticate_default,
+        eval_select_default,
+    ):
+        for option in (
+            "dataset",
+            "plan",
+            "sealed-comparison",
+            "holdout-use-claim",
+            "calibration-report",
+            "holdout-report",
+            "promotion-receipt",
+            "promotion-authority-policy",
+            "archive",
+            "release-evidence",
+            "control-authority-policy",
+            "authenticated-control",
+            "control-anchor",
+            "installed-store",
+            "installation-authority-policy",
+            "default-store",
+            "default-authority-policy",
+            "output",
+        ):
+            default_parser.add_argument(f"--{option}", type=Path, required=True)
+        default_parser.add_argument("--rollback-archive", type=Path)
+        default_parser.add_argument(
+            "--action", choices=("candidate", "rollback"), required=True
+        )
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                default_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    eval_derive_default.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_default.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_authenticate_default.add_argument("--signed-default", type=Path, required=True)
+    eval_select_default.add_argument(
+        "--authenticated-default", type=Path, required=True
+    )
+    default_store_create = subcommands.add_parser(
+        "skill-default-store-create",
+        help="Create a private atomic skill default-pointer store",
+    )
+    default_store_create.add_argument("path", type=Path)
+    for option in (
+        "store-policy",
+        "default-authority-policy",
+        "installed-store",
+    ):
+        default_store_create.add_argument(f"--{option}", type=Path, required=True)
+    default_store_status = subcommands.add_parser(
+        "skill-default-store-status",
+        help="Verify the complete skill default-pointer revision chain",
+    )
+    for option in (
+        "store",
+        "default-authority-policy",
+        "installed-store",
+        "installation-authority-policy",
+    ):
+        default_store_status.add_argument(f"--{option}", type=Path, required=True)
+    eval_issue_skill_health = subcommands.add_parser(
+        "eval-issue-skill-health-eligibility",
+        help="Issue non-executing eligibility from signed post-selection evidence",
+    )
+    for option in (
+        "dataset",
+        "plan",
+        "sealed-comparison",
+        "holdout-use-claim",
+        "calibration-report",
+        "holdout-report",
+        "promotion-receipt",
+        "promotion-authority-policy",
+        "archive",
+        "release-evidence",
+        "control-authority-policy",
+        "authenticated-control",
+        "control-anchor",
+        "installed-store",
+        "installation-authority-policy",
+        "default-store",
+        "default-authority-policy",
+        "signed-health-policy",
+        "signed-health-observation",
+        "health-authority-policy",
+        "output",
+    ):
+        eval_issue_skill_health.add_argument(f"--{option}", type=Path, required=True)
+    eval_issue_skill_health.add_argument("--rollback-archive", type=Path)
+    for prefix in ("calibration", "holdout"):
+        for option in (
+            "batch",
+            "mapping",
+            "raw-results",
+            "grading-batch",
+            "dual-grading-resolution",
+            "dual-graded-observations",
+            "grading-trust-policy",
+            "resolution-trust-policy",
+        ):
+            eval_issue_skill_health.add_argument(
+                f"--{prefix}-{option}", type=Path, required=True
+            )
+    eval_derive_skill_runtime = subcommands.add_parser(
+        "eval-derive-skill-runtime-preflight",
+        help="Derive one exact non-sending runtime preparation for signing",
+    )
+    eval_prepare_skill_runtime = subcommands.add_parser(
+        "eval-prepare-skill-runtime-request",
+        help="Consume signed authority into one exact held-spend preparation",
+    )
+    eval_admit_skill_runtime = subcommands.add_parser(
+        "eval-admit-skill-runtime-request",
+        help="Record one guarded broker admission without issuing a grant or sending",
+    )
+    eval_derive_skill_runtime_dispatch = subcommands.add_parser(
+        "eval-derive-skill-runtime-dispatch",
+        help="Derive signed-authority input for one future request-bound grant",
+    )
+    eval_consume_skill_runtime_dispatch = subcommands.add_parser(
+        "eval-consume-skill-runtime-dispatch",
+        help="Consume dispatch authority without issuing a grant or sending",
+    )
+    for runtime_parser in (
+        eval_derive_skill_runtime,
+        eval_prepare_skill_runtime,
+        eval_admit_skill_runtime,
+        eval_derive_skill_runtime_dispatch,
+        eval_consume_skill_runtime_dispatch,
+    ):
+        for option in (
+            "dataset",
+            "plan",
+            "sealed-comparison",
+            "holdout-use-claim",
+            "calibration-report",
+            "holdout-report",
+            "promotion-receipt",
+            "promotion-authority-policy",
+            "archive",
+            "release-evidence",
+            "control-authority-policy",
+            "authenticated-control",
+            "control-anchor",
+            "installed-store",
+            "installation-authority-policy",
+            "default-store",
+            "default-authority-policy",
+            "signed-health-policy",
+            "signed-health-observation",
+            "health-authority-policy",
+            "health-eligibility",
+            "routing-preflight",
+            "runtime-request",
+            "model-registry",
+            "spend-policy",
+            "spend-ledger",
+            "runtime-authority-policy",
+            "output",
+        ):
+            runtime_parser.add_argument(f"--{option}", type=Path, required=True)
+        runtime_parser.add_argument("--rollback-archive", type=Path)
+        for prefix in ("calibration", "holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                runtime_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+        for option in (
+            "routing-dataset",
+            "routing-plan",
+            "routing-feature-manifest",
+            "routing-sealed-study",
+            "routing-calibration-report",
+            "routing-candidate-policy",
+            "routing-promotion-policy",
+            "routing-holdout-use-claim",
+            "routing-holdout-report",
+            "routing-promotion-receipt",
+            "routing-promotion-authority-policy",
+            "routing-signed-activation-policy",
+            "routing-signed-operational-snapshot",
+            "routing-signed-control-state",
+            "routing-activation-authority-policy",
+            "routing-activation-eligibility",
+            "routing-control-anchor",
+        ):
+            runtime_parser.add_argument(f"--{option}", type=Path, required=True)
+        for prefix in ("routing-calibration", "routing-holdout"):
+            for option in (
+                "batch",
+                "mapping",
+                "raw-results",
+                "grading-batch",
+                "dual-grading-resolution",
+                "dual-graded-observations",
+                "grading-trust-policy",
+                "resolution-trust-policy",
+            ):
+                runtime_parser.add_argument(
+                    f"--{prefix}-{option}", type=Path, required=True
+                )
+    eval_derive_skill_runtime.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_runtime.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_prepare_skill_runtime.add_argument(
+        "--signed-runtime-decision", type=Path, required=True
+    )
+    for option in (
+        "signed-runtime-decision",
+        "prepared-runtime-request",
+        "admission-store",
+    ):
+        eval_admit_skill_runtime.add_argument(f"--{option}", type=Path, required=True)
+    for dispatch_parser in (
+        eval_derive_skill_runtime_dispatch,
+        eval_consume_skill_runtime_dispatch,
+    ):
+        for option in (
+            "signed-runtime-decision",
+            "prepared-runtime-request",
+            "admission",
+            "admission-store",
+            "dispatch-authority-policy",
+        ):
+            dispatch_parser.add_argument(f"--{option}", type=Path, required=True)
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--dispatch-claim-store-policy", type=Path, required=True
+    )
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--issued-at", type=_utc_datetime_argument, required=True
+    )
+    eval_derive_skill_runtime_dispatch.add_argument(
+        "--valid-until", type=_utc_datetime_argument, required=True
+    )
+    eval_consume_skill_runtime_dispatch.add_argument(
+        "--dispatch-claim-store", type=Path, required=True
+    )
+    eval_consume_skill_runtime_dispatch.add_argument(
+        "--signed-dispatch-decision", type=Path, required=True
+    )
+    skill_runtime_status = subcommands.add_parser(
+        "skill-runtime-preflight-status",
+        help="Inspect one runtime decision's spend state without retry or send",
+    )
+    for option in (
+        "signed-runtime-decision",
+        "runtime-authority-policy",
+        "spend-ledger",
+    ):
+        skill_runtime_status.add_argument(f"--{option}", type=Path, required=True)
+    skill_runtime_admission_create = subcommands.add_parser(
+        "skill-runtime-admission-store-create",
+        help="Create a private non-dispatching one-use broker-admission store",
+    )
+    for option in (
+        "path",
+        "admission-store-policy",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_admission_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_admission_status = subcommands.add_parser(
+        "skill-runtime-admission-status",
+        help="Inspect broker admission and held spend without retry or send",
+    )
+    for option in ("prepared-runtime-request", "admission-store", "spend-ledger"):
+        skill_runtime_admission_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_dispatch_store_create = subcommands.add_parser(
+        "skill-runtime-dispatch-claim-store-create",
+        help="Create a private at-most-once non-bearer dispatch-authority store",
+    )
+    for option in (
+        "path",
+        "dispatch-claim-store-policy",
+        "admission-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_dispatch_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_dispatch_status = subcommands.add_parser(
+        "skill-runtime-dispatch-status",
+        help="Inspect one dispatch-authority claim without granting or sending",
+    )
+    for option in (
+        "signed-dispatch-decision",
+        "dispatch-authority-policy",
+        "dispatch-claim-store",
+        "spend-ledger",
+    ):
+        skill_runtime_dispatch_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_grant_store_create = subcommands.add_parser(
+        "skill-runtime-broker-grant-store-create",
+        help="Create a private hash-only ephemeral-grant issuance store",
+    )
+    for option in (
+        "path",
+        "broker-grant-store-policy",
+        "dispatch-claim-store",
+        "admission-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_grant_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_grant_status = subcommands.add_parser(
+        "skill-runtime-broker-grant-status",
+        help="Inspect durable grant issuance without recovering a bearer",
+    )
+    for option in (
+        "signed-dispatch-decision",
+        "dispatch-authority-policy",
+        "broker-grant-store",
+        "spend-ledger",
+    ):
+        skill_runtime_grant_status.add_argument(f"--{option}", type=Path, required=True)
+    skill_runtime_provider_store_create = subcommands.add_parser(
+        "skill-runtime-provider-transaction-store-create",
+        help="Create a private durable before-send and outcome store",
+    )
+    for option in (
+        "path",
+        "provider-transaction-store-policy",
+        "broker-grant-store",
+        "routing-control-anchor",
+        "skill-control-anchor",
+        "default-store",
+        "spend-ledger",
+    ):
+        skill_runtime_provider_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_provider_status = subcommands.add_parser(
+        "skill-runtime-provider-transaction-status",
+        help="Inspect send-boundary recovery state without retry or release",
+    )
+    for option in (
+        "issued-broker-grant",
+        "broker-grant-store",
+        "provider-transaction-store",
+        "spend-ledger",
+    ):
+        skill_runtime_provider_status.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_response_store_create = subcommands.add_parser(
+        "skill-runtime-response-store-create",
+        help="Create a private raw-response and safe publication store",
+    )
+    for option in (
+        "path",
+        "response-store-policy",
+        "provider-transaction-store",
+    ):
+        skill_runtime_response_store_create.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    skill_runtime_response_status = subcommands.add_parser(
+        "skill-runtime-response-store-status",
+        help="Inspect publication counts without exporting raw responses",
+    )
+    skill_runtime_response_status.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    skill_runtime_response_result = subcommands.add_parser(
+        "skill-runtime-response-result",
+        help="Read one verified reasoning-free runtime result",
+    )
+    skill_runtime_response_result.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    skill_runtime_response_result.add_argument("--publication-id", required=True)
+    derive_runtime_conformance = subcommands.add_parser(
+        "eval-derive-skill-runtime-conformance",
+        help="Derive signable metadata for one observed credentialed exchange",
+    )
+    derive_runtime_conformance.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    derive_runtime_conformance.add_argument("--publication-id", required=True)
+    derive_runtime_conformance.add_argument(
+        "--conformance-policy", type=Path, required=True
+    )
+    derive_runtime_conformance.add_argument(
+        "--observed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_runtime_conformance.add_argument("--sdk-version", required=True)
+    derive_runtime_conformance.add_argument(
+        "--transport-evidence-sha256", required=True
+    )
+    derive_runtime_conformance.add_argument(
+        "--attest-credentialed-exchange", action="store_true"
+    )
+    derive_runtime_conformance.add_argument("--output", type=Path, required=True)
+    authenticate_runtime_conformance = subcommands.add_parser(
+        "eval-authenticate-skill-runtime-conformance",
+        help="Authenticate an observed exchange against its verified publication",
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--signed-observation", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--conformance-policy", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--response-store", type=Path, required=True
+    )
+    authenticate_runtime_conformance.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_runtime_conformance.add_argument("--output", type=Path, required=True)
+    derive_runtime_billing = subcommands.add_parser(
+        "eval-derive-skill-runtime-billing-evidence",
+        help="Derive signable metadata for exclusive aggregate billing evidence",
+    )
+    for option in (
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+        "billing-policy",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", type=Path, required=True)
+    for option in (
+        "external-input-tokens",
+        "external-output-tokens",
+        "external-cost-microusd",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", type=int)
+    for option in (
+        "usage-bucket-start",
+        "usage-bucket-end",
+        "costs-bucket-start",
+        "costs-bucket-end",
+        "evidence-retrieved-at",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}", type=_utc_datetime_argument)
+    for option in (
+        "project-id-sha256",
+        "api-key-id-sha256",
+        "usage-evidence-sha256",
+        "costs-evidence-sha256",
+    ):
+        derive_runtime_billing.add_argument(f"--{option}")
+    derive_runtime_billing.add_argument("--collected-evidence", type=Path)
+    derive_runtime_billing.add_argument(
+        "--attest-complete-exclusive-billing-evidence", action="store_true"
+    )
+    derive_runtime_billing.add_argument("--output", type=Path, required=True)
+    authenticate_runtime_billing = subcommands.add_parser(
+        "eval-authenticate-skill-runtime-billing-evidence",
+        help="Authenticate aggregate billing evidence against runtime lineage",
+    )
+    for option in (
+        "signed-observation",
+        "billing-policy",
+        "authenticated-conformance",
+        "conformance-policy",
+        "response-store",
+    ):
+        authenticate_runtime_billing.add_argument(
+            f"--{option}", type=Path, required=True
+        )
+    authenticate_runtime_billing.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    authenticate_runtime_billing.add_argument("--output", type=Path, required=True)
+    derive_runtime_checkpoint = subcommands.add_parser(
+        "eval-derive-skill-runtime-publication-checkpoint",
+        help="Derive a hash-only publication-history checkpoint for signing",
+    )
+    derive_runtime_checkpoint.add_argument("--response-store", type=Path, required=True)
+    derive_runtime_checkpoint.add_argument("--witness-policy", type=Path, required=True)
+    derive_runtime_checkpoint.add_argument(
+        "--witnessed-at", type=_utc_datetime_argument, required=True
+    )
+    derive_runtime_checkpoint.add_argument("--output", type=Path, required=True)
+    verify_runtime_checkpoint = subcommands.add_parser(
+        "eval-verify-skill-runtime-publication-checkpoint",
+        help="Verify a signed publication checkpoint against the current store",
+    )
+    verify_runtime_checkpoint.add_argument(
+        "--signed-checkpoint", type=Path, required=True
+    )
+    verify_runtime_checkpoint.add_argument("--witness-policy", type=Path, required=True)
+    verify_runtime_checkpoint.add_argument("--response-store", type=Path, required=True)
+    verify_runtime_checkpoint.add_argument(
+        "--at", type=_utc_datetime_argument, required=True
+    )
+    verify_runtime_checkpoint.add_argument("--output", type=Path, required=True)
     eval_seal_routing = subcommands.add_parser(
         "eval-seal-routing-study",
         help="Validate and seal a pre-registered difficulty-routing study",
@@ -849,8 +2307,136 @@ def _paths_overlap(left: Path, right: Path) -> bool:
     )
 
 
+def _validate_precredential_rejection_output(
+    output: Path | None, protected_paths: tuple[Path, ...]
+) -> None:
+    if output is None:
+        return
+    if any(_paths_overlap(output, path) for path in protected_paths):
+        raise ValueError("precredential rejection output overlaps protected state")
+    if output.exists() or output.is_symlink():
+        raise ValueError("precredential rejection output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("precredential rejection output parent must exist")
+
+
+def _verify_or_retain_precredential_rejection(
+    *,
+    batch: ExecutionBatch,
+    spend_policy: SpendPolicy,
+    conformance_policy: EvaluationConformancePolicy,
+    authority_policy: EvaluationConformanceAuthorityPolicy,
+    signed_authorization: SignedEvaluationConformanceAuthorization,
+    ledger: SpendLedger,
+    ledger_before: LedgerSnapshot,
+    ledger_entry_before: LedgerEntryStatus | None,
+    audit_directory: Path,
+    authorization_output: Path,
+    artifact_output: Path,
+    container: OfflineContainer,
+    rejection_output: Path | None,
+    preflight_at: datetime,
+) -> EvaluationConformanceAuthorization | None:
+    try:
+        return verify_evaluation_conformance_authorization(
+            signed_authorization,
+            authority_policy,
+            conformance_policy,
+            spend_policy,
+            preflight_at,
+        )
+    except EvaluationConformanceAuthorizationRejected:
+        if rejection_output is None:
+            raise
+        receipt = make_precredential_rejection(
+            batch=batch,
+            spend_policy=spend_policy,
+            conformance_policy=conformance_policy,
+            authority_policy=authority_policy,
+            signed_authorization=signed_authorization,
+            ledger_before=ledger_before,
+            ledger_after=ledger.snapshot(),
+            ledger_entry_before=ledger_entry_before,
+            ledger_entry_after=ledger.entry_status(conformance_policy.ledger_entry_id),
+            audit_exists=audit_directory.exists(),
+            assignment_authorization_exists=authorization_output.exists(),
+            conformance_artifact_exists=artifact_output.exists(),
+            container_lifecycle_created=container.lifecycle_path is not None,
+            observed_at=preflight_at,
+            mos_eisley_version=distribution_version("mos-eisley"),
+            sdk_version=_openai_sdk_version(),
+        )
+        _write_contract(rejection_output, receipt)
+        print(
+            json.dumps(
+                {
+                    "type": "openai.conformance.precredential_rejected",
+                    "boundary_id": receipt.boundary_id,
+                    "output": str(rejection_output),
+                    "receipt_sha256": receipt.receipt_sha256,
+                    "rejection_kind": receipt.rejection_kind,
+                    "credential_accessed": receipt.credential_accessed,
+                    "provider_request_sent": receipt.provider_request_sent,
+                    "spend_reserved": receipt.spend_reserved,
+                    "retry_authorized": receipt.retry_authorized,
+                    "promotion_authorized": receipt.promotion_authorized,
+                }
+            )
+        )
+        return None
+
+
+def _aliases_broker_audit_authorization(
+    expected_path: Path, audit_directory: Path
+) -> bool:
+    try:
+        same_file = expected_path.samefile(audit_directory / "authorization.json")
+    except FileNotFoundError:
+        same_file = False
+    return _paths_overlap(expected_path, audit_directory) or same_file
+
+
 def _openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY")
+
+
+def _required_openai_api_key() -> str:
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    return api_key
+
+
+def _broker_audit_status_command(args: argparse.Namespace) -> int:
+    audit_directory = cast(Path, args.audit_dir)
+    expected_path = cast(Path, args.expected_authorization)
+    if expected_path.resolve() == (audit_directory / "authorization.json").resolve():
+        raise ValueError("expected authorization must be independently supplied")
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    state = inspect_broker_recovery(
+        audit_directory,
+        expected,
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "broker.audit.status",
+                **state.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _openai_sdk_version() -> str:
+    return distribution_version("openai")
+
+
+def _openai_admin_api_key() -> str | None:
+    return os.environ.get("OPENAI_ADMIN_KEY")
 
 
 async def _openai_run(
@@ -879,6 +2465,1250 @@ async def _openai_run(
             NoToolsDispatcher(),
             journal,
         )
+
+
+def _openai_billing_collect_command(args: argparse.Namespace) -> int:
+    input_paths = tuple(
+        cast(Path, value)
+        for value in (
+            args.authenticated_conformance,
+            args.conformance_policy,
+            args.response_store,
+            args.billing_policy,
+        )
+    )
+    output = cast(Path, args.output)
+    if any(_paths_overlap(output, path) for path in input_paths):
+        raise ValueError("billing collection output overlaps a trusted input")
+    if output.exists() or output.is_symlink():
+        raise ValueError("billing collection output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("billing collection output parent must exist")
+    timeout = cast(float, args.timeout)
+    if not 0 < timeout <= 60:
+        raise ValueError("billing collection timeout must be between zero and 60")
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(input_paths[0], 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(input_paths[1], 128_000)
+    )
+    response_store = SkillRuntimeResponseStore(input_paths[2])
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(input_paths[3], 128_000)
+    )
+    verified_conformance = authenticate_skill_runtime_conformance(
+        conformance.signed_observation,
+        conformance_policy,
+        response_store,
+        conformance.authenticated_at,
+    )
+    if verified_conformance != conformance:
+        raise ValueError("billing collection conformance source is not authentic")
+    if (
+        billing_policy.response_store_policy_sha256
+        != response_store.policy.policy_sha256
+        or billing_policy.conformance_policy_sha256 != conformance_policy.policy_sha256
+    ):
+        raise ValueError("billing collection policy differs from runtime lineage")
+    publication, result = response_store.load(conformance.publication_id)
+    now = datetime.now(UTC)
+    costs_end = publication.committed_at.replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ) + timedelta(days=1)
+    if now < costs_end:
+        raise ValueError("billing collection must wait for the daily costs bucket")
+    if not billing_policy.valid_from <= now <= billing_policy.valid_until:
+        raise ValueError("billing collection policy is not current")
+    admin_key = _openai_admin_api_key()
+    if admin_key is None:
+        raise ValueError("OPENAI_ADMIN_KEY is required")
+    collection = asyncio.run(
+        collect_skill_runtime_billing_evidence(
+            EphemeralOpenAIAdminBillingTransport(admin_key, timeout),
+            project_id=cast(str, args.project_id),
+            api_key_id=cast(str, args.api_key_id),
+            model=result.model,
+            published_at=publication.committed_at,
+            collected_at=now,
+        )
+    )
+    _write_contract(output, collection)
+    print(
+        json.dumps(
+            {
+                "type": "openai.billing_evidence.collected",
+                "output": str(output),
+                "collection_sha256": collection.collection_sha256,
+                "usage_evidence_sha256": collection.usage_evidence_sha256,
+                "costs_evidence_sha256": collection.costs_evidence_sha256,
+                "usage_matches_local": (
+                    collection.external_input_tokens == result.usage.input
+                    and collection.external_output_tokens == result.usage.output
+                ),
+                "cost_matches_local": (
+                    collection.external_cost_microusd == result.charged_microusd
+                ),
+                "pagination_complete": collection.pagination_complete,
+                "one_completion_request_in_usage_bucket_verified": (
+                    collection.one_completion_request_in_usage_bucket_verified
+                ),
+                "complete_daily_api_key_exclusivity_proven": (
+                    collection.complete_daily_api_key_exclusivity_proven
+                ),
+                "exact_provider_request_cost_attribution_proven": (
+                    collection.exact_provider_request_cost_attribution_proven
+                ),
+                "billing_admin_read_performed": (
+                    collection.billing_admin_read_performed
+                ),
+                "model_inference_request_sent": (
+                    collection.model_inference_request_sent
+                ),
+                "admin_credential_persisted": collection.admin_credential_persisted,
+                "ledger_mutation_authorized": collection.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    collection.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _openai_readiness_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_provider_access):
+        raise ValueError("OpenAI provider access was not acknowledged")
+    timeout = cast(float, args.timeout)
+    if not 0 < timeout <= 30:
+        raise ValueError("OpenAI readiness timeout must be between zero and 30 seconds")
+    output = cast(Path, args.output)
+    if output.exists() or output.is_symlink():
+        raise ValueError("OpenAI readiness output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("OpenAI readiness output parent must already exist")
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    model = cast(str, args.model)
+    receipt = asyncio.run(
+        probe_openai_readiness(
+            api_key,
+            timeout_seconds=timeout,
+            checked_at=datetime.now(UTC),
+            sdk_version=_openai_sdk_version(),
+            model=model,
+        )
+    )
+    if receipt.model != model:
+        raise ValueError("OpenAI readiness receipt model differs from request")
+    _write_contract(output, receipt)
+    print(
+        json.dumps(
+            {
+                "type": "openai.readiness.checked",
+                "path": str(output),
+                "model": receipt.model,
+                "outcome": receipt.outcome,
+                "failure_kind": receipt.failure_kind,
+                "failure_detail": receipt.failure_detail,
+                "billing_verified": receipt.billing_verified,
+                "responses_access_verified": receipt.responses_access_verified,
+                "routing_activation_authorized": (
+                    receipt.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0 if receipt.outcome == "visible" else 2
+
+
+def _openai_canary_inputs(
+    args: argparse.Namespace,
+) -> tuple[
+    SpendPolicy,
+    SpendLedger,
+    OpenAIResponsesCanaryAuthorityPolicy,
+    tuple[Path, Path, Path],
+]:
+    spend_policy_path = cast(Path, args.spend_policy)
+    ledger_path = cast(Path, args.spend_ledger)
+    authority_policy_path = cast(Path, args.authority_policy)
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    authority_policy = OpenAIResponsesCanaryAuthorityPolicy.model_validate_json(
+        read_bounded(authority_policy_path, 64_000)
+    )
+    ledger = SpendLedger(ledger_path)
+    if ledger.snapshot().blocked:
+        raise ValueError("shared spending ledger is blocked")
+    return (
+        spend_policy,
+        ledger,
+        authority_policy,
+        (spend_policy_path, ledger_path, authority_policy_path),
+    )
+
+
+def _derive_openai_responses_canary_authorization_command(
+    args: argparse.Namespace,
+) -> int:
+    spend_policy, ledger, authority_policy, input_paths = _openai_canary_inputs(args)
+    run_directory = cast(Path, args.run_dir)
+    output = cast(Path, args.output)
+    if run_directory.exists() or run_directory.is_symlink():
+        raise ValueError("canary run directory already exists")
+    if not run_directory.parent.is_dir():
+        raise ValueError("canary run parent must already exist")
+    if output.exists() or output.is_symlink():
+        raise ValueError("canary authorization output already exists")
+    if not output.parent.is_dir():
+        raise ValueError("canary authorization output parent must already exist")
+    if _paths_overlap(run_directory, output) or any(
+        _paths_overlap(run_directory, path) or _paths_overlap(output, path)
+        for path in input_paths
+    ):
+        raise ValueError("canary outputs must not overlap trusted inputs")
+    authorization = make_openai_responses_canary_authorization(
+        spend_policy,
+        ledger.policy.ledger_id,
+        authority_policy,
+        run_directory,
+        cast(float, args.timeout),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    if ledger.entry_status(authorization.ledger_entry_id) is not None:
+        raise ValueError("canary spending identity was already used")
+    if ledger.snapshot().available_microusd < authorization.max_cost_microusd:
+        raise ValueError("canary ledger cannot cover maximum authorized exposure")
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.authorization_derived",
+                "output": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "model": authorization.model,
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "responses_access_verified": False,
+                "routing_activation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+async def _openai_responses_canary_run(
+    api_key: str,
+    timeout: float,
+    spend_policy: SpendPolicy,
+    ledger: SpendLedger,
+    run_directory: Path,
+    authority_policy: OpenAIResponsesCanaryAuthorityPolicy,
+    signed: SignedOpenAIResponsesCanaryAuthorization,
+) -> OpenAIResponsesCanaryResult:
+    async with AsyncOpenAI(
+        api_key=api_key,
+        timeout=timeout,
+        max_retries=0,
+        base_url="https://api.openai.com/v1",
+        http_client=BoundedOpenAIHttpClient(trust_env=False, follow_redirects=False),
+    ) as sdk:
+        return await execute_openai_responses_canary(
+            SDKOpenAITransport(sdk),
+            spend_policy,
+            ledger,
+            run_directory,
+            authority_policy,
+            signed,
+            sdk_version=_openai_sdk_version(),
+        )
+
+
+def _openai_responses_canary_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI synthetic data transfer was not acknowledged")
+    spend_policy, ledger, authority_policy, input_paths = _openai_canary_inputs(args)
+    signed_path = cast(Path, args.signed_authorization)
+    signed = SignedOpenAIResponsesCanaryAuthorization.model_validate_json(
+        read_bounded(signed_path, 128_000)
+    )
+    run_directory = cast(Path, args.run_dir)
+    timeout = cast(float, args.timeout)
+    if run_directory.exists() or run_directory.is_symlink():
+        raise ValueError("canary run directory already exists")
+    if not run_directory.parent.is_dir():
+        raise ValueError("canary run parent must already exist")
+    if any(_paths_overlap(run_directory, path) for path in (*input_paths, signed_path)):
+        raise ValueError("canary run directory overlaps a trusted input")
+    preflight_at = datetime.now(UTC)
+    authorization = verify_openai_responses_canary_authorization(
+        signed,
+        authority_policy,
+        spend_policy,
+        ledger.policy.ledger_id,
+        run_directory,
+        timeout,
+        preflight_at,
+    )
+    if ledger.entry_status(authorization.ledger_entry_id) is not None:
+        raise ValueError("canary spending identity was already used")
+    if ledger.snapshot().available_microusd < authorization.max_cost_microusd:
+        raise ValueError("canary ledger cannot cover maximum authorized exposure")
+    api_key = _openai_api_key()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured")
+    begin_openai_responses_canary(run_directory, authority_policy, signed, spend_policy)
+    result = asyncio.run(
+        _openai_responses_canary_run(
+            api_key,
+            timeout,
+            spend_policy,
+            ledger,
+            run_directory,
+            authority_policy,
+            signed,
+        )
+    )
+    if load_openai_responses_canary(run_directory, ledger) != result:
+        raise ValueError("canary result failed post-write verification")
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.completed",
+                "path": str(run_directory),
+                "model": result.model,
+                "outcome": result.outcome,
+                "input_tokens": result.response.usage.input,
+                "output_tokens": result.response.usage.output,
+                "retained_microusd": result.retained_microusd,
+                "responses_access_verified": result.responses_access_verified,
+                "billing_verified": result.billing_verified,
+                "routing_activation_authorized": (result.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
+
+
+def _verify_openai_responses_canary_command(args: argparse.Namespace) -> int:
+    run_directory = cast(Path, args.run_dir)
+    ledger = SpendLedger(cast(Path, args.spend_ledger))
+    result = load_openai_responses_canary(run_directory, ledger)
+    print(
+        json.dumps(
+            {
+                "type": "openai.responses_canary.verified",
+                "path": str(run_directory),
+                "model": result.model,
+                "outcome": result.outcome,
+                "retained_microusd": result.retained_microusd,
+                "responses_access_verified": result.responses_access_verified,
+                "billing_verified": result.billing_verified,
+                "routing_activation_authorized": (result.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
+
+
+def _compile_brokered_failure_command(args: argparse.Namespace) -> int:
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    output = cast(Path, args.output)
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
+        raise ValueError("expected authorization must be independently supplied")
+    if _paths_overlap(output, audit_directory):
+        raise ValueError("failure artifact output must be outside the broker audit")
+    artifact = compile_brokered_evaluation_failure(
+        expected,
+        audit_directory,
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    _write_contract(output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_failure.compiled",
+                "path": str(output),
+                "artifact_sha256": artifact.artifact_sha256,
+                "sample_id": artifact.authorization.sample_id,
+                "status": artifact.status,
+                "outcome_status": artifact.outcome_status,
+                "ledger_status": artifact.ledger_status,
+                "error": artifact.error,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "live_result_eligible": artifact.live_result_eligible,
+                "retry_permitted": artifact.retry_permitted,
+                "automatic_budget_release_authorized": (
+                    artifact.automatic_budget_release_authorized
+                ),
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _assemble_brokered_results_command(args: argparse.Namespace) -> int:
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    artifact_paths = cast(list[Path], args.artifact)
+    if len(artifact_paths) > MAX_ASSIGNMENTS:
+        raise ValueError("brokered artifact list exceeds assignment limit")
+    artifacts = tuple(
+        BrokeredEvaluationArtifact.model_validate_json(read_bounded(path, 2_000_000))
+        for path in artifact_paths
+    )
+    result = compile_brokered_evaluation_result_set(batch, artifacts)
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_results.assembled",
+                "path": str(output),
+                "result_set_sha256": result.result_set_sha256,
+                "assignments": len(result.artifacts),
+                "completed": sum(
+                    item.status == "completed" for item in result.artifacts
+                ),
+                "errors": sum(item.status == "error" for item in result.artifacts),
+                "exact_batch_coverage_verified": (result.exact_batch_coverage_verified),
+                "failures_preserved": result.failures_preserved,
+                "credentialed_conformance_proven": (
+                    result.credentialed_conformance_proven
+                ),
+                "live_raw_result_set_issued": result.live_raw_result_set_issued,
+                "grading_authorized": result.grading_authorized,
+                "scoring_authorized": result.scoring_authorized,
+                "retry_permitted": result.retry_permitted,
+                "automatic_budget_release_authorized": (
+                    result.automatic_budget_release_authorized
+                ),
+                "promotion_eligible": result.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def _convert_openai_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_conversion):
+        raise ValueError("offline OpenAI conformance conversion was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline conversion refuses provider credentials")
+    batch_path = cast(Path, args.batch)
+    gate_path = cast(Path, args.gate_report)
+    policy_path = cast(Path, args.conversion_policy)
+    receipt_paths = cast(list[Path], args.authenticated_conformance)
+    artifact_paths = cast(list[Path], args.artifact)
+    output = cast(Path, args.output)
+    if len(receipt_paths) != 18 or len(artifact_paths) != 18:
+        raise ValueError(
+            "offline conversion requires exactly 18 receipts and artifacts"
+        )
+    sources = (batch_path, gate_path, policy_path, *receipt_paths, *artifact_paths)
+    if any(_paths_overlap(output, source) for source in sources):
+        raise ValueError("calibration seed output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    gate_report = read_bounded(gate_path, 2_000_000)
+    policy = OpenAIConformanceConversionPolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    receipts = tuple(
+        AuthenticatedEvaluationConformance.model_validate_json(
+            read_bounded(path, 512_000)
+        )
+        for path in receipt_paths
+    )
+    artifacts = tuple(
+        BrokeredEvaluationArtifact.model_validate_json(read_bounded(path, 2_000_000))
+        for path in artifact_paths
+    )
+    seed = convert_openai_conformance_to_calibration_seed(
+        batch, gate_report, policy, receipts, artifacts
+    )
+    _write_contract(output, seed)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_conformance.calibration_seed_created",
+                "path": str(output),
+                "calibration_seed_sha256": seed.calibration_seed_sha256,
+                "converted_assignments": seed.converted_assignments,
+                "execution_batch_assignments": seed.execution_batch_assignments,
+                "complete_batch_coverage_verified": (
+                    seed.complete_batch_coverage_verified
+                ),
+                "live_raw_result_set_issued": seed.live_raw_result_set_issued,
+                "credential_accessed_during_conversion": (
+                    seed.credential_accessed_during_conversion
+                ),
+                "provider_request_sent_during_conversion": (
+                    seed.provider_request_sent_during_conversion
+                ),
+                "grading_authorized": seed.grading_authorized,
+                "scoring_authorized": seed.scoring_authorized,
+                "promotion_authorized": seed.promotion_authorized,
+                "routing_activation_authorized": (seed.routing_activation_authorized),
+            }
+        )
+    )
+    return 0
+
+
+def _plan_openai_calibration_campaign_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_planning):
+        raise ValueError("offline OpenAI calibration planning was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline calibration planning refuses provider credentials")
+    batch_path = cast(Path, args.batch)
+    seed_path = cast(Path, args.calibration_seed)
+    policy_path = cast(Path, args.campaign_policy)
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in (batch_path, seed_path, policy_path)
+    ):
+        raise ValueError("campaign manifest output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    seed = OpenAIConformanceCalibrationSeed.model_validate_json(
+        read_bounded(seed_path, 2_000_000)
+    )
+    policy = OpenAICalibrationCampaignPolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    manifest = plan_openai_calibration_campaign(batch, seed, policy)
+    _write_contract(output, manifest)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.campaign_planned",
+                "path": str(output),
+                "campaign_manifest_sha256": manifest.campaign_manifest_sha256,
+                "seeded_assignments": manifest.seeded_assignments,
+                "planned_assignments": manifest.planned_assignments,
+                "aggregate_max_cost_microusd": (manifest.aggregate_max_cost_microusd),
+                "request_content_embedded": manifest.request_content_embedded,
+                "credential_accessed": manifest.credential_accessed,
+                "spend_reserved": manifest.spend_reserved,
+                "provider_request_sent": manifest.provider_request_sent,
+                "execution_authorized": manifest.execution_authorized,
+                "grading_authorized": manifest.grading_authorized,
+                "scoring_authorized": manifest.scoring_authorized,
+                "promotion_authorized": manifest.promotion_authorized,
+                "routing_activation_authorized": (
+                    manifest.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _load_openai_calibration_execution_sources(
+    args: argparse.Namespace,
+) -> tuple[
+    ExecutionBatch,
+    OpenAIConformanceCalibrationSeed,
+    OpenAICalibrationCampaignPolicy,
+    OpenAICalibrationCampaignManifest,
+    SpendPolicy,
+    SpendLedger,
+    OpenAICalibrationExecutionAuthorityPolicy,
+]:
+    batch = ExecutionBatch.model_validate_json(
+        read_bounded(cast(Path, args.batch), 16_000_000)
+    )
+    seed = OpenAIConformanceCalibrationSeed.model_validate_json(
+        read_bounded(cast(Path, args.calibration_seed), 2_000_000)
+    )
+    campaign_policy = OpenAICalibrationCampaignPolicy.model_validate_json(
+        read_bounded(cast(Path, args.campaign_policy), 128_000)
+    )
+    manifest = OpenAICalibrationCampaignManifest.model_validate_json(
+        read_bounded(cast(Path, args.campaign_manifest), 1_000_000)
+    )
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(cast(Path, args.spend_policy), 64_000)
+    )
+    ledger = SpendLedger(cast(Path, args.spend_ledger))
+    authority_policy = OpenAICalibrationExecutionAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.execution_authority_policy), 128_000)
+    )
+    return (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    )
+
+
+def _openai_calibration_execution_paths(
+    args: argparse.Namespace,
+    *,
+    include_signed: bool = False,
+    include_authenticated: bool = False,
+) -> tuple[Path, ...]:
+    paths = (
+        cast(Path, args.batch),
+        cast(Path, args.calibration_seed),
+        cast(Path, args.campaign_policy),
+        cast(Path, args.campaign_manifest),
+        cast(Path, args.spend_policy),
+        cast(Path, args.spend_ledger),
+        cast(Path, args.execution_authority_policy),
+        cast(Path, args.audit_dir),
+    )
+    if include_signed:
+        return (*paths, cast(Path, args.signed_decision))
+    if include_authenticated:
+        return (*paths, cast(Path, args.authenticated_execution))
+    return paths
+
+
+def _derive_openai_calibration_execution_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_offline_decision):
+        raise ValueError("offline calibration execution decision was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("offline calibration execution decision refuses credentials")
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(args)
+    ):
+        raise ValueError("calibration execution decision output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    decision = make_openai_calibration_execution_decision(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        cast(int, args.sequence),
+        cast(Path, args.audit_dir),
+        cast(int, args.request_timeout),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "campaign_manifest_sha256": decision.campaign_manifest_sha256,
+                "sequence": decision.sequence,
+                "sample_id": decision.assignment_authorization.sample_id,
+                "provider_request_sha256": (
+                    decision.assignment_authorization.provider_request_sha256
+                ),
+                "ledger_entry_id": (decision.assignment_authorization.ledger_entry_id),
+                "max_cost_microusd": decision.max_cost_microusd,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_exact_attempt_authorized": (decision.one_exact_attempt_authorized),
+                "authenticated": False,
+                "credential_accessed": False,
+                "spend_reserved": False,
+                "provider_request_sent": False,
+                "grading_authorized": decision.grading_authorized,
+                "scoring_authorized": decision.scoring_authorized,
+                "promotion_authorized": decision.promotion_authorized,
+                "routing_activation_authorized": (
+                    decision.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _consume_openai_calibration_execution_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI calibration data transfer was not acknowledged")
+    if not cast(bool, args.allow_spend_reservation):
+        raise ValueError("OpenAI calibration spend reservation was not acknowledged")
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError("calibration execution consumption refuses credentials")
+    output = cast(Path, args.output)
+    if output.exists() or output.is_symlink() or not output.parent.is_dir():
+        raise ValueError("prepared calibration execution requires a fresh output")
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(
+            args, include_authenticated=True
+        )
+    ):
+        raise ValueError("prepared calibration execution output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    authenticated = AuthenticatedOpenAICalibrationExecution.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_execution), 512_000)
+    )
+    prepared = consume_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        authenticated,
+        cast(Path, args.audit_dir),
+        datetime.now(UTC),
+        data_transfer_consent=True,
+        spend_reservation_consent=True,
+    )
+    _write_contract(output, prepared)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_consumed",
+                "path": str(output),
+                "preparation_sha256": prepared.preparation_sha256,
+                "sequence": prepared.authenticated_execution.sequence,
+                "sample_id": (
+                    prepared.authenticated_execution.assignment_authorization.sample_id
+                ),
+                "provider_request_sha256": prepared.provider_request_sha256,
+                "ledger_entry_id": prepared.ledger_entry.entry_id,
+                "reserved_microusd": prepared.ledger_entry.reserved_microusd,
+                "ledger_status": "held",
+                "valid_until": prepared.valid_until.isoformat(),
+                "execution_authority_consumed": (prepared.execution_authority_consumed),
+                "data_transfer_consent_acknowledged": (
+                    prepared.data_transfer_consent_acknowledged
+                ),
+                "credential_accessed": prepared.credential_accessed,
+                "provider_request_sent": prepared.provider_request_sent,
+                "broker_grant_issued": prepared.broker_grant_issued,
+                "provider_dispatch_authorized": (prepared.provider_dispatch_authorized),
+                "automatic_retry_authorized": (prepared.automatic_retry_authorized),
+                "automatic_budget_release_authorized": (
+                    prepared.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _run_openai_calibration_command(  # pragma: no cover - integration boundary
+    args: argparse.Namespace,
+) -> int:
+    """Reverify and execute one held campaign assignment with a fresh consent."""
+
+    if not cast(bool, args.allow_data_transfer):
+        raise ValueError("OpenAI calibration data transfer was not acknowledged")
+    audit_directory = cast(Path, args.audit_dir)
+    prepared_path = cast(Path, args.prepared_execution)
+    authorization_output = cast(Path, args.authorization_output)
+    artifact_output = cast(Path, args.artifact_output)
+    lifecycle_root = cast(Path, args.lifecycle_root)
+    outputs = (audit_directory, authorization_output, artifact_output)
+    if any(path.exists() or path.is_symlink() for path in outputs):
+        raise ValueError("calibration execution output already exists")
+    if any(not path.parent.is_dir() for path in outputs):
+        raise ValueError("calibration execution output parent must already exist")
+    if not lifecycle_root.is_dir() or lifecycle_root.is_symlink():
+        raise ValueError("calibration lifecycle root must be an existing directory")
+    source_paths = (
+        *_openai_calibration_execution_paths(args),
+        prepared_path,
+        lifecycle_root,
+    )
+    if any(
+        _paths_overlap(left, right)
+        for index, left in enumerate(outputs)
+        for right in (*outputs[index + 1 :], *source_paths)
+        if left != audit_directory or right != audit_directory
+    ):
+        raise ValueError("calibration execution paths must not overlap")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    prepared = PreparedOpenAICalibrationExecution.model_validate_json(
+        read_bounded(prepared_path, 1_000_000)
+    )
+    checked_at = datetime.now(UTC)
+    verify_prepared_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        prepared,
+        audit_directory,
+        checked_at,
+    )
+    decision = prepared.authenticated_execution.signed_decision.decision
+    request = batch.requests[decision.batch_position - 1]
+    sdk_version = _openai_sdk_version()
+    if request.route.client_version != f"openai/{sdk_version}":
+        raise ValueError("installed OpenAI SDK differs from the frozen route")
+    timeout = decision.request_timeout_seconds
+    container = OfflineContainer(
+        cast(Path, args.docker), cast(str, args.image), lifecycle_root
+    )
+    payload = build_openai_conformance_payload(
+        batch,
+        prepared.authenticated_execution.assignment_authorization.sample_id,
+        spend_policy,
+    )
+    api_key = _required_openai_api_key()
+    # Environment access is intentionally bracketed by complete precredential
+    # verification and a final freshness/held-state check before any output or grant.
+    verify_prepared_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        prepared,
+        audit_directory,
+        datetime.now(UTC),
+    )
+    controlled = PreReservedOpenAITransport(
+        EphemeralOpenAITransport(api_key, timeout),
+        spend_policy,
+        audit_directory,
+        ledger,
+        prepared.spend_reservation,
+        prepared.ledger_entry,
+    )
+    authorization = authorize_assignment(batch, request.sample_id, payload, controlled)
+    if authorization != prepared.authenticated_execution.assignment_authorization:
+        raise ValueError("prepared calibration assignment changed before dispatch")
+    _write_contract(authorization_output, authorization)
+    broker = make_assignment_broker(
+        batch,
+        request.sample_id,
+        payload,
+        controlled,
+        audit_directory,
+        lifetime_seconds=timeout,
+    )
+    return _run_openai_conformance_broker(
+        broker,
+        container,
+        timeout=timeout,
+        authorization=authorization,
+        audit_directory=audit_directory,
+        ledger=ledger,
+        authorization_output=authorization_output,
+        artifact_output=artifact_output,
+        event_prefix="evaluation.openai_calibration",
+    )
+
+
+def _authenticate_openai_calibration_execution_command(
+    args: argparse.Namespace,
+) -> int:
+    if not cast(bool, args.allow_offline_authentication):
+        raise ValueError(
+            "offline calibration execution authentication was not acknowledged"
+        )
+    if "OPENAI_API_KEY" in os.environ or "MOS_OPENAI_KEY" in os.environ:
+        raise ValueError(
+            "offline calibration execution authentication refuses credentials"
+        )
+    output = cast(Path, args.output)
+    if any(
+        _paths_overlap(output, source)
+        for source in _openai_calibration_execution_paths(args, include_signed=True)
+    ):
+        raise ValueError("authenticated calibration execution output overlaps an input")
+    (
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+    ) = _load_openai_calibration_execution_sources(args)
+    signed = SignedOpenAICalibrationExecutionDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_decision), 256_000)
+    )
+    authorization = authenticate_openai_calibration_execution(
+        batch,
+        seed,
+        campaign_policy,
+        manifest,
+        spend_policy,
+        ledger,
+        authority_policy,
+        signed,
+        cast(Path, args.audit_dir),
+        datetime.now(UTC),
+    )
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.openai_calibration.execution_authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "sequence": authorization.sequence,
+                "sample_id": authorization.assignment_authorization.sample_id,
+                "provider_request_sha256": (
+                    authorization.assignment_authorization.provider_request_sha256
+                ),
+                "ledger_entry_id": (
+                    authorization.assignment_authorization.ledger_entry_id
+                ),
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_exact_attempt_authorized": (
+                    authorization.one_exact_attempt_authorized
+                ),
+                "one_use_ledger_entry_required": (
+                    authorization.one_use_ledger_entry_required
+                ),
+                "explicit_local_consent_still_required": (
+                    authorization.explicit_local_consent_still_required
+                ),
+                "credential_accessed": authorization.credential_accessed,
+                "spend_reserved": authorization.spend_reserved,
+                "provider_request_sent": authorization.provider_request_sent,
+                "grading_authorized": authorization.grading_authorized,
+                "scoring_authorized": authorization.scoring_authorized,
+                "promotion_authorized": authorization.promotion_authorized,
+                "routing_activation_authorized": (
+                    authorization.routing_activation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _prepare_evaluation_conformance_policy_command(args: argparse.Namespace) -> int:
+    batch_path = cast(Path, args.batch)
+    spend_policy_path = cast(Path, args.spend_policy)
+    ledger_path = cast(Path, args.spend_ledger)
+    audit_directory = cast(Path, args.audit_dir)
+    observer_paths = cast(list[Path], args.observer)
+    sdk_versions = tuple(cast(list[str], args.sdk_version))
+    output = cast(Path, args.output)
+    if len(observer_paths) > 20 or len(sdk_versions) > 20:
+        raise ValueError("conformance policy trust list exceeds limit")
+    sources = (batch_path, spend_policy_path, ledger_path, *observer_paths)
+    if any(_paths_overlap(source, audit_directory) for source in sources):
+        raise ValueError("conformance policy inputs must be outside the broker audit")
+    if any(_paths_overlap(output, source) for source in (*sources, audit_directory)):
+        raise ValueError("conformance policy output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    observers = tuple(
+        TrustedEvaluationConformanceObserver.model_validate_json(
+            read_bounded(path, 64_000)
+        )
+        for path in observer_paths
+    )
+    policy = prepare_evaluation_conformance_policy(
+        batch,
+        cast(str, args.sample_id),
+        spend_policy,
+        SpendLedger(ledger_path),
+        audit_directory,
+        cast(str, args.policy_id),
+        cast(datetime, args.valid_from),
+        cast(datetime, args.valid_until),
+        cast(int, args.max_observation_age_seconds),
+        observers,
+        sdk_versions,
+    )
+    _write_contract(output, policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.policy_prepared",
+                "output": str(output),
+                "policy_sha256": policy.policy_sha256,
+                "sample_id": policy.sample_id,
+                "candidate_id": policy.candidate_id,
+                "observer_count": len(policy.observers),
+                "allowed_sdk_versions": list(policy.allowed_sdk_versions),
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "batch_conversion_authorized": (policy.batch_conversion_authorized),
+                "grading_authorized": policy.grading_authorized,
+                "scoring_authorized": policy.scoring_authorized,
+                "promotion_authorized": policy.promotion_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_evaluation_conformance_authorization_command(
+    args: argparse.Namespace,
+) -> int:
+    conformance_policy_path = cast(Path, args.conformance_policy)
+    spend_policy_path = cast(Path, args.spend_policy)
+    authority_policy_path = cast(Path, args.authority_policy)
+    output = cast(Path, args.output)
+    inputs = (
+        conformance_policy_path,
+        spend_policy_path,
+        authority_policy_path,
+    )
+    if any(_paths_overlap(output, source) for source in inputs):
+        raise ValueError("conformance authorization output must not overlap an input")
+    conformance_policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(conformance_policy_path, 128_000)
+    )
+    spend_policy = SpendPolicy.model_validate_json(
+        read_bounded(spend_policy_path, 64_000)
+    )
+    authority_policy = EvaluationConformanceAuthorityPolicy.model_validate_json(
+        read_bounded(authority_policy_path, 64_000)
+    )
+    authorization = make_evaluation_conformance_authorization(
+        conformance_policy,
+        spend_policy,
+        authority_policy,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.authorization_derived",
+                "output": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "conformance_policy_sha256": (authorization.conformance_policy_sha256),
+                "max_cost_microusd": authorization.max_cost_microusd,
+                "valid_until": authorization.valid_until.isoformat(),
+                "authenticated": False,
+                "credential_accessed": False,
+                "provider_request_sent": False,
+                "spend_reserved": False,
+                "grading_authorized": authorization.grading_authorized,
+                "scoring_authorized": authorization.scoring_authorized,
+                "promotion_authorized": authorization.promotion_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_evaluation_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_credentialed_exchange):
+        raise ValueError("credentialed evaluation exchange was not attested")
+    batch_path = cast(Path, args.batch)
+    artifact_path = cast(Path, args.artifact)
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    ledger_path = cast(Path, args.spend_ledger)
+    policy_path = cast(Path, args.conformance_policy)
+    output = cast(Path, args.output)
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
+        raise ValueError("expected authorization must be independently supplied")
+    if any(
+        _paths_overlap(source, audit_directory)
+        for source in (batch_path, artifact_path, ledger_path, policy_path)
+    ):
+        raise ValueError("conformance inputs must be outside the broker audit")
+    if any(
+        _paths_overlap(output, source)
+        for source in (
+            batch_path,
+            artifact_path,
+            expected_path,
+            audit_directory,
+            ledger_path,
+            policy_path,
+        )
+    ):
+        raise ValueError("conformance observation output must not overlap an input")
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    artifact = BrokeredEvaluationArtifact.model_validate_json(
+        read_bounded(artifact_path, 2_000_000)
+    )
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    observation = make_evaluation_conformance_observation(
+        batch,
+        artifact,
+        expected,
+        audit_directory,
+        SpendLedger(ledger_path),
+        policy,
+        cast(datetime, args.observed_at),
+        cast(str, args.sdk_version),
+        cast(str, args.transport_evidence_sha256),
+    )
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "sample_id": observation.sample_id,
+                "artifact_sha256": observation.artifact_sha256,
+                "credentialed_exchange_attested": (
+                    observation.credentialed_exchange_attested
+                ),
+                "provider_authorship_proven": observation.provider_authorship_proven,
+                "billing_reconciled": observation.billing_reconciled,
+                "complete_batch_conformance_proven": (
+                    observation.complete_batch_conformance_proven
+                ),
+                "batch_conversion_authorized": (
+                    observation.batch_conversion_authorized
+                ),
+                "grading_authorized": observation.grading_authorized,
+                "scoring_authorized": observation.scoring_authorized,
+                "promotion_authorized": observation.promotion_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_evaluation_conformance_command(args: argparse.Namespace) -> int:
+    signed_path = cast(Path, args.signed_observation)
+    policy_path = cast(Path, args.conformance_policy)
+    batch_path = cast(Path, args.batch)
+    artifact_path = cast(Path, args.artifact)
+    expected_path = cast(Path, args.expected_authorization)
+    audit_directory = cast(Path, args.audit_dir)
+    ledger_path = cast(Path, args.spend_ledger)
+    output = cast(Path, args.output)
+    if _aliases_broker_audit_authorization(expected_path, audit_directory):
+        raise ValueError("expected authorization must be independently supplied")
+    if any(
+        _paths_overlap(source, audit_directory)
+        for source in (
+            signed_path,
+            policy_path,
+            batch_path,
+            artifact_path,
+            ledger_path,
+        )
+    ):
+        raise ValueError("conformance inputs must be outside the broker audit")
+    if any(
+        _paths_overlap(output, source)
+        for source in (
+            signed_path,
+            policy_path,
+            batch_path,
+            artifact_path,
+            expected_path,
+            audit_directory,
+            ledger_path,
+        )
+    ):
+        raise ValueError("authenticated conformance output must not overlap an input")
+    signed = SignedEvaluationConformanceObservation.model_validate_json(
+        read_bounded(signed_path, 256_000)
+    )
+    policy = EvaluationConformancePolicy.model_validate_json(
+        read_bounded(policy_path, 128_000)
+    )
+    batch = ExecutionBatch.model_validate_json(read_bounded(batch_path, 16_000_000))
+    artifact = BrokeredEvaluationArtifact.model_validate_json(
+        read_bounded(artifact_path, 2_000_000)
+    )
+    expected = AssignmentAuthorization.model_validate_json(
+        read_bounded(expected_path, 4096)
+    )
+    authenticated = authenticate_evaluation_conformance(
+        signed,
+        policy,
+        batch,
+        artifact,
+        expected,
+        audit_directory,
+        SpendLedger(ledger_path),
+        cast(datetime, args.at),
+    )
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.brokered_conformance.authenticated",
+                "output": str(output),
+                "authenticated_conformance_sha256": (
+                    authenticated.authenticated_conformance_sha256
+                ),
+                "sample_id": authenticated.sample_id,
+                "artifact_sha256": authenticated.artifact_sha256,
+                "signer_id": authenticated.signer_id,
+                "provider_authorship_proven": (
+                    authenticated.provider_authorship_proven
+                ),
+                "billing_reconciled": authenticated.billing_reconciled,
+                "complete_batch_conformance_proven": (
+                    authenticated.complete_batch_conformance_proven
+                ),
+                "batch_conversion_authorized": (
+                    authenticated.batch_conversion_authorized
+                ),
+                "grading_authorized": authenticated.grading_authorized,
+                "scoring_authorized": authenticated.scoring_authorized,
+                "promotion_authorized": authenticated.promotion_authorized,
+            }
+        )
+    )
+    return 0
 
 
 def _authenticate_adjudication_command(args: argparse.Namespace) -> int:
@@ -1399,6 +4229,2014 @@ def _bind_skill_release_evidence_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _derive_skill_release_control_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    decision = make_skill_release_control_decision(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        cast(int, args.sequence),
+        cast(Literal["allowed", "revoked"], args.disposition),
+        rollback_archive,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "release_evidence_sha256": decision.release_evidence_sha256,
+                "sequence": decision.sequence,
+                "disposition": decision.disposition,
+                "rollback_nominated": decision.rollback is not None,
+                "authenticated": False,
+                "installation_authorized": decision.installation_authorized,
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_release_control_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    signed = SignedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control), 256_000)
+    )
+    receipt = authenticate_skill_release_control(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        signed,
+        control_authorities,
+        rollback_archive,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, receipt)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.authenticated",
+                "path": str(output),
+                "control_receipt_sha256": receipt.control_receipt_sha256,
+                "release_evidence_sha256": receipt.release_evidence_sha256,
+                "sequence": signed.decision.sequence,
+                "signer_id": signed.signature.signer_id,
+                "release_allowed": receipt.release_allowed,
+                "release_revoked": receipt.release_revoked,
+                "rollback_nominated": receipt.rollback_archive is not None,
+                "installation_authorized": receipt.installation_authorized,
+                "activation_authorized": receipt.activation_authorized,
+                "configuration_mutation_authorized": (
+                    receipt.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_create_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    policy = SkillReleaseControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    anchor = SkillReleaseControlAnchor.create(
+        cast(Path, args.path),
+        policy,
+        control_authorities,
+    )
+    snapshot = anchor.snapshot(control_authorities)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_created",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "release_evidence_sha256": (snapshot.policy.release_evidence_sha256),
+                "entries": snapshot.entries,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_advance_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    signed = SignedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.signed_control), 256_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.advance(signed, control_authorities, datetime.now(UTC))
+    latest = snapshot.latest
+    if latest is None:
+        raise ValueError("skill release control anchor advance produced no state")
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_advanced",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_entry_sha256": latest.anchor_entry_sha256,
+                "sequence": latest.signed_control.decision.sequence,
+                "disposition": latest.signed_control.decision.disposition,
+                "entries": snapshot.entries,
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_release_control_anchor_status_command(args: argparse.Namespace) -> int:
+    control_authorities = SkillReleaseControlAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.control_authority_policy), 64_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.anchor))
+    snapshot = anchor.snapshot(control_authorities)
+    latest = snapshot.latest
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_release_control.anchor_status",
+                "path": str(anchor.path),
+                "anchor_id": snapshot.policy.anchor_id,
+                "anchor_policy_sha256": snapshot.policy.policy_sha256,
+                "release_evidence_sha256": (snapshot.policy.release_evidence_sha256),
+                "entries": snapshot.entries,
+                "latest_entry_sha256": (
+                    latest.anchor_entry_sha256 if latest is not None else None
+                ),
+                "latest_sequence": (
+                    latest.signed_control.decision.sequence
+                    if latest is not None
+                    else None
+                ),
+                "latest_disposition": (
+                    latest.signed_control.decision.disposition
+                    if latest is not None
+                    else None
+                ),
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_staging_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillStagingStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    anchor_policy = SkillReleaseControlAnchorPolicy.model_validate_json(
+        read_bounded(cast(Path, args.anchor_policy), 64_000)
+    )
+    store = SkillStagingStore.create(
+        cast(Path, args.path),
+        policy,
+        anchor_policy,
+    )
+    snapshot = store.snapshot()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.store_created",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "control_anchor_policy_sha256": (
+                    snapshot.policy.control_anchor_policy_sha256
+                ),
+                "packages": len(snapshot.packages),
+                "incomplete_transactions": len(snapshot.incomplete),
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_staging_store_status_command(args: argparse.Namespace) -> int:
+    store = SkillStagingStore(cast(Path, args.store))
+    snapshot = store.snapshot()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.store_status",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "packages": list(snapshot.packages),
+                "incomplete_transactions": [
+                    item.model_dump(mode="json") for item in snapshot.incomplete
+                ],
+                "installation_authorized": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _stage_skill_release_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    authenticated_control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    control_anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    result = stage_authenticated_skill_release(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        authenticated_control,
+        control_authorities,
+        control_anchor,
+        staging_store,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_staging.completed",
+                "path": str(output),
+                "package_path": result.package_path,
+                "manifest_sha256": result.manifest.manifest_sha256,
+                "archive_sha256": result.manifest.intent.archive_sha256,
+                "action": result.manifest.intent.action,
+                "already_present": result.already_present,
+                "quarantine_staged": result.manifest.quarantine_staged,
+                "installation_authorized": result.installation_authorized,
+                "activation_authorized": result.activation_authorized,
+                "configuration_mutation_authorized": (
+                    result.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _load_skill_installation_runtime(
+    args: argparse.Namespace,
+) -> tuple[
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillStagingStore,
+    SkillInstallationAuthorityPolicy,
+]:
+    authenticated_control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    return authenticated_control, anchor, staging_store, installation_policy
+
+
+def _derive_skill_installation_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    decision = make_skill_installation_decision(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        installation_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "staging_manifest_sha256": decision.staging_manifest_sha256,
+                "archive_sha256": decision.archive_sha256,
+                "action": decision.action,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_use_required": decision.one_use_required,
+                "authenticated": False,
+                "installation_authorized": decision.installation_authorized,
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_installation_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    signed = SignedSkillInstallationDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_installation), 256_000)
+    )
+    authorization = authenticate_skill_installation(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        signed,
+        installation_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "archive_sha256": authorization.archive_sha256,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_use_required": authorization.one_use_required,
+                "installation_authorized": authorization.installation_authorized,
+                "installation_performed": authorization.installation_performed,
+                "activation_authorized": authorization.activation_authorized,
+                "configuration_mutation_authorized": (
+                    authorization.configuration_mutation_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installation_claim_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillInstallationClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    authority_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstallationClaimStore.create(
+        cast(Path, args.path), store_policy, authority_policy
+    )
+    snapshot = store.snapshot(authority_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.claim_store_created",
+                "path": str(store.path),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "claims": len(snapshot.claims),
+                "installation_performed": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installation_claim_store_status_command(args: argparse.Namespace) -> int:
+    authority_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstallationClaimStore(cast(Path, args.store))
+    snapshot = store.snapshot(authority_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.claim_store_status",
+                "path": str(store.path),
+                "store_id": snapshot.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "claims": [item.model_dump(mode="json") for item in snapshot.claims],
+                "installation_performed": False,
+                "activation_authorized": False,
+                "configuration_mutation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installed_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillInstalledStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    staging_store = SkillStagingStore(cast(Path, args.staging_store))
+    claim_store_policy = SkillInstallationClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.claim_store_policy), 64_000)
+    )
+    store = SkillInstalledStore.create(
+        cast(Path, args.path),
+        store_policy,
+        installation_policy,
+        staging_store,
+        claim_store_policy,
+    )
+    snapshot = store.snapshot(installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.store_created",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "store_policy_sha256": snapshot.policy.policy_sha256,
+                "packages": len(snapshot.packages),
+                "incomplete_transactions": len(snapshot.incomplete),
+                "default_changed": False,
+                "configuration_mutation_authorized": False,
+                "activation_authorized": False,
+                "runtime_lookup_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_installed_store_status_command(args: argparse.Namespace) -> int:
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    store = SkillInstalledStore(cast(Path, args.store))
+    snapshot = store.snapshot(installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.store_status",
+                "path": str(store.root),
+                "store_id": snapshot.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "packages": list(snapshot.packages),
+                "incomplete_transactions": [
+                    item.model_dump(mode="json") for item in snapshot.incomplete
+                ],
+                "default_changed": False,
+                "configuration_mutation_authorized": False,
+                "activation_authorized": False,
+                "runtime_lookup_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_install_recovery_status_command(args: argparse.Namespace) -> int:
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    claim_store = SkillInstallationClaimStore(cast(Path, args.claim_store))
+    snapshot = inspect_skill_install_recovery(
+        installed_store,
+        installation_policy,
+        claim_store,
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.recovery_status",
+                "installed_store": str(installed_store.root),
+                "claim_store": str(claim_store.path),
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "entries": [item.model_dump(mode="json") for item in snapshot.entries],
+                "unbound_transactions": list(snapshot.unbound_transactions),
+                "automatic_recovery_authorized": (
+                    snapshot.automatic_recovery_authorized
+                ),
+                "cleanup_authorized": snapshot.cleanup_authorized,
+                "default_mutation_authorized": (snapshot.default_mutation_authorized),
+                "configuration_mutation_authorized": (
+                    snapshot.configuration_mutation_authorized
+                ),
+                "runtime_lookup_authorized": snapshot.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _install_skill_release_command(args: argparse.Namespace) -> int:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    control, anchor, staging_store, installation_policy = (
+        _load_skill_installation_runtime(args)
+    )
+    authorization = AuthenticatedSkillInstallation.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_installation), 256_000)
+    )
+    claim_store = SkillInstallationClaimStore(cast(Path, args.claim_store))
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    result = install_authenticated_skill_release(
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control,
+        control_authorities,
+        anchor,
+        staging_store,
+        authorization,
+        installation_policy,
+        claim_store,
+        installed_store,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_installation.completed",
+                "path": str(output),
+                "package_path": result.package_path,
+                "manifest_sha256": result.manifest.manifest_sha256,
+                "archive_sha256": result.manifest.intent.archive_sha256,
+                "decision_sha256": result.claim.decision_sha256,
+                "installation_performed": result.installation_performed,
+                "default_changed": result.default_changed,
+                "configuration_mutation_authorized": (
+                    result.configuration_mutation_authorized
+                ),
+                "activation_authorized": result.activation_authorized,
+                "runtime_lookup_authorized": result.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _load_skill_default_runtime(
+    args: argparse.Namespace,
+) -> tuple[
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAnchor,
+    SkillInstalledStore,
+    SkillInstallationAuthorityPolicy,
+    SkillDefaultStore,
+    SkillDefaultAuthorityPolicy,
+]:
+    control = AuthenticatedSkillReleaseControl.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_control), 8_000_000)
+    )
+    anchor = SkillReleaseControlAnchor(cast(Path, args.control_anchor))
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    default_store = SkillDefaultStore(cast(Path, args.default_store))
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    return (
+        control,
+        anchor,
+        installed_store,
+        installation_policy,
+        default_store,
+        default_policy,
+    )
+
+
+type SkillDefaultSources = tuple[
+    EvaluationDataset,
+    SweepPlan,
+    SkillEvaluationLineage,
+    SkillEvaluationLineage,
+    SealedSkillComparison,
+    SkillHoldoutUseClaim,
+    SkillComparisonReport,
+    SkillComparisonReport,
+    AuthenticatedSkillPromotion,
+    SkillPromotionAuthorityPolicy,
+    SkillPackageArchive,
+    SkillReleaseEvidence,
+    AuthenticatedSkillReleaseControl,
+    SkillReleaseControlAuthorityPolicy,
+    SkillReleaseControlAnchor,
+    SkillInstalledStore,
+    SkillInstallationAuthorityPolicy,
+]
+type SkillDefaultRuntime = tuple[SkillDefaultStore, SkillDefaultAuthorityPolicy]
+
+
+def _skill_default_sources(
+    args: argparse.Namespace,
+) -> tuple[SkillDefaultSources, SkillDefaultRuntime]:
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_authorities,
+        archive,
+        evidence,
+        control_authorities,
+        _rollback_archive,
+    ) = _load_skill_release_control_sources(args)
+    (
+        control,
+        anchor,
+        installed_store,
+        installation_policy,
+        default_store,
+        default_policy,
+    ) = _load_skill_default_runtime(args)
+    return (
+        (
+            dataset,
+            plan,
+            calibration,
+            holdout,
+            sealed,
+            claim,
+            calibration_report,
+            holdout_report,
+            promotion,
+            promotion_authorities,
+            archive,
+            evidence,
+            control,
+            control_authorities,
+            anchor,
+            installed_store,
+            installation_policy,
+        ),
+        (default_store, default_policy),
+    )
+
+
+def _derive_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    decision = make_skill_default_decision(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "sequence": decision.sequence,
+                "expected_previous_pointer_sha256": (
+                    decision.expected_previous_pointer_sha256
+                ),
+                "installed_manifest_sha256": decision.installed_manifest_sha256,
+                "archive_sha256": decision.archive_sha256,
+                "action": decision.action,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_use_required": decision.one_use_required,
+                "default_pointer_mutation_authorized": (
+                    decision.default_pointer_mutation_authorized
+                ),
+                "default_changed": False,
+                "other_configuration_mutation_authorized": (
+                    decision.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": decision.activation_authorized,
+                "runtime_lookup_authorized": decision.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    signed = SignedSkillDefaultDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_default), 256_000)
+    )
+    authorization = authenticate_skill_default(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        signed,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authorization)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.authenticated",
+                "path": str(output),
+                "authorization_sha256": authorization.authorization_sha256,
+                "decision_sha256": signed.decision.decision_sha256,
+                "signer_id": signed.signature.signer_id,
+                "sequence": signed.decision.sequence,
+                "archive_sha256": authorization.archive_sha256,
+                "valid_until": authorization.valid_until.isoformat(),
+                "one_use_required": authorization.one_use_required,
+                "default_pointer_mutation_authorized": (
+                    authorization.default_pointer_mutation_authorized
+                ),
+                "default_changed": authorization.default_changed,
+                "other_configuration_mutation_authorized": (
+                    authorization.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": authorization.activation_authorized,
+                "runtime_lookup_authorized": authorization.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_default_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillDefaultStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.store_policy), 64_000)
+    )
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    store = SkillDefaultStore.create(
+        cast(Path, args.path), store_policy, default_policy, installed_store
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.store_created",
+                "path": str(store.path),
+                "store_id": store.policy.store_id,
+                "store_policy_sha256": store.policy.policy_sha256,
+                "revisions": 0,
+                "current": None,
+                "atomic_commit": True,
+                "default_changed": False,
+                "other_configuration_mutation_authorized": False,
+                "runtime_lookup_authorized": False,
+                "activation_authorized": False,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_default_store_status_command(args: argparse.Namespace) -> int:
+    default_policy = SkillDefaultAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.default_authority_policy), 64_000)
+    )
+    installation_policy = SkillInstallationAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.installation_authority_policy), 64_000)
+    )
+    installed_store = SkillInstalledStore(cast(Path, args.installed_store))
+    store = SkillDefaultStore(cast(Path, args.store))
+    snapshot = store.snapshot(default_policy, installed_store, installation_policy)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.store_status",
+                "path": str(store.path),
+                "store_id": store.policy.store_id,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "revisions": snapshot.revisions,
+                "current": (
+                    snapshot.current.model_dump(mode="json")
+                    if snapshot.current is not None
+                    else None
+                ),
+                "atomic_commit": snapshot.atomic_commit,
+                "automatic_recovery_required": (snapshot.automatic_recovery_required),
+                "default_changed": snapshot.default_changed,
+                "other_configuration_mutation_authorized": (
+                    snapshot.other_configuration_mutation_authorized
+                ),
+                "runtime_lookup_authorized": snapshot.runtime_lookup_authorized,
+                "activation_authorized": snapshot.activation_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _select_skill_default_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    authorization = AuthenticatedSkillDefault.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_default), 256_000)
+    )
+    result = select_authenticated_skill_default(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        authorization,
+        default_policy,
+        cast(Literal["candidate", "rollback"], args.action),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, result)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_default.selected",
+                "path": str(output),
+                "pointer_sha256": result.pointer.pointer_sha256,
+                "sequence": result.pointer.sequence,
+                "previous_pointer_sha256": result.pointer.previous_pointer_sha256,
+                "archive_sha256": result.pointer.archive_sha256,
+                "skill": result.pointer.skill.model_dump(mode="json"),
+                "authorization_consumed": result.authorization_consumed,
+                "default_changed": result.default_changed,
+                "atomic_commit": result.atomic_commit,
+                "other_configuration_mutation_authorized": (
+                    result.other_configuration_mutation_authorized
+                ),
+                "activation_authorized": result.activation_authorized,
+                "runtime_lookup_authorized": result.runtime_lookup_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _issue_skill_health_eligibility_command(args: argparse.Namespace) -> int:
+    sources, (default_store, default_policy) = _skill_default_sources(args)
+    signed_policy = SignedSkillHealthPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_policy), 256_000)
+    )
+    signed_observation = SignedSkillHealthObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_observation), 256_000)
+    )
+    authorities = SkillHealthAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.health_authority_policy), 64_000)
+    )
+    eligibility = issue_skill_health_eligibility(  # type: ignore[arg-type]
+        *sources,
+        default_store,
+        default_policy,
+        signed_policy,
+        signed_observation,
+        authorities,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, eligibility)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_health.eligible",
+                "path": str(output),
+                "eligibility_sha256": eligibility.eligibility_sha256,
+                "default_pointer_sha256": eligibility.default_pointer_sha256,
+                "archive_sha256": eligibility.archive_sha256,
+                "evidence_bundle_sha256": eligibility.evidence_bundle_sha256,
+                "valid_until": eligibility.valid_until.isoformat(),
+                "health_passed": eligibility.health_passed,
+                "drift_passed": eligibility.drift_passed,
+                "runtime_preflight_eligible": (eligibility.runtime_preflight_eligible),
+                "runtime_dispatch_authorized": (
+                    eligibility.runtime_dispatch_authorized
+                ),
+                "activation_authorized": eligibility.activation_authorized,
+                "configuration_mutation_authorized": (
+                    eligibility.configuration_mutation_authorized
+                ),
+                "automatic_rollback_authorized": (
+                    eligibility.automatic_rollback_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _load_routing_runtime_sources(args: argparse.Namespace) -> RoutingRuntimeSources:
+    return RoutingRuntimeSources(
+        dataset=EvaluationDataset.model_validate_json(
+            read_bounded(cast(Path, args.routing_dataset), 16_000_000)
+        ),
+        plan=SweepPlan.model_validate_json(
+            read_bounded(cast(Path, args.routing_plan), 16_000_000)
+        ),
+        calibration=_load_routing_lineage(args, "routing_calibration"),
+        holdout=_load_routing_lineage(args, "routing_holdout"),
+        manifest=PromptFeatureManifest.model_validate_json(
+            read_bounded(cast(Path, args.routing_feature_manifest), 16_000_000)
+        ),
+        sealed_study=SealedRoutingStudy.model_validate_json(
+            read_bounded(cast(Path, args.routing_sealed_study), 2_000_000)
+        ),
+        calibration_report=RoutingCalibrationReport.model_validate_json(
+            read_bounded(cast(Path, args.routing_calibration_report), 16_000_000)
+        ),
+        candidate_policy=FrozenCandidateRoutingPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_candidate_policy), 16_000_000)
+        ),
+        promotion_policy=RoutingPromotionPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_policy), 64_000)
+        ),
+        claim=HoldoutUseClaim.model_validate_json(
+            read_bounded(cast(Path, args.routing_holdout_use_claim), 64_000)
+        ),
+        holdout_report=FrozenPolicyHoldoutReport.model_validate_json(
+            read_bounded(cast(Path, args.routing_holdout_report), 32_000_000)
+        ),
+        promotion=AuthenticatedRoutingPromotion.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_receipt), 128_000)
+        ),
+        promotion_authorities=RoutingPromotionAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_promotion_authority_policy), 64_000)
+        ),
+        signed_activation_policy=SignedRoutingActivationPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_signed_activation_policy), 1_000_000)
+        ),
+        signed_snapshot=SignedRoutingOperationalSnapshot.model_validate_json(
+            read_bounded(
+                cast(Path, args.routing_signed_operational_snapshot), 2_000_000
+            )
+        ),
+        signed_control=SignedRoutingActivationControl.model_validate_json(
+            read_bounded(cast(Path, args.routing_signed_control_state), 2_000_000)
+        ),
+        activation_authorities=RoutingActivationAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.routing_activation_authority_policy), 64_000)
+        ),
+        eligibility=RoutingActivationEligibility.model_validate_json(
+            read_bounded(cast(Path, args.routing_activation_eligibility), 1_000_000)
+        ),
+        control_anchor=RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+    )
+
+
+def _load_skill_runtime_inputs(
+    args: argparse.Namespace,
+) -> tuple[
+    SkillRuntimeSources,
+    RoutingRuntimePreflight,
+    SkillRuntimeRequest,
+    ModelRegistry,
+    SpendPolicy,
+    SpendLedger,
+    SkillRuntimeAuthorityPolicy,
+]:
+    base, (default_store, default_policy) = _skill_default_sources(args)
+    (
+        dataset,
+        plan,
+        calibration,
+        holdout,
+        sealed,
+        holdout_claim,
+        calibration_report,
+        holdout_report,
+        promotion,
+        promotion_policy,
+        archive,
+        release_evidence,
+        control,
+        control_policy,
+        control_anchor,
+        installed_store,
+        installation_policy,
+    ) = base
+    signed_health_policy = SignedSkillHealthPolicy.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_policy), 256_000)
+    )
+    signed_health_observation = SignedSkillHealthObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_health_observation), 256_000)
+    )
+    health_authorities = SkillHealthAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.health_authority_policy), 64_000)
+    )
+    health_eligibility = SkillHealthEligibility.model_validate_json(
+        read_bounded(cast(Path, args.health_eligibility), 256_000)
+    )
+    sources = SkillRuntimeSources(
+        dataset=dataset,
+        plan=plan,
+        calibration=calibration,
+        holdout=holdout,
+        sealed=sealed,
+        holdout_claim=holdout_claim,
+        calibration_report=calibration_report,
+        holdout_report=holdout_report,
+        promotion=promotion,
+        promotion_policy=promotion_policy,
+        archive=archive,
+        release_evidence=release_evidence,
+        control=control,
+        control_policy=control_policy,
+        control_anchor=control_anchor,
+        installed_store=installed_store,
+        installation_policy=installation_policy,
+        default_store=default_store,
+        default_policy=default_policy,
+        signed_health_policy=signed_health_policy,
+        signed_health_observation=signed_health_observation,
+        health_authorities=health_authorities,
+        health_eligibility=health_eligibility,
+        routing=_load_routing_runtime_sources(args),
+    )
+    return (
+        sources,
+        RoutingRuntimePreflight.model_validate_json(
+            read_bounded(cast(Path, args.routing_preflight), 256_000)
+        ),
+        SkillRuntimeRequest.model_validate_json(
+            read_bounded(cast(Path, args.runtime_request), 512_000)
+        ),
+        ModelRegistry.model_validate_json(
+            read_bounded(cast(Path, args.model_registry), 256_000)
+        ),
+        SpendPolicy.model_validate_json(
+            read_bounded(cast(Path, args.spend_policy), 64_000)
+        ),
+        SpendLedger(cast(Path, args.spend_ledger)),
+        SkillRuntimeAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.runtime_authority_policy), 64_000)
+        ),
+    )
+
+
+def _derive_skill_runtime_preflight_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    decision = make_skill_runtime_decision(
+        *inputs,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "runtime_request_sha256": decision.runtime_request_sha256,
+                "route_candidate_id": decision.route_candidate_id,
+                "provider_request_sha256": decision.provider_request_sha256,
+                "ledger_entry_id": decision.ledger_entry_id,
+                "valid_until": decision.valid_until.isoformat(),
+                "one_use_required": decision.one_use_required,
+                "provider_dispatch_authorized": (decision.provider_dispatch_authorized),
+                "activation_authorized": decision.activation_authorized,
+                "configuration_mutation_authorized": (
+                    decision.configuration_mutation_authorized
+                ),
+                "automatic_rollback_authorized": (
+                    decision.automatic_rollback_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _prepare_skill_runtime_request_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed = SignedSkillRuntimeDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+    )
+    prepared = prepare_signed_skill_runtime_request(
+        *inputs,
+        signed,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, prepared)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.prepared",
+                "path": str(output),
+                "preflight_sha256": prepared.preflight_sha256,
+                "decision_sha256": prepared.decision_sha256,
+                "default_pointer_sha256": prepared.default_pointer_sha256,
+                "route_candidate_id": prepared.route.candidate_id,
+                "ledger_entry_id": prepared.ledger_entry.entry_id,
+                "reserved_microusd": (prepared.spend_reservation.reserved_microusd),
+                "authorization_consumed": prepared.authorization_consumed,
+                "spend_reserved": prepared.spend_reserved,
+                "prompt_bytes_loaded": prepared.prompt_bytes_loaded,
+                "broker_grant_issued": prepared.broker_grant_issued,
+                "provider_dispatch_authorized": (prepared.provider_dispatch_authorized),
+                "provider_request_sent": prepared.provider_request_sent,
+                "automatic_rollback_authorized": (
+                    prepared.automatic_rollback_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_preflight_status_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+    )
+    policy = SkillRuntimeAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.runtime_authority_policy), 64_000)
+    )
+    ledger = SpendLedger(cast(Path, args.spend_ledger))
+    status = inspect_skill_runtime_preflight(signed, policy, ledger)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_admission_store_create_command(args: argparse.Namespace) -> int:
+    store_policy = SkillRuntimeAdmissionStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.admission_store_policy), 64_000)
+    )
+    store = SkillRuntimeAdmissionStore.create(
+        cast(Path, args.path),
+        store_policy,
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.admission_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _admit_skill_runtime_request_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed = SignedSkillRuntimeDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+    )
+    prepared = PreparedSkillRuntimeRequest.model_validate_json(
+        read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+    )
+    admission = make_skill_runtime_broker_admission(
+        *inputs,
+        signed,
+        prepared,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, admission)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_admitted",
+                "path": str(output),
+                "admission_sha256": admission.admission_sha256,
+                "admission_id": admission.admission_id,
+                "decision_sha256": admission.decision_sha256,
+                "ledger_entry_id": admission.ledger_entry_id,
+                "authorization_already_consumed": (
+                    admission.authorization_already_consumed
+                ),
+                "existing_reservation_claimed": (
+                    admission.existing_reservation_claimed
+                ),
+                "second_reservation_created": admission.second_reservation_created,
+                "broker_grant_issued": admission.broker_grant_issued,
+                "provider_dispatch_authorized": (
+                    admission.provider_dispatch_authorized
+                ),
+                "provider_request_sent": admission.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_admission_status_command(args: argparse.Namespace) -> int:
+    prepared = PreparedSkillRuntimeRequest.model_validate_json(
+        read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+    )
+    status = inspect_skill_runtime_admission(
+        prepared,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.admission_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _load_skill_runtime_dispatch_artifacts(
+    args: argparse.Namespace,
+) -> tuple[
+    SignedSkillRuntimeDecision,
+    PreparedSkillRuntimeRequest,
+    SkillRuntimeBrokerAdmission,
+    SkillRuntimeAdmissionStore,
+    SkillRuntimeDispatchAuthorityPolicy,
+]:
+    return (
+        SignedSkillRuntimeDecision.model_validate_json(
+            read_bounded(cast(Path, args.signed_runtime_decision), 256_000)
+        ),
+        PreparedSkillRuntimeRequest.model_validate_json(
+            read_bounded(cast(Path, args.prepared_runtime_request), 512_000)
+        ),
+        SkillRuntimeBrokerAdmission.model_validate_json(
+            read_bounded(cast(Path, args.admission), 256_000)
+        ),
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+            read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+        ),
+    )
+
+
+def _derive_skill_runtime_dispatch_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed_runtime, prepared, admission, admission_store, policy = (
+        _load_skill_runtime_dispatch_artifacts(args)
+    )
+    claim_policy = SkillRuntimeDispatchClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_claim_store_policy), 64_000)
+    )
+    decision = make_skill_runtime_dispatch_decision(
+        *inputs,
+        signed_runtime,
+        prepared,
+        admission,
+        admission_store,
+        claim_policy,
+        policy,
+        cast(datetime, args.issued_at),
+        cast(datetime, args.valid_until),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, decision)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_derived",
+                "path": str(output),
+                "decision_sha256": decision.decision_sha256,
+                "admission_id": decision.admission_id,
+                "route_candidate_id": decision.route_candidate_id,
+                "provider_request_sha256": decision.provider_request_sha256,
+                "ledger_entry_id": decision.ledger_entry_id,
+                "valid_until": decision.valid_until.isoformat(),
+                "may_issue_one_request_bound_grant": (
+                    decision.may_issue_one_request_bound_grant
+                ),
+                "direct_provider_dispatch_authorized": (
+                    decision.direct_provider_dispatch_authorized
+                ),
+                "broker_grant_issued": decision.broker_grant_issued,
+                "provider_request_sent": decision.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_dispatch_claim_store_create_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimeDispatchClaimStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_claim_store_policy), 64_000)
+    )
+    store = SkillRuntimeDispatchClaimStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_claim_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _consume_skill_runtime_dispatch_command(args: argparse.Namespace) -> int:
+    inputs = _load_skill_runtime_inputs(args)
+    signed_runtime, prepared, admission, admission_store, policy = (
+        _load_skill_runtime_dispatch_artifacts(args)
+    )
+    signed_dispatch = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    claim = consume_skill_runtime_dispatch_authority(
+        *inputs,
+        signed_runtime,
+        prepared,
+        admission,
+        admission_store,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        policy,
+        signed_dispatch,
+        datetime.now(UTC),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, claim)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_authority_consumed",
+                "path": str(output),
+                "claim_sha256": claim.claim_sha256,
+                "dispatch_decision_sha256": claim.dispatch_decision_sha256,
+                "admission_id": claim.admission_id,
+                "ledger_entry_id": claim.ledger_entry_id,
+                "request_bound_grant_eligible": claim.request_bound_grant_eligible,
+                "broker_grant_issued": claim.broker_grant_issued,
+                "direct_provider_dispatch_authorized": (
+                    claim.direct_provider_dispatch_authorized
+                ),
+                "provider_request_sent": claim.provider_request_sent,
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_dispatch_status_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    policy = SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+    )
+    status = inspect_skill_runtime_dispatch(
+        signed,
+        policy,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.dispatch_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_broker_grant_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillRuntimeBrokerGrantStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.broker_grant_store_policy), 64_000)
+    )
+    store = SkillRuntimeBrokerGrantStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeDispatchClaimStore(cast(Path, args.dispatch_claim_store)),
+        SkillRuntimeAdmissionStore(cast(Path, args.admission_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_grant_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_broker_grant_status_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeDispatchDecision.model_validate_json(
+        read_bounded(cast(Path, args.signed_dispatch_decision), 256_000)
+    )
+    policy = SkillRuntimeDispatchAuthorityPolicy.model_validate_json(
+        read_bounded(cast(Path, args.dispatch_authority_policy), 64_000)
+    )
+    status = inspect_skill_runtime_broker_grant(
+        signed,
+        policy,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.broker_grant_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_provider_transaction_store_create_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimeProviderTransactionStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.provider_transaction_store_policy), 64_000)
+    )
+    store = SkillRuntimeProviderTransactionStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        RoutingControlAnchor(cast(Path, args.routing_control_anchor)),
+        SkillReleaseControlAnchor(cast(Path, args.skill_control_anchor)),
+        SkillDefaultStore(cast(Path, args.default_store)),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": ("evaluation.skill_runtime.provider_transaction_store_created"),
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_provider_transaction_status_command(
+    args: argparse.Namespace,
+) -> int:
+    issuance = IssuedSkillRuntimeBrokerGrant.model_validate_json(
+        read_bounded(cast(Path, args.issued_broker_grant), 256_000)
+    )
+    status = inspect_skill_runtime_provider_transaction(
+        issuance,
+        SkillRuntimeBrokerGrantStore(cast(Path, args.broker_grant_store)),
+        SkillRuntimeProviderTransactionStore(
+            cast(Path, args.provider_transaction_store)
+        ),
+        SpendLedger(cast(Path, args.spend_ledger)),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.provider_transaction_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_response_store_create_command(args: argparse.Namespace) -> int:
+    policy = SkillRuntimeResponseStorePolicy.model_validate_json(
+        read_bounded(cast(Path, args.response_store_policy), 64_000)
+    )
+    store = SkillRuntimeResponseStore.create(
+        cast(Path, args.path),
+        policy,
+        SkillRuntimeProviderTransactionStore(
+            cast(Path, args.provider_transaction_store)
+        ),
+    )
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_store_created",
+                "path": str(store.path),
+                **store.policy.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_response_store_status_command(args: argparse.Namespace) -> int:
+    status = SkillRuntimeResponseStore(cast(Path, args.response_store)).status()
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_store_status",
+                **status.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _skill_runtime_response_result_command(args: argparse.Namespace) -> int:
+    publication, result = SkillRuntimeResponseStore(
+        cast(Path, args.response_store)
+    ).load(cast(str, args.publication_id))
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.response_result",
+                "publication": publication.model_dump(mode="json"),
+                "result": result.model_dump(mode="json"),
+            }
+        )
+    )
+    return 0
+
+
+def _derive_skill_runtime_conformance_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_credentialed_exchange):
+        raise ValueError("credentialed runtime exchange was not attested")
+    policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    publication, result = SkillRuntimeResponseStore(
+        cast(Path, args.response_store)
+    ).load(cast(str, args.publication_id))
+    observation = make_skill_runtime_conformance_observation(
+        publication,
+        result,
+        policy,
+        cast(datetime, args.observed_at),
+        cast(str, args.sdk_version),
+        cast(str, args.transport_evidence_sha256),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.conformance_observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "publication_id": observation.publication_id,
+                "credentialed_exchange_attested": (
+                    observation.credentialed_exchange_attested
+                ),
+                "provider_authorship_proven": observation.provider_authorship_proven,
+                "billing_reconciled": observation.billing_reconciled,
+                "quality_claimed": observation.quality_claimed,
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_runtime_conformance_command(args: argparse.Namespace) -> int:
+    signed = SignedSkillRuntimeConformanceObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_observation), 256_000)
+    )
+    policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    authenticated = authenticate_skill_runtime_conformance(
+        signed,
+        policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.conformance_authenticated",
+                "output": str(output),
+                "authenticated_conformance_sha256": (
+                    authenticated.authenticated_conformance_sha256
+                ),
+                "publication_id": authenticated.publication_id,
+                "signer_id": authenticated.signer_id,
+                "provider_authorship_proven": (
+                    authenticated.provider_authorship_proven
+                ),
+                "billing_reconciled": authenticated.billing_reconciled,
+                "quality_claimed": authenticated.quality_claimed,
+            }
+        )
+    )
+    return 0
+
+
+def _derive_skill_runtime_billing_evidence_command(args: argparse.Namespace) -> int:
+    if not cast(bool, args.attest_complete_exclusive_billing_evidence):
+        raise ValueError("complete exclusive runtime billing evidence was not attested")
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_conformance), 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.billing_policy), 128_000)
+    )
+    response_store = SkillRuntimeResponseStore(cast(Path, args.response_store))
+    collection_path = cast(Path | None, args.collected_evidence)
+    manual_values = (
+        args.external_input_tokens,
+        args.external_output_tokens,
+        args.external_cost_microusd,
+        args.usage_bucket_start,
+        args.usage_bucket_end,
+        args.costs_bucket_start,
+        args.costs_bucket_end,
+        args.project_id_sha256,
+        args.api_key_id_sha256,
+        args.usage_evidence_sha256,
+        args.costs_evidence_sha256,
+        args.evidence_retrieved_at,
+    )
+    if collection_path is not None:
+        if any(value is not None for value in manual_values):
+            raise ValueError(
+                "collected and manually described billing evidence conflict"
+            )
+        collection = CollectedSkillRuntimeBillingEvidence.model_validate_json(
+            read_bounded(collection_path, 48_000_000)
+        )
+        observation = make_skill_runtime_billing_observation_from_collection(
+            conformance,
+            conformance_policy,
+            response_store,
+            billing_policy,
+            collection,
+        )
+    else:
+        if any(value is None for value in manual_values):
+            raise ValueError("runtime billing evidence description is incomplete")
+        observation = make_skill_runtime_billing_observation(
+            conformance,
+            conformance_policy,
+            response_store,
+            billing_policy,
+            external_input_tokens=cast(int, args.external_input_tokens),
+            external_output_tokens=cast(int, args.external_output_tokens),
+            external_cost_microusd=cast(int, args.external_cost_microusd),
+            usage_bucket_start=cast(datetime, args.usage_bucket_start),
+            usage_bucket_end=cast(datetime, args.usage_bucket_end),
+            costs_bucket_start=cast(datetime, args.costs_bucket_start),
+            costs_bucket_end=cast(datetime, args.costs_bucket_end),
+            project_id_sha256=cast(str, args.project_id_sha256),
+            api_key_id_sha256=cast(str, args.api_key_id_sha256),
+            usage_evidence_sha256=cast(str, args.usage_evidence_sha256),
+            costs_evidence_sha256=cast(str, args.costs_evidence_sha256),
+            evidence_retrieved_at=cast(datetime, args.evidence_retrieved_at),
+        )
+    output = cast(Path, args.output)
+    _write_contract(output, observation)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.billing_observation_derived",
+                "output": str(output),
+                "observation_sha256": observation.observation_sha256,
+                "publication_id": observation.publication_id,
+                "exclusive_one_request_scope_attested": (
+                    observation.exclusive_one_request_scope_attested
+                ),
+                "exact_request_cost_attribution_proven": (
+                    observation.exact_request_cost_attribution_proven
+                ),
+                "invoice_finality_proven": observation.invoice_finality_proven,
+                "ledger_mutation_authorized": observation.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    observation.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _authenticate_skill_runtime_billing_evidence_command(
+    args: argparse.Namespace,
+) -> int:
+    signed = SignedSkillRuntimeBillingObservation.model_validate_json(
+        read_bounded(cast(Path, args.signed_observation), 256_000)
+    )
+    billing_policy = SkillRuntimeBillingPolicy.model_validate_json(
+        read_bounded(cast(Path, args.billing_policy), 128_000)
+    )
+    conformance = AuthenticatedSkillRuntimeConformance.model_validate_json(
+        read_bounded(cast(Path, args.authenticated_conformance), 256_000)
+    )
+    conformance_policy = SkillRuntimeConformancePolicy.model_validate_json(
+        read_bounded(cast(Path, args.conformance_policy), 128_000)
+    )
+    authenticated = authenticate_skill_runtime_billing_evidence(
+        signed,
+        billing_policy,
+        conformance,
+        conformance_policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, authenticated)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.billing_evidence_authenticated",
+                "output": str(output),
+                "authenticated_billing_sha256": (
+                    authenticated.authenticated_billing_sha256
+                ),
+                "publication_id": authenticated.publication_id,
+                "signer_id": authenticated.signer_id,
+                "exclusive_aggregate_billing_reconciled": (
+                    authenticated.exclusive_aggregate_billing_reconciled
+                ),
+                "exact_request_cost_attribution_proven": (
+                    authenticated.exact_request_cost_attribution_proven
+                ),
+                "invoice_finality_proven": authenticated.invoice_finality_proven,
+                "ledger_mutation_authorized": authenticated.ledger_mutation_authorized,
+                "automatic_budget_release_authorized": (
+                    authenticated.automatic_budget_release_authorized
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _derive_skill_runtime_publication_checkpoint_command(
+    args: argparse.Namespace,
+) -> int:
+    policy = SkillRuntimePublicationWitnessPolicy.model_validate_json(
+        read_bounded(cast(Path, args.witness_policy), 128_000)
+    )
+    checkpoint = make_skill_runtime_publication_checkpoint(
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        policy,
+        cast(datetime, args.witnessed_at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, checkpoint)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.publication_checkpoint_derived",
+                "output": str(output),
+                "checkpoint_sha256": checkpoint.checkpoint_sha256,
+                "publications": checkpoint.history.publications,
+                "history_sha256": checkpoint.history.history_sha256,
+                "external_retention_proven": checkpoint.external_retention_proven,
+                "latest_external_checkpoint_proven": (
+                    checkpoint.latest_external_checkpoint_proven
+                ),
+            }
+        )
+    )
+    return 0
+
+
+def _verify_skill_runtime_publication_checkpoint_command(
+    args: argparse.Namespace,
+) -> int:
+    signed = SignedSkillRuntimePublicationCheckpoint.model_validate_json(
+        read_bounded(cast(Path, args.signed_checkpoint), 256_000)
+    )
+    policy = SkillRuntimePublicationWitnessPolicy.model_validate_json(
+        read_bounded(cast(Path, args.witness_policy), 128_000)
+    )
+    verified = verify_skill_runtime_publication_checkpoint(
+        signed,
+        policy,
+        SkillRuntimeResponseStore(cast(Path, args.response_store)),
+        cast(datetime, args.at),
+    )
+    output = cast(Path, args.output)
+    _write_contract(output, verified)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.skill_runtime.publication_checkpoint_verified",
+                "output": str(output),
+                "verification_sha256": verified.verification_sha256,
+                "signer_id": verified.signer_id,
+                "checkpoint_publications": (
+                    verified.signed_checkpoint.checkpoint.history.publications
+                ),
+                "current_publications": verified.current_history.publications,
+                "rollback_or_divergence_observed": (
+                    verified.rollback_or_divergence_observed
+                ),
+                "external_retention_proven": verified.external_retention_proven,
+                "latest_external_checkpoint_proven": (
+                    verified.latest_external_checkpoint_proven
+                ),
+            }
+        )
+    )
+    return 0
+
+
 def _seal_routing_study_command(args: argparse.Namespace) -> int:
     dataset = EvaluationDataset.model_validate_json(
         read_bounded(cast(Path, args.dataset), 16_000_000)
@@ -1619,6 +6457,63 @@ def _load_routing_lineage(args: argparse.Namespace, prefix: str) -> RoutingLinea
         ),
         DualGradedObservationSet.model_validate_json(
             read_bounded(path("dual_graded_observations"), 16_000_000)
+        ),
+    )
+
+
+type SkillReleaseControlSources = tuple[
+    EvaluationDataset,
+    SweepPlan,
+    SkillEvaluationLineage,
+    SkillEvaluationLineage,
+    SealedSkillComparison,
+    SkillHoldoutUseClaim,
+    SkillComparisonReport,
+    SkillComparisonReport,
+    AuthenticatedSkillPromotion,
+    SkillPromotionAuthorityPolicy,
+    SkillPackageArchive,
+    SkillReleaseEvidence,
+    SkillReleaseControlAuthorityPolicy,
+    SkillPackageArchive | None,
+]
+
+
+def _load_skill_release_control_sources(
+    args: argparse.Namespace,
+) -> SkillReleaseControlSources:
+    def load(path_name: str, limit: int) -> bytes:
+        return read_bounded(cast(Path, getattr(args, path_name)), limit)
+
+    rollback_path = cast(Path | None, args.rollback_archive)
+    return (
+        EvaluationDataset.model_validate_json(load("dataset", 16_000_000)),
+        SweepPlan.model_validate_json(load("plan", 16_000_000)),
+        _load_routing_lineage(args, "calibration"),
+        _load_routing_lineage(args, "holdout"),
+        SealedSkillComparison.model_validate_json(load("sealed_comparison", 2_000_000)),
+        SkillHoldoutUseClaim.model_validate_json(load("holdout_use_claim", 64_000)),
+        SkillComparisonReport.model_validate_json(
+            load("calibration_report", 2_000_000)
+        ),
+        SkillComparisonReport.model_validate_json(load("holdout_report", 2_000_000)),
+        AuthenticatedSkillPromotion.model_validate_json(
+            load("promotion_receipt", 128_000)
+        ),
+        SkillPromotionAuthorityPolicy.model_validate_json(
+            load("promotion_authority_policy", 64_000)
+        ),
+        SkillPackageArchive.model_validate_json(load("archive", 6_000_000)),
+        SkillReleaseEvidence.model_validate_json(load("release_evidence", 8_000_000)),
+        SkillReleaseControlAuthorityPolicy.model_validate_json(
+            load("control_authority_policy", 64_000)
+        ),
+        (
+            SkillPackageArchive.model_validate_json(
+                read_bounded(rollback_path, 6_000_000)
+            )
+            if rollback_path is not None
+            else None
         ),
     )
 
@@ -2076,6 +6971,32 @@ def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
 
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
+        "eval-compile-brokered-failure": _compile_brokered_failure_command,
+        "eval-assemble-brokered-results": _assemble_brokered_results_command,
+        "eval-convert-openai-conformance": _convert_openai_conformance_command,
+        "eval-plan-openai-calibration-campaign": (
+            _plan_openai_calibration_campaign_command
+        ),
+        "eval-derive-openai-calibration-execution": (
+            _derive_openai_calibration_execution_command
+        ),
+        "eval-authenticate-openai-calibration-execution": (
+            _authenticate_openai_calibration_execution_command
+        ),
+        "eval-consume-openai-calibration-execution": (
+            _consume_openai_calibration_execution_command
+        ),
+        "eval-run-openai-calibration": _run_openai_calibration_command,
+        "eval-prepare-brokered-conformance-policy": (
+            _prepare_evaluation_conformance_policy_command
+        ),
+        "eval-derive-brokered-conformance-authorization": (
+            _derive_evaluation_conformance_authorization_command
+        ),
+        "eval-derive-brokered-conformance": (_derive_evaluation_conformance_command),
+        "eval-authenticate-brokered-conformance": (
+            _authenticate_evaluation_conformance_command
+        ),
         "eval-authenticate-adjudication": _authenticate_adjudication_command,
         "eval-resolve-adjudications": _resolve_adjudications_command,
         "eval-compile-dual": _compile_dual_command,
@@ -2085,6 +7006,99 @@ def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
         "eval-derive-skill-promotion": _derive_skill_promotion_command,
         "eval-authenticate-skill-promotion": (_authenticate_skill_promotion_command),
         "eval-bind-skill-release-evidence": (_bind_skill_release_evidence_command),
+        "eval-derive-skill-release-control": (_derive_skill_release_control_command),
+        "eval-authenticate-skill-release-control": (
+            _authenticate_skill_release_control_command
+        ),
+        "skill-release-control-anchor-create": (
+            _skill_release_control_anchor_create_command
+        ),
+        "skill-release-control-anchor-advance": (
+            _skill_release_control_anchor_advance_command
+        ),
+        "skill-release-control-anchor-status": (
+            _skill_release_control_anchor_status_command
+        ),
+        "skill-staging-store-create": _skill_staging_store_create_command,
+        "skill-staging-store-status": _skill_staging_store_status_command,
+        "eval-stage-skill-release": _stage_skill_release_command,
+        "eval-derive-skill-installation": _derive_skill_installation_command,
+        "eval-authenticate-skill-installation": (
+            _authenticate_skill_installation_command
+        ),
+        "skill-installation-claim-store-create": (
+            _skill_installation_claim_store_create_command
+        ),
+        "skill-installation-claim-store-status": (
+            _skill_installation_claim_store_status_command
+        ),
+        "skill-installed-store-create": _skill_installed_store_create_command,
+        "skill-installed-store-status": _skill_installed_store_status_command,
+        "skill-install-recovery-status": _skill_install_recovery_status_command,
+        "eval-install-skill-release": _install_skill_release_command,
+        "eval-derive-skill-default": _derive_skill_default_command,
+        "eval-authenticate-skill-default": _authenticate_skill_default_command,
+        "skill-default-store-create": _skill_default_store_create_command,
+        "skill-default-store-status": _skill_default_store_status_command,
+        "eval-select-skill-default": _select_skill_default_command,
+        "eval-issue-skill-health-eligibility": (
+            _issue_skill_health_eligibility_command
+        ),
+        "eval-derive-skill-runtime-preflight": (
+            _derive_skill_runtime_preflight_command
+        ),
+        "eval-prepare-skill-runtime-request": (_prepare_skill_runtime_request_command),
+        "eval-admit-skill-runtime-request": _admit_skill_runtime_request_command,
+        "eval-derive-skill-runtime-dispatch": (_derive_skill_runtime_dispatch_command),
+        "eval-consume-skill-runtime-dispatch": (
+            _consume_skill_runtime_dispatch_command
+        ),
+        "skill-runtime-preflight-status": _skill_runtime_preflight_status_command,
+        "skill-runtime-admission-store-create": (
+            _skill_runtime_admission_store_create_command
+        ),
+        "skill-runtime-admission-status": _skill_runtime_admission_status_command,
+        "skill-runtime-dispatch-claim-store-create": (
+            _skill_runtime_dispatch_claim_store_create_command
+        ),
+        "skill-runtime-dispatch-status": _skill_runtime_dispatch_status_command,
+        "skill-runtime-broker-grant-store-create": (
+            _skill_runtime_broker_grant_store_create_command
+        ),
+        "skill-runtime-broker-grant-status": (
+            _skill_runtime_broker_grant_status_command
+        ),
+        "skill-runtime-provider-transaction-store-create": (
+            _skill_runtime_provider_transaction_store_create_command
+        ),
+        "skill-runtime-provider-transaction-status": (
+            _skill_runtime_provider_transaction_status_command
+        ),
+        "skill-runtime-response-store-create": (
+            _skill_runtime_response_store_create_command
+        ),
+        "skill-runtime-response-store-status": (
+            _skill_runtime_response_store_status_command
+        ),
+        "skill-runtime-response-result": _skill_runtime_response_result_command,
+        "eval-derive-skill-runtime-conformance": (
+            _derive_skill_runtime_conformance_command
+        ),
+        "eval-authenticate-skill-runtime-conformance": (
+            _authenticate_skill_runtime_conformance_command
+        ),
+        "eval-derive-skill-runtime-billing-evidence": (
+            _derive_skill_runtime_billing_evidence_command
+        ),
+        "eval-authenticate-skill-runtime-billing-evidence": (
+            _authenticate_skill_runtime_billing_evidence_command
+        ),
+        "eval-derive-skill-runtime-publication-checkpoint": (
+            _derive_skill_runtime_publication_checkpoint_command
+        ),
+        "eval-verify-skill-runtime-publication-checkpoint": (
+            _verify_skill_runtime_publication_checkpoint_command
+        ),
         "eval-seal-routing-study": _seal_routing_study_command,
         "eval-score-routing-calibration": _score_routing_calibration_command,
         "eval-freeze-routing-policy": _freeze_routing_policy_command,
@@ -2292,9 +7306,200 @@ def _recorded_review_command(args: argparse.Namespace) -> int:
     return EXIT_CODES[result.verdict.decision]
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = parser().parse_args(argv)
+def _emit_openai_conformance_rejection(
+    artifact: BrokeredEvaluationArtifact,
+    *,
+    authorization_output: Path,
+    audit_directory: Path,
+    artifact_output: Path,
+    lifecycle_path: Path | None,
+    event_prefix: str = "openai.conformance",
+) -> int:
+    """Retain and report one terminal, non-retryable conformance rejection."""
+
+    _write_contract(artifact_output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": f"{event_prefix}.rejected",
+                "mode": artifact.mode,
+                "authorization_path": str(authorization_output),
+                "audit_path": str(audit_directory),
+                "artifact_path": str(artifact_output),
+                "lifecycle_path": (
+                    str(lifecycle_path) if lifecycle_path is not None else None
+                ),
+                "artifact_sha256": artifact.artifact_sha256,
+                "outcome_status": artifact.outcome_status,
+                "ledger_status": artifact.ledger_status,
+                "error": artifact.error,
+                "failure_stage": artifact.failure_stage,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "retry_permitted": artifact.retry_permitted,
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 2
+
+
+def _run_openai_conformance_broker(
+    broker: RequestBoundBroker,
+    container: OfflineContainer,
+    *,
+    timeout: float,
+    authorization: AssignmentAuthorization,
+    audit_directory: Path,
+    ledger: SpendLedger,
+    authorization_output: Path,
+    artifact_output: Path,
+    event_prefix: str = "openai.conformance",
+) -> int:
+    """Dispatch once and retain only complete success or exact terminal rejection."""
+
     try:
+        reply = run_isolated_broker(broker, container, timeout=timeout)
+    except ProviderError as provider_error:
+        try:
+            artifact = compile_brokered_evaluation_failure(
+                authorization,
+                audit_directory,
+                ledger,
+            )
+        except (OSError, ValueError):
+            # A launcher or partial-audit failure is not trustworthy enough to turn
+            # into a terminal provider rejection artifact.
+            raise provider_error from None
+        if (
+            artifact.outcome_status != "failed"
+            or artifact.ledger_status != "absent"
+            or artifact.error != "authentication_error"
+            or artifact.failure_stage != "token_count"
+            or artifact.cost_microusd is not None
+        ):
+            # Only the pre-reservation F2 boundary publishes a provider-failure
+            # artifact. Post-reservation ambiguity remains recovery evidence only.
+            raise provider_error from None
+        return _emit_openai_conformance_rejection(
+            artifact,
+            authorization_output=authorization_output,
+            audit_directory=audit_directory,
+            artifact_output=artifact_output,
+            lifecycle_path=container.lifecycle_path,
+            event_prefix=event_prefix,
+        )
+    try:
+        artifact = compile_brokered_evaluation(
+            reply, authorization, audit_directory, ledger
+        )
+    except BrokeredEvaluationResponseError:
+        artifact = compile_brokered_evaluation_failure(
+            authorization,
+            audit_directory,
+            ledger,
+            reply,
+        )
+        return _emit_openai_conformance_rejection(
+            artifact,
+            authorization_output=authorization_output,
+            audit_directory=audit_directory,
+            artifact_output=artifact_output,
+            lifecycle_path=container.lifecycle_path,
+            event_prefix=event_prefix,
+        )
+    assert artifact.usage is not None
+    _write_contract(artifact_output, artifact)
+    print(
+        json.dumps(
+            {
+                "type": f"{event_prefix}.completed",
+                "mode": artifact.mode,
+                "authorization_path": str(authorization_output),
+                "audit_path": str(audit_directory),
+                "artifact_path": str(artifact_output),
+                "lifecycle_path": (
+                    str(container.lifecycle_path)
+                    if container.lifecycle_path is not None
+                    else None
+                ),
+                "artifact_sha256": artifact.artifact_sha256,
+                "provider_request_id": artifact.provider_request_id,
+                "input_tokens": artifact.usage.input,
+                "output_tokens": artifact.usage.output,
+                "latency_ms": artifact.latency_ms,
+                "cost_microusd": artifact.cost_microusd,
+                "promotion_eligible": artifact.promotion_eligible,
+            }
+        )
+    )
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    from mos_eisley.conversation_cli import startup_arguments
+
+    args = parser().parse_args(
+        startup_arguments(list(sys.argv[1:] if argv is None else argv))
+    )
+    try:
+        if args.command in {
+            "memory",
+            "chat",
+            "resume",
+            "conversation-demo",
+            "conversation-review-demo",
+            "sessions",
+            "session-delete",
+            "session-migrate",
+            "session-transcript",
+            "session-artifact",
+        }:
+            from mos_eisley.conversation_cli import run_command
+
+            return run_command(args)
+        if args.command in {
+            "analysis-eval-schedule",
+            "analysis-eval-assess",
+            "analysis-comparison-demo",
+        }:
+            from mos_eisley.analysis.schedule_cli import run_command
+
+            return run_command(args)
+        if args.command in {
+            "analysis-eval-plan",
+            "analysis-evaluate",
+            "analysis-eval-demo",
+        }:
+            from mos_eisley.analysis.evaluation_cli import run_command
+
+            return run_command(args)
+        if args.command in {
+            "analysis-run",
+            "analysis-demo",
+            "analysis-verify",
+            "analysis-export",
+            "analysis-delete-expired",
+        }:
+            from mos_eisley.analysis.cli import run_command
+
+            return run_command(args)
+        if args.command in {"mcp-list", "mcp-call", "mcp-login", "mcp-logout"}:
+            from mos_eisley.mcp_cli import run_mcp_command
+
+            return run_mcp_command(args)
+        if args.command == "openai-derive-responses-canary-authorization":
+            return _derive_openai_responses_canary_authorization_command(args)
+        if args.command == "openai-responses-canary":
+            return _openai_responses_canary_command(args)
+        if args.command == "openai-verify-responses-canary":
+            return _verify_openai_responses_canary_command(args)
+        if args.command == "openai-billing-collect":
+            if not cast(bool, args.allow_account_billing_read):
+                raise ValueError("OpenAI account billing read was not acknowledged")
+            return _openai_billing_collect_command(args)
+        if args.command == "openai-readiness":
+            return _openai_readiness_command(args)
         specialized_result = _specialized_evaluation_command(args)
         if specialized_result is not None:
             return specialized_result
@@ -2305,15 +7510,45 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "openai-conformance":
             if not cast(bool, args.allow_data_transfer):
                 raise ValueError("OpenAI data transfer was not acknowledged")
+            batch_path = cast(Path, args.batch)
+            spend_policy_path = cast(Path, args.spend_policy)
+            ledger_path = cast(Path, args.spend_ledger)
+            conformance_policy_path = cast(Path, args.conformance_policy)
+            conformance_authority_policy_path = cast(
+                Path, args.conformance_authority_policy
+            )
+            signed_conformance_authorization_path = cast(
+                Path, args.signed_conformance_authorization
+            )
+            precredential_rejection_output = cast(
+                Path | None, args.precredential_rejection_output
+            )
             batch = ExecutionBatch.model_validate_json(
-                read_bounded(cast(Path, args.batch), 16_000_000)
+                read_bounded(batch_path, 16_000_000)
             )
             spend_policy = SpendPolicy.model_validate_json(
-                read_bounded(cast(Path, args.spend_policy), 64_000)
+                read_bounded(spend_policy_path, 64_000)
+            )
+            conformance_policy = EvaluationConformancePolicy.model_validate_json(
+                read_bounded(conformance_policy_path, 128_000)
+            )
+            conformance_authority_policy = (
+                EvaluationConformanceAuthorityPolicy.model_validate_json(
+                    read_bounded(conformance_authority_policy_path, 64_000)
+                )
+            )
+            signed_conformance_authorization = (
+                SignedEvaluationConformanceAuthorization.model_validate_json(
+                    read_bounded(signed_conformance_authorization_path, 128_000)
+                )
             )
             spend_policy.check_current()
-            ledger = SpendLedger(cast(Path, args.spend_ledger))
-            if ledger.snapshot().blocked:
+            ledger = SpendLedger(ledger_path)
+            ledger_before = ledger.snapshot()
+            ledger_entry_before = ledger.entry_status(
+                conformance_policy.ledger_entry_id
+            )
+            if ledger_before.blocked:
                 raise ValueError("shared spending ledger is blocked")
             sample_id = cast(str, args.sample_id)
             payload = build_openai_conformance_payload(batch, sample_id, spend_policy)
@@ -2330,6 +7565,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             audit_directory = cast(Path, args.audit_dir)
             authorization_output = cast(Path, args.authorization_output)
             artifact_output = cast(Path, args.artifact_output)
+            lifecycle_root = cast(Path, args.lifecycle_root)
+            _validate_precredential_rejection_output(
+                precredential_rejection_output,
+                (
+                    batch_path,
+                    spend_policy_path,
+                    ledger_path,
+                    conformance_policy_path,
+                    conformance_authority_policy_path,
+                    signed_conformance_authorization_path,
+                    audit_directory,
+                    authorization_output,
+                    artifact_output,
+                    lifecycle_root,
+                ),
+            )
             if (
                 audit_directory.exists()
                 or authorization_output.exists()
@@ -2344,12 +7595,57 @@ def main(argv: Sequence[str] | None = None) -> int:
                     (audit_directory, authorization_output),
                     (audit_directory, artifact_output),
                     (authorization_output, artifact_output),
+                    (conformance_policy_path, audit_directory),
+                    (conformance_policy_path, authorization_output),
+                    (conformance_policy_path, artifact_output),
+                    (conformance_authority_policy_path, audit_directory),
+                    (conformance_authority_policy_path, authorization_output),
+                    (conformance_authority_policy_path, artifact_output),
+                    (signed_conformance_authorization_path, audit_directory),
+                    (signed_conformance_authorization_path, authorization_output),
+                    (signed_conformance_authorization_path, artifact_output),
                 )
             ):
                 raise ValueError("conformance output paths must not overlap")
-            api_key = _openai_api_key()
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY is not configured")
+            preflight_at = datetime.now(UTC)
+            prepared_authorization = validate_evaluation_conformance_preflight(
+                batch,
+                sample_id,
+                spend_policy,
+                ledger,
+                audit_directory,
+                conformance_policy,
+                _openai_sdk_version(),
+                preflight_at,
+            )
+            verified_conformance_authorization = (
+                _verify_or_retain_precredential_rejection(
+                    batch=batch,
+                    spend_policy=spend_policy,
+                    conformance_policy=conformance_policy,
+                    authority_policy=conformance_authority_policy,
+                    signed_authorization=signed_conformance_authorization,
+                    ledger=ledger,
+                    ledger_before=ledger_before,
+                    ledger_entry_before=ledger_entry_before,
+                    audit_directory=audit_directory,
+                    authorization_output=authorization_output,
+                    artifact_output=artifact_output,
+                    container=container,
+                    rejection_output=precredential_rejection_output,
+                    preflight_at=preflight_at,
+                )
+            )
+            if verified_conformance_authorization is None:
+                return 2
+            if preflight_at + timedelta(seconds=timeout) > min(
+                conformance_policy.valid_until,
+                verified_conformance_authorization.valid_until,
+            ):
+                raise ValueError(
+                    "conformance authorization cannot cover the request timeout"
+                )
+            api_key = _required_openai_api_key()
             budgeted = BudgetedOpenAITransport(
                 EphemeralOpenAITransport(api_key, timeout),
                 spend_policy,
@@ -2357,6 +7653,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ledger,
             )
             authorization = authorize_assignment(batch, sample_id, payload, budgeted)
+            if authorization != prepared_authorization:
+                raise ValueError("conformance authorization changed after preflight")
+            if (
+                datetime.now(UTC) + timedelta(seconds=timeout)
+                > verified_conformance_authorization.valid_until
+            ):
+                raise ValueError("conformance authorization expired before dispatch")
             # This trusted copy is outside the broker-created audit directory and
             # exists before the worker can redeem its single-use capability.
             _write_contract(authorization_output, authorization)
@@ -2368,62 +7671,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 audit_directory,
                 lifetime_seconds=timeout,
             )
-            reply = run_isolated_broker(broker, container, timeout=timeout)
-            artifact = compile_brokered_evaluation(
-                reply, authorization, audit_directory, ledger
+            return _run_openai_conformance_broker(
+                broker,
+                container,
+                timeout=timeout,
+                authorization=authorization,
+                audit_directory=audit_directory,
+                ledger=ledger,
+                authorization_output=authorization_output,
+                artifact_output=artifact_output,
             )
-            _write_contract(artifact_output, artifact)
-            print(
-                json.dumps(
-                    {
-                        "type": "openai.conformance.completed",
-                        "mode": artifact.mode,
-                        "authorization_path": str(authorization_output),
-                        "audit_path": str(audit_directory),
-                        "artifact_path": str(artifact_output),
-                        "lifecycle_path": (
-                            str(container.lifecycle_path)
-                            if container.lifecycle_path is not None
-                            else None
-                        ),
-                        "artifact_sha256": artifact.artifact_sha256,
-                        "provider_request_id": artifact.provider_request_id,
-                        "input_tokens": artifact.usage.input,
-                        "output_tokens": artifact.usage.output,
-                        "latency_ms": artifact.latency_ms,
-                        "cost_microusd": artifact.cost_microusd,
-                        "promotion_eligible": artifact.promotion_eligible,
-                    }
-                )
-            )
-            return 0
         if args.command == "broker-audit-status":
-            audit_directory = cast(Path, args.audit_dir)
-            expected_path = cast(Path, args.expected_authorization)
-            if (
-                expected_path.resolve()
-                == (audit_directory / "authorization.json").resolve()
-            ):
-                raise ValueError(
-                    "expected authorization must be independently supplied"
-                )
-            expected = AssignmentAuthorization.model_validate_json(
-                read_bounded(expected_path, 4096)
-            )
-            state = inspect_broker_recovery(
-                audit_directory,
-                expected,
-                SpendLedger(cast(Path, args.spend_ledger)),
-            )
-            print(
-                json.dumps(
-                    {
-                        "type": "broker.audit.status",
-                        **state.model_dump(mode="json"),
-                    }
-                )
-            )
-            return 0
+            return _broker_audit_status_command(args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(
@@ -2742,7 +8001,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "input_tokens": result.usage.billed_input,
                 "output_tokens": result.usage.billed_output,
                 "cost_upper_bound_microusd": spend_policy.cost(
-                    result.usage.billed_input, result.usage.billed_output
+                    result.usage.billed_input,
+                    result.usage.billed_output,
+                    sum(response.usage.cache_write for response in result.responses),
                 ),
                 "spend_policy_sha256": spend_policy.policy_sha256,
                 "spend_ledger_id": ledger.policy.ledger_id,

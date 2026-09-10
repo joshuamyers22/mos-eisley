@@ -1,5 +1,7 @@
 """Loop-local, fail-closed OpenAI SDK transport for one conformance exchange."""
 
+from typing import Literal
+
 from openai import AsyncOpenAI
 from pydantic import JsonValue
 
@@ -14,6 +16,9 @@ class EphemeralOpenAITransport:
     separate short-lived clients. Neither client, its credential, nor its endpoint
     crosses the worker boundary.
     """
+
+    provider: Literal["openai"] = "openai"
+    automatic_retries: Literal[0] = 0
 
     def __init__(self, api_key: str, timeout_seconds: float) -> None:
         if not api_key:

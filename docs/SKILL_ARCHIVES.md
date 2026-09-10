@@ -60,6 +60,12 @@ the evidence.
 There is intentionally no extraction, materialization, installation, configuration,
 or activation command. A separate [release-evidence gate](SKILL_RELEASE_EVIDENCE.md)
 can now bind an archive to a still-current, fully reverified promotion receipt, but
-that binding also grants no deployment authority. Revocation state, rollback targets,
-transactional installation, and drift monitors remain separate gates before a
+that binding also grants no deployment authority. A follow-on
+[release-control gate](SKILL_RELEASE_CONTROL.md) authenticates exact revocation state
+and retained rollback nominations without installing them. Transactional
+installation/default changes and drift monitors remain separate gates before a
 promoted persona can change a default or reach runtime.
+
+Exact latest-controlled bytes can also be transactionally materialized by the
+[quarantine-staging gate](SKILL_QUARANTINE_STAGING.md). That private content-addressed
+store is deliberately not an installation or runtime lookup path.

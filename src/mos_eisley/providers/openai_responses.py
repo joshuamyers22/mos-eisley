@@ -31,6 +31,7 @@ from mos_eisley.core.protocol import (
     Turn,
     Usage,
 )
+from mos_eisley.providers.openai_errors import safe_openai_failure_kind
 
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$")
 _ARGUMENTS = TypeAdapter(dict[str, JsonValue])
@@ -52,8 +53,14 @@ class SDKOpenAITransport:
         try:
             count = await self.client.responses.input_tokens.count(**cast(Any, payload))
         except OpenAIError as error:
-            raise ProviderError("OpenAI token count failed") from error
-        return count.input_tokens
+            failure_kind = safe_openai_failure_kind(error)
+        else:
+            return count.input_tokens
+        raise ProviderError(
+            "OpenAI token count failed",
+            failure_kind=failure_kind,
+            failure_stage="token_count",
+        )
 
     async def create_response(
         self, payload: dict[str, JsonValue]
@@ -64,8 +71,14 @@ class SDKOpenAITransport:
                 await self.client.responses.create(**cast(Any, payload)),
             )
         except OpenAIError as error:
-            raise ProviderError("OpenAI request failed") from error
-        return cast(dict[str, JsonValue], response.model_dump(mode="json"))
+            failure_kind = safe_openai_failure_kind(error)
+        else:
+            return cast(dict[str, JsonValue], response.model_dump(mode="json"))
+        raise ProviderError(
+            "OpenAI request failed",
+            failure_kind=failure_kind,
+            failure_stage="response",
+        )
 
 
 class _External(BaseModel):

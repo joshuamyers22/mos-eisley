@@ -1,5 +1,6 @@
-"""Install the wheel and exercise both deterministic replay paths."""
+"""Install the wheel and exercise replay plus stdio and HTTP MCP calls."""
 
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -58,6 +59,160 @@ def main() -> int:
         agent_event = json.loads(agent.stdout)
         subprocess.run(
             [command, "agent-replay", agent_event["path"]], cwd=root, check=True
+        )
+        analysis = subprocess.run(
+            [command, "analysis-demo"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        if json.loads(analysis.stdout)["answer"]["result_ids"] != ["result-0002"]:
+            raise ValueError("installed analytical fixture returned wrong evidence")
+        server = root / "mcp_fixture.py"
+        server.write_text(Path("tests/fixtures/mcp_server.py").read_text())
+        config = root / "mcp.json"
+        config.write_text(
+            json.dumps(
+                {
+                    "command": str(python),
+                    "args": [str(server)],
+                    "cwd": str(root),
+                    "tools": {"echo": "read"},
+                }
+            )
+        )
+        call = root / "call.json"
+        call.write_text(
+            json.dumps(
+                {
+                    "id": "wheel-call",
+                    "name": "echo",
+                    "args": {"value": "wheel-fixture"},
+                }
+            )
+        )
+        mcp = subprocess.run(
+            [command, "mcp-call", "--config", str(config), "--call", str(call)],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        result = json.loads(mcp.stdout)
+        if result["is_error"] or json.loads(result["content"])[
+            "structured_content"
+        ] != {"value": "wheel-fixture"}:
+            raise ValueError("installed MCP client returned the wrong fixture")
+        spec = importlib.util.spec_from_file_location(
+            "http_fixture", "tests/fixtures/mcp_http_server.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture = module.MCPHTTPFixture()
+        fixture.tokens = None
+        fixture.start()
+        try:
+            config.write_text(
+                json.dumps(
+                    {
+                        "transport": "streamable_http",
+                        "http": {
+                            "url": fixture.url,
+                            "authentication": "none",
+                            "allow_loopback_http": True,
+                        },
+                        "tools": {"read_value": "read", "write_value": "write"},
+                        "allow_writes": True,
+                    }
+                )
+            )
+            for name, args, expected in (
+                ("write_value", {"value": 42}, {"value": 42}),
+                ("read_value", {}, {"value": 42, "writes": 1}),
+            ):
+                call.write_text(json.dumps({"id": name, "name": name, "args": args}))
+                remote = subprocess.run(
+                    [command, "mcp-call", "--config", str(config), "--call", str(call)],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                result = json.loads(remote.stdout)
+                if (
+                    result["is_error"]
+                    or json.loads(result["content"])["structured_content"] != expected
+                ):
+                    raise ValueError("installed HTTP MCP client returned wrong data")
+        finally:
+            fixture.close()
+        # Run the OAuth contract from the installed wheel. The fixture uses only
+        # synthetic credentials and an in-memory keychain, never the host vault.
+        fixtures = root / "fixtures"
+        fixtures.mkdir()
+        (fixtures / "__init__.py").write_text("")
+        for name in (
+            "mcp_http_server.py",
+            "mcp_oauth_server.py",
+            "mcp_server.py",
+            "mcp_schema_server.py",
+            "mcp_schema_tools.py",
+        ):
+            (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
+        for name in (
+            "test_conversation.py",
+            "test_conversation_navigation.py",
+            "test_conversation_review.py",
+            "test_conversation_composer.py",
+            "test_conversation_steering.py",
+            "test_conversation_tui.py",
+            "test_conversation_startup.py",
+            "test_conversation_memory.py",
+            "test_conversation_memory_refresh.py",
+            "test_conversation_storage_budgets.py",
+            "test_conversation_sqlite.py",
+            "test_conversation_migration.py",
+            "test_conversation_transcript.py",
+            "test_conversation_history.py",
+            "test_conversation_artifacts.py",
+            "test_conversation_resume.py",
+            "test_conversation_checkpoint_saves.py",
+            "test_conversation_context.py",
+            "test_conversation_context_preview.py",
+            "test_conversation_request_admission.py",
+            "test_conversation_admission_inspection.py",
+            "test_conversation_working_state.py",
+            "test_conversation_cold_resume.py",
+            "test_conversation_input_limits.py",
+            "test_conversation_pending.py",
+            "test_conversation_streamed_inputs.py",
+            "test_conversation_native_validation.py",
+            "test_conversation_read_cache.py",
+            "test_mcp_oauth.py",
+            "test_mcp_schema.py",
+            "test_analysis.py",
+            "test_analysis_spending.py",
+            "test_analysis_evidence.py",
+            "test_analysis_evaluation.py",
+            "test_analysis_raw.py",
+            "test_analysis_schedule.py",
+        ):
+            (root / name).write_text((Path("tests") / name).read_text())
+        subprocess.run(
+            [
+                str(python),
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(root),
+                "-p",
+                "test_*.py",
+            ],
+            cwd=root,
+            check=True,
         )
     return 0
 

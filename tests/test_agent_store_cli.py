@@ -143,9 +143,19 @@ class AgentCliTests(TestCase):
             self.assertEqual(main(["models"]), 0)
             models = tuple(json.loads(line) for line in out.getvalue().splitlines())
             self.assertEqual(
-                tuple(model["provider"] for model in models), ("fixture", "openai")
+                tuple((model["provider"], model["id"]) for model in models),
+                (
+                    ("fixture", "tool-reviewer-v1"),
+                    ("openai", "gpt-6-astra"),
+                    ("openai", "gpt-5.6-sol"),
+                    ("openai", "gpt-5.6-terra"),
+                    ("openai", "gpt-5.6-luna"),
+                ),
             )
-            self.assertEqual(models[1]["verification"], "documented")
+            self.assertEqual(
+                tuple(model["verification"] for model in models[1:]),
+                ("documented",) * 4,
+            )
 
     def test_agent_replay_rejects_modified_run_without_echoing_content(self) -> None:
         with (

@@ -1,6 +1,7 @@
 # ADR 0003: OpenAI Responses as the first live provider
 
-Date: 2026-09-05. Status: implemented as a preview; live conformance pending.
+Date: 2026-09-05. Status: implemented as a preview; exact-profile live-conformance
+gate passed 2026-09-09; calibration and runtime activation pending.
 
 ## Decision
 
@@ -46,3 +47,31 @@ Provider retention still follows organization and OpenAI policy despite
 `store=false`. Model access may vary by account. Dollar budgeting, independent
 transport byte limits, retry policy, live quality evaluation and credentialed
 conformance remain required before production use.
+
+## 2026-09-07 evaluation amendment
+
+The documented OpenAI registry also includes `gpt-5.6-sol`, `gpt-5.6-terra`, and
+`gpt-5.6-luna` as non-default evaluation candidates. All three expose the Responses
+API, structured outputs, function calling, a 1,050,000-token context window, a
+128,000-token output limit, and reasoning efforts `none`, `low`, `medium`, `high`,
+`xhigh`, and `max`; their documented default is `medium`. Astra remains the runtime
+default. Adding candidates does not activate routing or establish account access:
+those decisions still require blinded evaluation, live conformance, and the existing
+promotion controls.
+
+## 2026-09-09 conformance amendment
+
+The frozen six-profile exit gate has passed after three qualifying authenticated
+successes per exact model/effort profile, five installed-wheel failure boundaries,
+and a lineage-wide offline aggregate review. This establishes conformance only for
+Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and Astra/max through the
+bounded zero-retry broker path. It does not generalize to every documented effort or
+feature and does not prove provider authorship, billing, or model quality. A separate
+calibration converter and the existing scoring, holdout, promotion, and activation
+controls remain mandatory before empirical routing or production use.
+
+The first separately reviewed converter is intentionally partial. It binds the exact
+aggregate report and 18 qualifying sources into a distinct 18-of-360 calibration
+seed while refusing provider credentials. It does not issue `RawResultSet` or grant
+grading, scoring, promotion, activation, or additional-request authority. Full batch
+execution and a later gradeable issuance boundary remain mandatory.

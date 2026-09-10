@@ -14,12 +14,27 @@ from mos_eisley.providers.openai_responses import SDKOpenAITransport
 class OpenAIHTTPTests(IsolatedAsyncioTestCase):
     async def test_small_body_is_materialized_for_sdk(self) -> None:
         async def reply(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.headers["accept-encoding"], "identity")
             return httpx.Response(200, json={"ok": True}, request=request)
 
         async with BoundedOpenAIHttpClient(
             response_limit=1024, transport=httpx.MockTransport(reply)
         ) as client:
             response = await client.get("https://api.openai.com/v1/responses")
+        self.assertEqual(response.json(), {"ok": True})
+
+    async def test_caller_cannot_reenable_response_compression(self) -> None:
+        async def reply(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.headers["accept-encoding"], "identity")
+            return httpx.Response(200, json={"ok": True}, request=request)
+
+        async with BoundedOpenAIHttpClient(
+            response_limit=1024, transport=httpx.MockTransport(reply)
+        ) as client:
+            response = await client.get(
+                "https://api.openai.com/v1/models/example",
+                headers={"accept-encoding": "gzip, deflate"},
+            )
         self.assertEqual(response.json(), {"ok": True})
 
     async def test_declared_oversize_rejected_before_body_read(self) -> None:
@@ -129,10 +144,14 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
                 max_retries=0,
                 http_client=http_client,
             )
-            with self.assertRaisesRegex(ProviderError, "^OpenAI request failed$"):
+            with self.assertRaisesRegex(
+                ProviderError, "^OpenAI request failed$"
+            ) as raised:
                 await SDKOpenAITransport(sdk).create_response(
                     {"model": "gpt-6-astra", "input": "fixture"}
                 )
+            self.assertEqual(raised.exception.failure_kind, "transport_error")
+            self.assertEqual(raised.exception.failure_stage, "response")
 
     def test_invalid_limits_rejected(self) -> None:
         for limit in (0, 1023, 1_000_001):

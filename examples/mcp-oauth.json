@@ -1,0 +1,18 @@
+{
+  "transport": "streamable_http",
+  "http": {
+    "url": "https://mcp.example.com/mcp",
+    "authentication": "oauth",
+    "oauth": {
+      "issuer": "https://auth.example.com",
+      "client_id": "YOUR_REGISTERED_PUBLIC_CLIENT_ID",
+      "account": "personal",
+      "scopes": ["read", "write"],
+      "callback_port": 8765
+    }
+  },
+  "tools": {"read_value": "read", "write_value": "write"},
+  "allow_writes": true,
+  "timeout_seconds": 30,
+  "max_result_bytes": 4000
+}

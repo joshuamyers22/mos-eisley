@@ -1,6 +1,7 @@
 """Spend is reserved before generation and never released on an unknown outcome."""
 
 import asyncio
+import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -8,19 +9,30 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from openai import OpenAIError
+import httpx
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    OpenAIError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from pydantic import JsonValue, ValidationError
 
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_responses import SDKOpenAITransport
 from mos_eisley.providers.openai_spend import (
     BudgetedOpenAITransport,
+    PreReservedOpenAITransport,
     SpendPolicy,
     SpendReceipt,
     SpendReservation,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 
 
 def policy() -> SpendPolicy:
@@ -30,6 +42,20 @@ def policy() -> SpendPolicy:
         valid_from=datetime.now(UTC) - timedelta(hours=1),
         valid_until=datetime.now(UTC) + timedelta(hours=1),
         input_microusd_per_million=1_000_000,
+        output_microusd_per_million=2_000_000,
+        max_cost_microusd=1000,
+    )
+
+
+def cache_write_policy() -> SpendPolicy:
+    return SpendPolicy(
+        schema_version=2,
+        model="gpt-6-astra",
+        pricing_source="synthetic cache-write test rates",
+        valid_from=datetime.now(UTC) - timedelta(hours=1),
+        valid_until=datetime.now(UTC) + timedelta(hours=1),
+        input_microusd_per_million=1_000_000,
+        cache_write_microusd_per_million=1_250_000,
         output_microusd_per_million=2_000_000,
         max_cost_microusd=1000,
     )
@@ -78,6 +104,202 @@ class FakeTransport:
 
 
 class SpendingTests(IsolatedAsyncioTestCase):
+    def pre_reserved_controller(
+        self, root: Path, transport: FakeTransport
+    ) -> tuple[PreReservedOpenAITransport, SpendLedger, SpendReservation]:
+        spending = cache_write_policy().model_copy(
+            update={
+                "max_input_tokens": 100,
+                "max_output_tokens": 100,
+                "max_cost_microusd": 325,
+            }
+        )
+        normalized = request() | {"service_tier": "default"}
+        reservation = SpendReservation(
+            policy_sha256=spending.policy_sha256,
+            request_sha256=digest(
+                json.dumps(
+                    normalized,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode()
+            ),
+            input_tokens=100,
+            max_output_tokens=100,
+            reserved_microusd=325,
+        )
+        entry = LedgerEntry(
+            entry_id=digest(str(root.resolve()).encode()),
+            reservation_sha256=digest(canonical_bytes(reservation)),
+            reserved_microusd=325,
+        )
+        ledger = SpendLedger.create(root / "pre-reserved.sqlite", 500)
+        ledger.reserve(entry)
+        controller = PreReservedOpenAITransport(
+            transport, spending, root, ledger, reservation, entry
+        )
+        return controller, ledger, reservation
+
+    async def test_pre_reserved_controller_settles_hold_without_reserving_again(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            transport = FakeTransport(root)
+            transport.response["usage"] = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "input_tokens_details": {"cache_write_tokens": 2},
+            }
+            controller, ledger, reservation = self.pre_reserved_controller(
+                root, transport
+            )
+            before = ledger.snapshot()
+            await controller.create_response(request())
+            after = ledger.snapshot()
+            self.assertEqual(before.entries, 1)
+            self.assertEqual(after.entries, 1)
+            self.assertEqual(after.charged_microusd, 21)
+            self.assertEqual(after.unresolved_entries, 0)
+            self.assertEqual(
+                SpendReservation.model_validate_json(
+                    (root / "spend-reservation.json").read_bytes()
+                ),
+                reservation,
+            )
+            receipt = SpendReceipt.model_validate_json(
+                (root / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(receipt.status, "settled")
+            self.assertEqual(receipt.retained_microusd, 21)
+            self.assertEqual(len(transport.counts), 1)
+            self.assertEqual(len(transport.calls), 1)
+            with self.assertRaises(ProviderError):
+                await controller.create_response(request())
+
+    async def test_pre_reserved_controller_retains_failures_and_blocks_overrun(
+        self,
+    ) -> None:
+        cases = ("count", "generation", "overrun")
+        for case in cases:
+            with self.subTest(case=case), TemporaryDirectory() as directory:
+                root = Path(directory)
+                transport = FakeTransport(root)
+                transport.response["usage"] = {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "input_tokens_details": {"cache_write_tokens": 0},
+                }
+                controller, ledger, _ = self.pre_reserved_controller(root, transport)
+                context = (
+                    patch.object(
+                        transport,
+                        "count_input_tokens",
+                        side_effect=RuntimeError("private count failure"),
+                    )
+                    if case == "count"
+                    else patch.object(
+                        transport,
+                        "create_response",
+                        side_effect=RuntimeError("private generation failure"),
+                    )
+                    if case == "generation"
+                    else patch.object(transport, "count_input_tokens", return_value=101)
+                )
+                with (
+                    context as provider_call,
+                    self.assertRaises((RuntimeError, ProviderError)),
+                ):
+                    await controller.create_response(request())
+                receipt = SpendReceipt.model_validate_json(
+                    (root / "spend-receipt.json").read_bytes()
+                )
+                expected = "violation" if case == "overrun" else "uncertain"
+                self.assertEqual(receipt.status, expected)
+                self.assertEqual(receipt.retained_microusd, 325)
+                self.assertEqual(ledger.snapshot().blocked, case == "overrun")
+                self.assertEqual(provider_call.call_count, 1)
+                self.assertEqual(len(transport.calls), 0)
+
+    async def test_pre_reserved_controller_requires_exact_current_hold_before_provider(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            transport = FakeTransport(root)
+            controller, ledger, reservation = self.pre_reserved_controller(
+                root, transport
+            )
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=controller.ledger_entry_id,
+                    reservation_sha256=digest(canonical_bytes(reservation)),
+                    status="settled",
+                    charged_microusd=1,
+                )
+            )
+            with self.assertRaisesRegex(ValueError, "exact held entry"):
+                await controller.create_response(request())
+            self.assertEqual(transport.counts, [])
+            self.assertEqual(transport.calls, [])
+            self.assertFalse((root / "spend-reservation.json").exists())
+
+    async def test_schema_two_reserves_and_settles_cache_write_exposure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = SpendLedger.create(root / "spend.sqlite", 500)
+            transport = FakeTransport(root)
+            transport.response["usage"] = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "input_tokens_details": {"cache_write_tokens": 2},
+            }
+            await BudgetedOpenAITransport(
+                transport, cache_write_policy(), root, ledger
+            ).create_response(request())
+            reservation = SpendReservation.model_validate_json(
+                (root / "spend-reservation.json").read_bytes()
+            )
+            receipt = SpendReceipt.model_validate_json(
+                (root / "spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(reservation.reserved_microusd, 213)
+            self.assertEqual(receipt.retained_microusd, 21)
+            self.assertEqual(receipt.cache_write_tokens, 2)
+            self.assertEqual(ledger.snapshot().charged_microusd, 21)
+
+    async def test_schema_two_missing_or_excess_cache_write_fails_closed(self) -> None:
+        cases: tuple[tuple[dict[str, JsonValue], str], ...] = (
+            (
+                {"input_tokens": 10, "output_tokens": 5},
+                "uncertain",
+            ),
+            (
+                {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "input_tokens_details": {"cache_write_tokens": 11},
+                },
+                "violation",
+            ),
+        )
+        for usage, status in cases:
+            with self.subTest(status=status), TemporaryDirectory() as directory:
+                root = Path(directory)
+                transport = FakeTransport(root)
+                transport.response["usage"] = usage
+                with self.assertRaises(ProviderError):
+                    await BudgetedOpenAITransport(
+                        transport, cache_write_policy(), root
+                    ).create_response(request())
+                receipt = SpendReceipt.model_validate_json(
+                    (root / "spend-receipt.json").read_bytes()
+                )
+                self.assertEqual(receipt.status, status)
+                self.assertEqual(receipt.retained_microusd, 213)
+                self.assertIsNone(receipt.cache_write_tokens)
+
     async def test_shared_budget_is_committed_before_generation_and_settles(
         self,
     ) -> None:
@@ -304,6 +526,14 @@ class SpendingTests(IsolatedAsyncioTestCase):
         cases: tuple[dict[str, JsonValue], ...] = (
             {"model": "wrong"},
             {"tools": [{"type": "web_search"}]},
+            {"service_tier": "priority"},
+            {"store": True},
+            {"store": 0},
+            {"truncation": "auto"},
+            {"stream": True},
+            {"stream": 0},
+            {"background": True},
+            {"background": 0},
             {"previous_response_id": "resp_hidden"},
             {"max_output_tokens": 4097},
             {"input": [{"role": "user", "content": [{"type": "input_image"}]}]},
@@ -352,11 +582,107 @@ class SpendingTests(IsolatedAsyncioTestCase):
         self.assertEqual(await transport.count_input_tokens({"model": "example"}), 42)
         sdk.responses.input_tokens.count.assert_awaited_once_with(model="example")
         sdk.responses.input_tokens.count.side_effect = OpenAIError("private error")
-        with self.assertRaisesRegex(ProviderError, "token count failed"):
+        with self.assertRaisesRegex(ProviderError, "token count failed") as raised:
             await transport.count_input_tokens({})
+        self.assertEqual(raised.exception.failure_kind, "provider_error")
+        self.assertEqual(raised.exception.failure_stage, "token_count")
+        self.assertNotIn("private error", str(raised.exception))
+
+    async def test_sdk_errors_map_to_allowlisted_private_diagnostics(self) -> None:
+        request_ = httpx.Request(
+            "POST", "https://api.openai.com/v1/responses/input_tokens"
+        )
+
+        def response(status: int) -> httpx.Response:
+            return httpx.Response(status, request=request_)
+
+        cases = (
+            (
+                AuthenticationError(
+                    "secret authentication detail",
+                    response=response(401),
+                    body=None,
+                ),
+                "authentication_error",
+            ),
+            (
+                PermissionDeniedError(
+                    "secret permission detail", response=response(403), body=None
+                ),
+                "permission_error",
+            ),
+            (
+                RateLimitError(
+                    "secret quota detail",
+                    response=response(429),
+                    body={"code": "insufficient_quota"},
+                ),
+                "quota_error",
+            ),
+            (
+                RateLimitError("secret rate detail", response=response(429), body=None),
+                "rate_limit_error",
+            ),
+            (
+                NotFoundError(
+                    "secret missing detail", response=response(404), body=None
+                ),
+                "not_found_error",
+            ),
+            (
+                BadRequestError(
+                    "secret request detail", response=response(400), body=None
+                ),
+                "invalid_request_error",
+            ),
+            (APIConnectionError(request=request_), "transport_error"),
+            (APITimeoutError(request_), "provider_timeout"),
+        )
+        for error, expected in cases:
+            with self.subTest(expected=expected):
+                sdk = MagicMock()
+                sdk.responses.input_tokens.count = AsyncMock(side_effect=error)
+                with self.assertRaises(ProviderError) as raised:
+                    await SDKOpenAITransport(sdk).count_input_tokens({})
+                self.assertEqual(raised.exception.failure_kind, expected)
+                self.assertEqual(raised.exception.failure_stage, "token_count")
+                self.assertNotIn("secret", str(raised.exception))
+                self.assertIsNone(raised.exception.__cause__)
+                self.assertIsNone(raised.exception.__context__)
 
 
 class PolicyTests(TestCase):
+    def test_schema_two_requires_conservative_cache_write_pricing(self) -> None:
+        original = policy().model_dump()
+        for update in (
+            {"schema_version": 2},
+            {
+                "schema_version": 2,
+                "cache_write_microusd_per_million": 999_999,
+            },
+            {"cache_write_microusd_per_million": 1_250_000},
+        ):
+            with self.subTest(update=update), self.assertRaises(ValidationError):
+                SpendPolicy.model_validate(original | update)
+        upgraded = cache_write_policy()
+        self.assertEqual(upgraded.reservation_cost(10, 100), 213)
+        self.assertEqual(upgraded.cost(10, 5, 2), 21)
+        with self.assertRaises(ValueError):
+            upgraded.cost(10, 5, 11)
+        self.assertNotIn(b"cache_write", canonical_bytes(policy()))
+        self.assertNotIn(
+            b"cache_write",
+            canonical_bytes(
+                SpendReceipt(
+                    reservation_sha256="a" * 64,
+                    status="settled",
+                    retained_microusd=1,
+                    input_tokens=1,
+                    output_tokens=0,
+                )
+            ),
+        )
+
     def test_receipt_ledger_identity_must_be_complete(self) -> None:
         with self.assertRaises(ValidationError):
             SpendReceipt(

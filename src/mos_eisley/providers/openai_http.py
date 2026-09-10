@@ -9,6 +9,10 @@ import httpx
 MAX_OPENAI_RESPONSE_BYTES = 1_000_000
 
 
+class OpenAIResponseLimitError(httpx.NetworkError):
+    """A response crossed the application-owned byte ceiling."""
+
+
 class BoundedOpenAIHttpClient(httpx.AsyncClient):
     """Non-streaming client with an application-owned decoded body ceiling.
 
@@ -40,6 +44,12 @@ class BoundedOpenAIHttpClient(httpx.AsyncClient):
                 "streaming responses are disabled by the bounded client",
                 request=request,
             )
+        # HTTPX advertises compression by default. A credentialed production probe
+        # exposed an upstream deflate body that zlib rejected even though an
+        # identity-encoded curl request succeeded. Prefer identity so the bounded
+        # reader receives the same bytes described by Content-Length. If a server
+        # ignores this request, aiter_bytes still decodes and bounds the result.
+        request.headers["accept-encoding"] = "identity"
         response = await super().send(
             request,
             stream=True,
@@ -56,13 +66,13 @@ class BoundedOpenAIHttpClient(httpx.AsyncClient):
                 except ValueError:
                     encoded_size = 0
                 if encoded_size > self.response_limit:
-                    raise httpx.NetworkError(
+                    raise OpenAIResponseLimitError(
                         "OpenAI response exceeds byte limit", request=request
                     )
             content = bytearray()
             async for block in response.aiter_bytes():
                 if len(content) + len(block) > self.response_limit:
-                    raise httpx.NetworkError(
+                    raise OpenAIResponseLimitError(
                         "OpenAI response exceeds byte limit", request=request
                     )
                 content.extend(block)

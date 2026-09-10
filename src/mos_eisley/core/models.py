@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, NamedTuple, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -26,6 +26,29 @@ def canonical_bytes(value: Contract) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
+
+
+class CanonicalFingerprint(NamedTuple):
+    sha256: str
+    bytes: int
+
+
+def canonical_fingerprint(value: Contract) -> CanonicalFingerprint:
+    """Measure and hash canonical JSON without joining its encoded segments.
+
+    The JSON-compatible model tree and one encoder segment still exist in memory.
+    This is operation-local computation, not a cache of mutable model identities.
+    """
+    checksum = hashlib.sha256()
+    size = 0
+    encoder = json.JSONEncoder(
+        ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+    for segment in encoder.iterencode(value.model_dump(mode="json")):
+        payload = segment.encode("utf-8")
+        checksum.update(payload)
+        size += len(payload)
+    return CanonicalFingerprint(checksum.hexdigest(), size)
 
 
 def digest(value: bytes) -> str:

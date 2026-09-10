@@ -62,6 +62,29 @@ uv run --frozen mos eval-run-recorded \
   --output .mos-eisley/eval/holdout-raw.json
 ```
 
+The brokered OpenAI conformance path remains deliberately outside this scoreable raw
+result schema. It can now preserve terminal failures and assemble exact blinded-batch
+coverage as a distinct
+[`BrokeredEvaluationResultSet`](BROKERED_EVALUATION.md), but that artifact fixes live
+issuance, grading, scoring, and promotion to false. Do not relabel it as recorded or
+live `RawResultSet`; repeated authenticated credentialed conformance and a separately
+reviewed conversion are still required. The first one-assignment receipt does not
+satisfy either complete-batch gate.
+
+One successful probe can now receive an
+[authenticated observer receipt](EVALUATION_CONFORMANCE.md) that reverifies its exact
+assignment, independent authorization, audit, and ledger. The receipt explicitly does
+not establish complete batch conformance or permit conversion, grading, or scoring.
+
+After the separate aggregate gate passed, the reviewed
+[offline OpenAI conformance converter](OPENAI_CONFORMANCE_CONVERSION.md) projected
+only its exact 18 qualifying receipts and artifacts into a private partial
+calibration seed. The seed records 18 of the frozen batch's 360 assignments and is a
+distinct schema that cannot parse as `RawResultSet`; it authorizes no grading,
+scoring, promotion, activation, or additional request. Complete batch execution and
+another reviewed issuance boundary remain required before the grading flow below can
+consume live-derived results.
+
 Next, create the adjudicator packet. This joins references to completed outputs but
 removes route, model, backend, case ID, split and private assignment mapping. Give
 only this packet and the grading rubric to a human adjudicator. A candidate can

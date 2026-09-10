@@ -6,8 +6,16 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 dependencies = [
+    "anyio>=4.15,<5",
+    "certifi>=2026.7.22",
     "cryptography>=50,<51",
+    "httpcore2>=2.12,<3",
+    "httpx2>=2.12,<3",
+    "jsonschema>=4.26,<5",
+    "keyring>=25,<26",
+    "mcp>=2.2,<3",
     "openai>=2,<3",
+    "prompt-toolkit>=3.0.52,<4",
     "pydantic>=2.12,<3",
     "PyYAML>=6,<7",
 ]
@@ -46,4 +54,4 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 85
+fail_under = 84

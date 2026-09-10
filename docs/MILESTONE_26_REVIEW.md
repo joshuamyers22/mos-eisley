@@ -29,7 +29,8 @@ Host time has no external witness, and historical signature validity is not curr
 revocation status. Authority-policy distribution, package authorship, and local
 artifact custody remain operator trust boundaries.
 
-There is still no authenticated revocation anchor, rollback target policy,
-transactional extraction/installation, default-persona update, or post-install drift
-monitor. This artifact must remain disconnected from runtime until those controls are
-separately designed and tested.
+Milestone 27 adds authenticated release revocation, exact retained rollback
+nomination, and a local monotonic anchor as a separate non-deploying gate. There is
+still no external anti-rollback witness, transactional extraction/installation,
+default-persona update, or post-install drift monitor. This artifact remains
+disconnected from runtime until those controls are separately designed and tested.

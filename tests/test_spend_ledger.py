@@ -219,6 +219,37 @@ os._exit(23)
             self.assertEqual(status.charged_microusd, 20)
             self.assertEqual(ledger.snapshot().entries, 1)
 
+    def test_held_guard_requires_exact_unsettled_reservation(self) -> None:
+        with TemporaryDirectory() as directory:
+            ledger = SpendLedger.create(Path(directory) / "spend.sqlite", 100)
+            item = entry(1, 20)
+            ledger.reserve(item)
+            with ledger.guard_held(item) as status:
+                self.assertEqual(status.status, "held")
+            for changed in (
+                item.model_copy(update={"reservation_sha256": "b" * 64}),
+                item.model_copy(update={"reserved_microusd": 19}),
+            ):
+                with (
+                    self.subTest(changed=changed),
+                    self.assertRaisesRegex(ValueError, "exact held"),
+                    ledger.guard_held(changed),
+                ):
+                    pass
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=item.entry_id,
+                    reservation_sha256=item.reservation_sha256,
+                    status="settled",
+                    charged_microusd=10,
+                )
+            )
+            with (
+                self.assertRaisesRegex(ValueError, "exact held"),
+                ledger.guard_held(item),
+            ):
+                pass
+
     def test_unexpected_journal_or_missing_policy_is_rejected(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "spend.sqlite"

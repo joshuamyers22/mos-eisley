@@ -4,12 +4,278 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Adversarially review the context-management proposal and adopt loss-aware tool
+  result envelopes, typed external state, compaction lineage, owner-scoped lexical
+  retrieval, cache safety and held-out evaluation. Fixed truncation/delegation
+  thresholds and semantic retrieval remain unqualified planning hypotheses.
+
 - Review the project and imported adaptive-reasoning/adversarial-loop plans; add
   revised repository-owned designs and integrate plan §26 with the delivery roadmap.
   Correct stale review examples and specify independent readings, test-binding
   integrity, bounded correction, proxy-versus-label outcomes, feasible statistical
   studies, owner-scoped routing evidence and atomic activation prerequisites.
   This is a planning change and enables no runtime capability.
+- Add frozen, label-free analytical comparison schedules with reproducible case
+  blocks and balanced arm positions. Assess pinned artifacts for recorded ordering,
+  overlap and pre-schedule starts; keep failures and missing timing visible. Add
+  a synthetic raw/promoted comparison demo and installed-wheel checks.
+
+- Add explicit raw-data analytical mode with source discovery, a restricted raw
+  read-tool profile and null semantic revision. Reuse spending, evidence and private
+  export controls; compare raw/promoted arms in offline evaluation. Add examples,
+  adversarial tests and same-file Parquet integration.
+
+- Add offline analytical evaluation of private result bundles against frozen
+  question, run-identity, source, SQL and cell expectations. Separate exported tasks
+  from golden labels, preserve failed/missing assignments, and report unknown usage
+  and spending explicitly. Add a packaged synthetic evaluation workflow.
+
+- Add schema-2 analytical answers rendered from checked captured cells, with
+  SQL/result/timing/usage lineage, optional private UUID artifacts, offline
+  verification, expiry cleanup and CSV exports tied to explicit result IDs.
+- Add an opt-in read-only MCP analytical loop with promoted-context and metric
+  revision checks, whole-run OpenAI spending reservations, atomic local admission,
+  bounded conversations and memory-only content retention. Add synthetic demos,
+  adversarial/controller tests and installed-wheel verification.
+- Expand MCP schemas with bounded local reference inlining, constraint/format
+  validation, and explicit JSON argument wrappers for nullable fields, unions and
+  dictionaries. Report encodings and changes; validate declared structured output.
+
+- Add explicit MCP OAuth login/logout for pre-registered public clients, PKCE,
+  constrained discovery, OS keychain storage, serialized refresh and revocation
+  reporting. Authentication failures never automatically repeat tool calls.
+
+- Add Streamable HTTP MCP with endpoint-bound bearer credentials, DNS pinning,
+  TLS verification, pre-decoding response limits, and uncertain-write handling.
+  Cover HTTP/SSE, legacy negotiation, TLS and fault cases with real fixtures.
+
+- Add explicit stdio MCP discovery/calls and a canonical tool dispatcher with
+  operator-controlled read/write grants, schema lowering reports, environment
+  filtering, deadlines, result limits and no automatic write retries.
+- Add data-mcp read/write and Ana Lite analysis examples with cross-repository
+  Parquet, semantic metric and disposable PostgreSQL integration tests.
+
+- Add a credential-refusing consumption command that fully reverifies an authenticated
+  OpenAI calibration decision, requires explicit transfer and reservation consent,
+  and atomically burns its deterministic one-use ledger entry into a worst-case held
+  schema-2 reservation.
+- Add offline prepared-execution verification with exact request, pricing, ledger,
+  signature, freshness, and held-state checks; keep broker grant, provider dispatch,
+  retry, automatic release, grading, scoring, promotion, and activation disabled.
+
+- Add offline derive/authenticate commands for one independently signed, short-lived
+  OpenAI calibration execution decision bound to the fully reverified campaign,
+  exact strict provider request, schema-2 spend policy, canonical bounded ledger
+  policy, and fresh audit-path/ledger-entry identity.
+- Preserve credential, reservation, and send state as false during authentication;
+  require explicit local consent and future atomic ledger consumption while denying
+  retry, automatic release, grading, scoring, promotion, and routing activation.
+
+- Add backward-compatible schema-2 OpenAI spending policies with explicit
+  cache-write rates, worst-case cache-write reservation, and exact cache-write
+  settlement across direct, canary, conformance, and skill-runtime paths.
+- Fail closed on missing or incoherent schema-2 cache-write usage, preserve legacy
+  schema-1 canonical artifacts, and keep the calibration campaign non-authorizing.
+
+- Add a credential-refusing offline campaign planner that subtracts the exact
+  18-record conformance seed from the frozen 360-assignment OpenAI calibration
+  batch and commits the remaining 342 request hashes in original order.
+- Pin six current standard-rate token envelopes and a $15.377973 aggregate maximum,
+  conservatively pricing every input token at the higher cache-write rate while
+  denying Batch, fast mode, cache discounts, spend reservation, execution, retry,
+  grading, scoring, promotion, and activation.
+
+- Add a credential-refusing offline OpenAI conformance converter pinned to the exact
+  passed aggregate gate, six reviewed profiles, and 18 qualifying receipt/artifact
+  lineages.
+- Emit only a private 18-of-360 partial calibration seed that is incompatible with
+  `RawResultSet` and denies complete coverage, grading, scoring, promotion,
+  activation, and any additional provider request.
+
+- Pin the OpenAI live-conformance exit criterion at three consecutive,
+  precommitted, distinct authenticated successes for each of six exact profiles (18
+  total), with complete failed-attempt retention and reset-after-failure semantics.
+- Define five required provider/operational failure boundaries, isolate deliberate
+  ambiguous exposure in disposable ledgers, and keep calibration conversion disabled
+  until the complete gate passes.
+- Keep CI and release jobs bounded while raising their timeouts to accommodate the
+  full quality, audit, build, container, and release-evidence workflow.
+
+- Commit the private deterministic selection of five remaining OpenAI conformance
+  probes before paid outcomes, binding exact model/effort profiles, current rates,
+  token ceilings, three readiness-receipt hashes, and one fresh $0.15 shared ledger.
+- Preserve the campaign commitment as non-authorizing and non-scoreable; every paid
+  probe still requires a fresh independent signature and explicit local consent.
+
+- Allow the metadata-only OpenAI readiness command to select one exact model from the
+  reviewed registry while preserving Luna as the default, one GET, zero retries, no
+  prompt, and every downstream-authority denial.
+- Reject unregistered targets before credential access and reject returned or
+  substituted receipt identities that differ from the requested model.
+
+- Record the first authenticated live blinded OpenAI conformance probe: one
+  independently authorized and observed `gpt-5.6-luna` low-effort assignment, 397
+  input tokens, 299 output tokens, 6,992 ms latency, and 439 micro-USD settled.
+- Preserve its one-assignment disposition and literal denial of provider authorship,
+  billing reconciliation, complete-batch conformance, quality, conversion, grading,
+  scoring, promotion, and routing activation; private evidence remains uncommitted.
+
+- Bind storage, truncation, default service tier, streaming, and background controls
+  into the exact OpenAI conformance request before independent authorization.
+- Reject conflicting request controls before token counting or reservation, preserve
+  controller-to-transport generation equality, and keep generation-only controls out
+  of the input-token count request.
+
+- Add an independently signed, fixed `gpt-5.6-luna` Responses canary with exact
+  token-count/generation binding, a 32-token ceiling, explicit synthetic-transfer
+  consent, shared-ledger admission, zero retries, and no tools or user prompt.
+- Preserve content-addressed private canary evidence with a manifest-last completion
+  marker and offline ledger-backed verification; retain literal billing, grading,
+  scoring, promotion, and routing denials.
+- Record the first operator-signed live synthetic Responses canary: exact
+  `gpt-5.6-luna` access verified with 40 input tokens, 5 output tokens, 14 micro-USD
+  retained, zero retries, a settled unblocked ledger, and no downstream authority.
+
+- Force identity encoding at the bounded OpenAI HTTP send boundary after a live
+  readiness attempt exposed a zlib decode failure while identity curl returned 200.
+- Add schema-2 readiness receipts with a fixed local transport-detail vocabulary;
+  retain decoded-size enforcement, zero retries, generic public errors, and all
+  downstream authority denials.
+
+- Add an explicit-consent, fixed `gpt-5.6-luna` model-metadata readiness command
+  using one bounded, zero-retry official-SDK request and an exclusive private receipt.
+- Persist only safe provider failure categories and literal denials of billing or
+  Responses verification, retry, spend, grading, scoring, and routing activation.
+
+- Require an independently signed, short-lived authorization for the exact blinded
+  conformance transfer and maximum spend before the paid-capable command reads an API
+  key; retain the separate explicit local confirmation.
+- Enforce authority/observer separation, nested policy windows, timeout coverage,
+  domain-separated signatures, and literal denial of retry, release, conversion,
+  scoring, promotion, and routing activation.
+
+- Add a no-send conformance ceremony that derives one exact assignment, provider
+  request, spend scope, ledger entry, planned audit, observer roster, SDK allowlist,
+  and validity policy without credential access, reservation, Docker, or dispatch.
+- Require the prepared policy for `openai-conformance` and fail before API-key access
+  on identity, window, SDK, blocked-ledger, reused-entry, or output-layout mismatch.
+
+- Add a pre-registered, policy-pinned Ed25519 observer receipt for one successful
+  credentialed brokered OpenAI evaluation probe.
+- Reverify the independently anchored authorization, private audit chain, exact
+  settled ledger entry, blinded assignment, SDK allowlist, and freshness window at
+  both observation derivation and authentication.
+- Keep provider authorship, billing, failed-send proof, batch conformance, conversion,
+  grading, scoring, quality, promotion, and routing activation structurally false.
+
+- Preserve terminal broker provider errors, deadlines, and cancellations as distinct
+  schema-3 audit outcomes with measured latency and conservative ledger state.
+- Add verification-only failure compilation and exact-batch brokered result assembly;
+  the distinct output schema preserves unsuccessful assignments but remains
+  incompatible with `RawResultSet`, grading, scoring, retry, release, and promotion.
+
+- Add an explicit-consent OpenAI Admin API billing collector that owns
+  `OPENAI_ADMIN_KEY` only in its short-lived process, uses the official SDK through a
+  bounded zero-retry client, and retains strict complete usage/cost pages privately.
+- Validate closed one-minute/one-day buckets, exact project/API-key/model scope, one
+  completion request, cursor completion, duplicate cost groups, and integer-microusd
+  totals before collected evidence can feed the existing signable metadata path.
+- Keep daily API-key exclusivity and exact request-cost attribution explicitly
+  unproven; collection performs billing reads but never sends a model request, signs,
+  changes the ledger, releases exposure, retries, promotes, or activates routing.
+
+- Add independently signed OpenAI organization usage/cost evidence that
+  reauthenticates exact runtime conformance and publication lineage, requires a
+  complete exclusive one-request aggregate, and rejects token or cost mismatch.
+- Fix request-level attribution, invoice finality, ledger mutation, budget release,
+  retry, quality, promotion, and routing authority to false because documented billing
+  exports are aggregate rather than response-ID-bound.
+- Add verification-only billing evidence CLI commands that accept no OpenAI credential
+  or signing key and expose neither raw evidence, project/API-key identifiers, nor
+  response content.
+
+- Add hash-only rolling response-publication history commitments and policy-pinned
+  Ed25519 checkpoints that detect deletion, reordering, or divergent replacement while
+  accepting legitimate later publications.
+- Version response-store policy and persist a gap-free publication sequence so history
+  commitments never depend on SQLite's mutable implicit row IDs.
+- Add verification-only checkpoint derive/verify CLI commands with no signing key or
+  private response/result export and explicit denial of external-retention or
+  newest-checkpoint proof.
+
+- Add a policy-pinned Ed25519 runtime-conformance attestation that binds an enrolled
+  observer's freshness-bounded OpenAI endpoint, SDK, transport, and credentialed-use
+  claims to one exact content-verified skill-runtime publication.
+- Add verification-only derive/authenticate CLI commands with explicit live-exchange
+  acknowledgement, allowlisted SDK versions, and literal denials of provider
+  authorship proof, billing reconciliation, quality, promotion, and activation.
+
+- Add a pinned private skill-runtime response store that atomically retains exact
+  provider response bytes and publishes one content-verified, reasoning-free result
+  linked to the settled transaction, issuance, route, request, and ledger entry.
+- Reject response/result substitution, tool-bearing or reasoning-only publication,
+  replay, partial commits, and edited records; expose only verified counts and
+  text-only results through safe CLI commands with no raw-response export.
+
+- Add a provider-owning skill-runtime transaction that burns one exact ephemeral
+  capability into an fsynced before-send marker before invoking a bounded,
+  zero-retry OpenAI transport.
+- Settle the already-held reservation at verified actual usage or retain full exposure
+  for provider errors, cancellation, timeout, malformed usage, pricing violations,
+  lost responses, and ambiguous cross-store failures; no outcome permits retry or
+  automatic budget release.
+- Add hash-only transaction recovery/status, safe store-management CLI commands, and
+  adversarial tests for exact-request binding, concurrency, crash boundaries, and
+  secret/prompt/response non-persistence.
+
+- Add a pinned durable broker-grant issuance store that consumes one exact dispatch
+  claim while holding current routing, skill, default, admission, and spend guards.
+- Add a maximum-30-second memory-only 256-bit bearer with redacted representation,
+  one delivery and one hash-bound redemption; it exposes no request bytes and sends
+  nothing.
+
+- Add an independent maximum-60-second Ed25519 authority that binds one exact
+  admitted skill-runtime request, route, controls, default, and held spend entry.
+- Add durable at-most-once consumption under fresh local guards while deliberately
+  issuing no bearer grant, authorizing no direct provider dispatch, and sending no
+  request.
+
+- Add independent Ed25519 authorization for one exact state-bound skill default
+  transition, including installed provenance, latest release control, sequence, and
+  expected prior pointer.
+- Add a private SQLite default store that atomically consumes the decision and updates
+  an immutable revision chain plus current pointer while continuing to deny runtime
+  lookup, activation, and all other configuration mutation.
+
+- Add a private content-addressed installed-skill store that consumes exact one-use
+  authority, serializes cross-process commits, reconstructs every written byte, and
+  durably publishes only completion-marker-last atomic transactions.
+- Add read-only install recovery correlation for completed, incomplete, claim-only,
+  and unbound states while continuing to deny default changes, runtime lookup,
+  automatic recovery, and cleanup.
+
+- Add independent Ed25519 installation authority for exact quarantined persona
+  packages, binding the latest release-control anchor, staging manifest, one-use
+  claim-store identity, installation target, action, and bounded validity window.
+- Add a private durable at-most-once claim ledger and guarded consumption primitive
+  that burns authority before side effects and holds release control through the
+  caller's commit, while granting no activation or configuration mutation.
+
+- Add a private content-addressed skill quarantine store with exact post-write archive
+  reconstruction, semantic verification, completion-marker-last transactions,
+  durable atomic rename, idempotent verified reuse, and bounded crash inventory.
+- Reauthenticate the complete skill-release lineage and hold a latest-control SQLite
+  read guard across staging commit, closing the local check-to-revocation race while
+  preserving literal installation, activation, and configuration denial.
+
+- Add independent, expiring Ed25519 skill-release allow/revoke decisions that
+  reverify complete release provenance, enforce separation from promotion and
+  evaluation authorities, and optionally bind exact retained rollback bytes.
+- Add a release-scoped private append-only anchor with a pinned bootstrap floor,
+  increasing sequence/time, irreversible revocation, exact latest-state checks, and
+  literal denial of installation, activation, and configuration mutation.
+- Harden semantic archive verification so in-process objects with copied deployment
+  authority fail closed as JSON-loaded archives already did.
 
 - Add current skill-release evidence that semantically reverifies a retained package,
   recomputes both authenticated evaluation lineages, and binds the exact archive to

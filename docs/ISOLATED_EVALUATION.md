@@ -91,5 +91,7 @@ ownership before removing an exact container; do not remove other runs by prefix
 The [private request broker](PROVIDER_BROKER.md) now has fixture-tested container
 IPC with host-owned requests and shared spending. Next: evaluation provenance,
 host audit boundaries, persistent orphan recovery and bounded upstream transport.
-These gates and credentialed conformance must pass before enabling paid sweeps.
-Automatic difficulty routing remains disabled pending held-out empirical gates.
+These gates and repeated credentialed conformance across the intended route and
+failure matrix must pass before enabling paid sweeps. The first successful
+one-assignment receipt does not satisfy that matrix. Automatic difficulty routing
+remains disabled pending held-out empirical gates.

@@ -1,9 +1,10 @@
 # OpenAI credentialed-conformance request contract
 
 Mos Eisley has a deterministic request builder and fail-closed CLI lifecycle for
-one blinded OpenAI evaluation assignment. The command is paid-capable, but its
-tests replace both provider dispatch and Docker execution; this repository has not
-yet recorded a credentialed conformance result.
+one blinded OpenAI evaluation assignment. Its automated tests replace both provider
+dispatch and Docker execution. After merge of the exact-request hardening, one
+operator-authorized live probe completed and its private evidence authenticated; the
+repository commits only the bounded disposition, not the private artifacts.
 
 `build_openai_conformance_payload` requires one exact sample in an
 `ExecutionBatch`, an `openai` route, and a reviewed spending policy for the same
@@ -12,7 +13,10 @@ The output-token ceiling comes from the policy. The user content is only canonic
 `Brief` JSON;
 private labels, case IDs, split, mapping, expected findings, credentials, endpoints,
 and spending authority are not included. Tools are empty, parallel tool calls are
-disabled, storage is false, and input truncation is disabled.
+disabled, storage is false, input truncation is disabled, the service tier is
+`default`, and both streaming and background execution are explicitly false. These
+generation controls therefore participate in the request hash reviewed by the
+ceremony instead of being inferred from API or SDK defaults.
 
 The response uses strict JSON Schema derived from the immutable `Critique` contract.
 Schema normalization removes presentation/default keywords and makes every object
@@ -23,40 +27,166 @@ schema through the installed official SDK and bounded HTTP client.
 
 The spending controller permits this host-created `text` configuration while
 retaining its existing one-use request snapshot, token count, reservation, shared
-ledger, model/tier/usage checks, and conservative failure handling. A worker still
-cannot choose or modify the schema because its capability is bound to the exact
-serialized provider request.
+ledger, model/tier/usage checks, and conservative failure handling. It rejects
+conflicting storage, truncation, service-tier, streaming, or background values rather
+than silently rewriting them. The conformance builder's request is unchanged at the
+controller-to-transport generation boundary. Generation-only controls are removed
+from the separate input-token-count request. A worker still cannot choose or modify
+the schema because its capability is bound to the exact serialized provider request.
 
 ## Explicit command
 
 `openai-conformance` requires the blinded batch/sample, reviewed expiring spending
-policy, existing shared ledger, absolute Docker executable, immutable image ID,
-fresh audit directory, and two fresh output files. It derives model and effort from
-the assignment; there are no command-line overrides. Consent is checked before any
-input read, and all other preflight checks finish before `OPENAI_API_KEY` is read or
-Docker starts. The trusted audit parent must already exist, and the three output
-paths may not contain or overlap one another.
+policy, existing shared ledger, separately prepared conformance policy, independent
+authority policy and signed short-lived execution authorization, absolute Docker
+executable, immutable image ID, fresh audit directory, and two fresh output files. It
+derives model and effort from the assignment; there are no command-line overrides.
+Local consent is checked before any input read. The
+[no-send ceremony](CONFORMANCE_CEREMONY.md) and live preflight bind and recheck the
+exact request, spending identities, audit-derived unused ledger entry, policy window,
+and installed SDK version. The separate
+[signed authorization](EVALUATION_CONFORMANCE_AUTHORIZATION.md) authenticates exact
+blinded-transfer and spend authority before `OPENAI_API_KEY` is read or Docker starts. The
+trusted audit parent must already exist, and the policy and three output paths may
+not contain or overlap one another.
 
 ```console
 mos openai-conformance \
   --batch blinded-batch.json --sample-id <sha256> \
   --spend-policy spend-policy.json --spend-ledger spending.sqlite \
+  --conformance-policy trusted/conformance-policy.json \
+  --conformance-authority-policy trusted/conformance-authority-policy.json \
+  --signed-conformance-authorization trusted/signed-authorization.json \
   --docker /usr/local/bin/docker --image sha256:<64-hex-image-id> \
   --audit-dir private/audit \
   --authorization-output trusted/authorization.json \
   --artifact-output private/conformance.json \
+  --precredential-rejection-output private/f1-rejection.json \
   --allow-data-transfer
 ```
+
+The optional precredential-rejection output is created only when an authentic
+signed authorization is expired or differs from the current exact policy binding.
+Its canonical F1 receipt binds the request and policy identities to unchanged
+before/after ledger snapshots and literal false values for credential access, audit
+creation, assignment or artifact publication, container start, provider send,
+reservation, retry, grading, scoring, promotion, and routing activation. Invalid
+signatures and malformed inputs remain ordinary fail-closed errors and cannot mint
+this receipt. The receipt path must be fresh, have an existing parent, and not
+overlap any trusted input, ledger, audit, lifecycle, or normal output path.
+
+The first installed-wheel F1 operation passed on 2026-09-09 using a deliberately
+different source and target policy identity under one otherwise exact current
+binding. It retained receipt
+`6a0d132074a27272851ddc0affe08ba3ce096a59e0f7ff68dc450489080941bf`
+with an unchanged empty dedicated ledger and no credential, audit, normal output,
+container lifecycle, provider request, reservation, retry, or downstream authority.
+See [Milestone 79](MILESTONE_79_REVIEW.md). This controlled local result says
+nothing about OpenAI behavior.
 
 The trusted authorization and final artifact must be outside the audit directory
 and are created exclusively. The authorization is persisted before dispatch. The
 SDK client and bounded HTTP client are created and closed on the broker callback's
 event loop, while the credential and endpoint remain host-only. A completed reply
 must agree with the audit chain and settled ledger before the strict, explicitly
-non-scoreable artifact is written. After dispatch, failure leaves the authorization,
-audit, and conservative ledger receipt for recovery inspection and never writes an
-artifact or permits retry.
+non-scoreable artifact is written. The one narrow pre-reservation exception is a
+terminal authentication rejection at input-token count: when the adapter, terminal
+audit, and absent ledger all agree, the command retains a status-`error` F2 artifact
+with null cost and no retry authority. Other dispatched failures leave the
+authorization, audit, and conservative ledger receipt for recovery inspection and do
+not write an artifact or permit retry. Schema-4 audit diagnostics retain only a fixed
+local stage and coarse SDK exception category. They discard exception text and bodies
+and do not prove provider receipt, billing, or the exact remote cause. See
+[Milestone 80](MILESTONE_80_REVIEW.md) for the retained-F2 implementation review;
+the live F2 boundary subsequently passed through the separately installed wheel and
+retained artifact
+`ee6cb8800a13985b38978d16b2d6cc54809fca23e6a1aa8930b0f466cb3bb3fa`.
+Its dedicated ledger remained empty and no generation was requested. This proves
+the bounded authentication-rejection behavior, not remote request-body inspection or
+provider billing. See [Milestone 81](MILESTONE_81_REVIEW.md).
+
+The installed-wheel F3 operation subsequently exercised the generic
+post-reservation failure path with a controlled no-network response-stage
+disconnect. The production spending controller retained one 635-micro-USD
+reservation as `uncertain` in a dedicated disposable ledger, the terminal audit
+recorded `transport_error` at `response`, and no conformance artifact was written.
+The harness refused to run with an OpenAI credential available; this proves local
+conservative failure handling rather than OpenAI behavior or billing. Retry and
+automatic release remain unauthorized. See
+[Milestone 82](MILESTONE_82_REVIEW.md).
+
+The installed-wheel F4 operation then exercised response validation using a
+controlled no-network Responses envelope with valid synthetic billable usage but
+deliberately invalid critique JSON. The spending controller settled 44 micro-USD in
+a dedicated disposable ledger, while the compiler retained only a status-`error`
+artifact with `invalid_response` at `validation`. It publishes no provider request
+ID, usage, critique, completed-result eligibility, retry, automatic release, or
+promotion authority. No OpenAI credential or request was involved, so this proves
+local strict-response rejection rather than provider authorship or billing. See
+[Milestone 83](MILESTONE_83_REVIEW.md).
+
+The installed-wheel F5 operation finally killed its exact launcher by SIGKILL only
+after broker admission, a persisted 635-micro-USD reservation, a held ledger entry,
+and an armed watchdog were independently observed. The watchdog removed the exact
+container on its first attempt, and a separate Docker lookup confirmed absence.
+Read-only recovery reports phase `admitted` and ledger status `held`; no terminal
+outcome, spend receipt, conformance artifact, retry, or automatic release exists.
+No OpenAI credential or request was involved, so this proves local crash-conservative
+recovery and watchdog cleanup rather than provider behavior or billing. See
+[Milestone 84](MILESTONE_84_REVIEW.md).
+
+The subsequent offline aggregate report reauthenticated all 20 retained success
+lineages, counted the exact 18 qualifying successes, explicitly excluded the two
+invalidated Astra/high successes, reverified all five failure boundaries, and
+preserved exact failed/no-send/unexecuted attempt coverage. The frozen exit gate has
+therefore passed. This authorizes only the design of a separate calibration
+converter; provider authorship, billing, quality, conversion, grading, scoring,
+promotion, routing activation, and another provider request remain false. See
+[Milestone 85](MILESTONE_85_REVIEW.md).
+
+The subsequently reviewed offline converter pins that exact aggregate digest and
+accepts only the 18 qualifying receipts plus their matching artifacts. Its first real
+run issued a private 18-of-360 partial calibration seed without any credential or
+provider request. The distinct seed cannot parse as `RawResultSet` and keeps
+complete-batch coverage, provider authorship, billing, quality, grading, scoring,
+promotion, activation, and another request false. See the
+[converter contract](OPENAI_CONFORMANCE_CONVERSION.md) and
+[Milestone 86](MILESTONE_86_REVIEW.md).
 
 Running this command requires separate operator authorization because token
 counting and generation send the blinded brief to OpenAI and generation may incur
-cost. No live call was made while implementing or testing this lifecycle.
+cost. Automated tests do not make live calls.
+
+## Live-conformance exit criterion
+
+One successful command is not sufficient. Before brokered artifacts may become
+eligible for a separately reviewed calibration converter, the
+[OpenAI live-conformance gate](OPENAI_LIVE_CONFORMANCE_GATE.md) requires three
+consecutive, precommitted, distinct authenticated successes for each of six exact
+model/effort profiles, plus five named provider and controlled operational failure
+boundaries. Failed attempts cannot be discarded, ambiguous exposure cannot be
+released, and deliberately faulted runs use ledgers separate from successful probes.
+Passing this gate still does not authorize grading, scoring, promotion, or routing.
+
+The independent authorization signs the deterministic request hash rather than a
+second cleartext copy of the request. The authorizer therefore needs the blinded
+batch, reviewed policies, and trusted deterministic builder (or an independently
+rendered request) to understand the bytes represented by that hash. A future schema
+may embed a human-reviewable request projection without weakening hash verification.
+
+After a real successful probe, the separate
+[evaluation conformance receipt](EVALUATION_CONFORMANCE.md) can authenticate an
+enrolled observer's claim against the exact assignment, independently retained
+authorization, audit chain, and settled ledger. That receipt remains one-assignment,
+non-scoreable evidence and does not prove provider authorship or billing.
+
+The first such receipt was authenticated on 2026-09-07 for one blinded
+`gpt-5.6-luna` assignment at reasoning effort `low`. See the
+[live-evidence adversarial review](MILESTONE_52_REVIEW.md) for the verified counts,
+hashes, and deliberately unproven claims. It does not authorize conversion or
+empirical routing.
+
+The later [skill runtime conformance attestation](SKILL_RUNTIME_CONFORMANCE.md) binds
+an enrolled observer's signed claim to the exact settled and content-verified skill
+runtime publication. It remains a claim-authentication layer, not provider or billing
+proof, and likewise makes no quality or promotion claim.

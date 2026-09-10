@@ -28,6 +28,15 @@ class AgentFailure(Exception):
     """The loop could not produce a valid completed turn."""
 
 
+class RequestBudgetError(AgentFailure):
+    """The serialized model request exceeds its independently resolved budget."""
+
+    def __init__(self, size: int, maximum: int) -> None:
+        self.required_bytes = size
+        self.maximum_bytes = maximum
+        super().__init__("model request exceeds usable input budget")
+
+
 class AgentConfig(Contract):
     schema_version: Literal[1] = 1
     provider: Identifier
@@ -86,6 +95,13 @@ def build_request(
     )
 
 
+def check_request_budget(request: ModelRequest, budget: Budget) -> int:
+    size = len(canonical_bytes(request))
+    if size > budget.usable_input:
+        raise RequestBudgetError(size, budget.usable_input)
+    return size
+
+
 async def run_agent(
     config: AgentConfig,
     registry: ModelRegistry,
@@ -139,9 +155,7 @@ async def run_agent(
 
     for iteration in range(1, config.max_iterations + 1):
         request = build_request(config, resolved, budget, dispatcher, turns)
-        request_size = len(canonical_bytes(request))
-        if request_size > budget.usable_input:
-            raise AgentFailure("model request exceeds usable input budget")
+        request_size = check_request_budget(request, budget)
         largest_request = max(largest_request, request_size)
         request_id = f"model-{iteration:04d}"
         record("model.request.started", request_id, request)

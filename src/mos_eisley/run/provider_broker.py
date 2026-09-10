@@ -13,7 +13,7 @@ from pydantic import Field, JsonValue
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
+from mos_eisley.providers.openai_spend import SpendControlledOpenAITransport
 from mos_eisley.run.broker_audit import BrokerAudit
 from mos_eisley.run.broker_wire import BrokerReply
 
@@ -41,7 +41,7 @@ class RequestBoundBroker:
     def __init__(
         self,
         payload: dict[str, JsonValue],
-        transport: BudgetedOpenAITransport,
+        transport: SpendControlledOpenAITransport,
         *,
         lifetime_seconds: float = 30,
         audit: BrokerAudit | None = None,
@@ -106,6 +106,10 @@ class RequestBoundBroker:
         if self._audit is not None:
             self._audit.admit()
         started = time.monotonic()
+
+        def latency_ms() -> int:
+            return min(86_400_000, math.ceil((time.monotonic() - started) * 1000))
+
         try:
             async with asyncio.timeout(remaining):
                 response = await self._transport.create_response(
@@ -113,18 +117,46 @@ class RequestBoundBroker:
                 )
         except asyncio.CancelledError:
             if self._audit is not None:
-                self._audit.finish("cancelled")
+                self._audit.finish(
+                    "cancelled",
+                    latency_ms=latency_ms(),
+                    error="cancelled",
+                    failure_stage="exchange",
+                )
             raise
-        except Exception:
+        except TimeoutError:
             if self._audit is not None:
-                self._audit.finish("failed")
+                self._audit.finish(
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error="timeout",
+                    failure_stage="exchange",
+                )
+            raise ProviderError("broker response unavailable") from None
+        except ProviderError as error:
+            if self._audit is not None:
+                self._audit.finish(
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error=error.failure_kind,
+                    failure_stage=error.failure_stage or "exchange",
+                )
             # Cancellation propagates; the grant stays consumed in every case.
             # Spending controller retains uncertain reservations after dispatch.
+            raise ProviderError("broker response unavailable") from None
+        except Exception:
+            if self._audit is not None:
+                self._audit.finish(
+                    "failed",
+                    latency_ms=latency_ms(),
+                    error="provider_error",
+                    failure_stage="exchange",
+                )
             raise ProviderError("broker response unavailable") from None
         if self._audit is not None:
             self._audit.finish(
                 "response_received",
                 digest(canonical_bytes(BrokerReply(response=response))),
-                min(86_400_000, math.ceil((time.monotonic() - started) * 1000)),
+                latency_ms(),
             )
         return response

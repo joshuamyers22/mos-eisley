@@ -5,12 +5,15 @@ import io
 import json
 import os
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import UTC, datetime, timedelta
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import JsonValue
 
 from mos_eisley.cli import main
@@ -24,6 +27,21 @@ from mos_eisley.run.broker_audit import (
 )
 from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.brokered_evaluation import BrokeredEvaluationArtifact
+from mos_eisley.run.evaluation_conformance import (
+    EvaluationConformancePolicy,
+    prepare_evaluation_conformance_policy,
+    trusted_evaluation_conformance_observer,
+)
+from mos_eisley.run.evaluation_conformance_authorization import (
+    EvaluationConformanceAuthorityPolicy,
+    SignedEvaluationConformanceAuthorization,
+    make_evaluation_conformance_authorization,
+    sign_evaluation_conformance_authorization,
+    trusted_evaluation_conformance_authority,
+)
+from mos_eisley.run.evaluation_conformance_failure import (
+    EvaluationConformancePrecredentialRejection,
+)
 from mos_eisley.run.openai_conformance import build_openai_conformance_payload
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -85,7 +103,15 @@ class EphemeralOpenAITransportTests(IsolatedAsyncioTestCase):
             count_payload = {
                 key: value
                 for key, value in payload.items()
-                if key not in ("max_output_tokens", "store", "include", "service_tier")
+                if key
+                not in (
+                    "max_output_tokens",
+                    "stream",
+                    "background",
+                    "store",
+                    "include",
+                    "service_tier",
+                )
             }
             self.assertEqual(await transport.count_input_tokens(count_payload), 100)
             response = await transport.create_response(payload)
@@ -95,6 +121,11 @@ class EphemeralOpenAITransportTests(IsolatedAsyncioTestCase):
             [request.url.path for request in requests],
             ["/v1/responses/input_tokens", "/v1/responses"],
         )
+        count_request = json.loads(requests[0].content)
+        generation_request = json.loads(requests[1].content)
+        self.assertNotIn("stream", count_request)
+        self.assertNotIn("background", count_request)
+        self.assertEqual(generation_request, payload)
         self.assertEqual(len(clients), 2)
         self.assertTrue(all(client.is_closed for client in clients))
 
@@ -107,6 +138,55 @@ class OpenAIConformanceCLITests(TestCase):
         private_write(batch_path, canonical_bytes(batch))
         private_write(policy_path, canonical_bytes(policy))
         ledger = SpendLedger.create(root / "ledger.sqlite", 20_000)
+        observer = trusted_evaluation_conformance_observer(
+            "observer-a",
+            Ed25519PrivateKey.generate().public_key().public_bytes_raw(),
+        )
+        now = datetime.now(UTC)
+        conformance_policy = prepare_evaluation_conformance_policy(
+            batch,
+            batch.requests[0].sample_id,
+            policy,
+            ledger,
+            root / "audit",
+            "openai-probe-1",
+            now - timedelta(minutes=5),
+            now + timedelta(minutes=30),
+            120,
+            (observer,),
+            (distribution_version("openai"),),
+        )
+        conformance_policy_path = root / "conformance-policy.json"
+        private_write(conformance_policy_path, canonical_bytes(conformance_policy))
+        authority_key = Ed25519PrivateKey.generate()
+        authority_policy = EvaluationConformanceAuthorityPolicy(
+            policy_id="openai-conformance-authority",
+            valid_from=now - timedelta(minutes=5),
+            valid_until=now + timedelta(minutes=30),
+            max_authorization_lifetime_seconds=900,
+            authorities=(
+                trusted_evaluation_conformance_authority(
+                    "transfer-authorizer",
+                    authority_key.public_key().public_bytes_raw(),
+                ),
+            ),
+        )
+        authority_policy_path = root / "conformance-authority-policy.json"
+        private_write(authority_policy_path, canonical_bytes(authority_policy))
+        authorization = make_evaluation_conformance_authorization(
+            conformance_policy,
+            policy,
+            authority_policy,
+            now - timedelta(minutes=1),
+            now + timedelta(minutes=10),
+        )
+        signed_authorization = sign_evaluation_conformance_authorization(
+            authorization,
+            "transfer-authorizer",
+            authority_key.private_bytes_raw(),
+        )
+        signed_authorization_path = root / "signed-conformance-authorization.json"
+        private_write(signed_authorization_path, canonical_bytes(signed_authorization))
         return (
             [
                 "openai-conformance",
@@ -118,6 +198,12 @@ class OpenAIConformanceCLITests(TestCase):
                 str(policy_path),
                 "--spend-ledger",
                 str(ledger.path),
+                "--conformance-policy",
+                str(conformance_policy_path),
+                "--conformance-authority-policy",
+                str(authority_policy_path),
+                "--signed-conformance-authorization",
+                str(signed_authorization_path),
                 "--docker",
                 "/usr/local/bin/docker",
                 "--image",
@@ -198,6 +284,64 @@ class OpenAIConformanceCLITests(TestCase):
                 ),
             )
 
+    def test_incomplete_response_writes_terminal_rejection_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            response = conformance_response("gpt-6-astra")
+            response["status"] = "incomplete"
+            response["incomplete_details"] = {"reason": "max_output_tokens"}
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(return_value=100),
+                ),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.create_response",
+                    new=AsyncMock(return_value=response),
+                ),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(error.getvalue(), "")
+            event = json.loads(output.getvalue())
+            self.assertEqual(event["type"], "openai.conformance.rejected")
+            self.assertEqual(event["outcome_status"], "response_received")
+            self.assertEqual(event["ledger_status"], "settled")
+            self.assertEqual(event["error"], "invalid_response")
+            self.assertEqual(event["failure_stage"], "validation")
+            self.assertFalse(event["retry_permitted"])
+            self.assertFalse(event["promotion_eligible"])
+
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            artifact = BrokeredEvaluationArtifact.model_validate_json(
+                (root / "artifact.json").read_bytes()
+            )
+            self.assertEqual(artifact.status, "error")
+            self.assertEqual(artifact.error, "invalid_response")
+            self.assertEqual(artifact.failure_stage, "validation")
+            self.assertEqual(artifact.ledger_status, "settled")
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(
+                (state.phase, state.ledger_status, state.outcome_status),
+                ("finished", "settled", "response_received"),
+            )
+            self.assertNotIn(
+                b"secret-test-key",
+                b"".join(
+                    path.read_bytes() for path in root.rglob("*") if path.is_file()
+                ),
+            )
+
     def test_consent_fails_before_files_credentials_or_dispatch(self) -> None:
         options = [
             "openai-conformance",
@@ -209,6 +353,12 @@ class OpenAIConformanceCLITests(TestCase):
             "missing-policy",
             "--spend-ledger",
             "missing-ledger",
+            "--conformance-policy",
+            "missing-conformance-policy",
+            "--conformance-authority-policy",
+            "missing-conformance-authority-policy",
+            "--signed-conformance-authorization",
+            "missing-signed-conformance-authorization",
             "--docker",
             "/usr/local/bin/docker",
             "--image",
@@ -279,7 +429,117 @@ class OpenAIConformanceCLITests(TestCase):
                 credential.assert_not_called()
                 dispatch.assert_not_called()
 
-    def test_dispatched_failure_is_audited_uncertain_and_never_artifacted(self) -> None:
+    def test_policy_mismatch_fails_before_credential_or_dispatch(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            policy_path = root / "conformance-policy.json"
+            policy = EvaluationConformancePolicy.model_validate_json(
+                policy_path.read_bytes()
+            )
+            changed_path = root / "changed-conformance-policy.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    policy.model_copy(update={"allowed_sdk_versions": ("0.0.0",)})
+                ),
+            )
+            options[options.index(str(policy_path))] = str(changed_path)
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stderr(io.StringIO()),
+            ):
+                self.assertEqual(main(options), 2)
+                credential.assert_not_called()
+                dispatch.assert_not_called()
+
+    def test_exact_binding_mismatch_retains_precredential_rejection(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            policy_path = root / "conformance-policy.json"
+            policy = EvaluationConformancePolicy.model_validate_json(
+                policy_path.read_bytes()
+            )
+            changed_path = root / "changed-conformance-policy.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    policy.model_copy(
+                        update={
+                            "valid_until": policy.valid_until - timedelta(minutes=1)
+                        }
+                    )
+                ),
+            )
+            options[options.index(str(policy_path))] = str(changed_path)
+            receipt_path = root / "evidence" / "f1-rejection.json"
+            receipt_path.parent.mkdir()
+            options.extend(["--precredential-rejection-output", str(receipt_path)])
+            before = ledger.snapshot()
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stdout(io.StringIO()) as stdout,
+                redirect_stderr(io.StringIO()) as stderr,
+            ):
+                self.assertEqual(main(options), 2)
+
+            credential.assert_not_called()
+            dispatch.assert_not_called()
+            self.assertEqual(stderr.getvalue(), "")
+            event = json.loads(stdout.getvalue())
+            receipt = EvaluationConformancePrecredentialRejection.model_validate_json(
+                receipt_path.read_bytes()
+            )
+            self.assertEqual(event["type"], "openai.conformance.precredential_rejected")
+            self.assertEqual(event["receipt_sha256"], receipt.receipt_sha256)
+            self.assertEqual(receipt.boundary_id, "F1")
+            self.assertTrue(receipt.precredential_rejection_proven)
+            self.assertFalse(receipt.credential_accessed)
+            self.assertFalse(receipt.provider_request_sent)
+            self.assertFalse(receipt.spend_reserved)
+            self.assertEqual(receipt.ledger_snapshot_before, before)
+            self.assertEqual(receipt.ledger_snapshot_after, before)
+            self.assertIsNone(ledger.entry_status(policy.ledger_entry_id))
+            self.assertFalse((root / "audit").exists())
+            self.assertFalse((root / "trusted-authorization.json").exists())
+            self.assertFalse((root / "artifact.json").exists())
+            self.assertFalse((root / "lifecycles").exists())
+
+    def test_invalid_signed_authority_fails_before_credential_or_dispatch(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            signed_path = root / "signed-conformance-authorization.json"
+            signed = SignedEvaluationConformanceAuthorization.model_validate_json(
+                signed_path.read_bytes()
+            )
+            changed_path = root / "changed-signed-authorization.json"
+            private_write(
+                changed_path,
+                canonical_bytes(
+                    signed.model_copy(
+                        update={
+                            "authorization": signed.authorization.model_copy(
+                                update={"max_cost_microusd": 1}
+                            )
+                        }
+                    )
+                ),
+            )
+            options[options.index(str(signed_path))] = str(changed_path)
+            with (
+                patch("mos_eisley.cli._openai_api_key") as credential,
+                patch("mos_eisley.cli.run_isolated_broker") as dispatch,
+                redirect_stderr(io.StringIO()),
+            ):
+                self.assertEqual(main(options), 2)
+                credential.assert_not_called()
+                dispatch.assert_not_called()
+
+    def test_dispatched_failure_is_not_mislabeled_as_success_artifact(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             options, ledger = self._inputs(root)
@@ -310,3 +570,137 @@ class OpenAIConformanceCLITests(TestCase):
                 ("finished", "uncertain", "failed"),
             )
             self.assertFalse((root / "artifact.json").exists())
+
+    def test_authentication_rejection_retains_absent_spend_failure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            before = ledger.snapshot()
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "invalid-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(
+                        side_effect=ProviderError(
+                            "synthetic authentication failure",
+                            failure_kind="authentication_error",
+                            failure_stage="token_count",
+                        )
+                    ),
+                ) as count,
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.create_response",
+                    new=AsyncMock(),
+                ) as create,
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(error.getvalue(), "")
+            event = json.loads(output.getvalue())
+            self.assertEqual(event["type"], "openai.conformance.rejected")
+            self.assertEqual(event["outcome_status"], "failed")
+            self.assertEqual(event["ledger_status"], "absent")
+            self.assertEqual(event["error"], "authentication_error")
+            self.assertEqual(event["failure_stage"], "token_count")
+            self.assertIsNone(event["cost_microusd"])
+            self.assertFalse(event["retry_permitted"])
+            self.assertFalse(event["promotion_eligible"])
+            count.assert_awaited_once()
+            create.assert_not_awaited()
+
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            artifact = BrokeredEvaluationArtifact.model_validate_json(
+                (root / "artifact.json").read_bytes()
+            )
+            self.assertEqual(artifact.authorization, authorization)
+            self.assertEqual(artifact.status, "error")
+            self.assertEqual(artifact.outcome_status, "failed")
+            self.assertEqual(artifact.ledger_status, "absent")
+            self.assertEqual(artifact.error, "authentication_error")
+            self.assertEqual(artifact.failure_stage, "token_count")
+            self.assertIsNone(artifact.cost_microusd)
+            self.assertFalse(artifact.retry_permitted)
+            self.assertFalse(artifact.promotion_eligible)
+            self.assertFalse((root / "audit" / "spend-reservation.json").exists())
+            self.assertEqual(ledger.snapshot(), before)
+            self.assertIsNone(ledger.entry_status(authorization.ledger_entry_id))
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(
+                (
+                    state.phase,
+                    state.ledger_status,
+                    state.outcome_status,
+                    state.error,
+                    state.failure_stage,
+                ),
+                (
+                    "finished",
+                    "absent",
+                    "failed",
+                    "authentication_error",
+                    "token_count",
+                ),
+            )
+
+    def test_partial_dispatch_failure_cannot_mint_terminal_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, _ = self._inputs(root)
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=ProviderError("synthetic launcher failure"),
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("ProviderError", error.getvalue())
+            self.assertFalse((root / "artifact.json").exists())
+
+    def test_non_authentication_token_failure_cannot_mint_f2_artifact(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            options, ledger = self._inputs(root)
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "secret-test-key"}),
+                patch(
+                    "mos_eisley.cli.EphemeralOpenAITransport.count_input_tokens",
+                    new=AsyncMock(
+                        side_effect=ProviderError(
+                            "synthetic permission failure",
+                            failure_kind="permission_error",
+                            failure_stage="token_count",
+                        )
+                    ),
+                ),
+                patch(
+                    "mos_eisley.cli.run_isolated_broker",
+                    side_effect=self._redeem_without_docker,
+                ),
+                redirect_stdout(io.StringIO()) as output,
+                redirect_stderr(io.StringIO()) as error,
+            ):
+                self.assertEqual(main(options), 2)
+
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("ProviderError", error.getvalue())
+            self.assertFalse((root / "artifact.json").exists())
+            authorization = AssignmentAuthorization.model_validate_json(
+                (root / "trusted-authorization.json").read_bytes()
+            )
+            state = inspect_broker_recovery(root / "audit", authorization, ledger)
+            self.assertEqual(state.ledger_status, "absent")
+            self.assertEqual(state.error, "permission_error")
+            self.assertEqual(state.failure_stage, "token_count")

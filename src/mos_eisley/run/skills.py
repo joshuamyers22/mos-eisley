@@ -476,11 +476,31 @@ def _load_package(skill_path: Path, source: SkillSource) -> _SkillSnapshot:
 def verify_skill_archive(archive: SkillPackageArchive) -> None:
     """Rebuild all semantic metadata from retained bytes without materializing them."""
 
+    if (
+        archive.activation_authorized
+        or archive.installation_authorized
+        or archive.configuration_mutation_authorized
+    ):
+        raise ValueError("archived skill grants deployment authority")
     files = tuple((item.path, item.payload) for item in archive.files)
     identity = archive.descriptor.identity
     descriptor, _ = _describe_package(files, identity.source, identity.name)
     if descriptor != archive.descriptor:
         raise ValueError("archived skill descriptor does not match retained bytes")
+
+
+def prompt_asset_from_skill_archive(archive: SkillPackageArchive) -> PromptAsset:
+    """Rebuild the exact persona prompt from authenticated retained bytes."""
+    verify_skill_archive(archive)
+    identity = archive.descriptor.identity
+    descriptor, body = _describe_package(
+        tuple((item.path, item.payload) for item in archive.files),
+        identity.source,
+        identity.name,
+    )
+    if descriptor != archive.descriptor or identity.kind != "persona":
+        raise ValueError("only an exact persona archive can become a runtime prompt")
+    return PromptAsset(mode="skill", instructions=body, skill=identity)
 
 
 def discover_skills(
