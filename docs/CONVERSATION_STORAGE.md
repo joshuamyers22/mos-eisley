@@ -76,8 +76,10 @@ still stop work through the existing persistence-failure path.
 The first SQLite adapter implements incremental writes, session-scoped artifact
 reuse, transactional deletion and bounded metadata/transcript pages, including
 SQLite terminal history navigation, selected artifact expansion and bounded resume
-inspection. It still reconstructs
-full logical state for load/save and retains the preview's message cap. The stages
+inspection. Verified checkpoints now remove routine full-state rereads during
+saves and skip unchanged message/artifact writes. Full resume and external-commit
+revalidation still reconstruct complete state; each transition still validates and
+serializes its full proposed state in memory. The preview's message cap remains. The stages
 below remain the complete target, including bulk migration and the long-session gate.
 
 Implement these stages under the storage and ownership contract in
@@ -97,8 +99,10 @@ Implement these stages under the storage and ownership contract in
    must not scan or decode all transcripts.
    The implemented resume checkpoint/inspection selects four recent messages,
    queued/running work and complete steering ancestry without expanding artifacts.
-   Next, separate the controller's working state from historical artifact values;
-   persist checkpoint-bound transitions without a full-state load, and admit only
+   Routine saves now reuse a same-connection verified checkpoint, with full
+   revalidation after external commits. Next, separate the controller's working
+   state from historical artifact values; accept bounded transition changes in
+   place of a complete proposed state, and admit only
    the memory/recording/review inputs needed at an explicit request boundary.
    Actual resume must load a bounded working set plus selected artifacts while
    preserving consumed attempts, recovery and isolation. The inspection selection

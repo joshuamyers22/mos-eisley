@@ -15,6 +15,7 @@ import threading
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self
 from urllib.parse import quote
@@ -93,6 +94,22 @@ class SessionIndex(Contract):
     resume_checkpoint: ResumeCheckpoint | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+
+
+@dataclass(frozen=True)
+class _SaveCheckpoint:
+    index: SessionIndex
+    store_id: str
+    data_version: int
+    total_changes: int
+    artifacts: frozenset[str]
+
+
+def _data_version(db: sqlite3.Connection) -> int:
+    row = db.execute("PRAGMA main.data_version").fetchone()
+    if row is None or type(row[0]) is not int or row[0] < 0:
+        raise ValueError("SQLite data version is unavailable")
+    return row[0]
 
 
 class PageCursor(Contract):
@@ -370,6 +387,7 @@ class SQLiteConversationStore(ConversationStore):
         require_workspace: bool = True,
     ) -> None:
         self._db: sqlite3.Connection | None = None
+        self._verified_checkpoint: _SaveCheckpoint | None = None
         self._transcript_guard = threading.Lock()
         self._path = root.absolute()
         super().__init__(
@@ -386,12 +404,14 @@ class SQLiteConversationStore(ConversationStore):
             raise
 
     def _open_database(self, *, create: bool, writable: bool) -> None:
+        self._verified_checkpoint = None
         if self._db is not None:
             self._db.close()
             self._db = None
         self._db = _connect(self._path, self._root, create=create, writable=writable)
 
     def close(self) -> None:
+        self._verified_checkpoint = None
         if self._db is not None:
             self._db.close()
             self._db = None
@@ -496,10 +516,52 @@ class SQLiteConversationStore(ConversationStore):
         return ConversationSnapshot(state=state, sha256=record.summary.snapshot_sha256)
 
     def _read(self) -> ConversationSnapshot:
+        self._verified_checkpoint = None
         db = self._connection()
         with conversation_transaction(db):
-            _identity(db)
-            return self._load(db)
+            store_id, _ = _identity(db)
+            snapshot = self._load(db)
+            checkpoint = self._capture_checkpoint(db, store_id, snapshot.sha256)
+        self._verified_checkpoint = checkpoint
+        return snapshot
+
+    def _capture_checkpoint(
+        self, db: sqlite3.Connection, store_id: str, expected_sha256: str
+    ) -> _SaveCheckpoint:
+        """Called only after full validation, inside the same transaction."""
+        index = read_sqlite_session_index(db, self.session_id, self.workspace)
+        if index.summary.snapshot_sha256 != expected_sha256:
+            raise ValueError("SQLite verified checkpoint changed")
+        rows = db.execute(
+            "SELECT sha FROM artifacts WHERE sid=? LIMIT 51", (self.session_id,)
+        ).fetchall()
+        if len(rows) > 50:
+            raise ValueError("SQLite artifact inventory exceeds checkpoint limit")
+        return _SaveCheckpoint(
+            index=index,
+            store_id=store_id,
+            data_version=_data_version(db),
+            total_changes=db.total_changes,
+            artifacts=frozenset(row[0] for row in rows),
+        )
+
+    def _current_checkpoint(
+        self, db: sqlite3.Connection, store_id: str
+    ) -> _SaveCheckpoint | None:
+        # Compare versions only on this connection. BEGIN IMMEDIATE has already
+        # excluded external writers; capture/publish also happens at commit boundaries.
+        checkpoint = self._verified_checkpoint
+        if (
+            checkpoint is None
+            or checkpoint.store_id != store_id
+            or checkpoint.data_version != _data_version(db)
+            or checkpoint.total_changes != db.total_changes
+            or checkpoint.index.resume_checkpoint is None
+            or checkpoint.index.entry_sha256 is None
+        ):
+            return None
+        index = read_sqlite_session_index(db, self.session_id, self.workspace)
+        return checkpoint if checkpoint.index == index else None
 
     def save(self, state: ConversationState) -> None:
         with self._transcript_guard:
@@ -533,6 +595,7 @@ class SQLiteConversationStore(ConversationStore):
     def prepare_transcript(self, expected_sha256: str) -> ConversationSummary:
         """Verify full state and prepare page/resume indexes without changing it."""
         expected = TypeAdapter[str](Digest).validate_python(expected_sha256)
+        self._verified_checkpoint = None
         db = self._connection()
         with conversation_transaction(db, write=True):
             _identity(db)
@@ -597,6 +660,21 @@ class SQLiteConversationStore(ConversationStore):
         modified_ns: int | None = None,
         validate_source: Callable[[], None] | None = None,
     ) -> bool:
+        try:
+            return self._write_state(
+                state, modified_ns=modified_ns, validate_source=validate_source
+            )
+        except BaseException:
+            self._verified_checkpoint = None
+            raise
+
+    def _write_state(
+        self,
+        state: ConversationState,
+        *,
+        modified_ns: int | None = None,
+        validate_source: Callable[[], None] | None = None,
+    ) -> bool:
         db = self._connection()
         state = ConversationState.model_validate_json(state.model_dump_json())
         if (
@@ -622,22 +700,47 @@ class SQLiteConversationStore(ConversationStore):
         )
         record = canonical_bytes(index)
         with conversation_transaction(db, write=True):
-            _identity(db)
-            try:
-                current = self._load(db)
-            except FileNotFoundError:
-                if self._revision != -1:
-                    raise ValueError("saved conversation disappeared") from None
-            else:
-                if validate_source is not None:
-                    if current.state != state:
-                        raise ValueError(
-                            "SQLite destination contains a different session state"
-                        )
-                    validate_source()
-                    return False
-                if current.sha256 != self._sha256:
-                    raise ValueError("saved conversation changed outside this handle")
+            store_id, _ = _identity(db)
+            previous = (
+                None
+                if validate_source is not None
+                else self._current_checkpoint(db, store_id)
+            )
+            if previous is None:
+                try:
+                    current = self._load(db)
+                except FileNotFoundError:
+                    if self._revision != -1:
+                        raise ValueError("saved conversation disappeared") from None
+                    for table in ("entries", "artifacts"):
+                        if (
+                            db.execute(
+                                f"SELECT 1 FROM {table} WHERE sid=? LIMIT 1",
+                                (self.session_id,),
+                            ).fetchone()
+                            is not None
+                        ):
+                            raise ValueError(
+                                "orphan SQLite records prevent session save"
+                            ) from None
+                else:
+                    if validate_source is not None:
+                        if current.state != state:
+                            raise ValueError(
+                                "SQLite destination contains a different session state"
+                            )
+                        validate_source()
+                        return False
+                    previous = self._capture_checkpoint(db, store_id, current.sha256)
+            if previous is not None and (
+                previous.index.summary.snapshot_sha256 != self._sha256
+                or previous.index.summary.revision != self._revision
+            ):
+                raise ValueError("saved conversation changed outside this handle")
+            retained_artifacts: frozenset[str] = (
+                frozenset() if previous is None else previous.artifacts
+            )
+            previous_digests = None if previous is None else previous.index.entry_sha256
             db.execute(
                 "INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(sid) "
                 "DO UPDATE SET workspace=excluded.workspace, "
@@ -653,6 +756,12 @@ class SQLiteConversationStore(ConversationStore):
                 ),
             )
             for position, payload in enumerate(parts):
+                if (
+                    previous_digests is not None
+                    and position < len(previous_digests)
+                    and digest(payload) == previous_digests[position]
+                ):
+                    continue
                 db.execute(
                     "INSERT INTO entries VALUES (?, ?, ?, ?) ON CONFLICT(sid, "
                     "position) DO UPDATE SET payload=excluded.payload, "
@@ -660,40 +769,44 @@ class SQLiteConversationStore(ConversationStore):
                     "entries.payload<>excluded.payload",
                     (self.session_id, position, payload, state.revision),
                 )
-            db.execute(
-                "DELETE FROM entries WHERE sid=? AND position>=?",
-                (self.session_id, len(parts)),
-            )
-            for sha, payload in artifacts.items():
+            if previous is not None and previous.index.summary.messages > len(parts):
                 db.execute(
-                    "INSERT INTO artifacts VALUES (?, ?, ?) ON CONFLICT(sid, sha) DO "
-                    "NOTHING",
+                    "DELETE FROM entries WHERE sid=? AND position>=?",
+                    (self.session_id, len(parts)),
+                )
+            for sha, payload in artifacts.items():
+                if sha in retained_artifacts:
+                    continue
+                db.execute(
+                    "INSERT INTO artifacts VALUES (?, ?, ?)",
                     (self.session_id, sha, payload),
                 )
-                retained = db.execute(
-                    "SELECT CASE WHEN length(payload)<=? THEN payload END "
-                    "FROM artifacts WHERE sid=? AND sha=?",
-                    (MAX_SNAPSHOT_BYTES, self.session_id, sha),
-                ).fetchone()[0]
-                if retained != payload:
-                    raise ValueError("SQLite artifact changed outside this handle")
-            placeholders = ",".join("?" for _ in artifacts)
-            db.execute(
-                f"DELETE FROM artifacts WHERE sid=? AND sha NOT IN ({placeholders})",
-                (self.session_id, *artifacts),
-            )
+            for sha in retained_artifacts - artifacts.keys():
+                db.execute(
+                    "DELETE FROM artifacts WHERE sid=? AND sha=?",
+                    (self.session_id, sha),
+                )
             db.execute("UPDATE metadata SET generation=generation+1 WHERE id=1")
             if validate_source is not None:
                 if self._load(db).state != state:
                     raise ValueError("SQLite migration verification failed")
                 validate_source()
+            checkpoint = _SaveCheckpoint(
+                index=index,
+                store_id=store_id,
+                data_version=_data_version(db),
+                total_changes=db.total_changes,
+                artifacts=frozenset(artifacts),
+            )
         self._revision = state.revision
         self._sha256 = index.summary.snapshot_sha256
+        self._verified_checkpoint = checkpoint
         return True
 
     def delete(self, expected_sha256: str) -> ConversationDeletion:
 
         expected = TypeAdapter[str](Digest).validate_python(expected_sha256)
+        self._verified_checkpoint = None
         db = self._connection()
         with conversation_transaction(db, write=True):
             _identity(db)

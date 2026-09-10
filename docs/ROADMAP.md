@@ -94,7 +94,11 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    A separately verified resume checkpoint now supports `resume --inspect` with
    the last four messages, all queued/running work and required steering ancestors,
    under a fixed record-read budget. It leaves artifacts unexpanded and performs
-   no recovery. Actual bounded controller resume, bulk migration and the long-session acceptance gate
+   no recovery. Routine saves now reuse a verified checkpoint on the same connection,
+   avoid old payload reads and skip unchanged message/artifact writes. External
+   commits and uncertain saves require full revalidation. Controller transition
+   inputs still contain full state. Actual bounded controller resume, bulk migration
+   and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.
