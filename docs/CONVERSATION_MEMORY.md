@@ -3,7 +3,7 @@
 Mos now supports explicit personal memory shared across your projects and private
 memory for the selected project. New conversations load both enabled scopes.
 The terminal header shows the active revisions and working directory; `/memory`
-shows or hides the complete context fixed for this session. `/directory` shows
+shows or hides the complete currently selected context. `/directory` shows
 the full canonical path. Neither inspection command sends a model request.
 
 ## Save and inspect
@@ -49,8 +49,8 @@ mos --no-memory
 or `--text-file`. `disable` retains text while preventing new inclusion; `enable`
 restores it. `clear` removes current text and retains an empty revision marker.
 Setting or appending text does not implicitly re-enable a disabled scope.
-`--no-memory` skips all memory reads and loading for that launch, including invalid
-or unavailable memory storage. It does not erase anything.
+Starting with `--no-memory` skips all memory reads, including invalid or unavailable
+storage, and saves that session's disabled selection. It does not erase anything.
 
 Each inspection/update reports the document revision and SHA-256. When editing a
 previously inspected version, pass `--expected-sha256 HASH` to reject a stale edit;
@@ -66,20 +66,52 @@ automatically promoted to either memory scope.
 ## Session consistency and retention
 
 The effective memory documents and revisions are retained with the private session
-snapshot. An existing conversation keeps its original memory context; editing a
-memory document cannot modify an already dispatched request. Before each subsequent
-turn, Mos checks the current enabled memory against the saved selection. Changes,
-clearing, disabling, corruption or unavailable storage pause work before an attempt
-is consumed. Adding memory to a session opened without any also requires a fresh
-session, unless it was launched explicitly with `--no-memory`.
+snapshot. Before each subsequent turn, Mos checks current enabled memory against
+the saved selection. Changes, clearing, disabling, corruption or unavailable storage
+pause work before an attempt is consumed. Sessions with memory explicitly off skip
+these reads, including on later resumes.
 
-Resume requires the same active memory selection. If it changed, Mos preserves the
-old session and explains that a new session is needed. Start `mos` for current
-memory or `mos --no-memory` for a fresh session without it. An old session that never
-had memory can be resumed with `--no-memory`. Replacing/removing memory inside an
-existing saved conversation is not yet supported: there is no silent refresh,
-replay or restoration of forgotten memory. Unchanged memory still supports normal
-`mos resume --last`.
+After editing memory in another terminal, stop or finish active work, then use:
+
+```text
+/memory refresh
+/memory
+/continue
+```
+
+`/memory refresh` loads both currently enabled scopes. `/memory off` disables memory
+for this session without reading the memory store. Either transition saves the
+selection and leaves queued messages paused until `/continue`; it sends no request
+and consumes no recorded exchange. Refresh can re-enable a session started with
+`--no-memory`. Neither command changes the source memory documents.
+
+Unchanged memory supports normal `mos resume --last`. To explicitly accept a new
+selection or disable memory when reopening a saved session:
+
+```sh
+mos resume --last --refresh-memory
+mos resume --last --refresh-memory --no-memory
+```
+
+Without explicit refresh, a changed selection prevents resume. Earlier messages
+retain their historical memory context in the private snapshot. That historical
+memory is not inserted into future requests, although previous conversation text
+and answers may still contain earlier information. Refresh does not erase history
+or replay earlier requests.
+
+The built-in recording replaces only unused exchanges. Custom recordings require
+an explicit replacement that preserves every consumed exchange exactly:
+
+```sh
+mos resume --last --cassette current.json --refresh-memory --refresh-cassette next.json
+```
+
+`next.json` must contain the unchanged consumed prefix followed by requests bound to
+the newly selected memory and expected conversation history. Regenerating the entire
+recording with new memory changes that prefix and is rejected. After a successful
+refresh, Mos retains the replacement privately with the session, so later resumes
+need no cassette path. In-session refresh of a custom recording explains this
+requirement; use the resume command to supply its replacement.
 
 Clearing the current document does not remove copies from older saved sessions,
 previous provider requests, filesystem journals or backups. Use the existing
@@ -110,7 +142,9 @@ combined user/project text and its serialized request context at 32 KiB; escaped
 characters may use more bytes. No truncation occurs. Individually valid documents
 can exceed the combined limit; shorten/disable a scope, or use `--no-memory` while
 correcting it. Normal request/history budgets still apply. Serialized records are
-bounded at 256 KiB, including metadata and escaping. No background memory generation,
+bounded at 256 KiB, including metadata and escaping. Retained historical context and
+recordings must fit the existing 2 MB session snapshot limit; oversized saves fail
+without publishing the new selection. No background memory generation,
 network access, credential lookup or cross-user pooling is introduced.
 
 Explicit `conversation-demo` and `conversation-review-demo` now bind their chat

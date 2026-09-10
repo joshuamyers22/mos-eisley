@@ -38,7 +38,8 @@ storage too; an unsafe existing directory is rejected, never repaired silently.
 
 Use `--storage /private/path` to select another location; its parent must exist.
 Use `--cassette /path/to/recording.json` for a custom recording, passing the same
-recording and storage when resuming. Missing, invalid or mismatched recordings
+recording and storage when resuming. After an explicit memory refresh, the retained
+replacement recording is used unless you supply a cassette. Missing, invalid or mismatched recordings
 fail; they never fall back to the built-in preview. The built-in recording is
 request-bound too, so arbitrary prompts cannot receive live answers. No setup
 files, credentials or network connections are needed to open the default preview.
@@ -59,6 +60,9 @@ The persistent header now shows the working directory and active user/project me
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory
 details in the scrollable transcript. See [memory management](CONVERSATION_MEMORY.md)
 for explicit saves, scope selection, no-memory launches and changed-memory recovery.
+`/memory refresh` applies current saved memory between requests; `/memory off`
+disables it for this session. Both save the selection and pause queued work until
+F4, `/continue`, or a newly submitted message continues it.
 
 ## Keyboard controls
 

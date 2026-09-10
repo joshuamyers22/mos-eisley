@@ -106,12 +106,14 @@ class ConversationTUI:
         review_packet: ConversationReviewPacket | None = None,
         *,
         welcome: str = "",
+        refresh_memory: Callable[[bool], None] | None = None,
         input: Input | None = None,
         output: Output | None = None,
     ) -> None:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.refresh_memory = refresh_memory
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
         self.notice = (
             "Enter sends • Alt-Enter adds a line • Ctrl-C stops • Ctrl-D quits"
@@ -261,6 +263,8 @@ class ConversationTUI:
             )
         )
         workspace = state.workspace
+        if state.memory_disabled:
+            scopes = "off"
         abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
         return display_text(
             f"Mos Eisley • recorded • {state.session_id[:8]} • memory {scopes}\n"
@@ -444,7 +448,13 @@ class ConversationTUI:
 
     async def run(self) -> None:
         worker = asyncio.create_task(
-            terminal(self.controller, self.queue, self.emit, self.review_packet)
+            terminal(
+                self.controller,
+                self.queue,
+                self.emit,
+                self.review_packet,
+                self.refresh_memory,
+            )
         )
         screen = asyncio.create_task(self.app.run_async(set_exception_handler=False))
         try:

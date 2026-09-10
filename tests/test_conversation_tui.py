@@ -1,6 +1,7 @@
 """Real keyboard editing, shared orchestration, paste isolation and terminal cleanup."""
 
 import asyncio
+import json
 import os
 import pty
 import select
@@ -440,17 +441,30 @@ class TUIContractTests(TestCase):
                 start_new_session=True,
             )
             output = bytearray()
+            storage = root / (".mos-eisley-sessions" if bare else "sessions")
 
-            def read_until(text: bytes) -> None:
+            def answer_saved() -> bool:
+                for path in storage.glob("*.json"):
+                    entries = json.loads(path.read_bytes())["state"]["entries"]
+                    if (
+                        entries
+                        and entries[0]["answer"] == "The fixture boundary is ten."
+                    ):
+                        return True
+                return False
+
+            def read_until(
+                text: bytes, ready: Callable[[], bool] | None = None
+            ) -> None:
                 deadline = time.monotonic() + 10
-                while text not in output:
+                while text not in output or (ready is not None and not ready()):
                     if time.monotonic() >= deadline:
                         raise AssertionError(
                             "expected terminal output did not arrive: "
                             + repr(output[-5000:])
                         )
-                    ready, _, _ = select.select([master], [], [], 0.1)
-                    if ready:
+                    readable, _, _ = select.select([master], [], [], 0.1)
+                    if readable:
                         data = os.read(master, 16384)
                         output.extend(data)
                         if b"\x1b[6n" in data:
@@ -464,7 +478,7 @@ class TUIContractTests(TestCase):
                 os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
                 # A differential repaint can reuse old glyphs via cursor moves.
                 # Request a full repaint before matching contiguous answer bytes.
-                read_until(b"completed")
+                read_until(b"\x1b[?1049h", answer_saved)
                 os.write(master, b"\x0c")
                 read_until(b"The fixture boundary is ten.")
                 os.write(master, b"\x04")

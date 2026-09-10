@@ -31,8 +31,10 @@ from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
     ConversationMemory,
     MemoryChangedError,
+    MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -160,6 +162,16 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             selection = command.add_mutually_exclusive_group(required=True)
             selection.add_argument("session_id", nargs="?")
             selection.add_argument("--last", action="store_true")
+            command.add_argument(
+                "--refresh-memory",
+                action="store_true",
+                help="Apply current memory, or disable it with --no-memory",
+            )
+            command.add_argument(
+                "--refresh-cassette",
+                type=Path,
+                help="Replacement recording preserving consumed exchanges",
+            )
         if name == "session-delete":
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
@@ -251,6 +263,7 @@ async def terminal(
     queue: ConversationInputQueue,
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
+    refresh_memory: Callable[[bool], None] | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -470,6 +483,37 @@ async def terminal(
                     pass
                 elif line == "/continue":
                     enabled = True
+                elif line in {"/memory refresh", "/memory off"}:
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before refreshing memory.",
+                            }
+                        )
+                    elif refresh_memory is None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Memory refresh is not configured here.",
+                            }
+                        )
+                    else:
+                        try:
+                            refresh_memory(line == "/memory off")
+                        except MemoryRefreshError as exc:
+                            emit({"type": "conversation.unavailable", "text": str(exc)})
+                        else:
+                            enabled = False
+                            emit(
+                                {
+                                    "type": "conversation.memory.updated",
+                                    "text": (
+                                        "Memory selection saved. Work is paused; "
+                                        "/continue resumes queued messages."
+                                    ),
+                                }
+                            )
                 elif line == "/memory":
                     emit(
                         {
@@ -528,6 +572,7 @@ async def _run_terminal(
     controller: ConversationController,
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
+    refresh_memory: Callable[[bool], None] | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -553,7 +598,7 @@ async def _run_terminal(
 
     loop.add_signal_handler(signal.SIGINT, interrupt)
     try:
-        await terminal(controller, queue, emit, review_packet)
+        await terminal(controller, queue, emit, review_packet, refresh_memory)
     finally:
         stop()
         loop.remove_signal_handler(signal.SIGINT)
@@ -573,10 +618,16 @@ def run_command(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if (
+        args.command == "resume"
+        and args.refresh_cassette is not None
+        and not args.refresh_memory
+    ):
+        print("--refresh-cassette requires --refresh-memory", file=sys.stderr)
+        return 2
     memory = None
     if (
-        args.command
-        in {"chat", "resume", "conversation-demo", "conversation-review-demo"}
+        args.command in {"chat", "conversation-demo", "conversation-review-demo"}
         and not args.no_memory
     ):
         memory = MemoryStore(args.memory_storage, args.workspace).load()
@@ -678,8 +729,8 @@ def run_command(args: argparse.Namespace) -> int:
         )
         return 0
 
-    cassette = (
-        demo_cassette(memory=memory)
+    explicit_cassette = (
+        None
         if args.cassette is None
         else AgentCassette.model_validate_json(read_bounded(args.cassette))
     )
@@ -693,7 +744,10 @@ def run_command(args: argparse.Namespace) -> int:
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None
     if args.command == "chat":
-        fresh = ConversationController.fresh(args.workspace, cassette, memory)
+        cassette = explicit_cassette or demo_cassette(memory=memory)
+        fresh = ConversationController.fresh(
+            args.workspace, cassette, memory, memory_disabled=args.no_memory
+        )
         session_id = fresh.session_id
     elif args.last:
         summaries = list_conversations(args.storage, args.workspace)
@@ -716,26 +770,47 @@ def run_command(args: argparse.Namespace) -> int:
         if fresh is not None:
             store.save(fresh)
         state = fresh if fresh is not None else store.load()
-        if state.memory != memory:
-            print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
-            return 2
         if (
             selected is not None
             and digest(canonical_bytes(state)) != selected.snapshot_sha256
         ):
             raise ValueError("selected latest conversation changed; list again")
-        controller = ConversationController(
-            state,
-            cassette,
-            store.save,
-            validate_memory=(
-                None
-                if args.no_memory
-                else lambda: MemoryStore(args.memory_storage, args.workspace).check(
-                    memory
-                )
-            ),
+        selected_refresh = args.command == "resume" and args.refresh_memory
+        ignore_memory = args.no_memory or (
+            state.memory_disabled and not selected_refresh
         )
+        memory_store = MemoryStore(args.memory_storage, args.workspace)
+        if args.command == "resume":
+            memory = None if ignore_memory else memory_store.load()
+        cassette = (
+            explicit_cassette
+            or state.retained_cassette
+            or demo_cassette(memory=state.memory)
+        )
+        if state.memory != memory and not selected_refresh:
+            print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
+            return 2
+        controller = ConversationController(state, cassette, store.save)
+        memory_runtime = ConversationMemoryRuntime(
+            controller,
+            memory_store,
+            lambda selected: demo_cassette(memory=selected),
+            ignore_memory=ignore_memory,
+        )
+        controller.validate_memory = memory_runtime.check
+        if selected_refresh:
+            replacement = (
+                None
+                if args.refresh_cassette is None
+                else AgentCassette.model_validate_json(
+                    read_bounded(args.refresh_cassette)
+                )
+            )
+            try:
+                memory_runtime.refresh(args.no_memory, replacement=replacement)
+            except MemoryRefreshError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
         emit(
             {
                 "type": "conversation.opened",
@@ -750,15 +825,18 @@ def run_command(args: argparse.Namespace) -> int:
         )
         welcome = "Recorded preview: live conversations are not connected yet.\n" + (
             "Try these messages in order:\n" + "\n".join(DEMO_PROMPTS)
-            if args.cassette is None
+            if memory_runtime.builtin
             else "Use the messages expected by your selected recording."
         )
         welcome += (
-            "\nMemory: disabled for this launch."
-            if args.no_memory
+            "\nMemory was disabled at startup."
+            if memory_runtime.ignore_memory
             else f"\nMemory storage: {args.memory_storage.absolute()}"
         )
-        welcome += "\n/memory shows the context fixed for this session."
+        welcome += (
+            "\n/memory inspects context; /memory refresh applies changes; "
+            "/memory off disables it."
+        )
         if args.tui or (
             not args.plain
             and not args.json
@@ -771,13 +849,20 @@ def run_command(args: argparse.Namespace) -> int:
             original_modes = termios.tcgetattr(fd)
             try:
                 asyncio.run(
-                    ConversationTUI(controller, review_packet, welcome=welcome).run()
+                    ConversationTUI(
+                        controller,
+                        review_packet,
+                        welcome=welcome,
+                        refresh_memory=memory_runtime.refresh,
+                    ).run()
                 )
             finally:
                 termios.tcsetattr(fd, termios.TCSANOW, original_modes)
         else:
             emit({"type": "conversation.welcome", "text": welcome})
-            asyncio.run(_run_terminal(controller, emit, review_packet))
+            asyncio.run(
+                _run_terminal(controller, emit, review_packet, memory_runtime.refresh)
+            )
         emit(
             {
                 "type": "conversation.saved",

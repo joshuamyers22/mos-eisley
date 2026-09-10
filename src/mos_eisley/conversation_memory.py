@@ -27,9 +27,14 @@ class MemoryChangedError(ValueError):
     """Memory has changed since this conversation was opened."""
 
 
+class MemoryRefreshError(ValueError):
+    """A refresh was rejected before a persistence attempt."""
+
+
 MEMORY_CHANGED_MESSAGE = (
     "Saved memory changed, was disabled, or is unavailable. Work is paused. "
-    "Start a new session with current memory, or mos --no-memory. "
+    "Use /memory refresh or /memory off, or resume with --refresh-memory "
+    "(add --no-memory to disable it). "
     "The saved session is preserved."
 )
 
