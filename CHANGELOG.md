@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Plan version 0.1.0 support for Windows hosts through a tested WSL2/Linux deployment
+  and full native Windows parity in version 0.1.1. Define platform-neutral identity,
+  storage, terminal, credential, process, sandbox, migration, CI, and release gates;
+  this planning change enables no current Windows runtime capability.
+
 - Adversarially review the context-management proposal and adopt loss-aware tool
   result envelopes, typed external state, compaction lineage, owner-scoped lexical
   retrieval, cache safety and held-out evaluation. Fixed truncation/delegation
