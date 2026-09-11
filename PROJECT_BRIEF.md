@@ -47,7 +47,7 @@
   memory-content or provider bounds. Size/hash checks now stream canonical JSON and
   reuse the checked recording digest within startup and refresh, avoiding complete
   byte buffers without caching model identities. Smaller state transitions, bulk migration and
-  longer conversation limits remain planned under plan §17.5.
+  longer conversation limits remain planned under plan §17.7.
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
@@ -107,7 +107,8 @@
   reuse the same user's minimal selection aggregates; explicit user/project memory
   adds explicitly curated preferences and facts with scoped inspection, editing,
   deletion and disable controls (plan §16.0.2). Full saved conversations require
-  explicit resume/inspection. Advanced memory controls, remote adapters and comprehensive enforcement remain
+  explicit resume/inspection. Advanced memory controls, remote adapters and
+  comprehensive enforcement remain
   unimplemented; see plan §17 and the roadmap.
 - Recovery: run artifacts are authoritative. Missing/invalid manifests reject
   replay; an unavailable SQLite index does not discard completed evidence.
@@ -115,6 +116,13 @@
   oversized files, symlinks/FIFOs, corrupted runs, malformed tool pairing, reused
   call IDs, adapter/tool timeouts, iteration/tool exhaustion and cancellation.
 - Owner: Josh Myers. Production rollout and quality calibration remain future work.
+- Reviewed extension direction, 2026-09-08: immutable plan clauses and sealed fresh
+  readings, independent test derivation with full-package/binding controls, bounded
+  correction and independently measured whole-task damage/cost. Fixed routes and
+  full judging remain the baseline; lookup/cascade experiments precede any learned
+  policy. Proxy outcomes never replace verified labels or owner-scoped data rules.
+  See `docs/PROJECT_REVIEW_2026-09-08.md` and plan §26 for findings, dependencies,
+  sample-size feasibility, and remaining runtime gates. These contracts are planned.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
