@@ -12,6 +12,14 @@ they reject older-message replay relative to an intact database but cannot detec
 whole-file rollback without an external witness. Runtime routing and activation
 remain disabled.
 
+Integration amendment, 2026-09-08: [plan §26](../mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract)
+and the [revised routing design](../adaptive-reasoning-routing.md) define the planned
+extension. Pin judges/graders and their complete settings within each study/cohort;
+registered execution candidates may vary independently. Lookup/cascade baselines
+need qualifying evidence; proxy outcomes and raw historical retrieval cannot
+bypass grading or ownership. Adaptive trajectory inference and output-budget
+actions require new reviewed protocols/schemas. Runtime dispatch remains disabled.
+
 ## Decision
 
 Mos Eisley will select model and reasoning effort per task using a versioned policy
