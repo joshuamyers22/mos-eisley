@@ -168,8 +168,11 @@ capabilities, not current automatic template or memory loading.
    names. [Raw staging discard](CONVERSATION_MEMORY_STAGING.md) separately reviews
    one invalid file's complete bounded bytes, explicitly leaving its project
    identity unverified. Valid snapshots cannot use that path. Automatic retention
-   and oversized/valid-noncanonical disposal remain planned; cleanup never scans
-   or runs at startup.
+   and oversized/valid-noncanonical disposal remain planned. Explicit
+   [backup retention](CONVERSATION_MEMORY_RETENTION.md) now inventories up to 128
+   backups, protects the newest count, explicit age cutoff and current memory,
+   and reviews at most 32 deletions. Apply rechecks the complete retained inventory
+   between deletions and reports partial progress; no cleanup runs at startup.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

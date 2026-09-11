@@ -397,3 +397,11 @@ transfers, cold resume and historical artifact readers preserve and validate the
 selected identity. Older binaries may reject mapped sessions; retain an updated
 CLI to resume them. Removing either identity field is not a supported downgrade
 or migration.
+
+## Retain a reviewed backup count
+
+[Project-memory retention](CONVERSATION_MEMORY_RETENTION.md) now combines a complete
+bounded backup inventory with explicit newest-count and file-age protections. It
+protects current memory and prunes at most 32 selected-project backups per reviewed
+apply. Changes to retained backups invalidate review; interrupted apply requires a
+fresh inventory. It never runs automatically or rewrites session identities.

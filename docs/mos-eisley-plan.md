@@ -1639,17 +1639,31 @@ updates. Read-only missing-registry inspection does not create storage. Removal
 accepts a vanished workspace's exact saved identity. New launches and both recording
 generators use saved mappings, explicit root/map flags override them, and
 `--memory-project-local` bypasses the registry. `--no-memory` retains its existing
-no-memory-storage-access guarantee and skips automatic registry lookup. Picker/startup and directory handoff
-share a captured registry snapshot with directory rechecks. Resume retains the saved
+no-memory-storage-access guarantee and skips automatic registry lookup.
+Picker/startup and directory handoff share a captured registry snapshot with directory rechecks. Resume retains the saved
 session mapping independently of registry changes or corruption. Memory editing
 continues to address explicit `-C` identities. Tests cover both session backends,
 unsafe storage, stale reviews, directory replacement, publication failures,
 picker/handoff selection, overrides and resume. See
 [saved mapping configuration](CONVERSATION_MEMORY_MAPPINGS.md).
 
-**Next migration milestones:** inventory-based retention/count policies and
-oversized/valid-noncanonical disposal. Registry import/history/backups and temporary
-registry-file recovery/cleanup also remain planned.
+**Inventory-based backup retention:** `memory-project-retention` now proposes
+reviewed pruning with explicit `--keep-newest` and `--before-ns` policies. Its
+complete inventory is bounded to 1,024 directory entries, 128 backups and 8 MiB
+(256 KiB per record), failing closed on unsupported backups even for other
+projects. Exact canonical private single-link backups, storage/lock/workspace
+identities, full selected-project records, current memory and deterministic file
+mtime/name ordering are bound to review. Newest-count, age and current-memory
+protections combine. At most 32 oldest eligible backups are selected; excess
+requires fresh review. Under one exclusive lock, apply rescans the reviewed
+inventory minus its own deletions before every unlink and reports removed/flushed
+progress separately. Tests include real limits, retained-file changes, partial
+failures and process death. No background retention is enabled. See
+[backup retention](CONVERSATION_MEMORY_RETENTION.md).
+
+**Next migration milestones:** oversized/valid-noncanonical disposal. Registry
+import/history/backups and temporary registry-file recovery/cleanup also remain
+planned.
 Unselected resolution backups are retained; no automatic deletion, startup recovery
 or session identity rewriting is enabled. Common Git metadata or remote URLs never
 merge memory.

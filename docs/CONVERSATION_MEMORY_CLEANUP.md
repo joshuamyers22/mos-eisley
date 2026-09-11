@@ -191,6 +191,7 @@ rollback, journal, automatic retry or automatic continuation. The same-user proc
 boundary described above also applies to batches.
 
 Bounded invalid-record disposal uses the separate raw staging workflow above.
-Oversized/valid-noncanonical disposal, automatic retention policies and
-inventory-based backup count protection remain planned. Retained backups are never
-deleted automatically.
+For reviewed newest-count and age protections over a complete bounded inventory,
+use [project-memory retention](CONVERSATION_MEMORY_RETENTION.md). This named batch
+command still makes no inventory-based count guarantee. Oversized/valid-noncanonical
+disposal and automatic retention remain planned. Backups are never deleted at startup.
