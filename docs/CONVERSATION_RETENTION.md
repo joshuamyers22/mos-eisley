@@ -11,8 +11,10 @@ mos session-retention --storage /path/to/sessions -C /path/to/project --before 2
 This command is **read-only**. It has no `--apply` or `--expected-sha256` option and
 does not schedule cleanup. The report fixes `mode: "preview"`,
 `verification: "index_metadata"` and `deletion_authorized: false`. Its hash identifies
-an observation, not permission to remove a session. Applying a retention policy
-with full-state validation and race-safe deletion remains planned.
+an observation, not permission to remove a session. A separate
+[single-session pruning command](CONVERSATION_PRUNE.md) now verifies the full
+selected state and requires its own preview hash before deletion. Bulk and
+automatic policy apply remain planned.
 
 ## Policy and retained work
 
@@ -87,7 +89,9 @@ OS user ID.
 
 Explicit [temporary-file cleanup](CONVERSATION_CLEANUP.md) and
 [single-session deletion](CONVERSATION_SQLITE.md#privacy-retention-and-bounds) remain
-separate commands. Policy apply, backup/journal expiry, broader unreferenced-object
+separate commands. [Single-session pruning](CONVERSATION_PRUNE.md) now adds explicit
+policy apply with full selected-state verification and atomic deletion. Bulk policy
+apply, backup/journal expiry, broader unreferenced-object
 retention, configurable physical quotas and SQLite vacuum/compaction are still
 planned. Logical deletion does not promise secure erasure from backups, snapshots
 or hardware. This 1,000-session **metadata** bound does not satisfy the separate

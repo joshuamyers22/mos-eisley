@@ -106,6 +106,7 @@ from mos_eisley.run.conversation_cleanup import (
 )
 from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
+from mos_eisley.run.conversation_prune import prune_session
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_retention import preview_retention, retention_cutoff
 from mos_eisley.run.conversation_sqlite import (
@@ -208,6 +209,35 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    prune = add_parser(
+        "session-prune", help="Preview or delete one eligible SQLite session"
+    )
+    prune.add_argument("session_id")
+    prune.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    prune.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    prune.add_argument(
+        "--before",
+        type=retention_cutoff,
+        required=True,
+        help="Saved before this UTC timestamp: YYYY-MM-DDTHH:MM:SSZ",
+    )
+    prune.add_argument(
+        "--keep-newest",
+        type=int,
+        default=20,
+        help="Always retain the newest N workspace sessions (0–1000; default 20)",
+    )
+    prune.add_argument(
+        "--expected-sha256", help="Exact hash from a session-prune preview"
+    )
+    prune.add_argument(
+        "--apply",
+        action="store_true",
+        help="Delete this verified eligible SQLite session",
+    )
+    prune.add_argument("--json", action="store_true", help="Print a JSON prune receipt")
     retention = add_parser(
         "session-retention", help="Preview SQLite retention for one workspace"
     )
@@ -1070,7 +1100,32 @@ def _run_retention(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_prune(args: argparse.Namespace) -> int:
+    try:
+        receipt = prune_session(
+            args.storage,
+            args.workspace,
+            args.session_id,
+            before_ns=args.before,
+            keep_newest=args.keep_newest,
+            expected_sha256=args.expected_sha256,
+            apply=args.apply,
+        )
+    except ValidationError:
+        raise ValueError("Prune policy or saved state failed validation.") from None
+    print(
+        json.dumps(
+            {"type": "conversation.prune", **receipt.model_dump(mode="json")},
+            ensure_ascii=True,
+            indent=None if args.json else 2,
+        )
+    )
+    return 0
+
+
 def _run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-prune":
+        return _run_prune(args)
     if args.command == "session-retention":
         return _run_retention(args)
     if args.command == "session-cleanup":

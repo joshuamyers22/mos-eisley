@@ -61,6 +61,9 @@ maintenance, including orphans without a published session. See the
 policy for the current workspace, protecting the newest 20 sessions and active or
 noncompleted work. It reports indexed sizes and retention reasons without deleting
 anything. See the [retention preview guide](docs/CONVERSATION_RETENTION.md).
+`mos session-prune SESSION_ID --before 2026-08-01T00:00:00Z` provides a separate
+full-state preview for one eligible SQLite session. Apply its prune hash to delete
+that session and its records atomically; see the [pruning guide](docs/CONVERSATION_PRUNE.md).
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects

@@ -1666,6 +1666,11 @@ def sqlite_read_transaction(
         os.close(root_fd)
 
 
+def read_sqlite_store_identity(db: sqlite3.Connection) -> tuple[str, int]:
+    """Validate owner metadata inside the caller's existing transaction."""
+    return _identity(db)
+
+
 def read_sqlite_session_index(
     db: sqlite3.Connection, session_id: str, workspace: str
 ) -> SessionIndex:

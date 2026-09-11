@@ -419,7 +419,14 @@ Implement these stages under the storage and ownership contract in
    and a versioned plan hash. Active and noncompleted work is retained; no bodies
    are loaded and no deletion authority is granted. See the
    [retention preview contract](CONVERSATION_RETENTION.md).
-   Policy apply, broader object retention, quotas and backup/journal expiry remain open.
+   Single-session policy apply now uses `session-prune`: an explicit eligible ID,
+   full selected-state verification, and a separate plan hash binding policy,
+   generation, state and file identities. Apply repeats the read-only preflight
+   before writable access, then rechecks the plan under a write transaction and
+   atomically deletes the selected session and its records. JSON copies and lock
+   inodes remain in place. See the [pruning contract](CONVERSATION_PRUNE.md).
+   Bulk/automatic policy apply, broader object retention, quotas and backup/journal
+   expiry remain open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.

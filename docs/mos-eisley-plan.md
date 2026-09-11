@@ -2315,8 +2315,21 @@ sessions are protected. Metadata is read one bounded index at a time without
 hydrating bodies; activity probes are momentary and do not reserve deletion. The
 version-1 plan binds storage, workspace, store/generation, policy and ordered
 results. Its hash identifies the observation and grants no deletion authority.
-Full-state verification, race-safe policy apply and physical-space reclamation
-remain separate work. See the [retention preview contract](CONVERSATION_RETENTION.md).
+The report remains metadata-only and has no apply option. See the
+[retention preview contract](CONVERSATION_RETENTION.md).
+
+Single-session retention apply is now available through `session-prune`. An
+explicit ID must qualify under the cutoff/keep-newest policy and pass full-state
+verification. Its separate version-1 plan binds the complete retention observation,
+selected state digest, database/session-lock identities and artifact counts. Apply
+requires that prune hash, repeats read-only preflight before writable access, and
+rechecks policy and full state under `BEGIN IMMEDIATE` before atomically deleting
+the session and its cascading records. Root and file identities are rechecked;
+generation or observed policy changes require a fresh preview. Receipts are issued
+after commit, and missing IDs are not treated as proof of an earlier successful
+prune. JSON copies, temporary files and lock inodes remain. Bulk/automatic policy
+apply and physical-space reclamation remain open. See the
+[pruning contract](CONVERSATION_PRUNE.md).
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

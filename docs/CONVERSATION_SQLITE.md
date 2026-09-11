@@ -729,7 +729,9 @@ SQLite journals, databases and published sessions are retained.
 [read-only retention policy preview](CONVERSATION_RETENTION.md) over bounded SQLite
 index metadata. It protects the newest sessions, active sessions and noncompleted
 work, with reasons and indexed logical-byte totals. The report grants no deletion
-authority; applying retention policies remains planned.
+authority. A separate [single-session pruning command](CONVERSATION_PRUNE.md) now
+requires a full-state preview hash and revalidates policy and state inside the
+deletion transaction. Bulk and automatic policy apply remain planned.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
 SQLite's page-count limit on writable connections. Each existing sidecar is also
