@@ -1460,8 +1460,18 @@ used by the session, following the terminal startup interaction in Codex.
 - Validate the selected directory before creating a session. Resolve aliases and
   symlinks consistently, show the resolved target, and retain the same binding for
   resume. A directory selection supplies context, not broader filesystem access.
-- The current startup implementation provides `-C`, a persistent directory header
-  and `/directory` inspection. The selector and in-session switching are planned.
+- The startup implementation provides `-C`, a persistent directory header,
+  `/directory` inspection, and the opt-in
+  [startup selector](CONVERSATION_DIRECTORY.md) via `--choose-directory` for chat
+  and resume. Enter previews the canonical target; Ctrl-S selects it. Cancellation
+  precedes session/memory access, and edits invalidate the preview. Directory
+  identity is rechecked during selection and startup. New chats load the chosen
+  project's memory; resume retains its workspace checks and paused queued work.
+  Paths are bounded to 4,096 printable UTF-8 bytes; Tab scans at most 1,024 immediate
+  entries and offers at most 100 directories, with no partial list on overflow.
+  Pipes, plain/JSON mode and inspection use `-C PATH`. In-session switching and
+  project-root discovery remain planned. This startup check preserves canonical-path
+  persistence and does not add a durable inode identity or filesystem sandbox.
 
 ### 16.0.2 User and project memory
 

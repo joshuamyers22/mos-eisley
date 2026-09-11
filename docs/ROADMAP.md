@@ -116,8 +116,12 @@ capabilities, not current automatic template or memory loading.
    in-session inspection and changed-memory guards before dispatch/resume. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
-   and historical memory. Natural-language memory changes, project-root discovery
-   and the directory picker remain planned.
+   and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)
+   now supports `--choose-directory` for chat/resume, canonical-path preview,
+   bounded directory completion and cancellation before memory/session access.
+   Startup rechecks the selected directory identity; resume preserves paused work.
+   Natural-language memory changes, project-root discovery and in-session
+   directory switching remain planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,
