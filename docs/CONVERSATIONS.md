@@ -56,6 +56,11 @@ starts empty and never retrieves other sessions' content.
 
 ## Finding and removing sessions
 
+Use `mos chat --name "Parser cleanup"` and `mos resume --name "Parser cleanup"`
+for readable labels, or bare `mos resume` for an interactive picker. `/rename NAME`
+changes the current label; `mos session-rename` edits a closed session with its
+current hash. See [naming, duplicate handling and picker limits](CONVERSATION_NAMES.md).
+
 List saved sessions for the current workspace, newest first:
 
 ```sh

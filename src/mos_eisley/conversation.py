@@ -190,6 +190,7 @@ class ConversationController(Generic[StateT]):
         updated = type(self.state).model_validate(
             dict(
                 session_id=self.state.session_id,
+                session_name=self.state.session_name,
                 owner_uid=self.state.owner_uid,
                 workspace=self.state.workspace,
                 cassette_sha256=self.state.cassette_sha256,
@@ -267,6 +268,7 @@ class ConversationController(Generic[StateT]):
             updated = type(self.state).model_validate(
                 dict(
                     session_id=self.state.session_id,
+                    session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
                     workspace=self.state.workspace,
                     revision=self.state.revision + 1,
@@ -292,6 +294,17 @@ class ConversationController(Generic[StateT]):
             ) from None
         self._commit(updated)
         self.cassette = cassette
+
+    def rename(self, name: str | None) -> None:
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise ValueError("Stop active work before renaming the session.")
+        updated = validate_runtime_state(
+            self.state.model_copy(
+                update={"session_name": name, "revision": self.state.revision + 1}
+            )
+        )
+        if name != self.state.session_name:
+            self._commit(updated)
 
     def resize_storage(self, maximum: int) -> None:
         if self._busy or any(entry.status == "running" for entry in self.state.entries):

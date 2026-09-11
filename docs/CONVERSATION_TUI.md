@@ -24,6 +24,12 @@ session ID. Resume from the same project directory:
 mos resume --last
 ```
 
+`mos resume` opens the [session picker](CONVERSATION_NAMES.md), with name/ID
+filtering, paging and explicit selection. Use `mos chat --name "Parser cleanup"`
+to name a new session, `/rename NAME` or `/rename --clear` to edit the current name,
+and `mos resume --name "Parser cleanup"` to look it up. Names appear beside IDs;
+ambiguous names require a choice and never silently select the latest match.
+
 Saved queued messages remain paused until F4, `/continue`, or a new submitted
 message explicitly continues them. Opening the screen and editing a draft do
 not start work. Each bare `mos` or `mos chat` without a prompt starts an empty
@@ -83,8 +89,7 @@ Launch options may follow `mos` directly; use `mos chat --help` for their full l
 
 The startup reference is [Codex's documented project-directory launch](https://learn.chatgpt.com/docs/codex/cli),
 checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
-authentication and an interactive resume picker
-remain future work; this is not complete Codex feature parity.
+authentication remains future work; this is not complete Codex feature parity.
 
 The persistent header now shows the working directory and active user/project memory
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory

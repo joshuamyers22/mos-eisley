@@ -1355,9 +1355,10 @@ and session ID, and uses a built-in recording with private default storage.
 `mos -C PATH` selects another workspace; `mos resume --last` reopens the latest
 session in that workspace without requiring cassette/storage flags. Initial
 literal prompts now use `mos chat "PROMPT"`, `mos -- "PROMPT"`, or session launch
-options followed by a prompt. User-defined session names, an interactive resume
-picker and live authentication/setup remain planned. The default preview needs no credentials
-or network connection.
+options followed by a prompt. [User-defined session names and a resume picker](CONVERSATION_NAMES.md)
+now support optional labels, rename/clear controls, filtering and explicit selection
+for duplicate names. Live authentication/setup remains planned. The default preview
+needs no credentials or network connection.
 The full product contract below remains the target; live conversation/review,
 mid-request interruption and advanced terminal controls are not yet available.
 
@@ -1534,9 +1535,10 @@ and unchanged critic isolation. Deliver inspectable, explicit memory first;
 automatic memory extraction remains a later, separately configurable feature.
 ### 16.0.3 Session names and easy resume
 
-**User direction, 2026-09-10 — planned:** users can give sessions memorable names
+**User direction, 2026-09-10 — implemented for the recorded terminal:** users can give sessions memorable names
 so they can find and resume the right conversation without remembering its ID.
-Deliver naming alongside the resume picker; this is not yet an available command.
+Naming and the resume picker are delivered together. See the
+[usage, integrity and capacity contract](CONVERSATION_NAMES.md).
 
 - Allow an optional name when creating a session, for example
   `mos chat --name "Parser cleanup"`. Support renaming or clearing an existing name
@@ -1566,6 +1568,25 @@ both backends; preserve names through restart and transfers; retain compatibilit
 with unnamed sessions; test duplicate and Unicode names, invalid/oversized input,
 safe terminal rendering, workspace/user isolation, concurrent rename and stale
 selection. Selecting a name must not automatically continue queued work.
+
+**Delivered scope:** `mos chat --name NAME`, `/rename NAME`, `/rename --clear`,
+`mos session-rename`, `mos resume --name NAME`, and interactive bare `mos resume`.
+Names use 1–120 printable NFC characters, trim outer spaces, preserve interior
+spaces, and match with Unicode case folding. Duplicate names require explicit
+selection; noninteractive ambiguous lookup fails with ID guidance. Rename uses
+the existing lock/save path and changes revision, state hash and saved time while
+preserving conversation content and recording progress. Optional metadata is
+omitted for unnamed state so older canonical bytes and hashes remain verifiable.
+Name persistence is covered across SQLite working saves, migration, export and
+transfer. Names stay outside model requests and memory.
+
+The picker retains bounded summaries and renders 20 rows per page, with filtering,
+refresh, cancel, active-session status, full selected name/ID and stale-selection
+checks before controller recovery. SQLite reads metadata pages of 100 up to 1,000
+sessions; JSON keeps its existing 256-session, default 8 MB snapshot scan. Larger
+catalogs require existing paginated listing and explicit-ID resume. These are
+navigation bounds, not an increase to conversation capacity. Live setup and
+cross-workspace browsing remain separate work.
 
 ### 16.1 Commands
 
