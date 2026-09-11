@@ -71,6 +71,7 @@ from mos_eisley.conversation_memory import (
 from mos_eisley.conversation_memory_migration import (
     migrate_memory_project,
     recover_memory_project,
+    relocate_memory_project,
     resolve_memory_project,
 )
 from mos_eisley.conversation_memory_project import (
@@ -272,6 +273,20 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    relocation = add_parser(
+        "memory-project-relocate",
+        help="Review a copy from an old project memory identity",
+    )
+    relocation.add_argument("--from-workspace", required=True)
+    relocation.add_argument("--to-workspace", type=Path, required=True)
+    relocation.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    relocation.add_argument("--temporary-name")
+    relocation.add_argument("--target-sha256")
+    relocation.add_argument("--apply", action="store_true")
+    relocation.add_argument("--expected-sha256")
+    relocation.add_argument("--json", action="store_true")
     resolution = add_parser(
         "memory-project-resolve", help="Review and resolve a project-memory collision"
     )
@@ -1511,6 +1526,25 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-relocate":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = relocate_memory_project(
+            args.memory_storage,
+            args.from_workspace,
+            args.to_workspace,
+            expected_sha256=args.expected_sha256,
+            temporary_name=args.temporary_name,
+            target_sha256=args.target_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_relocation", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "memory-project-resolve":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")

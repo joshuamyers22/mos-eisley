@@ -1564,9 +1564,20 @@ picker previews it; `--no-memory` retains it without memory reads. Directory swi
 clears it. Default Git discovery never selects it, and source workspace/tool authority
 remain unchanged. Resume accepts no identity override.
 
-**Next migration milestone:** explicit relocation from vanished directories and
-cross-mapping document transfers, plus guarded unpublished-staging/backup recovery
-and retention. A persistent mapping registry remains planned. Resolution backups
+**Reviewed relocation batch:** `memory-project-relocate` copies from an exact
+canonical saved project identity to an absent document at any existing destination,
+including unrelated worktrees. The source directory can be gone; its nearest
+existing ancestor identity and absence are bound to the review alongside target,
+storage/lock, source record identity and complete snapshots. Reappearance, changed
+inputs, unsafe records and collisions reject apply. Fresh operation-specific hashes
+and exclusive locking guard atomic no-overwrite publication. Source/user documents
+and all saved session identities/history remain intact. Explicit recovery supports
+one interrupted publication's verified staging alias even with a vanished source.
+Ordinary memory access and resume still require their saved directories to exist.
+
+**Next migration milestone:** cross-mapping collision resolution, plus guarded
+unpublished-staging/backup recovery and retention. A persistent mapping registry
+remains planned. Resolution backups
 are retained; no automatic deletion, startup recovery or session identity rewriting
 is enabled. Common Git metadata or remote URLs never merge memory.
 

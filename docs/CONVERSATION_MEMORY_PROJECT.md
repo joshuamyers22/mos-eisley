@@ -64,9 +64,77 @@ workspace's existing memory, edit documents, rewrite old sessions or share memor
 between OS users. Directory switching clears the mapping for the fresh session.
 The existing copy/resolution commands retain their ancestor-only scope.
 
-Relocation from a vanished old directory, cross-mapping document transfers and a
-persistent mapping registry remain planned. Keep the selected directory accessible
-for mapped sessions; this flag is not a saved-session relocation mechanism.
+Use the relocation command below to copy documents across identities, including
+from vanished directories. A persistent mapping registry and cross-mapping collision
+resolution remain planned. Keep the selected directory accessible for mapped
+sessions; mapping and document relocation do not relocate saved sessions.
+
+## Copy memory after a project moves
+
+Use the exact former canonical identity from a saved session's `memory_workspace`
+display (its mapping, root or workspace), or the memory record's `document.workspace`.
+The old directory may be absent. The destination must be an existing directory,
+and can be unrelated to the source:
+
+```sh
+mos memory-project-relocate --from-workspace /old/projects/api \
+  --to-workspace /projects/api --json
+mos memory-project-relocate --from-workspace /old/projects/api \
+  --to-workspace /projects/api --apply --expected-sha256 HASH_FROM_PREVIEW --json
+mos chat -C /projects/api
+```
+
+Repeat any `--memory-storage` override in preview, apply and subsequent sessions.
+Review and retain the complete preview, including both identities, full documents,
+proposed content and hash. Although the command is named relocate, it retains the
+source document. It copies only when a source exists and the destination document
+is absent. Empty and disabled documents count as existing; collisions are shown
+and cannot be overwritten. Existing ancestor collisions can use the separate
+resolution workflow; cross-mapping collision resolution remains planned.
+
+The source argument is literal: relative paths, `~`, trailing slashes, dot segments,
+duplicate separators, symlink aliases and non-directory paths are rejected. Do not
+substitute a new path for the historical identity. Destination aliases resolve
+canonically and the selected directory is bound to the preview. Preview creates no
+storage, lock or missing project directories. Apply requires the fresh hash and an
+exclusive existing storage lock. Both snapshots, source record device/inode/change
+time, destination directory, storage and lock identities are rechecked immediately
+before atomic no-overwrite publication. The source's presence or absence and its
+nearest existing ancestor identity are also bound; recreating a vanished directory
+or missing ancestor invalidates the review. An existing source is supported for
+explicit copies between worktrees. Ordinary ancestor-copy previews now also bind
+the source record identity, so obtain a fresh preview after upgrading.
+
+The new record preserves source text, enabled state and update time, sets the new
+canonical workspace, and starts revision 1 with a new document hash. User memory and
+old project records are untouched. Saved sessions retain their identities and
+history, and ordinary startup/resume still requires the saved directories to exist.
+Launch a new session at the destination, or map a new session to it explicitly;
+this command does not make a session from a vanished directory resumable. Existing
+sessions using the destination follow the normal changed-memory guard. Existing
+individual and combined memory byte limits still apply.
+
+The same publication failure rules below apply. A flush error may leave a published
+copy; inspect before retrying. For a process killed after publication but before
+staging-alias removal, use the same command with an exact alias and the approved
+`proposed.sha256`:
+
+```sh
+mos memory-project-relocate --from-workspace /old/projects/api \
+  --to-workspace /projects/api \
+  --temporary-name .memory-migration-EXACT_32_HEX_DIGITS.tmp \
+  --target-sha256 APPROVED_PROPOSED_DOCUMENT_SHA256 --json
+# Review the recovery receipt, then repeat with:
+# --apply --expected-sha256 HASH_FROM_RECOVERY_PREVIEW
+```
+
+Recovery uses a distinct operation hash and the same private ownership, scope,
+canonical content, exact two-link inode and exclusive-lock checks as ancestor-copy
+recovery. It removes only the verified staging alias, preserves target bytes and
+works while the old directory is absent. Changed source-path presence or anchor
+requires another review. Source document edits do not block recovery. No source is
+deleted, no existing target is overwritten, and no automatic orphan cleanup runs.
+Unpublished staging and resolution-backup recovery remain planned.
 
 ## Inspect before adopting
 

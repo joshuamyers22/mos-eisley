@@ -56,6 +56,9 @@ private prior-root backup before applying an explicit text resolution.
 Use `--memory-project-map PATH` to explicitly share another existing directory's
 memory across unrelated worktrees. The choice is saved per session; directory
 switching clears it, and workspace/tool authority stays with the working directory.
+`memory-project-relocate` reviews a copy from an exact former project path, including
+a vanished directory, to an absent destination document. It preserves old memory
+and session identities and supports explicit interrupted-copy recovery.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

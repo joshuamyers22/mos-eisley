@@ -1,4 +1,4 @@
-"""Reviewed project-memory copying, collision resolution and recovery."""
+"""Reviewed project-memory copying, relocation, collision resolution and recovery."""
 
 import json
 import os
@@ -18,6 +18,7 @@ from mos_eisley.conversation_memory import (
     MemorySnapshot,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_identity import RelocationSource
 from mos_eisley.conversation_memory_project import select_memory_project
 from mos_eisley.core.models import canonical_bytes, digest
 
@@ -28,7 +29,9 @@ def _identity(info: os.stat_result) -> dict[str, int]:
     return {"device": info.st_dev, "inode": info.st_ino}
 
 
-def _directory(selection: DirectorySelection) -> dict[str, object]:
+def _directory(selection: DirectorySelection | RelocationSource) -> dict[str, object]:
+    if isinstance(selection, RelocationSource):
+        return selection.receipt()
     return {
         "path": str(selection.path),
         "device": selection.device,
@@ -265,11 +268,13 @@ class _MigrationStore(MemoryStore):
 
     def recover(
         self,
-        source_directory: DirectorySelection,
+        source_directory: DirectorySelection | RelocationSource,
         target_directory: DirectorySelection,
         temporary: str,
         target_sha256: str,
         expected_sha256: str | None,
+        *,
+        operation: str = "recover-project-memory-link",
     ) -> dict[str, object]:
         with self._lock_handles(exclusive=expected_sha256 is not None) as handles:
             if handles is None:
@@ -285,7 +290,7 @@ class _MigrationStore(MemoryStore):
                 )
                 return {
                     "schema_version": 1,
-                    "operation": "recover-project-memory-link",
+                    "operation": operation,
                     "storage": storage,
                     "source_directory": _directory(source_directory),
                     "target_directory": _directory(target_directory),
@@ -345,9 +350,11 @@ class _MigrationStore(MemoryStore):
     def migrate(
         self,
         target: "_MigrationStore",
-        source_directory: DirectorySelection,
+        source_directory: DirectorySelection | RelocationSource,
         target_directory: DirectorySelection,
         expected_sha256: str | None,
+        *,
+        operation: str = "copy-project-memory",
     ) -> dict[str, object]:
         with self._lock_handles(exclusive=expected_sha256 is not None) as handles:
             root = handles[0] if handles is not None else None
@@ -356,6 +363,7 @@ class _MigrationStore(MemoryStore):
             storage = self._storage_identity(handles)
             source = self._read(root, "project")
             destination = target._read(root, "project")
+            source_identity = self._project_record_identity(root)
             status = (
                 "same-identity"
                 if self.workspace == target.workspace
@@ -377,11 +385,12 @@ class _MigrationStore(MemoryStore):
                 )
             body: dict[str, object] = {
                 "schema_version": 1,
-                "operation": "copy-project-memory",
+                "operation": operation,
                 "storage": storage,
                 "source_directory": _directory(source_directory),
                 "target_directory": _directory(target_directory),
                 "source_path": str(self.path("project")),
+                "source_record_identity": source_identity,
                 "target_path": str(target.path("project")),
                 "source": source.model_dump(mode="json") if source else None,
                 "target": destination.model_dump(mode="json") if destination else None,
@@ -406,6 +415,7 @@ class _MigrationStore(MemoryStore):
                     if (
                         self._storage_identity(handles) != storage
                         or self._read(root, "project") != source
+                        or self._project_record_identity(root) != source_identity
                         or target._read(root, "project") is not None
                     ):
                         raise ValueError("Memory migration changed; preview it again.")
@@ -418,6 +428,17 @@ class _MigrationStore(MemoryStore):
                 "preview_sha256": preview_hash,
                 "applied": expected_sha256 is not None,
             }
+
+    def _project_record_identity(self, root: int | None) -> dict[str, int] | None:
+        if root is None:
+            return None
+        try:
+            info = os.stat(
+                self.path("project").name, dir_fd=root, follow_symlinks=False
+            )
+        except FileNotFoundError:
+            return None
+        return {**_identity(info), "ctime_ns": info.st_ctime_ns}
 
     def _publish_missing(
         self, root: int, name: str, snapshot: MemorySnapshot, verify: Callable[[], None]
@@ -534,4 +555,59 @@ def resolve_memory_project(
     target = _MigrationStore(storage, target_directory.path)
     return source.resolve(
         target, source_directory, target_directory, strategy, text, expected_sha256
+    )
+
+
+class _RelocationStore(_MigrationStore):
+    def __init__(self, storage: Path, source: RelocationSource) -> None:
+        # Only reviewed relocation can address a vanished identity. Ordinary stores
+        # still require an existing directory, including when resuming sessions.
+        source.verify()
+        self.root = storage.absolute()
+        self.workspace = str(source.path)
+
+
+def relocate_memory_project(
+    storage: Path,
+    source_workspace: str,
+    target_workspace: Path,
+    *,
+    expected_sha256: str | None = None,
+    temporary_name: str | None = None,
+    target_sha256: str | None = None,
+) -> dict[str, object]:
+    """Copy an exact old identity to an absent document, or recover that publication."""
+    if (temporary_name is None) != (target_sha256 is None):
+        raise ValueError("Use --temporary-name and --target-sha256 together.")
+    for value in (expected_sha256, target_sha256):
+        if value is not None and re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise ValueError("Relocation requires lowercase SHA-256 hashes.")
+    if (
+        temporary_name is not None
+        and re.fullmatch(r"\.memory-migration-[0-9a-f]{32}\.tmp", temporary_name)
+        is None
+    ):
+        raise ValueError("Recovery requires an exact migration temporary filename.")
+    source_directory = RelocationSource.inspect(source_workspace)
+    target_directory = DirectorySelection.inspect(target_workspace)
+    if source_directory.path == target_directory.path:
+        raise ValueError("Relocation requires distinct source and target identities.")
+    target = _MigrationStore(storage, target_directory.path)
+    if temporary_name is not None:
+        assert target_sha256 is not None
+        return target.recover(
+            source_directory,
+            target_directory,
+            temporary_name,
+            target_sha256,
+            expected_sha256,
+            operation="recover-relocated-project-memory-link",
+        )
+    source = _RelocationStore(storage, source_directory)
+    return source.migrate(
+        target,
+        source_directory,
+        target_directory,
+        expected_sha256,
+        operation="relocate-project-memory",
     )
