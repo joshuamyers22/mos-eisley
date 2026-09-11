@@ -310,7 +310,7 @@ class PruneTests(TestCase):
     def test_generation_or_activity_race_between_preflight_and_write_rejects(
         self,
     ) -> None:
-        store_type = prune_module._PruneStore  # pyright: ignore[reportPrivateUsage]
+        store_type = prune_module.PruneStore
         original = store_type.apply
         for race in ("generation", "activity"):
             preview = self.prune()
@@ -338,7 +338,7 @@ class PruneTests(TestCase):
             self.assert_saved()
 
     def test_root_database_and_lock_replacement_before_write_fail_closed(self) -> None:
-        store_type = prune_module._PruneStore  # pyright: ignore[reportPrivateUsage]
+        store_type = prune_module.PruneStore
         original = store_type.apply
         for target in ("database", "lock", "root"):
             preview = self.prune()
@@ -386,7 +386,7 @@ class PruneTests(TestCase):
     ) -> None:
         before = self.rows()
         preview = self.prune()
-        store_type = prune_module._PruneStore  # pyright: ignore[reportPrivateUsage]
+        store_type = prune_module.PruneStore
 
         def fail(store: SQLiteConversationStore, db: sqlite3.Connection) -> None:
             db.execute("DELETE FROM sessions WHERE sid=?", (store.session_id,))
@@ -485,9 +485,9 @@ class PruneTests(TestCase):
 import os, sys
 from pathlib import Path
 from unittest.mock import patch
-from mos_eisley.run.conversation_prune import _PruneStore, prune_session
-original_delete = _PruneStore._delete_selected
-original_apply = _PruneStore.apply
+from mos_eisley.run.conversation_prune import PruneStore, prune_session
+original_delete = PruneStore._delete_selected
+original_apply = PruneStore.apply
 def before(store, db):
     db.execute("PRAGMA cache_size=1")
     original_delete(store, db)
@@ -498,7 +498,7 @@ def after(store, plan):
 method, replacement = (
     ("_delete_selected", before) if sys.argv[5] == "before" else ("apply", after)
 )
-with patch.object(_PruneStore, method, replacement):
+with patch.object(PruneStore, method, replacement):
     prune_session(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3],
                   before_ns=int(sys.argv[6]), keep_newest=1,
                   expected_sha256=sys.argv[4], apply=True)

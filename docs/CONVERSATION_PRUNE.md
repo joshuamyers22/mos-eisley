@@ -10,7 +10,9 @@ mos session-prune SESSION_ID --storage /path/to/sessions -C /path/to/project --b
 
 The separate [workspace retention report](CONVERSATION_RETENTION.md) remains
 read-only. Its metadata hash, a snapshot hash, and a different session's prune hash
-cannot authorize this operation. There is no automatic or bulk deletion.
+cannot authorize this operation. For an explicit batch, use the separate
+[batch pruning command](CONVERSATION_BATCH_PRUNE.md) and its batch hash. Neither
+command performs automatic deletion.
 
 ## Policy and verification
 
@@ -98,7 +100,8 @@ As with the other SQLite operations, this relies on cooperative writers and
 trusted owner-local parent paths. SQLite owns its descriptors; identity checks do
 not provide isolation from hostile processes running as the same OS user.
 
-Bulk policy apply, automatic expiry, backup/journal retention policies, configurable
+Explicit [batch policy apply](CONVERSATION_BATCH_PRUNE.md) is available for 1–32
+sessions in one transaction. Automatic expiry, backup/journal retention policies, configurable
 physical quotas and vacuum/compaction remain open in the
 [storage plan](CONVERSATION_STORAGE.md#planned-incremental-storage). The separate
 1,000-message capacity and recovery gate remains unchanged.

@@ -90,8 +90,10 @@ OS user ID.
 Explicit [temporary-file cleanup](CONVERSATION_CLEANUP.md) and
 [single-session deletion](CONVERSATION_SQLITE.md#privacy-retention-and-bounds) remain
 separate commands. [Single-session pruning](CONVERSATION_PRUNE.md) now adds explicit
-policy apply with full selected-state verification and atomic deletion. Bulk policy
-apply, backup/journal expiry, broader unreferenced-object
+policy apply with full selected-state verification and atomic deletion.
+[Batch pruning](CONVERSATION_BATCH_PRUNE.md) extends that to 1–32 explicit IDs with
+one atomic commit and a separate batch hash. Automatic policy apply,
+backup/journal expiry, broader unreferenced-object
 retention, configurable physical quotas and SQLite vacuum/compaction are still
 planned. Logical deletion does not promise secure erasure from backups, snapshots
 or hardware. This 1,000-session **metadata** bound does not satisfy the separate

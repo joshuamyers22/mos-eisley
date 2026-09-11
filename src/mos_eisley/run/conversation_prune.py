@@ -2,6 +2,8 @@
 
 import os
 import sqlite3
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
@@ -106,8 +108,26 @@ def _file_identity(root: int, name: str) -> PruneFileIdentity:
         os.close(fd)
 
 
-class _PruneStore(SQLiteConversationStore):
+class PruneStore(SQLiteConversationStore):
     _selected_database: PruneFileIdentity | None = None
+
+    @property
+    def database_identity(self) -> PruneFileIdentity:
+        if self._selected_database is None:
+            raise ValueError("selected prune database is unavailable")
+        return self._selected_database
+
+    def session_active(self, session_id: str) -> bool:
+        return retention_session_active(self._root, session_id)
+
+    @contextmanager
+    def transaction(self, *, write: bool = False) -> Generator[sqlite3.Connection]:
+        """Keep a shared prune transaction on this handle; caller owns consent."""
+        if write:
+            self._open_database(create=False, writable=True)
+        db = self._connection()
+        with conversation_transaction(db, write=write):
+            yield db
 
     def _open_database(self, *, create: bool, writable: bool) -> None:
         if create:
@@ -120,7 +140,7 @@ class _PruneStore(SQLiteConversationStore):
             raise ValueError("selected prune database changed")
         self._selected_database = before
 
-    def _validate_location(self, location: TransferLocation) -> PruneFileIdentity:
+    def validate_location(self, location: TransferLocation) -> PruneFileIdentity:
         validate_private_storage(self._root, directory=True)
         validate_private_storage(self._lock)
         if inspect_storage_location(Path(location.path)) != location:
@@ -141,7 +161,7 @@ class _PruneStore(SQLiteConversationStore):
         *,
         expected: PrunePlan | None = None,
     ) -> PrunePlan:
-        lock = self._validate_location(location)
+        self.validate_location(location)
         retention = read_retention_plan(
             db,
             location,
@@ -155,6 +175,14 @@ class _PruneStore(SQLiteConversationStore):
         )
         if expected is not None and retention != expected.retention:
             raise ValueError("prune selection changed; preview again")
+        return self.verify_selection(db, retention)
+
+    def verify_selection(
+        self, db: sqlite3.Connection, retention: RetentionPlan
+    ) -> PrunePlan:
+        """Verify one selection in the caller's locked metadata transaction."""
+        location = retention.storage
+        lock = self.validate_location(location)
         selected = next(
             (
                 entry
@@ -183,7 +211,7 @@ class _PruneStore(SQLiteConversationStore):
             artifacts=len(sizes),
             artifact_bytes=sum(size for (size,) in sizes),
         )
-        self._validate_location(location)
+        self.validate_location(location)
         return result
 
     def plan(self, location: TransferLocation, policy: RetentionPolicy) -> PrunePlan:
@@ -196,7 +224,7 @@ class _PruneStore(SQLiteConversationStore):
         db.execute("UPDATE metadata SET generation=generation+1 WHERE id=1")
 
     def apply(self, plan: PrunePlan) -> None:
-        self._validate_location(plan.retention.storage)
+        self.validate_location(plan.retention.storage)
         self._open_database(create=False, writable=True)
         db = self._connection()
         with conversation_transaction(db, write=True):
@@ -206,7 +234,7 @@ class _PruneStore(SQLiteConversationStore):
             if current != plan:
                 raise ValueError("prune selection changed; preview again")
             self._delete_selected(db)
-            self._validate_location(plan.retention.storage)
+            self.validate_location(plan.retention.storage)
         self._deleted = True
 
 
@@ -243,7 +271,7 @@ def prune_session(
             "--apply requires --expected-sha256 from a session-prune preview"
         )
     location = inspect_storage_location(root)
-    with _PruneStore(
+    with PruneStore(
         root,
         sid,
         workspace,

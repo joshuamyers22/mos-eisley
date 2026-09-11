@@ -64,6 +64,9 @@ anything. See the [retention preview guide](docs/CONVERSATION_RETENTION.md).
 `mos session-prune SESSION_ID --before 2026-08-01T00:00:00Z` provides a separate
 full-state preview for one eligible SQLite session. Apply its prune hash to delete
 that session and its records atomically; see the [pruning guide](docs/CONVERSATION_PRUNE.md).
+`mos session-prune-batch SESSION_A SESSION_B --before 2026-08-01T00:00:00Z` extends
+that workflow to 1–32 explicit eligible sessions, with a separate batch hash and one
+atomic deletion transaction. See the [batch pruning guide](docs/CONVERSATION_BATCH_PRUNE.md).
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects
