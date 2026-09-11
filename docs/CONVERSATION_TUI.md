@@ -131,6 +131,9 @@ a path relative to this session's workspace. Selection opens a fresh conversatio
 the previous session and queued messages remain saved. Cancelling the selector
 returns to the current session. See [directory switching](CONVERSATION_DIRECTORY.md#switch-during-a-conversation)
 for memory, recording and input handoff behavior.
+The header also shows the detected Git-marker root. `/directory` shows its full
+path and discovery status alongside the workspace and effective project-memory
+identity. This display snapshot is refreshed on launch, resume and directory switch.
 
 ## Saved SQLite history
 

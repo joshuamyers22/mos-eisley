@@ -138,8 +138,12 @@ capabilities, not current automatic template or memory loading.
    keeps the same locked session; selection leaves old queued work saved, reloads
    target-project memory and clears prior project/session launch inputs. Fresh
    terminal parsing and a handoff input flush prevent buffered keys crossing the
-   transition. Natural-language memory changes and project-root discovery remain
-   planned.
+   transition. Git-marker discovery now shows the nearest candidate project root
+   separately from the workspace, with full paths and the effective memory identity
+   in `/directory` and startup JSON. The metadata-only scan checks at most 64
+   ancestors, keeps file-marker worktrees separate, and exposes incomplete discovery.
+   Root-based memory adoption and mapping require explicit migration; natural-language
+   memory changes remain planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

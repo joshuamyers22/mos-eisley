@@ -22,8 +22,10 @@ mos
 project memory does not. `-C /path/to/project` selects the project for both memory
 commands and new conversations. The selected canonical workspace is currently the
 project boundary: launching in a subdirectory creates a different project scope.
-Use the same `-C` root consistently. Git-root discovery, project moves and explicit
-worktree sharing remain planned; remote repository URLs never merge stores.
+Use the same `-C` root consistently. The terminal now displays the nearest Git-marker
+root separately and `/directory` shows the effective memory identity. Adopting root-based
+memory, project moves and explicit worktree sharing remain planned; remote repository
+URLs never merge stores.
 
 The runtime includes memory as labelled user/project context. Project preferences
 override general user defaults, and current user instructions override both.

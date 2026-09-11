@@ -174,6 +174,7 @@ def main() -> int:
             "test_conversation_picker.py",
             "test_conversation_directory.py",
             "test_conversation_switch.py",
+            "test_conversation_project.py",
             "test_conversation_memory.py",
             "test_conversation_memory_refresh.py",
             "test_conversation_storage_budgets.py",

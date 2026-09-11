@@ -37,6 +37,7 @@ from mos_eisley.conversation_input import (
     ConversationSubmission,
     submission_command,
 )
+from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_review import ConversationReviewPacket
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
@@ -123,6 +124,7 @@ class ConversationTUI:
         welcome: str = "",
         initial_prompt: str | None = None,
         allow_directory_switch: bool = False,
+        project_location: ProjectLocation | None = None,
         refresh_memory: Callable[[bool], None] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         load_artifact: Callable[[str], ArtifactContent] | None = None,
@@ -135,6 +137,9 @@ class ConversationTUI:
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
+        self.project_location = project_location or ProjectLocation.inspect(
+            Path(controller.state.workspace)
+        )
         self.refresh_memory = refresh_memory
         self.history = (
             None
@@ -298,7 +303,7 @@ class ConversationTUI:
             [
                 Window(
                     FormattedTextControl(self.header),
-                    height=2,
+                    height=3,
                     style="class:title",
                 ),
                 Frame(
@@ -362,10 +367,13 @@ class ConversationTUI:
         if state.memory_disabled:
             scopes = "off"
         abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
+        root = self.project_location.root_label()
+        root = root if len(root) <= 70 else "…" + root[-69:]
         return display_text(
             f"Mos Eisley • recorded • {state.session_name or '(unnamed)'} • "
             f"{state.session_id[:8]} • memory {scopes}\n"
-            f"Directory: {abbreviated} • /directory shows full path"
+            f"Directory: {abbreviated} • /directory shows full paths\n"
+            f"Project root: {root}"
         )
 
     def status(self) -> str:
@@ -454,7 +462,7 @@ class ConversationTUI:
                 else "No memory is active in this session."
             )
         if self.directory_visible:
-            parts.append(f"Working directory\n{state.workspace}")
+            parts.append(self.project_location.describe())
         if self.context_preview is not None:
             revision, preview = self.context_preview
             parts.append(
@@ -723,6 +731,7 @@ class ConversationTUI:
                 self.review_packet,
                 self.refresh_memory,
                 initial_prompt=self.initial_prompt,
+                project_location=self.project_location,
                 switch_directory=self.switch_directory
                 if self.allow_directory_switch
                 else None,

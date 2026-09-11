@@ -30,6 +30,7 @@ without shell quotes. Editing the field clears the selection and requires anothe
 preview. Selecting checks that the previewed directory still exists with the same
 identity; a changed or missing directory requires a new preview.
 For a long target, press F2 and use arrows or Home/End to inspect the full path.
+The preview also shows the detected Git-marker root and the project-memory identity.
 
 The selector runs before session lookup, memory loading or session creation.
 Cancelling creates no session or memory files. New chats load the selected
@@ -86,6 +87,42 @@ or startup fails, the old session remains saved under its printed ID. Resume it
 with the same workspace/storage/backend and any required custom recording; no
 different session or project is silently substituted.
 
+## Project-root visibility
+
+The terminal header shows the working directory and a separate project-root line.
+`/directory` shows both full paths, the discovery result, and the effective project
+memory identity. Plain startup output includes the same information. JSON
+`conversation.opened` and `conversation.directory` events include `workspace`,
+`project_root` (a path or null), `project_detection`, and `memory_workspace`.
+
+Discovery checks the canonical workspace and its ancestors for the nearest `.git`
+directory or regular file. A file marker keeps a linked worktree or submodule rooted
+at that marker's parent; its pointer is never followed to a shared metadata directory.
+Nested markers take precedence. These are candidate roots identified by metadata:
+the application does not validate repository contents, read marker/configuration
+files, run Git, or apply Git environment overrides. Bare repositories without a
+`.git` marker are outside this discovery flow.
+
+The scan checks at most 64 directories, including the workspace. `project_detection`
+is `git-directory`, `git-file`, `none`, `unavailable`, or `limit`. `none` means the
+filesystem root was reached without a marker. Symlink or special-file markers,
+read errors, and the scan limit leave the root unknown; an obstructing inner marker
+does not select an outer repository. Discovery errors provide fixed guidance without
+OS diagnostics. The metadata bound is not a timeout for a slow mounted filesystem.
+
+Each preview scans when Enter is pressed. Each opened conversation takes one
+discovery snapshot, used consistently by its header and `/directory`; redraws do
+not scan the filesystem. A fresh launch, resume, or directory switch discovers
+again. Changes to markers while a conversation is open do not retarget its display
+snapshot or saved identity.
+
+Project memory and saved-session lookup remain bound to the selected canonical
+workspace. Launching from two subdirectories still selects two separate memory
+scopes, even when the displayed root matches. Root discovery supplies display
+metadata only. It is excluded from saved state, recorded requests, tool authority
+and memory selection. Root-based memory adoption, collision handling and explicit
+project/worktree mappings require the migration work in plan §16.0.2.
+
 ## Bounds and remaining work
 
 Path input is one printable line of at most 4,096 UTF-8 bytes. Invalid or oversized
@@ -100,4 +137,5 @@ Directory selection supplies session context and does not grant filesystem tools
 or load repository configuration. The recorded terminal's existing execution
 limits apply. Workspace persistence still uses the canonical path; the startup
 identity check does not add a durable inode binding or filesystem sandbox.
-Git project-root discovery and explicit project identity mapping remain planned.
+Git-marker root visibility is available; root-based memory identity and explicit
+project identity mapping remain planned.
