@@ -181,6 +181,25 @@ def _receipt(
     )
 
 
+def plan_batch_sources(
+    root: Path, session_ids: tuple[str, ...], workspace: Path
+) -> BatchMigrationPlan:
+    """Select bounded source metadata without opening any SQLite destination."""
+    if not 1 <= len(session_ids) <= MAX_BATCH_SESSIONS:
+        raise ValueError("a migration batch requires 1–32 explicit session IDs")
+    try:
+        ids = tuple(
+            sorted(
+                TypeAdapter[str](SessionID).validate_python(sid) for sid in session_ids
+            )
+        )
+    except ValueError:
+        raise ValueError("invalid batch session ID") from None
+    if len(set(ids)) != len(ids):
+        raise ValueError("a migration batch cannot repeat session IDs")
+    return _plan(root, workspace, ids)
+
+
 def migrate_batch(
     root: Path,
     session_ids: tuple[str, ...],
@@ -194,14 +213,7 @@ def migrate_batch(
     Transactions are per session. The plan excludes destination status so a retry
     keeps its selection hash after earlier imports have committed successfully.
     """
-    if not 1 <= len(session_ids) <= MAX_BATCH_SESSIONS:
-        raise ValueError("a migration batch requires 1–32 explicit session IDs")
     try:
-        ids = tuple(
-            sorted(
-                TypeAdapter[str](SessionID).validate_python(sid) for sid in session_ids
-            )
-        )
         expected = (
             None
             if expected_sha256 is None
@@ -209,11 +221,9 @@ def migrate_batch(
         )
     except ValueError:
         raise ValueError("invalid batch session ID or expected hash") from None
-    if len(set(ids)) != len(ids):
-        raise ValueError("a migration batch cannot repeat session IDs")
     if apply and expected is None:
         raise ValueError("--apply requires --expected-sha256 from a batch preview")
-    plan = _plan(root, workspace, ids)
+    plan = plan_batch_sources(root, session_ids, workspace)
     if expected is not None and expected != digest(canonical_bytes(plan)):
         raise ValueError("batch selection changed; preview again before applying")
     receipts: list[ConversationMigrationReceipt] = []

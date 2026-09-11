@@ -95,6 +95,10 @@ from mos_eisley.run.conversation_batch_migration import (
     BatchMigrationError,
     migrate_batch,
 )
+from mos_eisley.run.conversation_batch_transfer import (
+    BatchTransferError,
+    transfer_batch,
+)
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_sqlite import (
@@ -283,6 +287,37 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     )
     transfer.add_argument(
         "--json", action="store_true", help="Print a JSON transfer receipt"
+    )
+    transfer_batch_parser = add_parser(
+        "session-transfer-batch",
+        help="Preview or copy selected sessions across storage roots",
+    )
+    transfer_batch_parser.add_argument(
+        "session_ids", nargs="+", help="1–32 explicit session IDs"
+    )
+    transfer_batch_parser.add_argument(
+        "--storage",
+        type=Path,
+        default=Path.home() / ".mos-eisley-sessions",
+        help="Source JSON storage root",
+    )
+    transfer_batch_parser.add_argument(
+        "--destination-storage",
+        type=Path,
+        required=True,
+        help="Existing private destination directory",
+    )
+    transfer_batch_parser.add_argument(
+        "-C", "--workspace", type=Path, default=Path.cwd()
+    )
+    transfer_batch_parser.add_argument(
+        "--expected-sha256", help="Batch transfer hash from its preview"
+    )
+    transfer_batch_parser.add_argument(
+        "--apply", action="store_true", help="Copy the selected batch"
+    )
+    transfer_batch_parser.add_argument(
+        "--json", action="store_true", help="Print a JSON batch transfer receipt"
     )
     add_memory_command(
         add_parser("memory", help="Inspect or change user/project memory")
@@ -921,6 +956,32 @@ def _run_command(args: argparse.Namespace) -> int:
             result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
         return 0
+    if args.command == "session-transfer-batch":
+        transfer_error = None
+        try:
+            batch_transfer_receipt = transfer_batch(
+                args.storage,
+                args.destination_storage,
+                tuple(args.session_ids),
+                args.workspace,
+                expected_sha256=args.expected_sha256,
+                apply=args.apply,
+            )
+        except BatchTransferError as error:
+            batch_transfer_receipt = error.receipt
+            transfer_error = str(error)
+        transfer_payload = {
+            "type": "conversation.transfer_batch",
+            **batch_transfer_receipt.model_dump(mode="json"),
+        }
+        if transfer_error is not None:
+            transfer_payload["text"] = transfer_error
+        print(
+            json.dumps(
+                transfer_payload, ensure_ascii=True, indent=None if args.json else 2
+            )
+        )
+        return 0 if transfer_error is None else 2
     if args.command == "session-transfer":
         try:
             transfer_receipt = transfer_conversation(
