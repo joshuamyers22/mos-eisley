@@ -1793,6 +1793,21 @@ verified output bytes rather than reserving disk or bounding total Python memory
 Retention and the long-session capacity gate remain open. See the
 [batch export contract](CONVERSATION_SQLITE.md#export-a-selected-batch-of-sqlite-sessions).
 
+The first retention step now provides `session-cleanup SESSION_ID`: explicit
+storage-owner selection of unpublished JSON staging files, including interrupted
+first writes without a published session or readable workspace metadata. A
+version-1 plan binds directory/lock/file identities, timestamps, sizes and streamed
+content hashes; apply requires its exact hash and validates all targets under the
+shared session lock before removing any. The bounded pass admits 256 files,
+32 MB per file and 64 MB total within a 4,096-entry directory scan. Partial removals
+and directory-sync failures produce receipts; restart requires a fresh preview of
+the remaining files, including an empty selection when a sync needs retrying.
+Published JSON, SQLite, journals, backups and lock inodes are preserved. Temporary
+bytes are discarded rather than recovered. The command is explicitly storage
+scoped because truncated bytes cannot prove project membership. Broader object
+retention, quotas, backup/journal expiry and the capacity gate remain open. See the
+[cleanup contract](CONVERSATION_CLEANUP.md).
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following
