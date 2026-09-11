@@ -57,5 +57,6 @@ def fresh_directory_arguments(
         refresh_memory=False,
         refresh_cassette=None,
         catalog_max_bytes=None,
+        memory_project_root=None,
     )
     return argparse.Namespace(**values)

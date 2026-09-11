@@ -157,6 +157,7 @@ class ConversationController(Generic[StateT]):
         memory: ConversationMemory | None = None,
         *,
         memory_disabled: bool = False,
+        memory_project_root: str | None = None,
         snapshot_max_bytes: int | None = None,
         context_max_bytes: int | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -175,6 +176,7 @@ class ConversationController(Generic[StateT]):
             cassette_sha256=recording.sha256,
             memory=memory,
             memory_disabled=memory_disabled,
+            memory_project_root=memory_project_root,
             snapshot_max_bytes=snapshot_max_bytes,
             context_max_bytes=context_max_bytes,
         )
@@ -193,6 +195,7 @@ class ConversationController(Generic[StateT]):
                 session_name=self.state.session_name,
                 owner_uid=self.state.owner_uid,
                 workspace=self.state.workspace,
+                memory_project_root=self.state.memory_project_root,
                 cassette_sha256=self.state.cassette_sha256,
                 revision=self.state.revision + 1,
                 exchanges_consumed=(
@@ -271,6 +274,7 @@ class ConversationController(Generic[StateT]):
                     session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
                     workspace=self.state.workspace,
+                    memory_project_root=self.state.memory_project_root,
                     revision=self.state.revision + 1,
                     exchanges_consumed=consumed,
                     entries=entries,

@@ -462,7 +462,9 @@ class ConversationTUI:
                 else "No memory is active in this session."
             )
         if self.directory_visible:
-            parts.append(self.project_location.describe())
+            parts.append(
+                self.project_location.describe(state.effective_memory_workspace)
+            )
         if self.context_preview is not None:
             revision, preview = self.context_preview
             parts.append(

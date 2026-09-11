@@ -12,6 +12,7 @@ from mos_eisley.conversation_limits import (
     SnapshotByteLimit,
 )
 from mos_eisley.conversation_memory import ConversationMemory
+from mos_eisley.conversation_memory_project import memory_workspace
 from mos_eisley.conversation_name import SessionName
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_review import (
@@ -234,6 +235,9 @@ class ConversationState(Contract, Generic[EntryT]):
     )
     owner_uid: Annotated[int, Field(ge=0)]
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
+    memory_project_root: Annotated[str | None, Field(max_length=4096)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     cassette_sha256: Digest
     revision: Annotated[int, Field(ge=0)] = 0
     exchanges_consumed: Annotated[int, Field(ge=0, le=16)] = 0
@@ -254,6 +258,10 @@ class ConversationState(Contract, Generic[EntryT]):
     )
 
     @property
+    def effective_memory_workspace(self) -> str:
+        return memory_workspace(self.workspace, self.memory_project_root)
+
+    @property
     def context_byte_limit(self) -> int:
         return self.context_max_bytes or DEFAULT_CONTEXT_BYTES
 
@@ -263,6 +271,7 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        selected_memory_workspace = self.effective_memory_workspace
         if self.memory_disabled and self.memory is not None:
             raise ValueError("disabled memory must not contain active context")
         if self.retained_cassette is not None and (
@@ -273,7 +282,7 @@ class ConversationState(Contract, Generic[EntryT]):
         if self.builtin_recording and self.retained_cassette is None:
             raise ValueError("refreshed builtin recording must be retained")
         if self.memory is not None:
-            self.memory.validate_identity(self.owner_uid, self.workspace)
+            self.memory.validate_identity(self.owner_uid, selected_memory_workspace)
         targets: set[int] = set()
         admitted_exchanges: set[int] = set()
         for index, entry in enumerate(self.entries):
@@ -294,7 +303,7 @@ class ConversationState(Contract, Generic[EntryT]):
                 and entry.memory_context.memory is not None
             ):
                 entry.memory_context.memory.validate_identity(
-                    self.owner_uid, self.workspace
+                    self.owner_uid, selected_memory_workspace
                 )
             if entry.steering_for is not None:
                 if entry.steering_for >= index:

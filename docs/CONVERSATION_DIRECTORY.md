@@ -31,6 +31,8 @@ preview. Selecting checks that the previewed directory still exists with the sam
 identity; a changed or missing directory requires a new preview.
 For a long target, press F2 and use arrows or Home/End to inspect the full path.
 The preview also shows the detected Git-marker root and the project-memory identity.
+With `--memory-project-root PATH`, it previews that explicit ancestor identity and
+requires a workspace within it.
 
 The selector runs before session lookup, memory loading or session creation.
 Cancelling creates no session or memory files. New chats load the selected
@@ -66,7 +68,8 @@ After selection, the old session closes and its saved ID is printed. A fresh
 session opens in the selected directory. Previous messages and queued work remain
 in the old session and can be resumed by its ID or name. They are not transferred
 to the new project. The new conversation loads that project's current enabled
-memory plus user memory through ordinary startup validation.
+memory plus user memory through ordinary startup validation. A previous explicit
+`--memory-project-root` selection is cleared during the switch.
 
 The new session uses the built-in recorded preview and starts unnamed with no
 messages. Its initial launch prompt, old recording, review packet, memory-refresh
@@ -116,12 +119,12 @@ not scan the filesystem. A fresh launch, resume, or directory switch discovers
 again. Changes to markers while a conversation is open do not retarget its display
 snapshot or saved identity.
 
-Project memory and saved-session lookup remain bound to the selected canonical
-workspace. Launching from two subdirectories still selects two separate memory
-scopes, even when the displayed root matches. Root discovery supplies display
-metadata only. It is excluded from saved state, recorded requests, tool authority
-and memory selection. Root-based memory adoption, collision handling and explicit
-project/worktree mappings require the migration work in plan §16.0.2.
+Project memory defaults to the selected canonical workspace. New sessions can
+[explicitly select an ancestor memory identity](CONVERSATION_MEMORY_PROJECT.md),
+which is then retained on resume. Saved-session lookup stays workspace-scoped.
+Root discovery itself supplies display metadata and never selects memory or tool
+authority. Automated migration, collision handling and project/worktree mappings
+remain planned in §16.0.2.
 
 ## Bounds and remaining work
 
@@ -137,5 +140,5 @@ Directory selection supplies session context and does not grant filesystem tools
 or load repository configuration. The recorded terminal's existing execution
 limits apply. Workspace persistence still uses the canonical path; the startup
 identity check does not add a durable inode binding or filesystem sandbox.
-Git-marker root visibility is available; root-based memory identity and explicit
-project identity mapping remain planned.
+Git-marker root visibility and explicit memory-root selection are available;
+automated memory migration and project identity mapping remain planned.

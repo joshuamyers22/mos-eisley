@@ -68,6 +68,10 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_project import (
+    preview_memory_project,
+    select_memory_project,
+)
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
 from mos_eisley.conversation_name import SessionSelectionError, parse_name
 from mos_eisley.conversation_pending import (
@@ -164,6 +168,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--json",
         "--no-memory",
         "--memory-storage",
+        "--memory-project-root",
         "--session-max-bytes",
         "--context-max-bytes",
         "--active-memory-max-bytes",
@@ -246,6 +251,15 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    memory_preview = add_parser(
+        "memory-project-preview", help="Preview workspace/root memory before adoption"
+    )
+    memory_preview.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    memory_preview.add_argument("--memory-project-root", type=Path, required=True)
+    memory_preview.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_preview.add_argument("--json", action="store_true")
     rename = add_parser("session-rename", help="Rename or clear a saved session label")
     rename.add_argument("session_id")
     name_change = rename.add_mutually_exclusive_group(required=True)
@@ -544,10 +558,16 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     review_demo.add_argument("--review-output", type=Path, required=True)
     for generator in (demo, review_demo):
         add_memory_options(generator)
+        generator.add_argument("--memory-project-root", type=Path)
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "chat":
+            command.add_argument(
+                "--memory-project-root",
+                type=Path,
+                help="Use this explicit ancestor's project memory for the new session",
+            )
             command.add_argument(
                 "--name",
                 type=parse_name,
@@ -1100,8 +1120,12 @@ async def terminal(
                     emit(
                         {
                             "type": "conversation.directory",
-                            **project_location.fields(),
-                            "text": project_location.describe(),
+                            **project_location.fields(
+                                controller.state.effective_memory_workspace
+                            ),
+                            "text": project_location.describe(
+                                controller.state.effective_memory_workspace
+                            ),
                         }
                     )
                 elif is_directory_switch(line):
@@ -1225,9 +1249,22 @@ def run_command(args: argparse.Namespace) -> int:
                     "--choose-directory requires terminal input/output; "
                     "use -C PATH for noninteractive commands."
                 )
-            selected = pick_directory(args.workspace)
+            memory_directory = (
+                DirectorySelection.inspect(args.memory_project_root)
+                if getattr(args, "memory_project_root", None) is not None
+                else None
+            )
+            selected = pick_directory(
+                args.workspace,
+                memory_project_root=None
+                if memory_directory is None
+                else memory_directory.path,
+            )
             if selected is None:
                 return 0
+            if memory_directory is not None:
+                memory_directory.verify()
+                args.memory_project_root = memory_directory.path
             args.workspace = selected.path
             args.directory_selection = selected
         while True:
@@ -1398,6 +1435,18 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-preview":
+        receipt = preview_memory_project(
+            args.memory_storage, args.workspace, args.memory_project_root
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_preview", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     directory = getattr(args, "directory_selection", None)
     if isinstance(directory, DirectorySelection):
         directory.verify()
@@ -1663,13 +1712,21 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         print("--refresh-cassette requires --refresh-memory", file=sys.stderr)
         return 2
     memory = None
+    memory_project = None
+    if getattr(args, "memory_project_root", None) is not None:
+        memory_project = select_memory_project(args.workspace, args.memory_project_root)
     if isinstance(directory, DirectorySelection):
         directory.verify()
     if (
         args.command in {"chat", "conversation-demo", "conversation-review-demo"}
         and not args.no_memory
     ):
-        memory = MemoryStore(args.memory_storage, args.workspace).load()
+        memory = MemoryStore(
+            args.memory_storage,
+            args.workspace if memory_project is None else memory_project.path,
+        ).load()
+    if memory_project is not None:
+        memory_project.verify()
     if args.command == "conversation-review-demo":
         brief, cassette = demo_inputs()
         packet = ConversationReviewPacket(brief=brief, cassette=cassette)
@@ -1824,6 +1881,9 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             cassette,
             memory,
             memory_disabled=args.no_memory,
+            memory_project_root=None
+            if memory_project is None
+            else str(memory_project.path),
             snapshot_max_bytes=args.session_max_bytes,
             context_max_bytes=args.context_max_bytes,
             input_limits=input_limits,
@@ -1854,6 +1914,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
     if isinstance(directory, DirectorySelection):
         directory.verify()
+    if memory_project is not None:
+        memory_project.verify()
     with store_type(
         args.storage,
         session_id,
@@ -1886,7 +1948,13 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         ignore_memory = args.no_memory or (
             state.memory_disabled and not selected_refresh
         )
-        memory_store = MemoryStore(args.memory_storage, args.workspace)
+        memory_store = MemoryStore(
+            args.memory_storage, Path(state.effective_memory_workspace)
+        )
+        if memory_store.workspace != state.effective_memory_workspace:
+            raise ValueError(
+                "Saved memory project identity changed; use its original directory."
+            )
         if args.command == "resume":
             memory = None if ignore_memory else memory_store.load()
         cassette = (
@@ -1946,7 +2014,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         emit(
             {
                 "type": "conversation.opened",
-                **project_location.fields(),
+                **project_location.fields(controller.state.effective_memory_workspace),
                 "session_id": session_id,
                 **(
                     {"session_name": controller.state.session_name}
@@ -1960,7 +2028,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
                     "/stop, /continue, /quit. "
-                    "Ctrl-C stops work.\n" + project_location.describe()
+                    "Ctrl-C stops work.\n"
+                    + project_location.describe(
+                        controller.state.effective_memory_workspace
+                    )
                 ),
             }
         )

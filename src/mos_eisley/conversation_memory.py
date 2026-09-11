@@ -225,6 +225,15 @@ class MemoryStore:
         with self._locked() as root:
             return self._read(root, scope)
 
+    def project_pair(
+        self, other: MemoryStore
+    ) -> tuple[MemorySnapshot | None, MemorySnapshot | None]:
+        """Inspect two project documents under one shared storage lock."""
+        if self.root != other.root:
+            raise ValueError("Project preview requires the same memory storage.")
+        with self._locked() as root:
+            return self._read(root, "project"), other._read(root, "project")
+
     def load(self) -> ConversationMemory | None:
         with self._locked() as root:
             user, project = self._read(root, "user"), self._read(root, "project")
