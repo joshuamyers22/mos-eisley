@@ -58,7 +58,9 @@ memory across unrelated worktrees. The choice is saved per session; directory
 switching clears it, and workspace/tool authority stays with the working directory.
 `memory-project-relocate` reviews a copy from an exact former project path, including
 a vanished directory, to an absent destination document. It preserves old memory
-and session identities and supports explicit interrupted-copy recovery.
+and session identities and supports explicit interrupted-copy recovery. Add an
+explicit `--strategy` to review collisions across worktrees or from vanished
+directories, with a durable prior-target backup before changing destination text.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

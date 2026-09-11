@@ -144,9 +144,10 @@ capabilities, not current automatic template or memory loading.
    `memory-project-relocate` now copies an exact former identity to an absent
    document at any existing destination, including vanished sources and unrelated
    worktrees, with preview-bound identity checks and interrupted-copy recovery.
-   Source documents and saved session identities remain intact. Cross-mapping
-   collision resolution, persistent mappings and natural-language memory changes
-   remain planned.
+   Source documents and saved session identities remain intact. Explicit
+   `--strategy` now adds reviewed collision resolution between those identities,
+   preserving destination enabled state and a durable prior-target backup. Persistent
+   mappings and natural-language memory changes remain planned.
    `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
    extra staging link after interrupted publication. Source and target bytes remain
    intact; normal readers keep their single-link rule. Broader orphan cleanup remains

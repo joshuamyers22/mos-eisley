@@ -1575,9 +1575,20 @@ and all saved session identities/history remain intact. Explicit recovery suppor
 one interrupted publication's verified staging alias even with a vanished source.
 Ordinary memory access and resume still require their saved directories to exist.
 
-**Next migration milestone:** cross-mapping collision resolution, plus guarded
-unpublished-staging/backup recovery and retention. A persistent mapping registry
-remains planned. Resolution backups
+**Cross-mapping collision batch:** `memory-project-relocate --strategy` now
+requires a separate resolution review for two existing documents across unrelated
+worktrees or from a vanished source identity. Keep-target, use-source, append-source
+and use-text use the existing durable backup and replacement protocol. Resolution
+binds source presence/ancestor, both record identities, target directory, storage,
+lock, strategy and reviewed content to an operation-specific hash. Target enabled
+state is preserved; no-ops preserve bytes and metadata. Changed text gets the next
+target revision and an apply-time UTC timestamp. Source/user documents and session
+history remain intact. Copy, resolution and recovery reviews are not interchangeable,
+and recovery flags cannot mix with a resolution strategy. Fault tests cover late
+source reappearance and actual process death before/after replacement.
+
+**Next migration milestone:** guarded unpublished-staging/backup recovery and
+retention. A persistent mapping registry remains planned. Resolution backups
 are retained; no automatic deletion, startup recovery or session identity rewriting
 is enabled. Common Git metadata or remote URLs never merge memory.
 

@@ -64,9 +64,9 @@ workspace's existing memory, edit documents, rewrite old sessions or share memor
 between OS users. Directory switching clears the mapping for the fresh session.
 The existing copy/resolution commands retain their ancestor-only scope.
 
-Use the relocation command below to copy documents across identities, including
-from vanished directories. A persistent mapping registry and cross-mapping collision
-resolution remain planned. Keep the selected directory accessible for mapped
+Use the relocation command below to copy documents or explicitly resolve collisions
+across identities, including from vanished directories. A persistent mapping registry
+remains planned. Keep the selected directory accessible for mapped
 sessions; mapping and document relocation do not relocate saved sessions.
 
 ## Copy memory after a project moves
@@ -88,9 +88,9 @@ Repeat any `--memory-storage` override in preview, apply and subsequent sessions
 Review and retain the complete preview, including both identities, full documents,
 proposed content and hash. Although the command is named relocate, it retains the
 source document. It copies only when a source exists and the destination document
-is absent. Empty and disabled documents count as existing; collisions are shown
-and cannot be overwritten. Existing ancestor collisions can use the separate
-resolution workflow; cross-mapping collision resolution remains planned.
+is absent. Empty and disabled documents count as existing; copy mode shows
+collisions and never overwrites them. Use a separate strategy-bound resolution
+review below when both identities already have documents.
 
 The source argument is literal: relative paths, `~`, trailing slashes, dot segments,
 duplicate separators, symlink aliases and non-directory paths are rejected. Do not
@@ -133,8 +133,54 @@ canonical content, exact two-link inode and exclusive-lock checks as ancestor-co
 recovery. It removes only the verified staging alias, preserves target bytes and
 works while the old directory is absent. Changed source-path presence or anchor
 requires another review. Source document edits do not block recovery. No source is
-deleted, no existing target is overwritten, and no automatic orphan cleanup runs.
+deleted, copy/recovery mode never overwrites an existing target, and no automatic
+orphan cleanup runs.
 Unpublished staging and resolution-backup recovery remain planned.
+
+## Resolve collisions across worktrees or after a move
+
+When both identities already contain project memory, select a resolution strategy
+explicitly with the same exact source identity and existing destination:
+
+```sh
+mos memory-project-relocate --from-workspace /old/projects/api \
+  --to-workspace /worktrees/api --strategy append-source --json
+mos memory-project-relocate --from-workspace /old/projects/api \
+  --to-workspace /worktrees/api --strategy append-source \
+  --apply --expected-sha256 HASH_FROM_RESOLUTION_PREVIEW --json
+```
+
+`keep-target` keeps the destination unchanged, `use-source` replaces its text,
+`append-source` joins destination and source text literally, and `use-text` uses
+the supplied `--text "Reviewed content"` (including an explicit empty string).
+The destination's enabled state is preserved in every case. Both documents must
+exist, even for keep-target or use-text; this mode never implicitly creates a missing
+document. Omit the strategy to use the separate absent-target copy workflow.
+Repeat the same strategy, text and storage override when applying the preview.
+
+The receipt's operation is `resolve-relocated-project-memory`. Copy, ancestor
+resolution, mapped resolution and recovery hashes are not interchangeable. Strategy,
+text, both complete snapshots and record identities, destination directory and
+source presence/nearest existing ancestor are bound alongside storage and lock
+identities. Source reappearance or any reviewed input change requires a fresh
+preview. `--temporary-name`/`--target-sha256` recovery flags cannot be mixed with a
+strategy, and `--text` is accepted only with `use-text`.
+
+Changed text follows the [same durable backup protocol](#resolve-existing-workspace-and-root-documents)
+as ancestor resolution: a verified private canonical prior-target backup is flushed
+before atomic replacement, the target revision increases by one, and its UTC update
+time is assigned at apply. All inputs are rechecked under an exclusive lock just
+before publication. No-ops preserve bytes, metadata and revision and create no
+backup. Source/user documents and saved session identities/history are preserved;
+existing destination sessions retain the explicit changed-memory refresh guard.
+Literal append does not deduplicate. Existing memory byte limits still apply.
+
+Keep the backup for review or a later explicit use-text restoration. A crash before
+replacement leaves the old destination and its backup; a crash after replacement
+can leave the new destination even without a success receipt. Inspect before retrying.
+An interrupted backup or unpublished resolution staging file is retained for
+investigation. Copy-recovery mode does not clean these files or restore a resolution
+backup. Guarded cleanup/retention remain planned; nothing is deleted automatically.
 
 ## Inspect before adopting
 
