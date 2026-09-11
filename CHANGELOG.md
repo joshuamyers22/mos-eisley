@@ -4,6 +4,17 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Adversarially review the context-management proposal and adopt loss-aware tool
+  result envelopes, typed external state, compaction lineage, owner-scoped lexical
+  retrieval, cache safety and held-out evaluation. Fixed truncation/delegation
+  thresholds and semantic retrieval remain unqualified planning hypotheses.
+
+- Review the project and imported adaptive-reasoning/adversarial-loop plans; add
+  revised repository-owned designs and integrate plan §26 with the delivery roadmap.
+  Correct stale review examples and specify independent readings, test-binding
+  integrity, bounded correction, proxy-versus-label outcomes, feasible statistical
+  studies, owner-scoped routing evidence and atomic activation prerequisites.
+  This is a planning change and enables no runtime capability.
 - Add frozen, label-free analytical comparison schedules with reproducible case
   blocks and balanced arm positions. Assess pinned artifacts for recorded ordering,
   overlap and pre-schedule starts; keep failures and missing timing visible. Add
