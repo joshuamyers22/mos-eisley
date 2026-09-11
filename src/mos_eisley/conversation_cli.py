@@ -35,6 +35,11 @@ from mos_eisley.conversation_context_preview import (
     ContextPreviewUnavailable,
     preview_context,
 )
+from mos_eisley.conversation_directory import (
+    DirectorySelection,
+    DirectorySelectionError,
+    pick_directory,
+)
 from mos_eisley.conversation_input import (
     ConversationInput,
     ConversationInputQueue,
@@ -159,6 +164,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--pending-text-max-bytes",
         "--storage-backend",
         "--name",
+        "--choose-directory",
     }
     if not argv or argv[0] == "--" or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
@@ -574,6 +580,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
+            command.add_argument(
+                "--choose-directory",
+                action="store_true",
+                help="Choose a workspace interactively before opening a session",
+            )
             add_memory_options(command)
             command.add_argument(
                 "--session-max-bytes",
@@ -1165,11 +1176,29 @@ async def _run_terminal(
 
 def run_command(args: argparse.Namespace) -> int:
     try:
+        if getattr(args, "choose_directory", False):
+            if (
+                args.json
+                or args.plain
+                or getattr(args, "inspect", False)
+                or not sys.stdin.isatty()
+                or not sys.stdout.isatty()
+            ):
+                raise DirectorySelectionError(
+                    "--choose-directory requires terminal input/output; "
+                    "use -C PATH for noninteractive commands."
+                )
+            selected = pick_directory(args.workspace)
+            if selected is None:
+                return 0
+            args.workspace = selected.path
+            args.directory_selection = selected
         return _run_command(args)
     except (
         ActiveInputLimitError,
         PendingTextBudgetError,
         SessionSelectionError,
+        DirectorySelectionError,
     ) as error:
         # Only byte counts and fixed guidance, never rejected payloads or paths.
         print(f"mos-eisley: {error}", file=sys.stderr)
@@ -1326,6 +1355,9 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int:
+    directory = getattr(args, "directory_selection", None)
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
     if args.command == "session-rename":
         receipt = rename_session(
             args.storage,
@@ -1588,6 +1620,8 @@ def _run_command(args: argparse.Namespace) -> int:
         print("--refresh-cassette requires --refresh-memory", file=sys.stderr)
         return 2
     memory = None
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
     if (
         args.command in {"chat", "conversation-demo", "conversation-review-demo"}
         and not args.no_memory
@@ -1775,6 +1809,8 @@ def _run_command(args: argparse.Namespace) -> int:
     else:
         session_id = str(args.session_id)
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
     with store_type(
         args.storage,
         session_id,

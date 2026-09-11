@@ -67,6 +67,12 @@ your current workspace's sessions. `mos resume SESSION_ID` selects one explicitl
 The existing owner, permissions, locking and workspace checks apply to default
 storage too; an unsafe existing directory is rejected, never repaired silently.
 
+`mos --choose-directory` and `mos resume --choose-directory` open the
+[startup directory selector](CONVERSATION_DIRECTORY.md) before session or memory
+access. Tab completes directory names, Enter previews the resolved path, and
+Ctrl-S selects it. Escape cancels startup. The selected project's memory applies
+to a fresh chat; resume keeps the same workspace checks and paused queue behavior.
+
 Use `--storage /private/path` to select another location; its parent must exist.
 `--session-max-bytes BYTES` on launch or resume saves a per-session snapshot budget;
 the welcome screen shows it and `mos sessions` reports usage. See
