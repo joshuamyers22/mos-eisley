@@ -1,5 +1,28 @@
 # Delivery roadmap
 
+**Integrated project review, 2026-09-08:** adopt the revised
+[adaptive reasoning design](adaptive-reasoning-routing.md) and
+[adversarial review-loop project plan](adversarial-review-loop-project-plan.md)
+under [plan §26](mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract).
+The [review](PROJECT_REVIEW_2026-09-08.md) records gaps, decisions and local checks.
+These are planned extensions; current implementation status below is unchanged.
+Execute this dependency order alongside the existing capability workstreams:
+
+| Order | Next deliverable | Gate |
+|---|---|---|
+| G0/G1 | Clause/decision/outcome contracts, recorded conversation/review slice and sealed plan-reading experiment | Accurate private records, replay, no early reveal, revision invalidation, cancel/resume |
+| G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
+| G3 | Affordable independent utility study | Pre-spend sample/assignment feasibility, protected holdout, clean/defective labels and whole-task outcomes |
+| G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
+| G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
+| G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+
+G0/G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
+qualified; retain fixed measurement components and full initial judging. Do not
+remove reviewers based on overlap or learn correctness from judge/test proxies.
+All work retains the user-owned data, no-history-retrieval, containment and spending
+contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -13,10 +36,18 @@ evaluation evidence, and model-selection records under one user's ownership.
 Default to private local files/SQLite, and support user-configured cloud database
 and object-storage adapters. No cross-user sharing, pooling, or aggregation,
 including anonymized model-selection telemetry. Fresh sessions may automatically
-reuse that user's minimal model-selection aggregates and enabled
-user/project memory explicitly curated under §16.0.2. Full prior conversational
-content requires explicit same-owner resume or inspection. Plan §17 defines the
-contract; comprehensive enforcement and remote adapters remain planned work.
+reuse that user's minimal model-selection aggregates and enabled user/project
+memory explicitly curated under §16.0.2. Full prior conversational content requires
+explicit same-owner resume or inspection. Plan §17 defines the contract;
+comprehensive enforcement and remote adapters remain planned work.
+
+**Project guidance and operational evidence:** adopt the production template's
+structured-logging and bounded memory/note principles with Mos Eisley's ownership,
+fresh-session, and audit guarantees. Add per-project points of view and best-practice
+templates with explicit binding, versioned snapshots, independent overrides, and
+visible precedence. Preferences and telemetry infrastructure remain project choices.
+See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`; these are planned
+capabilities, not current automatic template or memory loading.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
@@ -78,7 +109,7 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    and the directory picker remain planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
-   remains an interim preview limit. Plan §17.5 now sequences incremental records,
+   remains an interim preview limit. Plan §17.7 now sequences incremental records,
    paginated listing/transcript reads, independent context/retention budgets,
    explicit migration and recovery tests before lifting the message cap.
    The first [SQLite adapter](CONVERSATION_SQLITE.md) now implements opt-in
@@ -157,16 +188,37 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    migration and retention remain open.
    Mid-request interruption and live review
    remain open.
+   Define a versioned provider-adapter interface and extensible model catalog so
+   new providers/backends and model entries can be added without rewriting the
+   agent loop. Keep explicit route identities, capability/pricing provenance, and
+   per-backend conformance; catalog discovery proposes entries without enabling
+   them. These extension contracts are planned work (plan §§4.6 and 5.1).
+   Make Anthropic, OpenAI, and Google interchangeable as creator (author), critic,
+   and judge, with independent contexts and all six distinct-provider role
+   assignments supported by the common contracts. Keep coding-child model/effort
+   selection independent of the creator (plan §7.7); this remains planned work.
    Live conversation requires conformance, transfer policy, and aggregate session
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
    their execution gates. Keep `exec`/JSON automation on the same controller.
+   Add project-guidance attach/show/update/detach with trusted project bindings and
+   frozen per-role rubrics. Alongside private persistence, add explicitly selected
+   project memory and handoff notes; writing them requires scoped write capabilities.
+   Never reuse private history merely because a guidance template was attached.
    Build owner-scoped storage interfaces with the session controller; verify local
    user isolation, explicit resume, and fresh-session context separation. Add
    remote database/object adapters only after server-side isolation, retention,
    migration, and no-aggregation tests pass. Backend selection must not change
    ownership or silently create additional copies.
-4. **In progress — quality and routing gate:** deterministic, content-addressed
+4. **In progress — quality and routing gate:**
+   Add the §17.5 versioned operational-event mapping alongside live provider work,
+   preserving required audit/spend durability and owner isolation. Evaluate outcomes
+   and guardrails on later windows; telemetry review does not authorize changes.
+   Published template `d59f3e6` supplies a Python core/local-spool reuse candidate;
+   evaluate a pinned Mos adapter with independent health, explicit queue/durability
+   semantics, and Mos-specific sanitization before enabling it. No telemetry code
+   is added by the adoption review itself.
+   Existing evaluation progress: deterministic, content-addressed
    sweep plans, structurally blinded recorded execution, route-blind grading packets,
    provenance-bound adjudication and exact-coverage scoring are implemented offline.
    Fixed-matrix group-mean bounds and comparison-family correction are implemented;
@@ -271,6 +323,16 @@ contract; comprehensive enforcement and remote adapters remain planned work.
    Learn and freeze an interpretable difficulty-routing policy only after held-out detection,
    false-positive, latency and cost thresholds pass. Uncalibrated prompts use a
    conservative role fallback or fail closed.
+   Define a replaceable selection interface over controller-filtered eligible
+   routes: manual choices, per-role profiles, and calibrated automatic strategies.
+   Expose session/task overrides and explainable decisions; new strategies retain
+   quality, spending, privacy, and activation gates. See plan §7.6 for planned
+   interface, model-switching, fallback, and acceptance requirements.
+   Extend that interface through R0–R4 in the revised routing design: pre-dispatch
+   distributions and actual actions, versioned outcomes, fixed baseline, qualified
+   offline lookup/cascade comparisons, and then gated activation. Output-budget
+   routing and off-policy inference are new schema/statistical work, not options
+   supported by today's fixed-matrix scorer.
 5. **In progress — prompt skill evidence:** exact instructions now participate in
    evaluation candidate and request identity. A sealed two-arm protocol enforces a
    prompt-only persona-skill treatment, paired independent-group statistics, full
@@ -339,13 +401,34 @@ contract; comprehensive enforcement and remote adapters remain planned work.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+   Integrate L0–L5 from the revised loop plan: immutable clauses, fresh sealed
+   readings, blind independent tests, whole-package freezing and reviewed bindings,
+   full initial judging, persistent correction budgets and final full verification.
+   Independent labels precede any automatic correction bypass or reviewer downgrade;
+   no research-site GUI or mandatory Postgres is required.
+   Add creator-led coding: creator writes the plan and executable tests, critic
+   reviews both, judge adjudicates, creator approves the exact plan/test revisions,
+   then delegates at least one meaningful coding subtask
+   and owns integration, tests, and final critic/judge review. Example: Astra creator
+   with a Luna max-thinking coding child, resolved to eligible exact model routes.
+   Target clean, efficient code and cost-effective whole-task execution, counting
+   planning, review, handoffs, integration, and rework. Delegated writes also require
+   E2 bounded-subagent gates (plan §§7.7, 14.2.1, 15.7).
 8. **Publisher:** authenticated isolated credential process, dry run, idempotency.
 9. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,
-   redaction, typed lifecycle events and trusted endpoint/credential contracts;
-   then bounded subagents; then brokered web/image evidence; finally one narrow
-   outward MCP interface. See plan §§24.5 and 25 for acceptance criteria.
+   redaction, typed lifecycle events and trusted endpoint/credential contracts,
+   plus E1 trusted provider/selector extension loading and model catalog overlays;
+   then E2 bounded subagents and creator-approved delegated coding after execution
+   containment; then E3 brokered web/image evidence plus PDF and Word
+   (`.docx`/`.doc`) reading, scanned-document OCR, and XLSX/CSV reading and bounded
+   tabular analysis for conversations and reviews, with text/table extraction,
+   page/sheet/cell/record citations, parsing and extraction-quality reporting, and
+   isolated processing of owner-scoped artifacts; finally one narrow outward MCP
+   interface. Document and spreadsheet support is later planned work, not currently
+   available.
+   See plan §§19.6, 24.4–24.5, and 25 for scope and acceptance criteria.
 10. **Convenience:** advanced TUI polish and provenance navigation. The core
     conversation, resume, and configurable storage belong to the product workstream
     above; shared analytics or team-wide database exports are excluded.
