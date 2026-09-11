@@ -345,7 +345,8 @@ class ConversationTUI:
             scopes = "off"
         abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
         return display_text(
-            f"Mos Eisley • recorded • {state.session_id[:8]} • memory {scopes}\n"
+            f"Mos Eisley • recorded • {state.session_name or '(unnamed)'} • "
+            f"{state.session_id[:8]} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full path"
         )
 

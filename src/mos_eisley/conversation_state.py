@@ -12,6 +12,7 @@ from mos_eisley.conversation_limits import (
     SnapshotByteLimit,
 )
 from mos_eisley.conversation_memory import ConversationMemory
+from mos_eisley.conversation_name import SessionName
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
@@ -228,6 +229,9 @@ class ConversationState(Contract, Generic[EntryT]):
     schema_version: Literal[1] = 1
     mode: Literal["recorded_conversation"] = "recorded_conversation"
     session_id: SessionID
+    session_name: SessionName | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     owner_uid: Annotated[int, Field(ge=0)]
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
     cassette_sha256: Digest

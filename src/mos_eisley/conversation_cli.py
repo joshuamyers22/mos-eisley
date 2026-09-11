@@ -63,12 +63,14 @@ from mos_eisley.conversation_memory import (
     MemoryStore,
 )
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
+from mos_eisley.conversation_name import SessionSelectionError, parse_name
 from mos_eisley.conversation_pending import (
     DEFAULT_PENDING_TEXT_BYTES,
     PendingTextBudgetError,
     PendingTextLimits,
     pending_text_byte_limit,
 )
+from mos_eisley.conversation_picker import ResumeSelection, pick_session
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -107,6 +109,11 @@ from mos_eisley.run.conversation_cleanup import (
 )
 from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
+from mos_eisley.run.conversation_names import (
+    named_sessions,
+    rename_session,
+    resume_catalog,
+)
 from mos_eisley.run.conversation_prune import prune_session
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_retention import preview_retention, retention_cutoff
@@ -151,6 +158,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--recording-max-bytes",
         "--pending-text-max-bytes",
         "--storage-backend",
+        "--name",
     }
     if not argv or argv[0] == "--" or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
@@ -225,6 +233,20 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    rename = add_parser("session-rename", help="Rename or clear a saved session label")
+    rename.add_argument("session_id")
+    name_change = rename.add_mutually_exclusive_group(required=True)
+    name_change.add_argument("--name", type=parse_name)
+    name_change.add_argument("--clear", action="store_true")
+    rename.add_argument("--expected-sha256", required=True)
+    rename.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    rename.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    rename.add_argument(
+        "--storage-backend", choices=("snapshot", "sqlite"), default="snapshot"
+    )
+    rename.add_argument("--json", action="store_true")
     batch_prune = add_parser(
         "session-prune-batch",
         help="Preview or atomically delete explicit eligible SQLite sessions",
@@ -514,15 +536,25 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "chat":
             command.add_argument(
+                "--name",
+                type=parse_name,
+                help="Optional session name (1–120 characters)",
+            )
+            command.add_argument(
                 "prompt",
                 nargs="?",
                 type=launch_prompt,
                 help="Initial literal message; quote multiline or multiword text",
             )
         if name == "resume":
-            selection = command.add_mutually_exclusive_group(required=True)
+            selection = command.add_mutually_exclusive_group()
             selection.add_argument("session_id", nargs="?")
             selection.add_argument("--last", action="store_true")
+            selection.add_argument(
+                "--name",
+                type=parse_name,
+                help="Resume an exact name; duplicates require selection",
+            )
             command.add_argument(
                 "--inspect",
                 action="store_true",
@@ -933,6 +965,44 @@ async def terminal(
                     pass
                 elif line == "/continue":
                     enabled = True
+                elif line == "/rename" or line.startswith("/rename "):
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before renaming the session.",
+                            }
+                        )
+                    else:
+                        try:
+                            name = (
+                                None
+                                if line == "/rename --clear"
+                                else parse_name(line.removeprefix("/rename").strip())
+                            )
+                        except argparse.ArgumentTypeError:
+                            emit(
+                                {
+                                    "type": "conversation.unavailable",
+                                    "text": (
+                                        "Use /rename NAME or /rename --clear "
+                                        "with a valid name."
+                                    ),
+                                }
+                            )
+                        else:
+                            controller.rename(name)
+                            enabled = False
+                            emit(
+                                {
+                                    "type": "conversation.renamed",
+                                    "session_name": name,
+                                    "text": (
+                                        f"Session name: {name or '(unnamed)'}. "
+                                        "Queued work is paused."
+                                    ),
+                                }
+                            )
                 elif line in {"/memory refresh", "/memory off"}:
                     if active is not None:
                         emit(
@@ -1096,7 +1166,11 @@ async def _run_terminal(
 def run_command(args: argparse.Namespace) -> int:
     try:
         return _run_command(args)
-    except (ActiveInputLimitError, PendingTextBudgetError) as error:
+    except (
+        ActiveInputLimitError,
+        PendingTextBudgetError,
+        SessionSelectionError,
+    ) as error:
         # Only byte counts and fixed guidance, never rejected payloads or paths.
         print(f"mos-eisley: {error}", file=sys.stderr)
         return 2
@@ -1214,7 +1288,55 @@ def _run_prune(args: argparse.Namespace) -> int:
     return 0
 
 
+def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
+    interactive = (
+        not (args.json or args.plain or args.inspect)
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+    )
+    if args.name is None and not interactive:
+        raise SessionSelectionError(
+            "Resume requires a session ID or --last/--name "
+            "outside the interactive picker."
+        )
+
+    def load():
+        return resume_catalog(
+            args.storage,
+            args.workspace,
+            sqlite=args.storage_backend == "sqlite",
+            max_bytes=args.catalog_max_bytes,
+        )
+
+    catalog = load()
+    if args.name is not None:
+        matches = named_sessions(catalog, args.name)
+        if not matches:
+            raise SessionSelectionError(
+                "No saved conversation matches that name in this workspace."
+            )
+        if len(matches) == 1:
+            return ResumeSelection(catalog.location, catalog.workspace, matches[0])
+        if not interactive:
+            raise SessionSelectionError(
+                "Session name is ambiguous; use mos sessions "
+                "and an explicit session ID."
+            )
+    return pick_session(catalog, load, query=args.name or "")
+
+
 def _run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-rename":
+        receipt = rename_session(
+            args.storage,
+            args.workspace,
+            args.session_id,
+            sqlite=args.storage_backend == "sqlite",
+            expected_sha256=args.expected_sha256,
+            name=None if args.clear else args.name,
+        )
+        print(json.dumps(receipt, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
     if args.command == "session-prune-batch":
         return _run_batch_prune(args)
     if args.command == "session-prune":
@@ -1389,6 +1511,19 @@ def _run_command(args: argparse.Namespace) -> int:
         raise ValueError(
             "--catalog-max-bytes applies to snapshot storage; SQLite uses --limit"
         )
+    picked: ResumeSelection | None = None
+    if args.command == "resume" and args.session_id is None and not args.last:
+        picked = _choose_resume(args)
+        if picked is None:
+            return 0
+    if picked is not None:
+        args.session_id = picked.summary.session_id
+    if (
+        args.command in {"resume", "session-delete"}
+        and not isinstance(args.session_id, str)
+        and not getattr(args, "last", False)
+    ):
+        raise ValueError("A session ID is required.")
     if args.command == "resume" and args.inspect:
         if not sqlite_backend:
             raise ValueError("--inspect requires --storage-backend sqlite")
@@ -1407,7 +1542,7 @@ def _run_command(args: argparse.Namespace) -> int:
             or args.plain
         ):
             raise ValueError("--inspect cannot use session changes or terminal options")
-        latest = None
+        latest = None if picked is None else picked.summary
         if args.last:
             page = list_sqlite_conversations(args.storage, args.workspace, limit=1)
             if not page.sessions:
@@ -1415,7 +1550,7 @@ def _run_command(args: argparse.Namespace) -> int:
             latest = page.sessions[0]
         inspection = inspect_sqlite_resume(
             args.storage,
-            args.session_id if latest is None else latest.session_id,
+            str(args.session_id) if latest is None else latest.session_id,
             args.workspace,
             expected_sha256=None if latest is None else latest.snapshot_sha256,
         )
@@ -1542,7 +1677,12 @@ def _run_command(args: argparse.Namespace) -> int:
                     {
                         "type": "conversation.summary",
                         "text": (
-                            f"{summary.session_id} | {saved} | "
+                            (
+                                f"{summary.session_name} | "
+                                if summary.session_name
+                                else ""
+                            )
+                            + f"{summary.session_id} | {saved} | "
                             f"{summary.messages} messages | "
                             f"{'active' if summary.active else 'available'} | "
                             f"{summary.snapshot_bytes}/"
@@ -1563,7 +1703,7 @@ def _run_command(args: argparse.Namespace) -> int:
         emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
         with store_type(
             args.storage,
-            args.session_id,
+            str(args.session_id),
             args.workspace,
             create=False,
             require_workspace=False,
@@ -1599,7 +1739,7 @@ def _run_command(args: argparse.Namespace) -> int:
         else None
     )
     fresh: ConversationState | None = None
-    selected: ConversationSummary | None = None
+    selected: ConversationSummary | None = None if picked is None else picked.summary
     if args.command == "chat":
         cassette = explicit_cassette or demo_cassette(memory=memory)
         fresh = ConversationController.fresh(
@@ -1611,6 +1751,8 @@ def _run_command(args: argparse.Namespace) -> int:
             context_max_bytes=args.context_max_bytes,
             input_limits=input_limits,
         )
+        if args.name is not None:
+            fresh = fresh.model_copy(update={"session_name": args.name})
         session_id = fresh.session_id
     elif args.last:
         summaries = (
@@ -1631,10 +1773,14 @@ def _run_command(args: argparse.Namespace) -> int:
         selected = summaries[0]
         session_id = selected.session_id
     else:
-        session_id = args.session_id
+        session_id = str(args.session_id)
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
     with store_type(
-        args.storage, session_id, args.workspace, create=fresh is not None
+        args.storage,
+        session_id,
+        args.workspace,
+        create=fresh is not None,
+        expected_root_identity=None if picked is None else picked.location.identity,
     ) as store:
         if isinstance(store, SQLiteConversationStore):
             store.input_limits = input_limits
@@ -1656,7 +1802,7 @@ def _run_command(args: argparse.Namespace) -> int:
             )
             != selected.snapshot_sha256
         ):
-            raise ValueError("selected latest conversation changed; list again")
+            raise SessionSelectionError("Selected conversation changed; select again.")
         selected_refresh = args.command == "resume" and args.refresh_memory
         ignore_memory = args.no_memory or (
             state.memory_disabled and not selected_refresh
@@ -1721,10 +1867,18 @@ def _run_command(args: argparse.Namespace) -> int:
             {
                 "type": "conversation.opened",
                 "session_id": session_id,
+                **(
+                    {"session_name": controller.state.session_name}
+                    if controller.state.session_name is not None
+                    else {}
+                ),
                 "text": (
-                    f"Session {session_id}. Recorded preview. "
+                    f"Session {session_id} "
+                    f"({controller.state.session_name or 'unnamed'}). "
+                    "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
-                    "/steer TEXT, /review, /context [N], /stop, /continue, /quit. "
+                    "/steer TEXT, /review, /context [N], /rename NAME, "
+                    "/stop, /continue, /quit. "
                     "Ctrl-C stops work."
                 ),
             }

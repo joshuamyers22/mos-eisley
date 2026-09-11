@@ -32,6 +32,11 @@ save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 
+[Named sessions](docs/CONVERSATION_NAMES.md) support `mos chat --name "Parser cleanup"`,
+`/rename NAME`, and `mos resume --name "Parser cleanup"`. Bare `mos resume` opens
+a keyboard picker with name/ID filtering; duplicate names require explicit
+selection. Resumed queued work stays paused until you continue it.
+
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and

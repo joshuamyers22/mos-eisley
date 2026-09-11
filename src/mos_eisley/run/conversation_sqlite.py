@@ -211,6 +211,7 @@ def _index(
         workspace=state.workspace,
         summary=ConversationSummary(
             session_id=state.session_id,
+            session_name=state.session_name,
             snapshot_sha256=sha,
             revision=state.revision,
             modified_ns=modified_ns,
@@ -1030,6 +1031,7 @@ class SQLiteConversationStore(ConversationStore):
                 checksum.update(chunk)
         summary = ConversationSummary(
             session_id=state.session_id,
+            session_name=state.session_name,
             snapshot_sha256=checksum.hexdigest(),
             revision=state.revision,
             modified_ns=index.summary.modified_ns,
@@ -1301,6 +1303,7 @@ class SQLiteConversationStore(ConversationStore):
                 raise ValueError("conversation snapshot size changed after admission")
             summary = ConversationSummary(
                 session_id=self.session_id,
+                session_name=state.session_name,
                 snapshot_sha256=checksum.hexdigest(),
                 revision=state.revision,
                 modified_ns=time.time_ns(),
