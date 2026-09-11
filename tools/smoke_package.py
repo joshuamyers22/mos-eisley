@@ -181,6 +181,7 @@ def main() -> int:
             "test_conversation_same_root_export.py",
             "test_conversation_batch_export.py",
             "test_conversation_cleanup.py",
+            "test_conversation_retention.py",
             "test_conversation_transcript.py",
             "test_conversation_history.py",
             "test_conversation_artifacts.py",

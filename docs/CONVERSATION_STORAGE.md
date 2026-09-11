@@ -413,7 +413,13 @@ Implement these stages under the storage and ownership contract in
    failures. Crash recovery requires a fresh preview of the remainder. It includes
    interrupted first writes without readable workspace metadata, so it is explicitly
    storage scoped. See the [cleanup contract](CONVERSATION_CLEANUP.md).
-   Broader object retention, quotas and backup/journal expiry remain open.
+   Workspace retention policy preview now evaluates an explicit UTC cutoff and
+   configurable keep-newest count over at most 1,000 SQLite session indexes in one
+   read transaction. Reports include all retention reasons, indexed logical sizes,
+   and a versioned plan hash. Active and noncompleted work is retained; no bodies
+   are loaded and no deletion authority is granted. See the
+   [retention preview contract](CONVERSATION_RETENTION.md).
+   Policy apply, broader object retention, quotas and backup/journal expiry remain open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.

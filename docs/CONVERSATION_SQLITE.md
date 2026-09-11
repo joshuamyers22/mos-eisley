@@ -725,6 +725,12 @@ Interrupted JSON saves and exports now have separate, explicit
 and shared session lock authorize removal of unpublished JSON staging files only;
 SQLite journals, databases and published sessions are retained.
 
+`session-retention --before YYYY-MM-DDTHH:MM:SSZ -C WORKSPACE` now provides a
+[read-only retention policy preview](CONVERSATION_RETENTION.md) over bounded SQLite
+index metadata. It protects the newest sessions, active sessions and noncompleted
+work, with reasons and indexed logical-byte totals. The report grants no deletion
+authority; applying retention policies remains planned.
+
 The database has an initial 256 MB physical file ceiling, enforced on open and via
 SQLite's page-count limit on writable connections. Each existing sidecar is also
 bounded. This is separate from the per-session logical budget, is not a disk-space

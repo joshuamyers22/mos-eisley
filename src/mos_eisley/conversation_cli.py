@@ -107,6 +107,7 @@ from mos_eisley.run.conversation_cleanup import (
 from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
+from mos_eisley.run.conversation_retention import preview_retention, retention_cutoff
 from mos_eisley.run.conversation_sqlite import (
     SQLiteConversationStore,
     list_sqlite_conversations,
@@ -207,6 +208,26 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    retention = add_parser(
+        "session-retention", help="Preview SQLite retention for one workspace"
+    )
+    retention.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    retention.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    retention.add_argument(
+        "--before",
+        type=retention_cutoff,
+        required=True,
+        help="Saved before this UTC timestamp: YYYY-MM-DDTHH:MM:SSZ",
+    )
+    retention.add_argument(
+        "--keep-newest",
+        type=int,
+        default=20,
+        help="Always retain the newest N workspace sessions (0–1000; default 20)",
+    )
+    retention.add_argument("--json", action="store_true", help="Print a JSON preview")
     cleanup = add_parser(
         "session-cleanup", help="Preview or remove unpublished JSON temporary files"
     )
@@ -1027,7 +1048,31 @@ def _run_cleanup(args: argparse.Namespace) -> int:
     return 0 if notice is None else 2
 
 
+def _run_retention(args: argparse.Namespace) -> int:
+    try:
+        preview = preview_retention(
+            args.storage,
+            args.workspace,
+            before_ns=args.before,
+            keep_newest=args.keep_newest,
+        )
+    except ValidationError:
+        raise ValueError(
+            "Retention policy or index metadata failed validation."
+        ) from None
+    print(
+        json.dumps(
+            {"type": "conversation.retention", **preview.model_dump(mode="json")},
+            ensure_ascii=True,
+            indent=None if args.json else 2,
+        )
+    )
+    return 0
+
+
 def _run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-retention":
+        return _run_retention(args)
     if args.command == "session-cleanup":
         return _run_cleanup(args)
     if args.command == "session-artifact":
