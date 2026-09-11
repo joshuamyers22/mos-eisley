@@ -6,8 +6,10 @@ import asyncio
 import json
 from collections.abc import Callable
 from contextlib import suppress
+from pathlib import Path
 
-from prompt_toolkit.application import Application
+from prompt_toolkit.application import Application, in_terminal
+from prompt_toolkit.application.current import set_app
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
@@ -24,6 +26,11 @@ from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
+from mos_eisley.conversation_directory import (
+    DirectoryPicker,
+    DirectorySelection,
+    DirectorySelectionError,
+)
 from mos_eisley.conversation_history import TranscriptHistory
 from mos_eisley.conversation_input import (
     ConversationInput,
@@ -31,6 +38,7 @@ from mos_eisley.conversation_input import (
     submission_command,
 )
 from mos_eisley.conversation_review import ConversationReviewPacket
+from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
 
@@ -114,6 +122,7 @@ class ConversationTUI:
         *,
         welcome: str = "",
         initial_prompt: str | None = None,
+        allow_directory_switch: bool = False,
         refresh_memory: Callable[[bool], None] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         load_artifact: Callable[[str], ArtifactContent] | None = None,
@@ -124,6 +133,8 @@ class ConversationTUI:
         self.review_packet = review_packet
         self.welcome = welcome
         self.initial_prompt = initial_prompt
+        self.allow_directory_switch = allow_directory_switch
+        self.directory_target: DirectorySelection | None = None
         self.refresh_memory = refresh_memory
         self.history = (
             None
@@ -179,6 +190,12 @@ class ConversationTUI:
 
         def quit_session(event: KeyPressEvent) -> None:
             self.control("/quit", priority=True)
+
+        def directory(event: KeyPressEvent) -> None:
+            if self.editor.text or self.sending:
+                self.set_notice("Send or discard the unsent draft before switching.")
+            else:
+                self.control(SWITCH_COMMAND)
 
         def clear(event: KeyPressEvent) -> None:
             if not self.sending:
@@ -275,6 +292,7 @@ class ConversationTUI:
         keys.add("f6")(reload_history)
         keys.add("f7")(select_artifact)
         keys.add("f8")(expand_artifact)
+        keys.add("f9")(directory)
 
         layout = HSplit(
             [
@@ -587,6 +605,8 @@ class ConversationTUI:
         self.refresh()
 
     def control(self, command: str, *, priority: bool = False) -> bool:
+        if self.directory_target is not None:
+            return False
         if priority:
             if self.submission is not None:
                 self.submission.cancel()
@@ -651,6 +671,49 @@ class ConversationTUI:
             self.sending = False
             self.app.invalidate()
 
+    async def switch_directory(self, text: str) -> bool:
+        if self.editor.text or self.sending or not self.queue.empty():
+            self.set_notice(
+                "Handle the unsent draft and pending input before switching."
+            )
+            return False
+        self.sending = True
+        try:
+            workspace = Path(self.controller.state.workspace)
+            selected = switch_target(text, workspace)
+            if selected is None:
+                with set_app(self.app):
+                    async with in_terminal():
+                        selected = await DirectoryPicker(
+                            workspace,
+                            base=workspace,
+                            input=self.app.input,
+                            output=self.app.output,
+                        ).app.run_async(set_exception_handler=False)
+            if selected is None:
+                self.set_notice("Directory switch cancelled. Queued work stays paused.")
+                return False
+            selected.verify()
+            if selected.path == workspace:
+                self.set_notice("Already in that directory. Queued work stays paused.")
+                return False
+            if not self.queue.empty():
+                self.set_notice(
+                    "Input arrived during selection; handle it before switching."
+                )
+                return False
+            self.directory_target = selected
+            self.set_notice(
+                "Switching directory. This session and its queue remain saved."
+            )
+            return True
+        except DirectorySelectionError as error:
+            self.set_notice(str(error))
+            return False
+        finally:
+            self.sending = self.directory_target is not None
+            self.app.invalidate()
+
     async def run(self) -> None:
         worker = asyncio.create_task(
             terminal(
@@ -660,6 +723,9 @@ class ConversationTUI:
                 self.review_packet,
                 self.refresh_memory,
                 initial_prompt=self.initial_prompt,
+                switch_directory=self.switch_directory
+                if self.allow_directory_switch
+                else None,
             )
         )
         screen = asyncio.create_task(self.app.run_async(set_exception_handler=False))

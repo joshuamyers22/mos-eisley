@@ -11,11 +11,12 @@ import signal
 import stat
 import sys
 import termios
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Awaitable, Callable
+from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
+from prompt_toolkit.input import create_input
 from pydantic import ValidationError
 
 from mos_eisley.conversation import (
@@ -85,6 +86,11 @@ from mos_eisley.conversation_review import (
     run_conversation_review,
 )
 from mos_eisley.conversation_state import WorkingConversationState
+from mos_eisley.conversation_switch import (
+    DirectoryHandoff,
+    fresh_directory_arguments,
+    is_directory_switch,
+)
 from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
@@ -715,6 +721,7 @@ async def terminal(
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
+    switch_directory: Callable[[str], Awaitable[bool]] | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -1091,6 +1098,28 @@ async def terminal(
                             "text": controller.state.workspace,
                         }
                     )
+                elif is_directory_switch(line):
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before switching directory.",
+                            }
+                        )
+                    elif switch_directory is None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": (
+                                    "Directory switching requires "
+                                    "the interactive terminal."
+                                ),
+                            }
+                        )
+                    else:
+                        enabled = False
+                        if await switch_directory(line):
+                            return
                 elif line == "/steer" or line.startswith("/steer "):
                     if submit_text(
                         line.removeprefix("/steer").lstrip(), require_active=True
@@ -1193,7 +1222,13 @@ def run_command(args: argparse.Namespace) -> int:
                 return 0
             args.workspace = selected.path
             args.directory_selection = selected
-        return _run_command(args)
+        while True:
+            result = _run_command(args)
+            if isinstance(result, int):
+                return result
+            # Input typed while the old screen closes belongs to that screen.
+            termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+            args = fresh_directory_arguments(args, result.target)
     except (
         ActiveInputLimitError,
         PendingTextBudgetError,
@@ -1354,7 +1389,7 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
     return pick_session(catalog, load, query=args.name or "")
 
 
-def _run_command(args: argparse.Namespace) -> int:
+def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     directory = getattr(args, "directory_selection", None)
     if isinstance(directory, DirectorySelection):
         directory.verify()
@@ -1974,6 +2009,7 @@ def _run_command(args: argparse.Namespace) -> int:
             welcome += (
                 "\nStorage: SQLite (logical snapshot budget; incremental records)."
             )
+        handoff: DirectoryHandoff | None = None
         if args.tui or (
             not args.plain
             and not args.json
@@ -1985,12 +2021,14 @@ def _run_command(args: argparse.Namespace) -> int:
             fd = sys.stdin.fileno()
             original_modes = termios.tcgetattr(fd)
             try:
-                asyncio.run(
-                    ConversationTUI(
+                with closing(create_input()) as terminal_input:
+                    ui = ConversationTUI(
                         controller,
                         review_packet,
                         initial_prompt=initial_prompt,
                         welcome=welcome,
+                        allow_directory_switch=True,
+                        input=terminal_input,
                         refresh_memory=memory_runtime.refresh,
                         load_transcript=store.transcript_page
                         if isinstance(store, SQLiteConversationStore)
@@ -1998,8 +2036,10 @@ def _run_command(args: argparse.Namespace) -> int:
                         load_artifact=store.transcript_artifact
                         if isinstance(store, SQLiteConversationStore)
                         else None,
-                    ).run()
-                )
+                    )
+                    asyncio.run(ui.run())
+                    if isinstance(ui.directory_target, DirectorySelection):
+                        handoff = DirectoryHandoff(ui.directory_target)
             finally:
                 termios.tcsetattr(fd, termios.TCSANOW, original_modes)
         else:
@@ -2020,4 +2060,6 @@ def _run_command(args: argparse.Namespace) -> int:
                 "text": f"Saved session {session_id}.",
             }
         )
+        if handoff is not None:
+            return handoff
     return 0

@@ -46,6 +46,46 @@ directory, so other relative options such as `--storage` and `--cassette` retain
 their usual interpretation. An explicit initial prompt is submitted after the
 directory has been selected and the new session opened.
 
+## Switch during a conversation
+
+In the interactive terminal, press F9 or type `/directory switch` to choose another
+directory. `/directory switch PATH` selects an existing path directly. Relative
+paths in either flow start from the current session workspace; `~` still expands
+to the user's home. Enter paths containing spaces directly, without shell quotes.
+`/directory` on its own continues to inspect the current workspace.
+
+Active work blocks switching. Let it finish or explicitly stop it first; the
+existing `/stop` action cancels active and queued work. Send or discard an unsent
+draft before using F9. Pending editor submissions or input also block a switch.
+While the picker is open, the current session remains open and locked, with work
+paused. Cancelling returns to the same controller and saved state. Choosing the
+current directory is a no-op. Invalid selections leave the current session open.
+
+After selection, the old session closes and its saved ID is printed. A fresh
+session opens in the selected directory. Previous messages and queued work remain
+in the old session and can be resumed by its ID or name. They are not transferred
+to the new project. The new conversation loads that project's current enabled
+memory plus user memory through ordinary startup validation.
+
+The new session uses the built-in recorded preview and starts unnamed with no
+messages. Its initial launch prompt, old recording, review packet, memory-refresh
+arguments and latest/name lookup are cleared. The invocation's storage location,
+backend, memory-storage location, explicit `--no-memory` choice, and budget options
+remain selected. A session-local `/memory off` affects the old session; fresh
+startup follows the invocation's memory option. Custom recordings and review
+packets can be selected again through a separate launch with their explicit flags.
+
+Wait for the new workspace header before typing. Editing is paused during the
+handoff; pending terminal keystrokes are cleared and a fresh input parser is used
+for the new screen. Pasted or multiline switch-looking text, Ctrl-S literal
+submissions, and initial prompts remain messages. Plain/JSON sessions do not switch
+in place; launch another conversation with `-C PATH`.
+
+The selected directory is checked again before destination startup. If it changes
+or startup fails, the old session remains saved under its printed ID. Resume it
+with the same workspace/storage/backend and any required custom recording; no
+different session or project is silently substituted.
+
 ## Bounds and remaining work
 
 Path input is one printable line of at most 4,096 UTF-8 bytes. Invalid or oversized
@@ -60,6 +100,4 @@ Directory selection supplies session context and does not grant filesystem tools
 or load repository configuration. The recorded terminal's existing execution
 limits apply. Workspace persistence still uses the canonical path; the startup
 identity check does not add a durable inode binding or filesystem sandbox.
-Git project-root discovery and in-session directory switching remain planned.
-Switching will need an explicit handoff for active work and unsent drafts before
-opening a fresh session with another project's context.
+Git project-root discovery and explicit project identity mapping remain planned.

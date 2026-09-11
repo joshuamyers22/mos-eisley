@@ -40,6 +40,9 @@ selection. Resumed queued work stays paused until you continue it.
 Use `mos --choose-directory` or `mos resume --choose-directory` to open the
 [startup directory selector](docs/CONVERSATION_DIRECTORY.md). Edit the path,
 press Enter to preview its resolved target, then Ctrl-S to select it.
+During a conversation, F9 or `/directory switch` selects another project and opens
+a fresh session. Active work and unsent drafts must be resolved first; the old
+session and its queued messages remain saved.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

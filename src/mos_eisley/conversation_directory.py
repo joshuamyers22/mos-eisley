@@ -176,9 +176,14 @@ class DirectoryBuffer(Buffer):
 
 class DirectoryPicker:
     def __init__(
-        self, initial: Path, *, input: Input | None = None, output: Output | None = None
+        self,
+        initial: Path,
+        *,
+        input: Input | None = None,
+        output: Output | None = None,
+        base: Path | None = None,
     ) -> None:
-        self.base = Path.cwd()
+        self.base = Path.cwd() if base is None else base
         self.selection: DirectorySelection | None = None
         self.notice = "Enter previews the resolved path. Ctrl-S uses that directory."
         self.preview_area = TextArea(
