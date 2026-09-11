@@ -1355,8 +1355,8 @@ and session ID, and uses a built-in recording with private default storage.
 `mos -C PATH` selects another workspace; `mos resume --last` reopens the latest
 session in that workspace without requiring cassette/storage flags. Initial
 literal prompts now use `mos chat "PROMPT"`, `mos -- "PROMPT"`, or session launch
-options followed by a prompt. An interactive resume picker and live
-authentication/setup remain planned. The default preview needs no credentials
+options followed by a prompt. User-defined session names, an interactive resume
+picker and live authentication/setup remain planned. The default preview needs no credentials
 or network connection.
 The full product contract below remains the target; live conversation/review,
 mid-request interruption and advanced terminal controls are not yet available.
@@ -1532,6 +1532,41 @@ current-message precedence, scoped remember/forget, disabled memory, bounded
 loading, concurrent-edit conflict detection, safe resume after edits/deletion,
 and unchanged critic isolation. Deliver inspectable, explicit memory first;
 automatic memory extraction remains a later, separately configurable feature.
+### 16.0.3 Session names and easy resume
+
+**User direction, 2026-09-10 — planned:** users can give sessions memorable names
+so they can find and resume the right conversation without remembering its ID.
+Deliver naming alongside the resume picker; this is not yet an available command.
+
+- Allow an optional name when creating a session, for example
+  `mos chat --name "Parser cleanup"`. Support renaming or clearing an existing name
+  from the terminal (`/rename`) and an explicit session-management command.
+  Unnamed sessions remain supported, and the immutable session ID remains the
+  authoritative identity through every rename.
+- Show the name alongside the ID in the session header, `mos sessions`, and the
+  resume picker. Support filtering the picker by name and explicit lookup such as
+  `mos resume --name "Parser cleanup"`, scoped to the selected owner, workspace,
+  storage location and backend. Exact-ID and `--last` resume remain available.
+- Allow duplicate names, but never silently select one matching session over
+  another. Show matching IDs, saved times and workspace information for explicit
+  selection; noninteractive ambiguous lookup must fail with guidance to use an ID.
+  Specify consistent Unicode normalization, whitespace and case matching rules.
+- Treat names as bounded, private user-authored metadata. Render them safely and
+  keep them out of model instructions, curated memory and automatic fresh-session
+  history retrieval. Naming or renaming must not dispatch work, alter conversation
+  content, or make another user's or project's sessions discoverable.
+- Persist names across restart, resume, migration and export/import for both JSON
+  and SQLite storage. Define versioned metadata and integrity coverage so existing
+  unnamed sessions and saved state hashes remain verifiable. Use the existing
+  ownership, locking and stale-selection guards for rename and resume; a changed
+  or deleted selection requires an explicit new choice.
+
+**Acceptance:** create, rename, clear, list, filter and resume named sessions on
+both backends; preserve names through restart and transfers; retain compatibility
+with unnamed sessions; test duplicate and Unicode names, invalid/oversized input,
+safe terminal rendering, workspace/user isolation, concurrent rename and stale
+selection. Selecting a name must not automatically continue queued work.
+
 ### 16.1 Commands
 
 Initial prompts now use `mos chat "PROMPT"` or `mos -- "PROMPT"`; a launch beginning

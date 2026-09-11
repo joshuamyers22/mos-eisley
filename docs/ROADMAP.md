@@ -101,6 +101,11 @@ capabilities, not current automatic template or memory loading.
    uses ordinary admission and persistence, runs before piped follow-ups, and starts
    in the TUI without Enter. Unknown subcommands still fail; passive resume never
    repeats the initial prompt. A resume picker and live setup remain planned.
+   Add user-defined session names alongside the picker: optional naming at creation,
+   rename/clear controls, visible names in the header and session list, filtering,
+   and explicit resume by name. Keep immutable IDs, disambiguate duplicate names,
+   scope lookup to the selected owner/workspace/storage, and preserve names across
+   restart and transfers. See [plan §16.0.3](mos-eisley-plan.md#1603-session-names-and-easy-resume).
    Directory selection/visibility and separate user/project memory are now explicit
    requirements in plan §16.0.1–16.0.2. Deliver scoped memory inspection, editing,
    remember/forget and disable controls with precedence, project isolation and
