@@ -279,6 +279,122 @@ sql = "SELECT COUNT(*) AS row_count FROM data"
             )
             self.assertEqual(json.loads(verified.stdout)["checked_answers"], 12)
 
+    async def test_parameterized_parquet_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            data = root / "data"
+            data.mkdir()
+            server = root / "server.toml"
+            server.write_text(f"[parquet.fixture]\npath={json.dumps(str(data))}\n")
+            config = MCPConfig(
+                command=DATA_PYTHON,
+                cwd=str(root),
+                args=("-m", "data_mcp.cli", "--config", str(server)),
+                tools={"write_parquet": "write"},
+                allow_writes=True,
+            )
+            async with connect_mcp(config) as dispatcher:
+                await invoke(
+                    dispatcher,
+                    "write_parquet",
+                    root="fixture",
+                    path="rows.parquet",
+                    rows_json=json.dumps(
+                        [
+                            {"day": "2026-01-01", "value": 3},
+                            {"day": "2026-01-31", "value": 5},
+                            {"day": "2026-02-01", "value": 7},
+                        ]
+                    ),
+                )
+            ontology = root / "metrics.toml"
+            query = (
+                "SELECT SUM(value) AS total FROM data "
+                "WHERE CAST(day AS DATE) >= $start_day "
+                "AND CAST(day AS DATE) < $end_day"
+            )
+            ontology.write_text(
+                """schema_version=1
+[metrics.total]
+backend="parquet"
+source="fixture"
+paths=["rows.parquet"]
+description="Synthetic bounded date total"
+grain="one total"
+units="units"
+timezone="UTC"
+owner="synthetic-test"
+reviewed_on=2026-09-09
+expected_columns=["total"]
+"""
+                + f"sql={json.dumps(query)}\n"
+                + """
+[[metrics.total.date_windows]]
+start="start_day"
+end="end_day"
+max_days=31
+[metrics.total.parameters.start_day]
+type="date"
+description="Inclusive start"
+minimum=2026-01-01
+maximum=2026-12-31
+[metrics.total.parameters.end_day]
+type="date"
+description="Exclusive end"
+minimum=2026-01-01
+maximum=2027-01-01
+"""
+            )
+            server.write_text(
+                'access_mode="analysis"\n'
+                f"ontology_file={json.dumps(str(ontology))}\n"
+                f"[parquet.fixture]\npath={json.dumps(str(data))}\n"
+            )
+            config = config.model_copy(
+                update={
+                    "allow_writes": False,
+                    "tools": {
+                        "get_semantic_context": "read",
+                        "run_metric": "read",
+                    },
+                }
+            )
+            async with connect_mcp(config) as dispatcher:
+                context = await invoke(dispatcher, "get_semantic_context")
+            revision = context["revision"]
+            for start, end, expected in (
+                ("2026-01-01", "2026-02-01", 8),
+                ("2026-02-01", "2026-03-01", 7),
+            ):
+                parameters = {"start_day": start, "end_day": end}
+                answer = await run_analysis(
+                    AnalysisConfig(
+                        provider="fixture",
+                        model="tool-reviewer-v1",
+                        account="fixture",
+                        question=f"Total from {start} to {end}?",
+                    ),
+                    config,
+                    fixture_registry(),
+                    ParquetCaseClient(
+                        "promoted",
+                        {
+                            "id": "total",
+                            "expected": expected,
+                            "parameters": parameters,
+                        },
+                        revision,
+                    ),
+                )
+                self.assertEqual(answer.answer.status, "answer")
+                self.assertEqual(answer.answer.claims[0].value, expected)
+                self.assertEqual(
+                    answer.sql_trail[0].arguments["parameters"], parameters
+                )
+                self.assertEqual(answer.sql_trail[0].submitted_sql, query)
+                self.assertIn("$start_day", answer.sql_trail[0].normalized_sql or "")
+                self.assertEqual(answer.semantic_revision, revision)
+
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"
     )
@@ -368,7 +484,15 @@ class ParquetCaseClient:
             arguments = (
                 {"root": "fixture", "paths": ["lines.parquet"], "sql": self.case["sql"]}
                 if self.mode == "raw"
-                else {"name": self.case["id"], "revision": self.revision}
+                else {
+                    "name": self.case["id"],
+                    "revision": self.revision,
+                    **(
+                        {"parameters": self.case["parameters"]}
+                        if "parameters" in self.case
+                        else {}
+                    ),
+                }
             )
             turn = Turn(
                 role="assistant",

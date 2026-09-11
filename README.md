@@ -354,7 +354,9 @@ without the promoted catalog: `mos analysis-demo --context-mode raw`. Try
 and checks recorded timing; `mos analysis-comparison-demo --result-root /absolute/private/directory`
 exercises both arms. The optional
 [Parquet case integration](docs/ANALYSIS_PARQUET_CASES.md) also checks six
-nonconstant cases through the real data-mcp server. See the
+nonconstant cases through the real data-mcp server.
+[Parameterized metric integration](docs/ANALYSIS_METRIC_PARAMETERS.md) adds checked
+date-window calls using the same controller. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 
@@ -422,7 +424,17 @@ explicit in-session refresh is available; natural-language saving remains planne
 Remote storage adapters and comprehensive user-isolation enforcement are not yet
 implemented; the current private-file behavior is not a claim of those guarantees.
 
+The [planned storage contract](docs/mos-eisley-plan.md#17-run-artifacts-and-telemetry)
+keeps retained data under one user's ownership while allowing user-configured local
+or cloud backends. It prohibits cross-user aggregation, including model-selection
+statistics, and automatic reuse of prior conversational content in fresh sessions.
+Remote storage adapters and comprehensive user-isolation enforcement are not yet
+implemented; the current private-file behavior is not a claim of those guarantees.
+
 See the [project brief](PROJECT_BRIEF.md),
+[integrated project review](docs/PROJECT_REVIEW_2026-09-08.md),
+[revised adaptive routing design](docs/adaptive-reasoning-routing.md),
+[revised adversarial-loop plan](docs/adversarial-review-loop-project-plan.md),
 [OpenAI provider ADR](docs/adr/0003-openai-first-provider.md),
 [OpenAI model readiness](docs/OPENAI_READINESS.md),
 [OpenAI Responses canary](docs/OPENAI_RESPONSES_CANARY.md),
