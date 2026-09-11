@@ -262,9 +262,11 @@ class ConversationExportTests(TestCase):
         original = SQLiteConversationStore.inspect_snapshot
         count = 0
 
-        def changed(store: SQLiteConversationStore) -> tuple[ConversationSnapshot, int]:
+        def changed(
+            store: SQLiteConversationStore, **kwargs: int
+        ) -> tuple[ConversationSnapshot, int]:
             nonlocal count
-            snapshot, timestamp = original(store)
+            snapshot, timestamp = original(store, **kwargs)
             count += 1
             if count == 2:
                 state = snapshot.state.model_copy(

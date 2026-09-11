@@ -126,7 +126,9 @@ capabilities, not current automatic template or memory loading.
    in the same or another private directory with exact-hash preview, atomic
    publication and source preservation. Same-directory export reuses the shared
    session lock and version-2 plans; existing cross-directory hashes retain version 1.
-   Batch export and bulk retention remain open. The transcript CLI now
+   Bounded batch export now preflights up to 32 sessions and 64 MB of JSON output,
+   binds exact source plans to one hash, and reports verified per-session results
+   for safe retry after partial publication. Bulk retention remains open. The transcript CLI now
    reads bounded text pages using saved entry hashes and stale-cursor guards, with
    explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.

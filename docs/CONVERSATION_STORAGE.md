@@ -19,10 +19,12 @@ artifact under a separate 512,000-byte default read budget; the CLI can raise th
 up to 32 MB without changing session retention or model context limits.
 `resume --inspect` now reads a candidate working set from a separately verified
 checkpoint without resuming the controller. Further bounds on controller resume,
-batch export and retention remain planned. `session-export` now copies
+retention remains planned. `session-export` now copies
 one SQLite session to JSON in the same or another existing private directory while retaining
 the read-only source; see the
 [export contract](CONVERSATION_SQLITE.md#export-a-sqlite-session-to-json).
+`session-export-batch` extends that export to 1–32 explicit IDs and 64 MB of
+verified JSON output, with complete source preflight and per-session results.
 
 ## Current controls
 
@@ -398,7 +400,12 @@ Implement these stages under the storage and ownership contract in
    SQLite source, and verifies retries after atomic publication. Same-directory
    export now reuses the held session lock, is the CLI default destination, and
    uses version-2 plans while cross-directory version-1 hashes remain unchanged.
-   Batch export and retention remain open.
+   Batch export now admits 1–32 selected SQLite sessions and at most 64 MB of
+   canonical JSON output. It preflights all sources without retaining decoded
+   histories, then caps each reread at the selected size and publishes per session.
+   Retry verifies completed copies; later failures report the verified prefix.
+   See the [batch export contract](CONVERSATION_SQLITE.md#export-a-selected-batch-of-sqlite-sessions).
+   Retention remains open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.
