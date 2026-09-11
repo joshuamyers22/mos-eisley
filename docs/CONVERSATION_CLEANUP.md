@@ -89,6 +89,10 @@ and SQLite writers throughout selection and removal.
 
 Unlinking is logical deletion, not secure erasure from filesystem snapshots,
 backups, storage hardware or already-open file descriptors. Backup/journal expiry,
-automatic age policies, broader unreferenced-object retention, configurable physical
+automatic age-based deletion, broader unreferenced-object retention, configurable physical
 quotas and SQLite vacuum/compaction remain planned. This step does not satisfy the
 [long-session capacity and recovery gate](CONVERSATION_STORAGE.md#planned-incremental-storage).
+
+A separate [workspace retention preview](CONVERSATION_RETENTION.md) now evaluates
+a saved-time cutoff and keep-newest policy against SQLite index metadata. It
+reports candidates and retention reasons; policy apply remains planned.

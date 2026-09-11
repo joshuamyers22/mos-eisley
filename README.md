@@ -57,6 +57,10 @@ and 64 MB of JSON output; apply with its batch hash and retry partial exports sa
 interrupted writes; apply with its cleanup hash. This is explicit storage-owner
 maintenance, including orphans without a published session. See the
 [cleanup and recovery guide](docs/CONVERSATION_CLEANUP.md).
+`mos session-retention --before 2026-08-01T00:00:00Z` now previews a SQLite retention
+policy for the current workspace, protecting the newest 20 sessions and active or
+noncompleted work. It reports indexed sizes and retention reasons without deleting
+anything. See the [retention preview guide](docs/CONVERSATION_RETENTION.md).
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects

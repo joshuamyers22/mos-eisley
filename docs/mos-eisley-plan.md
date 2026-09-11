@@ -1808,6 +1808,18 @@ scoped because truncated bytes cannot prove project membership. Broader object
 retention, quotas, backup/journal expiry and the capacity gate remain open. See the
 [cleanup contract](CONVERSATION_CLEANUP.md).
 
+Workspace retention preview is now available through `session-retention`, using
+an explicit UTC saved-time cutoff and a configurable keep-newest count (default
+20). One read-only SQLite transaction admits at most 1,000 workspace indexes,
+checks their digests and identity, and reports candidates, retained sessions, all
+retention reasons and indexed logical-byte totals. Newest, active and noncompleted
+sessions are protected. Metadata is read one bounded index at a time without
+hydrating bodies; activity probes are momentary and do not reserve deletion. The
+version-1 plan binds storage, workspace, store/generation, policy and ordered
+results. Its hash identifies the observation and grants no deletion authority.
+Full-state verification, race-safe policy apply and physical-space reclamation
+remain separate work. See the [retention preview contract](CONVERSATION_RETENTION.md).
+
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
 model context, memory, message, tool, or spending bounds. Complete the following
