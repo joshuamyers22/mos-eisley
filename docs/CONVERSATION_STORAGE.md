@@ -7,15 +7,15 @@ it is not the long-term capacity target for a coding conversation.
 An [opt-in SQLite backend](CONVERSATION_SQLITE.md) now provides incremental message
 and artifact persistence plus metadata pages. The controls below describe the JSON
 backend unless specified; SQLite shares the per-session logical budget but uses
-`--limit`/`--cursor` for listing. Explicit single-session migration now previews and
-copies JSON into SQLite in the same root while preserving the source; see the
+`--limit`/`--cursor` for listing. Explicit single-session and bounded batch migration
+now preview and copy JSON into SQLite in the same root while preserving sources; see the
 [migration guide](CONVERSATION_SQLITE.md#import-an-existing-json-session).
 The transcript CLI and SQLite terminal's F5 browser now read bounded text pages with
 artifact references. F7/F8 and `session-artifact` explicitly expand one selected
 artifact under a separate 512,000-byte default read budget; the CLI can raise this
 up to 32 MB without changing session retention or model context limits.
 `resume --inspect` now reads a candidate working set from a separately verified
-checkpoint without resuming the controller. Bounded controller resume and bulk
+checkpoint without resuming the controller. Bounded controller resume and cross-root
 migration remain planned.
 
 ## Current controls
@@ -312,7 +312,7 @@ under a 512,000-byte entry input bound, then stream the exact snapshot hash and 
 Active memory and recordings hydrate within per-launch input limits. JSON and
 legacy compatibility saves still serialize full proposed state. The preview's
 message cap remains. The stages
-below remain the complete target, including bulk migration and the long-session gate.
+below remain the complete target, including cross-root migration and the long-session gate.
 
 Implement these stages under the storage and ownership contract in
 [plan §17](mos-eisley-plan.md#17-run-artifacts-and-telemetry):
@@ -372,6 +372,15 @@ Implement these stages under the storage and ownership contract in
    old snapshots when listing. Add retention previews and safe cleanup of
    unreferenced objects, including interrupted writes; explain backup/journal
    expiry instead of claiming secure erasure.
+
+   Bounded same-root batches now accept 1–32 explicit IDs and at most 64 MB of
+   selected source JSON per pass. A versioned metadata plan binds source hashes,
+   sizes, ownership, workspace and storage-directory identity before apply.
+   Imports commit per session, report a completed prefix on failure and verify
+   existing copies on retry. Read-only preview and explicit apply retain their
+   distinct rollback-journal behavior. See the
+   [batch migration contract](CONVERSATION_SQLITE.md#import-a-selected-batch-of-json-sessions).
+   Cross-root moves, reverse migration and retention remain open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.

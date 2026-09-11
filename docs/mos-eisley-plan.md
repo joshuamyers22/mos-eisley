@@ -1971,7 +1971,7 @@ initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-roo
 JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
 inside the transaction and retains the JSON source. Verified retries cover rollback
-and an already committed import. Bulk/cross-root migration, incomplete database
+and an already committed import. Cross-root migration, incomplete database
 initializer repair remain open. `mos session-transcript SESSION_ID` now reads
 bounded, verified text pages without loading the header or artifact contents.
 Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
@@ -2186,7 +2186,7 @@ bounded records for transcript and resume inspection without artifact expansion;
 both backends and migration preserve it. Existing entries remain unmodified with
 no invented historical provenance. This records admitted inputs and may survive a
 crash before transmission; it is not proof of provider receipt. Visible compaction,
-bulk migration and the long-session capacity gate remain open. See the
+cross-root migration and the long-session capacity gate remain open. See the
 [saved admission contract](CONVERSATION_STORAGE.md#saved-request-admissions).
 
 `/context N` now inspects that saved metadata directly from a zero-based transcript
@@ -2198,6 +2198,21 @@ The version-1 inspection event is separate from the schema-2 next-queued preview
 The screen toggles the selected report and marks the displayed status/revision
 stale after session changes; refreshing leaves the admission unchanged. Pasted and
 composed command text remains literal input.
+
+Bounded same-root JSON-to-SQLite batch migration is now available through
+`session-migrate-batch`: 1–32 explicit session IDs, at most 64 MB of selected source
+JSON, metadata-only planning and an exact batch hash required for apply. The plan
+binds source hashes/sizes, owner, workspace and storage-directory identity while
+excluding destination status, so a partial batch can retry the same selection.
+Every source is preflighted before destination work, then each import uses the
+existing source lock, size/hash rechecks, full destination verification and atomic
+transaction. Completed imports remain after a later failure; results report the
+verified prefix and failing session. Retry verifies existing copies and does not
+overwrite advanced destinations. Read-only preview refuses hot journals; explicit
+apply permits recovery after validating the batch selection. Sources, attempts and
+admission records are preserved. Cross-root/reverse migration, retention and the
+long-session capacity gate remain open. See the
+[batch contract](CONVERSATION_SQLITE.md#import-a-selected-batch-of-json-sessions).
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

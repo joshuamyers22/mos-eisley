@@ -243,11 +243,17 @@ class ConversationStore:
     def _read(self) -> ConversationSnapshot:
         return self.inspect_json_snapshot()[0]
 
-    def inspect_json_snapshot(self) -> tuple[ConversationSnapshot, int, int]:
+    def inspect_json_snapshot(
+        self, *, byte_limit: int = MAX_BYTES
+    ) -> tuple[ConversationSnapshot, int, int]:
         """Read JSON and its filesystem metadata while this handle holds the lock."""
         if self._deleted:
             raise ValueError("conversation has been deleted")
-        snapshot, modified_ns, size = _snapshot(self._root, self.session_id)
+        if type(byte_limit) is not int or not 1 <= byte_limit <= MAX_BYTES:
+            raise ValueError("invalid JSON snapshot read limit")
+        snapshot, modified_ns, size = _snapshot(
+            self._root, self.session_id, byte_limit=byte_limit
+        )
         state = snapshot.state
         if state.workspace != self.workspace:
             raise ValueError("conversation workspace mismatch")

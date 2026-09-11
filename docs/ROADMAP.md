@@ -116,9 +116,13 @@ capabilities, not current automatic template or memory loading.
    incremental message/artifact writes, atomic saves/deletes and bounded metadata
    pages with generation-bound cursors. Explicit same-root JSON-to-SQLite migration
    now preserves exact state and source files, with dry-run sizing and verified
-   retries after transaction interruption. The transcript CLI now reads bounded
-   text pages using saved entry hashes and stale-cursor guards, with explicit
-   preparation for legacy indexes. SQLite's terminal now browses those pages with
+   retries after transaction interruption. Bounded same-root batches now select up
+   to 32 explicit sessions under a 64 MB source budget, bind the selection to a
+   versioned batch hash and commit one import at a time. Partial results and retries
+   verify completed copies without overwriting or recovering uncertain attempts.
+   Cross-root migration and bulk retention remain open. The transcript CLI now
+   reads bounded text pages using saved entry hashes and stale-cursor guards, with
+   explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
    F7/F8 and `session-artifact` now expand one explicitly selected memory/review
    artifact with snapshot binding, integrity checks and a separate byte budget.
@@ -171,7 +175,7 @@ capabilities, not current automatic template or memory loading.
    It reads existing metadata without rebuilding requests, saving or enabling work;
    missing/legacy admissions produce notices and the TUI marks changed views stale.
    Admission does not prove provider receipt. Visible compaction, smaller
-   text/record transitions, bulk migration and the long-session acceptance gate
+   text/record transitions, cross-root migration and the long-session acceptance gate
    remain open.
    Mid-request interruption and live review
    remain open.
