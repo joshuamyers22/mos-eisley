@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add preview-bound project-memory copying from a workspace to an empty ancestor
+  root. Preserve source documents and session history; reject stale identities,
+  changed content and collisions, with atomic no-overwrite publication and fault
+  tests. Document interrupted-publication recovery and deferred merge support.
+
 - Plan version 0.1.0 support for Windows hosts through a tested WSL2/Linux deployment
   and full native Windows parity in version 0.1.1. Define platform-neutral identity,
   storage, terminal, credential, process, sandbox, migration, CI, and release gates;

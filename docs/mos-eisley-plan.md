@@ -1531,13 +1531,22 @@ documents under one shared lock and reports source-only, target-only, empty,
 same-identity or collision states, including disabled/empty documents. Starting a
 root-selected chat uses the root document; it leaves workspace documents untouched.
 
-**Next migration milestone:** add guarded apply after a fresh preview. Bind storage
-and directory identities, source/target hashes and the proposed content, then
-recheck them under an exclusive lock before publication. Resolve collisions before
-writing or merging; preserve source documents, historical memory and request hashes.
-The current preview hash is informational and grants no apply authority. Existing
-session identities cannot be overridden on resume. Project moves and worktree sharing
-require explicit mappings; common Git metadata or remote URLs never merge memory.
+**Guarded copy batch:** `memory-project-migrate` previews the complete proposed
+document and copies an existing workspace document only to an absent ancestor-root
+document. Apply requires its fresh hash, binds storage/lock and directory identities
+plus source/target snapshots and proposed bytes, and rechecks under an exclusive lock
+immediately before atomic no-overwrite publication. Disabled and empty documents
+count as collisions. Source/user documents, saved session identities, historical
+memory and request hashes are preserved. The earlier `memory-project-preview` hash
+remains informational and is not accepted for apply. Focused stale-input, identity,
+locking, collision and interrupted-publication tests run before the combined gate.
+
+**Next migration milestone:** reviewed collision resolution/merge and guarded
+interrupted-publication recovery. The copy command currently documents operator
+recovery for a process killed while the staging alias still links to the target;
+readers retain their single-link rejection. Project moves and worktree sharing need
+explicit mappings; common Git metadata or remote URLs never merge memory. Existing
+session identities cannot be overridden on resume.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
