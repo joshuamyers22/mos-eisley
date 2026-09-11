@@ -109,7 +109,11 @@ capabilities, not current automatic template or memory loading.
    review expansion and status bar. Bare `mos` now launches in the current workspace
    with built-in recorded responses and private default storage; `-C` selects a
    workspace and `mos resume --last` returns without repeating paths. Initial
-   positional prompts, a resume picker and live setup remain planned.
+   positional prompts are now supported through `mos chat "PROMPT"`,
+   `mos -- "PROMPT"`, or a launch with session options. The literal first message
+   uses ordinary admission and persistence, runs before piped follow-ups, and starts
+   in the TUI without Enter. Unknown subcommands still fail; passive resume never
+   repeats the initial prompt. A resume picker and live setup remain planned.
    Directory selection/visibility and separate user/project memory are now explicit
    requirements in plan §16.0.1–16.0.2. Deliver scoped memory inspection, editing,
    remember/forget and disable controls with precedence, project isolation and
@@ -141,7 +145,9 @@ capabilities, not current automatic template or memory loading.
    session lock and version-2 plans; existing cross-directory hashes retain version 1.
    Bounded batch export now preflights up to 32 sessions and 64 MB of JSON output,
    binds exact source plans to one hash, and reports verified per-session results
-   for safe retry after partial publication. Bulk retention remains open. The transcript CLI now
+   for safe retry after partial publication. Temporary cleanup, metadata retention
+   preview, and verified single/batch pruning are now implemented; automatic expiry
+   and physical quotas remain open. The transcript CLI now
    reads bounded text pages using saved entry hashes and stale-cursor guards, with
    explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
    F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.

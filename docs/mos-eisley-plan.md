@@ -1359,8 +1359,10 @@ Bare `mos` now opens that interface in the current workspace, displays the works
 and session ID, and uses a built-in recording with private default storage.
 `mos -C PATH` selects another workspace; `mos resume --last` reopens the latest
 session in that workspace without requiring cassette/storage flags. Initial
-positional prompts, an interactive resume picker and live authentication/setup
-remain planned. The default preview needs no credentials or network connection.
+literal prompts now use `mos chat "PROMPT"`, `mos -- "PROMPT"`, or session launch
+options followed by a prompt. An interactive resume picker and live
+authentication/setup remain planned. The default preview needs no credentials
+or network connection.
 The full product contract below remains the target; live conversation/review,
 mid-request interruption and advanced terminal controls are not yet available.
 
@@ -1537,10 +1539,20 @@ and unchanged critic isolation. Deliver inspectable, explicit memory first;
 automatic memory extraction remains a later, separately configurable feature.
 ### 16.1 Commands
 
+Initial prompts now use `mos chat "PROMPT"` or `mos -- "PROMPT"`; a launch beginning
+with session options also accepts one prompt. The explicit separator preserves
+unknown-command errors. Startup submits literal text through the shared controller
+before reading piped follow-ups or awaiting TUI input, with existing input, memory,
+context, storage and recorded-request checks. Blank, oversized or invalid UTF-8
+prompts fail before storage creation. Resume without submitted input stays passive
+and never repeats the initial prompt. See the [terminal guide](CONVERSATION_TUI.md).
+The command examples below also include later planned capabilities.
+
 ```
 mos                                    # interactive TUI in cwd
 mos -C /path/to/project                 # select and display the working directory
-mos "prompt"                           # TUI with initial prompt
+mos -- "prompt"                        # TUI with literal initial prompt
+mos chat "prompt"                      # explicit new-session form
 mos exec "prompt"                      # non-interactive
 mos exec --json "prompt"               # NDJSON events, one per state change
 mos exec resume --last

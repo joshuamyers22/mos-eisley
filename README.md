@@ -22,12 +22,15 @@ Start the interactive recorded conversation from your project directory:
 uv run --frozen mos
 # After installing the CLI on PATH, simply run: mos
 uv run --frozen mos resume --last
+uv run --frozen mos -- "Remember that the fixture boundary is ten."
 ```
 
 The welcome screen shows the workspace and supported preview messages. Sessions
 save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Live conversation is still pending. See the
 [terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
+launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

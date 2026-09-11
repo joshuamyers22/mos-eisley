@@ -113,6 +113,7 @@ class ConversationTUI:
         review_packet: ConversationReviewPacket | None = None,
         *,
         welcome: str = "",
+        initial_prompt: str | None = None,
         refresh_memory: Callable[[bool], None] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         load_artifact: Callable[[str], ArtifactContent] | None = None,
@@ -122,6 +123,7 @@ class ConversationTUI:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.initial_prompt = initial_prompt
         self.refresh_memory = refresh_memory
         self.history = (
             None
@@ -656,6 +658,7 @@ class ConversationTUI:
                 self.emit,
                 self.review_packet,
                 self.refresh_memory,
+                initial_prompt=self.initial_prompt,
             )
         )
         screen = asyncio.create_task(self.app.run_async(set_exception_handler=False))
