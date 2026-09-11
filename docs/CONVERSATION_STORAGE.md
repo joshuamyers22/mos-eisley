@@ -425,7 +425,13 @@ Implement these stages under the storage and ownership contract in
    before writable access, then rechecks the plan under a write transaction and
    atomically deletes the selected session and its records. JSON copies and lock
    inodes remain in place. See the [pruning contract](CONVERSATION_PRUNE.md).
-   Bulk/automatic policy apply, broader object retention, quotas and backup/journal
+   Explicit batch policy apply now uses `session-prune-batch`: 1–32 unique IDs,
+   at most 64 MB of logical snapshots, all selected locks held, and one policy read
+   per transaction. Every selected state is fully verified before any deletion;
+   apply revalidates the entire batch inside one write transaction and advances
+   generation once. There is no partial success receipt. See the
+   [batch pruning contract](CONVERSATION_BATCH_PRUNE.md).
+   Automatic policy apply, broader object retention, quotas and backup/journal
    expiry remain open.
 
 Before replacing the current backend or lifting the message cap, test at least

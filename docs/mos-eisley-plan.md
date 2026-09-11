@@ -1829,9 +1829,22 @@ rechecks policy and full state under `BEGIN IMMEDIATE` before atomically deletin
 the session and its cascading records. Root and file identities are rechecked;
 generation or observed policy changes require a fresh preview. Receipts are issued
 after commit, and missing IDs are not treated as proof of an earlier successful
-prune. JSON copies, temporary files and lock inodes remain. Bulk/automatic policy
+prune. JSON copies, temporary files and lock inodes remain. Automatic policy
 apply and physical-space reclamation remain open. See the
 [pruning contract](CONVERSATION_PRUNE.md).
+
+Explicit batch retention apply now uses `session-prune-batch` for 1–32 unique IDs
+and at most 64 MB of logical snapshots. All selected session locks are held in
+sorted order. Each verification phase reads the workspace policy once, rejects
+ineligible or oversized selections before loading bodies, and fully verifies each
+selected state while releasing previous states. The separate batch hash binds one
+retention observation and all selected state/file identities. Apply repeats
+read-only preflight before writable access, then rechecks the complete selection
+under `BEGIN IMMEDIATE`. All selected rows and cascades are deleted in one commit
+with one generation increment; precommit failures roll back the entire batch.
+Missing IDs are not proof of a successful prior batch, and JSON copies remain.
+Automatic expiry, quotas and physical reclamation remain open. See the
+[batch pruning contract](CONVERSATION_BATCH_PRUNE.md).
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

@@ -96,6 +96,7 @@ from mos_eisley.run.conversation_batch_migration import (
     BatchMigrationError,
     migrate_batch,
 )
+from mos_eisley.run.conversation_batch_prune import prune_sessions
 from mos_eisley.run.conversation_batch_transfer import (
     BatchTransferError,
     transfer_batch,
@@ -209,6 +210,36 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    batch_prune = add_parser(
+        "session-prune-batch",
+        help="Preview or atomically delete explicit eligible SQLite sessions",
+    )
+    batch_prune.add_argument("session_ids", nargs="+", help="1–32 unique session IDs")
+    batch_prune.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    batch_prune.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    batch_prune.add_argument(
+        "--before",
+        type=retention_cutoff,
+        required=True,
+        help="Saved before this UTC timestamp: YYYY-MM-DDTHH:MM:SSZ",
+    )
+    batch_prune.add_argument(
+        "--keep-newest",
+        type=int,
+        default=20,
+        help="Always retain the newest N workspace sessions (0–1000; default 20)",
+    )
+    batch_prune.add_argument(
+        "--expected-sha256", help="Exact hash from a session-prune-batch preview"
+    )
+    batch_prune.add_argument(
+        "--apply", action="store_true", help="Atomically delete this verified batch"
+    )
+    batch_prune.add_argument(
+        "--json", action="store_true", help="Print a JSON batch prune receipt"
+    )
     prune = add_parser(
         "session-prune", help="Preview or delete one eligible SQLite session"
     )
@@ -1100,6 +1131,31 @@ def _run_retention(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_batch_prune(args: argparse.Namespace) -> int:
+    try:
+        receipt = prune_sessions(
+            args.storage,
+            args.workspace,
+            tuple(args.session_ids),
+            before_ns=args.before,
+            keep_newest=args.keep_newest,
+            expected_sha256=args.expected_sha256,
+            apply=args.apply,
+        )
+    except ValidationError:
+        raise ValueError(
+            "Batch prune policy or saved state failed validation."
+        ) from None
+    print(
+        json.dumps(
+            {"type": "conversation.batch_prune", **receipt.model_dump(mode="json")},
+            ensure_ascii=True,
+            indent=None if args.json else 2,
+        )
+    )
+    return 0
+
+
 def _run_prune(args: argparse.Namespace) -> int:
     try:
         receipt = prune_session(
@@ -1124,6 +1180,8 @@ def _run_prune(args: argparse.Namespace) -> int:
 
 
 def _run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-prune-batch":
+        return _run_batch_prune(args)
     if args.command == "session-prune":
         return _run_prune(args)
     if args.command == "session-retention":
