@@ -1,4 +1,4 @@
-"""Explicit ancestor memory identities; Git discovery never selects one."""
+"""Explicit ancestor and mapped memory identities; Git never selects one."""
 
 import json
 from pathlib import Path, PurePosixPath
@@ -10,31 +10,47 @@ if TYPE_CHECKING:
     from mos_eisley.conversation_directory import DirectorySelection
 
 
-def memory_workspace(workspace: str, project_root: str | None) -> str:
-    if project_root is None:
+def memory_workspace(
+    workspace: str, project_root: str | None, project_mapping: str | None = None
+) -> str:
+    if project_root is not None and project_mapping is not None:
+        raise ValueError("Choose either a memory project root or an explicit mapping.")
+    selected = project_mapping if project_mapping is not None else project_root
+    if selected is None:
         return workspace
-    root = PurePosixPath(project_root)
+    root = PurePosixPath(selected)
     working = PurePosixPath(workspace)
     if (
         not root.is_absolute()
-        or str(root) != project_root
+        or str(root) != selected
+        or not working.is_absolute()
         or str(working) != workspace
         or ".." in root.parts
         or ".." in working.parts
-        or not working.is_relative_to(root)
-        or not project_root.isprintable()
-        or len(project_root.encode("utf-8")) > 4096
+        or (project_mapping is None and not working.is_relative_to(root))
+        or not selected.isprintable()
+        or len(selected.encode("utf-8")) > 4096
     ):
-        raise ValueError("Memory project root must be a canonical workspace ancestor.")
-    return project_root
+        raise ValueError(
+            "Memory project mapping must be a canonical absolute path."
+            if project_mapping is not None
+            else "Memory project root must be a canonical workspace ancestor."
+        )
+    return selected
 
 
-def select_memory_project(workspace: Path, root: Path) -> "DirectorySelection":
+def select_memory_project(
+    workspace: Path, root: Path, *, mapped: bool = False
+) -> "DirectorySelection":
     from mos_eisley.conversation_directory import DirectorySelection
 
     working = DirectorySelection.inspect(workspace)
     selected = DirectorySelection.inspect(root)
-    memory_workspace(str(working.path), str(selected.path))
+    memory_workspace(
+        str(working.path),
+        None if mapped else str(selected.path),
+        str(selected.path) if mapped else None,
+    )
     return selected
 
 

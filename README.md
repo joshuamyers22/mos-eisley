@@ -53,6 +53,9 @@ and applies a guarded copy to an empty root, preserving the source document.
 extra staging link left by interrupted publication.
 `memory-project-resolve` reviews existing-document collisions and preserves a
 private prior-root backup before applying an explicit text resolution.
+Use `--memory-project-map PATH` to explicitly share another existing directory's
+memory across unrelated worktrees. The choice is saved per session; directory
+switching clears it, and workspace/tool authority stays with the working directory.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

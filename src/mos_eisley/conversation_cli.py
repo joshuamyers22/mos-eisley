@@ -174,6 +174,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--no-memory",
         "--memory-storage",
         "--memory-project-root",
+        "--memory-project-map",
         "--session-max-bytes",
         "--context-max-bytes",
         "--active-memory-max-bytes",
@@ -253,6 +254,21 @@ def demo_cassette(
         )
         turns += (response_turn,)
     return AgentCassette(exchanges=tuple(exchanges))
+
+
+def add_memory_project_options(command: argparse.ArgumentParser) -> None:
+    identity = command.add_mutually_exclusive_group()
+    identity.add_argument(
+        "--memory-project-root",
+        type=Path,
+        help="Use this explicit ancestor's project memory for the new session",
+    )
+    identity.add_argument(
+        "--memory-project-map",
+        dest="memory_project_mapping",
+        type=Path,
+        help="Explicitly share this directory's memory, including across worktrees",
+    )
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
@@ -605,16 +621,12 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     review_demo.add_argument("--review-output", type=Path, required=True)
     for generator in (demo, review_demo):
         add_memory_options(generator)
-        generator.add_argument("--memory-project-root", type=Path)
+        add_memory_project_options(generator)
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name == "chat":
-            command.add_argument(
-                "--memory-project-root",
-                type=Path,
-                help="Use this explicit ancestor's project memory for the new session",
-            )
+            add_memory_project_options(command)
             command.add_argument(
                 "--name",
                 type=parse_name,
@@ -1164,11 +1176,17 @@ async def terminal(
                             }
                         )
                 elif line == "/directory":
+                    memory_mapping = controller.state.memory_project_mapping
                     emit(
                         {
                             "type": "conversation.directory",
                             **project_location.fields(
                                 controller.state.effective_memory_workspace
+                            ),
+                            **(
+                                {"memory_project_mapping": memory_mapping}
+                                if memory_mapping is not None
+                                else {}
                             ),
                             "text": project_location.describe(
                                 controller.state.effective_memory_workspace
@@ -1296,22 +1314,33 @@ def run_command(args: argparse.Namespace) -> int:
                     "--choose-directory requires terminal input/output; "
                     "use -C PATH for noninteractive commands."
                 )
+            mapping = getattr(args, "memory_project_mapping", None)
+            root = getattr(args, "memory_project_root", None)
+            if mapping is not None and root is not None:
+                raise ValueError("Choose one project memory identity.")
+            memory_path = mapping if mapping is not None else root
             memory_directory = (
-                DirectorySelection.inspect(args.memory_project_root)
-                if getattr(args, "memory_project_root", None) is not None
+                DirectorySelection.inspect(memory_path)
+                if memory_path is not None
                 else None
             )
             selected = pick_directory(
                 args.workspace,
                 memory_project_root=None
-                if memory_directory is None
+                if memory_directory is None or mapping is not None
+                else memory_directory.path,
+                memory_project_mapping=None
+                if memory_directory is None or mapping is None
                 else memory_directory.path,
             )
             if selected is None:
                 return 0
             if memory_directory is not None:
                 memory_directory.verify()
-                args.memory_project_root = memory_directory.path
+                if mapping is None:
+                    args.memory_project_root = memory_directory.path
+                else:
+                    args.memory_project_mapping = memory_directory.path
             args.workspace = selected.path
             args.directory_selection = selected
         while True:
@@ -1815,8 +1844,15 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         return 2
     memory = None
     memory_project = None
-    if getattr(args, "memory_project_root", None) is not None:
-        memory_project = select_memory_project(args.workspace, args.memory_project_root)
+    mapping = getattr(args, "memory_project_mapping", None)
+    root = getattr(args, "memory_project_root", None)
+    if mapping is not None and root is not None:
+        raise ValueError("Choose one project memory identity.")
+    memory_path = mapping if mapping is not None else root
+    if memory_path is not None:
+        memory_project = select_memory_project(
+            args.workspace, memory_path, mapped=mapping is not None
+        )
     if isinstance(directory, DirectorySelection):
         directory.verify()
     if (
@@ -1984,7 +2020,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             memory,
             memory_disabled=args.no_memory,
             memory_project_root=None
-            if memory_project is None
+            if memory_project is None or mapping is not None
+            else str(memory_project.path),
+            memory_project_mapping=None
+            if memory_project is None or mapping is None
             else str(memory_project.path),
             snapshot_max_bytes=args.session_max_bytes,
             context_max_bytes=args.context_max_bytes,
@@ -2117,6 +2156,11 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             {
                 "type": "conversation.opened",
                 **project_location.fields(controller.state.effective_memory_workspace),
+                **(
+                    {"memory_project_mapping": controller.state.memory_project_mapping}
+                    if controller.state.memory_project_mapping is not None
+                    else {}
+                ),
                 "session_id": session_id,
                 **(
                     {"session_name": controller.state.session_name}

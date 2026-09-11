@@ -10,14 +10,15 @@ mos chat -C /repo/packages/web --memory-project-root /repo
 ```
 
 The preview is read-only. A new chat loads the selected root's existing project
-document plus enabled user memory. Without `--memory-project-root`, the canonical
-working directory remains the project-memory identity.
+document plus enabled user memory. Without an explicit root or mapping option, the
+canonical working directory remains the project-memory identity.
 
 The root must be an existing directory containing the workspace, or the workspace
 itself. Paths and aliases resolve canonically; relative flags use the launching
 shell's directory and `~` expands to home. Selection is explicit and does not
 require a Git marker. Git discovery, remote URLs and worktree metadata never select
-or merge memory automatically. Unrelated directories require future explicit mapping.
+or merge memory automatically. Use the separate mapping option below for unrelated
+directories.
 
 `--choose-directory` previews the effective memory root and rejects workspaces
 outside it. The selected directories are rechecked before startup. The root is
@@ -25,6 +26,47 @@ saved even with `--no-memory`, so a later explicit memory refresh uses the same
 identity. The synthetic `conversation-demo` and `conversation-review-demo` commands
 also accept `--memory-project-root`; repeat the same memory options when generating
 and using custom recordings.
+
+## Share memory across worktrees
+
+Map a new session explicitly to another existing directory's project memory:
+
+```sh
+mos memory show --scope project -C /projects/main
+mos chat -C /worktrees/feature-a --memory-project-map /projects/main
+mos chat -C /worktrees/feature-b --memory-project-map /projects/main
+```
+
+The worktrees can live outside the selected directory. Both sessions load the same
+owner-scoped project document, plus user memory. Use the same `--memory-storage`
+override for inspection, editing and sessions when configured. Edit shared project
+memory with the existing memory commands using `-C /projects/main`; changes affect
+all sessions selecting that identity and use the normal explicit refresh guard.
+
+`--memory-project-map` and `--memory-project-root` are mutually exclusive. The root
+option still requires an ancestor. Mapping is explicit per new launch and is saved
+with that session; there is no ambient mapping registry or Git-based inference.
+The selected directory must exist, paths resolve canonically, and aliases are
+pinned before startup. Bare `mos --memory-project-map PATH` and the two recording
+generators accept the option. Repeat it when creating and using custom recordings.
+
+`--choose-directory` previews the mapped identity while allowing an unrelated
+workspace. Source and selected memory directories are rechecked before startup.
+`--no-memory` retains the selected identity without loading or creating memory
+storage; a later explicit refresh uses it. Resume retains the saved mapping and
+accepts neither root nor mapping overrides. A saved target path retargeted through
+a symlink is rejected. `/directory` and startup JSON show the effective memory
+workspace and expose `memory_project_mapping` for mapped sessions.
+
+Mapping changes memory selection only. It preserves the session's working
+directory, lookup and filesystem/tool authority. It does not copy or merge the
+workspace's existing memory, edit documents, rewrite old sessions or share memory
+between OS users. Directory switching clears the mapping for the fresh session.
+The existing copy/resolution commands retain their ancestor-only scope.
+
+Relocation from a vanished old directory, cross-mapping document transfers and a
+persistent mapping registry remain planned. Keep the selected directory accessible
+for mapped sessions; this flag is not a saved-session relocation mechanism.
 
 ## Inspect before adopting
 
@@ -212,19 +254,21 @@ other sessions sharing the root and does not undo the copy or delete its source.
 ## Resume and compatibility
 
 Resume with the original working directory and storage/backend. The saved memory
-identity is reused; `resume` does not accept a root override. Changed Git markers
+identity is reused; `resume` does not accept root or mapping overrides. Changed Git markers
 cannot retarget memory. `/memory refresh`, `/memory off`, and resume refresh preserve
 the identity, historical memory and consumed recording exchanges. `/directory` and
 startup JSON report the effective `memory_workspace` separately from the discovered
 `project_root`.
 
 Directory switching starts a fresh session with workspace-scoped memory and clears
-the old explicit root option. Use a separate new launch to select another memory
+the old explicit root or mapping option. Use a separate new launch to select another memory
 root. Session lookup, names, tool authority and filesystem access stay scoped to
 their existing contracts.
 
-Legacy sessions retain their workspace binding and canonical bytes. Root-selected
-sessions carry an optional `memory_project_root` field in saved state and SQLite
-indexes. Current JSON/SQLite transfers and historical artifact readers preserve
-and validate it. Older binaries may reject these sessions; retain an updated CLI
-to resume them. Removing the field is not a supported downgrade or migration.
+Legacy and ancestor-root sessions retain their existing canonical bytes. Mapped
+sessions add the optional `memory_project_mapping` field to saved state and SQLite
+indexes, mutually exclusive with `memory_project_root`. Current JSON/SQLite
+transfers, cold resume and historical artifact readers preserve and validate the
+selected identity. Older binaries may reject mapped sessions; retain an updated
+CLI to resume them. Removing either identity field is not a supported downgrade
+or migration.
