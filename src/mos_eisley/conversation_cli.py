@@ -152,9 +152,24 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--pending-text-max-bytes",
         "--storage-backend",
     }
-    if not argv or argv[0].split("=", 1)[0] in launch_options:
+    if not argv or argv[0] == "--" or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
     return argv
+
+
+def launch_prompt(value: str) -> str:
+    """Admit literal launch text without echoing rejected content in parser errors."""
+    try:
+        value.encode("utf-8")
+    except UnicodeError:
+        raise argparse.ArgumentTypeError(
+            "Initial prompt must be valid UTF-8 text."
+        ) from None
+    if not value.strip() or len(value) > 8000 or value.count("\n") >= 256:
+        raise argparse.ArgumentTypeError(
+            "Initial prompt requires text within 8,000 characters and 256 lines."
+        )
+    return value
 
 
 def demo_cassette(
@@ -497,6 +512,13 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
+        if name == "chat":
+            command.add_argument(
+                "prompt",
+                nargs="?",
+                type=launch_prompt,
+                help="Initial literal message; quote multiline or multiword text",
+            )
         if name == "resume":
             selection = command.add_mutually_exclusive_group(required=True)
             selection.add_argument("session_id", nargs="?")
@@ -648,6 +670,8 @@ async def terminal(
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
+    *,
+    initial_prompt: str | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -801,9 +825,11 @@ async def terminal(
                 emit(event)
 
     render()
+    enabled = False  # Resume displays pending input; only explicit input starts work.
+    if initial_prompt is not None:
+        enabled = submit_text(initial_prompt)
     incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
     active: asyncio.Task[bool] | None = None
-    enabled = False  # Resume displays pending input; only explicit input starts work.
     eof = False
     try:
         while True:
@@ -1026,6 +1052,8 @@ async def _run_terminal(
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
+    *,
+    initial_prompt: str | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -1051,7 +1079,14 @@ async def _run_terminal(
 
     loop.add_signal_handler(signal.SIGINT, interrupt)
     try:
-        await terminal(controller, queue, emit, review_packet, refresh_memory)
+        await terminal(
+            controller,
+            queue,
+            emit,
+            review_packet,
+            refresh_memory,
+            initial_prompt=initial_prompt,
+        )
     finally:
         stop()
         loop.remove_signal_handler(signal.SIGINT)
@@ -1061,7 +1096,7 @@ async def _run_terminal(
 def run_command(args: argparse.Namespace) -> int:
     try:
         return _run_command(args)
-    except ActiveInputLimitError as error:
+    except (ActiveInputLimitError, PendingTextBudgetError) as error:
         # Only byte counts and fixed guidance, never rejected payloads or paths.
         print(f"mos-eisley: {error}", file=sys.stderr)
         return 2
@@ -1550,6 +1585,9 @@ def _run_command(args: argparse.Namespace) -> int:
     pending_limits = PendingTextLimits(
         max_bytes=args.pending_text_max_bytes or DEFAULT_PENDING_TEXT_BYTES
     )
+    initial_prompt = args.prompt if args.command == "chat" else None
+    if initial_prompt is not None:
+        pending_limits.admit((), initial_prompt)
     explicit_cassette = (
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
@@ -1761,6 +1799,7 @@ def _run_command(args: argparse.Namespace) -> int:
                     ConversationTUI(
                         controller,
                         review_packet,
+                        initial_prompt=initial_prompt,
                         welcome=welcome,
                         refresh_memory=memory_runtime.refresh,
                         load_transcript=store.transcript_page
@@ -1776,7 +1815,13 @@ def _run_command(args: argparse.Namespace) -> int:
         else:
             emit({"type": "conversation.welcome", "text": welcome})
             asyncio.run(
-                _run_terminal(controller, emit, review_packet, memory_runtime.refresh)
+                _run_terminal(
+                    controller,
+                    emit,
+                    review_packet,
+                    memory_runtime.refresh,
+                    initial_prompt=initial_prompt,
+                )
             )
         emit(
             {
