@@ -309,8 +309,9 @@ linked backup. A process killed before replacement can also leave an unpublished
 `.memory-resolution-*.tmp` file. Retain these for investigation; the copy-recovery
 command does not clean resolution backups or unpublished files. Use the separate
 [memory cleanup workflow](CONVERSATION_MEMORY_CLEANUP.md) to review one complete
-staging discard or verified backup-link repair. Incomplete records, bulk cleanup and
-backup pruning remain planned. No cleanup scans or runs at startup.
+staging discard or verified backup-link repair. The same guide covers explicit
+1–32-record batch cleanup and retained-backup pruning under a reviewed age cutoff.
+Incomplete-record disposal remains planned. No cleanup scans or runs at startup.
 
 To restore prior content, inspect the backup's `document.text`, use it with a fresh
 `use-text` resolution preview, and review/apply that proposal. This creates a new

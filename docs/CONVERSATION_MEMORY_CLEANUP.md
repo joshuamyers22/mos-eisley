@@ -100,5 +100,90 @@ receipt. Inspect the exact names and retained records before further action; an 
 preview cannot delete a replacement file or repeat cleanup against a missing name.
 Re-preview any changed selection. There is no attempt to roll back a completed unlink.
 
-Backup retention/pruning, bulk cleanup and incomplete-record disposal remain planned.
-Retained resolution backups are never deleted automatically.
+## Batch cleanup and retained-backup pruning
+
+`memory-project-cleanup-batch` accepts a JSON selection of 1–32 explicitly named
+records for one exact workspace identity. It supports the two staging actions above
+and `prune-backup` for retained resolution backups. No directory inventory, wildcard
+selection or automatic age-based deletion occurs. Unselected backups remain retained.
+
+Create a selection file, replacing the example names and hashes with the exact
+records you intend to review:
+
+```json
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "action": "discard-staging",
+      "temporary_name": ".memory-resolution-EXACT_32_HEX_DIGITS.tmp",
+      "record_sha256": "REVIEWED_STAGING_SNAPSHOT_SHA256"
+    },
+    {
+      "action": "prune-backup",
+      "backup_name": "resolution-backup-EXACT_64_HEX_DIGITS.json",
+      "record_sha256": "REVIEWED_BACKUP_SNAPSHOT_SHA256"
+    }
+  ]
+}
+```
+
+`recover-backup-link` entries require both `temporary_name` and `backup_name`, as
+in the single-file command. No filename may appear in more than one entry, including
+retained repair destinations. Repairing and pruning the same backup require separate
+reviews. Unknown fields, duplicate JSON keys, invalid names/hashes and duplicate or
+empty selections are rejected. The manifest must be a regular file of at most 64 KiB;
+its final path cannot be a symlink. Each selected record has the existing 256 KiB read
+bound. The command never reads a directory listing.
+
+```sh
+mos memory-project-cleanup-batch --workspace-identity /projects/api \
+  --selection cleanup.json --before-ns REVIEWED_CUTOFF_UNIX_NS --json
+# Repeat the same selection and cutoff with:
+# --apply --expected-sha256 HASH_FROM_BATCH_PREVIEW
+```
+
+The positive integer `--before-ns` is required exactly when the selection contains
+`prune-backup`. A backup is eligible only when its observed filesystem modification
+time is **strictly less** than that cutoff. This is an explicit file-age policy;
+mtime is not an authenticated creation or publication time and can change during
+copying/restoration. Review the full record and its `record_identity.mtime_ns`, not
+age alone. Changing the cutoff or timestamp invalidates the preview. There is no
+implicit "keep newest N" or minimum backup-count policy: you select the records to
+retain by leaving them out of the manifest.
+
+Pruning also requires a private, canonical, single-link backup with the matching
+content-addressed filename, record hash, owner and workspace. A readable current
+project document must exist, and its snapshot hash must differ from the selected
+backup's hash. A backup matching current memory, or any backup when current memory
+is absent, is protected. The project directory itself may have vanished. Pruning
+permanently removes the selected historical backup; preserve any content you may
+need first. It neither restores text nor edits live memory or saved sessions.
+
+The preview includes every full selected snapshot and current memory observation.
+Records are sorted by the filename being removed, so reordering the same manifest
+does not change the review hash. Apply validates the entire selection again under
+one exclusive existing memory lock before any unlink, then rechecks each record
+immediately before deleting it. Storage, lock, workspace and current memory remain
+bound throughout. Existing single-file cleanup approvals cannot authorize a batch.
+
+### Partial batch progress
+
+Filesystem batch cleanup is sequential, not transactional. A failure can leave a
+completed prefix. Each successful unlink is followed by a directory flush. Receipts
+use `status: planned`, `completed` or `incomplete`, with `removed` listing names whose
+unlink returned successfully and `synced` listing those followed by a successful
+directory flush. An in-process apply failure returns an incomplete JSON receipt and
+exit status 2; initial validation failures remove nothing. A name in `removed` but
+absent from `synced` has uncertain durability after a system crash. A completed flush
+does not imply a later backup verification succeeded; inspect incomplete receipts.
+
+A process death may return no receipt at all. Inspect the exact selected names and
+retained backups, omit already completed work, and preview the remaining selection
+again. Repaired backups now have one link and cannot reuse a repair approval. Old
+hashes cannot be reused for a smaller selection or a replacement file. There is no
+rollback, journal, automatic retry or automatic continuation. The same-user process
+boundary described above also applies to batches.
+
+Incomplete-record disposal, automatic retention policies and inventory-based backup
+count protection remain planned. Retained backups are never deleted automatically.

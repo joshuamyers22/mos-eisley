@@ -63,6 +63,8 @@ explicit `--strategy` to review collisions across worktrees or from vanished
 directories, with a durable prior-target backup before changing destination text.
 [`memory-project-cleanup`](docs/CONVERSATION_MEMORY_CLEANUP.md) reviews one staging
 discard or interrupted-backup link repair while preserving live memory.
+`memory-project-cleanup-batch` reviews up to 32 named records, including backup
+pruning under an explicit age cutoff, and reports partial progress on failure.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

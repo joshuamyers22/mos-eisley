@@ -1597,13 +1597,28 @@ an exclusive existing lock, unlinks only the selected name and flushes the direc
 Backup bytes, live memory and saved sessions remain intact. Discard can remove the
 selected staging copy even when no live project document exists; the full receipt
 makes that absence explicit. Fault tests cover actual process death during copy,
-resolution, backup publication and cleanup. No incomplete-record or bulk disposal
-is enabled. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
+resolution, backup publication and cleanup. Incomplete-record disposal remains
+disabled. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
 
-**Next migration milestone:** explicit retained-backup retention/pruning and bounded
-bulk cleanup. Incomplete-record disposal and a persistent mapping registry remain
-planned. Resolution backups are retained; no automatic deletion, startup recovery or session identity rewriting
-is enabled. Common Git metadata or remote URLs never merge memory.
+**Reviewed retention and batch cleanup:** `memory-project-cleanup-batch` accepts
+1–32 explicit records in a bounded, strict JSON manifest. Staging discard, backup
+link repair and retained-backup pruning share the existing private owner/project
+validation. Pruning requires an explicit modification-time cutoff and distinct,
+readable current project memory; backups matching current memory are protected.
+It does not infer backup age from document timestamps or promise a newest-count
+policy without an inventory. Full records, observed identities, policy and current
+memory are bound to one preview. Every selection is checked under one exclusive lock
+before deletion, then each is rechecked before unlink. Duplicate/overlapping names
+are rejected. Sequential apply reports unlinked and directory-flushed names
+separately on in-process failure; process death requires inspection and fresh review
+of the remaining exact selection. No rollback or automatic continuation is claimed.
+Live memory, user preferences and saved sessions remain intact.
+
+**Next migration milestone:** reviewed incomplete-record disposal and persistent
+mapping configuration. Inventory-based retention/count policies remain planned.
+Unselected resolution backups are retained; no automatic deletion, startup recovery
+or session identity rewriting is enabled. Common Git metadata or remote URLs never
+merge memory.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
