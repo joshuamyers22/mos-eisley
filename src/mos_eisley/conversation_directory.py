@@ -24,6 +24,7 @@ from prompt_toolkit.output import Output
 from prompt_toolkit.widgets import TextArea
 
 from mos_eisley.conversation_picker import safe_label
+from mos_eisley.conversation_project import ProjectLocation
 
 MAX_PATH_BYTES = 4096
 MAX_DIRECTORY_ENTRIES = 1024
@@ -185,6 +186,7 @@ class DirectoryPicker:
     ) -> None:
         self.base = Path.cwd() if base is None else base
         self.selection: DirectorySelection | None = None
+        self.project_location: ProjectLocation | None = None
         self.notice = "Enter previews the resolved path. Ctrl-S uses that directory."
         self.preview_area = TextArea(
             text=self.details(), read_only=True, scrollbar=True, wrap_lines=True
@@ -307,10 +309,12 @@ class DirectoryPicker:
 
     def invalidate_selection(self) -> None:
         self.selection = None
+        self.project_location = None
         self.preview_area.text = self.details()
 
     def preview(self) -> None:
         self.selection = None
+        self.project_location = None
         try:
             text = self.editor.text
             if not valid_path_text(text):
@@ -319,6 +323,7 @@ class DirectoryPicker:
             if not candidate.is_absolute():
                 candidate = self.base / candidate
             self.selection = DirectorySelection.inspect(candidate)
+            self.project_location = ProjectLocation.inspect(self.selection.path)
         except (OSError, ValueError, RuntimeError):
             self.notice = "Directory unavailable or invalid. Edit the path and retry."
         else:
@@ -328,7 +333,15 @@ class DirectoryPicker:
     def details(self) -> str:
         if self.selection is None:
             return "Resolved directory: preview required"
-        return "Resolved directory:\n" + safe_label(str(self.selection.path))
+        assert self.project_location is not None
+        return (
+            "Resolved directory:\n"
+            + safe_label(str(self.selection.path))
+            + "\n\nProject root (Git marker):\n"
+            + safe_label(self.project_location.root_label())
+            + "\n\nProject memory identity:\n"
+            + safe_label(str(self.selection.path))
+        )
 
 
 def pick_directory(initial: Path) -> DirectorySelection | None:

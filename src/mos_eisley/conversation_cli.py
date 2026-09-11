@@ -77,6 +77,7 @@ from mos_eisley.conversation_pending import (
     pending_text_byte_limit,
 )
 from mos_eisley.conversation_picker import ResumeSelection, pick_session
+from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -722,9 +723,13 @@ async def terminal(
     *,
     initial_prompt: str | None = None,
     switch_directory: Callable[[str], Awaitable[bool]] | None = None,
+    project_location: ProjectLocation | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
+    project_location = project_location or ProjectLocation.inspect(
+        Path(controller.state.workspace)
+    )
     composer = ConversationComposer()
 
     def discard_draft(reason: str) -> None:
@@ -1095,7 +1100,8 @@ async def terminal(
                     emit(
                         {
                             "type": "conversation.directory",
-                            "text": controller.state.workspace,
+                            **project_location.fields(),
+                            "text": project_location.describe(),
                         }
                     )
                 elif is_directory_switch(line):
@@ -1164,6 +1170,7 @@ async def _run_terminal(
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
+    project_location: ProjectLocation | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -1196,6 +1203,7 @@ async def _run_terminal(
             review_packet,
             refresh_memory,
             initial_prompt=initial_prompt,
+            project_location=project_location,
         )
     finally:
         stop()
@@ -1934,9 +1942,11 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             controller.resize_storage(args.session_max_bytes)
         if args.command == "resume" and args.context_max_bytes is not None:
             controller.resize_context(args.context_max_bytes)
+        project_location = ProjectLocation.inspect(Path(controller.state.workspace))
         emit(
             {
                 "type": "conversation.opened",
+                **project_location.fields(),
                 "session_id": session_id,
                 **(
                     {"session_name": controller.state.session_name}
@@ -1950,7 +1960,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
                     "/stop, /continue, /quit. "
-                    "Ctrl-C stops work."
+                    "Ctrl-C stops work.\n" + project_location.describe()
                 ),
             }
         )
@@ -2028,6 +2038,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                         initial_prompt=initial_prompt,
                         welcome=welcome,
                         allow_directory_switch=True,
+                        project_location=project_location,
                         input=terminal_input,
                         refresh_memory=memory_runtime.refresh,
                         load_transcript=store.transcript_page
@@ -2051,6 +2062,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     review_packet,
                     memory_runtime.refresh,
                     initial_prompt=initial_prompt,
+                    project_location=project_location,
                 )
             )
         emit(

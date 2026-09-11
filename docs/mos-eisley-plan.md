@@ -1478,8 +1478,14 @@ used by the session, following the terminal startup interaction in Codex.
   initial prompt and resume/refresh selectors are cleared from the new launch.
   Invocation storage/backend, memory location, no-memory choice and budgets remain.
   The terminal input parser is fresh for each screen and buffered keystrokes are
-  cleared at handoff. Project-root discovery remains planned. This check preserves
-  canonical-path persistence and does not add a durable inode identity or filesystem sandbox.
+  cleared at handoff. Git-marker discovery now displays the nearest candidate root
+  separately in the header, selector preview and `/directory`; startup JSON also
+  includes the root, discovery status and effective memory workspace. The scan
+  checks at most 64 ancestors without opening marker/configuration files or running
+  Git. File markers keep worktrees separate; symlinks, special markers, read errors
+  and bounds produce an unknown root. Discovery is cached for each launch and
+  refreshed on resume/switch. It supplies display metadata only. These checks preserve
+  canonical-path persistence and do not add a durable inode identity or filesystem sandbox.
 
 ### 16.0.2 User and project memory
 
@@ -1495,9 +1501,18 @@ selection between requests and leave queued work paused until `/continue`.
 `--no-memory` to disable loading. Earlier messages retain their historical context;
 consumed recording exchanges remain unchanged. Custom recordings require an explicit
 replacement via `--refresh-cassette`, retained privately for subsequent resumes.
-Project scope currently uses the selected canonical workspace; Git-root
-discovery, mapping, natural-language saves and automatic extraction remain planned.
+Project scope currently uses the selected canonical workspace. Git-marker roots
+are now displayed separately; adopting root-based memory, explicit mapping,
+natural-language saves and automatic extraction remain planned.
 The requirements below remain the complete target.
+
+**Next identity milestone:** make root-based memory adoption an explicit selection
+for new sessions, with a reviewable migration preview for existing workspace memory.
+Resolve collisions between root and subdirectory documents before writing or merging.
+Persist the effective identity so later marker changes cannot retarget a resumed
+session. Preserve historical memory and recorded-request hashes, and retain existing
+workspace bindings for legacy sessions. Project moves and worktree sharing require
+explicit mappings; a common Git metadata directory or remote URL never merges memory.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |

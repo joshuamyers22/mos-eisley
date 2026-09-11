@@ -43,6 +43,8 @@ press Enter to preview its resolved target, then Ctrl-S to select it.
 During a conversation, F9 or `/directory switch` selects another project and opens
 a fresh session. Active work and unsent drafts must be resolved first; the old
 session and its queued messages remain saved.
+The terminal shows the working directory and detected Git-marker project root
+separately. `/directory` shows full paths and the effective project-memory identity.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or
