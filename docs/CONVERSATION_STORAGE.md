@@ -10,13 +10,16 @@ backend unless specified; SQLite shares the per-session logical budget but uses
 `--limit`/`--cursor` for listing. Explicit single-session and bounded batch migration
 now preview and copy JSON into SQLite in the same root while preserving sources; see the
 [migration guide](CONVERSATION_SQLITE.md#import-an-existing-json-session).
+Single-session `session-transfer` also copies JSON into SQLite in another existing
+private directory with an exact transfer plan hash; see the
+[transfer contract](CONVERSATION_SQLITE.md#copy-a-json-session-to-another-storage-directory).
 The transcript CLI and SQLite terminal's F5 browser now read bounded text pages with
 artifact references. F7/F8 and `session-artifact` explicitly expand one selected
 artifact under a separate 512,000-byte default read budget; the CLI can raise this
 up to 32 MB without changing session retention or model context limits.
 `resume --inspect` now reads a candidate working set from a separately verified
-checkpoint without resuming the controller. Bounded controller resume and cross-root
-migration remain planned.
+checkpoint without resuming the controller. Further bounds on controller resume,
+cross-root batches and reverse migration remain planned.
 
 ## Current controls
 
@@ -380,7 +383,10 @@ Implement these stages under the storage and ownership contract in
    existing copies on retry. Read-only preview and explicit apply retain their
    distinct rollback-journal behavior. See the
    [batch migration contract](CONVERSATION_SQLITE.md#import-a-selected-batch-of-json-sessions).
-   Cross-root moves, reverse migration and retention remain open.
+   Single-session cross-root copies now bind both directories to the transfer hash,
+   retain the source and original workspace, and verify existing copies on retry.
+   Source selection and directory identities are rechecked inside the destination
+   transaction. Cross-root batches, reverse migration and retention remain open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.
