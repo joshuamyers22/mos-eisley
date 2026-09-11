@@ -12,6 +12,13 @@ and team-export examples throughout this design history. Current implementation
 status is tracked in
 `docs/ROADMAP.md`; planned modules and commands below are not availability claims.
 
+**Integrated review, 2026-09-08:** §26 incorporates the reviewed adaptive-reasoning
+and adversarial-loop proposals and supersedes their conflicting defaults. The
+[project review](PROJECT_REVIEW_2026-09-08.md) distinguishes verified implementation
+from planned contracts. The revised [routing design](adaptive-reasoning-routing.md)
+and [loop project plan](adversarial-review-loop-project-plan.md) supply detailed
+acceptance criteria; §26 and the roadmap define their delivery order.
+
 ---
 
 ## 1. Goals and non-goals
@@ -19,6 +26,8 @@ status is tracked in
 ### Goals
 
 1. **One agent loop, three providers.** Anthropic, OpenAI, and Google reachable through a single canonical message/turn type, with no provider's wire format leaking into the core.
+   Each provider must be usable as creator, critic, or judge through roster
+   configuration; no role is permanently assigned to a vendor (§7.7).
 2. **Real machine control, safely.** Kernel-enforced sandboxing with per-OS backends, an approval policy, and capability tiers per role.
 3. **Conversation as the primary workflow, with integrated adversarial review.** The user explores code, plans, requests changes, and discusses results with one persistent assistant. On a review request, N independent critics on different models review a frozen artifact blind and a judge adjudicates; the assistant brings the results back into the conversation. Blindness is enforced structurally, not by prompt.
 4. **Local git and GitHub as first-class integrations.** Worktree-per-agent, structured patch application, PR review posting.
@@ -31,6 +40,10 @@ status is tracked in
    evidence in storage selected by the owning user, locally or in the cloud. Never
    pool user data or model-selection statistics across users; new sessions do not
    automatically inherit previous conversational content (§17).
+9. **Creator-led delegated coding.** The creator writes the plan and tests and owns
+   the final result, obtains critic/judge review of both, approves them, and delegates
+   at least one meaningful coding subtask to an implementation subagent. Optimize for clean,
+   efficient code and total task cost, including review and rework (§§14.2.1, 15.7).
 
 ### Non-goals
 
@@ -186,6 +199,33 @@ references, or inject headers. Login/logout commands modify only the selected
 trusted credential store; tokens and resolved headers never enter manifests,
 events, prompts, or replay artifacts.
 
+### 4.6 Provider extensibility
+
+The initial three providers are starting integrations, not a closed list. Define a
+versioned provider-adapter interface and explicit registration mechanism so an
+additional provider or backend can be added without changing the agent loop,
+review pipeline, or selection engine. Keep provider SDK dependencies optional and
+provider wire formats inside the adapter. The contract covers canonical requests
+and responses, capability reporting, effort mapping, usage/cost accounting, bounded
+timeouts and cancellation, and normalized errors; unsupported features must be
+reported explicitly rather than silently approximated.
+
+Register adapters through trusted user/admin configuration with stable provider and
+backend IDs, compatible interface versions, and pinned implementation digests.
+Executable adapter packages follow §24.3 supply-chain controls and execute only in
+the provider/broker boundary with scoped credentials and network access. Project
+files and model output cannot install or load adapters. An OpenAI-compatible API
+still requires its own endpoint identity, capability record, and conformance evidence
+under §4.5; compatibility does not confer equivalence or approval.
+
+Ship a reusable adapter contract suite and development guide, including a fixture
+adapter that demonstrates adding a provider without edits to core dispatch code.
+Live eligibility requires endpoint/data policy, credentialed conformance, and
+spending checks; automatic selection additionally requires §7.3 evaluation evidence.
+Design these interfaces alongside the core provider work; deliver external adapter
+loading later in E1 after the existing quality and containment gates. This is planned
+extensibility, not a claim that arbitrary providers are currently supported.
+
 ---
 
 ## 5. Model registry
@@ -230,6 +270,27 @@ Three facts everything downstream must respect:
 3. **Sonnet 5's tokenizer is denser** than 4.6's. Any shared cross-model token estimate is wrong; use each provider's counting endpoint.
 
 Pin exact model IDs. Never ship an alias as a default.
+
+### 5.1 Extensible model catalog
+
+Adding a model on an existing backend should normally require a validated registry
+entry and conformance evidence, not core-code changes. Key routes by provider,
+backend/endpoint, and exact model ID so identical vendor model names on different
+services cannot collide. Version the catalog schema and allow trusted user-owned
+overlays with explicit precedence; reject duplicate or ambiguous route identities.
+Record input modalities, tool/structured-output support, context and output limits,
+effort mappings, counting method, reviewed pricing and freshness, lifecycle status,
+and conformance provenance. Unknown capabilities are ineligible for requirements
+that depend on them.
+
+Provider catalog discovery is an explicit brokered refresh that proposes entries
+for validation. It cannot silently enable a model, change defaults, or replace a
+pinned model with an alias. `mos models` should expose configured routes, capability
+and availability status, and why a route is excluded. Keep account availability
+separate from static capabilities. Deprecation, removal, pricing changes, or material
+capability drift must invalidate affected eligibility and calibration as appropriate;
+retain prior snapshots for historical replay. New behavior beyond the adapter
+contract requires a versioned adapter change rather than opaque registry code.
 
 ---
 
@@ -281,6 +342,76 @@ A compaction inside a critic silently summarizes away the evidence under review.
 
 `[stable prefix: system + tools + brief] + [volatile: turns]`, explicit cache breakpoint at the boundary. With N critics on one brief, the prefix is the largest cost lever. Compaction invalidates it — a second reason to keep it off the critic path.
 
+### 6.6 Context reduction is a lossy evidence transform
+
+Adversarial review on 2026-09-10 of `context-management-plan.md` (input SHA-256 `9a2b957c352331df9304e4d23065022789456418816e5dd2362498860fea5c88`) accepts its direction but not its universal claims. Smaller, better-targeted context is a useful optimization hypothesis; it is not evidence that nothing relevant was lost. The numbers proposed there — five failures, 400 lines, a 5:1 delegation ratio, and compaction at 70% — are configuration candidates to evaluate, not protocol guarantees or release gates.
+
+The adopted boundary is:
+
+| Proposal | Disposition | Mos Eisley constraint |
+|---|---|---|
+| Bounded tool views | adopt | preserve an inspectable, immutable full-result artifact and disclose every omission |
+| Isolated subagents | already present, narrow | a structured report is a claim with provenance, never a substitute for required evidence |
+| External work state | adopt | typed, owner-scoped, revisioned, and advisory; retrieved text cannot gain instruction authority |
+| Deliberate compaction | adopt for `author` only | derivative state with lineage; never permitted for `critic` or `judge` |
+| Retrieval over stuffing | adopt typed/lexical retrieval first | no automatic trajectory retrieval; semantic retrieval remains deferred |
+| Cache-friendly prompt order | adopt as optimization | cache behavior must not change semantics, access, retention, or freshness |
+
+#### 6.6.1 Tool-result envelope
+
+Every command or file-read result that may be reduced has two representations:
+
+1. an owner-scoped, content-addressed full artifact, subject to the same redaction, retention, size, and access policy as its model-visible view; and
+2. a typed bounded view containing operation identity, repository/workspace and revision, exit status, stdout/stderr identity, byte and line counts, encoding, artifact digest, reduction policy/version, omitted ranges/count, and a `complete` flag.
+
+A filesystem path by itself is not durable evidence: files can mutate, disappear, cross an ownership boundary, or expose host layout. Required evidence binds the digest and metadata above. If the full artifact cannot be retained, the bounded view says so and may not claim completeness.
+
+Reduction is reversible and evidence-aware. It may prioritize failing tests and head/tail excerpts, collapse ANSI/control noise, and de-duplicate only semantically equivalent records. It must not blindly remove repeated events, framework frames, library frames, generated files, lockfiles, or passing-test output: each can carry timing, supply-chain, coverage, or causal evidence. Ordering, stream identity, exit status, and omission metadata survive. A verifier can request bounded pagination or the pinned artifact; if required evidence cannot fit, the operation fails visibly instead of silently truncating it.
+
+Read caching uses at least `(owner, project, workspace/repository identity, tree/revision, path and file identity, content digest, read policy/version)`. Mutations, symlink or metadata changes relevant to the operation, authority changes, and verifier freshness requirements invalidate the entry. “Unchanged bytes” alone is insufficient.
+
+#### 6.6.2 Externalized state and subagent reports
+
+Durable context separates `objective`, `constraint`, `decision`, `open_question`, and `work_item`. Each record carries source and authority, active/superseded status, owner/project, creation and verification revision, content digest, and provenance links. Updates are atomic and concurrency-safe. Privacy, retention, export, and deletion rules apply to these records exactly as they do to prompts and traces.
+
+Model-generated notes, summaries, retrieved documents, tool output, and subagent reports are untrusted advisory data. They cannot promote text to a user constraint, authorize an action, certify evidence, or override a later user request. A decision record names who authorized it and why; superseded instructions remain distinguishable from active ones.
+
+Subagent return schemas additionally carry status, scope attempted, sources and digests, completeness/coverage, uncertainty, unresolved conflicts, and budget usage. The parent or judge can inspect the bound artifacts and independently verify material claims. Delegation is chosen for isolation or parallel value under the aggregate budget, never solely because an estimated input/output ratio crosses a fixed threshold.
+
+#### 6.6.3 Author compaction contract
+
+An `author` compaction is an untrusted derivative, not a new authority source. Its manifest binds:
+
+- input transcript/state digests and prior-compaction lineage;
+- active objective and constraints with source/authority and supersession state;
+- material decisions with rationale, approvals, irreversible effects, spend, and unresolved questions;
+- current work item, referenced artifacts, and repository revision;
+- categories and ranges dropped, before/after token counts, and compactor/model/policy version.
+
+Exact sensitive text need not be copied into every prompt: a private, policy-governed artifact plus a digest-bound excerpt is preferable when it preserves reconstructability. The newest active user instruction wins over an earlier objective. Compaction never converts quoted or retrieved prompt-injection text into an instruction.
+
+After compaction, Mos Eisley checks structural validity, artifact availability, authority ordering, revision freshness, and semantic coverage of a fixture set. Failure restores the pre-compaction state or stops with `BudgetExceeded`; it does not continue from a partial summary. Repeated compaction is capped by §6.4, and changing bound inputs invalidates the derivative.
+
+#### 6.6.4 Retrieval and cache safety
+
+The first retrieval implementation uses local typed filters and lexical search over the bounded project memory in §17.6; it does not require Postgres or embeddings. Every query binds owner/project, corpus and index version, revision/time cutoff, policy, and limit. Results include provenance, rank basis, coverage/overflow, omission reasons, and a bounded continuation mechanism so a hard cap cannot masquerade as completeness.
+
+Semantic retrieval is a later, explicit capability. It requires evaluation for cross-owner leakage, stale embeddings, prompt injection, false omission, version drift, privacy/retention, and outcome quality before activation. Raw trajectory retrieval and automatic history injection remain out of scope.
+
+Prompt caching binds exact serialized segment hashes, provider/model and tool-schema versions, and applicable policy. Cache hits are telemetry, not evidence of correctness. Secrets are not retained longer, and stale content is not reused, merely to improve hit rate.
+
+#### 6.6.5 Evaluation and exit criteria
+
+Instrument category-level input/output counts, artifact bytes, truncation/overflow, cache hit/miss, retrieval coverage, compaction count, latency, and cost without recording raw content merely to obtain a metric. Evaluate context policies on representative and held-out tasks using independent outcome quality, completion rate, verifier disagreement, missed-evidence rate, harmful-action rate, latency, and whole-task cost. “Tokens per success” alone rewards cheap false confidence.
+
+Exit criteria:
+
+- bounded views are reproducible from digest-bound full artifacts and disclose loss;
+- owner/project isolation and instruction-authority tests pass for notes, reports, compactions, retrieval, and caches;
+- required evidence survives or causes an explicit stop, never a silent continuation;
+- threshold defaults are configurable and supported by evaluation rather than treated as universal constants;
+- compaction and retrieval improve whole-task outcomes on held-out cases without regressing safety gates.
+
 ---
 
 ## 7. Effort subsystem
@@ -304,11 +435,14 @@ LADDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
 def resolve_effort(model: ModelSpec, requested: str) -> str:
     if requested in model.efforts:
         return requested
-    for level in reversed(LADDER[: LADDER.index(requested)]):
-        if level in model.efforts:
-            return level  # log the substitution
     raise UnsupportedEffort(model.id, requested)
 ```
+
+This is the planned strict selection behavior. The current low-level registry
+resolver can return a lower effort with `substituted=True`; it is not a calibrated
+route resolver or evidence that a role floor was met. Future dispatch must reject
+that substitution for exact manual and calibrated requests. A fallback is a
+separately configured eligible route with its own evidence, decision and reservation.
 
 **Cross-provider effort is not comparable.** Gemini has three common levels where
 Claude has five. A Gemini critic at `high` and a Claude critic at `high` are different
@@ -442,13 +576,87 @@ Raising a critic's effort shrinks its usable input. Higher effort also inflates 
 
 ### 7.5 Escalation on signal
 
-At most one retry, one empirically selected step up. Triggers are role-specific and
-externally observable: failed executable evidence for an author, unresolved critic
-disagreement for a judge, or an evaluation-only miss on a labeled defect. Schema
+At most one capability escalation to an empirically qualified route. Triggers are
+role-specific and externally observable: failed executable evidence for an author
+or a preregistered experimental failure signal. Judges remain pinned in the initial
+cohort and measurement path (§26.3); judge escalation requires a separately versioned
+study. Evaluation labels never become live routing features. Schema
 failure gets a bounded format-repair attempt at the same route; it is not evidence
 that harder reasoning is required. A model's self-reported confidence never triggers
 escalation by itself. Both attempts and the trigger are logged. Keep an escalation
 only when held-out evaluation shows positive payoff after added cost and latency.
+One same-route format repair is a separate allowance; all attempts, children and
+correction cycles share the predeclared task budget. Uncertain provider delivery
+does not permit resending. Recovery sequences are observational evidence, not
+controlled counterfactual comparisons (§26.3).
+
+### 7.6 Extensible selection strategies
+
+Separate route eligibility from selection strategy. A trusted resolver first
+filters the catalog by provider/data policy, current account availability,
+capabilities and modalities, context/output needs, role minimums, conformance,
+spending limits, and required evidence. A versioned selection interface then
+receives the eligible route snapshot, permitted task features, role, user
+preferences, and budget, and returns a concrete route and effort with a structured
+reason or an explicit no-route result. The controller rechecks current eligibility
+and reserves spend at dispatch; a selector cannot grant authority or call providers.
+
+Support explicit manual selection, named per-role profiles with fixed routes and
+fallbacks, and the empirically calibrated strategy in §7.3. Make the strategy
+replaceable without rewriting provider adapters or the agent loop. Future selectors
+may optimize cost, latency, or quality among qualified candidates, but each new
+automatic strategy must pass preregistered held-out evaluation and activation gates.
+Executable selector extensions use the same trusted registration, versioning,
+revocation, and supply-chain controls as adapters, with no credentials or network
+access. They receive only the owner's permitted features and selection aggregates
+under §17, never another user's history.
+
+Expose provider/backend, model, effort, and selection profile in the planned CLI and
+conversation controls. Allow per-session defaults and explicit per-task/role
+overrides within trusted policy; manual choices cannot bypass eligibility or spend
+limits. Model switches occur at safe turn boundaries with an explicit context
+handoff: never forward provider-specific opaque reasoning to a different route or
+send conversation content to an unapproved provider. Preserve the frozen route for
+an in-flight review. Unavailable routes fail visibly or use only an explicitly
+configured, eligible fallback; record every substitution.
+
+Record strategy ID/version/digest, registry snapshot, requested and resolved route,
+effort, candidate exclusions, and decision reason in owner-scoped run artifacts.
+`mos policy check` must explain selection using the same resolver without dispatch.
+Verify manual overrides, new model registration, strategy replacement, stale
+catalogs/evidence, unsupported modalities, budget exhaustion, route collisions,
+fallbacks, and replay of recorded decisions. Define the interface with the routing
+work; external selector loading belongs to later E1 and does not enable unvalidated
+automatic routing.
+
+### 7.7 Interchangeable creator, critic, and judge roles
+
+**User-directed product requirement:** Anthropic, OpenAI, and Google must each be
+eligible to supply the creator, critic, and judge through the same role contracts.
+"Creator" is the user-facing planning, authoring, and integration role called
+"author" elsewhere in this plan; it is not an additional competing controller.
+Support explicit per-task rosters and evaluated selection policies that rotate
+providers and models among these roles without changing pipeline code. Implementation
+subagents have their own model/effort assignment and need not match the creator.
+Interchangeability is a planned capability, subject to route conformance and role
+requirements, not an assertion that every model has equal ability.
+
+For the three-provider review profile, support all six assignments of the three
+distinct providers to creator, critic, and judge. Keep creator transcripts and
+implementation-subagent reasoning out of the independent critic's context. The
+judge receives the frozen artifact and structured findings needed to adjudicate,
+not the creator's private reasoning or provider/model identities. Switching roles
+never merges contexts or grants extra authority. A same-provider creator and coding
+subagent does not count as independent cross-provider review evidence.
+
+Example requested profile: **Astra as creator; Luna with max thinking as the coding
+subagent**, with eligible models from the other two providers as critic and judge.
+These are user-facing example labels, not hard-coded production model IDs or a
+claim of current availability. Resolve each label to an exact configured provider,
+backend, model, and supported effort before use; expose the resolved roster and
+reject an unsupported `max` request rather than silently weaken it. The critic and
+judge assess the creator-written plan and tests before the creator approves
+execution as specified in §15.7.
 
 ---
 
@@ -916,6 +1124,48 @@ Replacing a fourth compaction with a child changes task semantics and can multip
 cost; promote that behavior only if evaluation demonstrates higher task success
 within the same aggregate budget.
 
+### 14.2.1 Creator-led coding delegation
+
+Once coding execution and bounded children are available, coding workflows must
+assign at least one meaningful implementation subtask to a subagent. A critique,
+status check, or cosmetic no-op does not satisfy this requirement. The creator
+retains responsibility for architecture, task decomposition, authoring the tests,
+integration, test execution, and the final answer, and may implement other portions
+itself. If no eligible child or adequate aggregate budget is available, report the
+unmet delegation requirement
+and resolve it before claiming the delegated workflow can proceed.
+
+Give each coding child the creator-approved plan and test-suite revisions, scoped
+file ownership, interfaces, acceptance criteria, permitted tools, and a
+token/cost/time allowance. The creator writes concrete tests for the requested
+behavior and relevant failure cases before implementation delegation; a prose test
+plan alone does not satisfy this requirement. The critic and judge assess test
+adequacy together with the plan. Tests may initially fail or await the planned
+interfaces, but their expected behavior must be explicit. Coding children implement
+against these tests and cannot delete, weaken, or redefine them to make a patch
+pass. Test corrections require creator ownership and renewed critic/judge review
+of the affected plan/test revision. Test-file creation and execution remain subject
+to the execution/VCS gates; this ordering does not grant early machine access.
+Use isolated worktrees and the trusted VCS broker when writes become available.
+Parallelize only independent coding tasks; serialize shared-file edits and record
+dependencies. Return a patch, relevant verification evidence, and unresolved issues
+for creator integration. Children cannot approve their own final integration or
+expand the accepted plan; material scope changes return to plan review (§15.7).
+
+The explicit objective is **clean, efficient output at a cost-effective total task
+cost**. Evaluate correctness, maintainability, unnecessary code/dependencies, and
+task-relevant runtime/resource efficiency alongside completion, latency, and spend.
+Prefer the least expensive child route shown to meet those requirements, using
+appropriate reasoning effort. Include creator planning, critic/judge calls, child
+execution, context handoffs, integration, testing, and retries in cost comparisons;
+a lower per-token price alone does not establish savings. Reserve aggregate spend
+before dispatch and keep correction/escalation within the approved task budget.
+
+Define and evaluate this workflow alongside the author workstream. Activate delegated
+coding only after both execution/VCS containment and the E2 bounded-subagent gates
+pass; it does not authorize earlier model-driven writes. Validate against a
+creator-only baseline on matched tasks before promoting a default delegation policy.
+
 ### 14.3 Versioned skills and personas
 
 A skill is a progressively disclosed prompt/rubric bundle with a manifest,
@@ -949,7 +1199,8 @@ digest. See `docs/SKILLS.md` and the disposition in §25.
 
 ### 15.1 Brief materialization
 
-The critic's context is built from a directory on disk, never forked from a conversation:
+The critic's context is built from a directory on disk, never forked from a conversation.
+The proposed materialized layout is:
 
 ```
 runs/<id>/brief/
@@ -959,13 +1210,19 @@ runs/<id>/brief/
 
 `brief_id` is the content hash; the same brief replays to any model, any time. **The author's transcript never enters a critic's context** — the author's reasoning is precisely what critics must be blind to.
 
+Current recorded `Brief` has only `spec`, `diff` and `constraints`; the directory
+layout and executable test receipts require new versioned contracts. Independent
+test derivation receives plan/interfaces only; implementation and author telemetry
+are withheld until the explicit binding/evidence phases in §26.2.
+
 ### 15.2 Blindness invariants
 
 Asserted in code, tested in CI:
 
 1. Critics run concurrently and never observe each other.
 2. No critic is told which model authored the artifact.
-3. The judge receives critiques with identity stripped and order randomized.
+3. The judge receives critiques with identity stripped. Current recorded replay
+   uses canonical hash order; future randomized evaluation persists its permutation.
 4. No critic is told another critic flagged anything.
 5. Personas differ deliberately — correctness, spec mismatch, operational failure modes — so they don't share one blind spot.
 
@@ -975,38 +1232,104 @@ Asserted in code, tested in CI:
 class Finding(BaseModel):
     location: str  # file:line or symbol
     claim: str
-    severity: Literal[
+    category: Literal[
         "correctness", "spec_violation", "security", "performance", "preference"
     ]
-    evidence: Evidence  # command | failing_test | citation
-    suggested_fix: str | None
-    confidence: float
+    impact: Literal["blocker", "high", "medium", "low"]
+    evidence: Evidence  # currently a source-bound citation
+    suggested_fix: str | None = None
 ```
 
-- **At most 5 findings, ranked.** Uncapped critics produce a wall of style nits.
-- **Executable evidence preferred:** require the test or command that would fail if the claim holds, then run it. Strongest single lever on false-positive rate.
+- Display a short ranked summary while retaining original findings. Current inputs
+  are bounded at 50 findings per critic; future protocols must report overflow or
+  truncation explicitly, and incomplete required coverage must not silently accept.
+- Executable evidence requires the isolated evidence broker and a new receipt
+  contract; a model-supplied command or failing test is not proof or authority to run.
+  Pin expected/observed behavior, artifact, test, binding and environment identities.
 - **`preference` findings never block.** Unlabeled findings rejected at parse time.
 
 ### 15.4 Adjudication
 
-1. **Dedupe** across critics — embedding cluster or an LLM merge at `medium` effort. Preserve which critics contributed to each cluster.
-2. **Score** by agreement × evidence executability × severity, **weighting cross-family agreement above within-family** — three Claude instances agreeing is correlated, not independent.
-3. **Judge** returns `accept | revise(required_changes) | reject`, and is never the model that authored.
-4. **Rotate roles** across runs.
+1. **Dedupe** exact content deterministically and preserve every original. Semantic
+   clustering remains an evaluated extension and cannot erase distinct evidence.
+2. **Validate evidence** against the frozen artifact and governing requirement.
+   Citation presence and model agreement alone do not establish correctness.
+3. **Judge** adjudicates identified findings; the controller derives the code
+   verdict from category/impact policy. Missing quorum, invalid IDs, unavailable
+   judgment or incomplete required evidence fails closed as `infrastructure_error`.
+4. **Rotate roles** across runs under eligible rosters; preserve each in-flight
+   roster. Freeze measurement components within a study/cohort. Provider diversity
+   is not a measured guarantee of independent errors.
+
+The current judge returns upheld IDs and one rationale; per-objection unresolved
+dispositions and executable-evidence judgments need versioned contracts. Until
+sampled judging passes §26's quality gate, all blocking corrections retain judging.
 
 ### 15.5 Bias controls
 
 | Bias | Control |
 |---|---|
 | Self-preference | blinding + judge rotation |
-| Verbosity | length cap; judge sees normalized-length summaries |
+| Verbosity | bounded structured findings and original evidence references; no lossy evidence normalization |
 | Position | randomized order; periodic permuted re-run to measure |
 | Herding | strict concurrency, no cross-critic visibility |
 | Sycophancy | adversarial persona + executable-evidence requirement |
 
 ### 15.6 Rounds
 
-Two maximum: critique, rebuttal, verdict. Returns fall off sharply; cost is multiplicative in (critics × rounds).
+Planned default: two critique/rebuttal rounds per frozen artifact and at most two
+correction cycles per task, bounded further by one shared cost/deadline budget.
+Persist counters across resume. New artifact revisions invalidate dependent
+acceptance but do not reset task counters. Stop with unresolved findings on budget,
+cancellation or non-convergence; repeated failures do not prove plan ambiguity.
+Current recorded review performs one critic/judge pass and has no correction loop.
+
+### 15.7 Plan review, creator approval, and delegated implementation
+
+For the creator-led coding workflow, use this explicit sequence:
+
+1. **Creator writes the plan and tests.** Freeze a concrete plan with constraints,
+   interfaces, proposed coding subtasks and routes, and an aggregate cost/time
+   budget, together with creator-authored executable tests for the required behavior
+   and relevant failure cases. Record exact digests for both the plan and test suite.
+2. **Independent readings, then critic review.** In the Stage-0 experimental profile
+   (§26.2), two fresh readers first seal readings of the plan/interfaces without
+   creator tests, private reasoning or each other's output. Then supply the critic
+   both frozen plan/tests, reading findings, and permitted
+   repository evidence in a fresh context; assess correctness, maintainability,
+   efficiency, missing requirements, test adequacy, and the proposed delegation and
+   cost assumptions.
+3. **Judge adjudicates.** Resolve the structured findings into an accept, revise,
+   or reject disposition tied to the exact plan and test-suite digests, with blocking
+   findings explicit. Apply the existing bounded review rounds rather than an unlimited loop.
+4. **Creator approves.** The creator considers the verdict and records acceptance
+   of that exact plan and test suite before releasing coding work. A revise/reject
+   disposition or unresolved blocker requires revised artifacts and renewed review. This is an agent
+   workflow decision, not a new user-confirmation step or permission to bypass policy.
+5. **Subagents implement; creator integrates.** Dispatch at least one coding child
+   against the approved plan and tests. The creator checks patches, runs permitted tests,
+   resolves integration issues, and retains ownership of the result. A materially
+   changed plan or any changed approved test invalidates the affected approval and
+   dependent child authorization until renewed review and creator approval.
+6. **Review the result.** Submit the frozen implementation and verification evidence
+   to independent critic/judge review, then have the creator accept the final result
+   or coordinate bounded corrections. Plan acceptance alone does not prove the code
+   meets its requirements. All rounds share the task's aggregate budget.
+
+Persist the plan and test-suite revisions, critic findings, judge disposition,
+creator approval, child assignments/patches, final verification, and per-role usage
+as owner-scoped artifacts. No coding child may start before matching plan/test approval. Questions and
+non-coding conversation retain §16.0's direct-answer behavior.
+
+Use the active project's requirement-linked rubric (§16.6) and declare resource
+ceilings and stopping rules before extended verification. Each further pass must
+add a focused test, replay, fault case, measurement, or meaningfully different
+review evidence. Stop on the pass threshold, diminishing returns, or the budget
+ceiling and report unresolved findings. Tokens, iterations, and finding counts are
+diagnostics, not quality targets; novelty without ground truth requires domain
+evidence. This adapts the production template's bounded-verification guidance and
+does not waive creator-authored tests, delegated coding, or required independent
+review. Project-specific rubric weights and methods remain configurable.
 
 ---
 
@@ -1207,7 +1530,6 @@ current-message precedence, scoped remember/forget, disabled memory, bounded
 loading, concurrent-edit conflict detection, safe resume after edits/deletion,
 and unchanged critic isolation. Deliver inspectable, explicit memory first;
 automatic memory extraction remains a later, separately configurable feature.
-
 ### 16.1 Commands
 
 ```
@@ -1256,6 +1578,10 @@ disabled-by-policy` and are maturity gates, never a way for project config to by
 trusted policy.
 
 ### 16.3 Config layering
+
+Project guidance templates use the explicit project binding and precedence contract
+in §16.6. The historical "closest wins" sketch below cannot grant authority or
+silently replace an approved template, requirement, or project-memory selection.
 
 ```
 ~/.mos-eisley/config.toml                # base
@@ -1325,6 +1651,68 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 {"type":"verdict","decision":"revise","required_changes":3}
 {"type":"session.completed","cost_usd":4.12,"duration_s":186}
 ```
+
+---
+
+### 16.6 Project-specific points of view and best-practice templates
+
+Support attaching one or more declarative guidance templates independently to each
+project, including existing repositories not generated by the production template.
+Provide a guided initialize/attach/show/update/detach flow in the planned CLI and
+conversation controls. Start with local Markdown plus a versioned descriptor;
+remote distribution can follow the trusted package/extension gates. The editable
+starter is `templates/PROJECT_POINT_OF_VIEW.md`. Copying it into a repository is
+usable as documentation today; automatic loading and binding remain planned work.
+
+A template describes its ID/version, scope, source revision and content digest,
+engineering preferences, applicability, rationale, verification rubric, logging
+and note conventions, and justified departures. Separate advisory preferences from
+accepted project requirements by stable rule ID. A template's own label cannot
+make a recommendation mandatory: the user accepts requirements through the project
+brief or an ADR. Language/framework choices, statistical methods, deployment and
+observability stacks, and review cadence remain project choices, not global rules.
+
+The trusted owner configuration binds the template snapshot and approved project
+overrides to an exact workspace/project identity. Repository-local declarations
+request guidance only; opening a repository, nested folder, or same-named project
+cannot activate or change it. Shared default templates remain immutable snapshots;
+overrides affect only the selected project. Show a concrete diff before adoption or
+updates, preserve existing files, and never silently track a template's latest
+version. Explicit user requests to attach/update constitute authorization for that
+scope; do not add a second confirmation when it is already authorized. Detach stops
+future inclusion without deleting project work or rewriting historical manifests.
+
+Resolve effective guidance visibly: current user direction within trusted policy,
+accepted project requirements/ADRs, approved project overrides, then selected
+advisory defaults. Mandatory-policy conflicts cannot be resolved by a template;
+report unresolved same-priority contradictions. A justified departure from an
+advisory preference can be recorded and executed within existing authority without
+another approval step. No template can add tools, execute commands, select secrets
+or storage destinations, increase budgets, or relax containment. References are
+explicit, bounded, project-scoped inputs, not automatic recursive file/network reads.
+
+Materialize only the relevant approved guidance into each role's brief. Creator
+plans and tests cite applicable requirement/rubric IDs; coding children receive the
+same requirements for their scope. Critics/judges receive the frozen requirements,
+rubric, and approved departures without creator transcripts or private work notes.
+Record exact template/override digests and included rule IDs in run provenance.
+Changes during a run apply at a safe boundary; changes affecting approved plans or
+tests require §15.7 re-review. Policy inspection explains effective guidance and
+its provenance without executing template-suggested commands.
+
+Static adopted guidance is declarative project configuration, not imported session
+history. It cannot embed, reference for automatic loading, or launder saved memory,
+notes, telemetry results, or conversation summaries into fresh sessions. Those
+remain explicitly selected evidence under §§17.2 and 17.6. Template selection never
+authorizes publishing private run data into a shared repository.
+
+Acceptance: two projects using the same base retain independent overrides and
+detach behavior; two users cannot see each other's private bindings or artifacts.
+Test missing/changed versions, conflicts, nested projects, symlink/path escape,
+oversize/cyclic references, instruction injection, history disguised as guidance,
+mid-run updates, and replay against the pinned snapshots. This contract lands with
+trusted project configuration and the conversation workstream; broader executable
+extensions remain separate E1/E2 work.
 
 ---
 
@@ -1451,7 +1839,117 @@ encrypted with tighter access and retention; ordinary replay and display always 
 the redacted form. Data minimization and capability isolation remain primary—the
 redactor is defense in depth.
 
-### 17.5 Long-session storage and independent budgets
+### 17.5 Operational logging and evidence-driven improvement
+
+**Published-template re-review:** production-project-template commit
+`d59f3e661a1fa3456505cf36f91b51f4a1c873ac` includes a Python event/sanitizer/sink core
+and local JSONL spool plus a C++ encoder. Prefer evaluating the pinned Python
+implementation behind a Mos-owned adapter before duplicating it. Version any
+package or reviewed source extraction and retain provenance; generated archetype
+placeholders and mutable branches are not runtime dependencies. This is a planned
+integration candidate, not telemetry code installed by this plan amendment. See
+`docs/PROJECT_GUIDANCE_DESIGN.md` for the published-source review and test scope.
+
+Routing/loop records additionally use the decision-time eligibility, probability,
+actual-action, verification, failure and follow-up contracts in §26.3 and the
+revised routing design. They remain bounded and owner-scoped; they do not authorize
+raw trajectory retrieval or automatic policy training. Missing historical fields
+remain unknown rather than being reconstructed as experimental evidence.
+
+Adopt the production template's structured event principles for Mos Eisley's own
+runtime. Maintain a versioned mapping from canonical lifecycle events to its
+language-neutral telemetry envelope: UTC time, severity, stable event/error code,
+service/environment, release/revision, operation, outcome, safe correlation IDs,
+and duration. Review and pin the source schema; an existing dot-named lifecycle
+event is not automatically valid under a snake-case telemetry schema. Add bounded,
+allowlisted fields for roles, route/effort, usage, pricing version, cost, gate and
+stop reasons only when they support a named operational decision.
+
+Measure completed tasks, provider/tool failures, timeouts/cancellation, budget
+denials, review outcomes, and whole-task delegation cost. Keep accepted findings,
+escaped defects, regressions, and measured quality alongside token/latency/cost
+diagnostics; fewer tokens or log lines alone do not establish improvement. Missing
+quality data stays unknown. Log handled errors once at their responsible boundary
+and preserve safe causal references without copying exceptions or payloads into logs.
+
+Operational events exclude prompts, completions, reasoning, source/diffs, tool
+arguments/results, reviewer prose, secrets, and private/client data. The separately
+retained conversation/replay artifacts in §17.1 retain their own explicit access
+and retention contract. Do not export the content-bearing §16.5 event stream
+directly. Bound serialization, queues, disk use, sampling and retention; surface
+dropped-event counts, sampling coverage, and incomplete query windows.
+
+If using the upstream spool, distinguish queue acceptance from fsync-confirmed
+durability and pending records. Expose health independently of that same log sink,
+including drop reasons, writer errors, accepted/durable gap, quarantine, pressure,
+and drain failure. Consumers accept only closed files with verified checksum
+sidecars, never bare JSONL or active/quarantine files. Validate quota/drop-new,
+rotation, fork, crash recovery, and bounded shutdown on the actual service-account
+filesystem. Keep spools owner-scoped; run IDs are not access controls. Apply the
+Mos-specific schema and content allowlist before invoking upstream code: permissive
+`safe_message`, arbitrary nested attributes, or sanitized traceback support do not
+automatically satisfy the no-content telemetry contract.
+
+Optional diagnostic sink failure may degrade observability with counted loss, but
+must never weaken mandatory audit, authorization, before-send markers, or spend
+ledger durability. Mandatory records retain their fail-closed transaction contract.
+Telemetry cost estimates, including query-time repricing, cannot replace pinned
+reservation/settlement prices or release uncertain spend. A `retryable` diagnostic
+flag does not override request-specific retry prohibitions.
+
+Keep telemetry owner-scoped and local by default. Optional `telem`/OTLP or other
+export adapters require explicit trusted destinations, per-owner access/retention,
+schema/redaction checks, and bounded failure behavior. No central multi-user data
+pool, shared learned defaults, automatic export, or dependency on the template's
+HDD/Parquet/DuckDB/Grafana deployment is introduced. Distinguish the project being
+built's own telemetry design from Mos Eisley's private operational data.
+
+Support explicitly requested reviews of scoped aggregates: name the user outcome,
+baseline/query/window and limitations, distinguish observation from inferred cause,
+create an owned improvement proposal with regression evidence and guardrails, then
+assess on a later window. Cadence is project-configured; scheduling or observing a
+signal does not authorize code, prompt, policy, or deployment changes. Tests cover
+schema mapping, redaction, cardinality/resource bounds, sink failure versus required
+audit failure, isolation, incomplete windows, and unchanged spending enforcement.
+
+### 17.6 Bounded project memory and work notes
+
+Provide optional project-scoped memory and note templates using the production
+template's evidence-index pattern. Memory contains stable keyed constraints,
+accepted decisions, verified traps, and open work, each with a source reference and
+last-verified date. Verify entries against requirements, code, tests, or ADRs before
+use; memory is not evidence by itself. Retrieve before editing, update keys in place,
+label uncertainty, and remove stale or duplicate entries. Never turn routine
+progress, raw logs, transcripts, secrets, or hidden reasoning into durable memory.
+Do not auto-rewrite policy based on a successful trajectory.
+
+Keep disposable scratch private and ignored with task-end cleanup. Use a bounded
+work note for multi-session work, handoffs, incidents, experiments, or material
+investigations: objective, concise observations/attempts, evidence links, remaining
+work, owner, and review/delete date. On closure, promote verified facts to memory,
+decisions to ADRs, maintained explanations to docs, and work history to issues;
+close or remove obsolete notes. Tracking/export into project Git is an explicit
+publication of a reviewed, sanitized project document, not default persistence.
+
+Memory and notes default to private artifacts bound to both owner and project under
+§17. A fresh session requires explicit selection of the relevant memory/note or
+explicit same-owner resume; attaching a best-practice template does not authorize
+automatic historical retrieval. The template's general "read project memory at
+startup" guidance is narrowed accordingly. Independent critics receive only relevant
+verified evidence deliberately frozen into their briefs, never creator work notes
+or previous critiques. Record the selected artifact versions and limit retrieval
+size; updates affect subsequent snapshots rather than changing an in-flight brief.
+
+Add these workflows with private session storage and scoped repository writes, not
+an automatic global memory service. Evaluate repeated-action rate, stale-memory
+errors, retrieval misses, context cost, and correct task completion on representative
+development and disjoint assessment tasks before expanding retrieval. Embeddings,
+vector databases, automatic cross-session recall, autonomous memory/schema mutation,
+and training on user records are not introduced by this amendment. Verify project
+and owner isolation, explicit loading, stale evidence correction, safe cleanup,
+concurrent edits, export boundaries, and deletion of derived copies.
+
+### 17.7 Long-session storage and independent budgets
 
 **Direction following the 2 MB capacity discussion:** the snapshot limit is an
 interim preview constraint, not a long-session product target. The first
@@ -1850,7 +2348,12 @@ fixtures may be shared only when they contain no user-derived data.
 
 ### 18.1 Ground truth by mutation
 
-Inject synthetic defects into known-good commits of your own repos — off-by-one, inverted condition, dropped null check, swapped argument order, silently changed default. Each mutation is a labeled defect at a known location, in your domain, for free. Maintain a matched set of **clean** commits.
+Inject synthetic defects into reviewed commits of the owner's repositories:
+off-by-one, inverted condition, dropped null check, swapped argument order, silently
+changed default. These provide candidate seeded positives; filter equivalent or
+trivial mutants and independently adjudicate the labels. Audit matched clean cases
+and include real historical bugs. Generation is cheap; reliable ground truth is not
+free. Keep exposed development regression fixtures separate from protected holdout.
 
 ### 18.2 Metrics
 
@@ -1865,6 +2368,9 @@ Inject synthetic defects into known-good commits of your own repos — off-by-on
 | Routing regret | extra cost/latency versus the cheapest adequate route in hindsight |
 | Calibration/OOD coverage | how often can the learned policy route rather than use its fallback |
 | Localization accuracy | file:line correct, not just "something's wrong" |
+| Correct-work damage | unnecessary changes requested or regressions introduced on independently established acceptable tasks |
+| Whole-task completion and cost | include every stage, failed/abandoned task, repair, child, binding, test and judge call |
+| Incremental stage value | paired ablation of caught/escaped defects and damage; overlap alone cannot justify removing review |
 
 ### 18.3 The (backend × model × effort) sweep
 
@@ -1883,15 +2389,18 @@ regret. Its exclusive local claim prevents an accidental second CLI attempt for 
 same frozen policy in one trusted directory; it is not a substitute for independently
 controlled holdout access.
 
-Two expectations worth confirming rather than assuming:
+Treat quality saturation, effort-related false positives, shared difficulty across
+families, and historical lookup value as testable hypotheses, not routing rules.
+Use reviewed current route/pricing snapshots when evaluating them. Pin grading and
+judge settings while varying the registered execution candidates.
 
-1. **The quality curve flattens early.** Sonnet 5 at xhigh reportedly approaches Opus 4.8 pricing while scoring slightly worse on several benchmarks — the effort dial and model dial trade against each other and must be searched jointly.
-2. **False positives likely rise with effort.** A critic thinking harder on clean code has more time to invent objections. If confirmed, optimal critic effort sits *below* optimal author effort — the opposite of role intuition.
-
-Sampling is unavailable (§4.3), so variance requires repeated runs per cell. Three
-repetitions are a smoke test only; use sequential stopping or a pre-registered power
-target before promoting a routing policy. If no cheaper route meets the quality
-constraint with adequate confidence, retain the role fallback.
+Repeated calls measure within-case variability, not additional independent tasks.
+Three repetitions are a smoke test only. The implemented statistical protocol uses
+a fixed complete matrix; calculate attainable sample size and cost before buying a
+sweep. Sequential stopping, adaptive sampling and off-policy estimators require a
+new reviewed protocol and cannot reuse its confidence claims. If no cheaper route
+qualifies, retain the eligible fallback. Output-budget routing also requires a new
+candidate/schema version; current route identity does not include that action.
 
 ---
 
@@ -1946,13 +2455,47 @@ content and can be stale or poisoned; they never become instructions, credential
 or an authority source. A finding must cite the frozen artifact it used. This path
 ships only after the no-NET critic invariant and injection corpus pass end to end.
 
-### 19.6 Multimodal inputs
+### 19.6 Multimodal and document inputs
 
 Support images later as content-addressed brief artifacts for screenshots, rendered
 UI, diagrams, and visual diffs. Validate media type independently of extension,
 decode with resource limits, strip active metadata where possible, and record the
 exact bytes and transformations supplied to each provider. A model without the
-required modality is ineligible for that route. Audio/voice/realtime interaction is
+required modality is ineligible for that route.
+
+In the same later E3 phase, support reading PDFs, Word files (`.docx` and legacy
+`.doc`), and scanned documents supplied explicitly in a conversation or review
+brief. Extract text and tables from digital documents; use OCR for scanned pages
+and image-only PDFs, with page rendering for visual interpretation when needed.
+Preserve source references: PDF/scan page numbers and Word headings, paragraphs,
+or table identifiers, plus rendered page numbers when available. Answers and review
+findings must cite the source location, flag uncertain OCR or layout extraction,
+and report unreadable, unsupported, or truncated content rather than silently omit it.
+
+Also support reading Excel workbooks (`.xlsx`) and CSV files in E3. For XLSX,
+enumerate sheets and extract bounded cell ranges and tables, preserving sheet names,
+cell addresses, headers, value types, and formula text alongside available cached
+values. Identify hidden sheets/rows and merged cells; report missing or potentially
+stale formula results without recalculating formulas or refreshing external links.
+For CSV, handle encodings, delimiters, quoted fields, and embedded newlines with
+explicit parsing settings or reported detection assumptions. Preserve raw field
+values, including leading zeros, and report ambiguous types or malformed records.
+Support questions, summaries, and bounded tabular analysis with citations to XLSX
+sheet/cell ranges or CSV logical record and column references. Disclose sampling,
+truncation, and conversion assumptions so partial data is never presented as complete.
+
+Keep originals and derived text, tables, OCR, and page images as content-addressed,
+owner-scoped artifacts under §17 storage and retention rules. Record parser/OCR
+versions, transformations, and the exact artifacts sent to each provider. Run
+parsing, conversion, and OCR in an isolated, resource-bounded worker with no network
+access; never execute macros, embedded scripts, or external document references.
+Enforce file, page, sheet, row, column, cell-size, decompression, runtime, and
+model-context limits. Document
+content remains untrusted evidence, not instructions or authority; provider/data
+policy and modality eligibility apply to every derived artifact. This is planned
+reading support, with delivery gated by §24.4.
+
+Audio/voice/realtime interaction is
 not required by the review workflow and remains out of scope until a measured use
 case justifies its privacy, storage, and provider-conformance surface.
 
@@ -1984,6 +2527,10 @@ The sandbox negative tests and the blindness assertions are the two most importa
 ---
 
 ## 21. Delivery milestones
+
+**Historical table, not the active execution queue.** Use `docs/ROADMAP.md` and
+§26.4 for current dependencies and acceptance gates. In particular, this table's
+provider order, finding cap, agreement scoring and late-TUI sequence are superseded.
 
 | # | Milestone | Exit criteria |
 |---|---|---|
@@ -2246,10 +2793,14 @@ treated as design hypotheses.
 | Skills/personas | **Adopt, staged** | Version and hash prompt/rubric assets (§14.3). Repository skills are untrusted selectors, scripts are inert, and persona migration requires regression and held-out evaluation. |
 | MCP server plus app server | **Split and defer** | Keep the client. Add one narrow outward protocol only after quality/security gates (§13.2); do not maintain two auth/session stacks without distinct users. |
 | Image and audio inputs | **Images later; audio deferred** | Images have a concrete review use case and receive artifact/media controls (§19.6). Audio, voice, and realtime interaction do not yet improve the core review outcome. |
+| PDF, Word, and scanned-document inputs | **Adopt later in E3** | Extract text and tables from PDFs and Word files; OCR scanned documents with source citations, extraction-quality reporting, isolated processing, and owner-scoped artifacts (§19.6). |
+| XLSX and CSV inputs | **Adopt later in E3** | Read workbook sheets and delimited tables for bounded analysis with sheet/cell or record/column citations, explicit parsing assumptions, inert formulas, and the same artifact/isolation controls (§19.6). |
 | Cached web search | **Adopt after containment** | Only the trusted brief builder gets brokered network access. Critics consume frozen, cited, untrusted artifacts; the cache includes provenance and freshness (§19.5). |
 | Endpoint and auth modes | **Adopt, hardened** | Use trusted endpoint records and typed credential references (§4.5), not arbitrary URL/header dictionaries. Require TLS/loopback exception, SSRF controls, conformance, and provider/data policy. |
+| Provider, model catalog, and selection extensibility | **Adopt, staged** | Define versioned adapter/catalog/selector contracts with the core provider and routing work; deliver trusted external adapter and selector loading in E1. Additional routes and strategies must satisfy existing conformance, eligibility, spending, and evaluation gates (§§4.6, 5.1, 7.6). |
 | Local open-weight models | **Keep out of v1** | Different branding does not prove independent training lineage. “Free per call” ignores hardware, energy, operations, and latency. Add a local endpoint only if blinded evaluation shows incremental coverage or acceptable cost/quality. |
 | Model-keyed capability defaults | **Reject** | Model labels such as “frontier,” “small,” or “cyber” are mutable and do not determine the OS authority a task needs. Policy is task/role/data based; a provider or model restriction may narrow authority, never raise it. |
+| Per-project guidance, memory, and observability | **Adopt, scoped** | Add declarative project template binding (§16.6), owner-scoped operational telemetry (§17.5), and explicitly selected memory/notes (§17.6). Engineering preferences remain project-specific; no automatic history import or estate-wide telemetry dependency. |
 | Policy preflight | **Adopt** | `mos policy check` shares the dispatch resolver, explains provenance, and executes nothing (§16.1–16.2). |
 | Feature flags | **Adopt** | Use maturity gates with explicit policy status. Flags cannot bypass trusted-policy intersection. |
 | Structured final output | **Adopt** | `--output-schema` validates a bounded final object and has no capability-selection effect. |
@@ -2291,29 +2842,57 @@ treated as design hypotheses.
 These additions are not promoted to stable because they exist. Promotion requires:
 
 - lifecycle and skill non-escalation tests plus a malicious-extension corpus;
+- project-guidance isolation, precedence, pinned snapshots and bounded references;
+  memory/note explicit loading and safe export; operational telemetry redaction,
+  failure behavior, and unchanged mandatory audit/spend guarantees (§§16.6, 17.5–17.6);
 - subagent comparisons against the existing specialized review path, reporting
   quality, cost, latency, isolation failures, and aggregate-budget violations;
+- all six three-provider creator/critic/judge assignments through common contracts,
+  with role isolation and capability rejection; creator-led coding fixtures proving
+  creator-written plan/tests, critic/judge review, and exact creator approval precede child execution, at
+  least one child performs meaningful coding, test weakening and stale approvals
+  fail, and final code
+  receives review; matched delegation studies report clean/efficient output and
+  whole-task cost including integration and rework (§§7.7, 14.2.1, 15.7);
 - network-broker SSRF/DNS-rebinding/redirect/cache-poisoning tests and proof that
   critics remain unable to open sockets;
 - endpoint conformance and data-policy approval for every new backend;
+- provider and selector extension contract suites demonstrating registration without
+  core-loop changes, version/identity validation, revocation, and no authority
+  escalation; catalog refresh cannot enable routes, and selection preflight/dispatch
+  must agree subject to explicit rejection when eligibility changes (§§4.6, 5.1, 7.6);
 - egress tests seeding credentials in prompts, tool output, events, MCP traffic, raw
   artifacts, and replay paths;
 - service-boundary authentication, rate-limit, cancellation, replay, and
   caller-request-narrowing tests;
 - image decompression-bomb, malformed-media, metadata, and cross-provider
-  conformance tests before multimodal routing becomes eligible.
+  conformance tests before multimodal routing becomes eligible;
+- PDF, Word (`.docx`/`.doc`), and scanned-document fixtures covering text/table
+  extraction, OCR quality, source citations, and explicit partial/unreadable results;
+  malformed files, decompression bombs, active content, external references, and
+  prompt injection must not escape worker isolation or resource limits, and derived
+  artifacts must pass owner-isolation, retention, and provider-conformance checks;
+- XLSX/CSV fixtures covering multiple and hidden sheets, merged cells, value types,
+  formulas and missing cached values, encodings, delimiters, quoting, embedded
+  newlines, leading zeros, and malformed records; verify source references,
+  bounded analysis, explicit sampling/truncation, inert formulas/external links,
+  resource limits, and the same artifact/isolation controls as document inputs.
 
 **Result:** parity work is post-gate extensibility. It may make Mos Eisley easier to
 integrate and specialize, but it cannot advance ahead of the local review quality
 gate, containment proof, or the trusted/untrusted configuration split in §23.8.
+The user-directed declarative project guidance, private memory/notes, and local
+operational-event contracts in §§16.6 and 17.5–17.6 can be built with the conversation
+and storage workstreams. Their write, export, and executable-extension capabilities
+still require the corresponding gates; attaching guidance cannot advance authority.
 
 ### 24.5 Post-gate delivery order
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers cannot escalate authority; every endpoint passes conformance and data-policy checks |
-| **E2 — delegation assets** | general subagent primitive, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
-| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts | critics remain socketless; broker and cache adversarial suites pass; images pass media/resource and cross-provider conformance |
+| **E1 — control substrate** | policy preflight, egress redaction, typed lifecycle events, feature maturity registry, typed credentials/endpoints, trusted provider/selector extension loading and model catalog overlays | preflight/dispatch equivalence; seeded-secret egress suite passes; handlers and extensions cannot escalate authority; adapter/catalog/selector contract suites pass; every endpoint passes conformance and data-policy checks; automatic strategies remain evaluation-gated |
+| **E2 — delegation assets** | general subagent primitive, creator-approved plan review and delegated coding, versioned skills, persona migration experiment | aggregate-budget and isolation tests pass; interchangeable role contracts and plan-approval ordering pass; coding also requires execution/VCS containment; delegation meets preregistered quality/efficiency and whole-task cost targets; specialized versus general pipeline comparison meets pre-registered non-inferiority thresholds; skill version does not regress false-positive target |
+| **E3 — external evidence** | brokered fetch/search, provenance cache, image brief artifacts, PDF/Word reading, scanned-document OCR, and XLSX/CSV reading and bounded analysis for conversations and reviews | critics remain socketless; broker and cache adversarial suites pass; images, documents, and tabular inputs pass isolation/resource and cross-provider conformance; extraction/OCR and tabular parsing quality, source citations, and owner-scoped artifact handling meet §24.4 |
 | **E4 — interoperability** | narrow outward MCP server, credential lifecycle, completion and redacted notifications | authenticated schema-versioned operations pass narrowing, rate-limit, cancellation, idempotency, and replay tests; no general remote runner |
 
 An app server, audio/realtime mode, automatic compaction delegation, local model
@@ -3848,3 +4427,164 @@ route identity, and fixes complete-batch coverage, provider authorship, billing,
 quality, grading, scoring, promotion, activation, and further request authority to
 false. A complete-batch brokered calibration and separately reviewed gradeable
 issuance boundary remain required.
+
+---
+
+## 26. Integrated project review and delivery contract
+
+**Review date:** 2026-09-08. **Decision:** adopt the revised designs as gated
+extensions to Mos Eisley. This amendment changes the plan, not runtime authority.
+The [project review](PROJECT_REVIEW_2026-09-08.md) records findings for the current
+project and both imported plans. The detailed contracts are the revised
+[adaptive routing design](adaptive-reasoning-routing.md) and
+[adversarial-loop project plan](adversarial-review-loop-project-plan.md).
+
+### 26.1 Current baseline and scope decisions
+
+The reviewed checkout has a working recorded critic/judge pipeline, inert agent
+loop, provider preview, spending admission and extensive offline evidence gates.
+It does not yet deliver live critic/judge fan-out, a conversational controller,
+machine-capable tests/writes or automatic routing. Fixture quality and signed
+readiness are not proof of live utility, correctness or operational authority.
+The three priorities are a usable recorded conversation/review slice, completion
+of live read-only provider integration, and an affordable independent quality study.
+No new learning algorithm or evidence artifact should obscure those deliverables.
+
+Keep the conversational product contract, creator-authored plan/tests, creator
+approval and delegated implementation requirements. Add Stage-0 independent readings
+as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
+contracts and private storage; no mandatory Postgres, research web UI, notification
+system or second router. Proxy telemetry cannot replace the human-grade lineage.
+Raw historical trajectory retrieval conflicts with §17 and is not adopted.
+
+Live automatic routing remains off. Exact fallback eligibility, independently
+controlled holdout, external monotonic control and atomic brokered dispatch remain
+required. Before an activation milestone, document actual authority enrollment,
+key custody/separation, revocation/recovery and witness operations. Multiple keys
+held by one operator do not demonstrate independent judgment. If the prescribed
+operating model cannot be supplied, keep the feature offline/manual; any simplified
+trust model needs an explicit new design and threat review rather than cosmetic keys.
+
+### 26.2 Review-loop contract
+
+Use the L0–L5 phases in the revised loop plan. Clause references bind immutable
+plan revision and clause text; changed plans/tests invalidate dependent approval.
+Two fresh readers seal interpretations before either result is revealed and before
+seeing creator tests or reasoning. The later critic reviews creator plan/tests and
+reading findings; judge disposition and creator acceptance bind the exact revisions.
+Creator-context statements are not independent readings.
+
+Independent reviewer tests supplement creator tests. Derive them from approved
+plan/interfaces before revealing implementation. Freeze inputs, fixtures, expected
+values, assertions, oracles and collection configuration; bind through a separately
+reviewed adapter. Assertion-only diffs cannot detect fake bindings or changed test
+meaning. Enforce known-good/known-bad controls, exact collection/execution counts,
+and isolated execution receipts before treating failures as evidence.
+
+Initially all blocking corrections retain full judge coverage. Confirm citation
+aptness, reproduced failure and an implementation violation; keep test defects,
+plan gaps, flakiness and infrastructure failures distinct. Uncitable concerns remain
+visible as gaps or impact-supported invariant findings. Every final accepted tree
+must pass required creator/reviewer checks and independent implementation review.
+Model agreement, a plan-only approval or an author's acceptance cannot replace it.
+
+Defaults are two critique/rebuttal rounds per artifact and two correction cycles
+per task, under one aggregate cost/deadline budget. Persist counters and stale-work
+invalidation across resume, cancellation and user steering. Exhaustion returns
+unresolved evidence, never fabricated acceptance or automatic ambiguity relabeling.
+
+### 26.3 Routing and measurement contract
+
+Start with fixed routes and compare lookup/cascade policies offline. Keep judges,
+graders, rubrics and gold evaluation settings fixed within a versioned experiment.
+Candidate execution routes vary only as preregistered. The existing selector may
+not change its own measuring instrument while claiming comparable results.
+
+Record a durable pre-dispatch decision with policy/features, exact eligible action
+distribution, selected probability, requested/resolved effort and budget, and actual
+dispatch/reservation identity. A fallback after changed eligibility is a new
+decision. Deterministic probability one supports only its observed action; unknown
+historical propensity cannot be recovered by assertion. Scope automatic history use
+to §17.3's minimal same-owner aggregates. Stage-0 divergence is available only after
+Stage 0; never use current/future outcomes as pre-call features.
+
+Treat passing tests, author rejection and judge verdicts as proxies. Preserve
+independent verification, unresolved/disputed outcomes, non-completion, follow-up
+windows, truncation, tool/provider failure and uncertain spend. Include every stage,
+child, repair and abandoned task in whole-task cost. A cascade's later success is
+recovery evidence, not proof effort caused the difference; causal comparisons need
+separate attempts from the same frozen state or randomized whole-task policies.
+
+Qualify cost savings only after absolute quality limits and non-inferiority margins
+pass. Correct-work damage covers independently judged unnecessary requested changes
+and introduced regressions on initially acceptable tasks. Also measure missed and
+dismissed escaped defects, completion and latency. Report missing follow-up and weak
+power; a cheaper policy cannot buy permission to increase damage through a scalar
+cost/reward tradeoff. Stage overlap and judge consistency remain diagnostics.
+
+Before any paid study, calculate whether the desired bounds fit case, group, grid,
+assignment and spending ceilings. For example, with four profiles, six routes,
+three quality metrics and two splits, the existing family contains 144 intervals.
+Even zero observed clean risk needs at least 1,732 independent clean groups per
+profile/split to get the implemented Hoeffding upper bound at or below 0.05. With
+three repetitions, those clean cases alone require 249,408 assignments, exceeding
+the current 50,000-assignment cap; 13,856 clean cases also exceed the 5,000-case
+dataset cap. Reduce preregistered scope, collect more suitable
+evidence or separately review a more efficient statistical design before execution;
+do not weaken thresholds, pool sparse profiles or treat repetitions as independent
+after seeing outcomes. See [statistical design](STATISTICAL_DESIGN.md).
+
+Group related tasks/revisions, protect holdout before packet construction, retain
+a random ordinary-task audit alongside selected hard cases, and track selection
+and missing-label probabilities. Keep exposed regression examples out of fresh
+holdout. The existing fixed-matrix scorer cannot validate adaptively selected
+trajectories. Sequential inference, IPS/doubly robust estimators, output-budget
+action schemas and cross-family difficulty transfer are separate research gates.
+
+Exploration is disabled initially. Offline/shadow trials need explicit study spend
+and data permissions and grant no machine authority. Later online randomization
+can select only already qualified actions above the role floor. Monitoring can
+quarantine/stop traffic; it cannot silently retrain/reactivate. Freshness deadlines,
+recent-window checks and new model/prompt/tool/template versions trigger renewed
+evaluation or eligible fallback/stop, even with no observed failures.
+
+### 26.4 Delivery order and accountable gates
+
+Josh Myers is the project decision owner. Each implementation milestone must name
+its implementing owner, independent evidence reviewer where required, frozen
+acceptance protocol and expected resource ceiling before work begins. These are
+delivery roles, not a new user-confirmation step for ordinary authorized work.
+
+| Gate | Work and dependencies | Concrete exit evidence |
+|---|---|---|
+| G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry mapping; §6.6 artifact/view, durable-state, and measurement contracts | Versioned clause/decision/outcome fixtures, truthful unknowns, old replay compatibility, negative tests for stale IDs/probabilities, owner boundaries, reproducible bounded views with disclosed loss |
+| G1 — usable product slice | G0; conversational controller over recorded providers; L1 reading experiment; `author` compaction and explicit memory selection | Conversation → frozen plan/review → visible result → cancel/resume demo; sealed reading leak tests; template/rubric revisions invalidate approval; compaction lineage/reconstructability and overflow-stop tests pass |
+| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
+| G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; live claims require G2 | Sealed baseline/ablation design, attainable sample/assignment/cost calculation, independently graded clean/defective cases, held-out quality and total-cost report |
+| G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
+| G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
+| G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
+| G7 — optional research | G5/G6 as applicable; R4 | Independent benefit from transfer, budget routing or bandit methods; explicit estimator and fresh evaluation, no automatic online learning |
+
+G0/G1 can proceed while G2's live boundary is finished. Planning and labeling do not
+require machine-write authority; live evaluation does not wait for coding autonomy.
+G4 can be developed in inert fixtures before its production gates pass. Skills and
+provider extensions retain their separate release gates and do not substitute for
+this sequence. The revised designs are approved planning inputs, not evidence that
+G0–G7 have shipped.
+
+### 26.5 Required adversarial acceptance matrix
+
+| Boundary | Required negative cases |
+|---|---|
+| Reading/approval | Early reveal, creator tests/history leak, missing second commitment, stale clause/test revision, steering after approval |
+| Binding/execution | Unchanged assertions with altered fixtures/oracles, fake adapter, empty/skip/xfail collection, wrong tree, flaky test, hostile subprocess/resource exhaustion |
+| Correction | Valid quote with irrelevant requirement, wrong test oracle, absent invariant, partial quorum, author acquiescence, repeated unresolved failure, resumed budget reset |
+| Measurement | Future features, same-task split leakage, holdout in cache/notes, selective labels/age-out, never-raised escaped bugs, zero successes, unattainable sample size |
+| Routing | Missing/zero-support propensity, changed eligibility after selection, unqualified exploration, effort/budget substitution, stale catalog/freshness, partial feedback/cost |
+| Dispatch/storage | Revocation between preflight/send, copied or rolled-back anchor, duplicate/uncertain dispatch, cross-owner aggregate access, reset with stale dependent policy |
+| Context reduction | Mutable/missing full artifact, digest mismatch, hidden omitted range, stdout/stderr reorder, meaningful duplicate collapse, stale file-read cache, superseded instruction revival, retrieved prompt injection, cross-owner memory/cache hit, compaction lineage break, hard-cap false completeness |
+
+Pass/fail fixtures prove controller enforcement; representative independent live
+evidence proves a quality or savings claim. Keep those statements separate in each
+milestone review and in the CLI's availability/status output.

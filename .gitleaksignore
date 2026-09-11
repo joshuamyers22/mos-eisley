@@ -4,3 +4,6 @@
 a4ff0d7b3cd231462e05687419091c538d839fd2:tests/test_conversation_artifacts.py:generic-api-key:106
 # The same expression was quoted in the original explanatory comment.
 e800043af4061dcdc39d6fe6fdb4b38236c8c932:.gitleaksignore:generic-api-key:1
+# False positive: slash-separated names of the broker, spending, and quorum gates
+# in the integrated delivery roadmap. No credential value is present.
+3583aa580aebcd77f86ab5a086efede0888595e4:docs/ROADMAP.md:generic-api-key:14

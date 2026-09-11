@@ -739,5 +739,5 @@ recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
 configurable physical retention and the 1,000-message
-capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
+capacity/recovery gate in [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.
