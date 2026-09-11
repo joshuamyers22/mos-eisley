@@ -100,6 +100,10 @@ from mos_eisley.run.conversation_batch_transfer import (
     BatchTransferError,
     transfer_batch,
 )
+from mos_eisley.run.conversation_cleanup import (
+    TemporaryCleanupError,
+    cleanup_temporary_files,
+)
 from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
@@ -203,6 +207,27 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    cleanup = add_parser(
+        "session-cleanup", help="Preview or remove unpublished JSON temporary files"
+    )
+    cleanup.add_argument(
+        "session_id", help="Explicit session ID from temporary filenames"
+    )
+    cleanup.add_argument(
+        "--storage",
+        type=Path,
+        default=Path.home() / ".mos-eisley-sessions",
+        help="Owner-private storage directory (cleanup is not workspace filtered)",
+    )
+    cleanup.add_argument("--expected-sha256", help="Cleanup hash from a fresh preview")
+    cleanup.add_argument(
+        "--apply",
+        action="store_true",
+        help="Remove exactly the selected temporary files",
+    )
+    cleanup.add_argument(
+        "--json", action="store_true", help="Print a JSON cleanup receipt"
+    )
     artifact = add_parser(
         "session-artifact", help="Expand one selected SQLite artifact"
     )
@@ -981,7 +1006,30 @@ def _run_batch_export(args: argparse.Namespace) -> int:
     return 0 if notice is None else 2
 
 
+def _run_cleanup(args: argparse.Namespace) -> int:
+    notice = None
+    try:
+        receipt = cleanup_temporary_files(
+            args.storage,
+            args.session_id,
+            expected_sha256=args.expected_sha256,
+            apply=args.apply,
+        )
+    except TemporaryCleanupError as error:
+        receipt = error.receipt
+        notice = str(error)
+    except ValidationError:
+        raise ValueError("Temporary cleanup selection failed validation.") from None
+    payload = {"type": "conversation.cleanup", **receipt.model_dump(mode="json")}
+    if notice is not None:
+        payload["text"] = notice
+    print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+    return 0 if notice is None else 2
+
+
 def _run_command(args: argparse.Namespace) -> int:
+    if args.command == "session-cleanup":
+        return _run_cleanup(args)
     if args.command == "session-artifact":
         artifact = read_sqlite_artifact(
             args.storage, args.workspace, args.selection, max_bytes=args.max_bytes

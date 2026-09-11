@@ -53,6 +53,10 @@ same storage directory; `--destination-storage PATH` selects another private
 directory. Apply with the returned export hash.
 `mos session-export-batch ID_A ID_B` previews up to 32 selected SQLite sessions
 and 64 MB of JSON output; apply with its batch hash and retry partial exports safely.
+`mos session-cleanup SESSION_ID` previews unpublished JSON temporary files left by
+interrupted writes; apply with its cleanup hash. This is explicit storage-owner
+maintenance, including orphans without a published session. See the
+[cleanup and recovery guide](docs/CONVERSATION_CLEANUP.md).
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects

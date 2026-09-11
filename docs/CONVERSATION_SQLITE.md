@@ -291,9 +291,11 @@ session lock. Retry ignores that temporary and publishes a complete snapshot.
 An exit after publication is resolved by verifying the existing copy. Temporary
 files are not removed by preview or retry; the existing explicit snapshot
 `session-delete` cleanup handles this session's temporary files when deleting its
-published copy. There is no source deletion, synchronization or automatic backend
-switch. Retention and the long-session capacity
-gate remain separate work.
+published copy. `session-cleanup` now provides separate
+[previewed temporary-file cleanup](CONVERSATION_CLEANUP.md), including orphaned
+first writes without a published JSON copy. There is no source deletion,
+synchronization or automatic backend switch. Broader retention and the long-session
+capacity gate remain separate work.
 
 ## Export a selected batch of SQLite sessions
 
@@ -717,6 +719,11 @@ logical deletion is not a promise of erasure from filesystem snapshots, storage
 hardware, journals or backups. Database space can be reused without the file
 shrinking. Backup expiry, vacuum/compaction and bulk retention remain
 explicit future work.
+
+Interrupted JSON saves and exports now have separate, explicit
+[temporary-file cleanup](CONVERSATION_CLEANUP.md). Its storage-owner selection hash
+and shared session lock authorize removal of unpublished JSON staging files only;
+SQLite journals, databases and published sessions are retained.
 
 The database has an initial 256 MB physical file ceiling, enforced on open and via
 SQLite's page-count limit on writable connections. Each existing sidecar is also

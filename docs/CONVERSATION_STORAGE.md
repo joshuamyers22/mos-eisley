@@ -18,8 +18,8 @@ artifact references. F7/F8 and `session-artifact` explicitly expand one selected
 artifact under a separate 512,000-byte default read budget; the CLI can raise this
 up to 32 MB without changing session retention or model context limits.
 `resume --inspect` now reads a candidate working set from a separately verified
-checkpoint without resuming the controller. Further bounds on controller resume,
-retention remains planned. `session-export` now copies
+checkpoint without resuming the controller. Further bounds on controller resume
+and broader retention remain planned. `session-export` now copies
 one SQLite session to JSON in the same or another existing private directory while retaining
 the read-only source; see the
 [export contract](CONVERSATION_SQLITE.md#export-a-sqlite-session-to-json).
@@ -405,7 +405,15 @@ Implement these stages under the storage and ownership contract in
    histories, then caps each reread at the selected size and publishes per session.
    Retry verifies completed copies; later failures report the verified prefix.
    See the [batch export contract](CONVERSATION_SQLITE.md#export-a-selected-batch-of-sqlite-sessions).
-   Retention remains open.
+   Explicit temporary-file retention now supports `session-cleanup`: one selected
+   session ID, up to 256 unpublished JSON files and 64 MB of streamed bytes.
+   The storage-owner plan binds directory/lock/file identities, sizes, timestamps
+   and content hashes. Apply revalidates the complete selection under the shared
+   session lock, preserves published stores and reports partial removals and sync
+   failures. Crash recovery requires a fresh preview of the remainder. It includes
+   interrupted first writes without readable workspace metadata, so it is explicitly
+   storage scoped. See the [cleanup contract](CONVERSATION_CLEANUP.md).
+   Broader object retention, quotas and backup/journal expiry remain open.
 
 Before replacing the current backend or lifting the message cap, test at least
 1,000 messages and retained content above 32 MB with measured bounded page reads.
