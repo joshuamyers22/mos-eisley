@@ -71,6 +71,7 @@ from mos_eisley.conversation_memory import (
 from mos_eisley.conversation_memory_migration import (
     migrate_memory_project,
     recover_memory_project,
+    resolve_memory_project,
 )
 from mos_eisley.conversation_memory_project import (
     preview_memory_project,
@@ -255,6 +256,23 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    resolution = add_parser(
+        "memory-project-resolve", help="Review and resolve a project-memory collision"
+    )
+    resolution.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    resolution.add_argument("--memory-project-root", type=Path, required=True)
+    resolution.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    resolution.add_argument(
+        "--strategy",
+        required=True,
+        choices=("keep-target", "use-source", "append-source", "use-text"),
+    )
+    resolution.add_argument("--text")
+    resolution.add_argument("--apply", action="store_true")
+    resolution.add_argument("--expected-sha256")
+    resolution.add_argument("--json", action="store_true")
     recovery = add_parser(
         "memory-project-recover",
         help="Preview or remove an interrupted copy's staging alias",
@@ -1464,6 +1482,25 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-resolve":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = resolve_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            strategy=args.strategy,
+            text=args.text,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_resolution", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "memory-project-recover":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")

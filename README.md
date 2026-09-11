@@ -51,6 +51,8 @@ workspace and root documents before adoption. `memory-project-migrate` previews
 and applies a guarded copy to an empty root, preserving the source document.
 `memory-project-recover` provides explicit, preview-bound cleanup of a verified
 extra staging link left by interrupted publication.
+`memory-project-resolve` reviews existing-document collisions and preserves a
+private prior-root backup before applying an explicit text resolution.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

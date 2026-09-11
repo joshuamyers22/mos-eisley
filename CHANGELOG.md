@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed project-memory collision resolution with explicit keep, replace,
+  append or supplied-text strategies. Preserve root enabled state and source/user
+  files; save a durable private prior-root snapshot before guarded replacement.
+
 - Add explicit project-memory recovery previews and guarded cleanup of one exact
   interrupted-publication staging alias. Bind the approved target hash and file
   identities, preserve memory documents, and retain ordinary single-link checks.
