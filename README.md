@@ -49,6 +49,8 @@ Use [`--memory-project-root PATH`](docs/CONVERSATION_MEMORY_PROJECT.md) to selec
 shared project memory explicitly for a new session. `memory-project-preview` compares
 workspace and root documents before adoption. `memory-project-migrate` previews
 and applies a guarded copy to an empty root, preserving the source document.
+`memory-project-recover` provides explicit, preview-bound cleanup of a verified
+extra staging link left by interrupted publication.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

@@ -98,15 +98,43 @@ anything further: the old preview cannot overwrite or retry an existing target.
 
 A process killed between linking and removing the temporary name can leave the
 target and one `.memory-migration-*.tmp` name linked to the same inode. Readers
-deliberately reject that record under the existing single-link rule. Automatic
-recovery is not implemented. For operator recovery, stop memory writers, preserve
-the preview, and verify private ownership, exactly two links, matching device/inode
-for the target and its temporary alias, and target bytes equal to the approved
-`proposed` snapshot. Remove only that verified temporary alias, flush the storage
-directory, and inspect the target again. Do not broadly delete temporary files or
-replace the target. If verification fails, retain both files for investigation;
-the source document remains available. These filesystem checks coordinate local
-writers; they do not isolate memory from a hostile process running as the same user.
+deliberately reject that record under the existing single-link rule. Use the
+explicit recovery command to inspect and remove only its verified temporary alias:
+
+```sh
+mos memory-project-recover -C /repo/packages/api --memory-project-root /repo \
+  --temporary-name .memory-migration-EXACT_32_HEX_DIGITS.tmp \
+  --target-sha256 APPROVED_PROPOSED_DOCUMENT_SHA256 --json
+mos memory-project-recover -C /repo/packages/api --memory-project-root /repo \
+  --temporary-name .memory-migration-EXACT_32_HEX_DIGITS.tmp \
+  --target-sha256 APPROVED_PROPOSED_DOCUMENT_SHA256 \
+  --apply --expected-sha256 HASH_FROM_RECOVERY_PREVIEW --json
+```
+
+Inspect the configured memory storage directory for the exact staging filename;
+wildcards and paths are rejected. `--target-sha256` is `proposed.sha256` from the
+approved migration preview, not its outer `preview_sha256`. The second command
+requires the new recovery preview's hash. Use the same `--memory-storage` override
+on both commands when configured. Preserve the migration preview for this purpose.
+
+Recovery checks private ownership, exactly two links, matching device/inode for
+the target and alias, canonical snapshot bytes, document owner and project scope,
+and the approved document hash. Its receipt binds the full target, source/root
+directory identities, storage and lock identities, exact alias name and target
+inode/change time. Preview is read-only; apply rechecks under an exclusive lock,
+removes only that alias, flushes the directory and validates the target with the
+ordinary single-link reader. Missing storage remains absent. Changed or invalid
+inputs stop recovery before cleanup. The source may have been edited since the
+copy; recovery preserves its current contents and never rewrites the copied target.
+
+Recovery runs only when explicitly invoked. It does not scan or clean unrelated
+temporary files, finish an unpublished copy, merge collisions, or retarget saved
+sessions. If the original approved hash is unavailable or validation fails, retain
+the files for investigation; the source remains available. A directory-flush error
+after unlink can mean cleanup already succeeded. Inspect the target with the normal
+memory command before retrying; a one-link target is already recovered and is
+ineligible for alias cleanup. These filesystem checks coordinate local writers;
+they do not isolate memory from a hostile process running as the same user.
 
 To stop using the copied memory, launch without the explicit root or use the
 existing memory disable command at that root after inspection. Disabling affects

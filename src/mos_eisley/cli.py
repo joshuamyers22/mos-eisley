@@ -7447,6 +7447,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "memory",
             "memory-project-preview",
             "memory-project-migrate",
+            "memory-project-recover",
             "chat",
             "resume",
             "conversation-demo",

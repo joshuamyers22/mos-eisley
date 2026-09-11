@@ -2,6 +2,8 @@
 
 import json
 import os
+import re
+import stat
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
@@ -26,6 +28,103 @@ def _directory(selection: DirectorySelection) -> dict[str, object]:
 
 
 class _MigrationStore(MemoryStore):
+    def _recovery_record(
+        self, root: int, temporary: str, target_sha256: str
+    ) -> tuple[MemorySnapshot, dict[str, int]]:
+        fd = os.open(
+            self.path("project").name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+            dir_fd=root,
+        )
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or info.st_mode & 0o077
+                or info.st_nlink != 2
+            ):
+                raise ValueError(
+                    "Recovery requires a private target with exactly two links."
+                )
+            identity = {**_identity(info), "ctime_ns": info.st_ctime_ns}
+            for name in (self.path("project").name, temporary):
+                named = os.stat(name, dir_fd=root, follow_symlinks=False)
+                if (
+                    _identity(named) != _identity(info)
+                    or named.st_ctime_ns != info.st_ctime_ns
+                    or named.st_nlink != 2
+                ):
+                    raise ValueError(
+                        "Recovery requires the exact target staging alias."
+                    )
+            payload = stream.read(RECORD_BYTES + 1)
+            if len(payload) > RECORD_BYTES:
+                raise ValueError("memory record exceeds byte limit")
+            snapshot = MemorySnapshot.model_validate_json(payload)
+            if (
+                snapshot.sha256 != target_sha256
+                or snapshot.document.owner_uid != os.getuid()
+                or snapshot.document.scope != "project"
+                or snapshot.document.workspace != self.workspace
+                or payload != canonical_bytes(snapshot)
+                or os.fstat(stream.fileno()).st_ctime_ns != info.st_ctime_ns
+            ):
+                raise ValueError("Recovery target does not match the approved copy.")
+        return snapshot, identity
+
+    def recover(
+        self,
+        source_directory: DirectorySelection,
+        target_directory: DirectorySelection,
+        temporary: str,
+        target_sha256: str,
+        expected_sha256: str | None,
+    ) -> dict[str, object]:
+        with self._lock_handles(exclusive=expected_sha256 is not None) as handles:
+            if handles is None:
+                raise ValueError("Recovery requires existing memory storage.")
+            root = handles[0]
+
+            def inspect() -> dict[str, object]:
+                source_directory.verify()
+                target_directory.verify()
+                storage = self._storage_identity(handles)
+                snapshot, identity = self._recovery_record(
+                    root, temporary, target_sha256
+                )
+                return {
+                    "schema_version": 1,
+                    "operation": "recover-project-memory-link",
+                    "storage": storage,
+                    "source_directory": _directory(source_directory),
+                    "target_directory": _directory(target_directory),
+                    "target_path": str(self.path("project")),
+                    "temporary_path": str(self.root / temporary),
+                    "target": snapshot.model_dump(mode="json"),
+                    "record_identity": identity,
+                    "action": "remove-verified-temporary-alias",
+                }
+
+            body = inspect()
+            preview_hash = digest(
+                json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            )
+            if expected_sha256 is not None:
+                if expected_sha256 != preview_hash or inspect() != body:
+                    raise ValueError("Memory recovery changed; preview it again.")
+                os.unlink(temporary, dir_fd=root)
+                os.fsync(root)
+                # Normal readers retain their single-link rule throughout recovery.
+                recovered = self._read(root, "project")
+                if recovered is None or recovered.sha256 != target_sha256:
+                    raise ValueError("Recovery target changed; inspect storage again.")
+            return {
+                **body,
+                "preview_sha256": preview_hash,
+                "applied": expected_sha256 is not None,
+            }
+
     def _storage_identity(self, handles: tuple[int, int] | None) -> dict[str, object]:
         if handles is None:
             return {"path": str(self.root), "exists": False}
@@ -181,3 +280,34 @@ def migrate_memory_project(
     source = _MigrationStore(storage, source_directory.path)
     target = _MigrationStore(storage, target_directory.path)
     return source.migrate(target, source_directory, target_directory, expected_sha256)
+
+
+def recover_memory_project(
+    storage: Path,
+    workspace: Path,
+    project_root: Path,
+    *,
+    temporary_name: str,
+    target_sha256: str,
+    expected_sha256: str | None = None,
+) -> dict[str, object]:
+    """Inspect or remove one approved copy's exact interrupted-publication alias."""
+    if re.fullmatch(r"\.memory-migration-[0-9a-f]{32}\.tmp", temporary_name) is None:
+        raise ValueError("Recovery requires an exact migration temporary filename.")
+    for value in (target_sha256, expected_sha256):
+        if value is not None and re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise ValueError("Recovery requires lowercase SHA-256 hashes.")
+    source_directory = DirectorySelection.inspect(workspace)
+    target_directory = select_memory_project(source_directory.path, project_root)
+    if source_directory.path == target_directory.path:
+        raise ValueError(
+            "Recovery requires distinct workspace and project-root identities."
+        )
+    target = _MigrationStore(storage, target_directory.path)
+    return target.recover(
+        source_directory,
+        target_directory,
+        temporary_name,
+        target_sha256,
+        expected_sha256,
+    )

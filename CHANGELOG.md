@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit project-memory recovery previews and guarded cleanup of one exact
+  interrupted-publication staging alias. Bind the approved target hash and file
+  identities, preserve memory documents, and retain ordinary single-link checks.
+
 - Add preview-bound project-memory copying from a workspace to an empty ancestor
   root. Preserve source documents and session history; reject stale identities,
   changed content and collisions, with atomic no-overwrite publication and fault

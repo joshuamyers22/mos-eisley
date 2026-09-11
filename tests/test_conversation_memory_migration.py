@@ -12,7 +12,10 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from mos_eisley.conversation_memory import MemorySnapshot, MemoryStore
-from mos_eisley.conversation_memory_migration import migrate_memory_project
+from mos_eisley.conversation_memory_migration import (
+    migrate_memory_project,
+    recover_memory_project,
+)
 from mos_eisley.conversation_memory_project import preview_memory_project
 from mos_eisley.core.models import canonical_bytes
 
@@ -362,13 +365,27 @@ with patch('mos_eisley.conversation_memory_migration.os.link', side_effect=inter
             self.target.read("project")
         with self.assertRaisesRegex(ValueError, "private"):
             self.apply(receipt)
-        # Model operator recovery: validate the exact target and its one staging alias.
+        # Recover the actual process-death artifact through the guarded public API.
         aliases = list(self.storage.glob(".memory-migration-*"))
         self.assertEqual(len(aliases), 1)
         self.assertTrue(aliases[0].samefile(self.target.path("project")))
         proposed = MemorySnapshot.model_validate_json(json.dumps(receipt["proposed"]))
         self.assertEqual(aliases[0].read_bytes(), canonical_bytes(proposed))
-        aliases[0].unlink()
+        recovery = recover_memory_project(
+            self.storage,
+            self.workspace,
+            self.project,
+            temporary_name=aliases[0].name,
+            target_sha256=proposed.sha256,
+        )
+        recover_memory_project(
+            self.storage,
+            self.workspace,
+            self.project,
+            temporary_name=aliases[0].name,
+            target_sha256=proposed.sha256,
+            expected_sha256=str(recovery["preview_sha256"]),
+        )
         self.assertEqual(self.target.read("project"), proposed)
         with self.assertRaisesRegex(ValueError, "changed"):
             self.apply(receipt)

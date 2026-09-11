@@ -135,8 +135,11 @@ capabilities, not current automatic template or memory loading.
    directory switching clears the old root selection. `memory-project-migrate`
    adds preview-bound copying to absent root documents, exclusive locking and
    atomic no-overwrite publication while preserving source documents. Collision
-   resolution, automatic interrupted-publication recovery, identity mapping and
-   natural-language memory changes remain planned.
+   resolution, identity mapping and natural-language memory changes remain planned.
+   `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
+   extra staging link after interrupted publication. Source and target bytes remain
+   intact; normal readers keep their single-link rule. Broader orphan cleanup remains
+   planned, and recovery does not run automatically at startup.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

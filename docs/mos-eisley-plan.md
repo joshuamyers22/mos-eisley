@@ -1536,12 +1536,19 @@ memory and request hashes are preserved. The earlier `memory-project-preview` ha
 remains informational and is not accepted for apply. Focused stale-input, identity,
 locking, collision and interrupted-publication tests run before the combined gate.
 
-**Next migration milestone:** reviewed collision resolution/merge and guarded
-interrupted-publication recovery. The copy command currently documents operator
-recovery for a process killed while the staging alias still links to the target;
-readers retain their single-link rejection. Project moves and worktree sharing need
-explicit mappings; common Git metadata or remote URLs never merge memory. Existing
-session identities cannot be overridden on resume.
+**Guarded recovery batch:** `memory-project-recover` previews one explicitly named
+interrupted-publication alias against the originally approved target document hash.
+Apply requires the recovery hash, rechecks storage/lock/directory and record identities
+under an exclusive lock, and removes only the verified extra link. Ordinary readers
+retain their single-link rule; target/source/user bytes and session history remain
+unchanged. Stale inputs, wrong scope/owner, symlinks, extra links and noncanonical
+records fail closed. Fault tests include recovery after actual process death.
+
+**Next migration milestone:** reviewed collision resolution/merge. Unpublished
+staging-file cleanup and broader interrupted-operation recovery remain planned;
+recovery never runs automatically at startup. Project moves and worktree sharing
+need explicit mappings; common Git metadata or remote URLs never merge memory.
+Existing session identities cannot be overridden on resume.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |

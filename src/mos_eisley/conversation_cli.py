@@ -68,7 +68,10 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
-from mos_eisley.conversation_memory_migration import migrate_memory_project
+from mos_eisley.conversation_memory_migration import (
+    migrate_memory_project,
+    recover_memory_project,
+)
 from mos_eisley.conversation_memory_project import (
     preview_memory_project,
     select_memory_project,
@@ -252,6 +255,20 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    recovery = add_parser(
+        "memory-project-recover",
+        help="Preview or remove an interrupted copy's staging alias",
+    )
+    recovery.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    recovery.add_argument("--memory-project-root", type=Path, required=True)
+    recovery.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    recovery.add_argument("--temporary-name", required=True)
+    recovery.add_argument("--target-sha256", required=True)
+    recovery.add_argument("--apply", action="store_true")
+    recovery.add_argument("--expected-sha256")
+    recovery.add_argument("--json", action="store_true")
     migration = add_parser(
         "memory-project-migrate", help="Preview or apply a guarded project-memory copy"
     )
@@ -1447,6 +1464,25 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-recover":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = recover_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            temporary_name=args.temporary_name,
+            target_sha256=args.target_sha256,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_recovery", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "memory-project-migrate":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")
