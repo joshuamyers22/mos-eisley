@@ -74,7 +74,8 @@ to use the imported session. There is no automatic synchronization or source rem
 Deleting the JSON copy is a separate `session-delete` operation using its current
 hash and the default snapshot backend. The bounded batch command below handles
 multiple explicit sessions. The transfer command below copies one session across
-storage roots. Reverse migration and automatic source removal remain planned.
+storage roots. Single-session reverse export is described below; batch exports
+and automatic source removal remain planned.
 
 ## Copy a JSON session to another storage directory
 
@@ -119,7 +120,7 @@ are rejected and are not automatically repaired. Both copies can later diverge:
 there is no synchronization, source deletion or implicit backend switch. Individual
 32 MB snapshot, saved logical and physical SQLite limits still apply; selection and
 verification decode bounded complete sessions. Cross-root batches are described
-below. Reverse migration,
+below. Batch reverse export,
 retention and the long-session capacity gate remain open.
 
 ## Import a selected batch of JSON sessions
@@ -175,7 +176,7 @@ before a result was lost. The command exits 2 on failure. Invalid selection or
 source preflight errors exit before a batch result is available and print a safe
 notice. No source text, memory or review evidence is included in these reports.
 
-Reverse migration, bulk retention and the long-session capacity gate
+Batch reverse export, bulk retention and the long-session capacity gate
 remain separate work.
 
 ## Copy a selected batch to another storage directory
@@ -222,8 +223,57 @@ The source files, workspace identity, memory, review/recording evidence, admissi
 records, timestamps and consumed attempts retain the single-transfer guarantees.
 Transfer does not resume queued/running work, synchronize copies or remove sources.
 Use `mos resume SESSION_ID --storage /path/to/destination --storage-backend sqlite
--C /path/to/project` to resume an imported session explicitly. Reverse migration,
+-C /path/to/project` to resume an imported session explicitly. Batch reverse export,
 retention and the long-session capacity gate remain separate work.
+
+## Export a SQLite session to JSON
+
+`session-export` copies one selected SQLite session into the JSON snapshot backend
+in another existing private directory:
+
+```sh
+mos session-export SESSION_ID --storage /path/to/sqlite-source --destination-storage /path/to/json-destination -C /path/to/project --json
+mos session-export SESSION_ID --storage /path/to/sqlite-source --destination-storage /path/to/json-destination -C /path/to/project --apply --expected-sha256 EXPORT_HASH --json
+mos resume SESSION_ID --storage /path/to/json-destination --storage-backend snapshot -C /path/to/project
+```
+
+Preview reads and verifies the complete bounded SQLite state and creates no files.
+Its version-1 plan binds both directory paths/device/inodes, backend direction,
+owner, workspace, session ID, state hash, revision, message count and exact canonical
+JSON snapshot bytes. The `conversation.export` receipt reports `planned`, `exported`
+or `already_present`, plus `export_sha256`, the plan and source retention. Apply
+requires this export hash before creating destination metadata. Source changes,
+directory replacement or a different workspace require a new preview. Destination
+status and source timestamps are excluded from the hash, allowing verified retries.
+
+Export preserves the original revision, consumed attempts, admission records,
+historical memory, review/recording evidence and workspace identity. It copies the
+SQLite index timestamp to the JSON file without modifying SQLite. Running and queued
+entries remain as saved; only explicit resume changes their execution state. A
+verified JSON copy can be imported into SQLite again with `session-transfer`.
+The output must fit the saved logical budget and 32 MB snapshot ceiling. This
+operation decodes complete state; it does not provide streaming unbounded export.
+
+The source SQLite handle is read-only in **both preview and apply**. A hot source
+journal therefore blocks export without recovery or destination writes. Recover
+the source separately, then preview again. Export does not repair a damaged schema.
+
+Apply holds both session locks, writes and syncs a private temporary JSON file,
+then rechecks both directory identities, the source state and destination absence
+before atomically publishing. An identical destination is verified; a different,
+advanced or invalid snapshot is rejected. Existing-copy apply also syncs the
+directory, allowing retry after a publication acknowledgment or directory-sync
+failure. These checks assume cooperative writers and trusted owner-local parent
+directories; they do not isolate files from hostile processes with the same user ID.
+
+A process exit before publication can leave a private temporary file and the empty
+session lock. Retry ignores that temporary and publishes a complete snapshot.
+An exit after publication is resolved by verifying the existing copy. Temporary
+files are not removed by preview or retry; the existing explicit snapshot
+`session-delete` cleanup handles this session's temporary files when deleting its
+published copy. There is no source deletion, synchronization or automatic backend
+switch. Same-root export, batch export, retention and the long-session capacity
+gate remain separate work.
 
 ## Metadata pages
 
@@ -605,6 +655,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, reverse migration and the 1,000-message
+configurable physical retention, same-root/batch export and the 1,000-message
 capacity/recovery gate in [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

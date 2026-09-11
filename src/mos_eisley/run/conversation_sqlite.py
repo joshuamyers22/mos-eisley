@@ -729,6 +729,14 @@ class SQLiteConversationStore(ConversationStore):
         self._verified_checkpoint = checkpoint
         return snapshot
 
+    def inspect_snapshot(self) -> tuple[ConversationSnapshot, int]:
+        """Verify full state and its saved timestamp in one read transaction."""
+        db = self._connection()
+        with conversation_transaction(db):
+            snapshot = self._load(db)
+            index = read_sqlite_session_index(db, self.session_id, self.workspace)
+        return snapshot, index.summary.modified_ns
+
     def _capture_checkpoint(
         self, db: sqlite3.Connection, store_id: str, expected_sha256: str
     ) -> _SaveCheckpoint:

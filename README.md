@@ -48,6 +48,8 @@ previews a JSON-to-SQLite import; apply it with `--apply --expected-sha256 HASH`
 SQLite in another existing private directory; apply with its transfer hash.
 `mos session-transfer-batch ID_A ID_B --destination-storage PATH` does the same
 for a bounded selection, using its batch transfer hash and per-session transactions.
+`mos session-export SESSION_ID --destination-storage PATH` previews the reverse
+SQLite-to-JSON copy into another private directory; apply with its export hash.
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects

@@ -6,6 +6,7 @@ import fcntl
 import os
 import re
 import stat
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from types import TracebackType
@@ -330,6 +331,81 @@ class ConversationStore:
                 os.unlink(temporary, dir_fd=self._root)
         self._revision = state.revision
         self._sha256 = snapshot.sha256
+
+    def publish_snapshot(
+        self,
+        state: ConversationState,
+        modified_ns: int,
+        *,
+        validate_source: Callable[[], None],
+    ) -> bool:
+        """Publish an exact imported revision under the destination session lock.
+
+        Existing snapshots must match. As with ordinary saves, atomic replacement
+        assumes cooperative writers and trusted owner-local parent directories.
+        """
+        if self._deleted or self._revision != -1:
+            raise ValueError("snapshot import requires a fresh destination handle")
+        if type(modified_ns) is not int or modified_ns < 0:
+            raise ValueError("invalid imported snapshot timestamp")
+        validate_private_storage(self._root, directory=True)
+        state = ConversationState.model_validate_json(state.model_dump_json())
+        if (
+            state.owner_uid != os.getuid()
+            or state.session_id != self.session_id
+            or state.workspace != self.workspace
+        ):
+            raise ValueError("invalid imported snapshot identity")
+        snapshot = ConversationSnapshot(
+            state=state, sha256=digest(canonical_bytes(state))
+        )
+        payload = canonical_bytes(snapshot)
+        if len(payload) > min(MAX_BYTES, state.snapshot_byte_limit):
+            raise ValueError("exported snapshot exceeds its saved byte limit")
+        try:
+            current = self.inspect_json_snapshot()[0]
+        except FileNotFoundError:
+            pass
+        else:
+            if current.sha256 != snapshot.sha256:
+                raise ValueError("destination contains a different session state")
+            validate_source()
+            os.fsync(self._root)
+            return False
+        temporary = f".{self.session_id}.{uuid4().hex}.tmp"
+        fd = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=self._root
+        )
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.utime(stream.fileno(), ns=(modified_ns, modified_ns))
+                os.fsync(stream.fileno())
+            validate_source()
+            # Recheck immediately before publication. Cooperating writers cannot
+            # create this path while the destination session lock is held.
+            try:
+                os.stat(
+                    f"{self.session_id}.json", dir_fd=self._root, follow_symlinks=False
+                )
+            except FileNotFoundError:
+                pass
+            else:
+                raise ValueError("destination snapshot appeared during export")
+            os.replace(
+                temporary,
+                f"{self.session_id}.json",
+                src_dir_fd=self._root,
+                dst_dir_fd=self._root,
+            )
+            os.fsync(self._root)
+        finally:
+            with suppress(FileNotFoundError):
+                os.unlink(temporary, dir_fd=self._root)
+        self._revision = state.revision
+        self._sha256 = snapshot.sha256
+        return True
 
     def delete(self, expected_sha256: str) -> ConversationDeletion:
         expected = TypeAdapter[str](Digest).validate_python(expected_sha256)

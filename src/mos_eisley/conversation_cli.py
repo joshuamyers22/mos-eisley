@@ -99,6 +99,7 @@ from mos_eisley.run.conversation_batch_transfer import (
     BatchTransferError,
     transfer_batch,
 )
+from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_sqlite import (
@@ -287,6 +288,30 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     )
     transfer.add_argument(
         "--json", action="store_true", help="Print a JSON transfer receipt"
+    )
+    export = add_parser(
+        "session-export", help="Preview or copy SQLite to another JSON storage root"
+    )
+    export.add_argument("session_id")
+    export.add_argument(
+        "--storage",
+        type=Path,
+        default=Path.home() / ".mos-eisley-sessions",
+        help="Source SQLite storage root",
+    )
+    export.add_argument(
+        "--destination-storage",
+        type=Path,
+        required=True,
+        help="Existing private destination directory",
+    )
+    export.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    export.add_argument("--expected-sha256", help="Export hash from its preview")
+    export.add_argument(
+        "--apply", action="store_true", help="Export the selected session"
+    )
+    export.add_argument(
+        "--json", action="store_true", help="Print a JSON export receipt"
     )
     transfer_batch_parser = add_parser(
         "session-transfer-batch",
@@ -955,6 +980,30 @@ def _run_command(args: argparse.Namespace) -> int:
             )
             result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
+    if args.command == "session-export":
+        try:
+            exported = export_conversation(
+                args.storage,
+                args.destination_storage,
+                args.session_id,
+                args.workspace,
+                expected_sha256=args.expected_sha256,
+                apply=args.apply,
+            )
+        except ValidationError:
+            raise ValueError(
+                "Export source or destination failed schema validation."
+            ) from None
+        export_payload = {
+            "type": "conversation.export",
+            **exported.model_dump(mode="json"),
+        }
+        print(
+            json.dumps(
+                export_payload, ensure_ascii=True, indent=None if args.json else 2
+            )
+        )
         return 0
     if args.command == "session-transfer-batch":
         transfer_error = None
