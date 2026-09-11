@@ -1587,9 +1587,22 @@ history remain intact. Copy, resolution and recovery reviews are not interchange
 and recovery flags cannot mix with a resolution strategy. Fault tests cover late
 source reappearance and actual process death before/after replacement.
 
-**Next migration milestone:** guarded unpublished-staging/backup recovery and
-retention. A persistent mapping registry remains planned. Resolution backups
-are retained; no automatic deletion, startup recovery or session identity rewriting
+**Reviewed staging cleanup batch:** `memory-project-cleanup` explicitly discards
+one complete single-link project staging record or repairs one interrupted backup
+publication by removing only its verified extra staging link. Exact filenames,
+record hashes and canonical owner/project snapshots are required. Preview binds
+current project memory, candidate records/identities, storage/lock and the selected
+workspace's presence/ancestor, including vanished directories. Apply rechecks under
+an exclusive existing lock, unlinks only the selected name and flushes the directory.
+Backup bytes, live memory and saved sessions remain intact. Discard can remove the
+selected staging copy even when no live project document exists; the full receipt
+makes that absence explicit. Fault tests cover actual process death during copy,
+resolution, backup publication and cleanup. No incomplete-record or bulk disposal
+is enabled. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
+
+**Next migration milestone:** explicit retained-backup retention/pruning and bounded
+bulk cleanup. Incomplete-record disposal and a persistent mapping registry remain
+planned. Resolution backups are retained; no automatic deletion, startup recovery or session identity rewriting
 is enabled. Common Git metadata or remote URLs never merge memory.
 
 | Scope | Contents and reach | Initial storage design |

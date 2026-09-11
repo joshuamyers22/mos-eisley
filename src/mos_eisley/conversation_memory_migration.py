@@ -39,7 +39,9 @@ def _directory(selection: DirectorySelection | RelocationSource) -> dict[str, ob
     }
 
 
-class _MigrationStore(MemoryStore):
+class MemoryMigrationStore(MemoryStore):
+    """Filesystem primitives shared by explicit memory maintenance commands."""
+
     def _resolution_backup(
         self, root: int, name: str, expected: MemorySnapshot, *, sync: bool = False
     ) -> bool:
@@ -65,7 +67,7 @@ class _MigrationStore(MemoryStore):
 
     def resolve(
         self,
-        target: "_MigrationStore",
+        target: "MemoryMigrationStore",
         source_directory: DirectorySelection | RelocationSource,
         target_directory: DirectorySelection,
         strategy: Resolution,
@@ -224,48 +226,59 @@ class _MigrationStore(MemoryStore):
                 os.unlink(temporary, dir_fd=root)
 
     def _recovery_record(
-        self, root: int, temporary: str, target_sha256: str
+        self,
+        root: int,
+        temporary: str,
+        target_sha256: str,
+        *,
+        record_name: str | None = None,
     ) -> tuple[MemorySnapshot, dict[str, int]]:
+        record_name = record_name or self.path("project").name
         fd = os.open(
-            self.path("project").name,
+            record_name,
             os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
             dir_fd=root,
         )
-        with os.fdopen(fd, "rb") as stream:
-            info = os.fstat(stream.fileno())
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_uid != os.getuid()
-                or info.st_mode & 0o077
-                or info.st_nlink != 2
-            ):
-                raise ValueError(
-                    "Recovery requires a private target with exactly two links."
-                )
-            identity = {**_identity(info), "ctime_ns": info.st_ctime_ns}
-            for name in (self.path("project").name, temporary):
-                named = os.stat(name, dir_fd=root, follow_symlinks=False)
+        try:
+            with os.fdopen(fd, "rb", closefd=False) as stream:
+                info = os.fstat(stream.fileno())
                 if (
-                    _identity(named) != _identity(info)
-                    or named.st_ctime_ns != info.st_ctime_ns
-                    or named.st_nlink != 2
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.getuid()
+                    or info.st_mode & 0o077
+                    or info.st_nlink != 2
                 ):
                     raise ValueError(
-                        "Recovery requires the exact target staging alias."
+                        "Recovery requires a private target with exactly two links."
                     )
-            payload = stream.read(RECORD_BYTES + 1)
-            if len(payload) > RECORD_BYTES:
-                raise ValueError("memory record exceeds byte limit")
-            snapshot = MemorySnapshot.model_validate_json(payload)
-            if (
-                snapshot.sha256 != target_sha256
-                or snapshot.document.owner_uid != os.getuid()
-                or snapshot.document.scope != "project"
-                or snapshot.document.workspace != self.workspace
-                or payload != canonical_bytes(snapshot)
-                or os.fstat(stream.fileno()).st_ctime_ns != info.st_ctime_ns
-            ):
-                raise ValueError("Recovery target does not match the approved copy.")
+                identity = {**_identity(info), "ctime_ns": info.st_ctime_ns}
+                for name in (record_name, temporary):
+                    named = os.stat(name, dir_fd=root, follow_symlinks=False)
+                    if (
+                        _identity(named) != _identity(info)
+                        or named.st_ctime_ns != info.st_ctime_ns
+                        or named.st_nlink != 2
+                    ):
+                        raise ValueError(
+                            "Recovery requires the exact target staging alias."
+                        )
+                payload = stream.read(RECORD_BYTES + 1)
+                if len(payload) > RECORD_BYTES:
+                    raise ValueError("memory record exceeds byte limit")
+                snapshot = MemorySnapshot.model_validate_json(payload)
+                if (
+                    snapshot.sha256 != target_sha256
+                    or snapshot.document.owner_uid != os.getuid()
+                    or snapshot.document.scope != "project"
+                    or snapshot.document.workspace != self.workspace
+                    or payload != canonical_bytes(snapshot)
+                    or os.fstat(stream.fileno()).st_ctime_ns != info.st_ctime_ns
+                ):
+                    raise ValueError(
+                        "Recovery target does not match the approved copy."
+                    )
+        finally:
+            os.close(fd)
         return snapshot, identity
 
     def recover(
@@ -351,7 +364,7 @@ class _MigrationStore(MemoryStore):
 
     def migrate(
         self,
-        target: "_MigrationStore",
+        target: "MemoryMigrationStore",
         source_directory: DirectorySelection | RelocationSource,
         target_directory: DirectorySelection,
         expected_sha256: str | None,
@@ -490,8 +503,8 @@ def migrate_memory_project(
         )
     source_directory = DirectorySelection.inspect(workspace)
     target_directory = select_memory_project(source_directory.path, project_root)
-    source = _MigrationStore(storage, source_directory.path)
-    target = _MigrationStore(storage, target_directory.path)
+    source = MemoryMigrationStore(storage, source_directory.path)
+    target = MemoryMigrationStore(storage, target_directory.path)
     return source.migrate(target, source_directory, target_directory, expected_sha256)
 
 
@@ -516,7 +529,7 @@ def recover_memory_project(
         raise ValueError(
             "Recovery requires distinct workspace and project-root identities."
         )
-    target = _MigrationStore(storage, target_directory.path)
+    target = MemoryMigrationStore(storage, target_directory.path)
     return target.recover(
         source_directory,
         target_directory,
@@ -557,14 +570,14 @@ def resolve_memory_project(
         raise ValueError(
             "Resolution requires distinct workspace and project-root identities."
         )
-    source = _MigrationStore(storage, source_directory.path)
-    target = _MigrationStore(storage, target_directory.path)
+    source = MemoryMigrationStore(storage, source_directory.path)
+    target = MemoryMigrationStore(storage, target_directory.path)
     return source.resolve(
         target, source_directory, target_directory, strategy, text, expected_sha256
     )
 
 
-class _RelocationStore(_MigrationStore):
+class _RelocationStore(MemoryMigrationStore):
     def __init__(self, storage: Path, source: RelocationSource) -> None:
         # Only reviewed relocation can address a vanished identity. Ordinary stores
         # still require an existing directory, including when resuming sessions.
@@ -608,7 +621,7 @@ def relocate_memory_project(
     target_directory = DirectorySelection.inspect(target_workspace)
     if source_directory.path == target_directory.path:
         raise ValueError("Relocation requires distinct source and target identities.")
-    target = _MigrationStore(storage, target_directory.path)
+    target = MemoryMigrationStore(storage, target_directory.path)
     if temporary_name is not None:
         assert target_sha256 is not None
         return target.recover(

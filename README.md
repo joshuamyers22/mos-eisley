@@ -61,6 +61,8 @@ a vanished directory, to an absent destination document. It preserves old memory
 and session identities and supports explicit interrupted-copy recovery. Add an
 explicit `--strategy` to review collisions across worktrees or from vanished
 directories, with a durable prior-target backup before changing destination text.
+[`memory-project-cleanup`](docs/CONVERSATION_MEMORY_CLEANUP.md) reviews one staging
+discard or interrupted-backup link repair while preserving live memory.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or
