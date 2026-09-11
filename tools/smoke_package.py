@@ -187,6 +187,7 @@ def main() -> int:
             "test_conversation_memory_cleanup.py",
             "test_conversation_memory_batch_cleanup.py",
             "test_conversation_memory_staging.py",
+            "test_conversation_memory_staging_review.py",
             "test_conversation_memory.py",
             "test_conversation_memory_refresh.py",
             "test_conversation_storage_budgets.py",

@@ -1661,9 +1661,22 @@ progress separately. Tests include real limits, retained-file changes, partial
 failures and process death. No background retention is enabled. See
 [backup retention](CONVERSATION_MEMORY_RETENTION.md).
 
-**Next migration milestones:** oversized/valid-noncanonical disposal. Registry
-import/history/backups and temporary registry-file recovery/cleanup also remain
-planned.
+**Expanded staging review:** the raw invalid-file command now accepts an explicit
+`--review-max-bytes` limit through 4 MiB, retaining its 256 KiB default and refusing
+all valid snapshots. Separate `memory-project-staging-discard` verifies owner,
+project identity and snapshot integrity for canonical/noncanonical staging records;
+it rejects duplicate JSON keys. Full raw bytes, validated record, current project
+memory, historical workspace anchor, file/storage/lock identities and review limit
+are bound to one preview. Stale raw, logical, metadata or policy bindings fail
+before deletion. Both paths share private single-link reads and interrupted
+unlink/flush receipts. Actual process death, real maximum-size inputs and preserved
+live memory/session state are covered. Snapshot/context limits are unchanged. See
+[exact-byte staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md).
+
+**Next migration milestones:** unsupported backup disposal and registry
+import/history/backups plus temporary registry-file recovery/cleanup. Staging
+files above 4 MiB and ambiguous duplicate-key snapshots also remain outside the
+supported disposal workflows.
 Unselected resolution backups are retained; no automatic deletion, startup recovery
 or session identity rewriting is enabled. Common Git metadata or remote URLs never
 merge memory.

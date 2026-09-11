@@ -70,7 +70,9 @@ existing named cleanup/recovery workflows. For example, repair a verified backup
 extra staging link with [staging cleanup](CONVERSATION_MEMORY_CLEANUP.md) before
 retention. [Named batch pruning](CONVERSATION_MEMORY_CLEANUP.md#batch-cleanup-and-retained-backup-pruning)
 remains available without scanning; its receipt makes no newest-count guarantee.
-Oversized or valid-noncanonical disposal remains planned. No force option skips
+Oversized or valid-noncanonical **backup** disposal remains planned.
+[Exact-byte staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md) covers staging
+files only and cannot prune a retained backup. No force option skips
 unreadable records or limits.
 
 ## Apply, concurrency and recovery

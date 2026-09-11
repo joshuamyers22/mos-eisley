@@ -167,8 +167,10 @@ capabilities, not current automatic template or memory loading.
    before deletion; partial receipts distinguish unlinked and directory-flushed
    names. [Raw staging discard](CONVERSATION_MEMORY_STAGING.md) separately reviews
    one invalid file's complete bounded bytes, explicitly leaving its project
-   identity unverified. Valid snapshots cannot use that path. Automatic retention
-   and oversized/valid-noncanonical disposal remain planned. Explicit
+   identity unverified. Valid snapshots cannot use that path. An explicit raw review
+   limit now extends through 4 MiB, while separate [project staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md)
+   verifies canonical/noncanonical project snapshots and rejects duplicate keys.
+   Unsupported backup disposal and automatic retention remain planned. Explicit
    [backup retention](CONVERSATION_MEMORY_RETENTION.md) now inventories up to 128
    backups, protects the newest count, explicit age cutoff and current memory,
    and reviews at most 32 deletions. Apply rechecks the complete retained inventory

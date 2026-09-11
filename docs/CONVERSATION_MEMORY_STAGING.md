@@ -23,7 +23,8 @@ Supported names are exactly `.memory-migration-32_HEX_DIGITS.tmp` and
 command requires an existing private memory directory and its existing lock. It
 does not create either, list the directory, select by age, or follow a final
 symlink. It accepts one regular file owned by the current OS user, with no
-group/other permissions and exactly one link, of at most 256 KiB. Ordinary
+group/other permissions and exactly one link. The default review limit is 256 KiB;
+`--review-max-bytes` explicitly changes it up to 4 MiB. The limit is bound to review. Ordinary
 user-memory staging names, live project/user document names, backup names,
 wildcards, symlinks, directories, pipes and multiply linked files are refused.
 
@@ -48,8 +49,11 @@ snapshot is refused—even a noncanonical serialization, a user-scope snapshot o
 snapshot claiming a different owner/project. Use the separately reviewed
 [project-aware cleanup](CONVERSATION_MEMORY_CLEANUP.md) where supported. Raw discard
 cannot bypass those commands for a valid snapshot, repair hardlinks, prune backups
-or publish a missing project document. Oversized and valid-but-noncanonical records
-remain outside the supported disposal workflows.
+or publish a missing project document. The separate
+[project staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md) supports valid
+canonical/noncanonical project snapshots and the same explicit review limit.
+Raw discard still refuses valid snapshots at every limit. Files above 4 MiB and
+ambiguous duplicate-key snapshots remain outside these disposal workflows.
 
 Failure of this version's validator does not prove the bytes are unusable;
 unrecognized formats can also fail validation. Preserve any needed data before
