@@ -3,20 +3,23 @@
 import argparse
 import asyncio
 import fcntl
+import io
 import json
 import os
 import subprocess
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
+from mos_eisley.cli import parser
 from mos_eisley.conversation import ConversationController
-from mos_eisley.conversation_cli import demo_cassette
+from mos_eisley.conversation_cli import demo_cassette, run_command
 from mos_eisley.conversation_directory import (
     DirectoryPicker,
     DirectorySelection,
@@ -414,6 +417,53 @@ with patch('mos_eisley.conversation_memory_registry.os.replace', side_effect=die
                     ["chat", "--memory-project-root", str(self.base), *args]
                 )
                 self.assertEqual(ancestor.returncode, 0, ancestor.stderr)
+
+    def test_workspace_alias_is_pinned_before_memory_load(self) -> None:
+        self.save()
+        MemoryStore(self.storage, self.target).change(
+            "project", "set", text="Shared decisions"
+        )
+        alias = self.base / "workspace-alias"
+        alias.symlink_to(self.workspace, target_is_directory=True)
+        sessions = self.base / "sessions"
+        args = parser().parse_args(
+            [
+                "chat",
+                "-C",
+                str(alias),
+                "--memory-storage",
+                str(self.storage),
+                "--storage",
+                str(sessions),
+                "--json",
+            ]
+        )
+        load = MemoryStore.load
+
+        def retarget(store: MemoryStore):
+            alias.unlink()
+            alias.symlink_to(self.other, target_is_directory=True)
+            return load(store)
+
+        output = io.StringIO()
+        with (
+            patch.object(MemoryStore, "load", retarget),
+            patch("mos_eisley.conversation_cli._run_terminal", new_callable=AsyncMock),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(run_command(args), 0)
+        opened = next(
+            json.loads(line)
+            for line in output.getvalue().splitlines()
+            if json.loads(line)["type"] == "conversation.opened"
+        )
+        with ConversationStore(
+            sessions, opened["session_id"], self.workspace, create=False
+        ) as store:
+            state = store.load()
+        self.assertEqual(state.workspace, str(self.workspace))
+        self.assertEqual(state.memory_project_mapping, str(self.target))
+        self.assertEqual(alias.resolve(), self.other)
 
     def test_no_memory_bypasses_registry_but_preserves_explicit_mapping(
         self,

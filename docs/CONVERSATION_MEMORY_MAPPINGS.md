@@ -36,7 +36,8 @@ for a later refresh; otherwise that disabled session retains its workspace ident
 The directory picker shows the mapped identity before selection. One bounded
 registry snapshot is captured at the first preview or startup lookup and retained
 through startup, so concurrent edits do not silently change what was displayed.
-Directories are rechecked before saving the session. Directory switching clears
+The working directory is pinned before memory loading, including when `-C` uses
+an alias. Directories are rechecked before saving the session. Directory switching clears
 an explicit root/map override and captures a new registry snapshot for the
 handoff; `--memory-project-local` remains in effect for the invocation. Each
 switch uses the same snapshot for its picker and fresh session. A failed or

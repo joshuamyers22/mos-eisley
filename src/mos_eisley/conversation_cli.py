@@ -2046,6 +2046,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         "conversation-demo",
         "conversation-review-demo",
     }:
+        if not isinstance(directory, DirectorySelection):
+            directory = DirectorySelection.inspect(args.workspace)
+        directory.verify()
+        args.workspace = directory.path
         resolver = getattr(args, "saved_mapping_resolver", None)
         if not isinstance(resolver, MemoryMappingResolver):
             resolver = MemoryMappingResolver(
