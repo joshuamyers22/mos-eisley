@@ -47,7 +47,8 @@ The terminal shows the working directory and detected Git-marker project root
 separately. `/directory` shows full paths and the effective project-memory identity.
 Use [`--memory-project-root PATH`](docs/CONVERSATION_MEMORY_PROJECT.md) to select
 shared project memory explicitly for a new session. `memory-project-preview` compares
-workspace and root documents before adoption.
+workspace and root documents before adoption. `memory-project-migrate` previews
+and applies a guarded copy to an empty root, preserving the source document.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Use `mos memory append --scope user --text "..."` for personal preferences, or

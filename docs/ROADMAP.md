@@ -132,8 +132,11 @@ capabilities, not current automatic template or memory loading.
    [Explicit memory-root selection](CONVERSATION_MEMORY_PROJECT.md) now pins an
    ancestor identity for new sessions across resume, refresh and JSON/SQLite transfers.
    A read-only preview compares workspace/root documents and exposes collisions;
-   directory switching clears the old root selection. Automated migration, identity
-   mapping and natural-language memory changes remain planned.
+   directory switching clears the old root selection. `memory-project-migrate`
+   adds preview-bound copying to absent root documents, exclusive locking and
+   atomic no-overwrite publication while preserving source documents. Collision
+   resolution, automatic interrupted-publication recovery, identity mapping and
+   natural-language memory changes remain planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

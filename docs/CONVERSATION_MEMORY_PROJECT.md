@@ -53,10 +53,64 @@ mos memory show --scope project -C /repo
 mos memory show --scope project -C /repo/packages/api
 ```
 
-The hash identifies what was inspected; it is not authorization for an apply
-operation. Automated copy/merge and collision resolution remain planned. A future
-apply operation must recheck documents, directory identities and the preview under
-an exclusive lock before publication.
+The hash from `memory-project-preview` identifies what was inspected; it is not
+accepted by the migration command below. Collision resolution and merging remain
+planned.
+
+## Copy workspace memory to an empty root
+
+Use the separate migration preview to inspect the complete proposed document:
+
+```sh
+mos memory-project-migrate -C /repo/packages/api --memory-project-root /repo --json
+mos memory-project-migrate -C /repo/packages/api --memory-project-root /repo \
+  --apply --expected-sha256 HASH_FROM_MIGRATION_PREVIEW --json
+```
+
+Use the same `--memory-storage` on both commands when overriding the default.
+Preview creates no storage or lock files. Only `source-only` is eligible: an empty
+or disabled target still counts as an existing document and blocks copying.
+Inspect the paths, source and `proposed` snapshot before supplying its hash.
+The proposal copies text, enabled state, owner, source and original update time,
+sets the selected root as its workspace, and starts the new document at revision 1.
+Keeping the source timestamp makes the exact proposed bytes stable and reviewable.
+
+Apply requires both flags. It binds the operation, source/target snapshots, proposed
+bytes, canonical directories and their device/inode identities, storage directory
+and lock identity. It recomputes the preview under an exclusive nonblocking lock,
+then checks the directories, storage, lock and documents again after staging the
+file and immediately before publication. Changed content or identities requires a
+new preview. Publication is atomic and cannot overwrite a concurrently created
+target. Other memory writers using the same storage lock cannot interleave.
+
+The source and user documents remain byte-for-byte intact. Copying does not change
+saved session identities, historical memory or request hashes. New root-selected
+chats load the copied document; existing sessions use their existing memory checks
+and require an explicit refresh if their root document has changed.
+
+### Interrupted publication and recovery
+
+The private staging file is flushed before an atomic hard-link publication; its
+temporary name is then removed and the storage directory flushed. Ordinary failures
+clean up the temporary name. A failure after publication can leave a complete
+target even when the command reports failure. Inspect both documents before doing
+anything further: the old preview cannot overwrite or retry an existing target.
+
+A process killed between linking and removing the temporary name can leave the
+target and one `.memory-migration-*.tmp` name linked to the same inode. Readers
+deliberately reject that record under the existing single-link rule. Automatic
+recovery is not implemented. For operator recovery, stop memory writers, preserve
+the preview, and verify private ownership, exactly two links, matching device/inode
+for the target and its temporary alias, and target bytes equal to the approved
+`proposed` snapshot. Remove only that verified temporary alias, flush the storage
+directory, and inspect the target again. Do not broadly delete temporary files or
+replace the target. If verification fails, retain both files for investigation;
+the source document remains available. These filesystem checks coordinate local
+writers; they do not isolate memory from a hostile process running as the same user.
+
+To stop using the copied memory, launch without the explicit root or use the
+existing memory disable command at that root after inspection. Disabling affects
+other sessions sharing the root and does not undo the copy or delete its source.
 
 ## Resume and compatibility
 

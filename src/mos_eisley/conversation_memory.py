@@ -163,7 +163,9 @@ class MemoryStore:
         return self.root / name
 
     @contextmanager
-    def _locked(self, *, write: bool = False) -> Generator[int | None]:
+    def _lock_handles(
+        self, *, write: bool = False, exclusive: bool = False
+    ) -> Generator[tuple[int, int] | None]:
         if write:
             self.root.mkdir(mode=0o700, exist_ok=True)
         try:
@@ -187,13 +189,24 @@ class MemoryStore:
             )
             _private(lock)
             fcntl.flock(
-                lock, (fcntl.LOCK_EX if write else fcntl.LOCK_SH) | fcntl.LOCK_NB
+                lock,
+                (fcntl.LOCK_EX if write or exclusive else fcntl.LOCK_SH)
+                | fcntl.LOCK_NB,
             )
-            yield root
+            held = os.fstat(lock)
+            named = os.stat("memory.lock", dir_fd=root, follow_symlinks=False)
+            if (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino):
+                raise ValueError("memory lock changed; inspect storage again")
+            yield root, lock
         finally:
             if lock >= 0:
                 os.close(lock)
             os.close(root)
+
+    @contextmanager
+    def _locked(self, *, write: bool = False) -> Generator[int | None]:
+        with self._lock_handles(write=write) as handles:
+            yield handles[0] if handles is not None else None
 
     def _read(self, root: int | None, scope: Scope) -> MemorySnapshot | None:
         if root is None:

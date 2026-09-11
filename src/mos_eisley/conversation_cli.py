@@ -68,6 +68,7 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_migration import migrate_memory_project
 from mos_eisley.conversation_memory_project import (
     preview_memory_project,
     select_memory_project,
@@ -251,6 +252,17 @@ def demo_cassette(
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    migration = add_parser(
+        "memory-project-migrate", help="Preview or apply a guarded project-memory copy"
+    )
+    migration.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    migration.add_argument("--memory-project-root", type=Path, required=True)
+    migration.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    migration.add_argument("--apply", action="store_true")
+    migration.add_argument("--expected-sha256")
+    migration.add_argument("--json", action="store_true")
     memory_preview = add_parser(
         "memory-project-preview", help="Preview workspace/root memory before adoption"
     )
@@ -1435,6 +1447,23 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-migrate":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = migrate_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_migration", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "memory-project-preview":
         receipt = preview_memory_project(
             args.memory_storage, args.workspace, args.memory_project_root

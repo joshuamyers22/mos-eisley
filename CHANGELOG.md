@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add preview-bound project-memory copying from a workspace to an empty ancestor
+  root. Preserve source documents and session history; reject stale identities,
+  changed content and collisions, with atomic no-overwrite publication and fault
+  tests. Document interrupted-publication recovery and deferred merge support.
+
 - Adversarially review the context-management proposal and adopt loss-aware tool
   result envelopes, typed external state, compaction lineage, owner-scoped lexical
   retrieval, cache safety and held-out evaluation. Fixed truncation/delegation
