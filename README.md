@@ -72,6 +72,9 @@ the exact bytes of one invalid staging file with unverified project attribution.
 Both it and [`memory-project-staging-discard`](docs/CONVERSATION_MEMORY_STAGING_REVIEW.md)
 support an explicit review limit up to 4 MiB; the project command verifies valid
 canonical/noncanonical snapshots against an exact project identity.
+[Unsupported backup disposal](docs/CONVERSATION_MEMORY_BACKUP_DISCARD.md) now adds
+`memory-backup-discard` for invalid bytes and `memory-project-backup-discard` for
+verified noncanonical or misnamed backups, with current-memory protection.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE

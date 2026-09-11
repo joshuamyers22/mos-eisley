@@ -96,7 +96,8 @@ and saved sessions are preserved. Multiply linked publication/backup records req
 the existing [link-recovery workflows](CONVERSATION_MEMORY_CLEANUP.md). These staging
 operations are separate from backup retention and project cleanup batches.
 
-Files over 4 MiB, unsupported backup encodings and ambiguous duplicate-key snapshots
-remain outside these disposal workflows. Such artifacts require separate inspection;
+[Unsupported backups](CONVERSATION_MEMORY_BACKUP_DISCARD.md) have separate exact-file
+commands with current-memory protection for verified project snapshots. Files over
+4 MiB and ambiguous duplicate-key snapshots remain outside these disposal workflows. Such artifacts require separate inspection;
 this feature does not add a backup-policy bypass. The checks coordinate cooperating
 local writers and do not isolate against arbitrary code running as the same OS user.

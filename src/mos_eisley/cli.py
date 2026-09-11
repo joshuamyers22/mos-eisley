@@ -7450,6 +7450,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "memory-project-relocate",
             "memory-project-cleanup",
             "memory-project-cleanup-batch",
+            "memory-backup-discard",
+            "memory-project-backup-discard",
             "memory-staging-discard",
             "memory-project-staging-discard",
             "memory-project-mapping",
