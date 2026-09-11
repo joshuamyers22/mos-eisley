@@ -59,7 +59,11 @@ See [contribution workflow](../CONTRIBUTING.md).
 - No custom model hosting, fine-tuning, or local inference in v1.
 - No web UI. TUI plus machine-readable output only.
 - Not a LiteLLM replacement — the provider layer covers only what this harness needs.
-- Windows is not a v1 target. WSL2 works via the Linux backend.
+- Version 0.1.0 supports Windows hosts through a tested WSL2 deployment using the
+  Linux backend; WSL1 and native Windows execution are excluded from 0.1.0.
+- Version 0.1.1 delivers full native Windows parity under the platform release
+  contract in §27. A successful import or conversation-only subset is not full
+  Windows support.
 
 ---
 
@@ -88,6 +92,7 @@ mos-eisley/
     seatbelt.py        # macOS backend
     bwrap.py           # Linux backend (bubblewrap + seccomp)
     landlock.py        # Linux fallback
+    windows.py         # Windows restricted-token/Job Object backend (v0.1.1)
     none.py            # already-contained mode
     classify.py        # shell AST -> auto-approve | ask | deny
   tools/
@@ -4793,3 +4798,117 @@ G0–G7 have shipped.
 Pass/fail fixtures prove controller enforcement; representative independent live
 evidence proves a quality or savings claim. Keep those statements separate in each
 milestone review and in the CLI's availability/status output.
+
+---
+
+## 27. Windows platform release contract
+
+**User direction, 2026-09-11:** make WSL2 a supported Windows-host deployment for
+version 0.1.0 and deliver full native Windows support in version 0.1.1. Platform
+support does not weaken the ownership, containment, durability, replay, spending,
+or capability-separation requirements elsewhere in this plan.
+
+### 27.1 Version 0.1.0 — supported WSL2 deployment
+
+WSL2 runs the Linux build and Linux backend inside a real WSL2 distribution. It is
+a supported Windows-host deployment, not a claim that Mos Eisley runs as a native
+Windows process. WSL1, native PowerShell/cmd execution, Windows host credentials,
+and direct Windows sandbox enforcement remain outside version 0.1.0.
+
+- Publish a Windows Terminal/PowerShell-to-WSL installation and launch path, plus
+  upgrade, diagnostics, and uninstall instructions. Record the Windows version,
+  WSL version, distribution, kernel, architecture, mount type, and active Mos Eisley
+  backend in status and retained provenance.
+- Keep repositories, worktrees, configuration, credentials, and private Mos Eisley
+  storage in the distribution's Linux filesystem by default. DrvFS paths such as
+  `/mnt/c`, Windows network shares, and Windows-host Docker/editor sockets are not
+  trusted storage or containment boundaries until their permission, link, locking,
+  replacement, durability, and performance behavior passes a separate gate.
+- Run installation, packaged-wheel, conversation, save/resume, memory, SQLite,
+  OAuth, cancellation, Git, and applicable Linux positive/negative tests on an
+  actual Windows-hosted WSL2 runner. A Linux CI job labeled "WSL" is insufficient.
+- Preflight must distinguish WSL2 from WSL1 and report unsupported filesystem or
+  external-boundary properties. Security-sensitive workflows fail closed when a
+  mandatory Linux-backend property cannot be demonstrated under WSL2.
+- WSL2 inherits each feature's existing delivery and authority gates. Supporting
+  the host environment does not imply that planned TEST, WRITE, GitHub, provider,
+  or routing capabilities have shipped.
+
+Version 0.1.0 may claim WSL2 support only after those checks pass from the installed
+artifact documented for release. Until then, WSL2 remains a planned support target.
+
+### 27.2 Version 0.1.1 — full native Windows support
+
+Version 0.1.1 runs directly from Windows Terminal, PowerShell, or cmd and provides
+parity for every Mos Eisley capability advertised for macOS/Linux in that release.
+Conversation-only operation, a WSL subprocess, or a Linux container launcher does
+not satisfy this commitment. Implement the following platform boundaries before
+claiming native support:
+
+1. **Platform services:** move principal identity, secure file opening, file identity,
+   private-directory creation, interprocess locking, atomic replacement, durable
+   flush, terminal input, signal/cancellation, process supervision, secret storage,
+   executable resolution, and sandbox selection behind explicit platform contracts.
+   POSIX and Windows implementations must pass the same invariant suite.
+2. **Identity and artifact migration:** replace persisted `owner_uid` assumptions
+   with a versioned principal identity that represents POSIX UIDs and Windows SIDs
+   without conflating them. Add new conversation, memory, SQLite metadata/cursor,
+   transcript, MCP credential-reference, and other affected artifact schemas. Keep
+   legacy hashes verifiable; cross-platform use requires an explicit authenticated
+   owner-rebinding migration and never silently rewrites retained evidence.
+3. **Windows storage boundary:** create and validate explicit DACLs for the current
+   principal, use handle-based opens that reject reparse points and special objects,
+   identify files by volume and file ID, detect hard-link/path replacement, and use
+   Windows locking and replacement/flush primitives. A mechanical `flock`-to-
+   `msvcrt` substitution is not equivalent. Initially qualify local NTFS storage;
+   network shares, removable filesystems, ReFS, FAT, and exFAT require their own
+   durability and isolation evidence before being advertised.
+4. **Path and Git semantics:** handle drive-relative and absolute paths, UNC paths,
+   case-insensitive collisions, reserved device names, trailing dots/spaces,
+   alternate data streams, junctions, long paths, backslash normalization, symlink
+   privilege differences, executable suffixes, and Git line-ending/executable-bit
+   behavior. Canonical archive paths may remain POSIX-formatted, but conversion to a
+   host path must validate the Windows namespace before access.
+5. **Terminal and credentials:** provide equivalent TUI/plain/NDJSON behavior using
+   Windows console facilities without `termios`, POSIX PTYs, event-loop FD readers,
+   or Unix-only signal handlers. Store OAuth material in Windows Credential Manager
+   or an equivalently scoped DPAPI-backed service; preserve cross-process refresh and
+   logout serialization without plaintext fallback.
+6. **Process lifecycle:** use non-inheritable Windows handles and Job Objects so
+   timeout, cancellation, launcher death, and shutdown account for and terminate the
+   complete descendant tree. Replace POSIX sessions, signals, `pass_fds`, and
+   pipe-selector assumptions while preserving uncertain-side-effect reporting.
+7. **Native containment:** enforce the common sandbox policy with restricted tokens,
+   Job Objects, AppContainer or another reviewed Windows isolation boundary, scoped
+   filesystem access, brokered network access, resource limits, handle isolation,
+   and descendant cleanup. Publish the precise capability attestation and fail closed
+   rather than silently mapping an unenforceable policy to unrestricted execution.
+8. **Packaging and release:** use platform-marked dependencies where necessary and
+   test installation, upgrades, entry points, all CLI renderers, local stores,
+   migrations, credentials, Git integration, process cleanup, and sandboxing on
+   supported Windows versions from the built wheel. Add Windows-native quality and
+   release jobs; Linux-only CI cannot authorize the version 0.1.1 support claim.
+
+The native adversarial suite must include DACL inheritance and foreign-principal
+access, junction/reparse substitution, alternate data streams, case collisions,
+reserved/long/UNC paths, concurrent locks, replacement while handles are open,
+crash recovery, stale file IDs, handle inheritance, process-tree escape, loopback and
+raw-network attempts, resource exhaustion, Git hooks/configuration, and migration of
+unaltered version 0.1.0 artifacts. Tests run on native Windows and local NTFS; mocks
+may supplement but cannot replace that evidence.
+
+### 27.3 Version 0.1.1 delivery sequence and exit gate
+
+Deliver the native port in this dependency order: invariant-based platform contracts;
+identity/schema migration; secure storage and SQLite; terminal and credentials;
+process/Git behavior; native containment; then cross-platform replay and release
+qualification. Platform work may proceed alongside unrelated provider/evaluation
+work, but native TEST or WRITE cannot bypass the G4 execution and VCS prerequisites.
+
+Version 0.1.1 exits only when an installed Windows wheel passes the common quality
+suite, Windows storage/migration suite, terminal/credential suite, Git/process-tree
+suite, and complete positive and negative sandbox suite on every advertised Windows
+version. Its capability/status output must show native Windows, the filesystem and
+sandbox backend, and any independently unsupported external environment. There is no
+"full Windows" release while an advertised macOS/Linux capability is silently
+disabled or delegated to WSL2.
