@@ -120,8 +120,13 @@ capabilities, not current automatic template or memory loading.
    now supports `--choose-directory` for chat/resume, canonical-path preview,
    bounded directory completion and cancellation before memory/session access.
    Startup rechecks the selected directory identity; resume preserves paused work.
-   Natural-language memory changes, project-root discovery and in-session
-   directory switching remain planned.
+   In-session F9 and `/directory switch [PATH]` now open a fresh conversation in
+   another workspace after active work and unsent input are resolved. Cancellation
+   keeps the same locked session; selection leaves old queued work saved, reloads
+   target-project memory and clears prior project/session launch inputs. Fresh
+   terminal parsing and a handoff input flush prevent buffered keys crossing the
+   transition. Natural-language memory changes and project-root discovery remain
+   planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

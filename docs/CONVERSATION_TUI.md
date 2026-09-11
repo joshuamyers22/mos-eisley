@@ -124,6 +124,13 @@ F4, `/continue`, or a newly submitted message continues it.
 | F6 | Reload saved history from its first page after a change or read error. |
 | F7 | Select the next memory or review reference on the saved history page. |
 | F8 | Open/close the selected artifact; only one stays expanded. |
+| F9 | Choose another directory once active work and unsent input are resolved. |
+
+`/directory switch` opens the same selector, and `/directory switch PATH` selects
+a path relative to this session's workspace. Selection opens a fresh conversation;
+the previous session and queued messages remain saved. Cancelling the selector
+returns to the current session. See [directory switching](CONVERSATION_DIRECTORY.md#switch-during-a-conversation)
+for memory, recording and input handoff behavior.
 
 ## Saved SQLite history
 

@@ -1469,9 +1469,17 @@ used by the session, following the terminal startup interaction in Codex.
   project's memory; resume retains its workspace checks and paused queued work.
   Paths are bounded to 4,096 printable UTF-8 bytes; Tab scans at most 1,024 immediate
   entries and offers at most 100 directories, with no partial list on overflow.
-  Pipes, plain/JSON mode and inspection use `-C PATH`. In-session switching and
-  project-root discovery remain planned. This startup check preserves canonical-path
-  persistence and does not add a durable inode identity or filesystem sandbox.
+  Pipes, plain/JSON mode and inspection use `-C PATH`. In-session F9 and
+  `/directory switch [PATH]` now support an explicit handoff: active work and
+  unsent/pending input block switching; the picker keeps the old session locked
+  and cancellation returns to the same controller. Selection closes that session
+  and opens a fresh recorded conversation with the target project's memory.
+  Old queued work remains saved, while history, name, recording, review packet,
+  initial prompt and resume/refresh selectors are cleared from the new launch.
+  Invocation storage/backend, memory location, no-memory choice and budgets remain.
+  The terminal input parser is fresh for each screen and buffered keystrokes are
+  cleared at handoff. Project-root discovery remains planned. This check preserves
+  canonical-path persistence and does not add a durable inode identity or filesystem sandbox.
 
 ### 16.0.2 User and project memory
 
