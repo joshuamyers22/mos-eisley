@@ -95,4 +95,6 @@ quotas and SQLite vacuum/compaction remain planned. This step does not satisfy t
 
 A separate [workspace retention preview](CONVERSATION_RETENTION.md) now evaluates
 a saved-time cutoff and keep-newest policy against SQLite index metadata. It
-reports candidates and retention reasons; policy apply remains planned.
+reports candidates and retention reasons. [Single-session pruning](CONVERSATION_PRUNE.md)
+now provides separate full-state consent and atomic SQLite deletion; bulk policy
+apply remains planned.

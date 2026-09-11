@@ -2,6 +2,8 @@
 
 import fcntl
 import os
+import sqlite3
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -12,6 +14,7 @@ from mos_eisley.conversation_state import SessionID
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.conversation_sqlite import (
     read_sqlite_session_index,
+    read_sqlite_store_identity,
     sqlite_read_transaction,
 )
 from mos_eisley.run.conversation_store import (
@@ -140,7 +143,7 @@ class RetentionPreview(Contract):
         return self
 
 
-def _active(root: int, sid: str) -> bool:
+def retention_session_active(root: int, sid: str) -> bool:
     lock = os.open(
         f"{sid}.lock", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root
     )
@@ -153,6 +156,58 @@ def _active(root: int, sid: str) -> bool:
             return True
     finally:
         os.close(lock)
+
+
+def read_retention_plan(
+    db: sqlite3.Connection,
+    location: TransferLocation,
+    workspace: str,
+    policy: RetentionPolicy,
+    *,
+    activity: Callable[[str], bool],
+) -> RetentionPlan:
+    """Read policy metadata in an existing transaction with caller-owned probes.
+
+    A caller may report its own held session lock as inactive; other locks must
+    still be probed. This helper does not acquire locks or authorize deletion.
+    """
+    root = Path(location.path)
+    if inspect_storage_location(root) != location:
+        raise ValueError("selected retention directory changed")
+    store_id, generation = read_sqlite_store_identity(db)
+    rows = db.execute(
+        "SELECT CASE WHEN length(sid)=32 AND length(record_sha)=64 "
+        "THEN sid END FROM sessions WHERE workspace=? "
+        "ORDER BY modified_ns DESC, sid DESC LIMIT ?",
+        (workspace, MAX_RETENTION_SESSIONS + 1),
+    ).fetchall()
+    if len(rows) > MAX_RETENTION_SESSIONS:
+        raise ValueError("retention preview exceeds the 1000-session workspace limit")
+    if any(type(sid) is not str or len(sid) != 32 for (sid,) in rows):
+        raise ValueError("invalid retention catalog identity or checksum size")
+    entries: list[RetentionEntry] = []
+    for position, (sid,) in enumerate(rows):
+        summary = read_sqlite_session_index(db, sid, workspace).summary
+        summary = summary.model_copy(update={"active": activity(sid)})
+        reasons = _reasons(summary, position, policy)
+        entries.append(
+            RetentionEntry(
+                summary=summary,
+                disposition="retain" if reasons else "candidate",
+                reasons=reasons,
+            )
+        )
+    if inspect_storage_location(root) != location:
+        raise ValueError("selected retention directory changed")
+    return RetentionPlan(
+        storage=location,
+        owner_uid=os.getuid(),
+        workspace=workspace,
+        store_id=store_id,
+        generation=generation,
+        policy=policy,
+        sessions=tuple(entries),
+    )
 
 
 def preview_retention(
@@ -179,46 +234,17 @@ def preview_retention(
         info = os.fstat(directory)
         if (info.st_dev, info.st_ino) != location.identity:
             raise ValueError("selected retention directory changed")
-        with sqlite_read_transaction(root) as (db, store_id, generation):
-            if inspect_storage_location(root) != location:
-                raise ValueError("selected retention directory changed")
-            rows = db.execute(
-                "SELECT CASE WHEN length(sid)=32 AND length(record_sha)=64 "
-                "THEN sid END FROM sessions WHERE workspace=? "
-                "ORDER BY modified_ns DESC, sid DESC LIMIT ?",
-                (selected_workspace, MAX_RETENTION_SESSIONS + 1),
-            ).fetchall()
-            if len(rows) > MAX_RETENTION_SESSIONS:
-                raise ValueError(
-                    "retention preview exceeds the 1000-session workspace limit"
-                )
-            if any(type(sid) is not str or len(sid) != 32 for (sid,) in rows):
-                raise ValueError("invalid retention catalog identity or checksum size")
-            entries: list[RetentionEntry] = []
-            for position, (sid,) in enumerate(rows):
-                summary = read_sqlite_session_index(db, sid, selected_workspace).summary
-                summary = summary.model_copy(update={"active": _active(directory, sid)})
-                reasons = _reasons(summary, position, policy)
-                entries.append(
-                    RetentionEntry(
-                        summary=summary,
-                        disposition="retain" if reasons else "candidate",
-                        reasons=reasons,
-                    )
-                )
-            if inspect_storage_location(root) != location:
-                raise ValueError("selected retention directory changed")
-            plan = RetentionPlan(
-                storage=location,
-                owner_uid=os.getuid(),
-                workspace=selected_workspace,
-                store_id=store_id,
-                generation=generation,
-                policy=policy,
-                sessions=tuple(entries),
+        with sqlite_read_transaction(root) as (db, _, _):
+            plan = read_retention_plan(
+                db,
+                location,
+                selected_workspace,
+                policy,
+                activity=lambda sid: retention_session_active(directory, sid),
             )
     finally:
         os.close(directory)
+    entries = plan.sessions
     return RetentionPreview(
         plan_sha256=digest(canonical_bytes(plan)),
         plan=plan,
