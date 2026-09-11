@@ -1630,8 +1630,26 @@ after unlink. Shared storage locking is separated from project-document selectio
 This command is not part of project-scoped cleanup batches. See
 [raw staging review](CONVERSATION_MEMORY_STAGING.md).
 
-**Next migration milestone:** persistent mapping configuration. Inventory-based
-retention/count policies and oversized/valid-noncanonical disposal remain planned.
+**Persistent mapping configuration:** `memory-project-mapping show/set/remove`
+reviews an owner-private registry in the configured memory storage. Exact canonical
+workspace/target paths carry directory device/inode pins; changed directories
+require fresh review. Bounded canonical JSON (128 mappings, 1 MiB), whole-registry
+before/after receipts, revisions, shared locks and atomic durable replacement guard
+updates. Read-only missing-registry inspection does not create storage. Removal
+accepts a vanished workspace's exact saved identity. New launches and both recording
+generators use saved mappings, explicit root/map flags override them, and
+`--memory-project-local` bypasses the registry. `--no-memory` retains its existing
+no-memory-storage-access guarantee and skips automatic registry lookup. Picker/startup and directory handoff
+share a captured registry snapshot with directory rechecks. Resume retains the saved
+session mapping independently of registry changes or corruption. Memory editing
+continues to address explicit `-C` identities. Tests cover both session backends,
+unsafe storage, stale reviews, directory replacement, publication failures,
+picker/handoff selection, overrides and resume. See
+[saved mapping configuration](CONVERSATION_MEMORY_MAPPINGS.md).
+
+**Next migration milestones:** inventory-based retention/count policies and
+oversized/valid-noncanonical disposal. Registry import/history/backups and temporary
+registry-file recovery/cleanup also remain planned.
 Unselected resolution backups are retained; no automatic deletion, startup recovery
 or session identity rewriting is enabled. Common Git metadata or remote URLs never
 merge memory.

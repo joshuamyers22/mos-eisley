@@ -185,10 +185,12 @@ class DirectoryPicker:
         base: Path | None = None,
         memory_project_root: Path | None = None,
         memory_project_mapping: Path | None = None,
+        memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
     ) -> None:
         self.base = Path.cwd() if base is None else base
         self.selection: DirectorySelection | None = None
         self.project_location: ProjectLocation | None = None
+        self.memory_resolver = memory_resolver
         self.memory_project_root = memory_project_root
         self.memory_project_mapping = memory_project_mapping
         if memory_project_root is not None and memory_project_mapping is not None:
@@ -335,6 +337,8 @@ class DirectoryPicker:
                 candidate = self.base / candidate
             self.selection = DirectorySelection.inspect(candidate)
             self.project_location = ProjectLocation.inspect(self.selection.path)
+            if self.memory_resolver is not None:
+                self.memory_selection = self.memory_resolver(self.selection.path)
             memory_path = self.memory_project_mapping or self.memory_project_root
             if memory_path is not None:
                 from mos_eisley.conversation_memory_project import select_memory_project
@@ -370,6 +374,10 @@ class DirectoryPicker:
             + (
                 "\n\nMapped project memory identity:\n"
                 if self.memory_project_mapping is not None
+                or (
+                    self.memory_resolver is not None
+                    and self.memory_selection is not None
+                )
                 else "\n\nProject memory identity:\n"
             )
             + safe_label(
@@ -387,6 +395,7 @@ def pick_directory(
     *,
     memory_project_root: Path | None = None,
     memory_project_mapping: Path | None = None,
+    memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
 ) -> DirectorySelection | None:
     fd = sys.stdin.fileno()
     modes = termios.tcgetattr(fd)
@@ -395,6 +404,7 @@ def pick_directory(
             initial,
             memory_project_root=memory_project_root,
             memory_project_mapping=memory_project_mapping,
+            memory_resolver=memory_resolver,
         ).app.run()
     finally:
         termios.tcsetattr(fd, termios.TCSANOW, modes)

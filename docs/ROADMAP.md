@@ -140,14 +140,22 @@ capabilities, not current automatic template or memory loading.
    durable prior-target backup before replacement. `--memory-project-map` now
    explicitly shares an existing directory's memory across unrelated worktrees,
    preserving workspace authority and the selected identity across refresh, resume
-   and JSON/SQLite transfers. Switching directories clears the mapping.
+   and JSON/SQLite transfers. Switching directories clears explicit root/map flags
+   and selects the destination’s saved mapping.
    `memory-project-relocate` now copies an exact former identity to an absent
    document at any existing destination, including vanished sources and unrelated
    worktrees, with preview-bound identity checks and interrupted-copy recovery.
    Source documents and saved session identities remain intact. Explicit
    `--strategy` now adds reviewed collision resolution between those identities,
-   preserving destination enabled state and a durable prior-target backup. Persistent
-   mappings and natural-language memory changes remain planned.
+   preserving destination enabled state and a durable prior-target backup.
+   Natural-language memory changes remain planned.
+   [Persistent mappings](CONVERSATION_MEMORY_MAPPINGS.md) now support reviewed
+   `memory-project-mapping show/set/remove`, exact workspace/target directory pins,
+   private bounded storage, stale-update checks and atomic publication. New sessions
+   and recording generators select saved mappings; `--memory-project-local` and
+   explicit root/map flags override them. Picker/handoff previews retain the same
+   captured registry snapshot through startup. Resume preserves its saved identity,
+   and `--no-memory` still bypasses all memory storage access.
    `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
    extra staging link after interrupted publication. Source and target bytes remain
    intact; normal readers keep their single-link rule.
@@ -160,8 +168,8 @@ capabilities, not current automatic template or memory loading.
    names. [Raw staging discard](CONVERSATION_MEMORY_STAGING.md) separately reviews
    one invalid file's complete bounded bytes, explicitly leaving its project
    identity unverified. Valid snapshots cannot use that path. Automatic retention
-   and oversized/valid-noncanonical disposal remain planned; nothing scans or runs
-   at startup.
+   and oversized/valid-noncanonical disposal remain planned; cleanup never scans
+   or runs at startup.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

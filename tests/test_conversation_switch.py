@@ -19,7 +19,11 @@ from prompt_toolkit.output import DummyOutput, Output
 
 from mos_eisley.conversation import ConversationController, ConversationState
 from mos_eisley.conversation_cli import DEMO_PROMPTS, demo_cassette, terminal
-from mos_eisley.conversation_directory import DirectoryPicker, DirectorySelectionError
+from mos_eisley.conversation_directory import (
+    DirectoryPicker,
+    DirectorySelection,
+    DirectorySelectionError,
+)
 from mos_eisley.conversation_memory import MemoryStore
 from mos_eisley.conversation_review import ConversationReviewPacket
 from mos_eisley.conversation_switch import switch_target
@@ -80,9 +84,21 @@ class SwitchTests(IsolatedAsyncioTestCase):
             pickers: list[DirectoryPicker] = []
 
             def factory(
-                initial: Path, *, base: Path, input: Input, output: Output
+                initial: Path,
+                *,
+                base: Path,
+                input: Input,
+                output: Output,
+                memory_resolver: Callable[[Path], DirectorySelection | None]
+                | None = None,
             ) -> DirectoryPicker:
-                picker = DirectoryPicker(initial, base=base, input=input, output=output)
+                picker = DirectoryPicker(
+                    initial,
+                    base=base,
+                    input=input,
+                    output=output,
+                    memory_resolver=memory_resolver,
+                )
                 pickers.append(picker)
                 return picker
 

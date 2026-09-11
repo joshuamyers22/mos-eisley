@@ -125,6 +125,7 @@ class ConversationTUI:
         initial_prompt: str | None = None,
         allow_directory_switch: bool = False,
         project_location: ProjectLocation | None = None,
+        memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
         refresh_memory: Callable[[bool], None] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         load_artifact: Callable[[str], ArtifactContent] | None = None,
@@ -137,6 +138,7 @@ class ConversationTUI:
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
+        self.memory_resolver = memory_resolver
         self.project_location = project_location or ProjectLocation.inspect(
             Path(controller.state.workspace)
         )
@@ -697,6 +699,7 @@ class ConversationTUI:
                         selected = await DirectoryPicker(
                             workspace,
                             base=workspace,
+                            memory_resolver=self.memory_resolver,
                             input=self.app.input,
                             output=self.app.output,
                         ).app.run_async(set_exception_handler=False)
@@ -704,6 +707,8 @@ class ConversationTUI:
                 self.set_notice("Directory switch cancelled. Queued work stays paused.")
                 return False
             selected.verify()
+            if self.memory_resolver is not None:
+                self.memory_resolver(selected.path)
             if selected.path == workspace:
                 self.set_notice("Already in that directory. Queued work stays paused.")
                 return False
