@@ -200,7 +200,7 @@ class ConversationExportTests(TestCase):
             self.export()
         self.assertEqual(self.files(self.target), before)
 
-    def test_root_identity_privacy_same_root_and_symlink_guards(self) -> None:
+    def test_root_identity_privacy_and_symlink_guards(self) -> None:
         preview = self.export()
         for root in (self.source, self.target):
             old = self.root / "old"
@@ -210,8 +210,6 @@ class ConversationExportTests(TestCase):
                 self.export(preview.export_sha256, apply=True)
             shutil.rmtree(root)
             old.rename(root)
-        with self.assertRaisesRegex(ValueError, "different storage"):
-            export_conversation(self.source, self.source, self.sid, self.root)
         self.target.chmod(0o755)
         with self.assertRaises(ValueError):
             self.export()

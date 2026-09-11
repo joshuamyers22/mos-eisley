@@ -1,4 +1,4 @@
-"""Explicit source-preserving SQLite-to-JSON export between storage roots."""
+"""Explicit source-preserving SQLite-to-JSON export under session locks."""
 
 import os
 from pathlib import Path
@@ -18,7 +18,7 @@ from mos_eisley.run.conversation_transfer import (
 
 
 class ConversationExportPlan(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     source_backend: Literal["sqlite"] = "sqlite"
     destination_backend: Literal["snapshot"] = "snapshot"
     source: TransferLocation
@@ -32,9 +32,10 @@ class ConversationExportPlan(Contract):
     snapshot_bytes: Annotated[int, Field(ge=1, le=MAX_SNAPSHOT_BYTES)]
 
     @model_validator(mode="after")
-    def separate_roots(self) -> Self:
-        if self.source.identity == self.destination.identity:
-            raise ValueError("export requires different storage roots")
+    def versioned_layout(self) -> Self:
+        same_root = self.source.identity == self.destination.identity
+        if same_root != (self.schema_version == 2):
+            raise ValueError("export plan version does not match its directory layout")
         return self
 
 
@@ -67,6 +68,7 @@ def _plan(
     if size > snapshot.state.snapshot_byte_limit:
         raise ValueError("exported snapshot exceeds its saved byte limit")
     return ConversationExportPlan(
+        schema_version=2 if source.identity == destination.identity else 1,
         source=source,
         destination=destination,
         owner_uid=snapshot.state.owner_uid,
@@ -77,6 +79,21 @@ def _plan(
         messages=len(snapshot.state.entries),
         snapshot_bytes=size,
     )
+
+
+def _preview_snapshot(
+    destination: ConversationStore, plan: ConversationExportPlan
+) -> Literal["planned", "already_present"]:
+    try:
+        current = destination.inspect_json_snapshot()[0]
+    except FileNotFoundError:
+        status = "planned"
+    else:
+        if current.sha256 != plan.snapshot_sha256:
+            raise ValueError("destination contains a different session state")
+        status = "already_present"
+    _check_locations(plan)
+    return status
 
 
 def _preview(plan: ConversationExportPlan) -> Literal["planned", "already_present"]:
@@ -105,16 +122,7 @@ def _preview(plan: ConversationExportPlan) -> Literal["planned", "already_presen
         require_workspace=False,
         expected_root_identity=plan.destination.identity,
     ) as destination:
-        try:
-            current = destination.inspect_json_snapshot()[0]
-        except FileNotFoundError:
-            status = "planned"
-        else:
-            if current.sha256 != plan.snapshot_sha256:
-                raise ValueError("destination contains a different session state")
-            status = "already_present"
-    _check_locations(plan)
-    return status
+        return _preview_snapshot(destination, plan)
 
 
 def export_conversation(
@@ -139,8 +147,7 @@ def export_conversation(
         raise ValueError("--apply requires --expected-sha256 from an export preview")
     source_location = inspect_storage_location(source_root)
     destination_location = inspect_storage_location(destination_root)
-    if source_location.identity == destination_location.identity:
-        raise ValueError("export requires different storage roots")
+    same_root = source_location.identity == destination_location.identity
     with SQLiteConversationStore(
         source_root,
         sid,
@@ -164,17 +171,24 @@ def export_conversation(
                 if _plan(current, source_location, destination_location) != plan:
                     raise ValueError("SQLite source changed during export")
 
-            with ConversationStore(
-                destination_root,
-                sid,
-                workspace,
-                require_workspace=False,
-                expected_root_identity=destination_location.identity,
-            ) as destination:
-                inserted = destination.publish_snapshot(
-                    snapshot.state, modified_ns, validate_source=validate_source
+            if same_root:
+                # Both backends use the same lock inode in this directory. The
+                # fresh SQLite handle owns it and also exposes the JSON root fd.
+                inserted = ConversationStore.publish_snapshot(
+                    source, snapshot.state, modified_ns, validate_source=validate_source
                 )
+            else:
+                with ConversationStore(
+                    destination_root,
+                    sid,
+                    workspace,
+                    require_workspace=False,
+                    expected_root_identity=destination_location.identity,
+                ) as destination:
+                    inserted = destination.publish_snapshot(
+                        snapshot.state, modified_ns, validate_source=validate_source
+                    )
             status = "exported" if inserted else "already_present"
         else:
-            status = _preview(plan)
+            status = _preview_snapshot(source, plan) if same_root else _preview(plan)
         return ConversationExportReceipt(status=status, export_sha256=sha, plan=plan)

@@ -1972,7 +1972,7 @@ JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
 inside the transaction and retains the JSON source. Verified retries cover rollback
 and an already committed import. Single-session cross-root transfer is described
-below; same-root/batch export and incomplete database initializer repair remain open.
+below; batch export and incomplete database initializer repair remain open.
 `mos session-transcript SESSION_ID` now reads
 bounded, verified text pages without loading the header or artifact contents.
 Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
@@ -2258,8 +2258,21 @@ SQLite remains read-only even on apply, so hot source journals block export and
 must be recovered separately. Output retains the saved logical/32 MB limits;
 complete state is decoded. Pre-publication crashes can leave private temporary
 files; retry publishes a complete snapshot and post-publication retry verifies
-the existing copy. Same-root/batch export, retention and the long-session gate
+the existing copy. Batch export, retention and the long-session gate
 remain open. See the [export contract](CONVERSATION_SQLITE.md#export-a-sqlite-session-to-json).
+
+Same-directory export is now supported and is the `session-export` CLI default
+when `--destination-storage` is omitted. SQLite and JSON share one session lock
+in that directory, so export reuses the held lock and directory handle for JSON
+inspection/publication while SQLite remains read-only. Different paths to the
+same physical directory use the same lock behavior. Plans for this layout use
+version 2; cross-directory version-1 plans and hashes remain unchanged. Both
+paths and identities are still bound to the export hash, and version/layout
+mismatches are rejected. Existing JSON copies are verified if identical and
+rejected if different, preserving originals retained by earlier migrations.
+Explicit JSON resume can advance that copy without modifying SQLite; a later
+export rejects the divergence. Batch export, retention and the long-session
+capacity gate remain open.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

@@ -290,7 +290,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         "--json", action="store_true", help="Print a JSON transfer receipt"
     )
     export = add_parser(
-        "session-export", help="Preview or copy SQLite to another JSON storage root"
+        "session-export", help="Preview or copy a SQLite session into JSON"
     )
     export.add_argument("session_id")
     export.add_argument(
@@ -302,8 +302,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     export.add_argument(
         "--destination-storage",
         type=Path,
-        required=True,
-        help="Existing private destination directory",
+        help="Existing private destination directory (default: source storage)",
     )
     export.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     export.add_argument("--expected-sha256", help="Export hash from its preview")
@@ -985,7 +984,7 @@ def _run_command(args: argparse.Namespace) -> int:
         try:
             exported = export_conversation(
                 args.storage,
-                args.destination_storage,
+                args.destination_storage or args.storage,
                 args.session_id,
                 args.workspace,
                 expected_sha256=args.expected_sha256,

@@ -228,8 +228,16 @@ retention and the long-session capacity gate remain separate work.
 
 ## Export a SQLite session to JSON
 
-`session-export` copies one selected SQLite session into the JSON snapshot backend
-in another existing private directory:
+`session-export` copies one selected SQLite session into the JSON snapshot backend.
+The destination defaults to the source storage directory:
+
+```sh
+mos session-export SESSION_ID --storage /path/to/sessions -C /path/to/project --json
+mos session-export SESSION_ID --storage /path/to/sessions -C /path/to/project --apply --expected-sha256 EXPORT_HASH --json
+mos resume SESSION_ID --storage /path/to/sessions --storage-backend snapshot -C /path/to/project
+```
+
+To select another existing private destination directory:
 
 ```sh
 mos session-export SESSION_ID --storage /path/to/sqlite-source --destination-storage /path/to/json-destination -C /path/to/project --json
@@ -238,13 +246,25 @@ mos resume SESSION_ID --storage /path/to/json-destination --storage-backend snap
 ```
 
 Preview reads and verifies the complete bounded SQLite state and creates no files.
-Its version-1 plan binds both directory paths/device/inodes, backend direction,
+Its plan binds both directory paths/device/inodes, backend direction,
 owner, workspace, session ID, state hash, revision, message count and exact canonical
 JSON snapshot bytes. The `conversation.export` receipt reports `planned`, `exported`
 or `already_present`, plus `export_sha256`, the plan and source retention. Apply
 requires this export hash before creating destination metadata. Source changes,
 directory replacement or a different workspace require a new preview. Destination
 status and source timestamps are excluded from the hash, allowing verified retries.
+Cross-directory plans retain version 1 and their existing hash format. Plans for
+the same physical directory use version 2; a version/layout mismatch is rejected.
+The outer receipt remains version 1. A plan cannot authorize the other layout.
+
+Within one directory, SQLite and JSON share the same session lock. Export reuses
+that held lock and directory handle instead of attempting a second acquisition.
+Different paths naming the same physical directory use this same behavior, while
+the plan still binds both supplied paths. Preview does not create a JSON file;
+apply adds only the selected snapshot and retains the SQLite database, indexes,
+timestamps and lock files. An old JSON source retained by forward migration is
+verified if identical and rejected if different. Export does not synchronize it
+with an advanced SQLite session. Resume must explicitly select the desired backend.
 
 Export preserves the original revision, consumed attempts, admission records,
 historical memory, review/recording evidence and workspace identity. It copies the
@@ -258,7 +278,8 @@ The source SQLite handle is read-only in **both preview and apply**. A hot sourc
 journal therefore blocks export without recovery or destination writes. Recover
 the source separately, then preview again. Export does not repair a damaged schema.
 
-Apply holds both session locks, writes and syncs a private temporary JSON file,
+Apply holds the shared session lock, or both locks for different directories,
+writes and syncs a private temporary JSON file,
 then rechecks both directory identities, the source state and destination absence
 before atomically publishing. An identical destination is verified; a different,
 advanced or invalid snapshot is rejected. Existing-copy apply also syncs the
@@ -272,7 +293,7 @@ An exit after publication is resolved by verifying the existing copy. Temporary
 files are not removed by preview or retry; the existing explicit snapshot
 `session-delete` cleanup handles this session's temporary files when deleting its
 published copy. There is no source deletion, synchronization or automatic backend
-switch. Same-root export, batch export, retention and the long-session capacity
+switch. Batch export, retention and the long-session capacity
 gate remain separate work.
 
 ## Metadata pages
@@ -655,6 +676,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, same-root/batch export and the 1,000-message
+configurable physical retention, batch export and the 1,000-message
 capacity/recovery gate in [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.
