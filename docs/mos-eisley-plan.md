@@ -1474,7 +1474,7 @@ JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
 owner, revision, history and consumed attempts, verifies the reconstructed state
 inside the transaction and retains the JSON source. Verified retries cover rollback
 and an already committed import. Single-session cross-root transfer is described
-below; batch export and incomplete database initializer repair remain open.
+below; retention and incomplete database initializer repair remain open.
 `mos session-transcript SESSION_ID` now reads
 bounded, verified text pages without loading the header or artifact contents.
 Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
@@ -1689,7 +1689,7 @@ bounded records for transcript and resume inspection without artifact expansion;
 both backends and migration preserve it. Existing entries remain unmodified with
 no invented historical provenance. This records admitted inputs and may survive a
 crash before transmission; it is not proof of provider receipt. Visible compaction,
-batch export and the long-session capacity gate remain open. See the
+retention and the long-session capacity gate remain open. See the
 [saved admission contract](CONVERSATION_STORAGE.md#saved-request-admissions).
 
 `/context N` now inspects that saved metadata directly from a zero-based transcript
@@ -1713,7 +1713,7 @@ transaction. Completed imports remain after a later failure; results report the
 verified prefix and failing session. Retry verifies existing copies and does not
 overwrite advanced destinations. Read-only preview refuses hot journals; explicit
 apply permits recovery after validating the batch selection. Sources, attempts and
-admission records are preserved. Batch export, retention and the
+admission records are preserved. Retention and the
 long-session capacity gate remain open. See the
 [batch contract](CONVERSATION_SQLITE.md#import-a-selected-batch-of-json-sessions).
 
@@ -1728,7 +1728,7 @@ retry, including after a lost commit acknowledgment; advanced destinations are
 never overwritten. Transfer retains JSON, original workspace, memory, evidence,
 admission records and attempts, without recovering running messages or starting
 queued work. Read-only preview refuses hot journals; explicit apply permits
-recovery after selection validation. Batch export,
+recovery after selection validation. Physical
 retention and the long-session gate remain open. See the
 [transfer contract](CONVERSATION_SQLITE.md#copy-a-json-session-to-another-storage-directory).
 
@@ -1744,7 +1744,7 @@ copy committed before its acknowledgment was lost. Directory replacements,
 source changes and advanced destinations cannot silently change the selection.
 Preview remains read-only and explicit apply permits hot-journal recovery.
 Source files, workspace identity, evidence, admission records and attempts are
-preserved. Batch export, retention and the long-session capacity gate remain
+preserved. Retention and the long-session capacity gate remain
 open. See the [batch transfer contract](CONVERSATION_SQLITE.md#copy-a-selected-batch-to-another-storage-directory).
 
 Single-session reverse migration is now available as `session-export`, copying
@@ -1760,7 +1760,7 @@ SQLite remains read-only even on apply, so hot source journals block export and
 must be recovered separately. Output retains the saved logical/32 MB limits;
 complete state is decoded. Pre-publication crashes can leave private temporary
 files; retry publishes a complete snapshot and post-publication retry verifies
-the existing copy. Batch export, retention and the long-session gate
+the existing copy. Retention and the long-session gate
 remain open. See the [export contract](CONVERSATION_SQLITE.md#export-a-sqlite-session-to-json).
 
 Same-directory export is now supported and is the `session-export` CLI default
@@ -1773,8 +1773,25 @@ paths and identities are still bound to the export hash, and version/layout
 mismatches are rejected. Existing JSON copies are verified if identical and
 rejected if different, preserving originals retained by earlier migrations.
 Explicit JSON resume can advance that copy without modifying SQLite; a later
-export rejects the divergence. Batch export, retention and the long-session
+export rejects the divergence. Retention and the long-session
 capacity gate remain open.
+
+Bounded SQLite-to-JSON batch export is now available through
+`session-export-batch`, selecting 1–32 explicit IDs and at most 64 MB of canonical
+JSON output. The version-1 batch plan binds sorted single-export plans, both
+directories, owner/workspace and exact source state/size metadata; apply requires
+its hash. Preflight verifies every source before destination JSON work and retains
+only metadata between sessions. Indexed snapshot sizes gate full decoding against
+the remaining output budget; full verification checks those index claims. Each
+execution read and final source recheck is capped at the selected snapshot size.
+Publication remains per session under the existing locks, with a verified prefix
+and failing ID reported after a late failure. Retry verifies identical published
+copies, including a publication whose acknowledgment was lost, without overwriting
+different destinations. Both directory layouts preserve SQLite, evidence and
+attempts, refuse hot source journals, and leave execution paused. This admits
+verified output bytes rather than reserving disk or bounding total Python memory.
+Retention and the long-session capacity gate remain open. See the
+[batch export contract](CONVERSATION_SQLITE.md#export-a-selected-batch-of-sqlite-sessions).
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift

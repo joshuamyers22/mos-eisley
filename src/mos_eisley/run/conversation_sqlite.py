@@ -729,12 +729,21 @@ class SQLiteConversationStore(ConversationStore):
         self._verified_checkpoint = checkpoint
         return snapshot
 
-    def inspect_snapshot(self) -> tuple[ConversationSnapshot, int]:
+    def inspect_snapshot(
+        self, *, snapshot_max_bytes: int = MAX_SNAPSHOT_BYTES
+    ) -> tuple[ConversationSnapshot, int]:
         """Verify full state and its saved timestamp in one read transaction."""
+        if (
+            type(snapshot_max_bytes) is not int
+            or not 1 <= snapshot_max_bytes <= MAX_SNAPSHOT_BYTES
+        ):
+            raise ValueError("invalid SQLite export snapshot byte limit")
         db = self._connection()
         with conversation_transaction(db):
-            snapshot = self._load(db)
             index = read_sqlite_session_index(db, self.session_id, self.workspace)
+            if index.summary.snapshot_bytes > snapshot_max_bytes:
+                raise ValueError("SQLite snapshot exceeds export byte budget")
+            snapshot = self._load(db)
         return snapshot, index.summary.modified_ns
 
     def _capture_checkpoint(

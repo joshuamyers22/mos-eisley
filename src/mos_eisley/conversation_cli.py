@@ -91,6 +91,7 @@ from mos_eisley.run.conversation_artifacts import (
     DEFAULT_ARTIFACT_BYTES,
     read_sqlite_artifact,
 )
+from mos_eisley.run.conversation_batch_export import BatchExportError, export_batch
 from mos_eisley.run.conversation_batch_migration import (
     BatchMigrationError,
     migrate_batch,
@@ -311,6 +312,34 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     )
     export.add_argument(
         "--json", action="store_true", help="Print a JSON export receipt"
+    )
+    batch_export = add_parser(
+        "session-export-batch",
+        help="Preview or export selected SQLite sessions to JSON",
+    )
+    batch_export.add_argument(
+        "session_ids", nargs="+", help="1–32 explicit session IDs"
+    )
+    batch_export.add_argument(
+        "--storage",
+        type=Path,
+        default=Path.home() / ".mos-eisley-sessions",
+        help="Source SQLite storage root",
+    )
+    batch_export.add_argument(
+        "--destination-storage",
+        type=Path,
+        help="Existing private destination directory (default: source storage)",
+    )
+    batch_export.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    batch_export.add_argument(
+        "--expected-sha256", help="Batch export hash from its preview"
+    )
+    batch_export.add_argument(
+        "--apply", action="store_true", help="Export the selected batch"
+    )
+    batch_export.add_argument(
+        "--json", action="store_true", help="Print a JSON batch export receipt"
     )
     transfer_batch_parser = add_parser(
         "session-transfer-batch",
@@ -931,6 +960,27 @@ def run_command(args: argparse.Namespace) -> int:
         return 2
 
 
+def _run_batch_export(args: argparse.Namespace) -> int:
+    notice = None
+    try:
+        receipt = export_batch(
+            args.storage,
+            args.destination_storage or args.storage,
+            tuple(args.session_ids),
+            args.workspace,
+            expected_sha256=args.expected_sha256,
+            apply=args.apply,
+        )
+    except BatchExportError as error:
+        receipt = error.receipt
+        notice = str(error)
+    payload = {"type": "conversation.export_batch", **receipt.model_dump(mode="json")}
+    if notice is not None:
+        payload["text"] = notice
+    print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+    return 0 if notice is None else 2
+
+
 def _run_command(args: argparse.Namespace) -> int:
     if args.command == "session-artifact":
         artifact = read_sqlite_artifact(
@@ -980,6 +1030,8 @@ def _run_command(args: argparse.Namespace) -> int:
             result = {"type": "conversation.transcript", **page.model_dump(mode="json")}
         print(json.dumps(result, ensure_ascii=True, indent=None if args.json else 2))
         return 0
+    if args.command == "session-export-batch":
+        return _run_batch_export(args)
     if args.command == "session-export":
         try:
             exported = export_conversation(

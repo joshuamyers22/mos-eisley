@@ -51,6 +51,8 @@ for a bounded selection, using its batch transfer hash and per-session transacti
 `mos session-export SESSION_ID` previews the reverse SQLite-to-JSON copy in the
 same storage directory; `--destination-storage PATH` selects another private
 directory. Apply with the returned export hash.
+`mos session-export-batch ID_A ID_B` previews up to 32 selected SQLite sessions
+and 64 MB of JSON output; apply with its batch hash and retry partial exports safely.
 Original JSON files are retained. `mos session-transcript SESSION_ID --limit 4` reads
 verified SQLite transcript pages without loading retained artifacts. In SQLite's
 terminal, F5 browses that history, Page Up/Down navigates, and F6 reloads. F7 selects

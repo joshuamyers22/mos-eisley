@@ -74,8 +74,8 @@ to use the imported session. There is no automatic synchronization or source rem
 Deleting the JSON copy is a separate `session-delete` operation using its current
 hash and the default snapshot backend. The bounded batch command below handles
 multiple explicit sessions. The transfer command below copies one session across
-storage roots. Single-session reverse export is described below; batch exports
-and automatic source removal remain planned.
+storage roots. Single-session and bounded batch reverse exports are described
+below; automatic source removal remains planned.
 
 ## Copy a JSON session to another storage directory
 
@@ -120,8 +120,7 @@ are rejected and are not automatically repaired. Both copies can later diverge:
 there is no synchronization, source deletion or implicit backend switch. Individual
 32 MB snapshot, saved logical and physical SQLite limits still apply; selection and
 verification decode bounded complete sessions. Cross-root batches are described
-below. Batch reverse export,
-retention and the long-session capacity gate remain open.
+below. Retention and the long-session capacity gate remain open.
 
 ## Import a selected batch of JSON sessions
 
@@ -176,7 +175,7 @@ before a result was lost. The command exits 2 on failure. Invalid selection or
 source preflight errors exit before a batch result is available and print a safe
 notice. No source text, memory or review evidence is included in these reports.
 
-Batch reverse export, bulk retention and the long-session capacity gate
+Bulk retention and the long-session capacity gate
 remain separate work.
 
 ## Copy a selected batch to another storage directory
@@ -223,7 +222,7 @@ The source files, workspace identity, memory, review/recording evidence, admissi
 records, timestamps and consumed attempts retain the single-transfer guarantees.
 Transfer does not resume queued/running work, synchronize copies or remove sources.
 Use `mos resume SESSION_ID --storage /path/to/destination --storage-backend sqlite
--C /path/to/project` to resume an imported session explicitly. Batch reverse export,
+-C /path/to/project` to resume an imported session explicitly. Physical
 retention and the long-session capacity gate remain separate work.
 
 ## Export a SQLite session to JSON
@@ -293,8 +292,58 @@ An exit after publication is resolved by verifying the existing copy. Temporary
 files are not removed by preview or retry; the existing explicit snapshot
 `session-delete` cleanup handles this session's temporary files when deleting its
 published copy. There is no source deletion, synchronization or automatic backend
-switch. Batch export, retention and the long-session capacity
+switch. Retention and the long-session capacity
 gate remain separate work.
+
+## Export a selected batch of SQLite sessions
+
+`session-export-batch` previews one to 32 explicit session IDs and at most
+64,000,000 bytes of canonical JSON snapshots. The destination defaults to the
+source directory; pass `--destination-storage PATH` for another existing private
+directory. Apply requires the returned `batch_sha256`:
+
+```sh
+mos session-export-batch SESSION_A SESSION_B --storage /path/to/sessions -C /path/to/project --json
+mos session-export-batch SESSION_A SESSION_B --storage /path/to/sessions -C /path/to/project --apply --expected-sha256 BATCH_EXPORT_HASH --json
+```
+
+The version-1 batch plan contains sorted, distinct single-session export plans,
+the output byte limit, total `output_bytes` and message count. Every entry binds
+the same source/destination paths and identities, owner and workspace, together
+with its session ID, state hash, revision and exact snapshot bytes. Entry plans
+use version 2 within one physical directory and version 1 across directories.
+Destination status and source timestamps remain outside the hash, so retries and
+intervening identical single-session exports retain the same batch selection.
+
+Every source is fully verified before destination JSON inspection or publication.
+Preflight retains metadata between sessions, not decoded histories. Each read
+checks the indexed snapshot size against the remaining output budget before
+decoding full state; full verification checks that the index matches the snapshot.
+Per-session reads also respect the 32 MB ceiling and saved logical limit. The
+execution pass and final source recheck cap reads at the selected snapshot size,
+so growth requires a new preview. This is a verified output-size admission, not a
+bound on SQLite's physical bytes read, Python memory overhead or reserved disk
+space. Corrupt index claims still encounter the existing bounded full verifier.
+
+**Publication is per session.** Sources are locked individually, not frozen as one
+batch. A late conflict, lock, changed source or directory replacement can stop
+after earlier JSON files were published. The `conversation.export_batch` result
+reports `mode`, `status` (`planned`, `completed` or `stopped`), `batch_sha256`, the
+plan, ordered per-session `receipts`, and `exported`/`already_present` counts. A
+stopped result identifies `failed_session_id` and a bounded `failure` category;
+CLI exit status is 2. Receipts cover the verified prefix, while the failing session
+may have published before its acknowledgment was lost. Retry verifies identical
+copies and exports the rest; a different or invalid JSON destination is rejected.
+Invalid selection and source-preflight errors produce a safe notice before a
+batch receipt is available. Receipts contain metadata, without source text.
+
+The single-export guarantees apply to each member: SQLite stays read-only even
+on apply, hot source journals block export without recovery, complete state and
+evidence are retained, and queued/running messages are not resumed. Publication
+uses a synced temporary file and atomic replacement under the session lock;
+crash leftovers follow the documented single-export cleanup behavior. The command
+does not synchronize copies, delete sources or change backend selection. Retention
+and the long-session capacity gate remain separate work.
 
 ## Metadata pages
 
@@ -676,6 +725,6 @@ reservation, and is not yet configurable. The 16-message/attempt preview cap,
 recorded responses, context budgets and 32 KiB memory limit remain unchanged.
 
 The next stages are bounded controller resume, context compaction,
-configurable physical retention, batch export and the 1,000-message
+configurable physical retention and the 1,000-message
 capacity/recovery gate in [plan §17.5](mos-eisley-plan.md#175-long-session-storage-and-independent-budgets).
 Passing metadata pagination for 260 sessions does not satisfy that long-session gate.

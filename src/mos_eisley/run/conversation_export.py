@@ -125,6 +125,33 @@ def _preview(plan: ConversationExportPlan) -> Literal["planned", "already_presen
         return _preview_snapshot(destination, plan)
 
 
+def plan_export(
+    source_root: Path,
+    destination_root: Path,
+    session_id: str,
+    workspace: Path,
+    *,
+    snapshot_max_bytes: int = MAX_SNAPSHOT_BYTES,
+) -> ConversationExportPlan:
+    """Read bounded source metadata without inspecting destination snapshots."""
+    sid = TypeAdapter[str](SessionID).validate_python(session_id)
+    source_location = inspect_storage_location(source_root)
+    destination_location = inspect_storage_location(destination_root)
+    with SQLiteConversationStore(
+        source_root,
+        sid,
+        workspace,
+        create=False,
+        require_workspace=False,
+        writable=False,
+        expected_root_identity=source_location.identity,
+    ) as source:
+        snapshot, _ = source.inspect_snapshot(snapshot_max_bytes=snapshot_max_bytes)
+        plan = _plan(snapshot, source_location, destination_location)
+        _check_locations(plan)
+        return plan
+
+
 def export_conversation(
     source_root: Path,
     destination_root: Path,
@@ -133,6 +160,7 @@ def export_conversation(
     *,
     expected_sha256: str | None = None,
     apply: bool = False,
+    snapshot_max_bytes: int = MAX_SNAPSHOT_BYTES,
 ) -> ConversationExportReceipt:
     try:
         sid = TypeAdapter[str](SessionID).validate_python(session_id)
@@ -157,7 +185,9 @@ def export_conversation(
         writable=False,
         expected_root_identity=source_location.identity,
     ) as source:
-        snapshot, modified_ns = source.inspect_snapshot()
+        snapshot, modified_ns = source.inspect_snapshot(
+            snapshot_max_bytes=snapshot_max_bytes
+        )
         plan = _plan(snapshot, source_location, destination_location)
         sha = digest(canonical_bytes(plan))
         if expected is not None and expected != sha:
@@ -167,7 +197,9 @@ def export_conversation(
 
             def validate_source() -> None:
                 _check_locations(plan)
-                current, _ = source.inspect_snapshot()
+                current, _ = source.inspect_snapshot(
+                    snapshot_max_bytes=plan.snapshot_bytes
+                )
                 if _plan(current, source_location, destination_location) != plan:
                     raise ValueError("SQLite source changed during export")
 
