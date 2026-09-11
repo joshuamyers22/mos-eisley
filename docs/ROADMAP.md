@@ -23,6 +23,19 @@ remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 
+**Platform release direction, 2026-09-11:** version 0.1.0 adds a tested WSL2
+deployment using the Linux backend; version 0.1.1 delivers full native Windows
+parity. The detailed scope and release gates are in
+[plan §27](mos-eisley-plan.md#27-windows-platform-release-contract).
+
+| Release | Windows scope | Blocking evidence |
+|---|---|---|
+| 0.1.0 | Windows host through WSL2; Linux filesystem and Linux backend; no WSL1 or native-Windows claim | Installed-wheel conversation/storage/credential/Git checks and applicable Linux boundary suites on an actual Windows-hosted WSL2 environment |
+| 0.1.1 | Native Windows parity for every capability advertised on macOS/Linux in the release | SID/DACL storage and migration, terminal/credentials, path/Git, Job Object lifecycle, native sandbox positive/negative suites, and installed-wheel CI on every advertised Windows version |
+
+WSL2 support does not advance a feature's authority gate. Native Windows work follows
+the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -473,6 +486,8 @@ capabilities, not current automatic template or memory loading.
    does not prove all-day API-key exclusivity. Next, run separately authorized real
    conformance and collection; fixture validation is not provider conformance.
 6. **Execution:** threat model and capability matrix; macOS/Linux negative tests,
+   an actual Windows-hosted WSL2 qualification for version 0.1.0, and the native
+   Windows storage/process/sandbox suites required by plan §27 for version 0.1.1;
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
    Integrate L0–L5 from the revised loop plan: immutable clauses, fresh sealed
