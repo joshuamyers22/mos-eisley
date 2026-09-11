@@ -123,7 +123,9 @@ def read_sqlite_artifact(
             if selected.field == "memory_context":
                 model = ConversationMemoryContext.model_validate_json(payload)
                 if model.memory is not None:
-                    model.memory.validate_identity(index.owner_uid, index.workspace)
+                    model.memory.validate_identity(
+                        index.owner_uid, index.memory_project_root or index.workspace
+                    )
             elif selected.field == "review_packet":
                 model = ConversationReviewPacket.model_validate_json(payload)
             else:

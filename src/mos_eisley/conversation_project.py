@@ -53,18 +53,18 @@ class ProjectLocation:
             "limit": "unknown (ancestor scan limit)",
         }.get(self.detection, "unknown (discovery unavailable)")
 
-    def fields(self) -> dict[str, object]:
+    def fields(self, memory_workspace: str | None = None) -> dict[str, object]:
         return {
             "workspace": self.workspace,
             "project_root": self.root,
             "project_detection": self.detection,
-            "memory_workspace": self.workspace,
+            "memory_workspace": memory_workspace or self.workspace,
         }
 
-    def describe(self) -> str:
+    def describe(self, memory_workspace: str | None = None) -> str:
         return (
             f"Working directory\n{self.workspace}\n\n"
             f"Project root (Git marker at startup)\n{self.root_label()}\n"
             f"Detection: {self.detection}\n\n"
-            f"Project memory identity\n{self.workspace}"
+            f"Project memory identity\n{memory_workspace or self.workspace}"
         )

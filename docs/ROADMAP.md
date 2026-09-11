@@ -129,8 +129,11 @@ capabilities, not current automatic template or memory loading.
    separately from the workspace, with full paths and the effective memory identity
    in `/directory` and startup JSON. The metadata-only scan checks at most 64
    ancestors, keeps file-marker worktrees separate, and exposes incomplete discovery.
-   Root-based memory adoption and mapping require explicit migration; natural-language
-   memory changes remain planned.
+   [Explicit memory-root selection](CONVERSATION_MEMORY_PROJECT.md) now pins an
+   ancestor identity for new sessions across resume, refresh and JSON/SQLite transfers.
+   A read-only preview compares workspace/root documents and exposes collisions;
+   directory switching clears the old root selection. Automated migration, identity
+   mapping and natural-language memory changes remain planned.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

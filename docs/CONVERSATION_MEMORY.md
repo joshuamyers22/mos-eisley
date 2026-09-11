@@ -20,12 +20,13 @@ mos
 
 `--scope` is always explicit. User memory applies to your other project sessions;
 project memory does not. `-C /path/to/project` selects the project for both memory
-commands and new conversations. The selected canonical workspace is currently the
-project boundary: launching in a subdirectory creates a different project scope.
-Use the same `-C` root consistently. The terminal now displays the nearest Git-marker
-root separately and `/directory` shows the effective memory identity. Adopting root-based
-memory, project moves and explicit worktree sharing remain planned; remote repository
-URLs never merge stores.
+commands and new conversations. By default the canonical workspace is the project
+boundary: launching in a subdirectory creates a different scope. New chats can
+explicitly select an ancestor with [`--memory-project-root PATH`](CONVERSATION_MEMORY_PROJECT.md).
+The saved identity is reused on resume and refresh. Use `memory-project-preview`
+to compare existing documents first; automated migration and project/worktree mappings
+remain planned. Git discovery and remote URLs never merge stores. `/directory` shows
+the effective memory identity separately from the detected Git-marker root.
 
 The runtime includes memory as labelled user/project context. Project preferences
 override general user defaults, and current user instructions override both.

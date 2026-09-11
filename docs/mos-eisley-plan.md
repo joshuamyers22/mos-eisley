@@ -21,6 +21,15 @@ acceptance criteria; §26 and the roadmap define their delivery order.
 
 ---
 
+**Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded
+review batch and run focused tests as each job lands. Test affected security,
+storage and identity boundaries immediately. Run full quality checks once against
+the combined batch before publishing, with required CI, secret scanning, dependency
+audit and container gates before merge. Failures block dependent changes; later
+code changes require fresh applicable checks and final-revision validation. Keep
+test coverage and security gates intact while avoiding a full run per small job.
+See [contribution workflow](../CONTRIBUTING.md).
+
 ## 1. Goals and non-goals
 
 ### Goals
@@ -1501,18 +1510,29 @@ selection between requests and leave queued work paused until `/continue`.
 `--no-memory` to disable loading. Earlier messages retain their historical context;
 consumed recording exchanges remain unchanged. Custom recordings require an explicit
 replacement via `--refresh-cassette`, retained privately for subsequent resumes.
-Project scope currently uses the selected canonical workspace. Git-marker roots
-are now displayed separately; adopting root-based memory, explicit mapping,
-natural-language saves and automatic extraction remain planned.
+Project scope defaults to the canonical workspace. New sessions can explicitly
+select an ancestor via [`--memory-project-root PATH`](CONVERSATION_MEMORY_PROJECT.md).
+The identity is retained across resume, refresh, historical artifact reads and
+JSON/SQLite transfers; legacy sessions retain their original bindings and bytes.
+The startup selector previews the effective identity, and switching directories
+clears it for the fresh session. Git-marker roots are displayed separately and
+never select memory. Explicit mapping, natural-language saves and automatic
+extraction remain planned.
 The requirements below remain the complete target.
 
-**Next identity milestone:** make root-based memory adoption an explicit selection
-for new sessions, with a reviewable migration preview for existing workspace memory.
-Resolve collisions between root and subdirectory documents before writing or merging.
-Persist the effective identity so later marker changes cannot retarget a resumed
-session. Preserve historical memory and recorded-request hashes, and retain existing
-workspace bindings for legacy sessions. Project moves and worktree sharing require
-explicit mappings; a common Git metadata directory or remote URL never merges memory.
+**Adoption batch:** explicit selection and a read-only `memory-project-preview`
+now support inspection before adopting a root. The preview reads both project
+documents under one shared lock and reports source-only, target-only, empty,
+same-identity or collision states, including disabled/empty documents. Starting a
+root-selected chat uses the root document; it leaves workspace documents untouched.
+
+**Next migration milestone:** add guarded apply after a fresh preview. Bind storage
+and directory identities, source/target hashes and the proposed content, then
+recheck them under an exclusive lock before publication. Resolve collisions before
+writing or merging; preserve source documents, historical memory and request hashes.
+The current preview hash is informational and grants no apply authority. Existing
+session identities cannot be overridden on resume. Project moves and worktree sharing
+require explicit mappings; common Git metadata or remote URLs never merge memory.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |

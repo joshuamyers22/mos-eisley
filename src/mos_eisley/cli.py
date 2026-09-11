@@ -7445,6 +7445,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command in {
             "memory",
+            "memory-project-preview",
             "chat",
             "resume",
             "conversation-demo",

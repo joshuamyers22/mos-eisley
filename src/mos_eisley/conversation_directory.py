@@ -183,10 +183,13 @@ class DirectoryPicker:
         input: Input | None = None,
         output: Output | None = None,
         base: Path | None = None,
+        memory_project_root: Path | None = None,
     ) -> None:
         self.base = Path.cwd() if base is None else base
         self.selection: DirectorySelection | None = None
         self.project_location: ProjectLocation | None = None
+        self.memory_project_root = memory_project_root
+        self.memory_selection: DirectorySelection | None = None
         self.notice = "Enter previews the resolved path. Ctrl-S uses that directory."
         self.preview_area = TextArea(
             text=self.details(), read_only=True, scrollbar=True, wrap_lines=True
@@ -210,6 +213,8 @@ class DirectoryPicker:
                 return
             try:
                 self.selection.verify()
+                if self.memory_selection is not None:
+                    self.memory_selection.verify()
             except DirectorySelectionError as error:
                 self.invalidate_selection()
                 self.set_notice(str(error))
@@ -310,11 +315,13 @@ class DirectoryPicker:
     def invalidate_selection(self) -> None:
         self.selection = None
         self.project_location = None
+        self.memory_selection = None
         self.preview_area.text = self.details()
 
     def preview(self) -> None:
         self.selection = None
         self.project_location = None
+        self.memory_selection = None
         try:
             text = self.editor.text
             if not valid_path_text(text):
@@ -324,8 +331,22 @@ class DirectoryPicker:
                 candidate = self.base / candidate
             self.selection = DirectorySelection.inspect(candidate)
             self.project_location = ProjectLocation.inspect(self.selection.path)
+            if self.memory_project_root is not None:
+                from mos_eisley.conversation_memory_project import select_memory_project
+
+                self.memory_selection = select_memory_project(
+                    self.selection.path, self.memory_project_root
+                )
         except (OSError, ValueError, RuntimeError):
-            self.notice = "Directory unavailable or invalid. Edit the path and retry."
+            self.selection = None
+            self.project_location = None
+            self.memory_selection = None
+            self.notice = (
+                "Directory or memory root unavailable. "
+                "Choose a workspace inside the selected memory root."
+                if self.memory_project_root is not None
+                else "Directory unavailable or invalid. Edit the path and retry."
+            )
         else:
             self.notice = "Resolved directory preview is ready. Ctrl-S selects it."
         self.preview_area.text = self.details()
@@ -340,14 +361,24 @@ class DirectoryPicker:
             + "\n\nProject root (Git marker):\n"
             + safe_label(self.project_location.root_label())
             + "\n\nProject memory identity:\n"
-            + safe_label(str(self.selection.path))
+            + safe_label(
+                str(
+                    self.selection.path
+                    if self.memory_selection is None
+                    else self.memory_selection.path
+                )
+            )
         )
 
 
-def pick_directory(initial: Path) -> DirectorySelection | None:
+def pick_directory(
+    initial: Path, *, memory_project_root: Path | None = None
+) -> DirectorySelection | None:
     fd = sys.stdin.fileno()
     modes = termios.tcgetattr(fd)
     try:
-        return DirectoryPicker(initial).app.run()
+        return DirectoryPicker(
+            initial, memory_project_root=memory_project_root
+        ).app.run()
     finally:
         termios.tcsetattr(fd, termios.TCSANOW, modes)
