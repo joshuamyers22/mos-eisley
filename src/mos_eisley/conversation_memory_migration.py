@@ -335,33 +335,6 @@ class MemoryMigrationStore(MemoryStore):
                 "applied": expected_sha256 is not None,
             }
 
-    def _storage_identity(self, handles: tuple[int, int] | None) -> dict[str, object]:
-        if handles is None:
-            return {"path": str(self.root), "exists": False}
-        root, lock_fd = handles
-        held = os.fstat(root)
-        named = os.stat(self.root, follow_symlinks=False)
-        if _identity(held) != _identity(named):
-            raise ValueError("Memory storage changed; preview the migration again.")
-        lock = os.stat("memory.lock", dir_fd=root, follow_symlinks=False)
-        if _identity(lock) != _identity(os.fstat(lock_fd)):
-            raise ValueError("Memory lock changed; preview the migration again.")
-        if (
-            held.st_uid != os.getuid()
-            or held.st_mode & 0o077
-            or lock.st_uid != os.getuid()
-            or lock.st_mode & 0o077
-            or lock.st_nlink != 1
-        ):
-            raise ValueError("memory storage must be private and owned by this user")
-        return {
-            "path": str(self.root),
-            "canonical_path": str(self.root.resolve(strict=True)),
-            "exists": True,
-            **_identity(held),
-            "lock": _identity(lock),
-        }
-
     def migrate(
         self,
         target: "MemoryMigrationStore",

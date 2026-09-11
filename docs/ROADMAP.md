@@ -157,8 +157,11 @@ capabilities, not current automatic template or memory loading.
    covers 1–32 named records, including retained-backup pruning with a reviewed
    modification-time cutoff and current-memory protection. All records are checked
    before deletion; partial receipts distinguish unlinked and directory-flushed
-   names. Incomplete-record disposal and automatic retention remain planned;
-   nothing scans or runs at startup.
+   names. [Raw staging discard](CONVERSATION_MEMORY_STAGING.md) separately reviews
+   one invalid file's complete bounded bytes, explicitly leaving its project
+   identity unverified. Valid snapshots cannot use that path. Automatic retention
+   and oversized/valid-noncanonical disposal remain planned; nothing scans or runs
+   at startup.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

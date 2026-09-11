@@ -147,20 +147,11 @@ def _private(fd: int, *, directory: bool = False) -> None:
         raise ValueError("memory storage must be private and owned by this user")
 
 
-class MemoryStore:
-    def __init__(self, root: Path, workspace: Path) -> None:
-        if not workspace.is_dir():
-            raise ValueError("memory workspace must be a directory")
-        self.root = root.absolute()
-        self.workspace = str(workspace.resolve(strict=True))
+class MemoryStorage:
+    """Private storage locks and identity checks, without project attribution."""
 
-    def path(self, scope: Scope) -> Path:
-        name = (
-            "user.json"
-            if scope == "user"
-            else "project-" + digest(self.workspace.encode("utf-8")) + ".json"
-        )
-        return self.root / name
+    def __init__(self, root: Path) -> None:
+        self.root = root.absolute()
 
     @contextmanager
     def _lock_handles(
@@ -207,6 +198,52 @@ class MemoryStore:
     def _locked(self, *, write: bool = False) -> Generator[int | None]:
         with self._lock_handles(write=write) as handles:
             yield handles[0] if handles is not None else None
+
+    def _storage_identity(self, handles: tuple[int, int] | None) -> dict[str, object]:
+        def identity(info: os.stat_result) -> dict[str, int]:
+            return {"device": info.st_dev, "inode": info.st_ino}
+
+        if handles is None:
+            return {"path": str(self.root), "exists": False}
+        root, lock_fd = handles
+        held = os.fstat(root)
+        named = os.stat(self.root, follow_symlinks=False)
+        if identity(held) != identity(named):
+            raise ValueError("Memory storage changed; preview the operation again.")
+        lock = os.stat("memory.lock", dir_fd=root, follow_symlinks=False)
+        if identity(lock) != identity(os.fstat(lock_fd)):
+            raise ValueError("Memory lock changed; preview the operation again.")
+        if (
+            held.st_uid != os.getuid()
+            or held.st_mode & 0o077
+            or lock.st_uid != os.getuid()
+            or lock.st_mode & 0o077
+            or lock.st_nlink != 1
+        ):
+            raise ValueError("memory storage must be private and owned by this user")
+        return {
+            "path": str(self.root),
+            "canonical_path": str(self.root.resolve(strict=True)),
+            "exists": True,
+            **identity(held),
+            "lock": identity(lock),
+        }
+
+
+class MemoryStore(MemoryStorage):
+    def __init__(self, root: Path, workspace: Path) -> None:
+        if not workspace.is_dir():
+            raise ValueError("memory workspace must be a directory")
+        super().__init__(root)
+        self.workspace = str(workspace.resolve(strict=True))
+
+    def path(self, scope: Scope) -> Path:
+        name = (
+            "user.json"
+            if scope == "user"
+            else "project-" + digest(self.workspace.encode("utf-8")) + ".json"
+        )
+        return self.root / name
 
     def _read(self, root: int | None, scope: Scope) -> MemorySnapshot | None:
         if root is None:

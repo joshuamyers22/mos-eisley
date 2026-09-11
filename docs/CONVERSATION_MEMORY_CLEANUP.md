@@ -42,6 +42,11 @@ permissions or multiply linked records. Retain unsupported artifacts for investi
 there is no force or wildcard option. Ordinary user-memory staging files are outside
 this project's cleanup scope.
 
+For one bounded empty, truncated or integrity-invalid staging file, use the separate
+[raw staging discard](CONVERSATION_MEMORY_STAGING.md) workflow. That review is
+storage-wide and explicitly leaves project attribution unverified; it is not a
+project cleanup action or an option in the batch manifest.
+
 ## Repair an interrupted backup publication
 
 A resolution can crash after linking a durable backup but before removing its
@@ -185,5 +190,7 @@ hashes cannot be reused for a smaller selection or a replacement file. There is 
 rollback, journal, automatic retry or automatic continuation. The same-user process
 boundary described above also applies to batches.
 
-Incomplete-record disposal, automatic retention policies and inventory-based backup
-count protection remain planned. Retained backups are never deleted automatically.
+Bounded invalid-record disposal uses the separate raw staging workflow above.
+Oversized/valid-noncanonical disposal, automatic retention policies and
+inventory-based backup count protection remain planned. Retained backups are never
+deleted automatically.

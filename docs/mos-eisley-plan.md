@@ -1597,8 +1597,8 @@ an exclusive existing lock, unlinks only the selected name and flushes the direc
 Backup bytes, live memory and saved sessions remain intact. Discard can remove the
 selected staging copy even when no live project document exists; the full receipt
 makes that absence explicit. Fault tests cover actual process death during copy,
-resolution, backup publication and cleanup. Incomplete-record disposal remains
-disabled. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
+resolution, backup publication and cleanup. Invalid records use the separate raw
+staging review below. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
 
 **Reviewed retention and batch cleanup:** `memory-project-cleanup-batch` accepts
 1–32 explicit records in a bounded, strict JSON manifest. Staging discard, backup
@@ -1614,8 +1614,24 @@ separately on in-process failure; process death requires inspection and fresh re
 of the remaining exact selection. No rollback or automatic continuation is claimed.
 Live memory, user preferences and saved sessions remain intact.
 
-**Next migration milestone:** reviewed incomplete-record disposal and persistent
-mapping configuration. Inventory-based retention/count policies remain planned.
+**Reviewed invalid staging disposal:** `memory-staging-discard` reviews one exact
+migration/resolution staging filename and its raw SHA-256, with complete base64
+bytes bounded to 256 KiB. Its storage-wide receipt explicitly leaves project
+attribution unverified; it does not infer identity from invalid JSON or the current
+directory. Private current-user ownership, one link, regular-file type, exact names
+and existing storage/lock are required. Valid snapshots are always refused,
+including noncanonical serializations and foreign-owner/project or user-scope
+snapshots. The raw review binds file bytes/identity/metadata and storage/lock before
+exclusive-lock unlink and directory flush. Current memory documents are not read
+or bound, and remain untouched. In-process failure receipts distinguish unlink from
+successful directory flush; process death requires inspection and fresh review.
+Tests cover actual interrupted publication with empty/partial writes and death
+after unlink. Shared storage locking is separated from project-document selection.
+This command is not part of project-scoped cleanup batches. See
+[raw staging review](CONVERSATION_MEMORY_STAGING.md).
+
+**Next migration milestone:** persistent mapping configuration. Inventory-based
+retention/count policies and oversized/valid-noncanonical disposal remain planned.
 Unselected resolution backups are retained; no automatic deletion, startup recovery
 or session identity rewriting is enabled. Common Git metadata or remote URLs never
 merge memory.

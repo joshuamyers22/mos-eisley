@@ -311,7 +311,9 @@ command does not clean resolution backups or unpublished files. Use the separate
 [memory cleanup workflow](CONVERSATION_MEMORY_CLEANUP.md) to review one complete
 staging discard or verified backup-link repair. The same guide covers explicit
 1–32-record batch cleanup and retained-backup pruning under a reviewed age cutoff.
-Incomplete-record disposal remains planned. No cleanup scans or runs at startup.
+Bounded invalid records use the separate
+[raw staging review](CONVERSATION_MEMORY_STAGING.md), without claiming a verified
+project identity. No cleanup scans or runs at startup.
 
 To restore prior content, inspect the backup's `document.text`, use it with a fresh
 `use-text` resolution preview, and review/apply that proposal. This creates a new
