@@ -68,8 +68,9 @@ support explicit advisory replacement/omission and effective inspection.
 [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md) adds pinned assessments and
 visible resolution status. [Requirement acceptance](PROJECT_REQUIREMENTS.md) adds
 reviewed brief/ADR requirements with pinned source provenance. [Combined review](PROJECT_GUIDANCE_PRECEDENCE.md)
-adds pinned requirement/advisory precedence and conflict assessments. Trusted-policy
-integration, automatic semantic analysis, role loading and telemetry adapters remain planned.
+adds pinned requirement/advisory precedence and conflict assessments. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md)
+evaluate explicit private prohibitions on guidance selection. Broader runtime/user/admin
+policy integration, automatic semantic analysis, role loading and telemetry adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.

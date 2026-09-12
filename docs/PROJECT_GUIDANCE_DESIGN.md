@@ -10,7 +10,8 @@ support reviewed attach/show/update/detach with retained versions.
 and visible effective rules. [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md)
 records unresolved entries and reviewed preferences. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
 adds reviewed brief/ADR snapshots. [Combined review](PROJECT_GUIDANCE_PRECEDENCE.md)
-now pins requirement/advisory precedence and conflicts. Trusted-policy integration,
+now pins requirement/advisory precedence and conflicts. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md)
+add explicit private selection prohibitions. Broader runtime/user/admin policy integration,
 automatic semantic analysis,
 role-context loading and telemetry
 integration remain planned; the production-template

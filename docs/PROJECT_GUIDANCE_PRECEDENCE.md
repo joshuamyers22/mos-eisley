@@ -95,6 +95,8 @@ snapshots; failure after replacement can leave the new version saved, so inspect
 before retrying. Clear is not erasure. Retention and relocation recovery remain
 subsequent work; trusted ancestors and the same OS user remain the filesystem boundary.
 
-The next plan steps are trusted-policy integration and relevant, frozen role contexts.
+[Owner policy checks](PROJECT_GUIDANCE_POLICY.md) now evaluate explicitly selected
+private prohibitions against this combined view. Broader runtime/user/admin policy
+integration and relevant, frozen role contexts remain subsequent work.
 No assessment can grant tools, select secrets, relax containment, execute source prose
 or retrieve conversation history.

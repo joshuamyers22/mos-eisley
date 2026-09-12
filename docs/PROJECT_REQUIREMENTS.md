@@ -84,5 +84,6 @@ change permissions, execute source prose or retrieve conversation history.
 [Combined precedence and conflict review](PROJECT_GUIDANCE_PRECEDENCE.md) now pins
 these accepted revisions, exposes unresolved requirement contradictions and invalidates
 combined assessments after requirements change. Existing advisory assessments cannot
-establish completion for the expanded scope. Trusted-policy integration and role
-context materialization remain subsequent work.
+establish completion for the expanded scope. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md)
+now evaluate explicit private selection prohibitions. Broader runtime/user/admin policy
+integration and role context materialization remain subsequent work.

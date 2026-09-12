@@ -427,6 +427,13 @@ def parser() -> argparse.ArgumentParser:
             "guidance-assess", help="Review requirement and advisory precedence"
         )
     )
+    from mos_eisley.project_guidance_policy_cli import add_command as add_policy_check
+
+    add_policy_check(
+        subcommands.add_parser(
+            "guidance-policy-check", help="Check explicit owner guidance policy"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7492,6 +7499,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "guidance-conflicts",
             "requirements",
             "guidance-assess",
+            "guidance-policy-check",
         }:
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
@@ -7503,6 +7511,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             from mos_eisley.project_guidance_override_cli import (
                 run_command as run_overrides,
             )
+            from mos_eisley.project_guidance_policy_cli import (
+                run_command as run_policy_check,
+            )
             from mos_eisley.project_guidance_precedence_cli import (
                 run_command as run_assessment,
             )
@@ -7511,6 +7522,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
             return {
+                "guidance-policy-check": run_policy_check,
                 "guidance-assess": run_assessment,
                 "requirements": run_requirements,
                 "guidance-inspect": run_guidance,
