@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Reserve critic calls and a deferred judge allowance atomically, issue each critic
+  from its existing hold, and block later pre-reserved calls after pricing violations.
+
 - Add explicit per-call review transfer approval, durable full spending reservation,
   one-use broker issuance and private role/request audit verification.
 

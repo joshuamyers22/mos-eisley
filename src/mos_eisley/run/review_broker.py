@@ -5,12 +5,13 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import uuid4
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from mos_eisley.core.models import (
+    Contract,
     CriticRequest,
     CriticSpec,
     Digest,
@@ -166,30 +167,61 @@ class PreparedReviewCall:
         Approval includes token counting and generation. Transport and filesystem
         parent are trusted host dependencies; this function never obtains credentials.
         """
-        authorization = self._authorization
         if approved_transfer_sha256 != self.approval_sha256:
             raise ValueError("exact review transfer and spending approval required")
+        self.check_current(timeout)
+        self._ledger.reserve(self.ledger_entry)
+        return self._issue_reserved(transport, directory, container, timeout)
+
+    @property
+    def ledger_entry(self) -> LedgerEntry:
+        return LedgerEntry(
+            entry_id=self._authorization.ledger_entry_id,
+            reservation_sha256=self._authorization.reservation_sha256,
+            reserved_microusd=self._authorization.reserved_microusd,
+        )
+
+    @property
+    def ledger_path(self) -> Path:
+        return self._ledger.path.resolve()
+
+    @property
+    def critic_spec(self) -> CriticSpec | None:
+        return (
+            None
+            if self._critic is None
+            else CriticSpec.model_validate_json(self._critic)
+        )
+
+    def check_current(self, timeout: float) -> None:
         if not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError(
                 "review broker timeout must be between zero and 60 seconds"
             )
         self._policy.check_current()
-        if datetime.now(UTC) >= authorization.expires_at:
+        if datetime.now(UTC) >= self._authorization.expires_at:
             raise ValueError("review approval expired")
         if (
             digest(canonical_bytes(self._ledger.policy))
-            != authorization.ledger_policy_sha256
+            != self._authorization.ledger_policy_sha256
         ):
             raise ValueError("review spending scope changed")
-        entry = LedgerEntry(
-            entry_id=authorization.ledger_entry_id,
-            reservation_sha256=authorization.reservation_sha256,
-            reserved_microusd=authorization.reserved_microusd,
-        )
-        # SQLite's unique entry and serialized ceiling check burn this approval
-        # across concurrent issuers, even if they choose different artifact paths.
-        self._ledger.reserve(entry)
-        audit = BrokerAudit(directory, authorization)
+
+    def _issue_reserved(
+        self,
+        transport: CountedTransport,
+        directory: Path,
+        container: OfflineContainer,
+        timeout: float,
+    ) -> BrokeredOpenAIClient:
+        """Internal composition: caller owns approval and a fixed one-use path."""
+        self.check_current(timeout)
+        authorization = self._authorization
+        entry = self.ledger_entry
+        # Pin the exact hold while committing the exclusive issuance directory.
+        # The spending controller rechecks it before any provider operation.
+        with self._ledger.guard_held(entry):
+            audit = BrokerAudit(directory, authorization)
         private_write(directory / "model-request.json", self._request)
         private_write(directory / "review-input.json", self._input)
         if self._critic is not None:
@@ -209,6 +241,223 @@ class PreparedReviewCall:
         return BrokeredOpenAIClient(
             self.model_request, broker, container, timeout=timeout
         )
+
+
+class DeferredJudgeAllowance(Contract):
+    schema_version: Literal[1] = 1
+    mode: Literal["deferred_review_judge"] = "deferred_review_judge"
+    brief_sha256: Digest
+    spend_policy: SpendPolicy
+    ledger_entry_id: Digest
+    reserved_microusd: Money
+    transfer_authorized: Literal[False] = False
+
+    @model_validator(mode="after")
+    def full_allowance(self) -> Self:
+        policy = self.spend_policy
+        if (
+            policy.schema_version != 2
+            or self.reserved_microusd
+            != policy.reservation_cost(
+                policy.max_input_tokens, policy.max_output_tokens
+            )
+            or self.reserved_microusd > policy.max_cost_microusd
+        ):
+            raise ValueError("judge allowance must cover the full conservative policy")
+        return self
+
+    @property
+    def ledger_entry(self) -> LedgerEntry:
+        # This is an allowance commitment, deliberately not a provider request.
+        return LedgerEntry(
+            entry_id=self.ledger_entry_id,
+            reservation_sha256=digest(canonical_bytes(self)),
+            reserved_microusd=self.reserved_microusd,
+        )
+
+
+class ReviewSpendingEnvelope(Contract):
+    schema_version: Literal[1] = 1
+    mode: Literal["review_spending_envelope"] = "review_spending_envelope"
+    critics: Annotated[
+        tuple[ReviewAuthorization, ...], Field(min_length=1, max_length=8)
+    ]
+    judge: DeferredJudgeAllowance
+    ledger_policy_sha256: Digest
+    artifact_directory: Annotated[str, Field(min_length=1, max_length=4096)]
+    total_reserved_microusd: Money
+    max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    expires_at: datetime
+
+    @model_validator(mode="after")
+    def coherent_envelope(self) -> Self:
+        first = self.critics[0]
+        if any(
+            call.role != "critic"
+            or call.brief_sha256 != self.judge.brief_sha256
+            or call.ledger_policy_sha256 != self.ledger_policy_sha256
+            or call.ledger_id != first.ledger_id
+            for call in self.critics
+        ):
+            raise ValueError("review envelope mixes role, brief or spending scopes")
+        ids = [call.ledger_entry_id for call in self.critics] + [
+            self.judge.ledger_entry_id
+        ]
+        if len(set(ids)) != len(ids) or len(
+            {call.critic_sha256 for call in self.critics}
+        ) != len(self.critics):
+            raise ValueError("review envelope duplicates a call or critic")
+        total = (
+            sum(call.reserved_microusd for call in self.critics)
+            + self.judge.reserved_microusd
+        )
+        if self.total_reserved_microusd != total or total > self.max_total_microusd:
+            raise ValueError("review envelope exceeds its aggregate spending limit")
+        if self.expires_at.tzinfo is None or self.expires_at > min(
+            *(call.expires_at for call in self.critics),
+            self.judge.spend_policy.valid_until,
+        ):
+            raise ValueError("review envelope expiry exceeds its approvals or pricing")
+        return self
+
+
+class PreparedReviewEnvelope:
+    """Preview all critic transfers and a spend-only allowance for a later judge."""
+
+    def __init__(
+        self,
+        critics: tuple[PreparedReviewCall, ...],
+        judge_policy: SpendPolicy,
+        ledger: SpendLedger,
+        *,
+        max_total_microusd: int,
+        directory: Path,
+    ) -> None:
+        if not 1 <= len(critics) <= 8:
+            raise ValueError("review envelope requires one to eight critics")
+        judge_policy = SpendPolicy.model_validate_json(canonical_bytes(judge_policy))
+        judge_policy.check_current()
+        critic_ids: set[str] = set()
+        for call in critics:
+            call.check_current(30)
+            if call.ledger_path != ledger.path.resolve() or call.critic_spec is None:
+                raise ValueError("review envelope requires critics on the same ledger")
+            critic = call.critic_spec
+            assert critic is not None
+            if critic.id in critic_ids:
+                raise ValueError("review envelope repeats a critic identifier")
+            critic_ids.add(critic.id)
+        judge = DeferredJudgeAllowance(
+            brief_sha256=critics[0].authorization.brief_sha256,
+            spend_policy=judge_policy,
+            ledger_entry_id=digest(uuid4().bytes),
+            reserved_microusd=judge_policy.reservation_cost(
+                judge_policy.max_input_tokens, judge_policy.max_output_tokens
+            ),
+        )
+        self._envelope = ReviewSpendingEnvelope(
+            critics=tuple(call.authorization for call in critics),
+            artifact_directory=str(directory.resolve()),
+            judge=judge,
+            ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
+            total_reserved_microusd=sum(
+                call.authorization.reserved_microusd for call in critics
+            )
+            + judge.reserved_microusd,
+            max_total_microusd=max_total_microusd,
+            expires_at=min(
+                *(call.authorization.expires_at for call in critics),
+                judge_policy.valid_until,
+            ),
+        )
+        snapshot = ledger.snapshot()
+        if (
+            snapshot.blocked
+            or self.envelope.total_reserved_microusd > snapshot.available_microusd
+        ):
+            raise ValueError("aggregate review allowance is unavailable")
+        self._critics = critics
+        self._ledger = ledger
+
+    @property
+    def ledger(self) -> SpendLedger:
+        return self._ledger
+
+    @property
+    def critics(self) -> tuple[PreparedReviewCall, ...]:
+        return self._critics
+
+    @property
+    def envelope(self) -> ReviewSpendingEnvelope:
+        return self._envelope
+
+    @property
+    def approval_sha256(self) -> str:
+        return digest(canonical_bytes(self.envelope))
+
+    def reserve(
+        self,
+        *,
+        approved_envelope_sha256: str,
+    ) -> ReservedReviewEnvelope:
+        """Burn the complete approval atomically before any grant or token count."""
+        if approved_envelope_sha256 != self.approval_sha256:
+            raise ValueError("exact aggregate review approval required")
+        self.envelope.judge.spend_policy.check_current()
+        for call in self._critics:
+            call.check_current(30)
+        if (
+            datetime.now(UTC) >= self.envelope.expires_at
+            or digest(canonical_bytes(self._ledger.policy))
+            != self.envelope.ledger_policy_sha256
+        ):
+            raise ValueError("review envelope expired or spending scope changed")
+        self._ledger.reserve_many(
+            tuple(call.ledger_entry for call in self._critics)
+            + (self.envelope.judge.ledger_entry,)
+        )
+        # Failed local persistence leaves every hold in place, with no dispatch.
+        directory = Path(self.envelope.artifact_directory)
+        directory.mkdir(mode=0o700)
+        private_write(directory / "envelope.json", canonical_bytes(self.envelope))
+        return ReservedReviewEnvelope(self)
+
+
+class ReservedReviewEnvelope:
+    """Trusted host handle; fixed child paths make every critic issuance exclusive."""
+
+    def __init__(self, prepared: PreparedReviewEnvelope) -> None:
+        self._prepared = prepared
+        self._directory = Path(prepared.envelope.artifact_directory)
+
+    def issue_critic(
+        self,
+        index: int,
+        *,
+        transport: CountedTransport,
+        container: OfflineContainer,
+        timeout: float = 30,
+    ) -> BrokeredOpenAIClient:
+        prepared = self._prepared
+        if type(index) is not int or not 0 <= index < len(prepared.critics):
+            raise ValueError("critic index is outside the approved envelope")
+        if datetime.now(UTC) >= prepared.envelope.expires_at:
+            raise ValueError("review envelope expired")
+        if read_bounded(self._directory / "envelope.json", 32_768) != canonical_bytes(
+            prepared.envelope
+        ):
+            raise ValueError("retained review envelope changed")
+        call = prepared.critics[index]
+        # This module's reserved handle is the only composite issuer. Keep the
+        # held-reservation entry point private to prevent ordinary callers from
+        # bypassing the public single-call reservation/approval path.
+        with prepared.ledger.guard_held(prepared.envelope.judge.ledger_entry):
+            return call._issue_reserved(  # pyright: ignore[reportPrivateUsage]
+                transport,
+                self._directory / call.authorization.ledger_entry_id,
+                container,
+                timeout,
+            )
 
 
 def verify_review_broker_audit(
