@@ -128,12 +128,13 @@ class MemoryRegistryTests(TestCase):
         self.save()
         pending = self.registry.change(self.workspace, self.other)
         fsync = os.fsync
-        count = 0
 
         def fail_directory(fd: int) -> None:
-            nonlocal count
-            count += 1
-            if count == 2:
+            # Fail the directory flush after publication, independent of the
+            # additional flushes required to retain the previous registry.
+            if json.loads((self.storage / REGISTRY_NAME).read_bytes())["mappings"][0][
+                "target"
+            ]["path"] == str(self.other):
                 raise OSError("directory flush failed")
             fsync(fd)
 

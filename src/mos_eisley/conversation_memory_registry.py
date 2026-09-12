@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import stat
+from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal, Self
 from uuid import uuid4
@@ -19,11 +22,68 @@ from mos_eisley.conversation_directory import (
 )
 from mos_eisley.conversation_memory import MemoryStorage
 from mos_eisley.conversation_memory_project import memory_workspace
+from mos_eisley.conversation_memory_raw import raw_file_identity
 from mos_eisley.core.models import Contract, canonical_bytes, digest
 
 REGISTRY_NAME = "project-mappings.json"
 REGISTRY_BYTES = 1024 * 1024
 MAX_MAPPINGS = 128
+
+
+@dataclass(frozen=True)
+class RegistryFile:
+    payload: bytes
+    identity: dict[str, int]
+
+    def review(self) -> dict[str, object]:
+        return {
+            "raw_sha256": digest(self.payload),
+            "raw_bytes_base64": base64.b64encode(self.payload).decode("ascii"),
+            "file_identity": self.identity,
+        }
+
+
+def read_registry_file(root: int | None, name: str) -> RegistryFile | None:
+    if root is None:
+        return None
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o077
+            or info.st_nlink != 1
+        ):
+            raise ValueError(
+                "Saved mappings require a private single-link regular file."
+            )
+        payload = stream.read(REGISTRY_BYTES + 1)
+        if len(payload) > REGISTRY_BYTES:
+            raise ValueError("Saved memory mapping registry exceeds 1 MiB.")
+        for current in (
+            os.fstat(stream.fileno()),
+            os.stat(name, dir_fd=root, follow_symlinks=False),
+        ):
+            if raw_file_identity(current) != raw_file_identity(info):
+                raise ValueError("Saved mapping file changed; preview again.")
+            if current.st_nlink != 1 or current.st_mode != info.st_mode:
+                raise ValueError("Saved mapping file permissions changed.")
+    return RegistryFile(payload, raw_file_identity(info))
+
+
+def decode_registry(payload: bytes) -> MemoryMappingRegistry:
+    registry = MemoryMappingRegistry.model_validate_json(payload)
+    if registry.owner_uid != os.getuid() or canonical_bytes(registry) != payload:
+        raise ValueError("Saved memory mappings require canonical owner-scoped data.")
+    return registry
+
+
+def mapping_backup_name(payload: bytes) -> str:
+    return "mapping-backup-" + digest(payload) + ".json"
 
 
 class MappedDirectory(Contract):
@@ -72,35 +132,104 @@ class MemoryMappingRegistry(Contract):
 
 class MemoryMappingStore(MemoryStorage):
     def _read(self, root: int | None) -> MemoryMappingRegistry:
-        empty = MemoryMappingRegistry(owner_uid=os.getuid())
-        if root is None:
-            return empty
+        record = read_registry_file(root, REGISTRY_NAME)
+        return (
+            MemoryMappingRegistry(owner_uid=os.getuid())
+            if record is None
+            else decode_registry(record.payload)
+        )
+
+    def _backup(self, root: int, record: RegistryFile) -> RegistryFile:
+        """Flush the exact previous bytes before making a replacement visible."""
+        name = mapping_backup_name(record.payload)
         try:
             fd = os.open(
-                REGISTRY_NAME, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root
+                name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=root,
             )
-        except FileNotFoundError:
-            return empty
-        with os.fdopen(fd, "rb") as stream:
-            info = os.fstat(stream.fileno())
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_uid != os.getuid()
-                or info.st_mode & 0o077
-                or info.st_nlink != 1
-            ):
+        except FileExistsError:
+            existing = read_registry_file(root, name)
+            if existing is None or existing.payload != record.payload:
                 raise ValueError(
-                    "Saved mappings require a private single-link regular file."
-                )
-            payload = stream.read(REGISTRY_BYTES + 1)
+                    "Mapping backup is incomplete or changed; review it first."
+                ) from None
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
+            try:
+                if raw_file_identity(os.fstat(fd)) != existing.identity:
+                    raise ValueError("Mapping backup changed; preview again.")
+                os.fsync(fd)
+                synced_identity = raw_file_identity(os.fstat(fd))
+            finally:
+                os.close(fd)
+        else:
+            # An interrupted write may leave an incomplete private backup. Never
+            # overwrite it on retry; explicit history/discard exposes those bytes.
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(record.payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+                synced_identity = raw_file_identity(os.fstat(stream.fileno()))
+        os.fsync(root)
+        existing = read_registry_file(root, name)
+        if (
+            existing is None
+            or existing.payload != record.payload
+            or existing.identity != synced_identity
+        ):
+            raise ValueError("Mapping backup changed before publication.")
+        return existing
+
+    def _publish(
+        self,
+        root: int,
+        before: RegistryFile | None,
+        after: MemoryMappingRegistry,
+        verify: Callable[[], None],
+        progress: dict[str, object],
+    ) -> None:
+        payload = canonical_bytes(after)
         if len(payload) > REGISTRY_BYTES:
             raise ValueError("Saved memory mapping registry exceeds 1 MiB.")
-        registry = MemoryMappingRegistry.model_validate_json(payload)
-        if registry.owner_uid != os.getuid() or canonical_bytes(registry) != payload:
-            raise ValueError(
-                "Saved memory mappings require canonical owner-scoped data."
-            )
-        return registry
+        verify()
+        backup = None
+        if before is not None:
+            backup = self._backup(root, before)
+            progress["backup_synced"] = True
+        verify()
+        temporary = ".memory-mappings-" + uuid4().hex + ".tmp"
+        fd = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=root
+        )
+        created = os.fstat(fd)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            verify()
+            if before is not None:
+                retained = read_registry_file(root, mapping_backup_name(before.payload))
+                if retained != backup:
+                    raise ValueError("Mapping backup changed before publication.")
+            staged = read_registry_file(root, temporary)
+            if (
+                staged is None
+                or staged.payload != payload
+                or staged.identity["device"] != created.st_dev
+                or staged.identity["inode"] != created.st_ino
+            ):
+                raise ValueError("Staged mapping registry changed before publication.")
+            os.replace(temporary, REGISTRY_NAME, src_dir_fd=root, dst_dir_fd=root)
+            progress["published"] = True
+            os.fsync(root)
+            progress["synced"] = True
+        finally:
+            with suppress(FileNotFoundError):
+                named = os.stat(temporary, dir_fd=root, follow_symlinks=False)
+                if (named.st_dev, named.st_ino) == (created.st_dev, created.st_ino):
+                    os.unlink(temporary, dir_fd=root)
 
     def read(self) -> MemoryMappingRegistry:
         with self._lock_handles() as handles:
@@ -132,7 +261,12 @@ class MemoryMappingStore(MemoryStorage):
             identity = replacement.workspace.path
         with self._lock_handles(write=expected_sha256 is not None) as handles:
             root = None if handles is None else handles[0]
-            before = self._read(root)
+            before_file = read_registry_file(root, REGISTRY_NAME)
+            before = (
+                MemoryMappingRegistry(owner_uid=os.getuid())
+                if before_file is None
+                else decode_registry(before_file.payload)
+            )
             previous = next(
                 (item for item in before.mappings if item.workspace.path == identity),
                 None,
@@ -156,8 +290,17 @@ class MemoryMappingStore(MemoryStorage):
             # Bootstrap may create its private root/lock after a read-only preview.
             body: dict[str, object] = {
                 "storage": str(self.root.resolve()),
+                "storage_identity": (
+                    self._storage_identity(handles) if before_file is not None else None
+                ),
                 "action": "remove" if target is None else "set",
                 "workspace": identity,
+                "before_file": None if before_file is None else before_file.identity,
+                "backup_name": (
+                    None
+                    if before_file is None
+                    else mapping_backup_name(before_file.payload)
+                ),
                 "before": before.model_dump(mode="json"),
                 "after": after.model_dump(mode="json"),
             }
@@ -170,36 +313,30 @@ class MemoryMappingStore(MemoryStorage):
                 replacement.workspace.selection()
                 replacement.target.selection()
             self._storage_identity(handles)
+            progress: dict[str, object] = {
+                "backup_synced": False,
+                "published": False,
+                "synced": False,
+            }
             if expected_sha256 is not None:
                 assert root is not None
-                temporary = ".memory-mappings-" + uuid4().hex + ".tmp"
-                fd = os.open(
-                    temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=root
-                )
-                try:
-                    with os.fdopen(fd, "wb") as stream:
-                        stream.write(payload)
-                        stream.flush()
-                        os.fsync(stream.fileno())
+
+                def verify() -> None:
                     self._storage_identity(handles)
-                    if self._read(root) != before:
+                    if read_registry_file(root, REGISTRY_NAME) != before_file:
                         raise ValueError(
                             "Saved memory mappings changed; preview again."
                         )
                     if replacement is not None:
                         replacement.workspace.selection()
                         replacement.target.selection()
-                    os.replace(
-                        temporary, REGISTRY_NAME, src_dir_fd=root, dst_dir_fd=root
-                    )
-                    os.fsync(root)
-                finally:
-                    with suppress(FileNotFoundError):
-                        os.unlink(temporary, dir_fd=root)
+
+                self._publish(root, before_file, after, verify, progress)
             return {
                 **body,
                 "preview_sha256": preview_hash,
                 "applied": expected_sha256 is not None,
+                **progress,
             }
 
 
@@ -232,9 +369,12 @@ class MemoryMappingResolver:
 
 
 def add_command(command: argparse.ArgumentParser) -> None:
-    command.add_argument("action", choices=("show", "set", "remove"))
+    command.add_argument(
+        "action", choices=("show", "set", "remove", "history", "restore", "discard")
+    )
     command.add_argument("-C", "--workspace", type=Path)
     command.add_argument("--target", type=Path)
+    command.add_argument("--file-name")
     command.add_argument(
         "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
     )
@@ -244,6 +384,14 @@ def add_command(command: argparse.ArgumentParser) -> None:
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.action in {"history", "restore", "discard"}:
+        from mos_eisley.conversation_memory_registry_history import (
+            run_command as recover,
+        )
+
+        return recover(args)
+    if args.file_name is not None:
+        raise ValueError("--file-name is only valid for restore/discard.")
     store = MemoryMappingStore(args.memory_storage)
     if args.action == "show":
         if (

@@ -80,6 +80,9 @@ Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at sta
 Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE
 --target PROJECT` and its reviewed apply hash. New sessions then use that mapping;
 `--memory-project-local` bypasses it. See [saved mappings](docs/CONVERSATION_MEMORY_MAPPINGS.md).
+Updates retain the previous registry. Inspect it with `mos memory-project-mapping
+history`; [reviewed restore and cleanup](docs/CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
+recover interrupted mapping writes without changing saved session identities.
 
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and

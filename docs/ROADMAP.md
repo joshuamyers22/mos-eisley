@@ -186,7 +186,10 @@ capabilities, not current automatic template or memory loading.
    [Unsupported backup disposal](CONVERSATION_MEMORY_BACKUP_DISCARD.md) now reviews
    invalid bytes or verified noncanonical/misnamed project snapshots through 4 MiB,
    protecting absent or matching current memory for valid backups. Automatic
-   retention and mapping-registry recovery remain planned. Explicit
+   retention remains planned. [Mapping-registry history and recovery](CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
+   now retain prior versions, restore reviewed backup/staging files with directory
+   pin checks, and expose exact-file cleanup and partial progress. Registry bulk
+   import and history retention remain planned. Explicit
    [backup retention](CONVERSATION_MEMORY_RETENTION.md) now inventories up to 128
    backups, protects the newest count, explicit age cutoff and current memory,
    and reviews at most 32 deletions. Apply rechecks the complete retained inventory
