@@ -4,9 +4,9 @@ import asyncio
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from mos_eisley.core.models import (
     Contract,
@@ -26,7 +26,7 @@ from mos_eisley.review.pipeline import validate_roster
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import MAX_WIRE_BYTES
-from mos_eisley.run.review_broker import PreparedReviewEnvelope
+from mos_eisley.run.review_broker import PreparedReviewEnvelope, ReviewSpendingEnvelope
 from mos_eisley.run.review_evidence import (
     EvidenceJudgeAuthorization,
     PreparedEvidenceJudgeTransfer,
@@ -52,6 +52,34 @@ class ControllerAuthorization(Contract):
     envelope_sha256: Digest
     policy: ReviewPolicy
     total_seconds: Annotated[float, Field(gt=0, le=600)]
+
+
+class ControllerCriticPreview(Contract):
+    authorization: ControllerAuthorization
+    envelope: ReviewSpendingEnvelope
+    requests: Annotated[tuple[ModelRequest, ...], Field(min_length=1, max_length=8)]
+
+    @model_validator(mode="after")
+    def exact_requests(self) -> Self:
+        if (
+            digest(canonical_bytes(self.envelope)) != self.authorization.envelope_sha256
+            or len(self.requests) != len(self.envelope.critics)
+            or any(
+                digest(canonical_bytes(request)) != call.model_request_sha256
+                for request, call in zip(
+                    self.requests, self.envelope.critics, strict=True
+                )
+            )
+            or len(canonical_bytes(self)) > MAX_WIRE_BYTES
+        ):
+            raise ValueError(
+                "critic preview differs from approved envelope or byte limit"
+            )
+        return self
+
+    @property
+    def sha256(self) -> str:
+        return digest(canonical_bytes(self.authorization))
 
 
 class ControllerStart(Contract):
@@ -164,6 +192,15 @@ class BrokeredReviewController:
     @property
     def approval_sha256(self) -> str:
         return digest(canonical_bytes(self.authorization))
+
+    @property
+    def preview(self) -> ControllerCriticPreview:
+        """Exact critic content and aggregate limits for a trusted host approval UI."""
+        return ControllerCriticPreview(
+            authorization=self.authorization,
+            envelope=self._envelope.envelope,
+            requests=tuple(call.model_request for call in self._envelope.critics),
+        )
 
     @property
     def phase(self) -> Phase:

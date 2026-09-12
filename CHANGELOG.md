@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Connect exact critic and judge approval prompts to the brokered review controller,
+  with cancellable terminal input, shared deadlines and conservative decline handling.
+
 - Inspect saved brokered controller records and held or uncertain spending through
   a read-only CLI, preserving incomplete crash attribution without retry authority.
 

@@ -159,6 +159,10 @@ loading and telemetry adapters remain planned.
    [Controller inspection](REVIEW_CONTROLLER_INSPECTION.md) now inventories saved
    stages, audit/completion records and spending without dispatch or resume
    authority, explicitly flagging incomplete judge-transfer crash attribution.
+   The [approval flow](REVIEW_APPROVAL_FLOW.md) now connects an asynchronous terminal
+   adapter to both controller phases, shows exact requests and spending, requires
+   separate hashes and awaits cancellation cleanup. Live launch/configuration and
+   credentialed conformance remain gated.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

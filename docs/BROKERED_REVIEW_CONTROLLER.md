@@ -64,3 +64,6 @@ Rollback preserves spending and all retained evidence. See
 
 Use [controller inspection](REVIEW_CONTROLLER_INSPECTION.md) to inventory stopped
 runs against a separately retained trusted start record without retry authority.
+
+The [host approval flow](REVIEW_APPROVAL_FLOW.md) supplies a cancellable terminal
+adapter for the two approval pauses while preserving controller cleanup ownership.

@@ -5108,6 +5108,15 @@ transfer records after an atomic judge allowance transfer leave explicit incompl
 attribution; no inspection grants replay, frees spending or claims a verified
 verdict. See [controller inspection](REVIEW_CONTROLLER_INSPECTION.md).
 
+**Host approval interaction implemented:** a one-use flow now presents exact critic
+requests and the complete spending envelope before reservation, then separately
+presents the evidence-bound judge request. The asynchronous terminal adapter
+requires explicit hashes, safely displays exact content, and retains conservative
+spending on decline, prompt expiry or cancellation. Real Docker fixtures exercise
+the UI/controller boundary. See [approval flow](REVIEW_APPROVAL_FLOW.md). This adds
+no credential loading or live launch/configuration authority; conformance remains
+a separate gate.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
