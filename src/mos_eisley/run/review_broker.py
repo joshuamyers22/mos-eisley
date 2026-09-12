@@ -256,7 +256,11 @@ class PreparedReviewCall:
             audit=audit,
         )
         return BrokeredOpenAIClient(
-            self.model_request, broker, container, timeout=timeout
+            self.model_request,
+            broker,
+            container,
+            timeout=timeout,
+            response_directory=directory,
         )
 
 

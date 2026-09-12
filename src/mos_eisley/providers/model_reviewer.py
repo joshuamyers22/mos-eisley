@@ -151,9 +151,26 @@ class ModelReviewer:
         return request
 
     async def _exchange(self, request: ModelRequest, result: type[Result]) -> Result:
+        response = await self._client.complete(request)
+        return self._parse(request, response, result)
+
+    def parse_critique(
+        self,
+        critic: CriticSpec,
+        request: CriticRequest,
+        response: ModelResponse,
+    ) -> Critique:
+        """Reapply the same bounded decoder to retained, request-bound output."""
+        return self._parse(self.critic_request(critic, request), response, Critique)
+
+    def _parse(
+        self,
+        request: ModelRequest,
+        response: ModelResponse,
+        result: type[Result],
+    ) -> Result:
         model = self._registry.resolve(request.provider, request.model, request.effort)
         budget = resolve_budget(model.spec, model.effort, self._budget)
-        response = await self._client.complete(request)
         # Include usage, request ID and opaque reasoning in the local byte ceiling.
         if canonical_fingerprint(response).bytes > request.max_output:
             raise ValueError("review response exceeds budget")

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 import threading
+from contextlib import suppress
+from pathlib import Path
 
 from mos_eisley.core.models import canonical_bytes, canonical_fingerprint, digest
 from mos_eisley.core.ports import ProviderError
@@ -16,12 +19,14 @@ from mos_eisley.core.protocol import (
 from mos_eisley.providers.openai_responses import request_payload, response_from_payload
 from mos_eisley.run.isolated_broker import run_isolated_broker_async
 from mos_eisley.run.isolation import OfflineContainer
+from mos_eisley.run.model_evidence import ModelCompletion, save_completion
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.provider_broker import (
     MAX_REQUEST_BYTES,
     ApprovedRequest,
     RequestBoundBroker,
 )
+from mos_eisley.run.store import private_write
 
 
 class BrokeredOpenAIClient:
@@ -38,6 +43,7 @@ class BrokeredOpenAIClient:
         container: OfflineContainer,
         *,
         timeout: float = 30,
+        response_directory: Path | None = None,
     ) -> None:
         if not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError("invalid brokered model timeout")
@@ -64,6 +70,7 @@ class BrokeredOpenAIClient:
             or fingerprint.sha256 != broker.request_sha256
         ):
             raise ValueError("canonical request does not match the issued broker")
+        self._response_directory = response_directory
         self._request = frozen
         self._broker = broker
         self._container = container
@@ -82,6 +89,7 @@ class BrokeredOpenAIClient:
                 raise ProviderError("Brokered model attempt already consumed")
             # Burn the client attempt before validation or any asynchronous work.
             self._used = True
+        reply_hash: str | None = None
         try:
             if (
                 canonical_fingerprint(request).bytes > MAX_REQUEST_BYTES
@@ -97,6 +105,12 @@ class BrokeredOpenAIClient:
             # oversize host envelopes before the provider adapter parses output.
             if canonical_fingerprint(reply).bytes > MAX_WIRE_BYTES:
                 raise ValueError("broker reply exceeds wire budget")
+            if self._response_directory is not None:
+                private_write(
+                    self._response_directory / "broker-response.json",
+                    canonical_bytes(reply),
+                )
+                reply_hash = digest(canonical_bytes(reply))
             if reply.response.get("model") != frozen.model:
                 raise ValueError("brokered response model does not match request")
             response = response_from_payload(reply.response)
@@ -108,6 +122,39 @@ class BrokeredOpenAIClient:
                 )
             ):
                 raise ValueError("brokered response violated the text request limits")
+            if self._response_directory is not None:
+                private_write(
+                    self._response_directory / "model-response.json",
+                    canonical_bytes(response),
+                )
+                save_completion(
+                    self._response_directory,
+                    ModelCompletion(
+                        request_sha256=self.request_sha256,
+                        status="received",
+                        broker_response_sha256=reply_hash,
+                        model_response_sha256=digest(canonical_bytes(response)),
+                    ),
+                )
             return response
+        except asyncio.CancelledError:
+            self._record_failure("cancelled", reply_hash)
+            raise
         except Exception:
+            self._record_failure("failed", reply_hash)
             raise ProviderError("Brokered model exchange failed") from None
+
+    def _record_failure(self, status: str, reply_hash: str | None) -> None:
+        # Storage failure cannot mask cancellation or manufacture completion.
+        # Missing or partial evidence is unusable during judge admission.
+        with suppress(Exception):
+            save_completion(
+                self._response_directory,
+                ModelCompletion.model_validate(
+                    {
+                        "request_sha256": self.request_sha256,
+                        "status": status,
+                        "broker_response_sha256": reply_hash,
+                    }
+                ),
+            )

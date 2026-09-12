@@ -22,6 +22,7 @@ from mos_eisley.core.models import (
     Critique,
     JudgeDecision,
     JudgeRequest,
+    ReviewPolicy,
     canonical_bytes,
 )
 from mos_eisley.core.ports import ProviderError
@@ -56,11 +57,13 @@ from mos_eisley.run.isolation import (
 )
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.review_broker import (
-    PreparedJudgeTransfer,
     PreparedReviewCall,
     PreparedReviewEnvelope,
-    verify_judge_transfer,
     verify_review_broker_audit,
+)
+from mos_eisley.run.review_evidence import (
+    PreparedEvidenceJudgeTransfer,
+    verify_evidence_judge_transfer,
 )
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.watchdog import CleanupLease, CleanupRecord, remove_exact
@@ -607,11 +610,14 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
     fixture.target = reserved.issue_critic(1, transport=fixture, container=container)
     assert asyncio.run(reviewer.critique(specs[1], request)) == Critique()
     assert ledger.snapshot().charged_microusd == 365
-    judge_request = JudgeRequest(brief=request.brief, findings=())
-    transfer = PreparedJudgeTransfer(prepared, reviewer, judge_request)
+    transfer = PreparedEvidenceJudgeTransfer(
+        prepared, reviewer, ReviewPolicy(min_critics=2, min_providers=1)
+    )
+    judge_request = transfer.evidence.judge_request
+    assert judge_request == JudgeRequest(brief=request.brief, findings=())
     fixture.judge = True
     fixture.target = transfer.issue(
-        approved_transfer_sha256=transfer.approval_sha256,
+        approved_evidence_sha256=transfer.approval_sha256,
         transport=fixture,
         container=container,
     )
@@ -619,12 +625,14 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
     assert asyncio.run(reviewer.judge(judge_request)).upheld == ()
     assert fixture.counts == 3 and ledger.snapshot().charged_microusd == 60
     assert (
-        verify_judge_transfer(root / "review", transfer.authorization, ledger).status
+        verify_evidence_judge_transfer(
+            prepared.envelope, reviewer, ledger, transfer.authorization
+        ).status
         == "response_received"
     )
     try:
         transfer.issue(
-            approved_transfer_sha256=transfer.approval_sha256,
+            approved_evidence_sha256=transfer.approval_sha256,
             transport=fixture,
             container=container,
         )
