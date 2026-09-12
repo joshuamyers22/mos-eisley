@@ -144,7 +144,8 @@ pastes, `/compose` drafts, initial command-line prompts, model/tool output and
 quoted or embedded phrases remain chat data. In plain/JSON input, each line is a
 user command; use `/compose` for literal text matching a shortcut. No classifier,
 transcript extraction or model tool receives permission to save memory. Broader
-natural-language interpretation and model-proposed memories remain planned.
+natural-language interpretation remains planned. Structured assistant proposals now require
+explicit review and confirmation as described below.
 Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
 `forget this everywhere: TEXT` for a reviewed selective removal; then confirm with
 `/memory apply-forget PREVIEW_SHA256`. See [selective forgetting](CONVERSATION_MEMORY_FORGET.md).
