@@ -439,6 +439,15 @@ def parser() -> argparse.ArgumentParser:
     add_role_context(
         subcommands.add_parser("guidance-context", help="Freeze relevant role guidance")
     )
+    from mos_eisley.project_guidance_review_cli import (
+        add_command as add_guidance_review,
+    )
+
+    add_guidance_review(
+        subcommands.add_parser(
+            "guidance-review", help="Prepare and replay guided review briefs"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7506,6 +7515,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "guidance-assess",
             "guidance-policy-check",
             "guidance-context",
+            "guidance-review",
         }:
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
@@ -7523,6 +7533,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             from mos_eisley.project_guidance_precedence_cli import (
                 run_command as run_assessment,
             )
+            from mos_eisley.project_guidance_review_cli import (
+                run_command as run_guidance_review,
+            )
             from mos_eisley.project_guidance_role_cli import (
                 run_command as run_role_context,
             )
@@ -7532,6 +7545,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             return {
                 "guidance-context": run_role_context,
+                "guidance-review": run_guidance_review,
                 "guidance-policy-check": run_policy_check,
                 "guidance-assess": run_assessment,
                 "requirements": run_requirements,

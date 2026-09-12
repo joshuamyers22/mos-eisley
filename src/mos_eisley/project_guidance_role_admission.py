@@ -31,8 +31,8 @@ class RoleContextAdmissionStore(RoleGuidanceStore):
     ) -> Generator[RoleContext]:
         """Validate before yielding; hold the guidance lock through local use.
 
-        Consumers must not dispatch, await user input, or recursively acquire this
-        store's lock here. Exit validation detects external edits but cannot undo
+        Consumers must not dispatch, await user input, or acquire a guidance write
+        lock here. Exit validation detects external edits but cannot undo
         caller side effects. This is no provider/tool/spend authorization grant.
         """
         selected = MappedDirectory.inspect(workspace)
