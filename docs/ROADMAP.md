@@ -166,8 +166,12 @@ capabilities, not current automatic template or memory loading.
    intact; normal readers keep their single-link rule.
    [Memory staging cleanup](CONVERSATION_MEMORY_CLEANUP.md) now reviews one complete
    single-link staging discard or interrupted backup-link repair, binding exact
-   records and identities before exclusive-lock apply. Retained backup pruning,
-   incomplete-record disposal and bulk cleanup remain planned; nothing runs at startup.
+   records and identities before exclusive-lock apply. Explicit batch cleanup now
+   covers 1–32 named records, including retained-backup pruning with a reviewed
+   modification-time cutoff and current-memory protection. All records are checked
+   before deletion; partial receipts distinguish unlinked and directory-flushed
+   names. Incomplete-record disposal and automatic retention remain planned;
+   nothing scans or runs at startup.
    [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
    with visible usage and a separate bounded catalog scan override. The 2 MB default
    remains an interim preview limit. Plan §17.7 now sequences incremental records,

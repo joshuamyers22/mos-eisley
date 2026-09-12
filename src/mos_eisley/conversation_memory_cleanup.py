@@ -15,13 +15,15 @@ from mos_eisley.core.models import canonical_bytes, digest
 CleanupAction = Literal["discard-staging", "recover-backup-link"]
 
 
-class _CleanupStore(MemoryMigrationStore):
+class MemoryCleanupStore(MemoryMigrationStore):
+    """Validated record readers shared by explicit single and batch cleanup."""
+
     def __init__(self, storage: Path, identity: RelocationSource) -> None:
         identity.verify()
         self.root = storage.absolute()
         self.workspace = str(identity.path)
 
-    def _staging_record(
+    def _single_link_record(
         self, root: int, name: str, record_sha256: str
     ) -> tuple[MemorySnapshot, dict[str, int]]:
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
@@ -33,9 +35,7 @@ class _CleanupStore(MemoryMigrationStore):
                 or before.st_mode & 0o077
                 or before.st_nlink != 1
             ):
-                raise ValueError(
-                    "Discard requires a private, single-link staging file."
-                )
+                raise ValueError("Cleanup requires a private, single-link record.")
             with os.fdopen(fd, "rb", closefd=False) as stream:
                 payload = stream.read(RECORD_BYTES + 1)
                 if len(payload) > RECORD_BYTES:
@@ -49,12 +49,13 @@ class _CleanupStore(MemoryMigrationStore):
                     or payload != canonical_bytes(snapshot)
                 ):
                     raise ValueError(
-                        "Staging record does not match the reviewed project memory."
+                        "Cleanup record does not match the reviewed project memory."
                     )
                 identity = {
                     "device": before.st_dev,
                     "inode": before.st_ino,
                     "ctime_ns": before.st_ctime_ns,
+                    "mtime_ns": before.st_mtime_ns,
                     "bytes": before.st_size,
                 }
                 for current in (
@@ -69,11 +70,52 @@ class _CleanupStore(MemoryMigrationStore):
                         or current.st_size != before.st_size
                     ):
                         raise ValueError(
-                            "Staging record changed; preview cleanup again."
+                            "Cleanup record changed; preview cleanup again."
                         )
         finally:
             os.close(fd)
         return snapshot, identity
+
+    def _inspect_cleanup(
+        self,
+        workspace: RelocationSource,
+        handles: tuple[int, int],
+        temporary_name: str,
+        action: CleanupAction,
+        record_sha256: str,
+        backup_name: str | None,
+    ) -> dict[str, object]:
+        root = handles[0]
+        workspace.verify()
+        storage = self._storage_identity(handles)
+        if backup_name is None:
+            snapshot, identity = self._single_link_record(
+                root, temporary_name, record_sha256
+            )
+        else:
+            snapshot, identity = self._recovery_record(
+                root, temporary_name, record_sha256, record_name=backup_name
+            )
+            if (
+                backup_name
+                != "resolution-backup-" + digest(canonical_bytes(snapshot)) + ".json"
+            ):
+                raise ValueError("Backup filename does not match its canonical record.")
+        current = self._read(root, "project")
+        return {
+            "schema_version": 1,
+            "operation": "cleanup-project-memory-staging",
+            "action": action,
+            "storage": storage,
+            "workspace_identity": workspace.receipt(),
+            "temporary_path": str(self.root / temporary_name),
+            "backup_path": str(self.root / backup_name) if backup_name else None,
+            "record": snapshot.model_dump(mode="json"),
+            "record_identity": identity,
+            "current_project_path": str(self.path("project")),
+            "current_project": current.model_dump(mode="json") if current else None,
+            "current_record_identity": self._project_record_identity(root),
+        }
 
     def cleanup(
         self,
@@ -90,44 +132,14 @@ class _CleanupStore(MemoryMigrationStore):
             root = handles[0]
 
             def inspect() -> dict[str, object]:
-                workspace.verify()
-                storage = self._storage_identity(handles)
-                if backup_name is None:
-                    snapshot, identity = self._staging_record(
-                        root, temporary_name, record_sha256
-                    )
-                else:
-                    snapshot, identity = self._recovery_record(
-                        root, temporary_name, record_sha256, record_name=backup_name
-                    )
-                    if (
-                        backup_name
-                        != "resolution-backup-"
-                        + digest(canonical_bytes(snapshot))
-                        + ".json"
-                    ):
-                        raise ValueError(
-                            "Backup filename does not match its canonical record."
-                        )
-                current = self._read(root, "project")
-                return {
-                    "schema_version": 1,
-                    "operation": "cleanup-project-memory-staging",
-                    "action": action,
-                    "storage": storage,
-                    "workspace_identity": workspace.receipt(),
-                    "temporary_path": str(self.root / temporary_name),
-                    "backup_path": str(self.root / backup_name)
-                    if backup_name
-                    else None,
-                    "record": snapshot.model_dump(mode="json"),
-                    "record_identity": identity,
-                    "current_project_path": str(self.path("project")),
-                    "current_project": current.model_dump(mode="json")
-                    if current
-                    else None,
-                    "current_record_identity": self._project_record_identity(root),
-                }
+                return self._inspect_cleanup(
+                    workspace,
+                    handles,
+                    temporary_name,
+                    action,
+                    record_sha256,
+                    backup_name,
+                )
 
             body = inspect()
             preview_hash = digest(
@@ -185,6 +197,6 @@ def cleanup_memory_project(
         if value is not None and re.fullmatch(r"[0-9a-f]{64}", value) is None:
             raise ValueError("Cleanup requires lowercase SHA-256 hashes.")
     workspace = RelocationSource.inspect(workspace_identity)
-    return _CleanupStore(storage, workspace).cleanup(
+    return MemoryCleanupStore(storage, workspace).cleanup(
         workspace, temporary_name, action, record_sha256, backup_name, expected_sha256
     )

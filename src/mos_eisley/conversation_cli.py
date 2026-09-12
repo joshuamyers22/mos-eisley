@@ -68,6 +68,11 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_batch_cleanup import (
+    MemoryBatchCleanupError,
+    cleanup_memory_batch,
+    read_cleanup_manifest,
+)
 from mos_eisley.conversation_memory_cleanup import cleanup_memory_project
 from mos_eisley.conversation_memory_migration import (
     migrate_memory_project,
@@ -274,6 +279,19 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    memory_batch_cleanup = add_parser(
+        "memory-project-cleanup-batch",
+        help="Review named staging cleanup and retained-backup pruning",
+    )
+    memory_batch_cleanup.add_argument("--workspace-identity", required=True)
+    memory_batch_cleanup.add_argument("--selection", type=Path, required=True)
+    memory_batch_cleanup.add_argument("--before-ns", type=int)
+    memory_batch_cleanup.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_batch_cleanup.add_argument("--apply", action="store_true")
+    memory_batch_cleanup.add_argument("--expected-sha256")
+    memory_batch_cleanup.add_argument("--json", action="store_true")
     memory_cleanup = add_parser(
         "memory-project-cleanup",
         help="Review one memory staging deletion or backup-link repair",
@@ -1551,6 +1569,30 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-cleanup-batch":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        try:
+            manifest = read_cleanup_manifest(args.selection)
+        except ValidationError:
+            raise ValueError("Memory cleanup selection failed validation.") from None
+        notice = None
+        try:
+            receipt = cleanup_memory_batch(
+                args.memory_storage,
+                args.workspace_identity,
+                manifest,
+                before_ns=args.before_ns,
+                expected_sha256=args.expected_sha256,
+            )
+        except MemoryBatchCleanupError as error:
+            receipt = error.receipt
+            notice = str(error)
+        payload = {"type": "memory.project_cleanup_batch", **receipt}
+        if notice is not None:
+            payload["text"] = notice
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+        return 0 if notice is None else 2
     if args.command == "memory-project-cleanup":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")
