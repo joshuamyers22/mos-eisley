@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed immutable role-guidance packets with explicit requirement omissions,
+  selected rule/rubric provenance and reconstruction from pinned guidance and policy.
+
 - Add read-only checks against explicit owner-private guidance prohibitions, with
   exact policy hashes, project identity, decision provenance and blocked exit status.
 

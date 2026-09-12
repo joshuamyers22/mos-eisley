@@ -69,8 +69,10 @@ support explicit advisory replacement/omission and effective inspection.
 visible resolution status. [Requirement acceptance](PROJECT_REQUIREMENTS.md) adds
 reviewed brief/ADR requirements with pinned source provenance. [Combined review](PROJECT_GUIDANCE_PRECEDENCE.md)
 adds pinned requirement/advisory precedence and conflict assessments. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md)
-evaluate explicit private prohibitions on guidance selection. Broader runtime/user/admin
-policy integration, automatic semantic analysis, role loading and telemetry adapters remain planned.
+evaluate explicit private prohibitions on guidance selection. [Frozen role packets](PROJECT_GUIDANCE_ROLE_CONTEXT.md)
+select relevant rules with explicit requirement-omission reasons and immutable provenance.
+Broader runtime/user/admin policy integration, automatic semantic analysis, run/provider
+loading and telemetry adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.

@@ -97,6 +97,7 @@ subsequent work; trusted ancestors and the same OS user remain the filesystem bo
 
 [Owner policy checks](PROJECT_GUIDANCE_POLICY.md) now evaluate explicitly selected
 private prohibitions against this combined view. Broader runtime/user/admin policy
-integration and relevant, frozen role contexts remain subsequent work.
+integration remain subsequent work. [Frozen role packets](PROJECT_GUIDANCE_ROLE_CONTEXT.md)
+now materialize explicitly relevant rules with retained provenance; runtime loading remains later work.
 No assessment can grant tools, select secrets, relax containment, execute source prose
 or retrieve conversation history.
