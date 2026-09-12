@@ -109,6 +109,15 @@ loading and telemetry adapters remain planned.
    exact 342-request remainder and its aggregate cost ceiling without authorizing
    execution. Next, build its one-use assignment execution decision, then wire
    OpenAI into critic/judge review before other providers.
+   The [canonical review bridge](MODEL_REVIEWER.md) now projects critic/judge
+   requests through an injected model client and validates bounded JSON answers.
+   Offline pipeline tests cover quorum, evidence, cancellation and judge IDs;
+   brokered live dispatch, authorization and credentialed review evidence remain
+   required before enabling a live review command or terminal mode.
+   The [async isolated broker](ASYNC_BROKER.md) now awaits provider cancellation,
+   worker exit and exact container/guardian cleanup without blocking the event loop.
+   Real Docker fixtures cover claim/replay denial, disconnection, cancellation and
+   retained uncertain spending. Review-specific admission and live wiring remain next.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

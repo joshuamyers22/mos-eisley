@@ -46,6 +46,67 @@ class OfflineContainer:
         self.image_id = image_id
         self.lifecycle_root = lifecycle_root
         self.lifecycle_path: Path | None = None
+        self._async_active = False
+
+    async def exchange_async(
+        self,
+        arguments: tuple[str, ...],
+        payload: bytes,
+        exchange_handler: ExchangeHandler,
+        timeout: float = 30,
+    ) -> bytes:
+        """Await one private exchange, including cancellation-safe exact cleanup."""
+        from mos_eisley.run.async_isolation import exchange_in_container
+
+        if self._async_active:
+            raise ValueError("container instance already has an async exchange")
+        self._async_active = True
+        try:
+            return await exchange_in_container(
+                self, arguments, payload, exchange_handler, timeout
+            )
+        finally:
+            self._async_active = False
+
+    def create_command(self, name: str, arguments: tuple[str, ...]) -> list[str]:
+        return [
+            self.docker,
+            "create",
+            "--name",
+            name,
+            "--pull",
+            "never",
+            "--interactive",
+            "--network",
+            "none",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges=true",
+            "--user",
+            "10001:10001",
+            "--pids-limit",
+            "32",
+            "--memory",
+            "512m",
+            "--memory-swap",
+            "512m",
+            "--cpus",
+            "1",
+            "--ulimit",
+            "nofile=64:64",
+            "--ipc",
+            "none",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777",
+            "--log-driver",
+            "none",
+            "--entrypoint",
+            "/app/.venv/bin/python",
+            self.image_id,
+            *arguments,
+        ]
 
     def execute(
         self,
@@ -75,44 +136,7 @@ class OfflineContainer:
         self.lifecycle_path = None
         try:
             created = bounded_process(
-                [
-                    self.docker,
-                    "create",
-                    "--name",
-                    name,
-                    "--pull",
-                    "never",
-                    "--interactive",
-                    "--network",
-                    "none",
-                    "--read-only",
-                    "--cap-drop",
-                    "ALL",
-                    "--security-opt",
-                    "no-new-privileges=true",
-                    "--user",
-                    "10001:10001",
-                    "--pids-limit",
-                    "32",
-                    "--memory",
-                    "512m",
-                    "--memory-swap",
-                    "512m",
-                    "--cpus",
-                    "1",
-                    "--ulimit",
-                    "nofile=64:64",
-                    "--ipc",
-                    "none",
-                    "--tmpfs",
-                    "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777",
-                    "--log-driver",
-                    "none",
-                    "--entrypoint",
-                    "/app/.venv/bin/python",
-                    self.image_id,
-                    *arguments,
-                ],
+                self.create_command(name, arguments),
                 limit=65536,
             )
             candidate_id = created.decode("ascii").strip()
