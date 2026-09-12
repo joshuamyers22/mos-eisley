@@ -23,8 +23,17 @@ from mos_eisley.evaluation.execution import (
     RecordedExchange,
 )
 from mos_eisley.evaluation.models import RouteCandidate
-from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendPolicy
-from mos_eisley.run.isolated_broker import run_isolated_broker
+from mos_eisley.providers.openai_spend import (
+    BudgetedOpenAITransport,
+    SpendPolicy,
+    SpendReceipt,
+)
+from mos_eisley.run.broker_wire import BrokerReply
+from mos_eisley.run.duplex import ExchangeHandler
+from mos_eisley.run.isolated_broker import (
+    run_isolated_broker,
+    run_isolated_broker_async,
+)
 from mos_eisley.run.isolation import (
     OfflineContainer,
     bounded_process,
@@ -73,8 +82,24 @@ print('containment probes passed')
 """
 
 
-def check_broker(container: OfflineContainer, root: Path) -> None:
+def check_broker(
+    container: OfflineContainer, root: Path, *, async_mode: bool = False
+) -> None:
     """Real offline container, real spending ledger, synthetic host transport."""
+
+    def exchange(
+        arguments: tuple[str, ...], payload: bytes, *, exchange_handler: ExchangeHandler
+    ) -> bytes:
+        if async_mode:
+            return asyncio.run(
+                container.exchange_async(arguments, payload, exchange_handler)
+            )
+        return container.execute(arguments, payload, exchange_handler=exchange_handler)
+
+    def run(broker: RequestBoundBroker) -> BrokerReply:
+        if async_mode:
+            return asyncio.run(run_isolated_broker_async(broker, container))
+        return run_isolated_broker(broker, container)
 
     class FixtureTransport:
         calls = 0
@@ -131,7 +156,7 @@ print(json.dumps(claim), flush=True)
 sys.stdin.readline()
 """
     try:
-        container.execute(
+        exchange(
             ("-c", tamper), canonical_bytes(broker.claim()), exchange_handler=handle
         )
     except ProviderError:
@@ -139,11 +164,11 @@ sys.stdin.readline()
     else:
         raise AssertionError("tampered worker grant accepted")
     assert fixture.calls == 0 and ledger.snapshot().charged_microusd == 0
-    reply = run_isolated_broker(broker, container)
+    reply = run(broker)
     assert reply.response["output"] == "synthetic host response"
     assert fixture.calls == 1 and ledger.snapshot().charged_microusd == 20
     try:
-        run_isolated_broker(broker, container)
+        run(broker)
     except ProviderError:
         pass
     else:
@@ -165,23 +190,81 @@ print(sys.stdin.readline().strip(), flush=True)
 time.sleep(1)
 """
     try:
-        container.execute(
-            ("-c", disconnect), b"fixture-grant", exchange_handler=pending
-        )
+        exchange(("-c", disconnect), b"fixture-grant", exchange_handler=pending)
     except ValueError:
         pass
     else:
         raise AssertionError("disconnected worker exchange accepted")
     assert cancelled == [True], "disconnect did not cancel host work"
     try:
-        container.execute(
-            ("-c", "print('x'*5000)"), b"fixture-grant", exchange_handler=pending
-        )
+        exchange(("-c", "print('x'*5000)"), b"fixture-grant", exchange_handler=pending)
     except ValueError:
         pass
     else:
         raise AssertionError("oversized worker frame accepted")
     assert cancelled == [True], "oversized frame dispatched host work"
+
+    if async_mode:
+        started, stopped = asyncio.Event(), asyncio.Event()
+
+        class SlowTransport:
+            async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
+                return 10
+
+            async def create_response(
+                self, payload: dict[str, JsonValue]
+            ) -> dict[str, JsonValue]:
+                started.set()
+                try:
+                    await asyncio.sleep(60)
+                    raise AssertionError("cancelled response completed")
+                finally:
+                    stopped.set()
+
+        cancel_root = root / "cancelled"
+        cancel_root.mkdir(mode=0o700)
+        cancel_ledger = SpendLedger.create(cancel_root / "ledger.sqlite", 100)
+        cancel_broker = RequestBoundBroker(
+            payload,
+            BudgetedOpenAITransport(
+                SlowTransport(), policy, cancel_root, cancel_ledger
+            ),
+            lifetime_seconds=60,
+        )
+
+        async def cancel_inflight() -> None:
+            task = asyncio.create_task(
+                run_isolated_broker_async(cancel_broker, container)
+            )
+            try:
+                await asyncio.wait_for(started.wait(), 30)
+            finally:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                else:
+                    raise AssertionError("cancelled broker returned success")
+            assert stopped.is_set(), "provider cancellation did not complete"
+            try:
+                await cancel_broker.redeem(canonical_bytes(cancel_broker.claim()))
+            except ProviderError:
+                pass
+            else:
+                raise AssertionError("cancelled broker grant was reusable")
+
+        asyncio.run(cancel_inflight())
+        receipt = SpendReceipt.model_validate_json(
+            (cancel_root / "spend-receipt.json").read_bytes()
+        )
+        assert receipt.status == "uncertain"
+        assert cancel_ledger.snapshot().charged_microusd == 30
+        assert container.lifecycle_path is not None
+        cleanup = CleanupRecord.model_validate_json(
+            (container.lifecycle_path / "result.json").read_bytes()
+        )
+        assert cleanup.state == "removed"
 
 
 def check_launcher_death(docker: str, image: str, root: Path) -> None:
@@ -332,6 +415,7 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
             raise AssertionError("resource violation was accepted")
     check_launcher_death(docker, image, root / "killed-launcher")
     check_broker(container, root / "broker-spending")
+    check_broker(container, root / "async-broker-spending", async_mode=True)
     after = bounded_process([docker, "ps", "-aq", "--filter", "name=mos-eval-"])
     assert set(after.split()) <= set(before.split()), "isolated containers leaked"
     print("containment, fixtures, broker IPC, limits and crash cleanup passed")
