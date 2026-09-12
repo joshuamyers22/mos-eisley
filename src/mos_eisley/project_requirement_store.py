@@ -22,6 +22,12 @@ def requirement_history_name(sha256: str) -> str:
 
 
 class RequirementStore(MemoryStorage):
+    def read_current_locked(
+        self, root: int | None, workspace: MappedDirectory
+    ) -> tuple[GuidanceFile | None, SavedRequirements | None]:
+        """Read under the caller's held private guidance lock and root handle."""
+        return self._current(root, workspace)
+
     def _decode(
         self, file: GuidanceFile, workspace: MappedDirectory
     ) -> SavedRequirements:

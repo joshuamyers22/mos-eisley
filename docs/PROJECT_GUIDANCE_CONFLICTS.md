@@ -127,3 +127,7 @@ as mandatory policy, accept brief/ADR requirements, grant tools or permissions, 
 history, start sessions, call providers or modify existing runs. Accepted-requirement
 and trusted-policy integration, automatic semantic analysis and frozen role context
 remain subsequent work under [plan §16.6](mos-eisley-plan.md#166-project-specific-points-of-view-and-best-practice-templates).
+
+For accepted requirements together with advisory guidance, use
+[combined review](PROJECT_GUIDANCE_PRECEDENCE.md). This advisory-only assessment
+cannot establish completion for that expanded scope.

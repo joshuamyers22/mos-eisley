@@ -84,7 +84,7 @@ overrides without changing template bindings. To remove some overrides, set an
 edited complete profile; to remove all, use clear. Current user direction, accepted
 brief/ADR requirements and mandatory policy remain separate higher-authority layers.
 This view resolves the two advisory layers and explicit reviewed conflict choices.
-Automatic semantic conflict detection, accepted requirements, conversation controls
+Automatic semantic conflict detection, conversation controls
 and role-context loading are subsequent work.
 
 ## Private versions and recovery
@@ -114,3 +114,7 @@ Output is escaped JSON (`guidance.overrides`), indented by default or one event 
 history, start sessions, invoke providers or materialize model context. Semantic
 classification of disguised history and frozen role provenance remain required
 before automatic context inclusion under [plan §16.6](mos-eisley-plan.md#166-project-specific-points-of-view-and-best-practice-templates).
+
+[Requirement acceptance](PROJECT_REQUIREMENTS.md) and
+[combined precedence review](PROJECT_GUIDANCE_PRECEDENCE.md) are separate commands.
+The advisory effective view retains its original scope.
