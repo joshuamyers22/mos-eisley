@@ -1,9 +1,10 @@
 """Explicit recorded review packets; no conversation input crosses this boundary."""
 
 import asyncio
+from collections.abc import Callable
 from typing import Literal, Self
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from mos_eisley.core.models import (
     Brief,
@@ -12,6 +13,7 @@ from mos_eisley.core.models import (
     ReviewResult,
     canonical_bytes,
 )
+from mos_eisley.project_guidance_review import PreparedGuidanceReview
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review, validate_roster
 
@@ -22,14 +24,24 @@ REVIEW_FOLLOWUP = "What should be fixed?"
 
 
 class ConversationReviewPacket(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["recorded_conversation_review"] = "recorded_conversation_review"
     brief: Brief
     cassette: Cassette
     policy: ReviewPolicy = ReviewPolicy()
+    guidance_review: PreparedGuidanceReview | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
+        if (self.schema_version == 2) != (self.guidance_review is not None):
+            raise ValueError("Guided terminal reviews require packet schema 2.")
+        if (
+            self.guidance_review is not None
+            and self.guidance_review.brief != self.brief
+        ):
+            raise ValueError("Terminal review guidance must match the exact brief.")
         if self.brief.brief_id != self.cassette.brief_id:
             raise ValueError("review cassette must match the explicit brief")
         validate_roster(tuple(r.critic for r in self.cassette.critics), self.policy)
@@ -40,9 +52,19 @@ class ConversationReviewPacket(Contract):
         return self
 
 
-async def run_conversation_review(packet: ConversationReviewPacket) -> ReviewResult:
+async def run_conversation_review(
+    packet: ConversationReviewPacket,
+    *,
+    validate_guidance: Callable[[], None] | None = None,
+) -> ReviewResult:
     # Only the explicit packet is available here: never a controller or transcript.
     packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+    if packet.guidance_review is not None:
+        if validate_guidance is None:
+            raise ValueError(
+                "Guided review requires current policy selection for this launch."
+            )
+        validate_guidance()
     try:
         async with asyncio.timeout(25):
             result = await review(
@@ -55,6 +77,9 @@ async def run_conversation_review(packet: ConversationReviewPacket) -> ReviewRes
         raise ValueError("recorded conversation review failed") from None
     if len(canonical_bytes(result)) > MAX_REVIEW_RESULT_BYTES:
         raise ValueError("conversation review result exceeds byte limit")
+    if packet.guidance_review is not None:
+        assert validate_guidance is not None
+        validate_guidance()
     return result
 
 

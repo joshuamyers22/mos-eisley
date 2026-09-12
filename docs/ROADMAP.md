@@ -75,6 +75,8 @@ select relevant rules with explicit requirement-omission reasons and immutable p
 current assessment/policy, with a guarded local consumption API.
 [Guided recorded reviews](PROJECT_GUIDANCE_REVIEW.md) bind matching critic/judge
 rubrics to explicit briefs, request budgets and replayable guidance artifacts.
+[Terminal guided reviews](CONVERSATION_GUIDANCE_REVIEW.md) add `/review` packet admission,
+explicit launch policy selection and historical snapshot/SQLite retention.
 Broader runtime/user/admin policy integration, automatic semantic analysis, run/provider
 loading and telemetry adapters remain planned.
 

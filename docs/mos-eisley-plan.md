@@ -2232,6 +2232,15 @@ without reopening current sources. [Guided recorded reviews](PROJECT_GUIDANCE_RE
 document bounded inputs, exact rubric pairing, schema compatibility and remaining
 live terminal/provider integration. Recorded fixtures do not establish live quality.
 
+**Terminal guided review slice implemented:** `mos guidance-review packet` exports
+bounded guidance-bearing review packets for terminal `/review`. Plain/TUI execution
+checks explicit launch policy and current exact project guidance before queueing and
+execution, and rechecks after recorded execution. Resume never reuses historical
+admission; directory handoff clears project-specific selections. Snapshot/SQLite
+artifacts retain exact provenance without importing chat memory or creator history.
+[Terminal guided reviews](CONVERSATION_GUIDANCE_REVIEW.md) document the unchanged
+terminal budgets, schema compatibility and remaining live provider authorization.
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from
