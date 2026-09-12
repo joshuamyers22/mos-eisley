@@ -4,7 +4,8 @@ Mos Eisley should adopt the runtime mechanisms for structured operational events
 bounded evidence handling, and project-specific guidance. Engineering opinions
 remain editable per-project defaults. The telemetry platform itself remains a
 separate optional integration. The [local inspection slice](PROJECT_GUIDANCE_INSPECTION.md)
-now validates an explicit descriptor and Markdown snapshot. Trusted binding, overrides,
+now validates an explicit descriptor and Markdown snapshot. [Private bindings](PROJECT_GUIDANCE_BINDING.md)
+support reviewed attach/show/update/detach with retained versions. Overrides,
 role-context loading and telemetry integration remain planned; the production-template
 repository is unchanged.
 
@@ -104,8 +105,9 @@ Required audit and spending transactions remain on their own durable path.
 ## Project-by-project use
 
 The reusable starter is [PROJECT_POINT_OF_VIEW.md](../templates/PROJECT_POINT_OF_VIEW.md).
-It is usable now as a manually selected project document. Future automatic support
-binds a reviewed snapshot and local overrides in trusted owner configuration.
+It is usable now as a manually selected project document. A matching advisory descriptor
+can be inspected and bound in trusted owner configuration. Local overrides and automatic
+role-context materialization remain planned.
 
 For example, a CLI project can select a Python engineering profile and its own
 logging policy; a quantitative project can select a statistical point of view and

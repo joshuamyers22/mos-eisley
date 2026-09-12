@@ -2069,7 +2069,7 @@ Provide a guided initialize/attach/show/update/detach flow in the planned CLI an
 conversation controls. Start with local Markdown plus a versioned descriptor;
 remote distribution can follow the trusted package/extension gates. The editable
 starter is `templates/PROJECT_POINT_OF_VIEW.md`. Copying it into a repository is
-usable as documentation today; automatic loading and binding remain planned work.
+usable as documentation today; automatic role-context loading remains planned work.
 
 **Local inspection slice implemented:** `mos guidance-inspect --descriptor FILE
 --markdown FILE -C WORKSPACE` now verifies a bounded, versioned advisory descriptor
@@ -2079,9 +2079,19 @@ locations. A revalidatable snapshot binds the inspector's owner, canonical targe
 raw descriptor bytes and content while remaining explicitly unbound. Unknown or
 executable/authority-bearing fields, duplicate keys/IDs, missing/ambiguous spans,
 unsafe final files and oversized inputs reject. Only the two user-selected files
-are read. Templates are not attached and no conversation, history, tool or provider
-path is activated. Attach/update/detach, overrides, conflict resolution and role
-materialization remain subsequent work. See [local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md).
+are read. Inspection does not attach templates or activate conversation, history,
+tool or provider paths. See [local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md).
+
+**Private binding slice implemented:** `mos guidance attach|show|update|detach`
+binds explicitly reviewed snapshots to the owner's exact canonical workspace and
+directory identity. Mutations preview complete before/after data and a diff, then
+apply the reviewed hash under the private storage lock. Immutable snapshots survive
+updates/detach and can be inspected by digest; empty records retain a revision counter
+for stale-review rejection. Sources and stored identities are revalidated before
+publication. Eight templates per project and 512 KiB per stored file bound this
+slice. Binding neither loads history nor changes session contexts. Independent
+overrides, conflict resolution, accepted requirements and role materialization
+remain subsequent work. See [private project guidance binding](PROJECT_GUIDANCE_BINDING.md).
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
