@@ -315,6 +315,17 @@ adapters remain planned.
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
    their execution gates. Keep `exec`/JSON automation on the same controller.
+   **V1 — live full-screen diff panel:** deliver `/diff` beside the conversation
+   after the trusted read-only Git and workspace/path boundaries are available,
+   alongside item 7's Git-backed coding integration. Show changed files, added/removed
+   counts and a live diff; let users attach selected, frozen lines to the next prompt.
+   Preserve drafts and focus, bound refresh/render work, expose stale or partial
+   views, and handle resizing and workspace switches. This is required v1 product
+   scope. See [plan §16.4.1](mos-eisley-plan.md#1641-v1--live-full-screen-diff-panel)
+   for dependencies, the Claude newsletter reference and acceptance criteria.
+   Estimate **60–100 engineering hours (80-hour planning figure)** including review
+   and validation, assuming the trusted Git and conversation foundations are
+   available; Windows qualification and desktop pop-out windows are excluded.
    Add project-guidance attach/show/update/detach with trusted project bindings and
    frozen per-role rubrics. Alongside private persistence, add explicitly selected
    project memory and handoff notes; writing them requires scoped write capabilities.
@@ -517,6 +528,8 @@ adapters remain planned.
    Windows storage/process/sandbox suites required by plan §27 for version 0.1.1;
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+   Supply the trusted read-only diff interface for item 3's required v1 full-screen
+   panel; integrate live refresh with coding changes under plan §16.4.1.
    Integrate L0–L5 from the revised loop plan: immutable clauses, fresh sealed
    readings, blind independent tests, whole-package freezing and reviewed bindings,
    full initial judging, persistent correction budgets and final full verification.
@@ -546,8 +559,8 @@ adapters remain planned.
    available.
    See plan §§19.6, 24.4–24.5, and 25 for scope and acceptance criteria.
 10. **Convenience:** advanced TUI polish and provenance navigation. The core
-    conversation, resume, and configurable storage belong to the product workstream
-    above; shared analytics or team-wide database exports are excluded.
+    conversation, resume, live diff panel, and configurable storage belong to the
+    product workstream above; shared analytics or team-wide database exports are excluded.
 
 ## Remote MCP connections
 
