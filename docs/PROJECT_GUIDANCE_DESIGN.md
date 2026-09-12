@@ -3,8 +3,10 @@
 Mos Eisley should adopt the runtime mechanisms for structured operational events,
 bounded evidence handling, and project-specific guidance. Engineering opinions
 remain editable per-project defaults. The telemetry platform itself remains a
-separate optional integration. This is a planning amendment, not implemented runtime
-support or an upgrade of the production-template repository.
+separate optional integration. The [local inspection slice](PROJECT_GUIDANCE_INSPECTION.md)
+now validates an explicit descriptor and Markdown snapshot. Trusted binding, overrides,
+role-context loading and telemetry integration remain planned; the production-template
+repository is unchanged.
 
 ## Sources and scope
 

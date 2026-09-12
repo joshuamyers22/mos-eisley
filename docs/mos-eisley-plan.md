@@ -2071,6 +2071,18 @@ remote distribution can follow the trusted package/extension gates. The editable
 starter is `templates/PROJECT_POINT_OF_VIEW.md`. Copying it into a repository is
 usable as documentation today; automatic loading and binding remain planned work.
 
+**Local inspection slice implemented:** `mos guidance-inspect --descriptor FILE
+--markdown FILE -C WORKSPACE` now verifies a bounded, versioned advisory descriptor
+and its exact Markdown content digest. Stable rule IDs map to unique exact text
+spans; inspection reports applicability, rationale, checks, full source bytes and
+locations. A revalidatable snapshot binds the inspector's owner, canonical target,
+raw descriptor bytes and content while remaining explicitly unbound. Unknown or
+executable/authority-bearing fields, duplicate keys/IDs, missing/ambiguous spans,
+unsafe final files and oversized inputs reject. Only the two user-selected files
+are read. Templates are not attached and no conversation, history, tool or provider
+path is activated. Attach/update/detach, overrides, conflict resolution and role
+materialization remain subsequent work. See [local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md).
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from

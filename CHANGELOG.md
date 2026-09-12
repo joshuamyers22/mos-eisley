@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add read-only local project-guidance inspection with versioned advisory descriptors,
+  exact content hashes and rule locations, bounded source reads and complete unbound
+  snapshots. Include an editable example; trusted project attachment remains planned.
 - Allow explicit selection of an exact span from an ordinary assistant reply for
   memory review. Show the complete source and result, bind selection offsets to the
   confirmation, and reuse guarded apply/refresh without automatic extraction.

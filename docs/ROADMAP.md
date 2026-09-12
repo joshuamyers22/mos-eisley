@@ -59,8 +59,10 @@ structured-logging and bounded memory/note principles with Mos Eisley's ownershi
 fresh-session, and audit guarantees. Add per-project points of view and best-practice
 templates with explicit binding, versioned snapshots, independent overrides, and
 visible precedence. Preferences and telemetry infrastructure remain project choices.
-See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`; these are planned
-capabilities, not current automatic template or memory loading.
+See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`.
+[Local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md) now validates an explicit
+advisory descriptor/Markdown pair and reports a complete unbound snapshot. Trusted
+project binding, overrides, role loading and telemetry adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
