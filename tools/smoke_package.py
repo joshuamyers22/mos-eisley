@@ -217,6 +217,7 @@ def main() -> int:
             "test_model_reviewer.py",
             "test_async_isolated_broker.py",
             "test_brokered_model_client.py",
+            "test_review_broker_admission.py",
             "test_openai_spend.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",

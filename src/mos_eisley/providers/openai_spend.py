@@ -223,6 +223,26 @@ def _request_sha256(request: dict[str, JsonValue]) -> str:
     )
 
 
+def prepare_full_reservation(
+    payload: dict[str, JsonValue], policy: SpendPolicy
+) -> SpendReservation:
+    """Pure, current-policy envelope for a later pre-reserved text dispatch."""
+    policy.check_current()
+    request, output_cap = _normalized_text_request(payload, policy)
+    if output_cap != policy.max_output_tokens:
+        raise ValueError("full reservation requires the exact policy output cap")
+    amount = policy.reservation_cost(policy.max_input_tokens, output_cap)
+    if amount > policy.max_cost_microusd:
+        raise ValueError("full reservation exceeds the per-call spending limit")
+    return SpendReservation(
+        policy_sha256=policy.policy_sha256,
+        request_sha256=_request_sha256(request),
+        input_tokens=policy.max_input_tokens,
+        max_output_tokens=output_cap,
+        reserved_microusd=amount,
+    )
+
+
 class BudgetedOpenAITransport:
     """Single use: uncertain responses retain the reservation and are never retried."""
 

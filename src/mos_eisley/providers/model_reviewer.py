@@ -83,39 +83,49 @@ class ModelReviewer:
         self._effort: Effort | None = effort
         self._judge = self._registry.resolve(judge_provider, judge_model, effort)
 
+    def critic_request(
+        self, critic: CriticSpec, request: CriticRequest
+    ) -> ModelRequest:
+        """Pure projection used by both transfer admission and actual review."""
+        critic = CriticSpec.model_validate_json(canonical_bytes(critic))
+        request = CriticRequest.model_validate_json(canonical_bytes(request))
+        if critic.persona != request.persona:
+            raise ValueError("critic persona mismatch")
+        model = self._registry.resolve(critic.provider, critic.model, self._effort)
+        return self._request(model, canonical_bytes(request).decode("utf-8"), Critique)
+
+    def judge_request(self, request: JudgeRequest) -> ModelRequest:
+        """Project the exact supplied findings, without granting their admission."""
+        request = JudgeRequest.model_validate_json(canonical_bytes(request))
+        payload = request.model_dump(mode="json")
+        # Supply canonical IDs explicitly; never ask a model to compute SHA-256.
+        payload["findings"] = [
+            {"id": finding.finding_id, "finding": finding.model_dump(mode="json")}
+            for finding in request.findings
+        ]
+        text = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        return self._request(self._judge, text, JudgeDecision)
+
     async def critique(self, critic: CriticSpec, request: CriticRequest) -> Critique:
         try:
-            critic = CriticSpec.model_validate_json(canonical_bytes(critic))
-            request = CriticRequest.model_validate_json(canonical_bytes(request))
-            if critic.persona != request.persona:
-                raise ValueError("critic persona mismatch")
-            model = self._registry.resolve(critic.provider, critic.model, self._effort)
-            return await self._exchange(
-                model, canonical_bytes(request).decode("utf-8"), Critique
-            )
+            return await self._exchange(self.critic_request(critic, request), Critique)
         except Exception:
             raise ProviderError("Critic model exchange failed") from None
 
     async def judge(self, request: JudgeRequest) -> JudgeDecision:
         try:
-            request = JudgeRequest.model_validate_json(canonical_bytes(request))
-            payload = request.model_dump(mode="json")
-            # JudgeRequest stores the findings themselves. Supply their canonical
-            # hashes explicitly: a model must never be asked to compute SHA-256.
-            payload["findings"] = [
-                {"id": finding.finding_id, "finding": finding.model_dump(mode="json")}
-                for finding in request.findings
-            ]
-            text = json.dumps(
-                payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-            )
-            return await self._exchange(self._judge, text, JudgeDecision)
+            return await self._exchange(self.judge_request(request), JudgeDecision)
         except Exception:
             raise ProviderError("Judge model exchange failed") from None
 
-    async def _exchange(
-        self, model: ResolvedModel, text: str, result: type[Result]
-    ) -> Result:
+    def _request(
+        self,
+        model: ResolvedModel,
+        text: str,
+        result: type[Critique] | type[JudgeDecision],
+    ) -> ModelRequest:
         budget = resolve_budget(model.spec, model.effort, self._budget)
         if len(text.encode("utf-8")) > budget.usable_input:
             raise ValueError("review input exceeds budget")
@@ -138,6 +148,11 @@ class ModelReviewer:
         )
         if canonical_fingerprint(request).bytes > budget.usable_input:
             raise ValueError("complete review request exceeds budget")
+        return request
+
+    async def _exchange(self, request: ModelRequest, result: type[Result]) -> Result:
+        model = self._registry.resolve(request.provider, request.model, request.effort)
+        budget = resolve_budget(model.spec, model.effort, self._budget)
         response = await self._client.complete(request)
         # Include usage, request ID and opaque reasoning in the local byte ceiling.
         if canonical_fingerprint(response).bytes > request.max_output:
