@@ -106,6 +106,9 @@ scrollable transcript. `/memory append|set user|project TEXT` saves single-line 
 `/memory clear|enable|disable user|project` manages that scope. These commands require
 idle requests and pause queued work. `/memory` returns to the active selection;
 saved-document receipts are snapshots and must be rerun to inspect later edits.
+Directly typed `remember this for this project: TEXT` and `remember this everywhere:
+TEXT` provide scoped append shortcuts. Rejected requests retain the editor draft;
+pasted/composed text stays literal. A successful receipt includes saved text.
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 `/memory refresh` applies current saved memory between requests; `/memory off`

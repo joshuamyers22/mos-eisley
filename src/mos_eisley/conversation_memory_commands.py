@@ -75,6 +75,8 @@ def run_memory_command(store: MemoryStore, line: str) -> dict[str, object]:
             f" Saved {action}. Session memory is unchanged and queued work is paused. "
             "Use /memory refresh to load current memory, then /continue."
         )
+    if action in {"append", "set"}:
+        text += "\nSaved text:\n" + command.text
     return {
         "type": "conversation.memory.inspected"
         if action == "show"

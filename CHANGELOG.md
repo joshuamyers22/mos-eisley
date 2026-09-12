@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit scoped remember phrases for directly entered terminal requests.
+  Ask for missing scope/content, preserve rejected drafts and report saved text
+  without dispatching a model turn or loading memory before an explicit refresh.
+
 - Add explicitly scoped terminal memory inspection and editing in full-screen and
   plain/JSON sessions. Preserve session selection until refresh, pause queued work,
   reject edits during active requests and keep pasted/composed chat literal.
