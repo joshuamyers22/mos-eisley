@@ -121,6 +121,9 @@ is scrollable with terminal control characters escaped. See [reviewed replacemen
 displayed zero-based message index. `/memory apply-proposal HASH` accepts it;
 `/memory discard-proposal` cancels. Receiving a suggestion does not save it.
 See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
+`/memory review-text SCOPE INDEX "EXACT_TEXT"` instead reviews a selected span from
+an ordinary assistant reply, using the same confirmation/discard controls. See
+[selected reply text](CONVERSATION_MEMORY_SELECTION.md).
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 `/memory refresh` applies current saved memory between requests; `/memory off`

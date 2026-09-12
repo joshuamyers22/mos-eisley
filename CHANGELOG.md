@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Allow explicit selection of an exact span from an ordinary assistant reply for
+  memory review. Show the complete source and result, bind selection offsets to the
+  confirmation, and reuse guarded apply/refresh without automatic extraction.
 - Add explicit review and acceptance of structured assistant memory proposals.
   Bind the selected reply and user-chosen scope to a complete preview and guarded
   confirmation; suggestions stay inert until accepted and reviews never resume.

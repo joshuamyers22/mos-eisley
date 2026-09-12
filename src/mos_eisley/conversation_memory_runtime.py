@@ -46,7 +46,7 @@ class ConversationMemoryRuntime:
         elif action == ["/memory", "forget"]:
             self.replace.pending = None
             self.proposals.pending = None
-        elif action == ["/memory", "review-proposal"]:
+        elif action in (["/memory", "review-proposal"], ["/memory", "review-text"]):
             self.forget.pending = self.replace.pending = None
         receipt = self.proposals.command(line)
         if receipt is not None:

@@ -137,6 +137,8 @@ capabilities, not current automatic template or memory loading.
    now edits one unique span using explicit old/new JSON and the same guarded apply.
    [Assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md) now accepts selected
    structured replies with explicit scope, complete preview and source-bound confirmation.
+   [Selected reply text](CONVERSATION_MEMORY_SELECTION.md) now supports explicit
+   exact-span curation from ordinary prose using the same confirmation safeguards.
    Broader interpretation and automatic extraction remain planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges

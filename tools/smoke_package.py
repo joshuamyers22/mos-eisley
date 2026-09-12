@@ -201,6 +201,8 @@ def main() -> int:
             "test_conversation_memory_replace.py",
             "test_conversation_memory_proposals.py",
             "test_conversation_proposal_cli.py",
+            "test_conversation_memory_selection.py",
+            "test_conversation_selection_cli.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",
             "test_conversation_migration.py",
