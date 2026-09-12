@@ -122,6 +122,11 @@ loading and telemetry adapters remain planned.
    grant only for its exact canonical and provider requests, preserving local output
    limits, one-use dispatch, cleanup and spending outcomes. Synthetic critic/judge
    and Docker checks pass; review-specific grant issuance and live activation remain gated.
+   [Single-call review admission](REVIEW_BROKER_ADMISSION.md) now previews the same
+   canonical request used by review, requires exact transfer/spend confirmation,
+   reserves its full conservative allowance before grant issuance and retains a
+   review-specific audit. Aggregate critic/judge reservation, dynamic judge lineage,
+   evidence retention and credentialed conformance remain required for live review.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

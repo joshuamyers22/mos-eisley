@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit per-call review transfer approval, durable full spending reservation,
+  one-use broker issuance and private role/request audit verification.
+
 - Bind canonical model calls to existing one-use isolated brokers, including exact
   provider payloads, local output limits and retained spending on failed responses.
 

@@ -12,7 +12,16 @@ from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
 
-class AssignmentAuthorization(Contract):
+class BrokerAuthorization(Contract):
+    """Common host binding; concrete audit readers still enforce their own mode."""
+
+    provider_request_sha256: Digest
+    spend_policy_sha256: Digest
+    ledger_id: Digest
+    ledger_entry_id: Digest
+
+
+class AssignmentAuthorization(BrokerAuthorization):
     schema_version: Literal[1] = 1
     mode: Literal["broker_conformance"] = "broker_conformance"
     plan_sha256: Digest
@@ -20,10 +29,6 @@ class AssignmentAuthorization(Contract):
     sample_id: Digest
     candidate_id: Digest
     evaluation_request_sha256: Digest
-    provider_request_sha256: Digest
-    spend_policy_sha256: Digest
-    ledger_id: Digest
-    ledger_entry_id: Digest
 
 
 class BrokerAdmission(Contract):
@@ -135,7 +140,7 @@ class BrokerRecoveryState(Contract):
 class BrokerAudit:
     """Trusted parent directory required; each audit owns a new private directory."""
 
-    def __init__(self, directory: Path, authorization: AssignmentAuthorization):
+    def __init__(self, directory: Path, authorization: BrokerAuthorization):
         directory.mkdir(mode=0o700)  # Never reuse or overwrite an existing run.
         self.directory = directory
         self.authorization = authorization

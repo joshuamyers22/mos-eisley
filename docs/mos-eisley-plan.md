@@ -5081,6 +5081,18 @@ cleanup cannot release incurred spending or trigger a retry. The
 and real Docker fixtures. It issues no review authority: transfer/audit bindings,
 aggregate reservations, dynamic judge admission and credentialed evidence remain next.
 
+**Single-call review admission implemented:** trusted host code can now preview
+and explicitly approve one critic or judge request using the reviewer's shared pure
+projection. The confirmation binds exact content, role, model, spending policy,
+ledger and expiry. Issuance reserves the full conservative per-call allowance before
+creating a broker grant; its unique ledger entry prevents repeated issuance. Private
+review-mode audit records retain the input/request and spending bindings, and reject
+cross-mode or incomplete verification. Crashes and ambiguous sends retain their
+holds. See [review broker admission](REVIEW_BROKER_ADMISSION.md). Aggregate critic/judge
+reservation, dynamic judge admission with retained finding lineage, guidance gates,
+response/evidence retention and authorized credentialed conformance remain G2 work;
+this library does not enable a live terminal mode.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
