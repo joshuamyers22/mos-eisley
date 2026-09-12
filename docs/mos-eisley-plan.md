@@ -2114,8 +2114,19 @@ inspection paths expose unresolved/stale/unassessed status and retained exclusio
 provenance. Empty assessments require explicit review rationale and claim only that
 no conflicts were reported. Guarded publication retains immutable source/basis
 snapshots; historical views cannot claim current resolution completion. Automatic
-semantic detection, accepted requirements, trusted-policy integration and role
+semantic detection, accepted-requirement/trusted-policy integration and role
 materialization remain later work. See [project guidance conflict review](PROJECT_GUIDANCE_CONFLICTS.md).
+
+**Requirement acceptance slice implemented:** `mos requirements set|show|clear`
+reviews a complete accepted set from up to eight explicitly selected brief/ADR
+files. Stable requirement/source IDs, exact unique source passages, content hashes,
+applicability, rationale and checks are retained in private project revisions.
+Guarded apply binds the complete proposal, prior state and owner/directory identity;
+clear preserves history and a revision tombstone. Source labels and advisory templates
+cannot self-accept requirements. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
+documents limits and examples. Combined precedence/conflict integration must next pin
+these accepted revisions and invalidate expanded assessments when they change;
+trusted-policy integration and role-context materialization remain subsequent work.
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging

@@ -66,7 +66,9 @@ advisory descriptor/Markdown pair and reports a complete unbound snapshot.
 show, update and detach with immutable versions. [Project overrides](PROJECT_GUIDANCE_OVERRIDES.md)
 support explicit advisory replacement/omission and effective inspection.
 [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md) adds pinned assessments and
-visible resolution status. Automatic semantic analysis, role loading and telemetry
+visible resolution status. [Requirement acceptance](PROJECT_REQUIREMENTS.md) adds
+reviewed brief/ADR requirements with pinned source provenance. Combined requirement
+precedence/conflict integration, automatic semantic analysis, role loading and telemetry
 adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
