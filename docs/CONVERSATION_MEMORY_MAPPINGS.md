@@ -115,3 +115,7 @@ A corrupt registry blocks automatic mapping selection; an explicit map/root or
 set/remove updates reject corruption. Explicit restore can replace bounded private
 corrupt bytes after full review, preserving those exact bytes first. Unsafe files
 and recognized foreign-owner registries cannot be overwritten by restore.
+
+Review older mapping backups with [explicit history retention](CONVERSATION_MEMORY_MAPPING_RETENTION.md).
+Its count/age/current-registry protections require a complete inventory and a fresh
+apply hash; it does not run automatically.

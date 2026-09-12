@@ -43,7 +43,11 @@ class RegistryFile:
         }
 
 
-def read_registry_file(root: int | None, name: str) -> RegistryFile | None:
+def read_registry_file(
+    root: int | None, name: str, *, max_bytes: int = REGISTRY_BYTES
+) -> RegistryFile | None:
+    if type(max_bytes) is not int or not 0 <= max_bytes <= REGISTRY_BYTES:
+        raise ValueError("Mapping file read budget must be between 0 and 1 MiB.")
     if root is None:
         return None
     try:
@@ -61,9 +65,13 @@ def read_registry_file(root: int | None, name: str) -> RegistryFile | None:
             raise ValueError(
                 "Saved mappings require a private single-link regular file."
             )
-        payload = stream.read(REGISTRY_BYTES + 1)
-        if len(payload) > REGISTRY_BYTES:
-            raise ValueError("Saved memory mapping registry exceeds 1 MiB.")
+        payload = stream.read(max_bytes + 1)
+        if len(payload) > max_bytes:
+            raise ValueError(
+                "Saved memory mapping registry exceeds 1 MiB."
+                if max_bytes == REGISTRY_BYTES
+                else "Mapping file exceeds the remaining inventory byte budget."
+            )
         for current in (
             os.fstat(stream.fileno()),
             os.stat(name, dir_fd=root, follow_symlinks=False),
@@ -371,7 +379,16 @@ class MemoryMappingResolver:
 def add_command(command: argparse.ArgumentParser) -> None:
     command.add_argument(
         "action",
-        choices=("show", "set", "remove", "history", "restore", "discard", "import"),
+        choices=(
+            "show",
+            "set",
+            "remove",
+            "history",
+            "restore",
+            "discard",
+            "import",
+            "retain",
+        ),
     )
     command.add_argument("-C", "--workspace", type=Path)
     command.add_argument("--target", type=Path)
@@ -379,6 +396,8 @@ def add_command(command: argparse.ArgumentParser) -> None:
     command.add_argument("--input", type=Path)
     command.add_argument("--mode", choices=("merge", "replace"))
     command.add_argument("--on-conflict", choices=("error", "keep", "replace"))
+    command.add_argument("--keep-newest", type=int)
+    command.add_argument("--before-ns", type=int)
     command.add_argument(
         "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
     )
@@ -388,6 +407,14 @@ def add_command(command: argparse.ArgumentParser) -> None:
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.action == "retain":
+        from mos_eisley.conversation_memory_registry_retention import (
+            run_command as retain,
+        )
+
+        return retain(args)
+    if args.keep_newest is not None or args.before_ns is not None:
+        raise ValueError("--keep-newest and --before-ns are only valid for retain.")
     if args.action == "import":
         from mos_eisley.conversation_memory_registry_import import (
             run_command as import_mapping,
