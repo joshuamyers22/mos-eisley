@@ -85,6 +85,10 @@ from mos_eisley.conversation_memory_project import (
     select_memory_project,
 )
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
+from mos_eisley.conversation_memory_staging import (
+    MemoryStagingDiscardError,
+    discard_memory_staging,
+)
 from mos_eisley.conversation_name import SessionSelectionError, parse_name
 from mos_eisley.conversation_pending import (
     DEFAULT_PENDING_TEXT_BYTES,
@@ -279,6 +283,18 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    staging_discard = add_parser(
+        "memory-staging-discard",
+        help="Review exact invalid staging bytes without claiming a project identity",
+    )
+    staging_discard.add_argument("--temporary-name", required=True)
+    staging_discard.add_argument("--raw-sha256", required=True)
+    staging_discard.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    staging_discard.add_argument("--apply", action="store_true")
+    staging_discard.add_argument("--expected-sha256")
+    staging_discard.add_argument("--json", action="store_true")
     memory_batch_cleanup = add_parser(
         "memory-project-cleanup-batch",
         help="Review named staging cleanup and retained-backup pruning",
@@ -1569,6 +1585,25 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-staging-discard":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        notice = None
+        try:
+            receipt = discard_memory_staging(
+                args.memory_storage,
+                args.temporary_name,
+                args.raw_sha256,
+                expected_sha256=args.expected_sha256,
+            )
+        except MemoryStagingDiscardError as error:
+            receipt = error.receipt
+            notice = str(error)
+        payload = {"type": "memory.staging_discard", **receipt}
+        if notice is not None:
+            payload["text"] = notice
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+        return 0 if notice is None else 2
     if args.command == "memory-project-cleanup-batch":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")
