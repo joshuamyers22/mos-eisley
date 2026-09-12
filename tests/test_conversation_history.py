@@ -379,7 +379,7 @@ class HistoryPTYTests(TestCase):
             )
             output = bytearray()
 
-            def read_until(expected: bytes) -> None:
+            def read_until(expected: bytes, *, redraw: bool = False) -> None:
                 deadline = time.monotonic() + 10
                 while expected not in output:
                     if time.monotonic() >= deadline:
@@ -390,14 +390,19 @@ class HistoryPTYTests(TestCase):
                         output.extend(data)
                         if b"\x1b[6n" in data:
                             os.write(master, b"\x1b[1;1R")
+                    elif redraw:
+                        # Differential repaints can reuse existing glyphs, so
+                        # visible text need not arrive as contiguous bytes.
+                        # Repaint after idle while the background page loads.
+                        os.write(master, b"\x0c")
 
             try:
                 read_until(b"\x1b[?1049h")
                 read_until(b"Directory:")
+                output.clear()
                 os.write(master, b"\x1b[15~")
-                read_until(b"Saved history")
-                os.write(master, b"\x0c")
-                read_until(b"saved message 0")
+                read_until(b"Saved history", redraw=True)
+                read_until(b"saved message 0", redraw=True)
                 os.write(master, b"\x1b[15~\x04")
                 read_until(b"conversation.saved")
                 self.assertEqual(process.wait(timeout=5), 0)

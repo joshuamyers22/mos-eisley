@@ -11,7 +11,7 @@ from typing import Literal
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
@@ -30,7 +30,7 @@ from mos_eisley.providers.openai_readiness import (
 class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
     async def _receipt(
         self,
-        reply: httpx.MockTransport,
+        reply: httpx2.MockTransport,
         model: str = OPENAI_READINESS_MODEL,
     ) -> OpenAIReadinessReceipt:
         async with BoundedOpenAIHttpClient(transport=reply) as http_client:
@@ -50,15 +50,15 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
     async def test_visible_model_uses_one_get_and_transfers_no_prompt(self) -> None:
         for model in OPENAI_READINESS_MODELS:
             with self.subTest(model=model):
-                requests: list[httpx.Request] = []
+                requests: list[httpx2.Request] = []
 
                 async def reply(
-                    request: httpx.Request,
+                    request: httpx2.Request,
                     model: str = model,
-                    requests: list[httpx.Request] = requests,
-                ) -> httpx.Response:
+                    requests: list[httpx2.Request] = requests,
+                ) -> httpx2.Response:
                     requests.append(request)
-                    return httpx.Response(
+                    return httpx2.Response(
                         200,
                         json={
                             "id": model,
@@ -69,7 +69,7 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
                         request=request,
                     )
 
-                receipt = await self._receipt(httpx.MockTransport(reply), model)
+                receipt = await self._receipt(httpx2.MockTransport(reply), model)
                 self.assertEqual(receipt.model, model)
                 self.assertEqual(receipt.outcome, "visible")
                 self.assertIsNone(receipt.failure_kind)
@@ -120,13 +120,13 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
             calls = 0
 
             async def reply(
-                request: httpx.Request,
+                request: httpx2.Request,
                 status: int = status,
                 detail: dict[str, str] = detail,
-            ) -> httpx.Response:
+            ) -> httpx2.Response:
                 nonlocal calls
                 calls += 1
-                return httpx.Response(
+                return httpx2.Response(
                     status,
                     json={
                         "error": {
@@ -139,7 +139,7 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
                 )
 
             with self.subTest(status=status, expected=expected):
-                receipt = await self._receipt(httpx.MockTransport(reply))
+                receipt = await self._receipt(httpx2.MockTransport(reply))
                 self.assertEqual(receipt.outcome, "error")
                 self.assertEqual(receipt.failure_kind, expected)
                 self.assertIsNone(receipt.failure_detail)
@@ -153,12 +153,12 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
     ) -> None:
         cases = (
             (
-                httpx.ConnectError("private network detail"),
+                httpx2.ConnectError("private network detail"),
                 "transport_error",
                 "connection_error",
             ),
             (
-                httpx.RemoteProtocolError("private protocol detail"),
+                httpx2.RemoteProtocolError("private protocol detail"),
                 "transport_error",
                 "protocol_error",
             ),
@@ -167,62 +167,62 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
                 "transport_error",
                 "unknown_transport_error",
             ),
-            (httpx.ReadTimeout("private timeout detail"), "provider_timeout", None),
+            (httpx2.ReadTimeout("private timeout detail"), "provider_timeout", None),
         )
         for failure, expected, detail in cases:
             calls = 0
 
             async def reply(
-                request: httpx.Request,
+                request: httpx2.Request,
                 failure: Exception = failure,
-            ) -> httpx.Response:
+            ) -> httpx2.Response:
                 nonlocal calls
                 calls += 1
                 raise failure
 
             with self.subTest(expected=expected):
-                receipt = await self._receipt(httpx.MockTransport(reply))
+                receipt = await self._receipt(httpx2.MockTransport(reply))
                 self.assertEqual(receipt.failure_kind, expected)
                 self.assertEqual(receipt.failure_detail, detail)
                 self.assertEqual(calls, 1)
                 self.assertNotIn(b"private", canonical_bytes(receipt))
 
     async def test_ignored_identity_request_reports_safe_decode_detail(self) -> None:
-        class InvalidDeflateBody(httpx.AsyncByteStream):
+        class InvalidDeflateBody(httpx2.AsyncByteStream):
             async def __aiter__(self):
                 yield b"private invalid deflate body"
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             self.assertEqual(request.headers["accept-encoding"], "identity")
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 headers={"content-encoding": "deflate"},
                 stream=InvalidDeflateBody(),
                 request=request,
             )
 
-        receipt = await self._receipt(httpx.MockTransport(reply))
+        receipt = await self._receipt(httpx2.MockTransport(reply))
         self.assertEqual(receipt.failure_kind, "transport_error")
         self.assertEqual(receipt.failure_detail, "response_decode_error")
         self.assertNotIn(b"private", canonical_bytes(receipt))
 
     async def test_response_limit_has_distinct_safe_detail(self) -> None:
-        async def reply(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
+        async def reply(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
                 200,
                 headers={"content-length": "1000001"},
                 content=b"private",
                 request=request,
             )
 
-        receipt = await self._receipt(httpx.MockTransport(reply))
+        receipt = await self._receipt(httpx2.MockTransport(reply))
         self.assertEqual(receipt.failure_kind, "transport_error")
         self.assertEqual(receipt.failure_detail, "response_limit_error")
         self.assertNotIn(b"private", canonical_bytes(receipt))
 
     async def test_mismatched_model_metadata_fails_closed(self) -> None:
-        async def reply(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
+        async def reply(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
                 200,
                 json={
                     "id": "gpt-unexpected",
@@ -233,7 +233,7 @@ class OpenAIReadinessTransportTests(IsolatedAsyncioTestCase):
                 request=request,
             )
 
-        receipt = await self._receipt(httpx.MockTransport(reply))
+        receipt = await self._receipt(httpx2.MockTransport(reply))
         self.assertEqual(receipt.outcome, "error")
         self.assertEqual(receipt.failure_kind, "provider_error")
 

@@ -12,7 +12,7 @@ from typing import Literal, cast
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
-import httpx
+import httpx2
 from pydantic import JsonValue, ValidationError
 
 from mos_eisley.cli import main
@@ -352,10 +352,10 @@ class EphemeralOpenAIAdminBillingTransportTests(IsolatedAsyncioTestCase):
         usage_end = usage_start + timedelta(minutes=1)
         costs_start = published.replace(hour=0, minute=0, second=0)
         costs_end = costs_start + timedelta(days=1)
-        requests: list[httpx.Request] = []
+        requests: list[httpx2.Request] = []
         clients: list[BoundedOpenAIHttpClient] = []
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             requests.append(request)
             if request.url.path.endswith("/usage/completions"):
                 body = usage_page(
@@ -373,12 +373,12 @@ class EphemeralOpenAIAdminBillingTransportTests(IsolatedAsyncioTestCase):
                     "key_test",
                     42,
                 )
-            return httpx.Response(200, json=body, request=request)
+            return httpx2.Response(200, json=body, request=request)
 
         def bounded_client(**options: object) -> BoundedOpenAIHttpClient:
             self.assertFalse(options["trust_env"])
             self.assertFalse(options["follow_redirects"])
-            client = BoundedOpenAIHttpClient(transport=httpx.MockTransport(reply))
+            client = BoundedOpenAIHttpClient(transport=httpx2.MockTransport(reply))
             clients.append(client)
             return client
 
