@@ -150,6 +150,12 @@ loading and telemetry adapters remain planned.
    critic/judge lineage, reject invalid judge decisions, apply shared verdict rules
    and verify saved results against independently pinned hashes. Current guidance
    admission and credentialed conformance remain required for live activation.
+   The [brokered review controller](BROKERED_REVIEW_CONTROLLER.md) now runs approved
+   critics concurrently, reconstructs their evidence, pauses for exact judge
+   approval and retains the verified final result. A shared deadline includes the
+   approval pause; cancellation awaits child cleanup and preserves spending. This
+   process-local library adds no crash resume or live launch command. Credentialed
+   conformance and a user-facing live approval flow remain separate gates.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

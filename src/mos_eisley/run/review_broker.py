@@ -184,6 +184,11 @@ class PreparedReviewCall:
     def model_request(self) -> ModelRequest:
         return ModelRequest.model_validate_json(self._request)
 
+    @property
+    def review_request(self) -> CriticRequest | JudgeRequest:
+        kind = CriticRequest if self._authorization.role == "critic" else JudgeRequest
+        return kind.model_validate_json(self._input)
+
     def issue(
         self,
         *,

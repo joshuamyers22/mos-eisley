@@ -1,7 +1,7 @@
 """Current guidance checks at actual reservation and provider boundaries."""
 
 import asyncio
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
 import test_project_guidance_review as guidance_fixture
@@ -28,12 +28,12 @@ from mos_eisley.run.review_evidence import (
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
 
 
-class GuidedBrokerTests(IsolatedAsyncioTestCase):
+class GuidedBrokerFixture(TestCase):
     def setUp(self) -> None:
         self.guided = guidance_fixture.GuidedReviewTests()
         self.guided.setUp()
         self.addCleanup(self.guided.doCleanups)
-        self.base = broker_fixture.ReviewAdmissionTests()
+        self.base = broker_fixture.ReviewAdmissionFixture()
         self.base.setUp()
         self.addCleanup(self.base.doCleanups)
         self.admission = ReviewGuidanceAdmission(
@@ -80,6 +80,8 @@ class GuidedBrokerTests(IsolatedAsyncioTestCase):
         )
         await client.complete(self.call.model_request)
 
+
+class GuidedBrokerTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
     def test_preview_binds_guidance_and_keeps_legacy_authorization_bytes(self) -> None:
         self.assertEqual(
             self.call.authorization.guidance_sha256, self.guided.prepared.sha256

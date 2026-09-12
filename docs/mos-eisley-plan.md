@@ -5090,6 +5090,17 @@ pinned hash and recomputes the entire result. See
 [final verdict evidence](REVIEW_VERDICT_EVIDENCE.md). Current guidance admission and
 authorized credentialed conformance remain required before live activation.
 
+**Brokered review controller implemented:** a process-local controller now binds
+the reviewed envelope and policy to an exact approval, runs critics concurrently,
+reconstructs their evidence and pauses for separately approved judge transfer. One
+deadline includes the approval pause; cancellation waits for every child to finish
+broker cleanup. The controller retains the fully reconstructed final result and
+bounded private phase records without retries or automatic budget release. It
+preserves current guidance checks and the configured quorum. See
+[brokered review controller](BROKERED_REVIEW_CONTROLLER.md). Durable records do not
+authorize crash resume; live launch/approval UX and credentialed conformance remain
+separate requirements before terminal activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
