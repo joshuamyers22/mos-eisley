@@ -2148,6 +2148,16 @@ consistency, limits and a private-file example. This read-only slice does not ev
 arbitrary policy prose or replace runtime controls. Broader user/admin policy
 intersection, runtime admission and frozen role contexts remain subsequent work.
 
+**Frozen role-context slice implemented:** `mos guidance-context freeze|show`
+projects explicitly selected rules into bounded creator/coder/critic/judge packets.
+Every omitted accepted requirement needs a scope reason; unresolved/stale guidance,
+policy prohibitions and unavailable rules reject. Guarded apply pins selection,
+policy and the combined assessment into immutable private snapshots. Historical reads
+reconstruct exact projections from retained sources and cannot claim current authority.
+[Role guidance packets](PROJECT_GUIDANCE_ROLE_CONTEXT.md) exclude unselected source
+text, private policy prose and automatic history loading. Safe-boundary run/provider
+admission, broader policy intersection and retention/recovery remain subsequent work.
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from

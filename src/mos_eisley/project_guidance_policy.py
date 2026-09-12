@@ -114,6 +114,18 @@ class GuidancePolicyCheckStore(ProjectAssessmentStore):
         self, workspace: Path, policy_path: Path, expected_policy_sha256: str
     ) -> dict[str, object]:
         selected = MappedDirectory.inspect(workspace)
+        with self._lock_handles() as handles:
+            return self._check_policy_locked(
+                selected, policy_path, expected_policy_sha256, handles
+            )
+
+    def _check_policy_locked(
+        self,
+        selected: MappedDirectory,
+        policy_path: Path,
+        expected_policy_sha256: str,
+        handles: tuple[int, int] | None,
+    ) -> dict[str, object]:
         policy_path = policy_path.absolute()
         if policy_path.resolve().is_relative_to(Path(selected.path)):
             raise ValueError("Owner policy must be outside the selected project.")
@@ -129,52 +141,63 @@ class GuidancePolicyCheckStore(ProjectAssessmentStore):
             raise ValueError(
                 "Owner policy belongs to another user or project identity."
             )
-        with self._lock_handles() as handles:
-            root = None if handles is None else handles[0]
-            captured = self._capture(root, selected)
-            before_file, assessment = self._read_conflicts(root, selected)
-            report = self._inspection(captured, assessment)
-            # Also validate retained sources for a stale/current prior assessment.
-            if assessment is not None:
-                self._pinned_report(root, assessment)
-            rules = cast(list[dict[str, object]] | None, report["rules"])
-            decisions = policy_decisions(policy, rules)
-            policy_satisfied = rules is not None and all(
-                decision["status"] != "prohibited" for decision in decisions
-            )
-            allowed = policy_satisfied and report["project_resolution_complete"] is True
-            body: dict[str, object] = {
-                "scope": "owner_prohibitions_on_guidance_selection",
-                "policy_path": str(policy_path),
-                "policy_parent_identity": parent_identity,
-                "policy_file_identity": file.identity,
-                "policy_source_sha256": source_sha256,
-                "policy_source_json": file.payload.decode("utf-8"),
-                "policy": policy.model_dump(mode="json"),
-                "guidance": report,
-                "decisions": decisions,
-                "policy_satisfied": policy_satisfied,
-                "guidance_selection_allowed": allowed,
-                "status": "allowed"
-                if allowed
-                else "blocked"
-                if any(decision["status"] == "prohibited" for decision in decisions)
-                else "incomplete",
-                "runtime_authorization_evaluated": False,
-                "execution_authorized": False,
-                "context_materialized": False,
-            }
-            selected.selection()
-            self._storage_identity(handles)
-            if self._capture(root, selected) != captured or self._read_conflicts(
-                root, selected
-            ) != (before_file, assessment):
-                raise ValueError("Guidance changed during owner-policy inspection.")
-            if read_policy(policy_path) != source:
-                raise ValueError("Owner policy changed during inspection.")
-            return {
-                **body,
-                "check_sha256": digest(
-                    json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
-                ),
-            }
+        root = None if handles is None else handles[0]
+        captured = self._capture(root, selected)
+        before_file, assessment = self._read_conflicts(root, selected)
+        report = self._inspection(captured, assessment)
+        # Also validate retained sources for a stale/current prior assessment.
+        if assessment is not None:
+            self._pinned_report(root, assessment)
+        rules = cast(list[dict[str, object]] | None, report["rules"])
+        decisions = policy_decisions(policy, rules)
+        policy_satisfied = rules is not None and all(
+            decision["status"] != "prohibited" for decision in decisions
+        )
+        allowed = policy_satisfied and report["project_resolution_complete"] is True
+        body: dict[str, object] = {
+            "scope": "owner_prohibitions_on_guidance_selection",
+            "policy_path": str(policy_path),
+            "policy_parent_identity": parent_identity,
+            "policy_file_identity": file.identity,
+            "policy_source_sha256": source_sha256,
+            "policy_source_json": file.payload.decode("utf-8"),
+            "policy": policy.model_dump(mode="json"),
+            "guidance": report,
+            "guidance_file_identities": {
+                "binding": None
+                if captured.binding_file is None
+                else captured.binding_file.identity,
+                "override": None
+                if captured.override_file is None
+                else captured.override_file.identity,
+                "requirements": None
+                if captured.requirement_file is None
+                else captured.requirement_file.identity,
+                "assessment": None if before_file is None else before_file.identity,
+            },
+            "decisions": decisions,
+            "policy_satisfied": policy_satisfied,
+            "guidance_selection_allowed": allowed,
+            "status": "allowed"
+            if allowed
+            else "blocked"
+            if any(decision["status"] == "prohibited" for decision in decisions)
+            else "incomplete",
+            "runtime_authorization_evaluated": False,
+            "execution_authorized": False,
+            "context_materialized": False,
+        }
+        selected.selection()
+        self._storage_identity(handles)
+        if self._capture(root, selected) != captured or self._read_conflicts(
+            root, selected
+        ) != (before_file, assessment):
+            raise ValueError("Guidance changed during owner-policy inspection.")
+        if read_policy(policy_path) != source:
+            raise ValueError("Owner policy changed during inspection.")
+        return {
+            **body,
+            "check_sha256": digest(
+                json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+            ),
+        }

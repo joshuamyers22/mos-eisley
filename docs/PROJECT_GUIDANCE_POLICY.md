@@ -87,5 +87,6 @@ output/hash is evidence, not reusable runtime authorization: rerun after any inp
 change. Files may change after the check returns. A later role-context loader must
 revalidate and pin the selected policy and guidance before using them.
 
-Broader user/admin policy intersection, runtime admission integration and relevant
-frozen role contexts remain subsequent work. This check does not replace those gates.
+[Frozen role packets](PROJECT_GUIDANCE_ROLE_CONTEXT.md) now reuse this check under
+the held guidance lock. Broader user/admin policy intersection and runtime admission
+integration remain subsequent work; this check does not replace those gates.
