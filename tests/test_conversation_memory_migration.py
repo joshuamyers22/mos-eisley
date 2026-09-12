@@ -310,6 +310,8 @@ class MemoryMigrationTests(TestCase):
         newer = self.source.change("project", "append", text="New decision")
         old = MemorySnapshot.model_validate_json(json.dumps(receipt["source"]))
         self.source.path("project").write_bytes(canonical_bytes(old))
+        # Bind the restored record's new identity before injecting the late write.
+        receipt = self.preview()
         fsync = os.fsync
 
         def change_source(fd: int) -> None:

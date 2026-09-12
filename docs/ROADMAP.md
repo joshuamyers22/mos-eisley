@@ -153,9 +153,13 @@ capabilities, not current automatic template or memory loading.
    durable prior-target backup before replacement. `--memory-project-map` now
    explicitly shares an existing directory's memory across unrelated worktrees,
    preserving workspace authority and the selected identity across refresh, resume
-   and JSON/SQLite transfers. Switching directories clears the mapping. Vanished-path
-   relocation, cross-mapping transfers, persistent mappings and natural-language
-   memory changes remain planned.
+   and JSON/SQLite transfers. Switching directories clears the mapping.
+   `memory-project-relocate` now copies an exact former identity to an absent
+   document at any existing destination, including vanished sources and unrelated
+   worktrees, with preview-bound identity checks and interrupted-copy recovery.
+   Source documents and saved session identities remain intact. Cross-mapping
+   collision resolution, persistent mappings and natural-language memory changes
+   remain planned.
    `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
    extra staging link after interrupted publication. Source and target bytes remain
    intact; normal readers keep their single-link rule. Broader orphan cleanup remains
