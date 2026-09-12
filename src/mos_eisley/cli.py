@@ -420,6 +420,13 @@ def parser() -> argparse.ArgumentParser:
             "requirements", help="Review accepted project requirements"
         )
     )
+    from mos_eisley.project_guidance_precedence_cli import add_command as add_assessment
+
+    add_assessment(
+        subcommands.add_parser(
+            "guidance-assess", help="Review requirement and advisory precedence"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7484,6 +7491,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "guidance-overrides",
             "guidance-conflicts",
             "requirements",
+            "guidance-assess",
         }:
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
@@ -7495,11 +7503,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             from mos_eisley.project_guidance_override_cli import (
                 run_command as run_overrides,
             )
+            from mos_eisley.project_guidance_precedence_cli import (
+                run_command as run_assessment,
+            )
             from mos_eisley.project_requirement_cli import (
                 run_command as run_requirements,
             )
 
             return {
+                "guidance-assess": run_assessment,
                 "requirements": run_requirements,
                 "guidance-inspect": run_guidance,
                 "guidance": run_binding,

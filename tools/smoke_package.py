@@ -208,6 +208,7 @@ def main() -> int:
             "test_project_guidance_overrides.py",
             "test_project_guidance_conflicts.py",
             "test_project_requirements.py",
+            "test_project_guidance_precedence.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",
             "test_conversation_migration.py",

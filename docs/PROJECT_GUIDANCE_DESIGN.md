@@ -9,8 +9,9 @@ support reviewed attach/show/update/detach with retained versions.
 [Project overrides](PROJECT_GUIDANCE_OVERRIDES.md) add independent advisory adjustments
 and visible effective rules. [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md)
 records unresolved entries and reviewed preferences. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
-adds reviewed brief/ADR snapshots; combined requirement precedence and conflict
-assessment remain next. Automatic semantic analysis,
+adds reviewed brief/ADR snapshots. [Combined review](PROJECT_GUIDANCE_PRECEDENCE.md)
+now pins requirement/advisory precedence and conflicts. Trusted-policy integration,
+automatic semantic analysis,
 role-context loading and telemetry
 integration remain planned; the production-template
 repository is unchanged.

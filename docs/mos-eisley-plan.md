@@ -2171,7 +2171,7 @@ inspection paths expose unresolved/stale/unassessed status and retained exclusio
 provenance. Empty assessments require explicit review rationale and claim only that
 no conflicts were reported. Guarded publication retains immutable source/basis
 snapshots; historical views cannot claim current resolution completion. Automatic
-semantic detection, accepted-requirement/trusted-policy integration and role
+semantic detection, trusted-policy integration and role
 materialization remain later work. See [project guidance conflict review](PROJECT_GUIDANCE_CONFLICTS.md).
 
 **Requirement acceptance slice implemented:** `mos requirements set|show|clear`
@@ -2181,9 +2181,18 @@ applicability, rationale and checks are retained in private project revisions.
 Guarded apply binds the complete proposal, prior state and owner/directory identity;
 clear preserves history and a revision tombstone. Source labels and advisory templates
 cannot self-accept requirements. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
-documents limits and examples. Combined precedence/conflict integration must next pin
-these accepted revisions and invalidate expanded assessments when they change;
-trusted-policy integration and role-context materialization remain subsequent work.
+documents limits and examples. The combined review below pins these accepted
+revisions; trusted-policy integration and role-context materialization remain subsequent work.
+
+**Combined precedence slice implemented:** `mos guidance-assess set|clear|show|effective`
+reviews accepted requirements and active advisory rules in one independently reviewed
+assessment. Accepted requirements outrank approved overrides and advisory defaults;
+contradictory accepted requirements remain unresolved until the accepted set changes.
+The complete requirement/binding/override basis is pinned, stale choices stop applying,
+and historical reports cannot claim current completion. Existing advisory-only
+assessments do not establish combined completion. [Combined guidance review](PROJECT_GUIDANCE_PRECEDENCE.md)
+documents explicit conflict references, guarded publication and scope. Automatic
+semantic detection, trusted-policy evaluation and role-context loading remain subsequent work.
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging

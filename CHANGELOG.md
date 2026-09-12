@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add combined requirement/advisory conflict review with pinned revisions, visible
+  precedence, unresolved accepted contradictions and stale-assessment rejection.
+
 - Add reviewed project requirement acceptance from explicitly selected briefs/ADRs,
   exact source provenance, guarded whole-set replacement/clear and private history.
 

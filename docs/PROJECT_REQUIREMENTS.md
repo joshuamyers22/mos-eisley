@@ -81,8 +81,8 @@ effective views assess advisory rules only; they do not claim to reconcile accep
 requirements or trusted policy. This command does not load model/role contexts,
 change permissions, execute source prose or retrieve conversation history.
 
-Next, integrate these accepted snapshots into precedence and conflict review before
-materializing role contexts. That integration must pin requirement revisions, expose
-unresolved requirement contradictions, and invalidate combined assessments after
-requirements change. Existing advisory assessments cannot establish completion for
-that expanded scope.
+[Combined precedence and conflict review](PROJECT_GUIDANCE_PRECEDENCE.md) now pins
+these accepted revisions, exposes unresolved requirement contradictions and invalidates
+combined assessments after requirements change. Existing advisory assessments cannot
+establish completion for the expanded scope. Trusted-policy integration and role
+context materialization remain subsequent work.
