@@ -413,6 +413,13 @@ def parser() -> argparse.ArgumentParser:
             "guidance-conflicts", help="Review advisory guidance conflicts"
         )
     )
+    from mos_eisley.project_requirement_cli import add_command as add_requirements
+
+    add_requirements(
+        subcommands.add_parser(
+            "requirements", help="Review accepted project requirements"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7476,6 +7483,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "guidance",
             "guidance-overrides",
             "guidance-conflicts",
+            "requirements",
         }:
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
@@ -7487,8 +7495,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             from mos_eisley.project_guidance_override_cli import (
                 run_command as run_overrides,
             )
+            from mos_eisley.project_requirement_cli import (
+                run_command as run_requirements,
+            )
 
             return {
+                "requirements": run_requirements,
                 "guidance-inspect": run_guidance,
                 "guidance": run_binding,
                 "guidance-overrides": run_overrides,

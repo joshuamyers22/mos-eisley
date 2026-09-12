@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed project requirement acceptance from explicitly selected briefs/ADRs,
+  exact source provenance, guarded whole-set replacement/clear and private history.
+
 - Add explicit advisory conflict assessments with reviewed preferences, unresolved
   and stale status, pinned history, and conflict-aware effective guidance inspection.
 - Add reviewed project advisory overrides, explicit replace/omit reasons, pinned

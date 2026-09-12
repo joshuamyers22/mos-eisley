@@ -8,7 +8,9 @@ now validates an explicit descriptor and Markdown snapshot. [Private bindings](P
 support reviewed attach/show/update/detach with retained versions.
 [Project overrides](PROJECT_GUIDANCE_OVERRIDES.md) add independent advisory adjustments
 and visible effective rules. [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md)
-records unresolved entries and reviewed preferences. Automatic semantic analysis,
+records unresolved entries and reviewed preferences. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
+adds reviewed brief/ADR snapshots; combined requirement precedence and conflict
+assessment remain next. Automatic semantic analysis,
 role-context loading and telemetry
 integration remain planned; the production-template
 repository is unchanged.
