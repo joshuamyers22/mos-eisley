@@ -1534,8 +1534,8 @@ Receipts identify the saved document while session selection and historical requ
 remain unchanged until explicit refresh. Pasted/composed chat and model output
 cannot invoke this path. Existing locks, ownership and document limits apply;
 write failures warn that publication may have occurred. Reviewed selective forgetting
-is implemented below; individual-entry replacement and model-proposal acceptance
-remain planned.
+and individual-entry replacement are implemented below; model-proposal acceptance
+remains planned.
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 **Scoped remember shortcuts:** directly entered `remember this for this project: TEXT`
@@ -1561,6 +1561,21 @@ cannot apply them. Current selection/history remain unchanged until refresh and
 historical copies are not erased. Tests cover stale edits, unsafe current files,
 partial publication, real process death, both storage backends and session review
 loss. See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+
+**Reviewed exact replacement:** `/memory replace user|project {"old":"TEXT","new":"TEXT"}`
+previews replacing one unique exact span with explicitly supplied new text. JSON
+supports escaped newlines and quotes; duplicate keys, invalid types, empty/unchanged
+text and oversized results reject before a review is created. The complete result,
+old/new text, target, before revision and fresh review identifier bind the confirmation
+hash. `/memory apply-replace HASH` uses the shared locked compare-and-swap and
+consume-before-write safeguards; `/memory discard-replace` cancels. Forget and
+replacement share one ephemeral review per terminal session. All other characters
+and the document's enabled state are preserved; session selection changes only on
+explicit refresh. Tests cover overlapping matches, UTF-8 limits, stale/unsafe targets,
+partial publication and process death, literal pasted/composed input, disabled
+selection, combined-context rejection and CLI apply/refresh/resume on both storage
+backends. General interpretation and model-proposed edits remain planned.
+See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
 
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project

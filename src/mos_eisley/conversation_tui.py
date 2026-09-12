@@ -602,6 +602,9 @@ class ConversationTUI:
             "conversation.memory.forget.preview",
             "conversation.memory.forget.saved",
             "conversation.memory.forget.discarded",
+            "conversation.memory.replace.preview",
+            "conversation.memory.replace.saved",
+            "conversation.memory.replace.discarded",
         }:
             if self.history:
                 self.history.close()
