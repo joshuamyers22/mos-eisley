@@ -4,6 +4,8 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed project advisory overrides, explicit replace/omit reasons, pinned
+  history and effective-rule provenance. Binding changes require a fresh review.
 - Add reviewed private project-guidance attach/show/update/detach, immutable pinned
   snapshots, exact owner/directory identity checks and stale-review rejection.
 - Add read-only local project-guidance inspection with versioned advisory descriptors,
