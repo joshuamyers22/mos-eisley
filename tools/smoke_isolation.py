@@ -15,6 +15,7 @@ from pydantic import JsonValue
 
 from mos_eisley.core.models import Brief, Critique, canonical_bytes
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.skills import PromptAsset
 from mos_eisley.evaluation.execution import (
     EvaluationCassette,
@@ -23,6 +24,8 @@ from mos_eisley.evaluation.execution import (
     RecordedExchange,
 )
 from mos_eisley.evaluation.models import RouteCandidate
+from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
+from mos_eisley.providers.openai_responses import request_payload
 from mos_eisley.providers.openai_spend import (
     BudgetedOpenAITransport,
     SpendPolicy,
@@ -267,6 +270,94 @@ time.sleep(1)
         assert cleanup.state == "removed"
 
 
+def check_brokered_model(container: OfflineContainer, root: Path) -> None:
+    """Canonical request through the real worker; synthetic provider only."""
+    root.mkdir(mode=0o700)
+    ledger = SpendLedger.create(root / "ledger.sqlite", 100)
+    now = datetime.now(UTC)
+    policy = SpendPolicy(
+        model="fixture-model",
+        pricing_source="synthetic model-client rates",
+        valid_from=now - timedelta(minutes=1),
+        valid_until=now + timedelta(minutes=5),
+        input_microusd_per_million=1_000_000,
+        output_microusd_per_million=2_000_000,
+        max_cost_microusd=100,
+    )
+
+    class Fixture:
+        calls = 0
+
+        async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
+            return 10
+
+        async def create_response(
+            self, payload: dict[str, JsonValue]
+        ) -> dict[str, JsonValue]:
+            self.calls += 1
+            assert ledger.snapshot().charged_microusd == 30
+            return {
+                "id": "fixture-response",
+                "model": "fixture-model",
+                "service_tier": "default",
+                "status": "completed",
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {"type": "output_text", "text": "brokered model fixture"}
+                        ],
+                    }
+                ],
+            }
+
+    request = ModelRequest(
+        provider="openai",
+        model="fixture-model",
+        effort="low",
+        turns=(Turn(role="user", blocks=(TextBlock(text="Fixture"),)),),
+        max_output=8000,
+        max_output_tokens=10,
+    )
+    fixture = Fixture()
+    broker = RequestBoundBroker(
+        request_payload(request),
+        BudgetedOpenAITransport(fixture, policy, root, ledger),
+        lifetime_seconds=60,
+    )
+
+    async def run() -> None:
+        rejected = BrokeredOpenAIClient(request, broker, container)
+        try:
+            await rejected.complete(request.model_copy(update={"max_output": 9000}))
+        except ProviderError:
+            pass
+        else:
+            raise AssertionError("changed local limit was accepted")
+        assert fixture.calls == 0 and ledger.snapshot().charged_microusd == 0
+        # A fresh trusted-host binding may consume the still-unused broker.
+        client = BrokeredOpenAIClient(request, broker, container)
+        result = await client.complete(request)
+        assert result.turn.blocks == (TextBlock(text="brokered model fixture"),)
+        assert fixture.calls == 1 and ledger.snapshot().charged_microusd == 20
+        try:
+            await client.complete(request)
+        except ProviderError:
+            pass
+        else:
+            raise AssertionError("model client replay accepted")
+        assert fixture.calls == 1
+
+    asyncio.run(run())
+    assert container.lifecycle_path is not None
+    cleanup = CleanupRecord.model_validate_json(
+        (container.lifecycle_path / "result.json").read_bytes()
+    )
+    assert cleanup.state == "removed"
+
+
 def check_launcher_death(docker: str, image: str, root: Path) -> None:
     script = """
 import sys
@@ -416,6 +507,7 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
     check_launcher_death(docker, image, root / "killed-launcher")
     check_broker(container, root / "broker-spending")
     check_broker(container, root / "async-broker-spending", async_mode=True)
+    check_brokered_model(container, root / "model-client-spending")
     after = bounded_process([docker, "ps", "-aq", "--filter", "name=mos-eval-"])
     assert set(after.split()) <= set(before.split()), "isolated containers leaked"
     print("containment, fixtures, broker IPC, limits and crash cleanup passed")

@@ -75,6 +75,11 @@ class RequestBoundBroker:
         self._lock = threading.Lock()
         self._used = False
 
+    @property
+    def request_sha256(self) -> str:
+        """Public payload identity; inspecting it does not expose the bearer grant."""
+        return self._request_sha256
+
     def claim(self) -> BrokerClaim:
         """Trusted host delivers this once over a private channel; never log it."""
         return BrokerClaim(

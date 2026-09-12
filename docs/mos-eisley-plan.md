@@ -5072,6 +5072,15 @@ one-use claims and uncertain reservations are preserved, with real Docker fixtur
 coverage. See [async broker lifecycle](ASYNC_BROKER.md). Live review-specific
 authorization, aggregate spending and credentialed conformance remain G2 work.
 
+**Broker-bound model client implemented:** one frozen canonical model request can
+now consume an existing exact-payload broker through the async worker boundary.
+Full request equality preserves local limits omitted from provider payloads; a
+single attempt is consumed before asynchronous work. Response validation and failed
+cleanup cannot release incurred spending or trigger a retry. The
+[brokered model client](BROKERED_MODEL_CLIENT.md) is tested with synthetic review
+and real Docker fixtures. It issues no review authority: transfer/audit bindings,
+aggregate reservations, dynamic judge admission and credentialed evidence remain next.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

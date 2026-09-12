@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind canonical model calls to existing one-use isolated brokers, including exact
+  provider payloads, local output limits and retained spending on failed responses.
+
 - Add an async isolated broker with awaited worker/guardian cleanup and preserve
   provider spending teardown when callers cancel repeatedly.
 
