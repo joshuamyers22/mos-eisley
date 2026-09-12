@@ -309,9 +309,9 @@ more-itertools==11.1.0 \
     # via
     #   jaraco-classes
     #   jaraco-functools
-openai==2.54.0 \
-    --hash=sha256:89089789197ccdb87f173a03145ed1598d00795220c93e96cf712b1cbf5e5f2b \
-    --hash=sha256:e3e6f8bc1ba30ddf381ace1a14340eed381cb984a1a59bd0f34b5be3b5d49cfa
+openai==3.11.0 \
+    --hash=sha256:1ee0114c218bba9ffdea1927b974b4ddeee5f173000b0930aab53efc7c349989 \
+    --hash=sha256:2fc169442feafd535f4959605b42d47bc922216385a6d2473b0d47956691d9fd
     # via mos-eisley
 opentelemetry-api==1.44.0 \
     --hash=sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a \
