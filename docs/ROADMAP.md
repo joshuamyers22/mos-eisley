@@ -139,6 +139,12 @@ loading and telemetry adapters remain planned.
    critic responses to request/audit hashes, recomputes citations and quorum, and
    binds judge approval to verified deduplicated findings. Guidance admission, final
    verdict verification and credentialed conformance remain required for live review.
+   [Current broker guidance](REVIEW_GUIDANCE_ADMISSION.md) now binds approved
+   critic/judge requests to the same frozen rubric, rechecks current policy at
+   reservation and provider boundaries, and rejects changes before returning an
+   answer while preserving spending. Historical checks retain the pinned guidance
+   without treating it as current permission. Final verdict verification and
+   credentialed conformance remain separate live-integration prerequisites.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

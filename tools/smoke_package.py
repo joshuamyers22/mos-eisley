@@ -221,6 +221,7 @@ def main() -> int:
             "test_review_spending_envelope.py",
             "test_deferred_judge_reservation.py",
             "test_review_response_evidence.py",
+            "test_review_guidance_admission.py",
             "test_held_spend_transfer.py",
             "test_spend_ledger_batch.py",
             "test_openai_spend.py",

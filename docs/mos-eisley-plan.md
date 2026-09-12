@@ -5068,6 +5068,17 @@ unchanged. See [response evidence](REVIEW_RESPONSE_EVIDENCE.md). Guidance admiss
 retained final-verdict verification and authorized credentialed conformance remain
 required before live terminal activation.
 
+**Current broker guidance admission implemented:** explicitly selected prepared
+guidance now binds critic and judge approvals to the same frozen rubric. The broker
+path rechecks the current workspace, assessment and owner policy before reservation,
+issuance, provider operations and model completion, with no guidance locks held
+over network awaits. Detected changes stop new generation or invalidate an answer
+while preserving uncertain or already settled spending. Historical audit checks
+reconstruct pinned guidance without reopening current policy or granting new
+authority. See [broker guidance admission](REVIEW_GUIDANCE_ADMISSION.md). These
+moment-of-use checks do not establish uninterrupted policy validity or atomic
+revocation at remote send; live workflow and credentialed conformance remain gated.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
