@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from mos_eisley.core.models import Contract, Digest, digest
+from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.store import private_write
 
 Amount = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
@@ -204,6 +204,20 @@ class SpendLedger:
     def reserve(
         self, entry: LedgerEntry, *, max_unresolved_entries: int | None = None
     ) -> None:
+        self.reserve_many((entry,), max_unresolved_entries=max_unresolved_entries)
+
+    def reserve_many(
+        self,
+        entries: tuple[LedgerEntry, ...],
+        *,
+        max_unresolved_entries: int | None = None,
+    ) -> None:
+        """Atomically reserve a bounded group; no prefix survives rejection/crash."""
+        if not 1 <= len(entries) <= 64:
+            raise ValueError("spending batch requires between one and 64 entries")
+        entries = tuple(
+            LedgerEntry.model_validate_json(canonical_bytes(entry)) for entry in entries
+        )
         if max_unresolved_entries is not None and (
             type(max_unresolved_entries) is not int or max_unresolved_entries < 1
         ):
@@ -212,21 +226,28 @@ class SpendLedger:
             snapshot = self._snapshot(connection)
             if (
                 max_unresolved_entries is not None
-                and snapshot.unresolved_entries >= max_unresolved_entries
+                and snapshot.unresolved_entries + len(entries) > max_unresolved_entries
             ):
                 raise ValueError("spending admission slots are full")
             if snapshot.blocked:
                 raise ValueError("spending ledger is blocked by a pricing violation")
-            if entry.reserved_microusd > snapshot.available_microusd:
+            if (
+                sum(entry.reserved_microusd for entry in entries)
+                > snapshot.available_microusd
+            ):
                 raise ValueError("aggregate spending limit exceeded")
-            # Duplicate entry IDs are errors, never authorization to send again.
-            connection.execute(
+            # Duplicate IDs, including one later in the group, abort the entire
+            # SQLite transaction. A settled ID never authorizes another send.
+            connection.executemany(
                 "INSERT INTO entries VALUES (?, ?, ?, ?, 'held')",
                 (
-                    entry.entry_id,
-                    entry.reservation_sha256,
-                    entry.reserved_microusd,
-                    entry.reserved_microusd,
+                    (
+                        entry.entry_id,
+                        entry.reservation_sha256,
+                        entry.reserved_microusd,
+                        entry.reserved_microusd,
+                    )
+                    for entry in entries
                 ),
             )
 

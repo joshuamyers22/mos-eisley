@@ -53,7 +53,11 @@ from mos_eisley.run.isolation import (
     run_isolated_recorded,
 )
 from mos_eisley.run.provider_broker import RequestBoundBroker
-from mos_eisley.run.review_broker import PreparedReviewCall, verify_review_broker_audit
+from mos_eisley.run.review_broker import (
+    PreparedReviewCall,
+    PreparedReviewEnvelope,
+    verify_review_broker_audit,
+)
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.watchdog import CleanupLease, CleanupRecord, remove_exact
 
@@ -492,6 +496,114 @@ def check_review_admission(container: OfflineContainer, root: Path) -> None:
     )
 
 
+def check_review_envelope(container: OfflineContainer, root: Path) -> None:
+    """Synthetic critic dispatch consumes its share; judge allowance stays held."""
+    root.mkdir(mode=0o700)
+    ledger = SpendLedger.create(root / "ledger.sqlite", 1000)
+    now = datetime.now(UTC)
+    policy = SpendPolicy(
+        schema_version=2,
+        model="gpt-6-astra",
+        pricing_source="synthetic envelope rates",
+        valid_from=now - timedelta(minutes=1),
+        valid_until=now + timedelta(minutes=5),
+        input_microusd_per_million=1_000_000,
+        cache_write_microusd_per_million=1_250_000,
+        output_microusd_per_million=2_000_000,
+        max_input_tokens=100,
+        max_output_tokens=100,
+        max_cost_microusd=325,
+    )
+
+    class Fixture:
+        counts = 0
+        target: BrokeredOpenAIClient | None = None
+
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            assert self.target is not None
+            return await self.target.complete(request)
+
+        async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
+            self.counts += 1
+            assert ledger.snapshot().charged_microusd == 975
+            return 10
+
+        async def create_response(
+            self, payload: dict[str, JsonValue]
+        ) -> dict[str, JsonValue]:
+            return {
+                "id": "fixture-envelope",
+                "model": policy.model,
+                "service_tier": "default",
+                "status": "completed",
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "input_tokens_details": {"cache_write_tokens": 0},
+                },
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": canonical_bytes(Critique()).decode(),
+                            }
+                        ],
+                    }
+                ],
+            }
+
+    fixture = Fixture()
+    reviewer = ModelReviewer(
+        fixture,
+        openai_registry(),
+        judge_provider="openai",
+        judge_model=policy.model,
+        budget=BudgetPolicy(max_output_tokens=100),
+    )
+    request = CriticRequest(
+        brief=Brief(spec="Return one", diff="return 1"), persona="correctness"
+    )
+    specs = tuple(
+        CriticSpec(
+            id=name, provider="openai", model=policy.model, persona=request.persona
+        )
+        for name in ("one", "two")
+    )
+    calls = tuple(
+        PreparedReviewCall(reviewer, request, policy, ledger, critic=critic)
+        for critic in specs
+    )
+    prepared = PreparedReviewEnvelope(
+        calls, policy, ledger, max_total_microusd=1000, directory=root / "review"
+    )
+    assert ledger.snapshot().entries == 0
+    reserved = prepared.reserve(approved_envelope_sha256=prepared.approval_sha256)
+    assert ledger.snapshot().entries == 3 and ledger.snapshot().charged_microusd == 975
+    fixture.target = reserved.issue_critic(0, transport=fixture, container=container)
+    assert asyncio.run(reviewer.critique(specs[0], request)) == Critique()
+    assert ledger.snapshot().charged_microusd == 670 and fixture.counts == 1
+    judge = ledger.entry_status(prepared.envelope.judge.ledger_entry_id)
+    assert (
+        judge is not None and judge.status == "held" and judge.charged_microusd == 325
+    )
+    try:
+        reserved.issue_critic(0, transport=fixture, container=container)
+    except ValueError:
+        pass  # The exact held-entry check rejects the already-settled critic.
+    else:
+        raise AssertionError("envelope critic issued twice")
+    assert container.lifecycle_path is not None
+    assert (
+        CleanupRecord.model_validate_json(
+            (container.lifecycle_path / "result.json").read_bytes()
+        ).state
+        == "removed"
+    )
+
+
 def check_launcher_death(docker: str, image: str, root: Path) -> None:
     script = """
 import sys
@@ -643,6 +755,7 @@ def check_boundary(docker: str, image: str, root: Path) -> int:
     check_broker(container, root / "async-broker-spending", async_mode=True)
     check_brokered_model(container, root / "model-client-spending")
     check_review_admission(container, root / "review-admission")
+    check_review_envelope(container, root / "review-envelope")
     after = bounded_process([docker, "ps", "-aq", "--filter", "name=mos-eval-"])
     assert set(after.split()) <= set(before.split()), "isolated containers leaked"
     print("containment, fixtures, broker IPC, limits and crash cleanup passed")

@@ -5093,6 +5093,16 @@ reservation, dynamic judge admission with retained finding lineage, guidance gat
 response/evidence retention and authorized credentialed conformance remain G2 work;
 this library does not enable a live terminal mode.
 
+**Combined spending allowance implemented:** one explicit envelope approval now
+atomically reserves all selected critic calls and a full conservative allowance for
+the deferred judge. Failed group admission leaves no new partial reservations.
+Critics issue through fixed private paths and consume their existing holds; pricing
+violations block subsequent pre-reserved provider operations. The judge allowance
+still grants no transfer or request authority. See
+[review spending envelope](REVIEW_SPENDING_ENVELOPE.md). Exact dynamic judge-request
+binding, retained critic/finding evidence, guidance admission and credentialed
+conformance remain required before live review activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

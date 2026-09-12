@@ -410,6 +410,8 @@ class PreReservedOpenAITransport:
         return self.ledger
 
     def _require_held(self) -> None:
+        if self._required_ledger().snapshot().blocked:
+            raise ValueError("spending ledger is blocked by a pricing violation")
         status = self._required_ledger().entry_status(self.ledger_entry.entry_id)
         if (
             status is None
