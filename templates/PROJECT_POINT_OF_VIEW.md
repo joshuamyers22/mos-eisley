@@ -4,6 +4,8 @@ Use this as an editable project document. Mos Eisley's planned template attachme
 feature is not implemented yet. Copy it to a chosen project path, fill applicable
 sections, and explicitly select it as context. Do not overwrite existing guidance.
 Delete irrelevant examples and leave unknown choices explicitly unresolved.
+The [local guidance inspector](../docs/PROJECT_GUIDANCE_INSPECTION.md) can now validate
+an explicit advisory descriptor/Markdown pair; it does not attach this starter.
 
 ## Identity and scope
 
