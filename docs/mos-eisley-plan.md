@@ -5007,6 +5007,14 @@ This is an offline-tested library boundary. G2 still requires brokered live
 dispatch, explicit transfer/spending admission and credentialed conformance;
 the terminal continues to use recorded reviews.
 
+**Async broker lifecycle implemented:** the existing isolated request broker now
+has an awaitable entry point. Setup operations retain ownership through cancellation;
+provider/pipe teardown completes before exact container removal and guardian finish.
+Repeated cancellation cannot interrupt spending cleanup. Shared confinement flags,
+one-use claims and uncertain reservations are preserved, with real Docker fixture
+coverage. See [async broker lifecycle](ASYNC_BROKER.md). Live review-specific
+authorization, aggregate spending and credentialed conformance remain G2 work.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

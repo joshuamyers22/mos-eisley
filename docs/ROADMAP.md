@@ -114,6 +114,10 @@ loading and telemetry adapters remain planned.
    Offline pipeline tests cover quorum, evidence, cancellation and judge IDs;
    brokered live dispatch, authorization and credentialed review evidence remain
    required before enabling a live review command or terminal mode.
+   The [async isolated broker](ASYNC_BROKER.md) now awaits provider cancellation,
+   worker exit and exact container/guardian cleanup without blocking the event loop.
+   Real Docker fixtures cover claim/replay denial, disconnection, cancellation and
+   retained uncertain spending. Review-specific admission and live wiring remain next.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
