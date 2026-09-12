@@ -2089,9 +2089,21 @@ apply the reviewed hash under the private storage lock. Immutable snapshots surv
 updates/detach and can be inspected by digest; empty records retain a revision counter
 for stale-review rejection. Sources and stored identities are revalidated before
 publication. Eight templates per project and 512 KiB per stored file bound this
-slice. Binding neither loads history nor changes session contexts. Independent
-overrides, conflict resolution, accepted requirements and role materialization
+slice. Binding neither loads history nor changes session contexts. Conflict
+resolution, accepted requirements and role materialization
 remain subsequent work. See [private project guidance binding](PROJECT_GUIDANCE_BINDING.md).
+
+**Independent override slice implemented:** `mos guidance-overrides set|clear|show|effective`
+reviews and pins a complete project profile of up to 64 advisory rule replacements
+or omissions with explicit reasons. Qualified rule IDs must exist in attached
+templates. Effective inspection shows defaults, approved adjustments, omitted rules
+and exact provenance; it does not materialize model context. The profile is bound
+to the entire binding revision, so any binding change requires explicit re-review
+before effective use. Previews include previous/proposed rule text and source bytes;
+guarded publication retains immutable versions. Unknown authority fields and unsafe
+or oversized inputs reject. User direction, accepted requirements and trusted policy
+remain separate higher-authority layers; semantic contradictions and role contexts
+remain later work. See [project guidance overrides](PROJECT_GUIDANCE_OVERRIDES.md).
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging

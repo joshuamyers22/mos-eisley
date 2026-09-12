@@ -399,6 +399,13 @@ def parser() -> argparse.ArgumentParser:
             "guidance", help="Review private project guidance bindings"
         )
     )
+    from mos_eisley.project_guidance_override_cli import add_command as add_overrides
+
+    add_overrides(
+        subcommands.add_parser(
+            "guidance-overrides", help="Review project advisory overrides"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7457,15 +7464,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         startup_arguments(list(sys.argv[1:] if argv is None else argv))
     )
     try:
-        if args.command in {"guidance-inspect", "guidance"}:
+        if args.command in {"guidance-inspect", "guidance", "guidance-overrides"}:
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
             )
             from mos_eisley.project_guidance_cli import run_command as run_guidance
+            from mos_eisley.project_guidance_override_cli import (
+                run_command as run_overrides,
+            )
 
-            return {"guidance-inspect": run_guidance, "guidance": run_binding}[
-                args.command
-            ](args)
+            return {
+                "guidance-inspect": run_guidance,
+                "guidance": run_binding,
+                "guidance-overrides": run_overrides,
+            }[args.command](args)
         if args.command in {
             "memory",
             "memory-project-preview",

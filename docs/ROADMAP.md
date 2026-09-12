@@ -63,8 +63,9 @@ See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`.
 [Local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md) now validates an explicit
 advisory descriptor/Markdown pair and reports a complete unbound snapshot.
 [Private project bindings](PROJECT_GUIDANCE_BINDING.md) support reviewed attach,
-show, update and detach with immutable versions. Overrides, role loading and telemetry
-adapters remain planned.
+show, update and detach with immutable versions. [Project overrides](PROJECT_GUIDANCE_OVERRIDES.md)
+support explicit advisory replacement/omission and effective inspection. Conflict
+handling, role loading and telemetry adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.

@@ -205,6 +205,7 @@ def main() -> int:
             "test_conversation_selection_cli.py",
             "test_project_guidance.py",
             "test_project_guidance_binding.py",
+            "test_project_guidance_overrides.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",
             "test_conversation_migration.py",

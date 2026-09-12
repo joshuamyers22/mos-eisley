@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "advisory_project_overrides",
+  "overrides": [
+    {
+      "template_id": "engineering-example",
+      "rule_id": "ENG-001",
+      "action": "replace",
+      "reason": "This project's batch pipeline values explicit operational simplicity.",
+      "replacement": {
+        "id": "ENG-001",
+        "kind": "advisory",
+        "text": "Prefer a simple batch pipeline; justify background services with measured need.",
+        "applies_when": "Designing the project's data processing architecture",
+        "rationale": "Keep deployment and recovery understandable for this project.",
+        "checks": [
+          "Document the measured need for any persistent background service."
+        ]
+      }
+    }
+  ]
+}

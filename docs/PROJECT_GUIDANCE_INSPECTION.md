@@ -4,7 +4,8 @@
 Markdown file for a workspace. This is the first project-guidance slice: inspection
 does not attach guidance, accept requirements, change policy or load it into a
 conversation. [Private binding](PROJECT_GUIDANCE_BINDING.md) is a separate explicit
-command; overrides and frozen role context remain subsequent work.
+command; [reviewed overrides](PROJECT_GUIDANCE_OVERRIDES.md) are also available.
+Frozen role context remains subsequent work.
 
 From a repository checkout, inspect the included example:
 
@@ -83,8 +84,9 @@ promise that files remain unchanged afterward; adoption must revalidate its inpu
 ## Remaining adoption work
 
 Trusted per-owner/project attach, show, update and detach with concrete diffs are
-available through [private binding](PROJECT_GUIDANCE_BINDING.md). Independent overrides,
-conflict handling, accepted brief/ADR requirements, and
+available through [private binding](PROJECT_GUIDANCE_BINDING.md). Independent
+[advisory overrides](PROJECT_GUIDANCE_OVERRIDES.md) are implemented. Conflict handling,
+accepted brief/ADR requirements, and
 role-scoped materialization remain planned under [plan §16.6](mos-eisley-plan.md#166-project-specific-points-of-view-and-best-practice-templates).
 Inspection does not classify arbitrary prose as safe guidance or authenticate its
 claims. History disguised as Markdown cannot reach a fresh session through this
