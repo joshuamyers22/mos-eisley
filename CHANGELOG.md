@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit mapping-history retention with newest-count, age-cutoff and
+  current-registry protections. Review complete bounded inventories, delete at
+  most 32 backups, recheck retained files before each deletion and report partial
+  unlink/flush progress without changing memory or saved-session identities.
+
 - Add reviewed bulk import of project-memory mappings from a private owner-scoped
   manifest. Expose merge conflict previews and explicit keep/replace policies,
   whole-registry replacement, fresh directory pins and durable prior-state backups.

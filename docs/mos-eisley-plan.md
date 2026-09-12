@@ -1719,7 +1719,18 @@ and memory documents retain their identities/content. No startup import, automat
 rebind or history retrieval is added. See
 [reviewed bulk mapping import](CONVERSATION_MEMORY_MAPPING_IMPORT.md).
 
-**Next migration milestone:** explicit mapping-history retention. Mapping files larger than 1 MiB and unsupported artifact basenames remain
+**Mapping-history retention:** explicit `memory-project-mapping retain` reviews
+up to 128 canonical owner-scoped backups/8 MiB within a 1,024-entry scan, with a
+1-MiB per-file limit. Newest-count, explicit filesystem-mtime cutoff and exact
+current-registry protections combine; an absent current registry protects every
+backup, while corrupt current data or any invalid/unsafe backup blocks retention.
+At most 32 oldest eligible backups are selected. Apply rechecks the complete
+inventory minus its own removals before every unlink and reports removed/flushed
+names separately. Real limits, retained-file changes, process death, partial CLI
+errors and both backend resumes are tested. No automatic cleanup or session/memory
+changes are introduced. See [mapping-history retention](CONVERSATION_MEMORY_MAPPING_RETENTION.md).
+
+**Remaining migration limits:** mapping files larger than 1 MiB and unsupported artifact basenames remain
 outside registry recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
 unsupported backup filename syntax and foreign-owner/project or user snapshots
 remain outside the supported backup disposal workflows.

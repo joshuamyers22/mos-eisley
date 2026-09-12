@@ -106,6 +106,7 @@ does not honor the filesystem's durability contract.
 
 [Reviewed bulk import](CONVERSATION_MEMORY_MAPPING_IMPORT.md) now accepts a private
 path manifest with fresh directory selection and explicit conflict policies.
-Explicit history retention remains planned. See
+[Explicit history retention](CONVERSATION_MEMORY_MAPPING_RETENTION.md) now reviews
+bounded backup deletion batches with count/age/current-registry protections. See
 [saved mapping selection](CONVERSATION_MEMORY_MAPPINGS.md) for startup, override and
 resume behavior.

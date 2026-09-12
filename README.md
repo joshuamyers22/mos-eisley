@@ -85,6 +85,8 @@ history`; [reviewed restore and cleanup](docs/CONVERSATION_MEMORY_MAPPING_RECOVE
 recover interrupted mapping writes without changing saved session identities.
 Use [reviewed bulk import](docs/CONVERSATION_MEMORY_MAPPING_IMPORT.md) to add or
 replace several mappings together with explicit conflict previews.
+[Mapping-history retention](docs/CONVERSATION_MEMORY_MAPPING_RETENTION.md) reviews
+old backups with count/age protections and bounded, explicit deletion batches.
 
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and
