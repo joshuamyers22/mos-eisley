@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 
-import httpx
+import httpx2
 from openai import AsyncOpenAI
 from pydantic import JsonValue, TypeAdapter
 
@@ -144,7 +144,7 @@ class ConformanceSpendTests(IsolatedAsyncioTestCase):
         )
         captured: list[dict[str, JsonValue]] = []
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             value = TypeAdapter(dict[str, JsonValue]).validate_python(
                 json.loads(request.content)
             )
@@ -166,10 +166,10 @@ class ConformanceSpendTests(IsolatedAsyncioTestCase):
                     "service_tier": "default",
                 }
             )
-            return httpx.Response(200, json=body, request=request)
+            return httpx2.Response(200, json=body, request=request)
 
         async with BoundedOpenAIHttpClient(
-            transport=httpx.MockTransport(reply)
+            transport=httpx2.MockTransport(reply)
         ) as http_client:
             sdk = AsyncOpenAI(
                 api_key="synthetic-test-key",

@@ -10,7 +10,15 @@ import mos_eisley
 class ArchitectureTests(TestCase):
     def test_inner_layers_do_not_import_adapters_or_io(self) -> None:
         root = Path(mos_eisley.__file__).parent
-        forbidden = {"os", "subprocess", "socket", "sqlite3", "pathlib", "httpx"}
+        forbidden = {
+            "os",
+            "subprocess",
+            "socket",
+            "sqlite3",
+            "pathlib",
+            "httpx",
+            "httpx2",
+        }
         for folder in ("core", "review", "evaluation"):
             for path in (root / folder).glob("*.py"):
                 for node in ast.walk(ast.parse(path.read_text())):

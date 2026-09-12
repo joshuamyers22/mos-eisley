@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 from openai import (
     APIConnectionError,
     APITimeoutError,
@@ -589,12 +589,12 @@ class SpendingTests(IsolatedAsyncioTestCase):
         self.assertNotIn("private error", str(raised.exception))
 
     async def test_sdk_errors_map_to_allowlisted_private_diagnostics(self) -> None:
-        request_ = httpx.Request(
+        request_ = httpx2.Request(
             "POST", "https://api.openai.com/v1/responses/input_tokens"
         )
 
-        def response(status: int) -> httpx.Response:
-            return httpx.Response(status, request=request_)
+        def response(status: int) -> httpx2.Response:
+            return httpx2.Response(status, request=request_)
 
         cases = (
             (
