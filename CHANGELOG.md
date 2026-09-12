@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Connect frozen guided reviews to terminal `/review`, with explicit launch policy,
+  queue/resume checks and retained guidance in snapshot and SQLite artifacts.
+
 - Add guidance-bearing recorded review briefs, exact critic/judge rubric pairing,
   current admission checks and hashed guidance provenance in replayable runs.
 

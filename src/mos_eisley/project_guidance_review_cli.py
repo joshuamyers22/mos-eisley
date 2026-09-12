@@ -22,7 +22,7 @@ from mos_eisley.run.store import save_run
 
 
 def add_command(command: argparse.ArgumentParser) -> None:
-    command.add_argument("action", choices=("prepare", "run"))
+    command.add_argument("action", choices=("prepare", "run", "packet"))
     command.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     command.add_argument("--brief", type=Path)
     command.add_argument("--selection", type=Path)
@@ -94,11 +94,12 @@ def run_command(args: argparse.Namespace) -> int:
                 args.prepared,
                 args.expected_prepared_sha256,
                 args.cassette,
-                args.output,
             )
         )
         or args.brief is not None
         or args.selection is not None
+        or (args.action == "run" and args.output is None)
+        or (args.action == "packet" and args.output is not None)
     ):
         raise ValueError(
             "Run requires prepared input/hash, cassette, output and policy inputs."
@@ -114,6 +115,23 @@ def run_command(args: argparse.Namespace) -> int:
     verify_current_review(
         store, args.workspace, prepared, args.policy, args.expected_policy_sha256
     )
+    if args.action == "packet":
+        from mos_eisley.conversation_review import ConversationReviewPacket
+
+        packet = ConversationReviewPacket(
+            schema_version=2,
+            brief=prepared.brief,
+            cassette=cassette,
+            guidance_review=prepared,
+        )
+        print(
+            json.dumps(
+                packet.model_dump(mode="json"),
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     policy = ReviewPolicy()
     result = asyncio.run(
         review(
@@ -127,6 +145,7 @@ def run_command(args: argparse.Namespace) -> int:
     verify_current_review(
         store, args.workspace, prepared, args.policy, args.expected_policy_sha256
     )
+    assert args.output is not None
     path = save_run(
         args.output, prepared.brief, cassette, policy, result, guidance_review=prepared
     )

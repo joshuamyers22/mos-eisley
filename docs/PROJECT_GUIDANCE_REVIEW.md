@@ -7,7 +7,9 @@ block. The original specification, diff and constraints remain retained separate
 
 This is recorded fixture execution. It sends no provider requests, executes no tools,
 and does not establish live model quality or grant runtime authorization. Live
-terminal/provider integration remains separate work.
+provider integration remains separate work.
+[Terminal guided reviews](CONVERSATION_GUIDANCE_REVIEW.md) now export bounded packets
+for `/review` with fresh policy checks and retained session provenance.
 
 ## Prepare the exact brief
 

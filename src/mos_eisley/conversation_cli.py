@@ -183,6 +183,9 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--review-packet",
+        "--review-guidance-policy",
+        "--expected-review-policy-sha256",
+        "--review-guidance-storage",
         "--tui",
         "--plain",
         "--json",
@@ -831,6 +834,13 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 help="Queued UTF-8 text bytes this launch (4000–512000; default 64000)",
             )
             command.add_argument("--review-packet", type=Path)
+            command.add_argument("--review-guidance-policy", type=Path)
+            command.add_argument("--expected-review-policy-sha256")
+            command.add_argument(
+                "--review-guidance-storage",
+                type=Path,
+                default=Path.home() / ".mos-eisley-guidance",
+            )
             display = command.add_mutually_exclusive_group()
             display.add_argument(
                 "--tui",
@@ -971,6 +981,17 @@ async def terminal(
             controller.submit_review(review_packet)
         except PendingTextBudgetError as error:
             reject_pending(error)
+            return False
+        except ValueError:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": (
+                        "Review guidance changed or is unavailable; "
+                        "select current inputs."
+                    ),
+                }
+            )
             return False
         render()
         return True
@@ -2103,6 +2124,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             or args.pending_text_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
+            or args.review_guidance_policy is not None
+            or args.expected_review_policy_sha256 is not None
             or args.no_memory
             or args.tui
             or args.plain
@@ -2343,6 +2366,20 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if args.review_packet is not None
         else None
     )
+    from mos_eisley.conversation_guidance_review import review_guidance_validator
+
+    validate_review = review_guidance_validator(
+        args.workspace,
+        args.review_guidance_storage,
+        args.review_guidance_policy,
+        args.expected_review_policy_sha256,
+    )
+    if review_packet is not None and review_packet.guidance_review is not None:
+        if validate_review is None:
+            raise ValueError(
+                "Guided review requires an explicit policy/hash for this launch."
+            )
+        validate_review(review_packet)
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None if picked is None else picked.summary
     if args.command == "chat":
@@ -2471,6 +2508,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             ignore_memory=ignore_memory,
         )
         controller.validate_memory = memory_runtime.check
+        controller.validate_review = validate_review
         if selected_refresh:
             replacement = (
                 None

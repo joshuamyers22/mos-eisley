@@ -23,8 +23,8 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.output import Output
 from prompt_toolkit.widgets import TextArea
 
-from mos_eisley.conversation_picker import safe_label
 from mos_eisley.conversation_project import ProjectLocation
+from mos_eisley.terminal_text import safe_label
 
 MAX_PATH_BYTES = 4096
 MAX_DIRECTORY_ENTRIES = 1024

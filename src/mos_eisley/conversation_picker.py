@@ -1,6 +1,5 @@
 """A bounded, metadata-only resume picker with explicit selection."""
 
-import json
 import sys
 import termios
 from collections.abc import Callable
@@ -21,14 +20,9 @@ from mos_eisley.conversation_name import name_key
 from mos_eisley.run.conversation_names import ResumeCatalog
 from mos_eisley.run.conversation_store import ConversationSummary
 from mos_eisley.run.conversation_transfer import TransferLocation
+from mos_eisley.terminal_text import safe_label as safe_label
 
 PAGE_SIZE = 20
-
-
-def safe_label(value: str) -> str:
-    return "".join(
-        char if char.isprintable() else json.dumps(char)[1:-1] for char in value
-    )
 
 
 @dataclass(frozen=True)

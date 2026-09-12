@@ -51,6 +51,8 @@ def fresh_directory_arguments(
         prompt=None,
         cassette=None,
         review_packet=None,
+        review_guidance_policy=None,
+        expected_review_policy_sha256=None,
         session_id=None,
         last=False,
         inspect=False,

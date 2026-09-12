@@ -117,6 +117,7 @@ class ConversationController(Generic[StateT]):
         save: Callable[[StateT], StateT | None],
         *,
         validate_memory: Callable[[], None] | None = None,
+        validate_review: Callable[[ConversationReviewPacket], None] | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -135,6 +136,7 @@ class ConversationController(Generic[StateT]):
         self.cassette = cassette
         self.save = save
         self.validate_memory = validate_memory
+        self.validate_review = validate_review
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
@@ -368,7 +370,22 @@ class ConversationController(Generic[StateT]):
 
     def submit_review(self, packet: ConversationReviewPacket) -> None:
         packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+        self._check_review_guidance(packet)
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
+
+    def _check_review_guidance(self, packet: ConversationReviewPacket) -> None:
+        guidance = packet.guidance_review
+        if guidance is None:
+            return
+        if (
+            self.validate_review is None
+            or guidance.owner_uid != self.state.owner_uid
+            or guidance.workspace.path != self.state.workspace
+        ):
+            raise ValueError(
+                "Guided review requires this project's current policy selection."
+            )
+        self.validate_review(packet)
 
     def cancel_queued(self) -> None:
         self._update(
@@ -409,6 +426,8 @@ class ConversationController(Generic[StateT]):
                 raise ValueError("archived work requires its verified storage handle")
             entry = self.load_entry(index, entry)
         is_review = entry.is_review
+        if entry.review_packet is not None:
+            self._check_review_guidance(entry.review_packet)
         if not is_review and self.state.retained_cassette is not None:
             entry = entry.model_copy(
                 update={
@@ -461,7 +480,17 @@ class ConversationController(Generic[StateT]):
                 on_started()
             try:
                 if entry.review_packet is not None:
-                    review_result = await run_conversation_review(entry.review_packet)
+                    packet = entry.review_packet
+                    review_result = (
+                        await run_conversation_review(
+                            packet,
+                            validate_guidance=lambda: self._check_review_guidance(
+                                packet
+                            ),
+                        )
+                        if packet.guidance_review is not None
+                        else await run_conversation_review(packet)
+                    )
                     completed = ConversationEntry(
                         text=entry.text,
                         status="failed"

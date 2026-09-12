@@ -165,6 +165,7 @@ def main() -> int:
             "test_conversation.py",
             "test_conversation_navigation.py",
             "test_conversation_review.py",
+            "test_conversation_guidance_review.py",
             "test_conversation_composer.py",
             "test_conversation_steering.py",
             "test_conversation_tui.py",
