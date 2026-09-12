@@ -24,8 +24,8 @@ commands and new conversations. By default the canonical workspace is the projec
 boundary: launching in a subdirectory creates a different scope. New chats can
 explicitly select an ancestor with [`--memory-project-root PATH`](CONVERSATION_MEMORY_PROJECT.md).
 The saved identity is reused on resume and refresh. Use `memory-project-preview`
-to compare existing documents first; automated migration and project/worktree mappings
-remain planned. Git discovery and remote URLs never merge stores. `/directory` shows
+to compare existing documents first; reviewed migration and
+[explicit project/worktree mappings](CONVERSATION_MEMORY_MAPPINGS.md) are available. Git discovery and remote URLs never merge stores. `/directory` shows
 the effective memory identity separately from the detected Git-marker root.
 
 The runtime includes memory as labelled user/project context. Project preferences
@@ -62,9 +62,52 @@ an explicit operation applies to the latest document under the store lock.
 `--json` emits one structured receipt, including the selected path and document.
 
 Updates are commands invoked by the user. The model cannot call them as tools.
-Natural-language remember/forget, in-session editing, automatic extraction and
-proposed-memory approval controls remain planned. Ordinary chat text is not
+Natural-language remember/forget, automatic extraction and proposed-memory
+approval controls remain planned. Ordinary chat text is not
 automatically promoted to either memory scope.
+
+## Edit from a terminal session
+
+Both the full-screen terminal and plain/JSON mode accept explicitly scoped commands:
+
+```text
+/memory show user
+/memory append project Run make check before publishing.
+/memory set user Prefer concise explanations.
+/memory disable project
+/memory enable project
+/memory clear project
+/memory refresh
+/continue
+```
+
+`show` reads the saved document, including disabled or empty documents; `/memory`
+still displays the session's active selection. Every management command requires
+`user` or `project`. `append` and `set` require nonempty text; use `clear` to empty a
+scope. These commands apply to the latest document under the existing store lock,
+like CLI edits without `--expected-sha256`. Use the standalone CLI with that option
+when an edit must match a previously inspected revision. Text after the scope is
+literal: shell syntax and quote marks are saved as text. Commands accept one line
+within the terminal's 8,000-character input limit; use the file-based CLI for larger
+or multiline edits. Existing 32-KiB document bounds still apply.
+
+Stop or finish active requests before managing memory. Inspection and attempted
+edits pause queued work, including rejected edits. A successful edit reports the
+scope, path, revision, enabled state and digest. The project target is the session's
+retained memory identity, including an explicitly selected root or saved mapping.
+
+An edit changes the saved document; it does not change this session's selection,
+consumed recording exchanges or historical context. Use `/memory refresh` to load
+the new selection, then `/continue` for queued messages. Refresh may reject a
+combined memory/context/storage limit or require a custom recording replacement;
+the saved edit still exists. A session with memory off stays off until explicitly
+refreshed. Saving does not implicitly enable a disabled document. Storage failures
+may occur after publication, so inspect the saved scope before retrying an append.
+
+Only directly entered commands use this path. Full-screen pasted text and composed
+messages remain literal chat input; model/tool output and ordinary remember/forget
+phrases never invoke storage edits. Plain input treats each command line as an
+explicit command; use `/compose` when supplying literal slash-prefixed chat text.
 
 ## Session consistency and retention
 

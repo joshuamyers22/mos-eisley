@@ -1521,9 +1521,20 @@ The identity is retained across resume, refresh, historical artifact reads and
 JSON/SQLite transfers; legacy sessions retain their original bindings and bytes.
 The startup selector previews the effective identity, and switching directories
 clears it for the fresh session. Git-marker roots are displayed separately and
-never select memory. Explicit mapping, natural-language saves and automatic
-extraction remain planned.
+never select memory. Explicit mappings and terminal scoped edits are implemented
+as described below; natural-language saves and automatic extraction remain planned.
 The requirements below remain the complete target.
+
+**Terminal memory controls:** `/memory show|append|set|clear|enable|disable user|project`
+now manages the session-bound saved scope in full-screen and plain/JSON modes.
+Append/set require explicit single-line text; other actions reject extra text.
+Active requests block management, and attempted edits/inspection pause queued work.
+Receipts identify the saved document while session selection and historical requests
+remain unchanged until explicit refresh. Pasted/composed chat and model output
+cannot invoke this path. Existing locks, ownership and document limits apply;
+write failures warn that publication may have occurred. Natural-language scoped
+save/forget, individual-entry editing and model-proposal acceptance remain planned.
+See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project

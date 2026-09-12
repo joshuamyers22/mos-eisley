@@ -126,7 +126,10 @@ capabilities, not current automatic template or memory loading.
    remember/forget and disable controls with precedence, project isolation and
    retention tests. The first [memory implementation](CONVERSATION_MEMORY.md) now
    provides private owner/project storage, explicit CLI management, startup loading,
-   in-session inspection and changed-memory guards before dispatch/resume. Directory
+   in-session inspection and changed-memory guards before dispatch/resume. Scoped
+   `/memory show|append|set|clear|enable|disable user|project` now manages saved memory
+   between requests, with explicit refresh before the session adopts edits. Literal
+   pasted/composed chat does not invoke edits; natural-language saves remain planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)
