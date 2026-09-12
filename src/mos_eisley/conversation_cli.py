@@ -101,6 +101,7 @@ from mos_eisley.conversation_pending import (
 )
 from mos_eisley.conversation_picker import ResumeSelection, pick_session
 from mos_eisley.conversation_project import ProjectLocation
+from mos_eisley.conversation_remember import remember_command
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -1068,6 +1069,45 @@ async def terminal(
             enabled = True
         return True
 
+    def manage_memory(command: str) -> bool:
+        nonlocal enabled
+        if active is not None:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Stop active work before managing saved memory.",
+                }
+            )
+            return False
+        # Pause before storage access, including a partial failure.
+        enabled = False
+        if memory_command is None:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Memory management is not configured here.",
+                }
+            )
+            return False
+        try:
+            receipt = memory_command(command)
+        except ValueError as exc:
+            emit({"type": "conversation.unavailable", "text": str(exc)})
+            return False
+        emit(receipt)
+        return True
+
+    def remember(text: str) -> bool | None:
+        nonlocal enabled
+        try:
+            command = remember_command(text)
+        except ValueError as exc:
+            if active is None:
+                enabled = False
+            emit({"type": "conversation.unavailable", "text": str(exc)})
+            return False
+        return None if command is None else manage_memory(command)
+
     def render() -> None:
         for index, entry in enumerate(controller.state.entries):
             if seen.get(index) != entry.status:
@@ -1151,6 +1191,13 @@ async def terminal(
                         command = (
                             None if line.literal else submission_command(line.text)
                         )
+                        remembered = None if line.literal else remember(line.text)
+                        if remembered is not None:
+                            # Saving is a local control, never a queued model turn.
+                            if not line.accepted.done():
+                                line.accepted.set_result(remembered)
+                            incoming = asyncio.create_task(queue.get())
+                            continue
                         if command == "steer":
                             accepted = submit_text(
                                 line.text.removeprefix("/steer").lstrip(),
@@ -1276,31 +1323,9 @@ async def terminal(
                         }
                     )
                 elif line.split(maxsplit=1)[:1] == ["/memory"]:
-                    if active is not None:
-                        emit(
-                            {
-                                "type": "conversation.unavailable",
-                                "text": (
-                                    "Stop active work before managing saved memory."
-                                ),
-                            }
-                        )
-                    elif memory_command is None:
-                        emit(
-                            {
-                                "type": "conversation.unavailable",
-                                "text": "Memory management is not configured here.",
-                            }
-                        )
-                    else:
-                        # Pause before storage access, including a partial failure.
-                        enabled = False
-                        try:
-                            receipt = memory_command(line)
-                        except ValueError as exc:
-                            emit({"type": "conversation.unavailable", "text": str(exc)})
-                        else:
-                            emit(receipt)
+                    manage_memory(line)
+                elif remember(line) is not None:
+                    pass
                 elif line == "/context":
                     try:
                         preview = preview_context(controller.state)

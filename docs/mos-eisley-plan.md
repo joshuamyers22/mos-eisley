@@ -1522,7 +1522,8 @@ JSON/SQLite transfers; legacy sessions retain their original bindings and bytes.
 The startup selector previews the effective identity, and switching directories
 clears it for the fresh session. Git-marker roots are displayed separately and
 never select memory. Explicit mappings and terminal scoped edits are implemented
-as described below; natural-language saves and automatic extraction remain planned.
+as described below. Explicit scoped remember phrases are implemented; broader
+natural-language interpretation and automatic extraction remain planned.
 The requirements below remain the complete target.
 
 **Terminal memory controls:** `/memory show|append|set|clear|enable|disable user|project`
@@ -1532,9 +1533,20 @@ Active requests block management, and attempted edits/inspection pause queued wo
 Receipts identify the saved document while session selection and historical requests
 remain unchanged until explicit refresh. Pasted/composed chat and model output
 cannot invoke this path. Existing locks, ownership and document limits apply;
-write failures warn that publication may have occurred. Natural-language scoped
-save/forget, individual-entry editing and model-proposal acceptance remain planned.
+write failures warn that publication may have occurred. Scoped forget, individual-entry
+editing and model-proposal acceptance remain planned.
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
+
+**Scoped remember shortcuts:** directly entered `remember this for this project: TEXT`
+and `remember this everywhere: TEXT` now append the explicitly supplied text to the
+retained project or user scope. Ambiguous scope, missing content and oversized or
+multiline control requests ask for correction without persistence. Pasted/composed
+text, initial prompts, quoted/embedded phrases and model/tool output do not invoke
+the shortcut. No model request is created; the receipt shows actual saved text,
+queued work stays paused and session memory still requires explicit refresh.
+Active work blocks saves and rejected full-screen submissions retain their draft.
+General natural-language interpretation and contextual references remain planned.
+See [remember a preference](CONVERSATION_MEMORY.md#remember-a-preference).
 
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project

@@ -129,7 +129,10 @@ capabilities, not current automatic template or memory loading.
    in-session inspection and changed-memory guards before dispatch/resume. Scoped
    `/memory show|append|set|clear|enable|disable user|project` now manages saved memory
    between requests, with explicit refresh before the session adopts edits. Literal
-   pasted/composed chat does not invoke edits; natural-language saves remain planned. Directory
+   pasted/composed chat does not invoke edits. Explicit `remember this for this project:
+   TEXT` and `remember this everywhere: TEXT` now save directly supplied text;
+   ambiguous scope requests correction, while broader interpretation and forget remain
+   planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)

@@ -62,8 +62,8 @@ an explicit operation applies to the latest document under the store lock.
 `--json` emits one structured receipt, including the selected path and document.
 
 Updates are commands invoked by the user. The model cannot call them as tools.
-Natural-language remember/forget, automatic extraction and proposed-memory
-approval controls remain planned. Ordinary chat text is not
+Explicit scoped remember shortcuts are described below. Free-form remember/forget
+interpretation, automatic extraction and proposed-memory approval remain planned. Ordinary chat text is not
 automatically promoted to either memory scope.
 
 ## Edit from a terminal session
@@ -104,10 +104,42 @@ the saved edit still exists. A session with memory off stays off until explicitl
 refreshed. Saving does not implicitly enable a disabled document. Storage failures
 may occur after publication, so inspect the saved scope before retrying an append.
 
-Only directly entered commands use this path. Full-screen pasted text and composed
+Only directly entered commands and the scoped remember phrases below use this path. Full-screen pasted text and composed
 messages remain literal chat input; model/tool output and ordinary remember/forget
-phrases never invoke storage edits. Plain input treats each command line as an
+phrases outside the documented forms never invoke storage edits. Plain input treats each command line as an
 explicit command; use `/compose` when supplying literal slash-prefixed chat text.
+
+## Remember a preference
+
+Enter either of these single-line requests directly in the terminal:
+
+```text
+remember this for this project: Run make check before publishing.
+remember this everywhere: Prefer concise explanations.
+```
+
+The project phrase appends to the session's retained project-memory scope; the
+other appends to user memory. The prefix is case-insensitive. Everything after
+the first colon is explicit text to save, including any quotes or shell syntax.
+The receipt shows the scope, saved text, path, revision and digest. This is a local
+memory operation: it creates no conversation message, consumes no model attempt
+and leaves queued work paused. The same storage limits, locks, disabled-document
+behavior and refresh requirements apply as for `/memory append`.
+
+`remember this: TEXT` asks for an explicit scope without saving. A recognized
+prefix without a colon or content asks for the complete request; Mos never infers
+what "this" means from previous messages. Correct the request using one of the
+two complete forms. Rejected full-screen submissions stay in the editor. Stop or
+finish active requests before saving; storage failures retain the draft and warn
+that a write might already have been published, so inspect before retrying.
+
+These forms are recognized only as directly entered terminal input. Full-screen
+pastes, `/compose` drafts, initial command-line prompts, model/tool output and
+quoted or embedded phrases remain chat data. In plain/JSON input, each line is a
+user command; use `/compose` for literal text matching a shortcut. No classifier,
+transcript extraction or model tool receives permission to save memory. Broader
+natural-language interpretation, scoped forget and model-proposed memories remain
+planned. Use explicit `/memory clear SCOPE` to clear a current document.
 
 ## Session consistency and retention
 
