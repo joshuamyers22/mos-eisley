@@ -275,14 +275,21 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     relocation = add_parser(
         "memory-project-relocate",
-        help="Review a copy from an old project memory identity",
+        help="Review project-memory copying or collision resolution",
     )
     relocation.add_argument("--from-workspace", required=True)
     relocation.add_argument("--to-workspace", type=Path, required=True)
     relocation.add_argument(
         "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
     )
-    relocation.add_argument("--temporary-name")
+    relocation_mode = relocation.add_mutually_exclusive_group()
+    relocation_mode.add_argument("--temporary-name")
+    relocation_mode.add_argument(
+        "--strategy",
+        choices=("keep-target", "use-source", "append-source", "use-text"),
+        help="Explicitly resolve a collision between existing memory documents",
+    )
+    relocation.add_argument("--text")
     relocation.add_argument("--target-sha256")
     relocation.add_argument("--apply", action="store_true")
     relocation.add_argument("--expected-sha256")
@@ -1536,6 +1543,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             expected_sha256=args.expected_sha256,
             temporary_name=args.temporary_name,
             target_sha256=args.target_sha256,
+            strategy=args.strategy,
+            text=args.text,
         )
         print(
             json.dumps(

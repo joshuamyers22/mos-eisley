@@ -66,11 +66,13 @@ class _MigrationStore(MemoryStore):
     def resolve(
         self,
         target: "_MigrationStore",
-        source_directory: DirectorySelection,
+        source_directory: DirectorySelection | RelocationSource,
         target_directory: DirectorySelection,
         strategy: Resolution,
         text: str | None,
         expected_sha256: str | None,
+        *,
+        operation: str = "resolve-project-memory",
     ) -> dict[str, object]:
         with self._lock_handles(exclusive=expected_sha256 is not None) as handles:
             if handles is None:
@@ -142,7 +144,7 @@ class _MigrationStore(MemoryStore):
             )
             body: dict[str, object] = {
                 "schema_version": 1,
-                "operation": "resolve-project-memory",
+                "operation": operation,
                 **inspected,
                 "strategy": strategy,
                 "proposed": proposed.model_dump(mode="json", exclude={"updated_at"}),
@@ -524,6 +526,15 @@ def recover_memory_project(
     )
 
 
+def _validate_resolution(strategy: Resolution, text: str | None) -> None:
+    if strategy not in ("keep-target", "use-source", "append-source", "use-text"):
+        raise ValueError("Choose an explicit memory resolution strategy.")
+    if (strategy == "use-text") != (text is not None):
+        raise ValueError(
+            "Use --text only with --strategy use-text, including empty text."
+        )
+
+
 def resolve_memory_project(
     storage: Path,
     workspace: Path,
@@ -534,12 +545,7 @@ def resolve_memory_project(
     expected_sha256: str | None = None,
 ) -> dict[str, object]:
     """Review a collision and preserve its old target before an explicit replacement."""
-    if strategy not in ("keep-target", "use-source", "append-source", "use-text"):
-        raise ValueError("Choose an explicit memory resolution strategy.")
-    if (strategy == "use-text") != (text is not None):
-        raise ValueError(
-            "Use --text only with --strategy use-text, including empty text."
-        )
+    _validate_resolution(strategy, text)
     if (
         expected_sha256 is not None
         and re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
@@ -575,8 +581,18 @@ def relocate_memory_project(
     expected_sha256: str | None = None,
     temporary_name: str | None = None,
     target_sha256: str | None = None,
+    strategy: Resolution | None = None,
+    text: str | None = None,
 ) -> dict[str, object]:
-    """Copy an exact old identity to an absent document, or recover that publication."""
+    """Review a historical identity's copy, collision resolution or copy recovery."""
+    if strategy is not None:
+        if temporary_name is not None or target_sha256 is not None:
+            raise ValueError("Choose collision resolution or copy recovery, not both.")
+        _validate_resolution(strategy, text)
+    elif text is not None:
+        raise ValueError(
+            "Use --text only with --strategy use-text, including empty text."
+        )
     if (temporary_name is None) != (target_sha256 is None):
         raise ValueError("Use --temporary-name and --target-sha256 together.")
     for value in (expected_sha256, target_sha256):
@@ -604,6 +620,16 @@ def relocate_memory_project(
             operation="recover-relocated-project-memory-link",
         )
     source = _RelocationStore(storage, source_directory)
+    if strategy is not None:
+        return source.resolve(
+            target,
+            source_directory,
+            target_directory,
+            strategy,
+            text,
+            expected_sha256,
+            operation="resolve-relocated-project-memory",
+        )
     return source.migrate(
         target,
         source_directory,
