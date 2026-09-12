@@ -7451,6 +7451,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "memory-project-cleanup",
             "memory-project-cleanup-batch",
             "memory-staging-discard",
+            "memory-project-mapping",
             "memory-project-recover",
             "memory-project-resolve",
             "chat",

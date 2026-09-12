@@ -44,8 +44,9 @@ memory with the existing memory commands using `-C /projects/main`; changes affe
 all sessions selecting that identity and use the normal explicit refresh guard.
 
 `--memory-project-map` and `--memory-project-root` are mutually exclusive. The root
-option still requires an ancestor. Mapping is explicit per new launch and is saved
-with that session; there is no ambient mapping registry or Git-based inference.
+option still requires an ancestor. These explicit launch flags override
+[saved workspace mappings](CONVERSATION_MEMORY_MAPPINGS.md). The selected mapping
+is saved with the session; Git never selects one.
 The selected directory must exist, paths resolve canonically, and aliases are
 pinned before startup. Bare `mos --memory-project-map PATH` and the two recording
 generators accept the option. Repeat it when creating and using custom recordings.
@@ -53,7 +54,8 @@ generators accept the option. Repeat it when creating and using custom recording
 `--choose-directory` previews the mapped identity while allowing an unrelated
 workspace. Source and selected memory directories are rechecked before startup.
 `--no-memory` retains the selected identity without loading or creating memory
-storage; a later explicit refresh uses it. Resume retains the saved mapping and
+storage; a later explicit refresh uses it. It bypasses automatic registry selection
+too, preserving only an explicit root/map flag’s identity. Resume retains the saved mapping and
 accepts neither root nor mapping overrides. A saved target path retargeted through
 a symlink is rejected. `/directory` and startup JSON show the effective memory
 workspace and expose `memory_project_mapping` for mapped sessions.
@@ -61,13 +63,14 @@ workspace and expose `memory_project_mapping` for mapped sessions.
 Mapping changes memory selection only. It preserves the session's working
 directory, lookup and filesystem/tool authority. It does not copy or merge the
 workspace's existing memory, edit documents, rewrite old sessions or share memory
-between OS users. Directory switching clears the mapping for the fresh session.
+between OS users. Directory switching clears explicit root/map flags and selects
+the new workspace’s saved mapping, unless `--memory-project-local` is active.
 The existing copy/resolution commands retain their ancestor-only scope.
 
 Use the relocation command below to copy documents or explicitly resolve collisions
-across identities, including from vanished directories. A persistent mapping registry
-remains planned. Keep the selected directory accessible for mapped
-sessions; mapping and document relocation do not relocate saved sessions.
+across identities, including from vanished directories. Use
+`mos memory-project-mapping set` to review and persist a workspace mapping. Keep
+the selected directory accessible for mapped sessions; mapping and document relocation do not relocate saved sessions.
 
 ## Copy memory after a project moves
 

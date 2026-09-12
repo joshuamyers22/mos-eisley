@@ -84,6 +84,7 @@ from mos_eisley.conversation_memory_project import (
     preview_memory_project,
     select_memory_project,
 )
+from mos_eisley.conversation_memory_registry import MemoryMappingResolver
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
 from mos_eisley.conversation_memory_staging import (
     MemoryStagingDiscardError,
@@ -186,6 +187,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--memory-storage",
         "--memory-project-root",
         "--memory-project-map",
+        "--memory-project-local",
         "--session-max-bytes",
         "--context-max-bytes",
         "--active-memory-max-bytes",
@@ -281,8 +283,22 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
         help="Explicitly share this directory's memory, including across worktrees",
     )
 
+    identity.add_argument(
+        "--memory-project-local",
+        action="store_true",
+        help="Use this workspace's own memory, ignoring saved mappings for this launch",
+    )
+
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    from mos_eisley.conversation_memory_registry import add_command as add_mapping
+
+    add_mapping(
+        add_parser(
+            "memory-project-mapping",
+            help="Review and save exact workspace memory mappings",
+        )
+    )
     staging_discard = add_parser(
         "memory-staging-discard",
         help="Review exact invalid staging bytes without claiming a project identity",
@@ -1398,6 +1414,14 @@ def run_command(args: argparse.Namespace) -> int:
                 if memory_path is not None
                 else None
             )
+            resolver = MemoryMappingResolver(
+                args.memory_storage,
+                disabled=memory_path is not None
+                or getattr(args, "memory_project_local", False)
+                or args.no_memory
+                or args.command != "chat",
+            )
+            args.saved_mapping_resolver = resolver
             selected = pick_directory(
                 args.workspace,
                 memory_project_root=None
@@ -1406,6 +1430,11 @@ def run_command(args: argparse.Namespace) -> int:
                 memory_project_mapping=None
                 if memory_directory is None or mapping is None
                 else memory_directory.path,
+                **(
+                    {"memory_resolver": resolver.resolve}
+                    if not resolver.disabled
+                    else {}
+                ),
             )
             if selected is None:
                 return 0
@@ -1585,6 +1614,10 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-mapping":
+        from mos_eisley.conversation_memory_registry import run_command as run_mapping
+
+        return run_mapping(args)
     if args.command == "memory-staging-discard":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")
@@ -2002,11 +2035,31 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         return 2
     memory = None
     memory_project = None
+    saved_resolver: MemoryMappingResolver | None = None
     mapping = getattr(args, "memory_project_mapping", None)
     root = getattr(args, "memory_project_root", None)
     if mapping is not None and root is not None:
         raise ValueError("Choose one project memory identity.")
     memory_path = mapping if mapping is not None else root
+    if memory_path is None and args.command in {
+        "chat",
+        "conversation-demo",
+        "conversation-review-demo",
+    }:
+        if not isinstance(directory, DirectorySelection):
+            directory = DirectorySelection.inspect(args.workspace)
+        directory.verify()
+        args.workspace = directory.path
+        resolver = getattr(args, "saved_mapping_resolver", None)
+        if not isinstance(resolver, MemoryMappingResolver):
+            resolver = MemoryMappingResolver(
+                args.memory_storage,
+                disabled=getattr(args, "memory_project_local", False) or args.no_memory,
+            )
+        saved_resolver = resolver
+        memory_project = resolver.resolve(args.workspace)
+        if memory_project is not None:
+            mapping = memory_project.path
     if memory_path is not None:
         memory_project = select_memory_project(
             args.workspace, memory_path, mapped=mapping is not None
@@ -2023,6 +2076,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         ).load()
     if memory_project is not None:
         memory_project.verify()
+    if saved_resolver is not None:
+        saved_resolver.resolve(args.workspace)
     if args.command == "conversation-review-demo":
         brief, cassette = demo_inputs()
         packet = ConversationReviewPacket(brief=brief, cassette=cassette)
@@ -2225,6 +2280,12 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if isinstance(store, SQLiteConversationStore):
             store.input_limits = input_limits
         if fresh is not None:
+            if saved_resolver is not None:
+                saved_resolver.resolve(args.workspace)
+            if memory_project is not None:
+                memory_project.verify()
+            if isinstance(directory, DirectorySelection):
+                directory.verify()
             store.save(fresh)
         state = (
             store.load_working()
@@ -2407,12 +2468,18 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             original_modes = termios.tcgetattr(fd)
             try:
                 with closing(create_input()) as terminal_input:
+                    switch_mappings = MemoryMappingResolver(
+                        args.memory_storage,
+                        disabled=getattr(args, "memory_project_local", False)
+                        or args.no_memory,
+                    )
                     ui = ConversationTUI(
                         controller,
                         review_packet,
                         initial_prompt=initial_prompt,
                         welcome=welcome,
                         allow_directory_switch=True,
+                        memory_resolver=switch_mappings.resolve,
                         project_location=project_location,
                         input=terminal_input,
                         refresh_memory=memory_runtime.refresh,
@@ -2425,6 +2492,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     )
                     asyncio.run(ui.run())
                     if isinstance(ui.directory_target, DirectorySelection):
+                        args.saved_mapping_resolver = switch_mappings
                         handoff = DirectoryHandoff(ui.directory_target)
             finally:
                 termios.tcsetattr(fd, termios.TCSANOW, original_modes)

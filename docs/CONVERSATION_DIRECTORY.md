@@ -141,4 +141,6 @@ or load repository configuration. The recorded terminal's existing execution
 limits apply. Workspace persistence still uses the canonical path; the startup
 identity check does not add a durable inode binding or filesystem sandbox.
 Git-marker root visibility and explicit memory-root selection are available;
-automated memory migration and project identity mapping remain planned.
+automated memory migration remains planned. Explicit and
+[saved project-memory mappings](CONVERSATION_MEMORY_MAPPINGS.md) are available;
+directory switching selects the destination mapping for its fresh session.

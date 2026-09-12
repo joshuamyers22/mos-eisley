@@ -69,6 +69,10 @@ pruning under an explicit age cutoff, and reports partial progress on failure.
 the exact bytes of one invalid staging file with unverified project attribution.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
+Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE
+--target PROJECT` and its reviewed apply hash. New sessions then use that mapping;
+`--memory-project-local` bypasses it. See [saved mappings](docs/CONVERSATION_MEMORY_MAPPINGS.md).
+
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and
 `mos --no-memory` bypasses it. Use `/memory refresh` to apply changes to the
