@@ -106,7 +106,9 @@ to review and restore a complete valid file, or explicitly discard an exact file
 Recovery preserves the selected source, backs up the current bytes (even corrupt
 bytes), checks every selected directory pin, and publishes a new revision.
 Existing sessions keep their saved identity. No automatic recovery, cleanup,
-retention, history retrieval into chat, or bulk import is enabled.
+retention or history retrieval into chat is enabled.
+[Reviewed bulk import](CONVERSATION_MEMORY_MAPPING_IMPORT.md) accepts a private
+path manifest with explicit merge/conflict or full-replacement policies.
 
 A corrupt registry blocks automatic mapping selection; an explicit map/root or
 `--memory-project-local` lets a new launch proceed without consulting it. Ordinary

@@ -104,6 +104,8 @@ flushes. These are integrity checks for one user's storage, not authentication
 against other software already running as that user or a claim about storage that
 does not honor the filesystem's durability contract.
 
-Bulk import and explicit history retention remain planned. See
+[Reviewed bulk import](CONVERSATION_MEMORY_MAPPING_IMPORT.md) now accepts a private
+path manifest with fresh directory selection and explicit conflict policies.
+Explicit history retention remains planned. See
 [saved mapping selection](CONVERSATION_MEMORY_MAPPINGS.md) for startup, override and
 resume behavior.

@@ -370,11 +370,15 @@ class MemoryMappingResolver:
 
 def add_command(command: argparse.ArgumentParser) -> None:
     command.add_argument(
-        "action", choices=("show", "set", "remove", "history", "restore", "discard")
+        "action",
+        choices=("show", "set", "remove", "history", "restore", "discard", "import"),
     )
     command.add_argument("-C", "--workspace", type=Path)
     command.add_argument("--target", type=Path)
     command.add_argument("--file-name")
+    command.add_argument("--input", type=Path)
+    command.add_argument("--mode", choices=("merge", "replace"))
+    command.add_argument("--on-conflict", choices=("error", "keep", "replace"))
     command.add_argument(
         "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
     )
@@ -384,6 +388,14 @@ def add_command(command: argparse.ArgumentParser) -> None:
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.action == "import":
+        from mos_eisley.conversation_memory_registry_import import (
+            run_command as import_mapping,
+        )
+
+        return import_mapping(args)
+    if args.input is not None or args.mode is not None or args.on_conflict is not None:
+        raise ValueError("--input, --mode and --on-conflict are only valid for import.")
     if args.action in {"history", "restore", "discard"}:
         from mos_eisley.conversation_memory_registry_history import (
             run_command as recover,

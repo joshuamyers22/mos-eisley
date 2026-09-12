@@ -1706,8 +1706,20 @@ Real process-death, partial backup, file replacement, size limits and both sessi
 backend resume tests cover these boundaries. No automatic recovery or cleanup runs.
 See [mapping history and recovery](CONVERSATION_MEMORY_MAPPING_RECOVERY.md).
 
-**Next migration milestones:** reviewed registry bulk import and explicit history
-retention. Mapping files larger than 1 MiB and unsupported artifact basenames remain
+**Reviewed mapping import:** a private same-owner versioned path manifest now
+imports up to 128 mappings/1 MiB. Merge previews identify additions, unchanged
+entries and conflicts; apply blocks conflicts unless keep/replace is explicitly
+selected. Whole-registry replacement lists removals and permits a reviewed empty
+registry. Duplicate JSON keys, unsupported fields/types, foreign owners, unsafe
+files, duplicate canonical workspaces and stale file/parent/directory identities
+are rejected. Preview hashes bind complete input/current bytes, resolved mappings,
+policies and destination identities. Publication retains the exact prior registry
+and reports backup/publication/flush progress. Existing snapshot/SQLite resumes
+and memory documents retain their identities/content. No startup import, automatic
+rebind or history retrieval is added. See
+[reviewed bulk mapping import](CONVERSATION_MEMORY_MAPPING_IMPORT.md).
+
+**Next migration milestone:** explicit mapping-history retention. Mapping files larger than 1 MiB and unsupported artifact basenames remain
 outside registry recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
 unsupported backup filename syntax and foreign-owner/project or user snapshots
 remain outside the supported backup disposal workflows.

@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed bulk import of project-memory mappings from a private owner-scoped
+  manifest. Expose merge conflict previews and explicit keep/replace policies,
+  whole-registry replacement, fresh directory pins and durable prior-state backups.
+  Preserve memory documents and existing session identities on both backends.
+
 - Retain the previous project-memory mapping registry before each replacement.
   Add bounded history inspection, reviewed backup/staging restore and exact-file
   cleanup. Preserve corrupt current bytes before recovery, recheck directory pins,
