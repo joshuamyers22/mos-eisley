@@ -115,8 +115,12 @@ complete removal preview. `/memory apply-forget HASH` confirms it;
 See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
 `/memory replace SCOPE {"old":"TEXT","new":"TEXT"}` previews an exact replacement;
 `/memory apply-replace HASH` confirms it and `/memory discard-replace` cancels it.
-Forget and replacement share one pending review per session. The complete result
+Forget, replacement and assistant proposals share one pending review per session. The complete result
 is scrollable with terminal control characters escaped. See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
+`/memory review-proposal SCOPE INDEX` reviews a structured assistant reply at the
+displayed zero-based message index. `/memory apply-proposal HASH` accepts it;
+`/memory discard-proposal` cancels. Receiving a suggestion does not save it.
+See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 `/memory refresh` applies current saved memory between requests; `/memory off`

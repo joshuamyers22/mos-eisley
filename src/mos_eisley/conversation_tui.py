@@ -605,6 +605,9 @@ class ConversationTUI:
             "conversation.memory.replace.preview",
             "conversation.memory.replace.saved",
             "conversation.memory.replace.discarded",
+            "conversation.memory.proposal.preview",
+            "conversation.memory.proposal.saved",
+            "conversation.memory.proposal.discarded",
         }:
             if self.history:
                 self.history.close()

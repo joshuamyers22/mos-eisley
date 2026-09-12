@@ -13,6 +13,7 @@ from mos_eisley.conversation_memory_commands import (
     run_memory_command,
 )
 from mos_eisley.conversation_memory_forget import MemoryForget
+from mos_eisley.conversation_memory_proposals import MemoryProposals
 from mos_eisley.conversation_memory_replace import MemoryReplace
 from mos_eisley.providers.agent_recorded import AgentCassette
 
@@ -30,6 +31,7 @@ class ConversationMemoryRuntime:
         self.store = store
         self.forget = MemoryForget(store)
         self.replace = MemoryReplace(store)
+        self.proposals = MemoryProposals(store, controller)
         self.factory = factory
         self.ignore_memory = ignore_memory
         self.builtin = controller.state.builtin_recording or (
@@ -40,8 +42,15 @@ class ConversationMemoryRuntime:
         action = line.split(maxsplit=2)[:2]
         if action == ["/memory", "replace"]:
             self.forget.pending = None
+            self.proposals.pending = None
         elif action == ["/memory", "forget"]:
             self.replace.pending = None
+            self.proposals.pending = None
+        elif action == ["/memory", "review-proposal"]:
+            self.forget.pending = self.replace.pending = None
+        receipt = self.proposals.command(line)
+        if receipt is not None:
+            return receipt
         receipt = self.replace.command(line)
         if receipt is not None:
             return receipt
@@ -50,6 +59,7 @@ class ConversationMemoryRuntime:
             return receipt
         if parse_memory_command(line).action != "show":
             self.forget.pending = self.replace.pending = None
+            self.proposals.pending = None
         return run_memory_command(self.store, line)
 
     def check(self) -> None:

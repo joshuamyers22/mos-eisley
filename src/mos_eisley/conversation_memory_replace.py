@@ -14,7 +14,7 @@ from mos_eisley.conversation_memory import (
 from mos_eisley.conversation_memory_forget import ForgetPreview, MemoryForget
 
 
-def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
         if key in result:
@@ -25,7 +25,7 @@ def _object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def replacement_text(payload: str) -> tuple[str, str]:
     try:
-        data: object = json.loads(payload, object_pairs_hook=_object)
+        data: object = json.loads(payload, object_pairs_hook=unique_object)
         if not isinstance(data, dict):
             raise ValueError("Expected an object.")
         values = cast(dict[str, object], data)

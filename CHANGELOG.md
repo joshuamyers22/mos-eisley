@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit review and acceptance of structured assistant memory proposals.
+  Bind the selected reply and user-chosen scope to a complete preview and guarded
+  confirmation; suggestions stay inert until accepted and reviews never resume.
 - Add reviewed exact replacement in user/project memory using explicit old/new JSON,
   complete previews and hash confirmation. Share stale-edit and interrupted-write
   protections with selective forgetting; retain one pending review per session.

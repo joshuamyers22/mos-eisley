@@ -1534,8 +1534,8 @@ Receipts identify the saved document while session selection and historical requ
 remain unchanged until explicit refresh. Pasted/composed chat and model output
 cannot invoke this path. Existing locks, ownership and document limits apply;
 write failures warn that publication may have occurred. Reviewed selective forgetting
-and individual-entry replacement are implemented below; model-proposal acceptance
-remains planned.
+and individual-entry replacement are implemented below, along with reviewed
+acceptance of selected structured assistant proposals.
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 **Scoped remember shortcuts:** directly entered `remember this for this project: TEXT`
@@ -1574,8 +1574,25 @@ and the document's enabled state are preserved; session selection changes only o
 explicit refresh. Tests cover overlapping matches, UTF-8 limits, stale/unsafe targets,
 partial publication and process death, literal pasted/composed input, disabled
 selection, combined-context rejection and CLI apply/refresh/resume on both storage
-backends. General interpretation and model-proposed edits remain planned.
+backends. General interpretation remains planned; structured assistant proposal
+review is implemented below.
 See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
+
+**Assistant proposal acceptance:** `/memory review-proposal user|project INDEX`
+selects a completed assistant chat reply containing exactly one strict JSON proposal
+(append/text, replace/old/new or forget/old). Indices match displayed zero-based
+message labels; the user chooses the scope. Receiving model output does not create
+memory storage, and user prompts, files, review/judge output and free-form prose
+cannot enter this path. Full source, before state and complete result bind the
+fresh review hash. `/memory apply-proposal HASH` rechecks the source and uses a
+locked compare-and-swap, including expected absence; `/memory discard-proposal`
+cancels. All three memory review kinds share one ephemeral slot. Explicit apply
+preserves other text and enabled state; refresh alone adopts the saved change.
+Tests cover malformed/untrusted proposals, source and target changes, concurrent
+creation, partial publication and process death, idle/literal-input boundaries,
+and actual recorded-reply acceptance/resume on snapshot and SQLite backends.
+No live provider dispatch, automatic extraction or transcript interpretation is
+introduced. See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
 
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project

@@ -135,7 +135,9 @@ capabilities, not current automatic template or memory loading.
    now removes a unique exact span after preview/hash confirmation, with stale-edit
    guards and ephemeral session reviews. [Reviewed replacement](CONVERSATION_MEMORY_REPLACE.md)
    now edits one unique span using explicit old/new JSON and the same guarded apply.
-   Broader interpretation and model-proposal acceptance remain planned. Directory
+   [Assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md) now accepts selected
+   structured replies with explicit scope, complete preview and source-bound confirmation.
+   Broader interpretation and automatic extraction remain planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)
