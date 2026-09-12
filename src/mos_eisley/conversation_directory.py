@@ -184,11 +184,15 @@ class DirectoryPicker:
         output: Output | None = None,
         base: Path | None = None,
         memory_project_root: Path | None = None,
+        memory_project_mapping: Path | None = None,
     ) -> None:
         self.base = Path.cwd() if base is None else base
         self.selection: DirectorySelection | None = None
         self.project_location: ProjectLocation | None = None
         self.memory_project_root = memory_project_root
+        self.memory_project_mapping = memory_project_mapping
+        if memory_project_root is not None and memory_project_mapping is not None:
+            raise DirectorySelectionError("Choose one project memory identity.")
         self.memory_selection: DirectorySelection | None = None
         self.notice = "Enter previews the resolved path. Ctrl-S uses that directory."
         self.preview_area = TextArea(
@@ -331,11 +335,14 @@ class DirectoryPicker:
                 candidate = self.base / candidate
             self.selection = DirectorySelection.inspect(candidate)
             self.project_location = ProjectLocation.inspect(self.selection.path)
-            if self.memory_project_root is not None:
+            memory_path = self.memory_project_mapping or self.memory_project_root
+            if memory_path is not None:
                 from mos_eisley.conversation_memory_project import select_memory_project
 
                 self.memory_selection = select_memory_project(
-                    self.selection.path, self.memory_project_root
+                    self.selection.path,
+                    memory_path,
+                    mapped=self.memory_project_mapping is not None,
                 )
         except (OSError, ValueError, RuntimeError):
             self.selection = None
@@ -360,7 +367,11 @@ class DirectoryPicker:
             + safe_label(str(self.selection.path))
             + "\n\nProject root (Git marker):\n"
             + safe_label(self.project_location.root_label())
-            + "\n\nProject memory identity:\n"
+            + (
+                "\n\nMapped project memory identity:\n"
+                if self.memory_project_mapping is not None
+                else "\n\nProject memory identity:\n"
+            )
             + safe_label(
                 str(
                     self.selection.path
@@ -372,13 +383,18 @@ class DirectoryPicker:
 
 
 def pick_directory(
-    initial: Path, *, memory_project_root: Path | None = None
+    initial: Path,
+    *,
+    memory_project_root: Path | None = None,
+    memory_project_mapping: Path | None = None,
 ) -> DirectorySelection | None:
     fd = sys.stdin.fileno()
     modes = termios.tcgetattr(fd)
     try:
         return DirectoryPicker(
-            initial, memory_project_root=memory_project_root
+            initial,
+            memory_project_root=memory_project_root,
+            memory_project_mapping=memory_project_mapping,
         ).app.run()
     finally:
         termios.tcsetattr(fd, termios.TCSANOW, modes)

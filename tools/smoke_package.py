@@ -176,6 +176,7 @@ def main() -> int:
             "test_conversation_switch.py",
             "test_conversation_project.py",
             "test_conversation_memory_project.py",
+            "test_conversation_memory_mapping.py",
             "test_conversation_memory_migration.py",
             "test_conversation_memory_recovery.py",
             "test_conversation_memory_resolution.py",

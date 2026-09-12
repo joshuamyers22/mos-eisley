@@ -150,8 +150,12 @@ capabilities, not current automatic template or memory loading.
    atomic no-overwrite publication while preserving source documents. Collision
    resolution is now available through `memory-project-resolve`: explicit literal
    strategies or reviewed text, fresh preview hashes, preserved enabled state and a
-   durable prior-target backup before replacement. Identity mapping and
-   natural-language memory changes remain planned.
+   durable prior-target backup before replacement. `--memory-project-map` now
+   explicitly shares an existing directory's memory across unrelated worktrees,
+   preserving workspace authority and the selected identity across refresh, resume
+   and JSON/SQLite transfers. Switching directories clears the mapping. Vanished-path
+   relocation, cross-mapping transfers, persistent mappings and natural-language
+   memory changes remain planned.
    `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
    extra staging link after interrupted publication. Source and target bytes remain
    intact; normal readers keep their single-link rule. Broader orphan cleanup remains

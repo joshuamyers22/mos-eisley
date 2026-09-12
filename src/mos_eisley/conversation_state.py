@@ -238,6 +238,9 @@ class ConversationState(Contract, Generic[EntryT]):
     memory_project_root: Annotated[str | None, Field(max_length=4096)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    memory_project_mapping: Annotated[str | None, Field(max_length=4096)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     cassette_sha256: Digest
     revision: Annotated[int, Field(ge=0)] = 0
     exchanges_consumed: Annotated[int, Field(ge=0, le=16)] = 0
@@ -259,7 +262,9 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @property
     def effective_memory_workspace(self) -> str:
-        return memory_workspace(self.workspace, self.memory_project_root)
+        return memory_workspace(
+            self.workspace, self.memory_project_root, self.memory_project_mapping
+        )
 
     @property
     def context_byte_limit(self) -> int:

@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit project-memory mappings across unrelated worktrees. Preserve the
+  selected identity through resume, refresh, SQLite history and storage transfers;
+  keep workspace authority unchanged and clear mappings on directory switches.
+
 - Add reviewed project-memory collision resolution with explicit keep, replace,
   append or supplied-text strategies. Preserve root enabled state and source/user
   files; save a durable private prior-root snapshot before guarded replacement.

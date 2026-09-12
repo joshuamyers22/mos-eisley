@@ -102,6 +102,9 @@ class SessionIndex(Contract):
     memory_project_root: Annotated[str | None, Field(max_length=4096)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    memory_project_mapping: Annotated[str | None, Field(max_length=4096)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     summary: ConversationSummary
     entry_sha256: Annotated[tuple[Digest, ...] | None, Field(max_length=16)] = Field(
         default=None, exclude_if=lambda value: value is None
@@ -112,10 +115,16 @@ class SessionIndex(Contract):
 
     @model_validator(mode="after")
     def valid_memory_project(self) -> Self:
+        _ = self.effective_memory_workspace
+        return self
+
+    @property
+    def effective_memory_workspace(self) -> str:
         from mos_eisley.conversation_memory_project import memory_workspace
 
-        memory_workspace(self.workspace, self.memory_project_root)
-        return self
+        return memory_workspace(
+            self.workspace, self.memory_project_root, self.memory_project_mapping
+        )
 
 
 @dataclass(frozen=True)
@@ -220,6 +229,7 @@ def _index(
         owner_uid=state.owner_uid,
         workspace=state.workspace,
         memory_project_root=state.memory_project_root,
+        memory_project_mapping=state.memory_project_mapping,
         summary=ConversationSummary(
             session_id=state.session_id,
             session_name=state.session_name,
@@ -991,7 +1001,7 @@ class SQLiteConversationStore(ConversationStore):
                 sizes,
                 digests[position],
                 retain_result=position == latest,
-                memory_workspace=index.memory_project_root or index.workspace,
+                memory_workspace=index.effective_memory_workspace,
             )
             if verified is None:
                 return None
@@ -1016,6 +1026,7 @@ class SQLiteConversationStore(ConversationStore):
             or state.owner_uid != os.getuid()
             or state.workspace != self.workspace
             or state.memory_project_root != index.memory_project_root
+            or state.memory_project_mapping != index.memory_project_mapping
         ):
             raise ValueError("cold-resume state identity mismatch")
         artifacts: dict[str, bytes] = {}
@@ -1336,6 +1347,7 @@ class SQLiteConversationStore(ConversationStore):
                 owner_uid=state.owner_uid,
                 workspace=state.workspace,
                 memory_project_root=state.memory_project_root,
+                memory_project_mapping=state.memory_project_mapping,
                 summary=summary,
                 entry_sha256=digests,
                 resume_checkpoint=resume_checkpoint(state, header_bytes, payloads),

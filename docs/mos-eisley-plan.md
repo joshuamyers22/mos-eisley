@@ -1560,11 +1560,20 @@ identities are rechecked under the exclusive lock immediately before publication
 Literal append does not deduplicate or infer a conflict resolution. Fault tests cover
 backup/replacement interruption, stale inputs and existing changed-memory guards.
 
-**Next migration milestone:** explicit project moves/worktree mappings, with guarded
-unpublished-staging/backup recovery and retention still required. Resolution backups
+**Explicit worktree mapping batch:** new sessions accept `--memory-project-map PATH`
+to select another existing directory's owner-scoped memory without an ancestor
+relationship. The choice is mutually exclusive with ancestor-root selection, is
+canonicalized and saved as `memory_project_mapping`, and survives refresh, resume,
+cold SQLite reads, historical artifacts and JSON/SQLite transfers. The directory
+picker previews it; `--no-memory` retains it without memory reads. Directory switching
+clears it. Default Git discovery never selects it, and source workspace/tool authority
+remain unchanged. Resume accepts no identity override.
+
+**Next migration milestone:** explicit relocation from vanished directories and
+cross-mapping document transfers, plus guarded unpublished-staging/backup recovery
+and retention. A persistent mapping registry remains planned. Resolution backups
 are retained; no automatic deletion, startup recovery or session identity rewriting
-is enabled. Common Git metadata or remote URLs never merge memory. Existing session
-identities cannot be overridden on resume.
+is enabled. Common Git metadata or remote URLs never merge memory.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
