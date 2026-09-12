@@ -61,8 +61,10 @@ templates with explicit binding, versioned snapshots, independent overrides, and
 visible precedence. Preferences and telemetry infrastructure remain project choices.
 See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`.
 [Local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md) now validates an explicit
-advisory descriptor/Markdown pair and reports a complete unbound snapshot. Trusted
-project binding, overrides, role loading and telemetry adapters remain planned.
+advisory descriptor/Markdown pair and reports a complete unbound snapshot.
+[Private project bindings](PROJECT_GUIDANCE_BINDING.md) support reviewed attach,
+show, update and detach with immutable versions. Overrides, role loading and telemetry
+adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.

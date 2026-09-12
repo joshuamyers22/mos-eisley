@@ -1,11 +1,11 @@
 # Project Point of View and Engineering Practices
 
-Use this as an editable project document. Mos Eisley's planned template attachment
-feature is not implemented yet. Copy it to a chosen project path, fill applicable
+Use this as an editable project document. Copy it to a chosen project path, fill applicable
 sections, and explicitly select it as context. Do not overwrite existing guidance.
 Delete irrelevant examples and leave unknown choices explicitly unresolved.
 The [local guidance inspector](../docs/PROJECT_GUIDANCE_INSPECTION.md) can now validate
-an explicit advisory descriptor/Markdown pair; it does not attach this starter.
+an explicit advisory descriptor/Markdown pair. [Private binding](../docs/PROJECT_GUIDANCE_BINDING.md)
+can attach a reviewed pair; this starter needs its own matching descriptor first.
 
 ## Identity and scope
 

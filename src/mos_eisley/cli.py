@@ -392,6 +392,13 @@ def parser() -> argparse.ArgumentParser:
             "guidance-inspect", help="Inspect a pinned local advisory guidance template"
         )
     )
+    from mos_eisley.project_guidance_binding_cli import add_command as add_binding
+
+    add_binding(
+        subcommands.add_parser(
+            "guidance", help="Review private project guidance bindings"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -7450,10 +7457,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         startup_arguments(list(sys.argv[1:] if argv is None else argv))
     )
     try:
-        if args.command == "guidance-inspect":
+        if args.command in {"guidance-inspect", "guidance"}:
+            from mos_eisley.project_guidance_binding_cli import (
+                run_command as run_binding,
+            )
             from mos_eisley.project_guidance_cli import run_command as run_guidance
 
-            return run_guidance(args)
+            return {"guidance-inspect": run_guidance, "guidance": run_binding}[
+                args.command
+            ](args)
         if args.command in {
             "memory",
             "memory-project-preview",
