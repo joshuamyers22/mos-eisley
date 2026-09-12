@@ -1692,8 +1692,23 @@ or automatic recovery is added. Real size boundaries, unsafe files, stale bindin
 current-memory protection, partial failure and process death are tested. See
 [unsupported backup review](CONVERSATION_MEMORY_BACKUP_DISCARD.md).
 
-**Next migration milestones:** registry import/history/backups plus temporary
-registry-file recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
+**Mapping registry history and recovery:** updates now retain and flush the exact
+previous registry before publication. Explicit history lists at most 128 backup or
+staging files, 8 MiB total, within a 1,024-entry scan; each file is bounded to 1 MiB.
+Reviewed restore accepts canonical same-owner records, verifies content-addressed
+backup names and every directory pin, preserves the source, backs up current bytes
+including bounded corruption, and publishes revision `max(current, source) + 1`.
+If the current record is absent or invalid, only the source revision is available.
+Reviewed discard binds exact raw bytes, current registry, file/storage/lock identities
+and refuses valid recovery-file deletion while current mappings are absent or invalid.
+Partial receipts distinguish backup durability, publication, deletion and final flush.
+Real process-death, partial backup, file replacement, size limits and both session
+backend resume tests cover these boundaries. No automatic recovery or cleanup runs.
+See [mapping history and recovery](CONVERSATION_MEMORY_MAPPING_RECOVERY.md).
+
+**Next migration milestones:** reviewed registry bulk import and explicit history
+retention. Mapping files larger than 1 MiB and unsupported artifact basenames remain
+outside registry recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
 unsupported backup filename syntax and foreign-owner/project or user snapshots
 remain outside the supported backup disposal workflows.
 Unselected resolution backups are retained; no automatic deletion, startup recovery

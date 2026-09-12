@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Retain the previous project-memory mapping registry before each replacement.
+  Add bounded history inspection, reviewed backup/staging restore and exact-file
+  cleanup. Preserve corrupt current bytes before recovery, recheck directory pins,
+  keep source files and existing session identities, and report partial progress.
+
 - Add explicit project-memory mappings across unrelated worktrees. Preserve the
   selected identity through resume, refresh, SQLite history and storage transfers;
   keep workspace authority unchanged and clear mappings on directory switches.

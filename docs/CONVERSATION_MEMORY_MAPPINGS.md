@@ -83,18 +83,33 @@ The registry accepts at most 128 sorted, unique mappings and 1 MiB of canonical
 JSON. Unknown fields, duplicate keys, noncanonical encodings, foreign owners,
 public files, symlinks, multiple hardlinks and nonregular files are rejected.
 Shared nonblocking memory-storage locks coordinate inspection and atomic updates.
-Updates write a private temporary file, flush it, verify the reviewed state and
+Updates first retain and flush the exact previous registry as a private backup.
+They then write a private temporary file, flush it, verify the reviewed state and
 directory identities again, replace the registry, then flush the storage directory.
 A stale hash is rejected before creating absent storage and checked again under
 the write lock. These are local same-user integrity checks, not cryptographic
 protection against software already running as the owner.
 
 A failure after replacement can leave the new registry visible without confirmed
-durability; an error never promises rollback. Inspect `show` and obtain a fresh
-preview before retrying. Process death before replacement can leave a private
-`.memory-mappings-*.tmp` file, which startup ignores. Automatic staging recovery,
-registry history/backups, bulk import and cleanup of these registry temporary files
-are not implemented. Preserve the preview output when recovery evidence matters.
+durability; an error never promises rollback. Inspect `show` or `history` and obtain
+a fresh preview before retrying. Every update to an existing registry retains a
+content-addressed `mapping-backup-SHA256.json` before replacement. Bootstrap has no
+previous file to back up. Backups are private independent files, not hardlinks.
+The prior registry remains unchanged if its backup cannot be written and flushed.
+An interrupted backup write can leave an incomplete file; retries refuse to
+replace that file until it is explicitly inspected and discarded.
+
+Process death before registry replacement can also leave a private
+`.memory-mappings-UUID.tmp` file. Startup ignores all backup and temporary files.
+Use the [mapping history and recovery commands](CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
+to review and restore a complete valid file, or explicitly discard an exact file.
+Recovery preserves the selected source, backs up the current bytes (even corrupt
+bytes), checks every selected directory pin, and publishes a new revision.
+Existing sessions keep their saved identity. No automatic recovery, cleanup,
+retention, history retrieval into chat, or bulk import is enabled.
+
 A corrupt registry blocks automatic mapping selection; an explicit map/root or
-`--memory-project-local` lets a new launch proceed without consulting it. Reviewed
-updates reject corruption rather than overwriting data they cannot inspect.
+`--memory-project-local` lets a new launch proceed without consulting it. Ordinary
+set/remove updates reject corruption. Explicit restore can replace bounded private
+corrupt bytes after full review, preserving those exact bytes first. Unsafe files
+and recognized foreign-owner registries cannot be overwritten by restore.
