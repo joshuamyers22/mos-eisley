@@ -83,6 +83,53 @@ def _response_artifact(
     return raw
 
 
+def verify_model_completion(
+    directory: Path, model_request: ModelRequest, outcome: BrokerOutcome
+) -> tuple[ModelCompletion, ModelResponse | None]:
+    """Check bounded raw/canonical response lineage for either review role."""
+    raw_completion = read_bounded(directory / "model-completion.json", 4096)
+    completion = ModelCompletion.model_validate_json(raw_completion)
+    if raw_completion != canonical_bytes(
+        completion
+    ) or completion.request_sha256 != digest(canonical_bytes(model_request)):
+        raise ValueError("model completion request identity mismatch")
+    raw_reply = _response_artifact(
+        directory,
+        "broker-response.json",
+        completion.broker_response_sha256,
+        MAX_WIRE_BYTES,
+    )
+    raw_response = _response_artifact(
+        directory,
+        "model-response.json",
+        completion.model_response_sha256,
+        model_request.max_output,
+    )
+    reply: BrokerReply | None = None
+    if raw_reply is not None:
+        reply = BrokerReply.model_validate_json(raw_reply)
+        if (
+            raw_reply != canonical_bytes(reply)
+            or outcome.response_sha256 != completion.broker_response_sha256
+        ):
+            raise ValueError("retained reply differs from the broker outcome")
+    response = None
+    if completion.status == "received":
+        if (
+            reply is None
+            or raw_response is None
+            or outcome.status != "response_received"
+            or reply.response.get("model") != model_request.model
+        ):
+            raise ValueError("received completion has no matching host reply")
+        response = ModelResponse.model_validate_json(raw_response)
+        if raw_response != canonical_bytes(
+            response
+        ) or response != response_from_payload(reply.response):
+            raise ValueError("canonical model response differs from retained reply")
+    return completion, response
+
+
 def _critic_evidence(
     authorization: ReviewAuthorization,
     directory: Path,
@@ -106,47 +153,10 @@ def _critic_evidence(
         or reviewer.critic_request(critic, request) != model_request
     ):
         raise ValueError("critic response projection or brief changed")
-    raw_completion = read_bounded(directory / "model-completion.json", 4096)
-    completion = ModelCompletion.model_validate_json(raw_completion)
-    if (
-        raw_completion != canonical_bytes(completion)
-        or completion.request_sha256 != authorization.model_request_sha256
-    ):
-        raise ValueError("model completion request identity mismatch")
-    raw_reply = _response_artifact(
-        directory,
-        "broker-response.json",
-        completion.broker_response_sha256,
-        MAX_WIRE_BYTES,
-    )
-    raw_response = _response_artifact(
-        directory,
-        "model-response.json",
-        completion.model_response_sha256,
-        model_request.max_output,
-    )
-    reply: BrokerReply | None = None
-    if raw_reply is not None:
-        reply = BrokerReply.model_validate_json(raw_reply)
-        if (
-            raw_reply != canonical_bytes(reply)
-            or outcome.response_sha256 != completion.broker_response_sha256
-        ):
-            raise ValueError("retained reply differs from the broker outcome")
+    completion, response = verify_model_completion(directory, model_request, outcome)
     result = CriticResult(critic=critic, status="error", error="provider_error")
     if completion.status == "received":
-        if (
-            reply is None
-            or raw_response is None
-            or outcome.status != "response_received"
-            or reply.response.get("model") != model_request.model
-        ):
-            raise ValueError("received completion has no matching host reply")
-        response = ModelResponse.model_validate_json(raw_response)
-        if raw_response != canonical_bytes(
-            response
-        ) or response != response_from_payload(reply.response):
-            raise ValueError("canonical model response differs from retained reply")
+        assert response is not None
         try:
             critique = reviewer.parse_critique(critic, request, response)
         except ValueError:
@@ -166,7 +176,7 @@ def _critic_evidence(
         result = CriticResult(critic=critic, status="error", error="budget_exceeded")
     return CriticEvidence(
         authorization_sha256=digest(canonical_bytes(authorization)),
-        completion_sha256=digest(raw_completion),
+        completion_sha256=digest(canonical_bytes(completion)),
         outcome_sha256=digest(canonical_bytes(outcome)),
         result=result,
     ), request

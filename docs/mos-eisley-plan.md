@@ -5068,6 +5068,17 @@ unchanged. See [response evidence](REVIEW_RESPONSE_EVIDENCE.md). Guidance admiss
 retained final-verdict verification and authorized credentialed conformance remain
 required before live terminal activation.
 
+**Retained final verdict verification implemented:** read-only reconstruction now
+checks the complete approved critic/judge chain and terminal accounting, reuses the
+live judge decoder, rejects duplicate/unknown finding IDs and applies the same
+deterministic verdict rules as the pipeline. Fully recorded invalid or failed judge
+answers yield infrastructure errors with spending preserved; missing or inconsistent
+records block reconstruction. A private exclusive result artifact binds approval,
+completion and outcome hashes; historical verification requires its independently
+pinned hash and recomputes the entire result. See
+[final verdict evidence](REVIEW_VERDICT_EVIDENCE.md). Current guidance admission and
+authorized credentialed conformance remain required before live activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

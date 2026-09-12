@@ -139,6 +139,10 @@ loading and telemetry adapters remain planned.
    critic responses to request/audit hashes, recomputes citations and quorum, and
    binds judge approval to verified deduplicated findings. Guidance admission, final
    verdict verification and credentialed conformance remain required for live review.
+   [Retained final verdicts](REVIEW_VERDICT_EVIDENCE.md) now reconstruct complete
+   critic/judge lineage, reject invalid judge decisions, apply shared verdict rules
+   and verify saved results against independently pinned hashes. Current guidance
+   admission and credentialed conformance remain required for live activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

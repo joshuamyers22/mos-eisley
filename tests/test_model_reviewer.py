@@ -256,6 +256,40 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ProviderError):
                 await self.reviewer.judge(JudgeRequest(brief=self.brief, findings=()))
 
+    def test_retained_decoders_normalize_excessive_json_nesting(self) -> None:
+        registry = self.registry.model_copy(
+            update={
+                "models": tuple(
+                    spec.model_copy(update={"max_output_bytes": 32_000})
+                    for spec in self.registry.models
+                )
+            }
+        )
+        reviewer = ModelReviewer(
+            self.client,
+            registry,
+            judge_provider="judge",
+            judge_model="model",
+            budget=BudgetPolicy(reserve_medium_bytes=32_000),
+        )
+        raw = "[" * 10_000 + "]" * 10_000
+        reply = ModelResponse(
+            turn=Turn(
+                role="assistant",
+                blocks=tuple(
+                    TextBlock(text=raw[offset : offset + 8000])
+                    for offset in range(0, len(raw), 8000)
+                ),
+            ),
+            stop_reason="end_turn",
+            usage=Usage(input=10, output=10),
+        )
+        with self.assertRaisesRegex(ValueError, "decoder nesting limit"):
+            reviewer.parse_critique(self.critic, self.request, reply)
+        with self.assertRaisesRegex(ValueError, "decoder nesting limit"):
+            reviewer.parse_judge(JudgeRequest(brief=self.brief, findings=()), reply)
+        self.assertEqual(self.client.requests, [])
+
     async def test_reasoning_only_is_not_an_answer(self) -> None:
         self.client.reply = lambda _: response(Critique()).model_copy(
             update={
