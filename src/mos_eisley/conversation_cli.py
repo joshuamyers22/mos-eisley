@@ -68,6 +68,7 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_cleanup import cleanup_memory_project
 from mos_eisley.conversation_memory_migration import (
     migrate_memory_project,
     recover_memory_project,
@@ -273,6 +274,23 @@ def add_memory_project_options(command: argparse.ArgumentParser) -> None:
 
 
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    memory_cleanup = add_parser(
+        "memory-project-cleanup",
+        help="Review one memory staging deletion or backup-link repair",
+    )
+    memory_cleanup.add_argument("--workspace-identity", required=True)
+    memory_cleanup.add_argument(
+        "--action", choices=("discard-staging", "recover-backup-link"), required=True
+    )
+    memory_cleanup.add_argument("--temporary-name", required=True)
+    memory_cleanup.add_argument("--record-sha256", required=True)
+    memory_cleanup.add_argument("--backup-name")
+    memory_cleanup.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_cleanup.add_argument("--apply", action="store_true")
+    memory_cleanup.add_argument("--expected-sha256")
+    memory_cleanup.add_argument("--json", action="store_true")
     relocation = add_parser(
         "memory-project-relocate",
         help="Review project-memory copying or collision resolution",
@@ -1533,6 +1551,26 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-cleanup":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = cleanup_memory_project(
+            args.memory_storage,
+            args.workspace_identity,
+            action=args.action,
+            temporary_name=args.temporary_name,
+            record_sha256=args.record_sha256,
+            backup_name=args.backup_name,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_cleanup", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
     if args.command == "memory-project-relocate":
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")

@@ -135,7 +135,8 @@ works while the old directory is absent. Changed source-path presence or anchor
 requires another review. Source document edits do not block recovery. No source is
 deleted, copy/recovery mode never overwrites an existing target, and no automatic
 orphan cleanup runs.
-Unpublished staging and resolution-backup recovery remain planned.
+Use [memory staging cleanup](CONVERSATION_MEMORY_CLEANUP.md) for an explicitly
+reviewed complete staging discard or interrupted backup-link repair.
 
 ## Resolve collisions across worktrees or after a move
 
@@ -180,7 +181,9 @@ replacement leaves the old destination and its backup; a crash after replacement
 can leave the new destination even without a success receipt. Inspect before retrying.
 An interrupted backup or unpublished resolution staging file is retained for
 investigation. Copy-recovery mode does not clean these files or restore a resolution
-backup. Guarded cleanup/retention remain planned; nothing is deleted automatically.
+backup. The separate [memory cleanup command](CONVERSATION_MEMORY_CLEANUP.md)
+now supports complete staging disposal and backup-link repair. Retained-backup
+pruning remains planned; nothing is deleted automatically.
 
 ## Inspect before adopting
 
@@ -304,8 +307,10 @@ A process killed while publishing the backup may leave its staging alias linked 
 the backup. The old target remains readable, and resolution rejects the multiply
 linked backup. A process killed before replacement can also leave an unpublished
 `.memory-resolution-*.tmp` file. Retain these for investigation; the copy-recovery
-command does not clean resolution backups or unpublished files. General orphan
-cleanup remains planned. Recovery never scans or deletes unrelated files at startup.
+command does not clean resolution backups or unpublished files. Use the separate
+[memory cleanup workflow](CONVERSATION_MEMORY_CLEANUP.md) to review one complete
+staging discard or verified backup-link repair. Incomplete records, bulk cleanup and
+backup pruning remain planned. No cleanup scans or runs at startup.
 
 To restore prior content, inspect the backup's `document.text`, use it with a fresh
 `use-text` resolution preview, and review/apply that proposal. This creates a new
