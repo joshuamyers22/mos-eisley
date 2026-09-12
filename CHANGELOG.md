@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add exact current role-context checks and a guarded local loader that rejects
+  stale guidance, policy changes and mismatched role/scope/content selections.
+
 - Add reviewed immutable role-guidance packets with explicit requirement omissions,
   selected rule/rubric provenance and reconstruction from pinned guidance and policy.
 
