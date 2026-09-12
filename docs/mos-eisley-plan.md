@@ -2137,6 +2137,17 @@ assessments do not establish combined completion. [Combined guidance review](PRO
 documents explicit conflict references, guarded publication and scope. Automatic
 semantic detection, trusted-policy evaluation and role-context loading remain subsequent work.
 
+**Owner-policy selection check slice implemented:** `mos guidance-policy-check`
+checks the current combined view against explicitly selected owner-private policy
+outside the project, bound to a reviewed raw hash and exact owner/project identity.
+Qualified prohibitions can block selected requirements or advisory rules; they cannot
+grant runtime authority or be waived by a guidance assessment. Allowed output requires
+current complete combined review and satisfied prohibitions; blocked/incomplete results
+return nonzero. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md) document scope,
+consistency, limits and a private-file example. This read-only slice does not evaluate
+arbitrary policy prose or replace runtime controls. Broader user/admin policy
+intersection, runtime admission and frozen role contexts remain subsequent work.
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from

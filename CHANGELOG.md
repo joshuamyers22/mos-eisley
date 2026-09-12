@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add read-only checks against explicit owner-private guidance prohibitions, with
+  exact policy hashes, project identity, decision provenance and blocked exit status.
+
 - Add combined requirement/advisory conflict review with pinned revisions, visible
   precedence, unresolved accepted contradictions and stale-assessment rejection.
 
