@@ -145,6 +145,11 @@ loading and telemetry adapters remain planned.
    answer while preserving spending. Historical checks retain the pinned guidance
    without treating it as current permission. Final verdict verification and
    credentialed conformance remain separate live-integration prerequisites.
+
+   [Retained final verdicts](REVIEW_VERDICT_EVIDENCE.md) now reconstruct complete
+   critic/judge lineage, reject invalid judge decisions, apply shared verdict rules
+   and verify saved results against independently pinned hashes. Current guidance
+   admission and credentialed conformance remain required for live activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

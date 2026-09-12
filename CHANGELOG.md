@@ -7,6 +7,9 @@ Notable changes are recorded here using semantic versioning.
 - Bind brokered critic/judge approvals to current project guidance, revalidate at
   dispatch boundaries and preserve conservative spending on stale-policy failures.
 
+- Reconstruct, privately retain and verify final review verdicts against complete
+  critic/judge evidence, sharing strict judge decoding and deterministic verdict rules.
+
 - Retain request-bound critic responses and recompute valid findings and quorum
   before separately approved judge admission, with read-only evidence verification.
 

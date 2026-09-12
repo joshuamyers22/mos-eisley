@@ -5079,6 +5079,17 @@ authority. See [broker guidance admission](REVIEW_GUIDANCE_ADMISSION.md). These
 moment-of-use checks do not establish uninterrupted policy validity or atomic
 revocation at remote send; live workflow and credentialed conformance remain gated.
 
+**Retained final verdict verification implemented:** read-only reconstruction now
+checks the complete approved critic/judge chain and terminal accounting, reuses the
+live judge decoder, rejects duplicate/unknown finding IDs and applies the same
+deterministic verdict rules as the pipeline. Fully recorded invalid or failed judge
+answers yield infrastructure errors with spending preserved; missing or inconsistent
+records block reconstruction. A private exclusive result artifact binds approval,
+completion and outcome hashes; historical verification requires its independently
+pinned hash and recomputes the entire result. See
+[final verdict evidence](REVIEW_VERDICT_EVIDENCE.md). Current guidance admission and
+authorized credentialed conformance remain required before live activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
