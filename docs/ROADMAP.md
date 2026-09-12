@@ -118,6 +118,10 @@ loading and telemetry adapters remain planned.
    worker exit and exact container/guardian cleanup without blocking the event loop.
    Real Docker fixtures cover claim/replay denial, disconnection, cancellation and
    retained uncertain spending. Review-specific admission and live wiring remain next.
+   A [broker-bound model client](BROKERED_MODEL_CLIENT.md) now consumes an existing
+   grant only for its exact canonical and provider requests, preserving local output
+   limits, one-use dispatch, cleanup and spending outcomes. Synthetic critic/judge
+   and Docker checks pass; review-specific grant issuance and live activation remain gated.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
