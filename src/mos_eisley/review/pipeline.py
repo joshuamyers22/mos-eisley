@@ -33,6 +33,26 @@ def validate_evidence(brief: Brief, findings: tuple[Finding, ...]) -> None:
             raise ValueError("citation does not occur in its declared brief source")
 
 
+def critic_quorum_met(results: tuple[CriticResult, ...], policy: ReviewPolicy) -> bool:
+    completed = tuple(result for result in results if result.status == "completed")
+    return (
+        len(completed) >= policy.min_critics
+        and len({result.critic.provider for result in completed})
+        >= policy.min_providers
+    )
+
+
+def judge_findings(results: tuple[CriticResult, ...]) -> tuple[Finding, ...]:
+    """Exact-content dedupe and hash order, shared with retained evidence review."""
+    unique = {
+        finding.finding_id: finding
+        for result in results
+        if result.status == "completed" and result.critique is not None
+        for finding in result.critique.findings
+    }
+    return tuple(unique[key] for key in sorted(unique))
+
+
 def adjudicate(brief: Brief, findings: tuple[Finding, ...], rationale: str) -> Verdict:
     blocking = tuple(
         finding
@@ -82,7 +102,6 @@ async def review(
     async with asyncio.TaskGroup() as group:
         tasks = [group.create_task(run_critic(critic)) for critic in roster]
     results = tuple(task.result() for task in tasks)
-    completed = tuple(result for result in results if result.status == "completed")
 
     def failed(reason: str, request: JudgeRequest | None = None) -> ReviewResult:
         return ReviewResult(
@@ -95,19 +114,10 @@ async def review(
             ),
         )
 
-    if (
-        len(completed) < policy.min_critics
-        or len({r.critic.provider for r in completed}) < policy.min_providers
-    ):
+    if not critic_quorum_met(results, policy):
         return failed("Critic quorum was not met.")
-    # Exact-content dedupe preserves conflicting evidence and fixes. Original
-    # contributions remain in results. Hash order is independent of roster order.
-    unique: dict[str, Finding] = {}
-    for result in completed:
-        if result.critique is not None:
-            for finding in result.critique.findings:
-                unique[finding.finding_id] = finding
-    findings = tuple(unique[key] for key in sorted(unique))
+    findings = judge_findings(results)
+    unique = {finding.finding_id: finding for finding in findings}
     request = JudgeRequest(brief=brief, findings=findings)
     if len(canonical_bytes(request)) > policy.max_request_bytes:
         return failed("Judge request exceeds the byte budget.", request)

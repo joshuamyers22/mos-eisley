@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Retain request-bound critic responses and recompute valid findings and quorum
+  before separately approved judge admission, with read-only evidence verification.
+
 - Bind deferred judge allowances to separately approved exact requests through an
   atomic spending transfer, retained audit lineage and one-use broker issuance.
 

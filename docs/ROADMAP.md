@@ -135,6 +135,10 @@ loading and telemetry adapters remain planned.
    judge request with separate approval and atomically transfers its held allowance
    without releasing capacity or reserving twice. Retained response/finding
    verification, guidance admission and credentialed conformance remain required.
+   [Retained review evidence](REVIEW_RESPONSE_EVIDENCE.md) now binds raw and canonical
+   critic responses to request/audit hashes, recomputes citations and quorum, and
+   binds judge approval to verified deduplicated findings. Guidance admission, final
+   verdict verification and credentialed conformance remain required for live review.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

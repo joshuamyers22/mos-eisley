@@ -5056,6 +5056,18 @@ finding validity or quorum from spending records. See
 and finding verification, guidance admission and authorized conformance remain G2
 requirements before live terminal activation.
 
+**Retained critic evidence and judge admission implemented:** review broker clients
+now save private raw/canonical responses and explicit completion receipts after
+worker cleanup. Read-only reconstruction checks every selected critic against the
+approved request, broker audit and terminal accounting, then reuses strict decoding,
+citation, deduplication and quorum rules. Missing or inconsistent artifacts block
+admission; fully recorded invalid/failed critics cannot vote but may coexist with
+a valid quorum. Separate judge approval binds the exact evidence and derived request
+and rechecks both before issuance. The existing default provider diversity remains
+unchanged. See [response evidence](REVIEW_RESPONSE_EVIDENCE.md). Guidance admission,
+retained final-verdict verification and authorized credentialed conformance remain
+required before live terminal activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
