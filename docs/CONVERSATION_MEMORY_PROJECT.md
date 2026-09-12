@@ -54,8 +54,7 @@ mos memory show --scope project -C /repo/packages/api
 ```
 
 The hash from `memory-project-preview` identifies what was inspected; it is not
-accepted by the migration command below. Collision resolution and merging remain
-planned.
+accepted by the migration or resolution commands below.
 
 ## Copy workspace memory to an empty root
 
@@ -88,7 +87,77 @@ saved session identities, historical memory or request hashes. New root-selected
 chats load the copied document; existing sessions use their existing memory checks
 and require an explicit refresh if their root document has changed.
 
-### Interrupted publication and recovery
+## Resolve existing workspace and root documents
+
+When both documents exist, choose a strategy and inspect a resolution preview:
+
+```sh
+mos memory-project-resolve -C /repo/packages/api --memory-project-root /repo \
+  --strategy append-source --json
+mos memory-project-resolve -C /repo/packages/api --memory-project-root /repo \
+  --strategy append-source --apply --expected-sha256 HASH_FROM_RESOLUTION_PREVIEW --json
+```
+
+Use the same `--memory-storage` override and strategy on preview and apply.
+
+| Strategy | Proposed root text |
+| --- | --- |
+| `keep-target` | Keep the existing root text unchanged. |
+| `use-source` | Use the workspace text in place of the root text. |
+| `append-source` | Append workspace text after root text, with two newlines when both are nonempty. |
+| `use-text --text "Reviewed text"` | Use explicitly reconciled text; `--text ""` explicitly clears it. |
+
+These are literal operations. Appending does not deduplicate repeated decisions or
+resolve contradictions; use reviewed text for that. The root's enabled state is
+preserved, including disabled roots. A disabled source's text can be selected
+explicitly into an enabled root, so review both snapshots and the proposed state.
+The 32 KiB document limit applies to the complete result, including UTF-8 bytes.
+Existing combined user/project load limits still apply; a document-sized result
+may need shortening before a session can load both active documents.
+Missing documents and identical source/root identities are ineligible; use the copy
+command when the root document is absent.
+
+The preview binds both documents, strategy, proposed content and revision, record
+identities/change times, source/root directories, storage/lock identity, and backup
+path/existence. Apply requires both flags and rechecks under an exclusive lock
+immediately before publication. Source and user files stay byte-for-byte intact.
+Changed text increments the root revision once; its update time is assigned in UTC
+at apply, as declared by `updated_at_policy`. The returned `result` contains the
+final snapshot and hash. The reviewed content, enabled state and revision are fixed
+by the preview. `keep-target` or an identical replacement reports `will_write:false`,
+creates no backup, and preserves the existing revision, timestamp and bytes.
+
+Before replacing a changed root document, apply saves and flushes a private,
+content-addressed `resolution-backup-*.json` containing its complete canonical prior
+snapshot. It verifies and flushes an existing matching backup before reuse; unsafe,
+changed or multiply linked backups block replacement. The new target is staged,
+flushed and atomically replaced only after a final input/backup check, then the
+storage directory is flushed. Writers using the same memory lock cannot interleave.
+The backup remains available for inspection; it is not loaded as active memory.
+
+### Resolution failures and recovery
+
+A failure before replacement leaves the target intact; a complete backup may remain.
+Obtain a fresh preview because backup existence is included in the hash. A failure
+after replacement may leave the new target and old backup even if the command
+reports an error. Inspect both; the old receipt cannot repeat an append against a
+changed target. Existing root-bound sessions retain their saved history and use the
+normal changed-memory guard; explicitly refresh or disable their memory to continue.
+
+A process killed while publishing the backup may leave its staging alias linked to
+the backup. The old target remains readable, and resolution rejects the multiply
+linked backup. A process killed before replacement can also leave an unpublished
+`.memory-resolution-*.tmp` file. Retain these for investigation; the copy-recovery
+command does not clean resolution backups or unpublished files. General orphan
+cleanup remains planned. Recovery never scans or deletes unrelated files at startup.
+
+To restore prior content, inspect the backup's `document.text`, use it with a fresh
+`use-text` resolution preview, and review/apply that proposal. This creates a new
+revision and backs up the current root; it does not rewind session history. Enabled
+state remains a separate explicit memory edit. Keep backups until their retention
+is explicitly managed; this command does not prune them.
+
+## Interrupted copy publication and recovery
 
 The private staging file is flushed before an atomic hard-link publication; its
 temporary name is then removed and the storage directory flushed. Ordinary failures

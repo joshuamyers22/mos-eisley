@@ -1,4 +1,4 @@
-"""Preview-bound, source-preserving project memory copies to absent targets."""
+"""Reviewed project-memory copying, collision resolution and recovery."""
 
 import json
 import os
@@ -6,13 +6,22 @@ import re
 import stat
 from collections.abc import Callable
 from contextlib import suppress
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from mos_eisley.conversation_directory import DirectorySelection
-from mos_eisley.conversation_memory import RECORD_BYTES, MemorySnapshot, MemoryStore
+from mos_eisley.conversation_memory import (
+    RECORD_BYTES,
+    MemoryDocument,
+    MemorySnapshot,
+    MemoryStore,
+)
 from mos_eisley.conversation_memory_project import select_memory_project
 from mos_eisley.core.models import canonical_bytes, digest
+
+Resolution = Literal["keep-target", "use-source", "append-source", "use-text"]
 
 
 def _identity(info: os.stat_result) -> dict[str, int]:
@@ -28,6 +37,187 @@ def _directory(selection: DirectorySelection) -> dict[str, object]:
 
 
 class _MigrationStore(MemoryStore):
+    def _resolution_backup(
+        self, root: int, name: str, expected: MemorySnapshot, *, sync: bool = False
+    ) -> bool:
+        try:
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
+        except FileNotFoundError:
+            return False
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or info.st_mode & 0o077
+                or info.st_nlink != 1
+                or stream.read(RECORD_BYTES + 1) != canonical_bytes(expected)
+            ):
+                raise ValueError(
+                    "Resolution backup is unsafe or changed; inspect storage."
+                )
+            if sync:
+                os.fsync(stream.fileno())
+        return True
+
+    def resolve(
+        self,
+        target: "_MigrationStore",
+        source_directory: DirectorySelection,
+        target_directory: DirectorySelection,
+        strategy: Resolution,
+        text: str | None,
+        expected_sha256: str | None,
+    ) -> dict[str, object]:
+        with self._lock_handles(exclusive=expected_sha256 is not None) as handles:
+            if handles is None:
+                raise ValueError(
+                    "Resolution requires existing source and target documents."
+                )
+            root = handles[0]
+
+            def inspect() -> dict[str, object]:
+                source_directory.verify()
+                target_directory.verify()
+                storage = self._storage_identity(handles)
+                source, destination = (
+                    self._read(root, "project"),
+                    target._read(root, "project"),
+                )
+                if source is None or destination is None:
+                    raise ValueError(
+                        "Resolution requires existing source and target documents."
+                    )
+                identities: dict[str, object] = {}
+                for label, store in (("source", self), ("target", target)):
+                    info = os.stat(
+                        store.path("project").name, dir_fd=root, follow_symlinks=False
+                    )
+                    identities[label] = {
+                        **_identity(info),
+                        "ctime_ns": info.st_ctime_ns,
+                    }
+                return {
+                    "storage": storage,
+                    "source_directory": _directory(source_directory),
+                    "target_directory": _directory(target_directory),
+                    "source": source.model_dump(mode="json"),
+                    "target": destination.model_dump(mode="json"),
+                    "record_identities": identities,
+                }
+
+            inspected = inspect()
+            source = MemorySnapshot.model_validate_json(json.dumps(inspected["source"]))
+            destination = MemorySnapshot.model_validate_json(
+                json.dumps(inspected["target"])
+            )
+            content = destination.document.text
+            if strategy == "use-source":
+                content = source.document.text
+            elif strategy == "append-source":
+                content = "\n\n".join(
+                    part for part in (content, source.document.text) if part
+                )
+            elif strategy == "use-text":
+                assert text is not None
+                content = text
+            will_write = content != destination.document.text
+            proposed = MemoryDocument.model_validate(
+                {
+                    **destination.document.model_dump(),
+                    "text": content,
+                    "revision": destination.document.revision + int(will_write),
+                }
+            )
+            backup_name = (
+                "resolution-backup-" + digest(canonical_bytes(destination)) + ".json"
+            )
+            backup_exists = (
+                self._resolution_backup(root, backup_name, destination)
+                if will_write
+                else False
+            )
+            body: dict[str, object] = {
+                "schema_version": 1,
+                "operation": "resolve-project-memory",
+                **inspected,
+                "strategy": strategy,
+                "proposed": proposed.model_dump(mode="json", exclude={"updated_at"}),
+                "updated_at_policy": "apply-time" if will_write else "preserve",
+                "will_write": will_write,
+                "backup_path": str(self.root / backup_name) if will_write else None,
+                "backup_exists": backup_exists,
+            }
+            preview_hash = digest(
+                json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            )
+            result = None
+            if expected_sha256 is not None:
+                if expected_sha256 != preview_hash:
+                    raise ValueError("Memory resolution changed; preview it again.")
+
+                def verify() -> None:
+                    if inspect() != inspected:
+                        raise ValueError("Memory resolution changed; preview it again.")
+
+                verify()
+                result = destination
+                if will_write:
+                    if not backup_exists:
+                        self._publish_missing(root, backup_name, destination, verify)
+                    if not self._resolution_backup(
+                        root, backup_name, destination, sync=True
+                    ):
+                        raise ValueError(
+                            "Resolution backup is missing; inspect storage."
+                        )
+                    os.fsync(root)
+                    document = proposed.model_copy(
+                        update={"updated_at": datetime.now(UTC)}
+                    )
+                    result = MemorySnapshot(
+                        document=document, sha256=digest(canonical_bytes(document))
+                    )
+
+                    def verify_with_backup() -> None:
+                        verify()
+                        if not self._resolution_backup(root, backup_name, destination):
+                            raise ValueError(
+                                "Resolution backup is missing; inspect storage."
+                            )
+
+                    self._replace_resolution(
+                        root, target.path("project").name, result, verify_with_backup
+                    )
+            return {
+                **body,
+                "preview_sha256": preview_hash,
+                "applied": expected_sha256 is not None,
+                "result": result.model_dump(mode="json") if result else None,
+            }
+
+    def _replace_resolution(
+        self, root: int, name: str, snapshot: MemorySnapshot, verify: Callable[[], None]
+    ) -> None:
+        payload = canonical_bytes(snapshot)
+        if len(payload) > RECORD_BYTES:
+            raise ValueError("memory record exceeds byte limit")
+        temporary = ".memory-resolution-" + uuid4().hex + ".tmp"
+        fd = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=root
+        )
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            verify()
+            os.replace(temporary, name, src_dir_fd=root, dst_dir_fd=root)
+            os.fsync(root)
+        finally:
+            with suppress(FileNotFoundError):
+                os.unlink(temporary, dir_fd=root)
+
     def _recovery_record(
         self, root: int, temporary: str, target_sha256: str
     ) -> tuple[MemorySnapshot, dict[str, int]]:
@@ -310,4 +500,38 @@ def recover_memory_project(
         temporary_name,
         target_sha256,
         expected_sha256,
+    )
+
+
+def resolve_memory_project(
+    storage: Path,
+    workspace: Path,
+    project_root: Path,
+    *,
+    strategy: Resolution,
+    text: str | None = None,
+    expected_sha256: str | None = None,
+) -> dict[str, object]:
+    """Review a collision and preserve its old target before an explicit replacement."""
+    if strategy not in ("keep-target", "use-source", "append-source", "use-text"):
+        raise ValueError("Choose an explicit memory resolution strategy.")
+    if (strategy == "use-text") != (text is not None):
+        raise ValueError(
+            "Use --text only with --strategy use-text, including empty text."
+        )
+    if (
+        expected_sha256 is not None
+        and re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+    ):
+        raise ValueError("Resolution requires the SHA-256 from its preview.")
+    source_directory = DirectorySelection.inspect(workspace)
+    target_directory = select_memory_project(source_directory.path, project_root)
+    if source_directory.path == target_directory.path:
+        raise ValueError(
+            "Resolution requires distinct workspace and project-root identities."
+        )
+    source = _MigrationStore(storage, source_directory.path)
+    target = _MigrationStore(storage, target_directory.path)
+    return source.resolve(
+        target, source_directory, target_directory, strategy, text, expected_sha256
     )

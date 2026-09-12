@@ -26,11 +26,8 @@ from mos_eisley.conversation_switch import switch_target
 from mos_eisley.conversation_tui import ConversationTUI
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.demo import demo_inputs
-from mos_eisley.run.conversation_sqlite import (
-    SQLiteConversationStore,
-    list_sqlite_conversations,
-)
-from mos_eisley.run.conversation_store import ConversationSnapshot, ConversationStore
+from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
+from mos_eisley.run.conversation_store import ConversationStore
 
 
 async def until(predicate: Callable[[], bool]) -> None:
@@ -330,32 +327,20 @@ class SwitchContractTests(TestCase):
             )
             output = bytearray()
 
-            def completed(workspace: Path) -> bool:
-                try:
-                    if backend == "sqlite":
-                        rows = list_sqlite_conversations(storage, workspace).sessions
-                        return bool(rows) and rows[0].completed == 1
-                    for path in storage.glob("*.json"):
-                        state = ConversationSnapshot.model_validate_json(
-                            path.read_bytes()
-                        ).state
-                        if (
-                            state.workspace == str(workspace)
-                            and state.entries
-                            and state.entries[0].status == "completed"
-                        ):
-                            return True
-                except (OSError, ValueError):
-                    return False
-                return False
-
             def read_until(
-                text: bytes, ready: Callable[[], bool] = lambda: True
+                text: bytes,
+                ready: Callable[[], bool] = lambda: True,
+                *,
+                repaint: bool = False,
             ) -> None:
                 deadline = time.monotonic() + 15
+                next_repaint = 0.0
                 while text not in output or not ready():
                     if time.monotonic() >= deadline:
                         raise AssertionError(repr(output[-5000:]))
+                    if repaint and time.monotonic() >= next_repaint:
+                        os.write(master, b"\x0c")
+                        next_repaint = time.monotonic() + 0.2
                     readable, _, _ = select.select([master], [], [], 0.1)
                     if readable:
                         data = os.read(master, 16384)
@@ -364,7 +349,12 @@ class SwitchContractTests(TestCase):
                             os.write(master, b"\x1b[1;1R")
 
             try:
-                read_until(b"Directory:", lambda: completed(source))
+                read_until(b"Directory:")
+                # Polling the SQLite catalog here can hold a read lock during the
+                # terminal's nonblocking commit. Observe completion through the
+                # terminal; inspect persisted state only after the process exits.
+                # Full repaints avoid depending on differential cursor movements.
+                read_until(b"The fixture boundary is ten.", repaint=True)
                 os.write(master, b"/directory switch\r")
                 read_until(b"Choose a session directory")
                 os.write(master, b"\x15../target\r")
@@ -378,8 +368,9 @@ class SwitchContractTests(TestCase):
                         output.rfind(b"Directory:") > output.find(b"conversation.saved")
                     ),
                 )
+                output.clear()
                 os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
-                read_until(b"Directory:", lambda: completed(target))
+                read_until(b"The fixture boundary is ten.", repaint=True)
                 output.clear()
                 os.write(master, b"/review\r")
                 read_until(b"/review")
@@ -418,6 +409,8 @@ class SwitchContractTests(TestCase):
                 self.assertNotIn("SOURCE PROJECT PRIVATE", second.model_dump_json())
                 self.assertEqual(len(first.entries), 1)
                 self.assertEqual(len(second.entries), 1)
+                self.assertEqual(first.entries[0].status, "completed")
+                self.assertEqual(second.entries[0].status, "completed")
                 self.assertEqual(second.exchanges_consumed, 1)
                 restored = termios.tcgetattr(slave)
                 restored[3] &= ~getattr(termios, "PENDIN", 0)

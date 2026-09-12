@@ -148,7 +148,10 @@ capabilities, not current automatic template or memory loading.
    directory switching clears the old root selection. `memory-project-migrate`
    adds preview-bound copying to absent root documents, exclusive locking and
    atomic no-overwrite publication while preserving source documents. Collision
-   resolution, identity mapping and natural-language memory changes remain planned.
+   resolution is now available through `memory-project-resolve`: explicit literal
+   strategies or reviewed text, fresh preview hashes, preserved enabled state and a
+   durable prior-target backup before replacement. Identity mapping and
+   natural-language memory changes remain planned.
    `memory-project-recover` now adds explicit, preview-bound cleanup of one verified
    extra staging link after interrupted publication. Source and target bytes remain
    intact; normal readers keep their single-link rule. Broader orphan cleanup remains

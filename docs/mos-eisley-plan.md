@@ -1549,11 +1549,22 @@ retain their single-link rule; target/source/user bytes and session history rema
 unchanged. Stale inputs, wrong scope/owner, symlinks, extra links and noncanonical
 records fail closed. Fault tests include recovery after actual process death.
 
-**Next migration milestone:** reviewed collision resolution/merge. Unpublished
-staging-file cleanup and broader interrupted-operation recovery remain planned;
-recovery never runs automatically at startup. Project moves and worktree sharing
-need explicit mappings; common Git metadata or remote URLs never merge memory.
-Existing session identities cannot be overridden on resume.
+**Reviewed collision batch:** `memory-project-resolve` requires an explicit
+keep-target, use-source, append-source or use-text strategy and a fresh preview hash.
+Apply preserves source/user files, target enabled state and session history. Changed
+text increments the target revision and receives an apply-time UTC timestamp; all
+other proposed fields are fixed by the preview. No-ops preserve bytes and metadata.
+Before atomic replacement, a verified private canonical prior-target backup is
+flushed durably. Source/target records and file identities, storage/lock and directory
+identities are rechecked under the exclusive lock immediately before publication.
+Literal append does not deduplicate or infer a conflict resolution. Fault tests cover
+backup/replacement interruption, stale inputs and existing changed-memory guards.
+
+**Next migration milestone:** explicit project moves/worktree mappings, with guarded
+unpublished-staging/backup recovery and retention still required. Resolution backups
+are retained; no automatic deletion, startup recovery or session identity rewriting
+is enabled. Common Git metadata or remote URLs never merge memory. Existing session
+identities cannot be overridden on resume.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
