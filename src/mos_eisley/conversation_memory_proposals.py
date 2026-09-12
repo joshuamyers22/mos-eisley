@@ -57,6 +57,24 @@ def proposal(answer: str) -> dict[str, str]:
         ) from None
 
 
+def selected_text(answer: str, payload: str) -> tuple[str, int]:
+    try:
+        value: object = json.loads(payload)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("Expected nonempty text.")
+        value.encode("utf-8")
+    except (ValueError, RecursionError):
+        raise ValueError(
+            "Selected text must be one nonempty UTF-8 JSON string."
+        ) from None
+    start = answer.find(value)
+    if start < 0 or answer.find(value, start + 1) >= 0:
+        raise ValueError(
+            "Selected text must occur exactly once in the assistant reply."
+        )
+    return value, start
+
+
 @dataclass(frozen=True)
 class ProposalPreview:
     review_id: str
@@ -104,6 +122,37 @@ class ProposalPreview:
         }
 
 
+@dataclass(frozen=True)
+class SelectionPreview(ProposalPreview):
+    selection_start: int
+    selection_end: int
+
+    def material(self) -> dict[str, object]:
+        return {
+            **super().material(),
+            "operation": "accept_selected_assistant_text",
+            "selection_start": self.selection_start,
+            "selection_end": self.selection_end,
+        }
+
+    def receipt(self) -> dict[str, object]:
+        return {
+            "type": "conversation.memory.proposal.preview",
+            **self.material(),
+            "preview_sha256": self.sha256,
+            "text": (
+                f"Review selected text from assistant message {self.source['message']} "
+                f"for {self.scope} memory at {self.path}. Nothing has been saved.\n"
+                f"Complete assistant reply (untrusted):\n{self.source['answer']}\n"
+                f"Selected text to append:\n{self.change['text']}\n"
+                f"Complete resulting text:\n{self.after_text}\n"
+                f"Apply with /memory apply-proposal {self.sha256}\n"
+                "Or /memory discard-proposal. Queued work is paused. "
+                "This review lasts only in this session."
+            ),
+        }
+
+
 class MemoryProposals:
     def __init__(self, store: MemoryStore, controller: RuntimeConversationController):
         self.store = store
@@ -129,9 +178,14 @@ class MemoryProposals:
         if len(parts) < 2 or parts[0] != "/memory":
             return None
         action = parts[1]
-        if action not in {"review-proposal", "apply-proposal", "discard-proposal"}:
+        if action not in {
+            "review-proposal",
+            "review-text",
+            "apply-proposal",
+            "discard-proposal",
+        }:
             return None
-        if action == "review-proposal":
+        if action in {"review-proposal", "review-text"}:
             self.pending = None
         if len(line) > 8000 or any(char in line for char in "\r\n\x00"):
             raise ValueError(
@@ -150,14 +204,23 @@ class MemoryProposals:
                 raise ValueError("Use /memory apply-proposal PREVIEW_SHA256.")
             return self.apply(parts[2])
         if (
-            len(parts) != 4
+            len(parts) != (5 if action == "review-text" else 4)
             or parts[2] not in {"user", "project"}
             or re.fullmatch(r"(?:0|[1-9][0-9]{0,5})", parts[3]) is None
         ):
-            raise ValueError("Use /memory review-proposal user|project MESSAGE_NUMBER.")
+            raise ValueError(
+                'Use /memory review-text user|project MESSAGE_NUMBER "EXACT_TEXT".'
+                if action == "review-text"
+                else "Use /memory review-proposal user|project MESSAGE_NUMBER."
+            )
         scope: Scope = "user" if parts[2] == "user" else "project"
         source = self.source(int(parts[3]))
-        change = proposal(str(source["answer"]))
+        selection_start = 0
+        if action == "review-text":
+            text, selection_start = selected_text(str(source["answer"]), parts[4])
+            change = {"operation": "append", "text": text}
+        else:
+            change = proposal(str(source["answer"]))
         try:
             before = self.store.read(scope)
         except (OSError, ValueError):
@@ -187,6 +250,20 @@ class MemoryProposals:
             before,
             after,
         )
+        if action == "review-text":
+            preview = self.pending
+            self.pending = SelectionPreview(
+                preview.review_id,
+                preview.scope,
+                preview.path,
+                preview.workspace,
+                preview.source,
+                preview.change,
+                preview.before,
+                preview.after_text,
+                selection_start,
+                selection_start + len(change["text"]),
+            )
         return self.pending.receipt()
 
     def apply(self, expected: str) -> dict[str, object]:
@@ -226,12 +303,13 @@ class MemoryProposals:
             "scope": preview.scope,
             "path": preview.path,
             "preview_sha256": expected,
+            "operation": preview.material()["operation"],
             "source_sha256": fingerprint(preview.source),
             "source": dict(preview.source),
             "proposal": dict(preview.change),
             "document": saved.model_dump(mode="json"),
             "text": (
-                f"Accepted assistant proposal into {preview.scope} memory "
+                f"Accepted reviewed memory change into {preview.scope} memory "
                 f"at {preview.path}. "
                 f"Revision {saved.document.revision}, SHA-256 {saved.sha256}.\n"
                 f"Complete saved text:\n{saved.document.text}\n"

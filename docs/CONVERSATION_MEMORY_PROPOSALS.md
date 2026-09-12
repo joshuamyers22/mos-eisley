@@ -28,6 +28,11 @@ session root or mapping. A proposal cannot choose its own scope, target path,
 permissions or execution action. Review/judge output, unfinished messages, user
 prompts and arbitrary files cannot be selected as assistant chat replies.
 
+For ordinary prose, [select an exact span](CONVERSATION_MEMORY_SELECTION.md) using
+`/memory review-text SCOPE INDEX "EXACT_TEXT"`. That command uses the same confirmation
+controls and requires explicit text selection; the JSON-object rules below apply
+to `/memory review-proposal`.
+
 ## Review, confirm or discard
 
 The receipt shows the source message index, proposed operation, assistant reply,

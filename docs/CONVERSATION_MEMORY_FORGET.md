@@ -46,7 +46,8 @@ changes to enabled state reject stale writes instead of overwriting them.
 
 Each terminal session holds at most one forget, [replacement](CONVERSATION_MEMORY_REPLACE.md)
 or [assistant proposal](CONVERSATION_MEMORY_PROPOSALS.md) review, in memory only.
-A new `/memory forget`, `/memory replace` or `/memory review-proposal` command discards
+A new `/memory forget`, `/memory replace`, `/memory review-proposal` or
+[`/memory review-text`](CONVERSATION_MEMORY_SELECTION.md) command discards
 the previous review of either kind, including when inspection or matching fails. Valid
 ordinary memory write commands invalidate it before storage access, including
 failed writes; `/memory show SCOPE` retains it. A discarded or replaced review

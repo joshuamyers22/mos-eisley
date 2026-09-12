@@ -1594,6 +1594,19 @@ and actual recorded-reply acceptance/resume on snapshot and SQLite backends.
 No live provider dispatch, automatic extraction or transcript interpretation is
 introduced. See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
 
+**Selected assistant text:** `/memory review-text user|project INDEX "EXACT_TEXT"`
+now previews appending a user-selected span from an ordinary completed assistant
+reply. A JSON string supports exact multiline/quoted content. Missing, repeated or
+overlapping matches reject, with no normalization or inferred selection. The complete
+source reply, selected text, target and complete result are visible before applying
+through `/memory apply-proposal HASH`. The confirmation binds a distinct selection
+operation, complete source and character offsets. It shares the existing ephemeral
+review slot, locked stale-write checks, private storage and consume-before-write
+handling. Tests cover literal controls, source changes outside the selected span,
+concurrent creation, bounds, active work and CLI apply/refresh/resume on both backends.
+This is explicit curation; automatic extraction and broad interpretation remain
+planned. See [selected reply text](CONVERSATION_MEMORY_SELECTION.md).
+
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project
 documents under one shared lock and reports source-only, target-only, empty,

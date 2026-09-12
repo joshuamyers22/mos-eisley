@@ -152,6 +152,8 @@ Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
 To accept a structured assistant suggestion, use `/memory review-proposal SCOPE INDEX`,
 then `/memory apply-proposal PREVIEW_SHA256`. Indices match the displayed zero-based
 message labels. See [assistant proposals](CONVERSATION_MEMORY_PROPOSALS.md).
+To curate a span from an ordinary reply, use `/memory review-text SCOPE INDEX "EXACT_TEXT"`
+and the same confirmation control. See [selected reply text](CONVERSATION_MEMORY_SELECTION.md).
 For a reviewed edit, use `/memory replace SCOPE {"old":"TEXT","new":"TEXT"}`, then
 `/memory apply-replace PREVIEW_SHA256`. See [replacement](CONVERSATION_MEMORY_REPLACE.md).
 Use explicit `/memory clear SCOPE` to clear a current document.
