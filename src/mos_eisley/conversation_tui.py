@@ -38,7 +38,7 @@ from mos_eisley.conversation_input import (
     submission_command,
 )
 from mos_eisley.conversation_project import ProjectLocation
-from mos_eisley.conversation_remember import remember_command
+from mos_eisley.conversation_remember import memory_phrase_command
 from mos_eisley.conversation_review import ConversationReviewPacket
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
@@ -599,6 +599,9 @@ class ConversationTUI:
         if event["type"] in {
             "conversation.memory.inspected",
             "conversation.memory.saved",
+            "conversation.memory.forget.preview",
+            "conversation.memory.forget.saved",
+            "conversation.memory.forget.discarded",
         }:
             if self.history:
                 self.history.close()
@@ -697,7 +700,7 @@ class ConversationTUI:
             self.queue.put_nowait(ConversationSubmission(text, literal, accepted))
             if await accepted and self.editor.text == text:
                 self.editor.clear()
-                if not literal and remember_command(text) is not None:
+                if not literal and memory_phrase_command(text) is not None:
                     return
                 self.set_notice(
                     "Message queued. Enter sends • Alt-Enter adds a line • "

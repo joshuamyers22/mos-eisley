@@ -27,3 +27,30 @@ def remember_command(text: str) -> str | None:
     ):
         raise ValueError(REMEMBER_HELP)
     return f"/memory append {scopes[intent]} {payload.lstrip()}"
+
+
+def memory_phrase_command(text: str) -> str | None:
+    """Recognize direct remember saves or reviewed forget requests."""
+    remembered = remember_command(text)
+    if remembered is not None:
+        return remembered
+    prefix, separator, payload = text.partition(":")
+    scopes: dict[str, Scope] = {
+        "forget this for this project": "project",
+        "forget this everywhere": "user",
+    }
+    intent = prefix.strip().casefold()
+    if intent not in scopes and intent != "forget this":
+        return None
+    if (
+        intent not in scopes
+        or not separator
+        or not payload.strip()
+        or len(text) > 8000
+        or any(char in text for char in "\r\n\x00")
+    ):
+        raise ValueError(
+            "Specify scope and exact text: forget this for this project: TEXT "
+            "or forget this everywhere: TEXT. No memory was changed."
+        )
+    return f"/memory forget {scopes[intent]} {payload.lstrip()}"

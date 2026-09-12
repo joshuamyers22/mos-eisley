@@ -63,7 +63,9 @@ an explicit operation applies to the latest document under the store lock.
 
 Updates are commands invoked by the user. The model cannot call them as tools.
 Explicit scoped remember shortcuts are described below. Free-form remember/forget
-interpretation, automatic extraction and proposed-memory approval remain planned. Ordinary chat text is not
+interpretation, automatic extraction and proposed-memory approval remain planned.
+[Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md) now removes one
+explicitly identified span after preview and hash confirmation. Ordinary chat text is not
 automatically promoted to either memory scope.
 
 ## Edit from a terminal session
@@ -138,8 +140,11 @@ pastes, `/compose` drafts, initial command-line prompts, model/tool output and
 quoted or embedded phrases remain chat data. In plain/JSON input, each line is a
 user command; use `/compose` for literal text matching a shortcut. No classifier,
 transcript extraction or model tool receives permission to save memory. Broader
-natural-language interpretation, scoped forget and model-proposed memories remain
-planned. Use explicit `/memory clear SCOPE` to clear a current document.
+natural-language interpretation and model-proposed memories remain planned.
+Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
+`forget this everywhere: TEXT` for a reviewed selective removal; then confirm with
+`/memory apply-forget PREVIEW_SHA256`. See [selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+Use explicit `/memory clear SCOPE` to clear a current document.
 
 ## Session consistency and retention
 

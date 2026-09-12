@@ -1533,8 +1533,9 @@ Active requests block management, and attempted edits/inspection pause queued wo
 Receipts identify the saved document while session selection and historical requests
 remain unchanged until explicit refresh. Pasted/composed chat and model output
 cannot invoke this path. Existing locks, ownership and document limits apply;
-write failures warn that publication may have occurred. Scoped forget, individual-entry
-editing and model-proposal acceptance remain planned.
+write failures warn that publication may have occurred. Reviewed selective forgetting
+is implemented below; individual-entry replacement and model-proposal acceptance
+remain planned.
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 **Scoped remember shortcuts:** directly entered `remember this for this project: TEXT`
@@ -1547,6 +1548,19 @@ queued work stays paused and session memory still requires explicit refresh.
 Active work blocks saves and rejected full-screen submissions retain their draft.
 General natural-language interpretation and contextual references remain planned.
 See [remember a preference](CONVERSATION_MEMORY.md#remember-a-preference).
+
+**Reviewed selective forgetting:** `/memory forget user|project EXACT_TEXT` and the
+explicit scoped `forget this ...: TEXT` forms preview removal of one unique exact
+span. Receipts show the complete resulting text; `/memory apply-forget HASH` checks
+the reviewed current-document hash under the existing exclusive lock before saving.
+Missing or overlapping/duplicate matches reject, and all other characters remain
+unchanged. One ephemeral per-session review is replaced by a new scoped preview command, invalidated
+by ordinary memory writes and consumed before a matching apply. Resume/directory
+handoff require a fresh preview. Active work blocks controls; pasted/composed input
+cannot apply them. Current selection/history remain unchanged until refresh and
+historical copies are not erased. Tests cover stale edits, unsafe current files,
+partial publication, real process death, both storage backends and session review
+loss. See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
 
 **Adoption batch:** explicit selection and a read-only `memory-project-preview`
 now support inspection before adopting a root. The preview reads both project

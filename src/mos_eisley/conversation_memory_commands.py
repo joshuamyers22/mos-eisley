@@ -7,7 +7,8 @@ from mos_eisley.conversation_memory import Action, MemoryStore, Scope
 
 USAGE = (
     "Use /memory show|append|set|clear|enable|disable user|project [TEXT]. "
-    "Only append and set accept text. /memory shows the active session selection."
+    "Only append and set accept text. /memory shows the active session selection. "
+    "Use /memory forget SCOPE EXACT_TEXT for reviewed removal."
 )
 
 
