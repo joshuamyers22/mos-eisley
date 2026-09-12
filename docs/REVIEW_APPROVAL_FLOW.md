@@ -81,3 +81,6 @@ competing flows, repeated cancellation and infrastructure-error display.
 repeated cancellation through real Docker workers and verifies every cleanup
 receipt. It is included in `make container`; the source and installed-wheel suites
 share the approval-flow tests.
+
+Use [launch configuration preview](REVIEW_LAUNCH_PREVIEW.md) to diagnose explicit
+guidance, model and spending inputs before a future admitted live launch.

@@ -18,6 +18,7 @@ from typing import Literal, cast
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
+from mos_eisley import review_launch_cli
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
@@ -697,6 +698,11 @@ def parser() -> argparse.ArgumentParser:
     controller_status.add_argument("--expected-start", type=Path, required=True)
     controller_status.add_argument("--spend-ledger", type=Path, required=True)
     controller_status.add_argument("--expected-judge-preview-sha256")
+    launch_preview = subcommands.add_parser(
+        "review-launch-preview",
+        help="Preview explicit review configuration without live launch authority",
+    )
+    review_launch_cli.add_arguments(launch_preview)
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -7850,10 +7856,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 authorization_output=authorization_output,
                 artifact_output=artifact_output,
             )
-        if args.command in ("broker-audit-status", "review-controller-status"):
+        if args.command in (
+            "broker-audit-status",
+            "review-controller-status",
+            "review-launch-preview",
+        ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
                 "review-controller-status": _review_controller_status_command,
+                "review-launch-preview": review_launch_cli.run_command,
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

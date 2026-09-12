@@ -5117,6 +5117,14 @@ the UI/controller boundary. See [approval flow](REVIEW_APPROVAL_FLOW.md). This a
 no credential loading or live launch/configuration authority; conformance remains
 a separate gate.
 
+**Explicit launch configuration preview implemented:** a no-dispatch CLI now
+projects the selected model registry, critic/judge spending policies, budgets and
+current prepared guidance into the exact controller preview. It rejects mismatched
+models, implicit effort substitutions, stale guidance and insufficient aggregate
+capacity without creating a run or reserving spending. Evaluation conformance
+receipts and registry labels cannot establish review-controller conformance;
+live launch remains unavailable. See [launch preview](REVIEW_LAUNCH_PREVIEW.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Preview explicitly configured guided reviews and aggregate spending through a
+  no-dispatch CLI that preserves the credentialed review-conformance launch gate.
+
 - Connect exact critic and judge approval prompts to the brokered review controller,
   with cancellable terminal input, shared deadlines and conservative decline handling.
 

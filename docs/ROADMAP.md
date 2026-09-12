@@ -163,6 +163,10 @@ loading and telemetry adapters remain planned.
    adapter to both controller phases, shows exact requests and spending, requires
    separate hashes and awaits cancellation cleanup. Live launch/configuration and
    credentialed conformance remain gated.
+   [Launch configuration preview](REVIEW_LAUNCH_PREVIEW.md) now combines explicit
+   model/pricing inputs, current guidance, quorum and aggregate spending into exact
+   requests without reservation or dispatch. Existing evaluation receipts and
+   registry labels cannot substitute for credentialed review-controller conformance.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
