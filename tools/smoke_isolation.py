@@ -20,6 +20,8 @@ from mos_eisley.core.models import (
     CriticRequest,
     CriticSpec,
     Critique,
+    JudgeDecision,
+    JudgeRequest,
     canonical_bytes,
 )
 from mos_eisley.core.ports import ProviderError
@@ -54,8 +56,10 @@ from mos_eisley.run.isolation import (
 )
 from mos_eisley.run.provider_broker import RequestBoundBroker
 from mos_eisley.run.review_broker import (
+    PreparedJudgeTransfer,
     PreparedReviewCall,
     PreparedReviewEnvelope,
+    verify_judge_transfer,
     verify_review_broker_audit,
 )
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -517,6 +521,7 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
 
     class Fixture:
         counts = 0
+        judge = False
         target: BrokeredOpenAIClient | None = None
 
         async def complete(self, request: ModelRequest) -> ModelResponse:
@@ -525,7 +530,7 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
 
         async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
             self.counts += 1
-            assert ledger.snapshot().charged_microusd == 975
+            assert ledger.snapshot().charged_microusd == 975 - 305 * (self.counts - 1)
             return 10
 
         async def create_response(
@@ -548,7 +553,11 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": canonical_bytes(Critique()).decode(),
+                                "text": canonical_bytes(
+                                    JudgeDecision(upheld=(), rationale="Fixture")
+                                    if self.judge
+                                    else Critique()
+                                ).decode(),
                             }
                         ],
                     }
@@ -595,6 +604,34 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
         pass  # The exact held-entry check rejects the already-settled critic.
     else:
         raise AssertionError("envelope critic issued twice")
+    fixture.target = reserved.issue_critic(1, transport=fixture, container=container)
+    assert asyncio.run(reviewer.critique(specs[1], request)) == Critique()
+    assert ledger.snapshot().charged_microusd == 365
+    judge_request = JudgeRequest(brief=request.brief, findings=())
+    transfer = PreparedJudgeTransfer(prepared, reviewer, judge_request)
+    fixture.judge = True
+    fixture.target = transfer.issue(
+        approved_transfer_sha256=transfer.approval_sha256,
+        transport=fixture,
+        container=container,
+    )
+    assert ledger.snapshot().charged_microusd == 365
+    assert asyncio.run(reviewer.judge(judge_request)).upheld == ()
+    assert fixture.counts == 3 and ledger.snapshot().charged_microusd == 60
+    assert (
+        verify_judge_transfer(root / "review", transfer.authorization, ledger).status
+        == "response_received"
+    )
+    try:
+        transfer.issue(
+            approved_transfer_sha256=transfer.approval_sha256,
+            transport=fixture,
+            container=container,
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("judge allowance transferred twice")
     assert container.lifecycle_path is not None
     assert (
         CleanupRecord.model_validate_json(

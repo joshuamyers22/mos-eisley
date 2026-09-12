@@ -131,6 +131,10 @@ loading and telemetry adapters remain planned.
    critic and a deferred judge allowance in one transaction. Critics consume their
    existing holds through exclusive fixed paths; the judge allowance grants no
    transfer. Exact judge-request binding and retained evidence remain next.
+   [Deferred judge transfer](DEFERRED_JUDGE_RESERVATION.md) now binds the actual
+   judge request with separate approval and atomically transfers its held allowance
+   without releasing capacity or reserving twice. Retained response/finding
+   verification, guidance admission and credentialed conformance remain required.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

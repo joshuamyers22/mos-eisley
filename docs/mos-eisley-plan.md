@@ -5103,6 +5103,16 @@ still grants no transfer or request authority. See
 binding, retained critic/finding evidence, guidance admission and credentialed
 conformance remain required before live review activation.
 
+**Deferred judge allowance transfer implemented:** a separate exact-request
+approval can now move the reserved judge allowance to its request-specific hold in
+one transaction, with unchanged aggregate exposure. It preserves the original
+brief/model/spending policy, requires terminal critic accounting states, retains a
+parent-to-child audit record and issues one bounded judge broker. It does not infer
+finding validity or quorum from spending records. See
+[deferred judge reservation](DEFERRED_JUDGE_RESERVATION.md). Retained critic/response
+and finding verification, guidance admission and authorized conformance remain G2
+requirements before live terminal activation.
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
