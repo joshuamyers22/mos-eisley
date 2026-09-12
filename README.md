@@ -65,6 +65,8 @@ directories, with a durable prior-target backup before changing destination text
 discard or interrupted-backup link repair while preserving live memory.
 `memory-project-cleanup-batch` reviews up to 32 named records, including backup
 pruning under an explicit age cutoff, and reports partial progress on failure.
+[`memory-project-retention`](docs/CONVERSATION_MEMORY_RETENTION.md) adds a bounded
+inventory and reviewed newest-count protection for backup pruning.
 [`memory-staging-discard`](docs/CONVERSATION_MEMORY_STAGING.md) separately reviews
 the exact bytes of one invalid staging file with unverified project attribution.
 

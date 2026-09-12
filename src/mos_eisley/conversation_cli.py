@@ -299,6 +299,13 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             help="Review and save exact workspace memory mappings",
         )
     )
+    from mos_eisley.conversation_memory_retention import add_command as add_retention
+
+    add_retention(
+        add_parser(
+            "memory-project-retention", help="Review inventory-based backup retention"
+        )
+    )
     staging_discard = add_parser(
         "memory-staging-discard",
         help="Review exact invalid staging bytes without claiming a project identity",
@@ -1614,6 +1621,12 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command == "memory-project-retention":
+        from mos_eisley.conversation_memory_retention import (
+            run_command as run_retention,
+        )
+
+        return run_retention(args)
     if args.command == "memory-project-mapping":
         from mos_eisley.conversation_memory_registry import run_command as run_mapping
 
