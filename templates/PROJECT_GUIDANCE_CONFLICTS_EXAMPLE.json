@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "kind": "advisory_conflict_assessment",
+  "review_rationale": "Reviewed the engineering-example template and project overrides for this project; no conflicting rule pair was identified. Edit this assessment after reviewing your own guidance.",
+  "conflicts": []
+}

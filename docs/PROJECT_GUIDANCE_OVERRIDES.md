@@ -67,7 +67,9 @@ It does not reopen the profile source file. `effective` shows each rule's base a
 effective content, whether it was omitted, and its template/override digests. Approved
 project adjustments take precedence over advisory template defaults. Unmodified
 rules remain visible as defaults. IDs are qualified by template, and iteration
-order does not settle contradictions between different rules.
+order does not settle contradictions between different rules. Effective inspection
+now includes [explicit conflict assessments](PROJECT_GUIDANCE_CONFLICTS.md), their
+current/stale/unassessed status and reviewed rule exclusions.
 
 The profile is pinned to the complete binding revision. Any attach, update or
 detach makes a nonempty profile stale. `effective` then rejects instead of silently
@@ -81,9 +83,9 @@ block later inspection of new template defaults.
 overrides without changing template bindings. To remove some overrides, set an
 edited complete profile; to remove all, use clear. Current user direction, accepted
 brief/ADR requirements and mandatory policy remain separate higher-authority layers.
-This view resolves only the two advisory layers implemented here. Semantic conflict
-analysis, accepted requirements, conversation controls and role-context loading are
-subsequent work.
+This view resolves the two advisory layers and explicit reviewed conflict choices.
+Automatic semantic conflict detection, accepted requirements, conversation controls
+and role-context loading are subsequent work.
 
 ## Private versions and recovery
 

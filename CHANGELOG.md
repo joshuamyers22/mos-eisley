@@ -4,6 +4,8 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicit advisory conflict assessments with reviewed preferences, unresolved
+  and stale status, pinned history, and conflict-aware effective guidance inspection.
 - Add reviewed project advisory overrides, explicit replace/omit reasons, pinned
   history and effective-rule provenance. Binding changes require a fresh review.
 - Add reviewed private project-guidance attach/show/update/detach, immutable pinned

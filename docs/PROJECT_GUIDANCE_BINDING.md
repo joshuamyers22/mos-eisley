@@ -4,8 +4,9 @@
 configuration. Each binding belongs to one canonical workspace and its directory
 device/inode identity. Opening a repository or nested directory does not attach
 guidance. [Independent overrides and effective advisory inspection](PROJECT_GUIDANCE_OVERRIDES.md)
-are available separately. Conversation controls, conflict handling and role-context
-materialization remain subsequent work.
+are available separately, along with [explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md).
+Conversation controls, automatic semantic analysis and role-context materialization
+remain subsequent work.
 
 ## Review and apply
 
@@ -97,6 +98,7 @@ requirements or history retrieval. It does not parse links or scan the project,
 load sessions, call providers, or insert guidance into conversation contexts.
 Current and historical sessions remain unchanged (`context_materialized: false`).
 Reviewed overrides and advisory precedence are available through
-`guidance-overrides`. Semantic classification of disguised history, broader conflict
-handling and frozen role provenance remain required before automatic
+`guidance-overrides`, with explicit assessments through `guidance-conflicts`.
+Semantic classification of disguised history, broader policy/requirement integration
+and frozen role provenance remain required before automatic
 context materialization under [plan §16.6](mos-eisley-plan.md#166-project-specific-points-of-view-and-best-practice-templates).

@@ -64,8 +64,10 @@ See plan §§16.6, 17.5–17.6 and `docs/PROJECT_GUIDANCE_DESIGN.md`.
 advisory descriptor/Markdown pair and reports a complete unbound snapshot.
 [Private project bindings](PROJECT_GUIDANCE_BINDING.md) support reviewed attach,
 show, update and detach with immutable versions. [Project overrides](PROJECT_GUIDANCE_OVERRIDES.md)
-support explicit advisory replacement/omission and effective inspection. Conflict
-handling, role loading and telemetry adapters remain planned.
+support explicit advisory replacement/omission and effective inspection.
+[Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md) adds pinned assessments and
+visible resolution status. Automatic semantic analysis, role loading and telemetry
+adapters remain planned.
 
 1. **Implemented:** production-template scaffold and recorded review walking
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.

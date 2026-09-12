@@ -72,11 +72,17 @@ class GuidanceOverrideStore(GuidanceBindingStore):
     ) -> dict[str, object]:
         if snapshot_sha256 is not None and effective:
             raise ValueError("Effective inspection uses current bindings only.")
+        if effective:
+            from mos_eisley.project_guidance_conflict_store import GuidanceConflictStore
+
+            return GuidanceConflictStore(self.root).show_conflicts(
+                workspace, effective=True
+            )
         selected = MappedDirectory.inspect(workspace)
         with self._lock_handles() as handles:
             root = None if handles is None else handles[0]
             _, bindings = self._record(root, selected)
-            snapshots = self._snapshots(root, bindings)
+            self._snapshots(root, bindings)
             if snapshot_sha256 is None:
                 _, saved = self._overrides(root, selected)
             else:
@@ -95,9 +101,6 @@ class GuidanceOverrideStore(GuidanceBindingStore):
                 "historical_snapshot": snapshot_sha256 is not None,
                 "context_materialized": False,
             }
-            if effective:
-                result["precedence"] = ["approved_project_override", "advisory_default"]
-                result["rules"] = effective_rules(bindings, snapshots, saved)
             selected.selection()
             self._storage_identity(handles)
             return result
