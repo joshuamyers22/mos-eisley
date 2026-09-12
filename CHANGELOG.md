@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind deferred judge allowances to separately approved exact requests through an
+  atomic spending transfer, retained audit lineage and one-use broker issuance.
+
 - Reserve critic calls and a deferred judge allowance atomically, issue each critic
   from its existing hold, and block later pre-reserved calls after pricing violations.
 

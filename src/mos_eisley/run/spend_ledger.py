@@ -251,6 +251,51 @@ class SpendLedger:
                 ),
             )
 
+    def transfer_held(self, source: LedgerEntry, replacement: LedgerEntry) -> None:
+        """Atomically move an exact hold without releasing or increasing exposure.
+
+        This is a trusted-host accounting primitive, not dispatch authorization.
+        The retired allowance remains recorded with zero charged; its replacement
+        carries the same full amount under a new immutable request reservation.
+        """
+        source = LedgerEntry.model_validate_json(canonical_bytes(source))
+        replacement = LedgerEntry.model_validate_json(canonical_bytes(replacement))
+        if (
+            source.entry_id == replacement.entry_id
+            or source.reserved_microusd != replacement.reserved_microusd
+        ):
+            raise ValueError("held transfer requires a new identity and equal amount")
+        with self._transaction() as connection:
+            if self._snapshot(connection).blocked:
+                raise ValueError("spending ledger is blocked by a pricing violation")
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status FROM entries "
+                "WHERE entry_id = ?",
+                (source.entry_id,),
+            ).fetchone()
+            if row != (
+                source.reservation_sha256,
+                source.reserved_microusd,
+                source.reserved_microusd,
+                "held",
+            ):
+                raise ValueError("transfer does not match the exact held allowance")
+            # A duplicate destination or failed update aborts both changes. No
+            # concurrent reader or reservation can observe an intermediate gap.
+            connection.execute(
+                "INSERT INTO entries VALUES (?, ?, ?, ?, 'held')",
+                (
+                    replacement.entry_id,
+                    replacement.reservation_sha256,
+                    replacement.reserved_microusd,
+                    replacement.reserved_microusd,
+                ),
+            )
+            connection.execute(
+                "UPDATE entries SET charged = 0, status = 'settled' WHERE entry_id = ?",
+                (source.entry_id,),
+            )
+
     def settle(self, settlement: LedgerSettlement) -> None:
         with self._transaction() as connection:
             row = connection.execute(

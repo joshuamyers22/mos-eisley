@@ -84,6 +84,7 @@ class PreparedReviewCall:
         ledger: SpendLedger,
         *,
         critic: CriticSpec | None = None,
+        reserved_allowance: DeferredJudgeAllowance | None = None,
     ) -> None:
         if isinstance(request, CriticRequest) and critic is not None:
             model_request = reviewer.critic_request(critic, request)
@@ -110,10 +111,24 @@ class PreparedReviewCall:
         if len(provider_bytes) > MAX_REQUEST_BYTES:
             raise ValueError("review provider request exceeds the broker limit")
         reservation = prepare_full_reservation(payload, policy)
+        credit = 0
+        if reserved_allowance is not None:
+            reserved_allowance = DeferredJudgeAllowance.model_validate_json(
+                canonical_bytes(reserved_allowance)
+            )
+            if (
+                role != "judge"
+                or reserved_allowance.brief_sha256 != request.brief.brief_id
+                or reserved_allowance.spend_policy != policy
+            ):
+                raise ValueError("judge request differs from its reserved allowance")
+            with ledger.guard_held(reserved_allowance.ledger_entry):
+                credit = reserved_allowance.reserved_microusd
+        self._allowance = reserved_allowance
         snapshot = ledger.snapshot()
         if (
             snapshot.blocked
-            or reservation.reserved_microusd > snapshot.available_microusd
+            or reservation.reserved_microusd > snapshot.available_microusd + credit
         ):
             raise ValueError("review spending envelope is unavailable")
         self._authorization = ReviewAuthorization(
@@ -167,6 +182,8 @@ class PreparedReviewCall:
         Approval includes token counting and generation. Transport and filesystem
         parent are trusted host dependencies; this function never obtains credentials.
         """
+        if self._allowance is not None:
+            raise ValueError("reserved judge requires envelope transfer approval")
         if approved_transfer_sha256 != self.approval_sha256:
             raise ValueError("exact review transfer and spending approval required")
         self.check_current(timeout)
@@ -458,6 +475,154 @@ class ReservedReviewEnvelope:
                 container,
                 timeout,
             )
+
+
+class JudgeTransferAuthorization(Contract):
+    schema_version: Literal[1] = 1
+    mode: Literal["reserved_review_judge"] = "reserved_review_judge"
+    envelope_sha256: Digest
+    allowance: LedgerEntry
+    call: ReviewAuthorization
+
+    @model_validator(mode="after")
+    def coherent_transfer(self) -> Self:
+        if (
+            self.call.role != "judge"
+            or self.call.reserved_microusd != self.allowance.reserved_microusd
+            or self.call.ledger_entry_id == self.allowance.entry_id
+        ):
+            raise ValueError("judge transfer must preserve the exact reserved exposure")
+        return self
+
+
+class PreparedJudgeTransfer:
+    """Exact judge transfer preview; finding lineage/quorum remain caller duties."""
+
+    def __init__(
+        self,
+        envelope: PreparedReviewEnvelope,
+        reviewer: ModelReviewer,
+        request: JudgeRequest,
+    ) -> None:
+        self._envelope = envelope
+        self._directory = Path(envelope.envelope.artifact_directory)
+        self._check_envelope()
+        self._call = PreparedReviewCall(
+            reviewer,
+            request,
+            envelope.envelope.judge.spend_policy,
+            envelope.ledger,
+            reserved_allowance=envelope.envelope.judge,
+        )
+        self._authorization = JudgeTransferAuthorization(
+            envelope_sha256=envelope.approval_sha256,
+            allowance=envelope.envelope.judge.ledger_entry,
+            call=self._call.authorization,
+        )
+
+    @property
+    def authorization(self) -> JudgeTransferAuthorization:
+        return self._authorization
+
+    @property
+    def approval_sha256(self) -> str:
+        return digest(canonical_bytes(self._authorization))
+
+    @property
+    def model_request(self) -> ModelRequest:
+        return self._call.model_request
+
+    def _check_envelope(self) -> None:
+        if (
+            digest(canonical_bytes(self._envelope.ledger.policy))
+            != self._envelope.envelope.ledger_policy_sha256
+        ):
+            raise ValueError("judge spending scope changed")
+        for call in self._envelope.critics:
+            status = self._envelope.ledger.entry_status(
+                call.authorization.ledger_entry_id
+            )
+            if (
+                status is None
+                or status.status == "held"
+                or status.reservation_sha256 != call.authorization.reservation_sha256
+                or status.reserved_microusd != call.authorization.reserved_microusd
+            ):
+                raise ValueError(
+                    "judge transfer requires terminal critic spending states"
+                )
+        if datetime.now(UTC) >= self._envelope.envelope.expires_at:
+            raise ValueError("review envelope expired")
+        if read_bounded(self._directory / "envelope.json", 32_768) != canonical_bytes(
+            self._envelope.envelope
+        ):
+            raise ValueError("retained review envelope changed")
+
+    def issue(
+        self,
+        *,
+        approved_transfer_sha256: str,
+        transport: CountedTransport,
+        container: OfflineContainer,
+        timeout: float = 30,
+    ) -> BrokeredOpenAIClient:
+        if approved_transfer_sha256 != self.approval_sha256:
+            raise ValueError("exact judge transfer approval required")
+        self._check_envelope()
+        self._call.check_current(timeout)
+        ledger = self._envelope.ledger
+        ledger.transfer_held(self._authorization.allowance, self._call.ledger_entry)
+        # Crash or storage failure after the transfer keeps the new full hold.
+        # The old allowance is spent, so no second transfer or grant can issue.
+        private_write(
+            self._directory / "judge-transfer.json",
+            canonical_bytes(self._authorization),
+        )
+        remaining = (
+            self._envelope.envelope.expires_at - datetime.now(UTC)
+        ).total_seconds()
+        return self._call._issue_reserved(  # pyright: ignore[reportPrivateUsage]
+            transport, self._directory / "judge", container, min(timeout, remaining)
+        )
+
+
+def verify_judge_transfer(
+    directory: Path,
+    expected: JudgeTransferAuthorization,
+    ledger: SpendLedger,
+) -> BrokerOutcome:
+    """Read a completed transfer/audit chain against trusted expected identities."""
+    expected = JudgeTransferAuthorization.model_validate_json(canonical_bytes(expected))
+    if (
+        JudgeTransferAuthorization.model_validate_json(
+            read_bounded(directory / "judge-transfer.json", 8192)
+        )
+        != expected
+    ):
+        raise ValueError("judge transfer authorization mismatch")
+    if (
+        digest(read_bounded(directory / "envelope.json", 32_768))
+        != expected.envelope_sha256
+        or ledger.policy.ledger_id != expected.call.ledger_id
+    ):
+        raise ValueError("judge transfer envelope or ledger mismatch")
+    source = ledger.entry_status(expected.allowance.entry_id)
+    target = ledger.entry_status(expected.call.ledger_entry_id)
+    if (
+        source is None
+        or source.reservation_sha256 != expected.allowance.reservation_sha256
+        or source.reserved_microusd != expected.allowance.reserved_microusd
+        or source.status != "settled"
+        or source.charged_microusd != 0
+    ):
+        raise ValueError("judge allowance was not retired by a transfer")
+    if (
+        target is None
+        or target.reservation_sha256 != expected.call.reservation_sha256
+        or target.reserved_microusd != expected.call.reserved_microusd
+    ):
+        raise ValueError("judge request reservation mismatch")
+    return verify_review_broker_audit(directory / "judge", expected.call)
 
 
 def verify_review_broker_audit(

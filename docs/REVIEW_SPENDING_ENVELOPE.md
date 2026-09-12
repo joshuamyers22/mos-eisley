@@ -46,13 +46,12 @@ smoke reserves two critics and a judge together, executes one synthetic critic,
 checks the other holds remain charged, rejects reissuance and confirms exact cleanup.
 All provider fixtures are synthetic; these are not live quality or diversity claims.
 
-The next boundary must approve the actual judge request and atomically move its
-existing allowance to the exact request reservation, while retaining critic/finding
-lineage and never opening a spending gap or charging twice. The current allowance
-cannot be passed directly to `PreReservedOpenAITransport`: its hash describes a
-spending commitment, not a request-specific reservation. That dispatch remains
-unimplemented. Guidance admission, retained response/evidence verification and
-credentialed conformance also remain required before live terminal review.
+The [deferred judge transfer](DEFERRED_JUDGE_RESERVATION.md) now separately approves
+the actual request and atomically moves its existing allowance to that request's
+reservation. The allowance itself cannot be passed directly to
+`PreReservedOpenAITransport`: its hash describes a spending commitment, not a request.
+Retained critic/finding provenance, guidance admission and credentialed conformance
+remain required before live terminal review.
 
 See [single-call admission](REVIEW_BROKER_ADMISSION.md), the
 [brokered client](BROKERED_MODEL_CLIENT.md) and [roadmap](ROADMAP.md). The existing CLI,
