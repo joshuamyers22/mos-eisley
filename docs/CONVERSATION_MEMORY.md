@@ -63,7 +63,9 @@ an explicit operation applies to the latest document under the store lock.
 
 Updates are commands invoked by the user. The model cannot call them as tools.
 Explicit scoped remember shortcuts are described below. Free-form remember/forget
-interpretation, automatic extraction and proposed-memory approval remain planned.
+interpretation and automatic extraction remain planned.
+[Assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md) now accepts a selected
+structured reply only after explicit scope selection, preview and confirmation.
 [Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md) now removes one
 explicitly identified span after preview and hash confirmation.
 [Reviewed replacement](CONVERSATION_MEMORY_REPLACE.md) substitutes explicitly supplied
@@ -146,6 +148,9 @@ natural-language interpretation and model-proposed memories remain planned.
 Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
 `forget this everywhere: TEXT` for a reviewed selective removal; then confirm with
 `/memory apply-forget PREVIEW_SHA256`. See [selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+To accept a structured assistant suggestion, use `/memory review-proposal SCOPE INDEX`,
+then `/memory apply-proposal PREVIEW_SHA256`. Indices match the displayed zero-based
+message labels. See [assistant proposals](CONVERSATION_MEMORY_PROPOSALS.md).
 For a reviewed edit, use `/memory replace SCOPE {"old":"TEXT","new":"TEXT"}`, then
 `/memory apply-replace PREVIEW_SHA256`. See [replacement](CONVERSATION_MEMORY_REPLACE.md).
 Use explicit `/memory clear SCOPE` to clear a current document.

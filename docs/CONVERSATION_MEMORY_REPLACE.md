@@ -37,7 +37,8 @@ outside the span is preserved. Shell syntax in JSON strings is literal text.
 
 ## Review lifetime and storage protections
 
-Forget and replacement share one active review per terminal session. A new scoped
+Forget, replacement and [assistant proposals](CONVERSATION_MEMORY_PROPOSALS.md)
+share one active review per terminal session. A new scoped
 preview command invalidates the previous review of either kind, even if the new
 request fails. Valid ordinary memory writes invalidate reviews before attempting
 storage access; inspection retains them. Apply and discard use their matching
@@ -71,4 +72,5 @@ after a successful save; the saved edit still exists.
 
 Replacement affects the current saved document. It does not rewrite earlier
 sessions, provider requests, backups or receipt copies. Free-form interpretation,
-automatic extraction and approval of model-proposed memory remain planned.
+automatic extraction remain planned. Structured assistant proposals can now be
+selected for explicit review and confirmation.
