@@ -169,6 +169,11 @@ class BrokeredReviewController:
     def phase(self) -> Phase:
         return self._phase
 
+    @property
+    def start(self) -> ControllerStart | None:
+        """Trusted start binding for independent retention by the owning host."""
+        return self._start
+
     def cancel(self) -> None:
         """Stop an idle controller; active callers cancel and await their coroutine."""
         if self._phase not in {"prepared", "awaiting_judge"}:

@@ -61,3 +61,6 @@ workers, with every cleanup receipt verified.
 Rollback preserves spending and all retained evidence. See
 [guidance admission](REVIEW_GUIDANCE_ADMISSION.md),
 [verdict evidence](REVIEW_VERDICT_EVIDENCE.md) and [roadmap](ROADMAP.md).
+
+Use [controller inspection](REVIEW_CONTROLLER_INSPECTION.md) to inventory stopped
+runs against a separately retained trusted start record without retry authority.

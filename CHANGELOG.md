@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Inspect saved brokered controller records and held or uncertain spending through
+  a read-only CLI, preserving incomplete crash attribution without retry authority.
+
 - Compose brokered critic fan-out, a separately approved judge and retained final
   results under one deadline, with owned cancellation cleanup and no automatic retry.
 

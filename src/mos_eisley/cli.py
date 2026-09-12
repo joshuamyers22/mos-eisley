@@ -224,6 +224,8 @@ from mos_eisley.run.openai_responses_canary import (
     verify_openai_responses_canary_authorization,
 )
 from mos_eisley.run.provider_broker import RequestBoundBroker
+from mos_eisley.run.review_controller import ControllerStart
+from mos_eisley.run.review_controller_inspection import inspect_review_controller
 from mos_eisley.run.routing_preflight import (
     RoutingRuntimePreflight,
     RoutingRuntimeSources,
@@ -687,6 +689,14 @@ def parser() -> argparse.ArgumentParser:
     broker_status.add_argument("--audit-dir", type=Path, required=True)
     broker_status.add_argument("--expected-authorization", type=Path, required=True)
     broker_status.add_argument("--spend-ledger", type=Path, required=True)
+    controller_status = subcommands.add_parser(
+        "review-controller-status",
+        help="Inspect saved review records and spending without provider authority",
+    )
+    controller_status.add_argument("--review-dir", type=Path, required=True)
+    controller_status.add_argument("--expected-start", type=Path, required=True)
+    controller_status.add_argument("--spend-ledger", type=Path, required=True)
+    controller_status.add_argument("--expected-judge-preview-sha256")
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -2489,6 +2499,31 @@ def _broker_audit_status_command(args: argparse.Namespace) -> int:
                 "type": "broker.audit.status",
                 **state.model_dump(mode="json"),
             }
+        )
+    )
+    return 0
+
+
+def _review_controller_status_command(args: argparse.Namespace) -> int:
+    directory = cast(Path, args.review_dir)
+    expected_path = cast(Path, args.expected_start)
+    retained = directory / "controller-start.json"
+    if expected_path.resolve().is_relative_to(directory.resolve()) or (
+        retained.exists() and expected_path.samefile(retained)
+    ):
+        raise ValueError("expected start must be independently supplied")
+    expected = ControllerStart.model_validate_json(read_bounded(expected_path, 4096))
+    state = inspect_review_controller(
+        directory,
+        expected,
+        SpendLedger(cast(Path, args.spend_ledger)),
+        expected_judge_preview_sha256=cast(
+            str | None, args.expected_judge_preview_sha256
+        ),
+    )
+    print(
+        json.dumps(
+            {"type": "review.controller.status", **state.model_dump(mode="json")}
         )
     )
     return 0
@@ -7815,8 +7850,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 authorization_output=authorization_output,
                 artifact_output=artifact_output,
             )
-        if args.command == "broker-audit-status":
-            return _broker_audit_status_command(args)
+        if args.command in ("broker-audit-status", "review-controller-status"):
+            return {
+                "broker-audit-status": _broker_audit_status_command,
+                "review-controller-status": _review_controller_status_command,
+            }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(

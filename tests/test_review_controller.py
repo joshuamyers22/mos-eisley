@@ -2,7 +2,7 @@
 
 import asyncio
 from pathlib import Path
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
 import test_review_broker_admission as broker_fixture
@@ -27,7 +27,7 @@ from mos_eisley.run.review_controller import (
 from mos_eisley.run.review_verdict import verify_retained_review_result
 
 
-class ControllerTests(IsolatedAsyncioTestCase):
+class ControllerFixture(TestCase):
     def setUp(self) -> None:
         self.base = broker_fixture.ReviewAdmissionFixture()
         self.base.setUp()
@@ -97,6 +97,8 @@ class ControllerTests(IsolatedAsyncioTestCase):
             (self.directory / "controller-terminal.json").read_bytes()
         )
 
+
+class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
     async def test_exact_approvals_pause_judge_and_reconstruct_final_result(self):
         with self.assertRaises(ValueError):
             await self.controller.run_critics(

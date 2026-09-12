@@ -156,6 +156,9 @@ loading and telemetry adapters remain planned.
    approval pause; cancellation awaits child cleanup and preserves spending. This
    process-local library adds no crash resume or live launch command. Credentialed
    conformance and a user-facing live approval flow remain separate gates.
+   [Controller inspection](REVIEW_CONTROLLER_INSPECTION.md) now inventories saved
+   stages, audit/completion records and spending without dispatch or resume
+   authority, explicitly flagging incomplete judge-transfer crash attribution.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

@@ -5101,6 +5101,13 @@ preserves current guidance checks and the configured quorum. See
 authorize crash resume; live launch/approval UX and credentialed conformance remain
 separate requirements before terminal activation.
 
+**Read-only controller inspection implemented:** independently pinned start records
+now anchor a metadata-only inventory of saved controller stages, critic/judge
+audits and model completions, result presence and conservative spending. Missing
+transfer records after an atomic judge allowance transfer leave explicit incomplete
+attribution; no inspection grants replay, frees spending or claims a verified
+verdict. See [controller inspection](REVIEW_CONTROLLER_INSPECTION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
