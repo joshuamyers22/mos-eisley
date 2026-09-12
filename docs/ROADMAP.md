@@ -188,8 +188,10 @@ capabilities, not current automatic template or memory loading.
    protecting absent or matching current memory for valid backups. Automatic
    retention remains planned. [Mapping-registry history and recovery](CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
    now retain prior versions, restore reviewed backup/staging files with directory
-   pin checks, and expose exact-file cleanup and partial progress. Registry bulk
-   import and history retention remain planned. Explicit
+   pin checks, and expose exact-file cleanup and partial progress. Registry
+   [bulk import](CONVERSATION_MEMORY_MAPPING_IMPORT.md) now previews merge conflicts
+   and whole-registry replacement, binds input/directory identities, and preserves
+   old mappings before publication. History retention remains planned. Explicit
    [backup retention](CONVERSATION_MEMORY_RETENTION.md) now inventories up to 128
    backups, protects the newest count, explicit age cutoff and current memory,
    and reviews at most 32 deletions. Apply rechecks the complete retained inventory

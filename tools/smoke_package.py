@@ -179,6 +179,7 @@ def main() -> int:
             "test_conversation_memory_mapping.py",
             "test_conversation_memory_registry.py",
             "test_conversation_memory_registry_history.py",
+            "test_conversation_memory_registry_import.py",
             "test_conversation_memory_retention.py",
             "test_conversation_memory_migration.py",
             "test_conversation_memory_recovery.py",

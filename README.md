@@ -83,6 +83,8 @@ Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE
 Updates retain the previous registry. Inspect it with `mos memory-project-mapping
 history`; [reviewed restore and cleanup](docs/CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
 recover interrupted mapping writes without changing saved session identities.
+Use [reviewed bulk import](docs/CONVERSATION_MEMORY_MAPPING_IMPORT.md) to add or
+replace several mappings together with explicit conflict previews.
 
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and
