@@ -2043,6 +2043,63 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 
 `Alt+,` / `Alt+.` steps effort down/up mid-session. Persistent status line: model, effort, sandbox mode, live token count against budget.
 
+### 16.4.1 V1 — live full-screen diff panel
+
+**User direction, 2026-09-12:** include a live `/diff` panel in product v1's
+conversation/TUI workstream. Its acceptance criteria are required for v1 release;
+the feature remains planned. Deliver it after the trusted read-only Git and
+workspace/path boundaries are available, alongside Git-backed coding integration.
+No package version is assigned by this entry. The interaction reference is the
+Claude Code newsletter from Lydia, received 2026-09-12, titled "This week in
+Claude Code: /resume on desktop, start sessions from your phone, and more",
+specifically its live diff panel and selected-lines-to-prompt behavior.
+
+- In full-screen mode, `/diff` toggles a panel beside the conversation. Show the
+  changed-file list, per-file added/removed line counts, and a navigable diff.
+  Preserve the composer draft, conversation scroll position and active task when
+  opening, closing or moving focus between panes. Support keyboard navigation
+  and mouse selection where the terminal supports it.
+- Refresh as agent or external edits change the selected workspace. Coalesce
+  updates and perform bounded Git reads outside the UI event loop; preserve file,
+  hunk and scroll selection where possible. Show refresh failures and stale data
+  explicitly. Cancel old refreshes on directory switches and reject results bound
+  to the previous workspace or an obsolete refresh generation.
+- Label the comparison basis. Initially show tracked staged and unstaged changes
+  relative to HEAD, with their status distinguished; list untracked files separately
+  and preview them only within existing read policy. Handle an unborn HEAD,
+  renames, deletions, binary files, no changes and non-Git directories explicitly.
+  Bound files, bytes and rendered hunks, disclose omissions and offer explicit
+  bounded expansion. Never imply a partial view is the complete patch.
+- Let users select diff lines and attach them to the next prompt. The composer
+  shows a removable attachment preview with workspace, path, old/new line ranges,
+  comparison basis and snapshot digest. Freeze the selected bytes; later refreshes
+  cannot silently change the attachment. Indicate when its source has changed.
+  Count attachments against request/context limits, preserve them on rejected
+  submission, and retain admitted provenance with the request. Selection alone
+  neither sends a request nor authorizes an edit or review. Treat excerpts as
+  untrusted source content, never as instructions or an automatic critic brief.
+- Target a side-by-side layout at 110 or more terminal columns, following the
+  reference. At narrower widths use a focused diff view or an explicit resize
+  notice; preserve drafts and selections through resize. Keep plain/JSON modes
+  functional without terminal layout or escape sequences.
+
+Dependencies: full-screen conversation controls, the trusted read-only Git broker
+and workspace/path policy, plus bounded prompt attachments. Diff reads must disable
+external diff/textconv helpers and use the existing trusted Git configuration.
+Panel operations do not stage, revert, commit or expand tool authority.
+
+Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
+and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized
+inputs; stale selections and attachments; request rejection and retry; directory
+switch isolation; hostile paths/terminal text and Git configuration; and continued
+conversation, cancellation and draft preservation while the panel is open.
+
+**Preliminary engineering estimate:** 60–100 hours, with 80 hours for planning:
+12–20 for layout/navigation, 16–26 for bounded Git refresh, 16–28 for selected-line
+attachments, and 16–26 for integration, review, tests and documentation. This assumes
+the trusted Git and conversation foundations have shipped; their implementation,
+Windows qualification and desktop pop-out windows are outside this estimate.
+
 ### 16.5 Event stream
 
 ```
