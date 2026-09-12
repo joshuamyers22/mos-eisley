@@ -2215,6 +2215,14 @@ reconstruct exact projections from retained sources and cannot claim current aut
 text, private policy prose and automatic history loading. Safe-boundary run/provider
 admission, broader policy intersection and retention/recovery remain subsequent work.
 
+**Current role-context admission slice implemented:** `mos guidance-context check`
+requires exact role/scope and snapshot/context hashes, current complete assessment
+and an explicitly selected unchanged private policy. The guarded local loader
+reconstructs the packet and holds the guidance lock through short local use, with
+source/identity rechecks. Its diagnostic output is not reusable authority.
+[Current role admission](PROJECT_GUIDANCE_ROLE_ADMISSION.md) documents stale rejection,
+consumer constraints and remaining run-manifest/provider integration.
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from

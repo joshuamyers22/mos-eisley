@@ -65,8 +65,9 @@ reopens paths retained in an artifact.
 
 Project updates do not rewrite frozen packets. Historical output always has
 `current_authority: false`; it does not establish that old guidance or policy is still
-current. The next admission/loader slice must validate a safe run boundary, pin the
-packet to run provenance and preserve independent runtime authorization. These
+current. [Current admission checks](PROJECT_GUIDANCE_ROLE_ADMISSION.md) now provide
+an exact current check and guarded local loader. Actual run integration must still
+pin the packet to run provenance and preserve independent runtime authorization. These
 packets are not automatically attached to terminal sessions or provider requests.
 
 ## Storage, limits and recovery

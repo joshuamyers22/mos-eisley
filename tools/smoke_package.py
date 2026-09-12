@@ -211,6 +211,7 @@ def main() -> int:
             "test_project_guidance_precedence.py",
             "test_project_guidance_policy.py",
             "test_project_guidance_role.py",
+            "test_project_guidance_role_admission.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",
             "test_conversation_migration.py",
