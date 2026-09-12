@@ -69,6 +69,9 @@ pruning under an explicit age cutoff, and reports partial progress on failure.
 inventory and reviewed newest-count protection for backup pruning.
 [`memory-staging-discard`](docs/CONVERSATION_MEMORY_STAGING.md) separately reviews
 the exact bytes of one invalid staging file with unverified project attribution.
+Both it and [`memory-project-staging-discard`](docs/CONVERSATION_MEMORY_STAGING_REVIEW.md)
+support an explicit review limit up to 4 MiB; the project command verifies valid
+canonical/noncanonical snapshots against an exact project identity.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
 Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE

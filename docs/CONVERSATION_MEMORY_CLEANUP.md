@@ -37,7 +37,8 @@ A single-link staging name does not prove that its contents were never published
 elsewhere in the past; review the actual record and current memory before discarding.
 
 Incomplete, oversized, noncanonical or invalid snapshots cannot be discarded by this
-command. Neither can symlinks, directories, foreign-owner files, files with group/other
+command. Use [exact-byte project staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md)
+for valid noncanonical staging snapshots, with an explicit limit up to 4 MiB. Neither can symlinks, directories, foreign-owner files, files with group/other
 permissions or multiply linked records. Retain unsupported artifacts for investigation;
 there is no force or wildcard option. Ordinary user-memory staging files are outside
 this project's cleanup scope.
@@ -193,5 +194,6 @@ boundary described above also applies to batches.
 Bounded invalid-record disposal uses the separate raw staging workflow above.
 For reviewed newest-count and age protections over a complete bounded inventory,
 use [project-memory retention](CONVERSATION_MEMORY_RETENTION.md). This named batch
-command still makes no inventory-based count guarantee. Oversized/valid-noncanonical
-disposal and automatic retention remain planned. Backups are never deleted at startup.
+command still makes no inventory-based count guarantee. Unsupported backup disposal
+and automatic retention remain planned; staged snapshot disposal has the separate
+exact-byte review described above. Backups are never deleted at startup.

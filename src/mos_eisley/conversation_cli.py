@@ -63,6 +63,7 @@ from mos_eisley.conversation_limits import (
 )
 from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
+    RECORD_BYTES,
     ConversationMemory,
     MemoryChangedError,
     MemoryRefreshError,
@@ -89,6 +90,7 @@ from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
 from mos_eisley.conversation_memory_staging import (
     MemoryStagingDiscardError,
     discard_memory_staging,
+    discard_project_memory_staging,
 )
 from mos_eisley.conversation_name import SessionSelectionError, parse_name
 from mos_eisley.conversation_pending import (
@@ -315,9 +317,24 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     staging_discard.add_argument(
         "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
     )
+    staging_discard.add_argument("--review-max-bytes", type=int, default=RECORD_BYTES)
     staging_discard.add_argument("--apply", action="store_true")
     staging_discard.add_argument("--expected-sha256")
     staging_discard.add_argument("--json", action="store_true")
+    project_staging = add_parser(
+        "memory-project-staging-discard",
+        help="Review valid project staging snapshots with exact raw-byte bindings",
+    )
+    project_staging.add_argument("--workspace-identity", required=True)
+    project_staging.add_argument("--temporary-name", required=True)
+    project_staging.add_argument("--raw-sha256", required=True)
+    project_staging.add_argument("--review-max-bytes", type=int, default=RECORD_BYTES)
+    project_staging.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    project_staging.add_argument("--apply", action="store_true")
+    project_staging.add_argument("--expected-sha256")
+    project_staging.add_argument("--json", action="store_true")
     memory_batch_cleanup = add_parser(
         "memory-project-cleanup-batch",
         help="Review named staging cleanup and retained-backup pruning",
@@ -1631,21 +1648,37 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         from mos_eisley.conversation_memory_registry import run_command as run_mapping
 
         return run_mapping(args)
-    if args.command == "memory-staging-discard":
+    if args.command in {"memory-staging-discard", "memory-project-staging-discard"}:
         if args.apply != (args.expected_sha256 is not None):
             raise ValueError("Use --apply and --expected-sha256 together.")
         notice = None
         try:
-            receipt = discard_memory_staging(
-                args.memory_storage,
-                args.temporary_name,
-                args.raw_sha256,
-                expected_sha256=args.expected_sha256,
-            )
+            if args.command == "memory-project-staging-discard":
+                receipt = discard_project_memory_staging(
+                    args.memory_storage,
+                    args.workspace_identity,
+                    args.temporary_name,
+                    args.raw_sha256,
+                    expected_sha256=args.expected_sha256,
+                    review_max_bytes=args.review_max_bytes,
+                )
+            else:
+                receipt = discard_memory_staging(
+                    args.memory_storage,
+                    args.temporary_name,
+                    args.raw_sha256,
+                    expected_sha256=args.expected_sha256,
+                    review_max_bytes=getattr(args, "review_max_bytes", RECORD_BYTES),
+                )
         except MemoryStagingDiscardError as error:
             receipt = error.receipt
             notice = str(error)
-        payload = {"type": "memory.staging_discard", **receipt}
+        payload = {
+            "type": "memory.project_staging_discard"
+            if args.command == "memory-project-staging-discard"
+            else "memory.staging_discard",
+            **receipt,
+        }
         if notice is not None:
             payload["text"] = notice
         print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
