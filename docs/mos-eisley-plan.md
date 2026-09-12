@@ -2146,8 +2146,8 @@ apply the reviewed hash under the private storage lock. Immutable snapshots surv
 updates/detach and can be inspected by digest; empty records retain a revision counter
 for stale-review rejection. Sources and stored identities are revalidated before
 publication. Eight templates per project and 512 KiB per stored file bound this
-slice. Binding neither loads history nor changes session contexts. Conflict
-resolution, accepted requirements and role materialization
+slice. Binding neither loads history nor changes session contexts. Automatic semantic
+analysis, accepted requirements and role materialization
 remain subsequent work. See [private project guidance binding](PROJECT_GUIDANCE_BINDING.md).
 
 **Independent override slice implemented:** `mos guidance-overrides set|clear|show|effective`
@@ -2159,8 +2159,20 @@ to the entire binding revision, so any binding change requires explicit re-revie
 before effective use. Previews include previous/proposed rule text and source bytes;
 guarded publication retains immutable versions. Unknown authority fields and unsafe
 or oversized inputs reject. User direction, accepted requirements and trusted policy
-remain separate higher-authority layers; semantic contradictions and role contexts
+remain separate higher-authority layers; automatic semantic analysis and role contexts
 remain later work. See [project guidance overrides](PROJECT_GUIDANCE_OVERRIDES.md).
+
+**Explicit conflict assessment slice implemented:** `mos guidance-conflicts set|clear|show|effective`
+records reviewed conflicts among active qualified advisory rules. Preferred-rule
+choices require rationale, respect advisory precedence, and cannot exclude another
+chosen winner through overlapping resolutions. The complete assessment is pinned
+to binding/override revisions; changed guidance makes it stale. Both effective
+inspection paths expose unresolved/stale/unassessed status and retained exclusion
+provenance. Empty assessments require explicit review rationale and claim only that
+no conflicts were reported. Guarded publication retains immutable source/basis
+snapshots; historical views cannot claim current resolution completion. Automatic
+semantic detection, accepted requirements, trusted-policy integration and role
+materialization remain later work. See [project guidance conflict review](PROJECT_GUIDANCE_CONFLICTS.md).
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging

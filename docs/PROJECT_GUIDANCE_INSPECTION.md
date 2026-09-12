@@ -85,8 +85,9 @@ promise that files remain unchanged afterward; adoption must revalidate its inpu
 
 Trusted per-owner/project attach, show, update and detach with concrete diffs are
 available through [private binding](PROJECT_GUIDANCE_BINDING.md). Independent
-[advisory overrides](PROJECT_GUIDANCE_OVERRIDES.md) are implemented. Conflict handling,
-accepted brief/ADR requirements, and
+[advisory overrides](PROJECT_GUIDANCE_OVERRIDES.md) and
+[explicit conflict assessment](PROJECT_GUIDANCE_CONFLICTS.md) are implemented.
+Automatic semantic analysis, accepted brief/ADR requirements, and
 role-scoped materialization remain planned under [plan §16.6](mos-eisley-plan.md#166-project-specific-points-of-view-and-best-practice-templates).
 Inspection does not classify arbitrary prose as safe guidance or authenticate its
 claims. History disguised as Markdown cannot reach a fresh session through this
