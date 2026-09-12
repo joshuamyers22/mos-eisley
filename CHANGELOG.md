@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed exact replacement in user/project memory using explicit old/new JSON,
+  complete previews and hash confirmation. Share stale-edit and interrupted-write
+  protections with selective forgetting; retain one pending review per session.
 - Add reviewed selective forgetting for user/project memory. Preview one unique
   exact text span, confirm with a session-bound hash and reject stale revisions.
   Preserve surrounding text, enabled state and historical session context;

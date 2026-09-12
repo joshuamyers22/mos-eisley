@@ -65,7 +65,9 @@ Updates are commands invoked by the user. The model cannot call them as tools.
 Explicit scoped remember shortcuts are described below. Free-form remember/forget
 interpretation, automatic extraction and proposed-memory approval remain planned.
 [Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md) now removes one
-explicitly identified span after preview and hash confirmation. Ordinary chat text is not
+explicitly identified span after preview and hash confirmation.
+[Reviewed replacement](CONVERSATION_MEMORY_REPLACE.md) substitutes explicitly supplied
+new text for one unique exact span. Ordinary chat text is not
 automatically promoted to either memory scope.
 
 ## Edit from a terminal session
@@ -144,6 +146,8 @@ natural-language interpretation and model-proposed memories remain planned.
 Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
 `forget this everywhere: TEXT` for a reviewed selective removal; then confirm with
 `/memory apply-forget PREVIEW_SHA256`. See [selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+For a reviewed edit, use `/memory replace SCOPE {"old":"TEXT","new":"TEXT"}`, then
+`/memory apply-replace PREVIEW_SHA256`. See [replacement](CONVERSATION_MEMORY_REPLACE.md).
 Use explicit `/memory clear SCOPE` to clear a current document.
 
 ## Session consistency and retention

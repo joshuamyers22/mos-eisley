@@ -3,6 +3,7 @@
 import json
 import re
 from dataclasses import dataclass
+from typing import Literal
 from uuid import uuid4
 
 from mos_eisley.conversation_memory import MemorySnapshot, MemoryStore, Scope
@@ -61,10 +62,30 @@ class ForgetPreview:
             ),
         }
 
+    def saved_receipt(self, saved: MemorySnapshot) -> dict[str, object]:
+        return {
+            "type": "conversation.memory.forget.saved",
+            "scope": self.scope,
+            "path": self.path,
+            "preview_sha256": self.sha256,
+            "removed_text": self.removed,
+            "document": saved.model_dump(mode="json"),
+            "text": (
+                f"Removed exact text from {self.scope} memory at {self.path}. "
+                f"Revision {saved.document.revision}, SHA-256 {saved.sha256}.\n"
+                f"Removed text:\n{self.removed}\n"
+                "Session memory is unchanged; use /memory refresh, then /continue. "
+                "Earlier sessions and backups are not erased."
+            ),
+        }
+
 
 class MemoryForget:
-    def __init__(self, store: MemoryStore) -> None:
+    def __init__(
+        self, store: MemoryStore, *, action: Literal["forget", "replace"] = "forget"
+    ) -> None:
         self.store = store
+        self.action = action
         self.pending: ForgetPreview | None = None
 
     def command(self, line: str) -> dict[str, object] | None:
@@ -99,23 +120,26 @@ class MemoryForget:
         if len(args) != 2 or args[0] not in {"user", "project"} or not args[1].strip():
             raise ValueError("Use /memory forget user|project EXACT_TEXT.")
         scope: Scope = "user" if args[0] == "user" else "project"
+        self.pending = self.preview(scope, args[1])
+        return self.pending.receipt()
+
+    def preview(self, scope: Scope, text: str) -> ForgetPreview:
         try:
             before = self.store.read(scope)
         except (OSError, ValueError):
             raise ValueError(
-                "Saved memory could not be inspected. No forget preview created."
+                "Saved memory could not be inspected. No preview created."
             ) from None
         if before is None:
             raise ValueError(
                 "No saved document exists in that scope. Nothing was changed."
             )
-        text = args[1]
         start = before.document.text.find(text)
         if start < 0:
             raise ValueError("Exact text was not found. Nothing was changed.")
         if before.document.text.find(text, start + 1) >= 0:
             raise ValueError("Text matches more than once. Supply a unique exact span.")
-        self.pending = ForgetPreview(
+        return ForgetPreview(
             uuid4().hex,
             scope,
             str(self.store.path(scope)),
@@ -125,24 +149,26 @@ class MemoryForget:
             start,
             before.document.text[:start] + before.document.text[start + len(text) :],
         )
-        return self.pending.receipt()
 
     def apply(self, expected_sha256: str) -> dict[str, object]:
         preview = self.pending
         if preview is None:
             raise ValueError(
-                "No forget preview in this session. Create a fresh preview."
+                f"No {self.action} preview in this session. Create a fresh preview."
             )
         if expected_sha256 != preview.sha256:
             raise ValueError(
-                "Forget preview hash does not match. Review the current preview."
+                f"{self.action.capitalize()} preview hash does not match. "
+                "Review the current preview."
             )
         self.pending = None
         if (
             self.store.workspace != preview.workspace
             or str(self.store.path(preview.scope)) != preview.path
         ):
-            raise ValueError("Memory target changed. Create a fresh forget preview.")
+            raise ValueError(
+                f"Memory target changed. Create a fresh {self.action} preview."
+            )
         try:
             saved = self.store.change(
                 preview.scope,
@@ -152,22 +178,9 @@ class MemoryForget:
             )
         except (OSError, ValueError):
             raise ValueError(
-                "Forget could not be completed. Inspect current memory before creating "
+                f"{self.action.capitalize()} could not be completed. "
+                "Inspect current memory before creating "
                 "a fresh preview; a failed write may already have been published. "
                 "The session selection is unchanged."
             ) from None
-        return {
-            "type": "conversation.memory.forget.saved",
-            "scope": preview.scope,
-            "path": preview.path,
-            "preview_sha256": expected_sha256,
-            "removed_text": preview.removed,
-            "document": saved.model_dump(mode="json"),
-            "text": (
-                f"Removed exact text from {preview.scope} memory at {preview.path}. "
-                f"Revision {saved.document.revision}, SHA-256 {saved.sha256}.\n"
-                f"Removed text:\n{preview.removed}\n"
-                "Session memory is unchanged; use /memory refresh, then /continue. "
-                "Earlier sessions and backups are not erased."
-            ),
-        }
+        return preview.saved_receipt(saved)

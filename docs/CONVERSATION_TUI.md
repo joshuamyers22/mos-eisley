@@ -113,6 +113,10 @@ pasted/composed text stays literal. A successful receipt includes saved text.
 complete removal preview. `/memory apply-forget HASH` confirms it;
 `/memory discard-forget` cancels it. Reviews last only in the current session.
 See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+`/memory replace SCOPE {"old":"TEXT","new":"TEXT"}` previews an exact replacement;
+`/memory apply-replace HASH` confirms it and `/memory discard-replace` cancels it.
+Forget and replacement share one pending review per session. The complete result
+is scrollable with terminal control characters escaped. See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 `/memory refresh` applies current saved memory between requests; `/memory off`

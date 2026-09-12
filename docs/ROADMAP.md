@@ -133,7 +133,9 @@ capabilities, not current automatic template or memory loading.
    TEXT` and `remember this everywhere: TEXT` now save directly supplied text;
    ambiguous scope requests correction. [Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md)
    now removes a unique exact span after preview/hash confirmation, with stale-edit
-   guards and ephemeral session reviews. Broader interpretation remains planned. Directory
+   guards and ephemeral session reviews. [Reviewed replacement](CONVERSATION_MEMORY_REPLACE.md)
+   now edits one unique span using explicit old/new JSON and the same guarded apply.
+   Broader interpretation and model-proposal acceptance remain planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)

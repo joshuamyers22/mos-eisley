@@ -44,8 +44,9 @@ A wrong hash cannot apply the pending review. Apply checks the reviewed document
 hash under the existing exclusive memory lock; concurrent edits, clearing or
 changes to enabled state reject stale writes instead of overwriting them.
 
-Each terminal session holds at most one preview, in memory only. A new `/memory forget`
-command discards the previous preview, including when inspection or matching fails. Valid
+Each terminal session holds at most one forget or [replacement](CONVERSATION_MEMORY_REPLACE.md)
+preview, in memory only. A new `/memory forget` or `/memory replace` command discards
+the previous review of either kind, including when inspection or matching fails. Valid
 ordinary memory write commands invalidate it before storage access, including
 failed writes; `/memory show SCOPE` retains it. A discarded or replaced review
 cannot be reused, even when the document is unchanged. Exiting, resuming or switching
