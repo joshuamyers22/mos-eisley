@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a canonical model-backed critic/judge bridge with isolated requests, explicit
+  finding IDs, strict JSON decoding and bounded single-exchange behavior.
+
 - Connect frozen guided reviews to terminal `/review`, with explicit launch policy,
   queue/resume checks and retained guidance in snapshot and SQLite artifacts.
 
