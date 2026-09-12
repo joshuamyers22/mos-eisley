@@ -73,6 +73,8 @@ evaluate explicit private prohibitions on guidance selection. [Frozen role packe
 select relevant rules with explicit requirement-omission reasons and immutable provenance.
 [Current admission](PROJECT_GUIDANCE_ROLE_ADMISSION.md) checks exact selection and
 current assessment/policy, with a guarded local consumption API.
+[Guided recorded reviews](PROJECT_GUIDANCE_REVIEW.md) bind matching critic/judge
+rubrics to explicit briefs, request budgets and replayable guidance artifacts.
 Broader runtime/user/admin policy integration, automatic semantic analysis, run/provider
 loading and telemetry adapters remain planned.
 

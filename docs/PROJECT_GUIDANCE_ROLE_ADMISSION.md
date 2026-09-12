@@ -30,7 +30,7 @@ and after successful local use. Ordinary guidance writers cannot change the
 selection while this guard holds the lock.
 
 Use the guard only for short local payload preparation. Do not dispatch providers,
-wait for user input, or recursively acquire the guidance lock inside it. External
+wait for user input, or acquire a guidance write lock inside it. External
 filesystem edits are detected by final validation, but validation cannot roll back
 side effects already performed by a caller. Caller exceptions propagate and release
 the lock. Retained policy bytes support historical reconstruction only; current
@@ -42,9 +42,10 @@ owner/project rejects. Even a new allowed policy hash requires a newly reviewed
 freeze. No implicit refresh, raw brief reread, transcript import or stored-path
 follow occurs. Existing 64 KiB context and private single-link file limits apply.
 
-This slice supplies the current local consumption boundary. Wiring it into an
-actual role run, pinning packet hashes in that run's manifest, enforcing total
-request budgets and rechecking before dispatch remain subsequent work. Guidance
+This slice supplies the current local consumption boundary.
+[Recorded guidance reviews](PROJECT_GUIDANCE_REVIEW.md) now connect this boundary
+to explicit critic/judge briefs, request budgets and hashed run artifacts. Live
+terminal/provider wiring and dispatch revalidation remain subsequent work. Guidance
 text does not grant model, tool, spend or containment authority. It does not
 semantically evaluate policy prose or choose the user's authoritative policy.
 

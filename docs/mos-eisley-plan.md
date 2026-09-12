@@ -2166,6 +2166,15 @@ source/identity rechecks. Its diagnostic output is not reusable authority.
 [Current role admission](PROJECT_GUIDANCE_ROLE_ADMISSION.md) documents stale rejection,
 consumer constraints and remaining run-manifest/provider integration.
 
+**Recorded review guidance slice implemented:** `mos guidance-review prepare|run`
+projects matching current critic/judge packets into an explicit review brief before
+request hashing and byte-budget checks. Run admission checks both current packets
+and the selected policy before and after offline execution. Hashed guidance artifacts
+pin source/derived briefs and role provenance; historical replay verifies projection
+without reopening current sources. [Guided recorded reviews](PROJECT_GUIDANCE_REVIEW.md)
+document bounded inputs, exact rubric pairing, schema compatibility and remaining
+live terminal/provider integration. Recorded fixtures do not establish live quality.
+
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
 and note conventions, and justified departures. Separate advisory preferences from

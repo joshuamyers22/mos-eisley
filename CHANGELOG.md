@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add guidance-bearing recorded review briefs, exact critic/judge rubric pairing,
+  current admission checks and hashed guidance provenance in replayable runs.
+
 - Add exact current role-context checks and a guarded local loader that rejects
   stale guidance, policy changes and mismatched role/scope/content selections.
 

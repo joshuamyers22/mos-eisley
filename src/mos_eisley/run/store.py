@@ -19,6 +19,10 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.skills import SkillRunManifest
+from mos_eisley.project_guidance_review import (
+    PreparedGuidanceReview,
+    decode_prepared_review,
+)
 from mos_eisley.providers.recorded import Cassette
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.skills import verify_skill_run_manifest
@@ -31,6 +35,7 @@ ARTIFACTS = (
     "events.jsonl",
 )
 SKILL_ARTIFACT = "skills.json"
+GUIDANCE_ARTIFACT = "guidance-review.json"
 MAX_ARTIFACT_BYTES = 16_000_000
 
 
@@ -40,7 +45,7 @@ class ArtifactHash(Contract):
 
 
 class Manifest(Contract):
-    schema_version: Literal[1, 2] = 1
+    schema_version: Literal[1, 2, 3, 4] = 1
     run_id: str
     mode: Literal["recorded"] = "recorded"
     brief_id: Digest
@@ -62,6 +67,7 @@ def save_run(
     policy: ReviewPolicy,
     result: ReviewResult,
     skill_manifest: SkillRunManifest | None = None,
+    guidance_review: PreparedGuidanceReview | None = None,
 ) -> Path:
     run_id = uuid4().hex
     path = root / run_id
@@ -103,6 +109,11 @@ def save_run(
     if skill_manifest is not None:
         verify_skill_run_manifest(cassette, skill_manifest)
         payloads[SKILL_ARTIFACT] = canonical_bytes(skill_manifest)
+    if guidance_review is not None:
+        guidance_review = decode_prepared_review(canonical_bytes(guidance_review))
+        if guidance_review.brief != brief:
+            raise ValueError("Guidance artifact does not match the run brief.")
+        payloads[GUIDANCE_ARTIFACT] = canonical_bytes(guidance_review)
     if any(len(payload) > MAX_ARTIFACT_BYTES for payload in payloads.values()):
         raise ValueError("run artifact exceeds replay byte limit")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -110,7 +121,11 @@ def save_run(
     for name, payload in payloads.items():
         private_write(path / name, payload)
     manifest = Manifest(
-        schema_version=2 if skill_manifest is not None else 1,
+        schema_version=(4 if skill_manifest is not None else 3)
+        if guidance_review is not None
+        else 2
+        if skill_manifest is not None
+        else 1,
         run_id=run_id,
         brief_id=brief.brief_id,
         artifacts=tuple(
@@ -150,8 +165,10 @@ def _load_run_bundle(
     manifest = Manifest.model_validate_json(read_bounded(path / "manifest.json"))
     names = tuple(item.name for item in manifest.artifacts)
     expected: set[str] = set(ARTIFACTS)
-    if manifest.schema_version == 2:
+    if manifest.schema_version in (2, 4):
         expected.add(SKILL_ARTIFACT)
+    if manifest.schema_version in (3, 4):
+        expected.add(GUIDANCE_ARTIFACT)
     if len(names) != len(expected) or set(names) != expected:
         raise ValueError("manifest artifact set is invalid")
     payloads: dict[str, bytes] = {}
@@ -165,9 +182,13 @@ def _load_run_bundle(
     policy = ReviewPolicy.model_validate_json(payloads["policy.json"])
     result = ReviewResult.model_validate_json(payloads["result.json"])
     skill_manifest = None
-    if manifest.schema_version == 2:
+    if SKILL_ARTIFACT in expected:
         skill_manifest = SkillRunManifest.model_validate_json(payloads[SKILL_ARTIFACT])
         verify_skill_run_manifest(cassette, skill_manifest)
+    if manifest.schema_version in (3, 4):
+        guidance_review = decode_prepared_review(payloads[GUIDANCE_ARTIFACT])
+        if guidance_review.brief != brief:
+            raise ValueError("Stored guidance does not match the run brief.")
     if (
         brief.brief_id != manifest.brief_id
         or brief.brief_id != cassette.brief_id
