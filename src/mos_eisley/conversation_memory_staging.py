@@ -1,124 +1,35 @@
 """Exact raw staging review, with separate invalid and verified-project paths."""
 
-import base64
 import json
 import os
 import re
-import stat
-from collections.abc import Callable
 from pathlib import Path
 
 from mos_eisley.conversation_memory import RECORD_BYTES, MemorySnapshot, MemoryStorage
 from mos_eisley.conversation_memory_cleanup import MemoryCleanupStore
 from mos_eisley.conversation_memory_identity import RelocationSource
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.conversation_memory_raw import (
+    MAX_RAW_REVIEW_BYTES,
+    MemoryDiscardError,
+    discard_reviewed,
+    read_raw_record,
+    validate_raw_review,
+    verify_raw_record,
+)
+from mos_eisley.core.models import canonical_bytes
 
-MAX_STAGING_REVIEW_BYTES = 4 * 1024 * 1024
+MAX_STAGING_REVIEW_BYTES = MAX_RAW_REVIEW_BYTES
 
 
-class MemoryStagingDiscardError(ValueError):
+class MemoryStagingDiscardError(MemoryDiscardError):
     """Report returned unlink/flush operations when an in-process apply fails."""
 
     def __init__(self, receipt: dict[str, object]) -> None:
-        super().__init__(
-            "Staging discard stopped; inspect the exact file before further action."
+        super().__init__(receipt)
+        self.args = (
+            "Staging discard stopped; inspect the exact file before further action.",
         )
         self.receipt = receipt
-
-
-def _file_identity(info: os.stat_result) -> dict[str, int]:
-    return {
-        "device": info.st_dev,
-        "inode": info.st_ino,
-        "ctime_ns": info.st_ctime_ns,
-        "mtime_ns": info.st_mtime_ns,
-        "bytes": info.st_size,
-        "owner_uid": info.st_uid,
-    }
-
-
-def _verify_raw_record(root: int, name: str, record: dict[str, object]) -> None:
-    info = os.stat(name, dir_fd=root, follow_symlinks=False)
-    if _file_identity(info) != record["file_identity"] or info.st_nlink != 1:
-        raise ValueError("Staging file changed; preview discard again.")
-
-
-def _read_raw_staging(
-    root: int, name: str, raw_sha256: str, max_bytes: int
-) -> tuple[bytes, dict[str, object]]:
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
-    try:
-        before = os.fstat(fd)
-        if (
-            not stat.S_ISREG(before.st_mode)
-            or before.st_uid != os.getuid()
-            or before.st_mode & 0o077
-            or before.st_nlink != 1
-        ):
-            raise ValueError("Discard requires a private, single-link regular file.")
-        with os.fdopen(fd, "rb", closefd=False) as stream:
-            payload = stream.read(max_bytes + 1)
-        if len(payload) > max_bytes:
-            raise ValueError(
-                "Staging file exceeds the 256 KiB review limit."
-                if max_bytes == RECORD_BYTES
-                else "Staging file exceeds the requested review byte limit."
-            )
-        if digest(payload) != raw_sha256:
-            raise ValueError("Staging bytes do not match the reviewed raw hash.")
-        for current in (
-            os.fstat(fd),
-            os.stat(name, dir_fd=root, follow_symlinks=False),
-        ):
-            if (
-                current.st_dev != before.st_dev
-                or current.st_ino != before.st_ino
-                or current.st_ctime_ns != before.st_ctime_ns
-                or current.st_size != before.st_size
-                or current.st_nlink != 1
-            ):
-                raise ValueError("Staging file changed; preview discard again.")
-        return payload, {
-            "raw_sha256": raw_sha256,
-            "raw_bytes_base64": base64.b64encode(payload).decode("ascii"),
-            "review_max_bytes": max_bytes,
-            "file_identity": _file_identity(before),
-        }
-    finally:
-        os.close(fd)
-
-
-def _discard_reviewed(
-    root: int,
-    name: str,
-    inspect: Callable[[], dict[str, object]],
-    expected_sha256: str | None,
-) -> dict[str, object]:
-    body = inspect()
-    preview_hash = digest(
-        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
-    )
-    receipt: dict[str, object] = {
-        **body,
-        "preview_sha256": preview_hash,
-        "status": "planned",
-        "removed": False,
-        "synced": False,
-    }
-    if expected_sha256 is None:
-        return receipt
-    if expected_sha256 != preview_hash or inspect() != body:
-        raise ValueError("Staging discard changed; preview it again.")
-    try:
-        os.unlink(name, dir_fd=root)
-        receipt["removed"] = True
-        os.fsync(root)
-        receipt["synced"] = True
-    except OSError as error:
-        receipt["status"] = "incomplete"
-        raise MemoryStagingDiscardError(receipt) from error
-    receipt["status"] = "completed"
-    return receipt
 
 
 class _StagingDiscardStore(MemoryStorage):
@@ -131,7 +42,7 @@ class _StagingDiscardStore(MemoryStorage):
 
             def inspect() -> dict[str, object]:
                 storage = self._storage_identity(handles)
-                payload, record = _read_raw_staging(
+                payload, record = read_raw_record(
                     handles[0], name, raw_sha256, max_bytes
                 )
                 try:
@@ -145,7 +56,7 @@ class _StagingDiscardStore(MemoryStorage):
                     )
                 if self._storage_identity(handles) != storage:
                     raise ValueError("Memory storage changed; preview discard again.")
-                _verify_raw_record(handles[0], name, record)
+                verify_raw_record(handles[0], name, record)
                 return {
                     "schema_version": 1,
                     "operation": "discard-invalid-memory-staging",
@@ -158,7 +69,9 @@ class _StagingDiscardStore(MemoryStorage):
                     **record,
                 }
 
-            return _discard_reviewed(handles[0], name, inspect, expected_sha256)
+            return discard_reviewed(
+                handles[0], name, inspect, expected_sha256, MemoryStagingDiscardError
+            )
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -187,9 +100,7 @@ class _ProjectStagingDiscardStore(MemoryCleanupStore):
             def inspect() -> dict[str, object]:
                 workspace.verify()
                 storage = self._storage_identity(handles)
-                payload, raw_record = _read_raw_staging(
-                    root, name, raw_sha256, max_bytes
-                )
+                payload, raw_record = read_raw_record(root, name, raw_sha256, max_bytes)
                 snapshot = MemorySnapshot.model_validate_json(payload)
                 json.loads(payload, object_pairs_hook=_unique_object)
                 document = snapshot.document
@@ -211,7 +122,7 @@ class _ProjectStagingDiscardStore(MemoryCleanupStore):
                         "Project memory or storage changed; preview again."
                     )
                 workspace.verify()
-                _verify_raw_record(root, name, raw_record)
+                verify_raw_record(root, name, raw_record)
                 return {
                     "schema_version": 1,
                     "operation": "discard-project-memory-staging",
@@ -234,7 +145,9 @@ class _ProjectStagingDiscardStore(MemoryCleanupStore):
                     **raw_record,
                 }
 
-            return _discard_reviewed(root, name, inspect, expected_sha256)
+            return discard_reviewed(
+                root, name, inspect, expected_sha256, MemoryStagingDiscardError
+            )
 
 
 def _validate_inputs(
@@ -247,11 +160,7 @@ def _validate_inputs(
         is None
     ):
         raise ValueError("Discard requires an exact supported staging filename.")
-    for value in (raw_sha256, expected_sha256):
-        if value is not None and re.fullmatch(r"[0-9a-f]{64}", value) is None:
-            raise ValueError("Discard requires lowercase SHA-256 hashes.")
-    if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_STAGING_REVIEW_BYTES:
-        raise ValueError("--review-max-bytes must be between 1 and 4,194,304.")
+    validate_raw_review(raw_sha256, expected_sha256, max_bytes)
 
 
 def discard_memory_staging(

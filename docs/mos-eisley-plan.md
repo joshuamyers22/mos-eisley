@@ -1678,10 +1678,24 @@ unlink/flush receipts. Actual process death, real maximum-size inputs and preser
 live memory/session state are covered. Snapshot/context limits are unchanged. See
 [exact-byte staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md).
 
-**Next migration milestones:** unsupported backup disposal and registry
-import/history/backups plus temporary registry-file recovery/cleanup. Staging
-files above 4 MiB and ambiguous duplicate-key snapshots also remain outside the
-supported disposal workflows.
+**Unsupported backup disposal:** `memory-backup-discard` reviews exact invalid
+backup bytes with explicitly unverified project attribution and current-memory
+protection. `memory-project-backup-discard` validates owner/project identity and
+snapshot integrity for noncanonical, misnamed or oversized backup encodings. It
+refuses duplicate keys, supported canonical backups, and missing, unreadable or
+matching current project memory. Complete raw bytes, actual/canonical backup names,
+unsupported reasons, historical workspace anchor, current memory, file/storage/lock
+identities and review limit (256 KiB by default, configurable through 4 MiB) bind
+preview to exclusive-lock apply. Staging and backups share bounded single-link reads and interrupted
+unlink/flush receipts. No inventory, age/count promise, normalization, publication
+or automatic recovery is added. Real size boundaries, unsafe files, stale bindings,
+current-memory protection, partial failure and process death are tested. See
+[unsupported backup review](CONVERSATION_MEMORY_BACKUP_DISCARD.md).
+
+**Next migration milestones:** registry import/history/backups plus temporary
+registry-file recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
+unsupported backup filename syntax and foreign-owner/project or user snapshots
+remain outside the supported backup disposal workflows.
 Unselected resolution backups are retained; no automatic deletion, startup recovery
 or session identity rewriting is enabled. Common Git metadata or remote URLs never
 merge memory.

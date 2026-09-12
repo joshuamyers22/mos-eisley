@@ -194,6 +194,8 @@ boundary described above also applies to batches.
 Bounded invalid-record disposal uses the separate raw staging workflow above.
 For reviewed newest-count and age protections over a complete bounded inventory,
 use [project-memory retention](CONVERSATION_MEMORY_RETENTION.md). This named batch
-command still makes no inventory-based count guarantee. Unsupported backup disposal
-and automatic retention remain planned; staged snapshot disposal has the separate
-exact-byte review described above. Backups are never deleted at startup.
+command still makes no inventory-based count guarantee.
+[Unsupported backup disposal](CONVERSATION_MEMORY_BACKUP_DISCARD.md) separately
+reviews invalid bytes and verified noncanonical/misnamed project backups with
+current-memory protection. Automatic retention remains planned. Backups are never
+deleted at startup.

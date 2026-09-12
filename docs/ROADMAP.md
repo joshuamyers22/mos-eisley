@@ -183,7 +183,10 @@ capabilities, not current automatic template or memory loading.
    identity unverified. Valid snapshots cannot use that path. An explicit raw review
    limit now extends through 4 MiB, while separate [project staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md)
    verifies canonical/noncanonical project snapshots and rejects duplicate keys.
-   Unsupported backup disposal and automatic retention remain planned. Explicit
+   [Unsupported backup disposal](CONVERSATION_MEMORY_BACKUP_DISCARD.md) now reviews
+   invalid bytes or verified noncanonical/misnamed project snapshots through 4 MiB,
+   protecting absent or matching current memory for valid backups. Automatic
+   retention and mapping-registry recovery remain planned. Explicit
    [backup retention](CONVERSATION_MEMORY_RETENTION.md) now inventories up to 128
    backups, protects the newest count, explicit age cutoff and current memory,
    and reviews at most 32 deletions. Apply rechecks the complete retained inventory

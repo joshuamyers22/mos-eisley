@@ -308,6 +308,19 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             "memory-project-retention", help="Review inventory-based backup retention"
         )
     )
+    from mos_eisley.conversation_memory_backup_discard import add_command as add_discard
+
+    add_discard(
+        add_parser("memory-backup-discard", help="Review exact invalid backup bytes"),
+        project=False,
+    )
+    add_discard(
+        add_parser(
+            "memory-project-backup-discard",
+            help="Review unsupported project backups while protecting current memory",
+        ),
+        project=True,
+    )
     staging_discard = add_parser(
         "memory-staging-discard",
         help="Review exact invalid staging bytes without claiming a project identity",
@@ -1638,6 +1651,12 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command in {"memory-backup-discard", "memory-project-backup-discard"}:
+        from mos_eisley.conversation_memory_backup_discard import (
+            run_command as run_discard,
+        )
+
+        return run_discard(args)
     if args.command == "memory-project-retention":
         from mos_eisley.conversation_memory_retention import (
             run_command as run_retention,
