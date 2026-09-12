@@ -127,6 +127,7 @@ class ConversationTUI:
         project_location: ProjectLocation | None = None,
         memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
         refresh_memory: Callable[[bool], None] | None = None,
+        memory_command: Callable[[str], dict[str, object]] | None = None,
         load_transcript: Callable[[str | None], TranscriptPage] | None = None,
         load_artifact: Callable[[str], ArtifactContent] | None = None,
         input: Input | None = None,
@@ -143,6 +144,7 @@ class ConversationTUI:
             Path(controller.state.workspace)
         )
         self.refresh_memory = refresh_memory
+        self.memory_command = memory_command
         self.history = (
             None
             if load_transcript is None
@@ -164,6 +166,7 @@ class ConversationTUI:
         self.sending = False
         self.details = False
         self.memory_visible = False
+        self.memory_report: str | None = None
         self.directory_visible = False
         self.context_preview: tuple[int, str] | None = None
         self.context_command = "/context"
@@ -258,6 +261,7 @@ class ConversationTUI:
                 self.refresh()
             else:
                 self.details = self.memory_visible = self.directory_visible = False
+                self.memory_report = None
                 self.context_preview = None
                 self.app.layout.focus(self.transcript)
                 self.history.reload()
@@ -457,6 +461,8 @@ class ConversationTUI:
                     "Showing up to ten adjudicated findings. "
                     "The full report remains in the saved session."
                 )
+        if self.memory_report is not None:
+            parts.append(self.memory_report)
         if self.memory_visible:
             parts.append(
                 state.memory.describe()
@@ -585,13 +591,31 @@ class ConversationTUI:
             )
             self.context_command = command
             self.memory_visible = self.directory_visible = False
+            self.memory_report = None
             self.set_notice(f"Context report toggled. {command} shows or hides it.")
+            self.refresh()
+            return
+        if event["type"] in {
+            "conversation.memory.inspected",
+            "conversation.memory.saved",
+        }:
+            if self.history:
+                self.history.close()
+            self.memory_report = "Saved memory receipt (rerun to refresh)\n" + str(
+                event["text"]
+            )
+            self.memory_visible = self.directory_visible = False
+            self.context_preview = None
+            self.set_notice(
+                "Saved memory receipt shown. /memory shows active session memory."
+            )
             self.refresh()
             return
         if event["type"] == "conversation.memory":
             if self.history:
                 self.history.close()
             self.memory_visible = not self.memory_visible
+            self.memory_report = None
             self.directory_visible = False
             self.context_preview = None
             self.set_notice(
@@ -606,6 +630,7 @@ class ConversationTUI:
                 self.history.close()
             self.directory_visible = not self.directory_visible
             self.memory_visible = False
+            self.memory_report = None
             self.context_preview = None
             self.set_notice(
                 "Directory details toggled. /directory shows or hides them."
@@ -737,6 +762,7 @@ class ConversationTUI:
                 self.emit,
                 self.review_packet,
                 self.refresh_memory,
+                memory_command=self.memory_command,
                 initial_prompt=self.initial_prompt,
                 project_location=self.project_location,
                 switch_directory=self.switch_directory

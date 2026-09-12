@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add explicitly scoped terminal memory inspection and editing in full-screen and
+  plain/JSON sessions. Preserve session selection until refresh, pause queued work,
+  reject edits during active requests and keep pasted/composed chat literal.
+
 - Add explicit mapping-history retention with newest-count, age-cutoff and
   current-registry protections. Review complete bounded inventories, delete at
   most 32 backups, recheck retained files before each deletion and report partial

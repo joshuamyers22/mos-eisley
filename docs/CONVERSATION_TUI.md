@@ -101,6 +101,13 @@ The persistent header now shows the working directory and active user/project me
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory
 details in the scrollable transcript. See [memory management](CONVERSATION_MEMORY.md)
 for explicit saves, scope selection, no-memory launches and changed-memory recovery.
+`/memory show user|project` displays a complete saved-document receipt in the
+scrollable transcript. `/memory append|set user|project TEXT` saves single-line text;
+`/memory clear|enable|disable user|project` manages that scope. These commands require
+idle requests and pause queued work. `/memory` returns to the active selection;
+saved-document receipts are snapshots and must be rerun to inspect later edits.
+See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
+
 `/memory refresh` applies current saved memory between requests; `/memory off`
 disables it for this session. Both save the selection and pause queued work until
 F4, `/continue`, or a newly submitted message continues it.

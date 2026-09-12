@@ -928,6 +928,7 @@ async def terminal(
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
+    memory_command: Callable[[str], dict[str, object]] | None = None,
     switch_directory: Callable[[str], Awaitable[bool]] | None = None,
     project_location: ProjectLocation | None = None,
 ) -> None:
@@ -1274,6 +1275,32 @@ async def terminal(
                             ),
                         }
                     )
+                elif line.split(maxsplit=1)[:1] == ["/memory"]:
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": (
+                                    "Stop active work before managing saved memory."
+                                ),
+                            }
+                        )
+                    elif memory_command is None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Memory management is not configured here.",
+                            }
+                        )
+                    else:
+                        # Pause before storage access, including a partial failure.
+                        enabled = False
+                        try:
+                            receipt = memory_command(line)
+                        except ValueError as exc:
+                            emit({"type": "conversation.unavailable", "text": str(exc)})
+                        else:
+                            emit(receipt)
                 elif line == "/context":
                     try:
                         preview = preview_context(controller.state)
@@ -1359,7 +1386,8 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/steer TEXT, /review, /memory, /directory, "
+                                    "/steer TEXT, /review, "
+                                    "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
                                     "/stop, /continue, /quit"
                                 ),
@@ -1386,6 +1414,7 @@ async def _run_terminal(
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
+    memory_command: Callable[[str], dict[str, object]] | None = None,
     project_location: ProjectLocation | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
@@ -1418,6 +1447,7 @@ async def _run_terminal(
             emit,
             review_packet,
             refresh_memory,
+            memory_command=memory_command,
             initial_prompt=initial_prompt,
             project_location=project_location,
         )
@@ -2548,6 +2578,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                         project_location=project_location,
                         input=terminal_input,
                         refresh_memory=memory_runtime.refresh,
+                        memory_command=memory_runtime.command,
                         load_transcript=store.transcript_page
                         if isinstance(store, SQLiteConversationStore)
                         else None,
@@ -2569,6 +2600,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     emit,
                     review_packet,
                     memory_runtime.refresh,
+                    memory_command=memory_runtime.command,
                     initial_prompt=initial_prompt,
                     project_location=project_location,
                 )
