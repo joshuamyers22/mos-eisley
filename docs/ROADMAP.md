@@ -131,8 +131,9 @@ capabilities, not current automatic template or memory loading.
    between requests, with explicit refresh before the session adopts edits. Literal
    pasted/composed chat does not invoke edits. Explicit `remember this for this project:
    TEXT` and `remember this everywhere: TEXT` now save directly supplied text;
-   ambiguous scope requests correction, while broader interpretation and forget remain
-   planned. Directory
+   ambiguous scope requests correction. [Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md)
+   now removes a unique exact span after preview/hash confirmation, with stale-edit
+   guards and ephemeral session reviews. Broader interpretation remains planned. Directory
    status stays visible. Explicit `/memory refresh`, `/memory off` and resume refresh
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. The [startup directory selector](CONVERSATION_DIRECTORY.md)

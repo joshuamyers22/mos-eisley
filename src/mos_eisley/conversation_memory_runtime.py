@@ -8,7 +8,11 @@ from mos_eisley.conversation_memory import (
     MemoryRefreshError,
     MemoryStore,
 )
-from mos_eisley.conversation_memory_commands import run_memory_command
+from mos_eisley.conversation_memory_commands import (
+    parse_memory_command,
+    run_memory_command,
+)
+from mos_eisley.conversation_memory_forget import MemoryForget
 from mos_eisley.providers.agent_recorded import AgentCassette
 
 
@@ -23,6 +27,7 @@ class ConversationMemoryRuntime:
     ) -> None:
         self.controller = controller
         self.store = store
+        self.forget = MemoryForget(store)
         self.factory = factory
         self.ignore_memory = ignore_memory
         self.builtin = controller.state.builtin_recording or (
@@ -30,6 +35,11 @@ class ConversationMemoryRuntime:
         )
 
     def command(self, line: str) -> dict[str, object]:
+        receipt = self.forget.command(line)
+        if receipt is not None:
+            return receipt
+        if parse_memory_command(line).action != "show":
+            self.forget.pending = None
         return run_memory_command(self.store, line)
 
     def check(self) -> None:

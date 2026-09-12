@@ -101,7 +101,7 @@ from mos_eisley.conversation_pending import (
 )
 from mos_eisley.conversation_picker import ResumeSelection, pick_session
 from mos_eisley.conversation_project import ProjectLocation
-from mos_eisley.conversation_remember import remember_command
+from mos_eisley.conversation_remember import memory_phrase_command
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -1100,7 +1100,7 @@ async def terminal(
     def remember(text: str) -> bool | None:
         nonlocal enabled
         try:
-            command = remember_command(text)
+            command = memory_phrase_command(text)
         except ValueError as exc:
             if active is None:
                 enabled = False

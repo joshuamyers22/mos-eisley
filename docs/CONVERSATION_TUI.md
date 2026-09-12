@@ -109,6 +109,10 @@ saved-document receipts are snapshots and must be rerun to inspect later edits.
 Directly typed `remember this for this project: TEXT` and `remember this everywhere:
 TEXT` provide scoped append shortcuts. Rejected requests retain the editor draft;
 pasted/composed text stays literal. A successful receipt includes saved text.
+`/memory forget SCOPE EXACT_TEXT` and the matching scoped forget phrases show a
+complete removal preview. `/memory apply-forget HASH` confirms it;
+`/memory discard-forget` cancels it. Reviews last only in the current session.
+See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
 See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
 
 `/memory refresh` applies current saved memory between requests; `/memory off`

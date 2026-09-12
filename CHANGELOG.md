@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add reviewed selective forgetting for user/project memory. Preview one unique
+  exact text span, confirm with a session-bound hash and reject stale revisions.
+  Preserve surrounding text, enabled state and historical session context;
+  report uncertain writes and require new reviews after resume or interruption.
+
 - Add explicit scoped remember phrases for directly entered terminal requests.
   Ask for missing scope/content, preserve rejected drafts and report saved text
   without dispatching a model turn or loading memory before an explicit refresh.
