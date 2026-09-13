@@ -5163,6 +5163,16 @@ conservative spending and cancellation cleanup. Host measurements do not replace
 independent runtime assessment or grant live authority. Repeated-probe acceptance
 and authorized live runs remain next. See [runtime evidence](REVIEW_RUNTIME_EVIDENCE.md).
 
+**Repeated review probe acceptance implemented:** one read-only evaluator now
+requires three distinct, ordered attempts committed before their outcomes, each
+matching exact role, SDK/image and quorum profiles. It freshly authenticates observer
+records, reconstructs review artifacts, verifies runtime/cleanup pins and requires
+complete dedicated-ledger accounting. Missing slots stay incomplete; corrupted
+records, repeated responses or unexplained spending cannot pass. The result grants
+no retries, provider dispatch or live launch. Independent commitment custody,
+authorized live attempts and reviewed launch admission remain outstanding. See
+[acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

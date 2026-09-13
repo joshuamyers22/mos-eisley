@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Evaluate three precommitted review probes with fresh observer, runtime and ledger
+  verification, preserving exact profile scope and denying live execution authority.
+
 - Retain private review runtime measurements and verify their request, response and
   worker-cleanup bindings for independent observer inspection.
 

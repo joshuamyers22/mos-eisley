@@ -80,8 +80,12 @@ independently collected evidence and does not automatically load these files.
 Cleanup receipts, SDK metadata, clocks and transport hashes remain local host
 records. They cannot prove provider authorship, historical policy continuity or
 honest host execution. An independent observer must inspect actual runtime and
-matching evidence before signing. Repeated-probe acceptance and explicitly
-authorized live runs remain outstanding; live launch remains unavailable.
+matching evidence before signing. Independently authorized live runs and reviewed
+launch admission remain outstanding; live launch remains unavailable.
+
+The [repeated-probe evaluator](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires fresh
+runtime verification for every slot in an exact three-attempt tranche. It does not
+replace independent observer assessment or authorize a live run.
 
 Focused tests cover collection, tampering, wrong-worker cleanup, missing evidence,
 write failures, private records, provider errors and cancellation. Real Docker smoke

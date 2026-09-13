@@ -180,6 +180,11 @@ loading and telemetry adapters remain planned.
    intervals and hashes, captures worker lifecycle paths and verifies matching
    cleanup receipts. These host measurements support independent inspection;
    observer assessment and repeated-probe acceptance remain separate requirements.
+   [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires all
+   three precommitted slots, exact role/runtime/quorum profiles, fresh observer and
+   runtime verification, distinct responses/workers and complete dedicated-ledger
+   accounting. Commitment custody, independently authorized live attempts and a
+   reviewed launch-admission decision remain outstanding.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

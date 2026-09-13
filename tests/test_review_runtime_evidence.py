@@ -27,7 +27,7 @@ from mos_eisley.run.store import private_write
 from mos_eisley.run.watchdog import CleanupLease, CleanupRecord
 
 
-class RuntimeEvidenceTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
+class RuntimeEvidenceFixture(ReviewProbeFixture):
     def setUp(self) -> None:
         super().setUp()
         self.lifecycles: list[Path] = []
@@ -72,6 +72,8 @@ class RuntimeEvidenceTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
     def critic_directory(self) -> Path:
         return self.directory / self.call.authorization.ledger_entry_id
 
+
+class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
     async def test_collect_exact_records_for_both_phases_without_exporting_secrets(
         self,
     ):
