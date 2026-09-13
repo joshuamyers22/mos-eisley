@@ -29,6 +29,9 @@ These are host outputs for independent assessment, not proof of an honest host o
 remote provider authorship. The callback must arrange actual independent observation
 and return a `CampaignAttemptSubmission`, or return `None` when evidence is unavailable.
 It must own any asynchronous work it starts and cooperate with cancellation.
+An [offline observer preview](REVIEW_OBSERVER_HANDOFF.md) can now verify a separately
+pinned completion and explicitly selected lifecycle records to prepare unsigned
+claims for independent assessment. It never signs or automatically completes handoff.
 
 The submission must match the owning probe's start, judge, authorizations and result
 hash. The observer independently selects lifecycle paths; the runtime verifier

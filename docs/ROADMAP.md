@@ -198,6 +198,9 @@ loading and telemetry adapters remain planned.
    probes in order and requires freshly verified observer evidence before the next
    invocation. Missing evidence, failures and cancellation stop future attempts;
    actual independent custody, live assessment and launch admission remain required.
+   [Offline observer handoff](REVIEW_OBSERVER_HANDOFF.md) now checks pinned completions,
+   historical phase signatures and independently selected runtime records, producing
+   an explicitly unsigned proposal for assessment without credentials or signing keys.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

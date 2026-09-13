@@ -5347,6 +5347,15 @@ retention, without retry or resume authority. Actual independent custody, author
 live attempts and reviewed launch admission remain required. See
 [campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md).
 
+**Offline observer handoff preview implemented:** a read-only command now verifies
+an independently pinned completion against its sealed slot, phase signatures and
+selected runtime/cleanup records, then prepares an unsigned observation proposal.
+Optional private output is exclusive and outside evidence directories. Proposed
+attestation claims remain subject to actual independent assessment; the wrapper
+explicitly denies observer authentication and signature creation. No provider or
+signing keys are loaded, and live admission remains gated. See
+[observer handoff](REVIEW_OBSERVER_HANDOFF.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

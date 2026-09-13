@@ -28,7 +28,7 @@ from mos_eisley.run.review_conformance_probe import BrokeredReviewConformancePro
 from mos_eisley.run.review_runtime_evidence import collect_review_runtime_exchange
 
 
-class CampaignRunnerTests(CampaignCeremonyFixture):
+class CampaignRunnerFixture(CampaignCeremonyFixture):
     async def asyncSetUp(self) -> None:
         self.prepare_attempts()
         self.users = [ScriptedUser(("approve", "approve")) for _ in range(3)]
@@ -142,6 +142,8 @@ class CampaignRunnerTests(CampaignCeremonyFixture):
             self.assertFalse(fixture.directory.exists())
             self.assertEqual(fixture.base.ledger.snapshot().entries, 0)
 
+
+class CampaignRunnerTests(CampaignRunnerFixture):
     async def test_three_slots_require_verified_observation_before_the_next(self):
         runner = self.runner()
         self.assert_future_unused(0)

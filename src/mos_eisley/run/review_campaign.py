@@ -52,7 +52,8 @@ class _NoDispatch:
         raise ValueError("campaign ceremony cannot dispatch provider requests")
 
 
-def _reviewer(configuration: ReviewLaunchConfiguration) -> ModelReviewer:
+def campaign_reviewer(configuration: ReviewLaunchConfiguration) -> ModelReviewer:
+    """Reconstruct sealed review projections through a dispatch-refusing client."""
     return ModelReviewer(
         _NoDispatch(),
         configuration.registry,
@@ -84,7 +85,7 @@ class CampaignAttempt(Contract):
             or len(config.critics) != len(preview.requests)
         ):
             raise ValueError("campaign configuration differs from its preview")
-        reviewer = _reviewer(config)
+        reviewer = campaign_reviewer(config)
         for selected, request, call in zip(
             config.critics, preview.requests, preview.envelope.critics, strict=True
         ):
@@ -158,7 +159,7 @@ class ReviewCampaignBundle(Contract):
                 if isinstance(block, TextBlock)
             )
             brief = CriticRequest.model_validate_json(text).brief
-            judge = _reviewer(attempt.configuration).judge_request(
+            judge = campaign_reviewer(attempt.configuration).judge_request(
                 JudgeRequest(brief=brief, findings=())
             )
             if review_role_profile(judge) != self.policy.judge:
@@ -387,7 +388,7 @@ def review_campaign_evidence(
                 lifecycle_directories=tuple(
                     Path(path) for path in supplied.lifecycle_directories
                 ),
-                reviewer=_reviewer(committed.configuration),
+                reviewer=campaign_reviewer(committed.configuration),
                 ledger=SpendLedger(Path(committed.ledger_path)),
             )
         )

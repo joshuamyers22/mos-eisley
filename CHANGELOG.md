@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Preview unsigned review observations from pinned campaign completions and selected
+  runtime evidence, with explicit independent-attestation requirements and no key use.
+
 - Sequence three bound review probes with independent observer handoff and fresh
   evidence verification, stopping on missing evidence, failure, timeout or cancellation.
 
