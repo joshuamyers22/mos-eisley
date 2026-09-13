@@ -29,3 +29,4 @@ container:
 	uv run --frozen python tools/smoke_isolation.py
 	uv run --frozen python tools/smoke_review_controller.py
 	uv run --frozen python tools/smoke_review_approval.py
+	uv run --frozen python tools/smoke_review_conformance.py

@@ -167,6 +167,10 @@ loading and telemetry adapters remain planned.
    model/pricing inputs, current guidance, quorum and aggregate spending into exact
    requests without reservation or dispatch. Existing evaluation receipts and
    registry labels cannot substitute for credentialed review-controller conformance.
+   [Signed review probe authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md) now binds
+   independent, short-lived signatures to exact critic and judge phases alongside
+   local approval, with current policy/runtime checks. Credentialed execution and
+   authenticated review-path observations remain required for conformance.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

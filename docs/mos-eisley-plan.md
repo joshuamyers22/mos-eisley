@@ -5125,6 +5125,14 @@ capacity without creating a run or reserving spending. Evaluation conformance
 receipts and registry labels cannot establish review-controller conformance;
 live launch remains unavailable. See [launch preview](REVIEW_LAUNCH_PREVIEW.md).
 
+**Independent review probe authorization implemented:** exact guided critic and
+evidence-derived judge previews now have separate, short-lived Ed25519 authorization
+scopes, bound to spending, current authority policy, runtime and controller identity.
+An approval adapter checks each signature before and after explicit local consent;
+judge scope transfers only the existing allowance. This adds no credentialed executor
+or conformance proof. Actual dispatch-time enforcement and authenticated observations
+remain G2 work. See [signed authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

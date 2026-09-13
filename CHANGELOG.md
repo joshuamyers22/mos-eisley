@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Require independent, short-lived signatures for exact review conformance phases
+  alongside local critic/judge approvals, with policy and runtime rechecks.
+
 - Preview explicitly configured guided reviews and aggregate spending through a
   no-dispatch CLI that preserves the credentialed review-conformance launch gate.
 
