@@ -176,6 +176,10 @@ loading and telemetry adapters remain planned.
    now authenticate one successful probe against exact approvals, execution windows
    and reconstructed artifacts. Independent runtime evidence collection, repeated
    probe acceptance and authorized live runs remain required; live launch is unavailable.
+   [Runtime evidence](REVIEW_RUNTIME_EVIDENCE.md) now records count/generation
+   intervals and hashes, captures worker lifecycle paths and verifies matching
+   cleanup receipts. These host measurements support independent inspection;
+   observer assessment and repeated-probe acceptance remain separate requirements.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

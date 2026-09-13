@@ -5153,6 +5153,16 @@ authorship, billing or repeated conformance. Independent evidence collection,
 review-specific repeated-probe acceptance and authorized live runs remain required;
 live launch remains unavailable. See [observer records](REVIEW_CONFORMANCE_OBSERVATION.md).
 
+**Review runtime evidence collection implemented:** the owned probe now writes
+private count/generation start and end records with exact approval/request/result
+hashes, UTC intervals, monotonic durations and active worker lease bindings. It
+captures lifecycle paths for independent retention. A read-only collector verifies
+these records and matching removal receipts, derives observer evidence pins and
+checks pinned exchanges against later changes. Recording failures preserve
+conservative spending and cancellation cleanup. Host measurements do not replace
+independent runtime assessment or grant live authority. Repeated-probe acceptance
+and authorized live runs remain next. See [runtime evidence](REVIEW_RUNTIME_EVIDENCE.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

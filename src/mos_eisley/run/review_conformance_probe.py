@@ -3,8 +3,10 @@
 import asyncio
 import copy
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from datetime import UTC, datetime
 from importlib.metadata import version
+from pathlib import Path
 from typing import Literal
 
 from pydantic import JsonValue
@@ -32,6 +34,7 @@ from mos_eisley.run.review_controller import (
     ControllerJudgePreview,
 )
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
+from mos_eisley.run.review_runtime_evidence import RuntimeOperationRecorder
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
 
@@ -44,6 +47,8 @@ class _ApprovedReviewTransport:
         controller: BrokeredReviewController,
         guidance: ReviewGuidanceAdmission,
         load_api_key: Callable[[], str],
+        container: OfflineContainer,
+        directory: Path,
         *,
         phase: Literal["critics", "judge"],
         index: int = 0,
@@ -52,6 +57,9 @@ class _ApprovedReviewTransport:
         self._controller = controller
         self._guidance = guidance
         self._key = load_api_key
+        self._container = container
+        self._directory = directory
+        self.lifecycle_path: Path | None = None
         self._phase: Literal["critics", "judge"] = phase
         self._index = index
         self._count_used = False
@@ -105,15 +113,43 @@ class _ApprovedReviewTransport:
         remaining = self._check(payload, count=count)
         return EphemeralOpenAITransport(key, remaining), remaining
 
+    def _record(
+        self, payload: dict[str, JsonValue], *, count: bool
+    ) -> RuntimeOperationRecorder:
+        preview, authorization = self._ui.approved_phase(self._phase)
+        request = (
+            preview.requests[self._index]
+            if isinstance(preview, ControllerCriticPreview)
+            else preview.model_request
+        )
+        recorder = RuntimeOperationRecorder(
+            self._directory,
+            "count" if count else "generation",
+            request,
+            authorization,
+            payload,
+            self._container,
+        )
+        self.lifecycle_path = self._container.lifecycle_path
+        return recorder
+
     async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
         if self._count_used:
             raise ValueError("review conformance token count is already consumed")
         self._count_used = True
         payload = copy.deepcopy(payload)
         transport, remaining = self._transport(payload, count=True)
-        async with asyncio.timeout(remaining):
-            result = await transport.count_input_tokens(payload)
-        self._check(payload, count=True)
+        recorder = self._record(payload, count=True)
+        try:
+            remaining = self._check(payload, count=True)
+            async with asyncio.timeout(remaining):
+                result = await transport.count_input_tokens(payload)
+            self._check(payload, count=True)
+        except BaseException as error:
+            with suppress(OSError, ValueError):
+                recorder.finish(error)
+            raise
+        recorder.finish(result)
         self._count_succeeded = True
         return result
 
@@ -125,9 +161,17 @@ class _ApprovedReviewTransport:
         self._response_used = True
         payload = copy.deepcopy(payload)
         transport, remaining = self._transport(payload, count=False)
-        async with asyncio.timeout(remaining):
-            result = await transport.create_response(payload)
-        self._check(payload, count=False)
+        recorder = self._record(payload, count=False)
+        try:
+            remaining = self._check(payload, count=False)
+            async with asyncio.timeout(remaining):
+                result = await transport.create_response(payload)
+            self._check(payload, count=False)
+        except BaseException as error:
+            with suppress(OSError, ValueError):
+                recorder.finish(error)
+            raise
+        recorder.finish(result)
         return result
 
 
@@ -182,6 +226,9 @@ class BrokeredReviewConformanceProbe:
                 self.controller,
                 guidance,
                 load_api_key,
+                critic_containers[index],
+                Path(envelope.envelope.artifact_directory)
+                / envelope.critics[index].authorization.ledger_entry_id,
                 phase="critics",
                 index=index,
             )
@@ -192,6 +239,8 @@ class BrokeredReviewConformanceProbe:
             self.controller,
             guidance,
             load_api_key,
+            judge_container,
+            Path(envelope.envelope.artifact_directory) / "judge",
             phase="judge",
         )
 
@@ -206,6 +255,13 @@ class BrokeredReviewConformanceProbe:
     @property
     def judge_preview(self) -> ControllerJudgePreview | None:
         return self._flow.judge_preview
+
+    @property
+    def lifecycle_paths(self) -> tuple[Path | None, ...]:
+        """Captured worker paths in critic/judge order; unavailable paths stay None."""
+        return tuple(
+            transport.lifecycle_path for transport in (*self._critics, self._judge)
+        )
 
     async def run(self) -> RetainedReviewResult | None:
         return await self._flow.run(

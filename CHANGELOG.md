@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Retain private review runtime measurements and verify their request, response and
+  worker-cleanup bindings for independent observer inspection.
+
 - Authenticate independent observer records for completed review probes against
   exact approvals, execution windows and reconstructed results, without live authority.
 

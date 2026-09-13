@@ -28,6 +28,10 @@ can retain `controller.start`, `judge_preview` and `approval_ui.authorizations`
 independently. The existing controller retains its broker, model, spending and
 verdict artifacts. Those artifacts do not authorize another run.
 
+The probe also retains private [runtime records](REVIEW_RUNTIME_EVIDENCE.md) and
+exposes `lifecycle_paths` in critic/judge order. A collector checks their approved
+request, returned-response and worker-cleanup bindings for independent inspection.
+
 ## Dispatch checks
 
 The [signed approval adapter](REVIEW_CONFORMANCE_AUTHORIZATION.md) now keeps frozen,

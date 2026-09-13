@@ -27,6 +27,12 @@ Docker or a remote provider produced them, or establish their custody. The obser
 must inspect the matching evidence before signing, and consumers must retain access
 to it for independent review.
 
+The owned probe now supplies [runtime evidence](REVIEW_RUNTIME_EVIDENCE.md) with
+measured operation intervals and matching worker-cleanup receipts. Its collector
+derives these pins and can recheck them alongside observation authentication.
+Independent observer assessment remains required; collection does not sign or
+prove remote execution automatically.
+
 ## Reconstructed checks
 
 The builder checks the exact policy, preview and authorization bindings; every
