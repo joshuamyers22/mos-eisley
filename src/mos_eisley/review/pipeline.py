@@ -8,6 +8,7 @@ from mos_eisley.core.models import (
     CriticResult,
     CriticSpec,
     Finding,
+    JudgeDecision,
     JudgeRequest,
     ReviewPolicy,
     ReviewResult,
@@ -74,6 +75,18 @@ def adjudicate(brief: Brief, findings: tuple[Finding, ...], rationale: str) -> V
     )
 
 
+def judge_verdict(request: JudgeRequest, decision: JudgeDecision) -> Verdict:
+    """Validate upheld IDs before applying the shared deterministic verdict rules."""
+    known = {finding.finding_id for finding in request.findings}
+    if (
+        len(set(decision.upheld)) != len(decision.upheld)
+        or not set(decision.upheld) <= known
+    ):
+        raise ValueError("judge returned duplicate or unknown finding IDs")
+    upheld = tuple(f for f in request.findings if f.finding_id in decision.upheld)
+    return adjudicate(request.brief, upheld, decision.rationale)
+
+
 async def review(
     brief: Brief,
     roster: tuple[CriticSpec, ...],
@@ -117,7 +130,6 @@ async def review(
     if not critic_quorum_met(results, policy):
         return failed("Critic quorum was not met.")
     findings = judge_findings(results)
-    unique = {finding.finding_id: finding for finding in findings}
     request = JudgeRequest(brief=brief, findings=findings)
     if len(canonical_bytes(request)) > policy.max_request_bytes:
         return failed("Judge request exceeds the byte budget.", request)
@@ -126,15 +138,13 @@ async def review(
             decision = await provider.judge(request)
     except (TimeoutError, ProviderError):
         return failed("Judge did not return a valid decision.", request)
-    if (
-        len(set(decision.upheld)) != len(decision.upheld)
-        or not set(decision.upheld) <= unique.keys()
-    ):
+    try:
+        verdict = judge_verdict(request, decision)
+    except ValueError:
         return failed("Judge returned duplicate or unknown finding IDs.", request)
-    upheld = tuple(f for f in findings if f.finding_id in decision.upheld)
     return ReviewResult(
         critics=results,
         judge_request=request,
         judge_decision=decision,
-        verdict=adjudicate(brief, upheld, decision.rationale),
+        verdict=verdict,
     )

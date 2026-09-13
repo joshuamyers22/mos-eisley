@@ -5211,6 +5211,101 @@ unchanged. See [response evidence](REVIEW_RESPONSE_EVIDENCE.md). Guidance admiss
 retained final-verdict verification and authorized credentialed conformance remain
 required before live terminal activation.
 
+**Current broker guidance admission implemented:** explicitly selected prepared
+guidance now binds critic and judge approvals to the same frozen rubric. The broker
+path rechecks the current workspace, assessment and owner policy before reservation,
+issuance, provider operations and model completion, with no guidance locks held
+over network awaits. Detected changes stop new generation or invalidate an answer
+while preserving uncertain or already settled spending. Historical audit checks
+reconstruct pinned guidance without reopening current policy or granting new
+authority. See [broker guidance admission](REVIEW_GUIDANCE_ADMISSION.md). These
+moment-of-use checks do not establish uninterrupted policy validity or atomic
+revocation at remote send; live workflow and credentialed conformance remain gated.
+
+**Retained final verdict verification implemented:** read-only reconstruction now
+checks the complete approved critic/judge chain and terminal accounting, reuses the
+live judge decoder, rejects duplicate/unknown finding IDs and applies the same
+deterministic verdict rules as the pipeline. Fully recorded invalid or failed judge
+answers yield infrastructure errors with spending preserved; missing or inconsistent
+records block reconstruction. A private exclusive result artifact binds approval,
+completion and outcome hashes; historical verification requires its independently
+pinned hash and recomputes the entire result. See
+[final verdict evidence](REVIEW_VERDICT_EVIDENCE.md). Current guidance admission and
+authorized credentialed conformance remain required before live activation.
+
+**Brokered review controller implemented:** a process-local controller now binds
+the reviewed envelope and policy to an exact approval, runs critics concurrently,
+reconstructs their evidence and pauses for separately approved judge transfer. One
+deadline includes the approval pause; cancellation waits for every child to finish
+broker cleanup. The controller retains the fully reconstructed final result and
+bounded private phase records without retries or automatic budget release. It
+preserves current guidance checks and the configured quorum. See
+[brokered review controller](BROKERED_REVIEW_CONTROLLER.md). Durable records do not
+authorize crash resume; live launch/approval UX and credentialed conformance remain
+separate requirements before terminal activation.
+
+**Read-only controller inspection implemented:** independently pinned start records
+now anchor a metadata-only inventory of saved controller stages, critic/judge
+audits and model completions, result presence and conservative spending. Missing
+transfer records after an atomic judge allowance transfer leave explicit incomplete
+attribution; no inspection grants replay, frees spending or claims a verified
+verdict. See [controller inspection](REVIEW_CONTROLLER_INSPECTION.md).
+
+**Host approval interaction implemented:** a one-use flow now presents exact critic
+requests and the complete spending envelope before reservation, then separately
+presents the evidence-bound judge request. The asynchronous terminal adapter
+requires explicit hashes, safely displays exact content, and retains conservative
+spending on decline, prompt expiry or cancellation. Real Docker fixtures exercise
+the UI/controller boundary. See [approval flow](REVIEW_APPROVAL_FLOW.md). This adds
+no credential loading or live launch/configuration authority; conformance remains
+a separate gate.
+
+**Explicit launch configuration preview implemented:** a no-dispatch CLI now
+projects the selected model registry, critic/judge spending policies, budgets and
+current prepared guidance into the exact controller preview. It rejects mismatched
+models, implicit effort substitutions, stale guidance and insufficient aggregate
+capacity without creating a run or reserving spending. Evaluation conformance
+receipts and registry labels cannot establish review-controller conformance;
+live launch remains unavailable. See [launch preview](REVIEW_LAUNCH_PREVIEW.md).
+
+**Independent review probe authorization implemented:** exact guided critic and
+evidence-derived judge previews now have separate, short-lived Ed25519 authorization
+scopes, bound to spending, current authority policy, runtime and controller identity.
+An approval adapter checks each signature before and after explicit local consent;
+judge scope transfers only the existing allowance. This adds no credentialed executor
+or conformance proof. Actual dispatch-time enforcement and authenticated observations
+remain G2 work. See [signed authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md).
+
+**Owned review probe dispatch implemented:** a paid-capable library now composes
+both signed/local approvals with the controller and bounded OpenAI SDK transport.
+It rechecks exact payloads, current policy/guidance, installed SDK, selected images
+and expiry before credentials and provider operations, and after provider awaits.
+Each count/generation attempt is consumed once; shared spending and cancellation
+cleanup remain controller-owned. Real Docker and mocked HTTP/SDK fixtures cover the
+boundary. No live provider probe or authenticated conformance observation is claimed;
+review-specific observation/acceptance and live launch remain G2 work. See
+[owned probe](REVIEW_CONFORMANCE_PROBE.md).
+
+**Authenticated review observation implemented:** one successful probe can now have
+an independently signed observer record binding exact phase approvals, observed
+exchange intervals, external evidence pins and the retained verdict. Historical
+authentication reconstructs the complete local controller/evidence/spending chain
+and rejects failed critics, infrastructure errors, stale observations and substituted
+policies or artifacts. It authenticates observer identity without proving provider
+authorship, billing or repeated conformance. Independent evidence collection,
+review-specific repeated-probe acceptance and authorized live runs remain required;
+live launch remains unavailable. See [observer records](REVIEW_CONFORMANCE_OBSERVATION.md).
+
+**Review runtime evidence collection implemented:** the owned probe now writes
+private count/generation start and end records with exact approval/request/result
+hashes, UTC intervals, monotonic durations and active worker lease bindings. It
+captures lifecycle paths for independent retention. A read-only collector verifies
+these records and matching removal receipts, derives observer evidence pins and
+checks pinned exchanges against later changes. Recording failures preserve
+conservative spending and cancellation cleanup. Host measurements do not replace
+independent runtime assessment or grant live authority. Repeated-probe acceptance
+and authorized live runs remain next. See [runtime evidence](REVIEW_RUNTIME_EVIDENCE.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

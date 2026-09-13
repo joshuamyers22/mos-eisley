@@ -58,7 +58,7 @@ def critique_text(*findings: Finding) -> str:
     return canonical_bytes(Critique(findings=findings)).decode()
 
 
-class ReviewEvidenceTests(IsolatedAsyncioTestCase):
+class ReviewEvidenceFixture(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -157,6 +157,8 @@ class ReviewEvidenceTests(IsolatedAsyncioTestCase):
             self.review_policy if policy is None else policy,
         )
 
+
+class ReviewEvidenceTests(ReviewEvidenceFixture):
     async def test_retention_is_private_and_binds_raw_canonical_and_request_hashes(
         self,
     ) -> None:
