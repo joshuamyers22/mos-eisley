@@ -5133,6 +5133,16 @@ judge scope transfers only the existing allowance. This adds no credentialed exe
 or conformance proof. Actual dispatch-time enforcement and authenticated observations
 remain G2 work. See [signed authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md).
 
+**Owned review probe dispatch implemented:** a paid-capable library now composes
+both signed/local approvals with the controller and bounded OpenAI SDK transport.
+It rechecks exact payloads, current policy/guidance, installed SDK, selected images
+and expiry before credentials and provider operations, and after provider awaits.
+Each count/generation attempt is consumed once; shared spending and cancellation
+cleanup remain controller-owned. Real Docker and mocked HTTP/SDK fixtures cover the
+boundary. No live provider probe or authenticated conformance observation is claimed;
+review-specific observation/acceptance and live launch remain G2 work. See
+[owned probe](REVIEW_CONFORMANCE_PROBE.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

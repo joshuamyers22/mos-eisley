@@ -169,8 +169,11 @@ loading and telemetry adapters remain planned.
    registry labels cannot substitute for credentialed review-controller conformance.
    [Signed review probe authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md) now binds
    independent, short-lived signatures to exact critic and judge phases alongside
-   local approval, with current policy/runtime checks. Credentialed execution and
-   authenticated review-path observations remain required for conformance.
+   local approval, with current policy/runtime checks. The
+   [owned probe](REVIEW_CONFORMANCE_PROBE.md) now rechecks authorization at credential
+   and provider use, bounds operations by signed expiry, preserves one-use spending
+   and awaits cancellation cleanup. Authenticated review-path observations remain
+   required for conformance; live launch remains unavailable.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

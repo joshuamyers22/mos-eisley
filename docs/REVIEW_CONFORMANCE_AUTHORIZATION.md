@@ -3,8 +3,9 @@
 The brokered review path now has a library boundary for independently authorized
 probe phases. An enrolled authorizer signs one exact critic phase, and later signs
 the evidence-derived judge phase separately. The existing local approval prompts
-remain required. This implements authorization checks; a credentialed executor and
-authenticated observation of review-path conformance remain G2 work.
+remain required. This implements authorization checks. The
+[owned probe](REVIEW_CONFORMANCE_PROBE.md) now enforces them at credential and
+provider use; authenticated observation of review-path conformance remains G2 work.
 
 ## Trusted inputs and signed scope
 
@@ -59,16 +60,17 @@ matched. It is not a dispatch log or evidence that a provider call occurred.
 
 The verifier is read-only and repeatable. Verification does not consume permission,
 load credentials, attest runtime configuration or establish provider conformance.
-A future credentialed executor must verify again at credential and provider use,
-enforce the actual SDK/image and bounded isolated transport, preserve current
-guidance checks and controller/ledger one-use rules, and retain attempts and
-independently authenticated observations. Trusted runtime callback values are
-bindings to check against execution, not runtime attestation by themselves.
+The owned probe verifies again at credential and provider use, checks the installed
+SDK and selected images, uses the bounded transport, and preserves guidance and
+controller/ledger one-use rules. Independently authenticated observations remain
+outstanding. Trusted runtime callback values are bindings to check against
+execution, not runtime attestation by themselves.
 
 The signed statement explicitly grants no automatic retry, automatic budget release
 or live review activation, and always reports `conformance_proven: false`.
 [Launch preview](REVIEW_LAUNCH_PREVIEW.md) therefore still reports live launch
-unavailable. This increment adds no paid CLI or credential access.
+unavailable. This authorization adapter adds no paid CLI or credential access;
+the separately constructed owned probe is the paid-capable library boundary.
 
 ## Verification
 

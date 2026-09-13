@@ -39,7 +39,7 @@ from mos_eisley.run.review_controller import (
 )
 
 
-class ReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
+class ReviewConformanceFixture(GuidedBrokerFixture):
     def setUp(self) -> None:
         super().setUp()
         self.review = self.envelope()
@@ -114,6 +114,8 @@ class ReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             judge_container=self.base.container,
         )
 
+
+class ReviewConformanceTests(ReviewConformanceFixture, IsolatedAsyncioTestCase):
     def test_signature_verification_is_read_only_and_not_conformance_evidence(self):
         signed = self.certificate()
         before = self.base.ledger.path.read_bytes()

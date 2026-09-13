@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Compose an owned review probe with fresh signed/local admission at credential and
+  provider use, exact payload checks, bounded SDK calls and cancellation cleanup.
+
 - Require independent, short-lived signatures for exact review conformance phases
   alongside local critic/judge approvals, with policy and runtime rechecks.
 

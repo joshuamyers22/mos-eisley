@@ -2,12 +2,14 @@
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import Literal
 
 from mos_eisley.core.models import Contract, Identifier, canonical_bytes
 from mos_eisley.run.review_approval import ApprovalPreview, ReviewApprovalUI
 from mos_eisley.run.review_conformance_authorization import (
     ImageID,
     ReviewConformanceAuthorityPolicy,
+    ReviewConformanceAuthorization,
     ReviewConformanceScope,
     SignedReviewConformanceAuthorization,
     review_conformance_scope,
@@ -57,6 +59,10 @@ class SignedReviewApprovalUI:
         self._load = load_authorization
         self._now = now
         self._authorizations: list[SignedReviewConformanceAuthorization] = []
+        self._approvals: dict[
+            Literal["critics", "judge"],
+            tuple[ApprovalPreview, SignedReviewConformanceAuthorization],
+        ] = {}
 
     @property
     def authorizations(self) -> tuple[SignedReviewConformanceAuthorization, ...]:
@@ -76,8 +82,20 @@ class SignedReviewApprovalUI:
             sdk_version=runtime.sdk_version,
             image_id=runtime.image_id,
             judge=judge,
-            start=self._start(),
+            start=self._start() if judge is not None else None,
         )
+
+    def approved_phase(
+        self, phase: Literal["critics", "judge"]
+    ) -> tuple[ApprovalPreview, ReviewConformanceAuthorization]:
+        """Recheck a process-local approval at use; no replay/consumption authority."""
+        if phase not in self._approvals:
+            raise ValueError("review conformance phase lacks explicit local approval")
+        preview, signed = self._approvals[phase]
+        authorization = verify_review_conformance_authorization(
+            signed, self._policy(), self._scope(preview), self._now()
+        )
+        return preview, authorization
 
     async def approve(self, preview: ApprovalPreview) -> str | None:
         scope = self._scope(preview)
@@ -94,7 +112,12 @@ class SignedReviewApprovalUI:
             signed, self._policy(), self._scope(preview), self._now()
         )
         if answer == preview.sha256:
+            preview = type(preview).model_validate_json(canonical_bytes(preview))
+            signed = SignedReviewConformanceAuthorization.model_validate_json(
+                canonical_bytes(signed)
+            )
             self._authorizations.append(signed)
+            self._approvals[signed.authorization.scope.phase] = (preview, signed)
         return answer
 
     async def show_result(self, result: RetainedReviewResult) -> None:

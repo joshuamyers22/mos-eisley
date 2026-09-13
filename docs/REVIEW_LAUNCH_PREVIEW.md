@@ -83,9 +83,10 @@ remain required before enabling a live command. No provider call is authorized
 by this preview, by a registry label, or by successful fixture tests.
 
 [Signed phase authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md) now provides
-independent critic/judge signature checks alongside local approval. Credentialed
-execution and authenticated observations remain outstanding; signatures alone do
-not change this preview's conformance or activation status.
+independent critic/judge signature checks alongside local approval. The
+[owned probe](REVIEW_CONFORMANCE_PROBE.md) now adds dispatch-time enforcement;
+authenticated observations remain outstanding. Neither signatures nor fixture
+execution change this preview's conformance or activation status.
 
 Each invocation creates fresh *in-memory* attempt identities. Consequently, the
 controller preview hash changes even when the configuration hash stays the same;
