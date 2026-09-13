@@ -7,7 +7,7 @@ from importlib.metadata import version
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, patch
 
-import httpx
+import httpx2
 from pydantic import JsonValue
 from test_openai_spend import FakeTransport
 from test_review_approval_flow import ScriptedUser
@@ -205,10 +205,10 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         self.key_loader.assert_not_called()
 
     async def test_real_sdk_uses_bounded_clients_exact_endpoint_and_no_retries(self):
-        requests: list[httpx.Request] = []
+        requests: list[httpx2.Request] = []
         clients: list[BoundedOpenAIHttpClient] = []
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             requests.append(request)
             if request.url.path.endswith("/input_tokens"):
                 body: dict[str, JsonValue] = {"input_tokens": 10}
@@ -229,12 +229,12 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
                     },
                     "output_tokens_details": {"reasoning_tokens": 0},
                 }
-            return httpx.Response(200, json=body, request=request)
+            return httpx2.Response(200, json=body, request=request)
 
         def bounded_client(**options: object) -> BoundedOpenAIHttpClient:
             self.assertFalse(options["trust_env"])
             self.assertFalse(options["follow_redirects"])
-            client = BoundedOpenAIHttpClient(transport=httpx.MockTransport(reply))
+            client = BoundedOpenAIHttpClient(transport=httpx2.MockTransport(reply))
             clients.append(client)
             return client
 
