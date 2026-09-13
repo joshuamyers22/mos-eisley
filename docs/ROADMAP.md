@@ -10,9 +10,10 @@ Execute this dependency order alongside the existing capability workstreams:
 
 | Order | Next deliverable | Gate |
 |---|---|---|
-| G0/G1 | Clause/decision/outcome contracts, recorded conversation/review slice and sealed plan-reading experiment | Accurate private records, replay, no early reveal, revision invalidation, cancel/resume |
+| G0 | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
+| G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
-| G3 | Affordable independent utility study | Pre-spend sample/assignment feasibility, protected holdout, clean/defective labels and whole-task outcomes |
+| G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
@@ -22,6 +23,26 @@ qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**Session-shape adoption, 2026-09-13 — planned:** implement
+[plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
+through the existing controller and private store. G0 first freezes work-unit and
+checkpoint schemas, measurement definitions, and offline guidance/tool-profile
+diagnostics. G1 then applies scoped tool views and schema selection at admission,
+separates reusable memory from temporary task state, and connects milestone closure
+to explicit fresh-context continuation and advisory pressure signals. Preserve
+task-wide budgets, outstanding steering, correction counters and uncertain effects
+across handoffs. Advancing an already-authorized work unit requires no new user
+confirmation. These controls do not enable a deferred tool or execution capability.
+
+The acceptance demonstration completes a milestone, writes a concise private
+checkpoint, continues in fresh context, detects changed repository/test state and
+finishes with required evidence and obligations intact. G3 compares this workflow
+with the existing selection policy; smaller cumulative context or cost counts as
+an improvement only after independent quality gates pass. Numeric guide heuristics
+remain configurable evaluation candidates. Current `/context` byte previews and
+saved admissions do not establish that compaction or checkpoint continuation has
+shipped. The SQLite storage-resume checkpoint is a different metadata structure.
 
 **Platform release direction, 2026-09-11:** version 0.1.0 adds a tested WSL2
 deployment using the Linux backend; version 0.1.1 delivers full native Windows
@@ -120,91 +141,17 @@ capabilities, not current automatic template or memory loading.
    now persist the selected context while preserving consumed recording exchanges
    and historical memory. Natural-language memory changes, project-root discovery
    and the directory picker remain planned.
-   [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
-   with visible usage and a separate bounded catalog scan override. The 2 MB default
-   remains an interim preview limit. Plan §17.7 now sequences incremental records,
-   paginated listing/transcript reads, independent context/retention budgets,
-   explicit migration and recovery tests before lifting the message cap.
-   The first [SQLite adapter](CONVERSATION_SQLITE.md) now implements opt-in
-   incremental message/artifact writes, atomic saves/deletes and bounded metadata
-   pages with generation-bound cursors. Explicit same-root JSON-to-SQLite migration
-   now preserves exact state and source files, with dry-run sizing and verified
-   retries after transaction interruption. Bounded same-root batches now select up
-   to 32 explicit sessions under a 64 MB source budget, bind the selection to a
-   versioned batch hash and commit one import at a time. Partial results and retries
-   verify completed copies without overwriting or recovering uncertain attempts.
-   Single-session and bounded batch cross-root copies now bind both directories
-   and source selections to preview hashes, with per-session transactions and
-   verified retries. Single-session `session-export` now copies SQLite back to JSON
-   in the same or another private directory with exact-hash preview, atomic
-   publication and source preservation. Same-directory export reuses the shared
-   session lock and version-2 plans; existing cross-directory hashes retain version 1.
-   Bounded batch export now preflights up to 32 sessions and 64 MB of JSON output,
-   binds exact source plans to one hash, and reports verified per-session results
-   for safe retry after partial publication. Bulk retention remains open. The transcript CLI now
-   reads bounded text pages using saved entry hashes and stale-cursor guards, with
-   explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
-   F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
-   F7/F8 and `session-artifact` now expand one explicitly selected memory/review
-   artifact with snapshot binding, integrity checks and a separate byte budget.
-   A separately verified resume checkpoint now supports `resume --inspect` with
-   the last four messages, all queued/running work and required steering ancestors,
-   under a fixed record-read budget. It leaves artifacts unexpanded and performs
-   no recovery. Routine saves reuse a verified checkpoint and skip unchanged writes.
-   SQLite controllers now retain historical artifact references and stream stored
-   bytes when saving, preserving canonical hashes without rebuilding old artifact
-   values. Queued reviews hydrate one admitted packet at execution; at most the
-   latest result stays decoded for the renderer. Initial loads and external commits
-   now verify historical entries one at a time under a separate input bound, then
-   stream the exact snapshot hash and logical size. Active memory/recording values
-   remain decoded. Chat context uses a text-only selection
-   interface and a separately saved byte budget, checked before an attempt is
-   consumed. It preserves completed history and steering, and pauses oversized
-   queued work with required/available byte counts. Per-launch memory/recording limits
-   now admit SQLite header sizes before either artifact is fetched, including legacy
-   loads, and bound recording-file reads. Controller recovery, refresh and dispatch
-   check canonical selected inputs; limits leave saved hashes unchanged. Size/hash
-   checks now stream canonical JSON and reuse the recording fingerprint within an
-   operation; nested mutations are checked anew at the next boundary. Working saves
-   now encode each packed record once and reuse its bytes/digest for admission and
-   persistence; cold resume skips redundant preparation of verified entries. Runtime
-   revalidation now checks a fresh native data tree without a whole-state JSON
-   buffer, including full schema validation of the excluded review cache. Working
-   saves now preflight exact logical size from record structure and artifact lengths;
-   a current checkpoint permits capacity rejection before artifact reads or writes.
-   Admitted saves still stream all logical history and verify the preflight size.
-   Repeated small archived artifacts can now reuse verified chunks within a 64 KiB
-   cache for that save, reducing repeated disk reads without carrying payloads
-   between operations. Queued message text now has a per-launch UTF-8 byte budget
-   checked before saving new chat, steering or review-prompt submissions. Rejection
-   preserves queued work, attempts and message drafts; tighter resume limits allow
-   existing work to run or be cancelled. Typed `/steer` and `/review` submissions
-   now retain editor text until durable admission, including rejection for missing
-   prerequisites, while stop/quit still cancel pending handoffs. `/context` now
-   previews selected turn sources, steering ancestry, omissions and canonical
-   context usage through the same projection as dispatch, without saving or
-   starting work. This metadata preview is versioned and ephemeral. Preview schema
-   2 now includes complete request bytes/hash, route, output reserve, headroom and
-   the independent request fit result through the same builder used by dispatch.
-   A saved-context fit does not imply the complete request fits. New chat attempts
-   now atomically retain versioned admission metadata with the running transition:
-   exact context/request fingerprints, limits and selected/omitted message positions.
-   Completion, failure and recovery preserve it; existing entries are not backfilled.
-   SQLite transcript/inspection reads expose this metadata without artifact hydration.
-   `/context N` now exposes a saved message's admission in both terminal modes,
-   showing historical hashes, budgets and selections with its current status.
-   It reads existing metadata without rebuilding requests, saving or enabling work;
-   missing/legacy admissions produce notices and the TUI marks changed views stale.
-   Admission does not prove provider receipt. Visible compaction, smaller
-   text/record transitions and the long-session acceptance gate
-   remain open.
-   Single-session cross-root JSON-to-SQLite transfer now previews both directory
-   identities and source sizes/hashes, then requires its transfer hash for apply.
-   It retains source/workspace identity, admission records and attempts; retries
-   verify existing copies without overwriting advanced destinations. Reverse
-   migration and retention remain open.
-   Mid-request interruption and live review
-   remain open.
+   Storage now has independent admission budgets, incremental SQLite records,
+   bounded transcript/artifact navigation, explicit migration/export and retention,
+   and saved request-selection metadata. `/context` exposes queued selection and
+   complete-request fit; `/context N` inspects retained admission. These are local
+   byte checks, not provider-native token estimates. The preview remains capped at
+   16 messages/attempts; cold verification reads history and accepted saves still
+   hash logical history. Visible compaction, task-checkpoint continuation, bounded
+   text/record transitions and the long-session gate remain open, as do live review
+   and mid-request interruption. See [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets),
+   [operator controls](CONVERSATION_STORAGE.md), and the
+   [preserved implementation history](SESSION_STORAGE_IMPLEMENTATION_HISTORY.md).
    Define a versioned provider-adapter interface and extensible model catalog so
    new providers/backends and model entries can be added without rewriting the
    agent loop. Keep explicit route identities, capability/pricing provenance, and

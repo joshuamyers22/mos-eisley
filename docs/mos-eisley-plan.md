@@ -19,6 +19,15 @@ from planned contracts. The revised [routing design](adaptive-reasoning-routing.
 and [loop project plan](adversarial-review-loop-project-plan.md) supply detailed
 acceptance criteria; §26 and the roadmap define their delivery order.
 
+**Session-shape integration, 2026-09-13:** the user-directed adoption of
+`codex-session-shape-guide.md` adds the task lifecycle in §6.7 and its G0/G1/G3
+acceptance gates. These are planned runtime changes. The guide's numeric heuristics
+are evaluation candidates, not provider limits. Active contracts below supersede
+historical context examples; detailed storage and skills/provider implementation
+history is now linked from §§17.7 and 25. Future updates keep current contracts and
+open gates here, implementation status in the roadmap, and execution history in
+the linked records.
+
 ---
 
 ## 1. Goals and non-goals
@@ -303,9 +312,12 @@ contract requires a versioned adapter change rather than opaque registry code.
 
 ### 6.1 The Codex arithmetic
 
-Codex enforces a session cap far below the model ceiling: reportedly 400,000 tokens split into 272,000 input and 128,000 reserved output, then a ~5% headroom buffer leaving roughly 258,400 usable input. Auto-compaction fires at a configurable threshold defaulting near 200,000 (`model_auto_compact_token_limit`, configurable downward only). The rationale given: a tight cap makes compaction fire about once per deep investigation and produce a manageable summary, where a million-token window delays it until the history is too large for the summary to be reliable.
-
-> Verify against your installed `codex --version` before hardcoding. The cap has moved across releases and the public figures come from third-party write-ups, not OpenAI docs.
+The design borrows explicit session caps, output reservation and headroom from the
+Codex reference workflow. Historical third-party token figures are not a Mos Eisley
+contract. Resolve limits from the selected model's versioned registry entry and
+trusted role configuration, validate them together, and reconcile estimates with
+reported provider usage. Local byte admission and provider token admission are
+separate checks; passing either one does not establish that the other fits.
 
 ### 6.2 Resolution
 
@@ -321,15 +333,28 @@ Effort and budget resolve together, in one function, once (§7.4).
 
 ### 6.3 Accounting
 
-Five categories tracked separately — the aggregate is useless for diagnosis: system prompt, tool schemas, project instructions (`AGENTS.md`, 32 KiB cap), conversation turns (including retained reasoning), tool outputs (fastest-growing).
+Track system instructions, tool schemas, project guidance/activated skills,
+selected memory/checkpoints, conversation turns (including retained reasoning),
+and tool outputs separately. Count each serialized segment once and expose
+subcategories without double-counting them. The project-instruction byte ceiling
+remains separately configured; it is not a target instruction size.
 
-Count with each provider's own endpoint, cached on a hash of the serialized prefix.
+Use the adapter's declared counting method, cache estimates only against exact
+serialized inputs and counting-policy versions, and reconcile with reported usage.
+Show unknown counts rather than treating bytes or unavailable usage as tokens.
 
-**Startup assertion:** if the assembled prefix exceeds 25% of `usable`, fail with a diagnostic naming the offending category.
+**Admission:** following §23.2, 25% prefix usage is an advisory diagnostic, not a
+universal failure threshold. Enforce configured hard maxima and fail when required
+evidence, output reserve or headroom cannot fit. Diagnostics name the contributors,
+required/available capacity and applicable policy. Warning thresholds cannot enlarge
+budgets or silently omit required content.
 
 ### 6.4 Compaction policy — by role
 
-Codex uses a single-layer handoff summary replacing history. Inherited costs: compounding loss across repeated compactions, and destruction of the prompt-cache prefix so the next turn pays cold-start. Community guidance treats three successive compactions as a restructure signal and prefers subagents, since a fresh agent with a focused prompt preserves full fidelity.
+Compaction can lose evidence across successive summaries. Measure retained coverage
+and actual cache behavior; neither a summary nor a fresh child guarantees full
+fidelity. The following role limits are Mos defaults subject to validated trusted
+configuration, rather than claims about current Codex defaults.
 
 Your critics **are** the subagent pattern:
 
@@ -345,7 +370,11 @@ A compaction inside a critic silently summarizes away the evidence under review.
 
 ### 6.5 Cache-aware layout
 
-`[stable prefix: system + tools + brief] + [volatile: turns]`, explicit cache breakpoint at the boundary. With N critics on one brief, the prefix is the largest cost lever. Compaction invalidates it — a second reason to keep it off the critic path.
+Assemble `[stable: system + selected tools + applicable guidance + frozen brief]`
+before volatile task state and turns. Use an explicit cache breakpoint where the
+adapter supports one. Track exact segment identity and actual hits; a compaction
+may change some segments while leaving others reusable. High cache-hit rates do
+not excuse carrying irrelevant context through repeated requests (§6.7.6).
 
 ### 6.6 Context reduction is a lossy evidence transform
 
@@ -407,7 +436,7 @@ Prompt caching binds exact serialized segment hashes, provider/model and tool-sc
 
 #### 6.6.5 Evaluation and exit criteria
 
-Instrument category-level input/output counts, artifact bytes, truncation/overflow, cache hit/miss, retrieval coverage, compaction count, latency, and cost without recording raw content merely to obtain a metric. Evaluate context policies on representative and held-out tasks using independent outcome quality, completion rate, verifier disagreement, missed-evidence rate, harmful-action rate, latency, and whole-task cost. “Tokens per success” alone rewards cheap false confidence.
+Instrument category-level input/output counts, artifact bytes, truncation/overflow, cache hit/miss, retrieval coverage, compaction count, latency, and cost without recording raw content merely to obtain a metric. Include the cumulative-request and handoff measurements in §6.7.6. Evaluate context policies on representative and held-out tasks using independent outcome quality, completion rate, verifier disagreement, missed-evidence rate, harmful-action rate, latency, and whole-task cost. “Tokens per success” alone rewards cheap false confidence.
 
 Exit criteria:
 
@@ -416,6 +445,160 @@ Exit criteria:
 - required evidence survives or causes an explicit stop, never a silent continuation;
 - threshold defaults are configurable and supported by evaluation rather than treated as universal constants;
 - compaction and retrieval improve whole-task outcomes on held-out cases without regressing safety gates.
+
+### 6.7 Bounded tasks and milestone context lifecycle
+
+**Planned contract, adopted from the session-shape guide on 2026-09-13.** Implement
+this through the existing controller, typed durable state, private artifact store
+and admission path. It is not a second memory service or an automatic delegation
+policy. The user-facing conversation may persist while its active model context
+is reduced under visible, versioned rules.
+
+#### 6.7.1 Shared work-unit contract
+
+Author and child work use the same versioned record: task/work-unit ID and revision,
+parent/dependencies, one outcome, scope and interfaces, applicable requirement IDs,
+completion evidence, stopping condition, and permitted resource ceiling. Reference
+the originating user direction, current policy and any required authorization;
+the record itself grants none. Retain status as queued, active, completed, blocked
+or cancelled, with a reason and evidence references for terminal transitions.
+
+Size units around one component, reproducible defect, review question or other
+coherent outcome. Simple questions retain direct-answer behavior and need no new
+user form or review ceremony. A unit completes only when its required verification
+has passed; exhausted budgets or unavailable evidence remain unresolved. Record
+adjacent cleanup or follow-on features as separate work. Continue into an already
+authorized dependent unit when its prerequisites hold, without another confirmation;
+never treat a unit boundary as cancellation of the user's larger objective.
+
+Each further inspection or verification pass identifies what it can resolve:
+changed inputs, an unresolved failure, missing evidence, or a freshness requirement.
+Reuse still-valid findings and evidence references. Repeated verification without
+such a reason is a diagnostic; it cannot replace required checks or independent
+review with a cached success.
+
+#### 6.7.2 Milestone checkpoint and continuation
+
+At a completed milestone, material objective change, or deliberate handoff, update
+one bounded task checkpoint in place from §6.6.2 records. Capture the objective,
+repository/workspace and branch, relevant revision and working-tree fingerprint,
+main files, active decisions with rationale/source, completed work, verification
+commands/results/revisions, untested claims, blockers and next bounded actions.
+Keep a short ordered next-action view (normally three); preserve links to the full
+outstanding-work set so omitted work cannot disappear. A 300–800-word view is an
+initial editorial target, with configurable byte/token admission and explicit
+overflow, not a guarantee that every task fits. Do not copy logs or transcripts.
+
+Update only when durable state changes, atomically against the expected checkpoint
+revision. Default storage is private and owner/project scoped (§17.6). Export to
+`PROJECT_MEMORY.md` or another repository document is a separate explicitly
+authorized, sanitized publication. A checkpoint is distinct from both automatically
+loaded reusable memory and the SQLite storage-resume metadata in §17.7.
+
+Provide an explicit continuation selection naming the checkpoint revision and next
+work unit. A user request to continue that selected work supplies the selection;
+do not add a second confirmation. A fresh session receives that bounded view,
+applicable approved guidance and necessary evidence, without ambient old history.
+Before execution, verify workspace, branch/tree, relevant files, evidence availability
+and revision freshness. Mark old test results stale when their bound inputs changed;
+do not silently carry them forward as a current pass. Apply later user direction
+and resolve any material mismatch before dependent work.
+
+Bind continuation to the original task ledger and lineage. Context/session changes
+cannot reset spend, consumed attempts, correction/review counters, cancellation,
+outstanding steering, approval expiry or uncertain side effects. Revalidate authority
+and never replay an uncertain operation automatically. Commit the handoff and claim
+the selected continuation atomically/idempotently before dispatch so retries or
+concurrent resumes cannot create duplicate work. If required state or evidence
+cannot be recovered, preserve the checkpoint and report the exact blocker.
+
+#### 6.7.3 Context-pressure decisions
+
+Extend `/status` and `/context` with per-category usage, available capacity, growth
+since the last boundary, substantial tool-call count, repeated reads and compaction
+count. Report byte and token estimates distinctly, including unavailable provider
+counts. Advisories are bounded metadata events emitted on threshold crossings or
+material changes, not another accumulating transcript.
+
+Trusted configuration may trial the guide's 30–40% context usage and 20–30 substantial
+tool-call heuristics. Define and version the denominator and substantial-call rule
+in the evaluation policy; exclude UI polling/status inspection from that counter.
+These trigger an assessment, not automatic stopping, new user approval or a child.
+At a completed milestone, offer checkpoint-based fresh continuation. For the same
+ongoing objective, use validated author compaction if permitted and useful. Hard
+admission limits remain authoritative. Critics/judges never compact or inherit
+author checkpoints, and repeated pressure grants no automatic delegation authority.
+
+#### 6.7.4 Narrow evidence acquisition
+
+Built-in search/read/diff/test interfaces default to scoped queries, bounded pages,
+summary-first views and focused verification. Expose range/limit controls and
+operation-specific summaries: test identities, exit status, actionable failure
+excerpts and immutable evidence references. Preserve complete results under the
+§6.6.1 artifact policy when retention permits; disclose missing originals and every
+omission, and stop if required evidence is unavailable. A summary's brevity cannot
+be treated as proof of completeness.
+
+Batch independent read-only checks with separate operation IDs, output envelopes,
+status and cancellation. Do not batch dependent checks, mutations or approvals.
+Reuse conclusions/read results only while §6.6.1 identity and freshness checks hold;
+required verification remains independent of an optimization cache.
+
+#### 6.7.5 Task-scoped instructions and tools
+
+At work-unit admission, materialize only applicable approved guidance, activated
+skills and selected tool schemas. A versioned manifest records included rule IDs,
+scope, source/digest, tool identities/schema digests, required/optional status,
+selection reasons, omitted candidates and per-category size. Selection narrows the
+trusted capability set; it cannot add authority. Required guidance or tools that
+cannot fit or become available produce an explicit failure, not a silent omission.
+
+Directory guidance follows explicit scope and §16.6 precedence. Nested files cannot
+activate a template, broaden tools or override trusted policy. Keep root instructions
+short and stable; put specialized rules near their scope and detailed explanations
+in bounded, explicitly selected references. Treat 1–3 KiB for root instructions as
+an editorial starting point, not a correctness limit. Advisory validation reports
+oversized/duplicate rules and candidate temporary-state content with source locations;
+semantic classification is best-effort and never silently deletes or rewrites rules.
+
+Use a minimal default MCP/tool profile and select task-specific integrations only
+within existing authority. Unselected schemas do not enter the model request, and
+unselected servers do not start merely to build a prompt. Reuse approved catalog
+metadata; if required discovery needs startup, perform it through the existing
+authorized MCP boundary. Profile changes apply at safe boundaries and are pinned
+per request. Release task-scoped server references on closure without stopping a
+server still used by another task. Unused/overlapping integrations are diagnostics,
+not grounds to remove a tool needed for required evidence.
+
+Expose instruction-size and profile diagnostics through the future offline typed
+doctor registry (§25.3) and template validation. No executable skill checks, network
+probes, automatic config rewrites or new credential paths are introduced.
+
+#### 6.7.6 Measurement and acceptance
+
+Sum input over every actual model request, including repeated context, compaction,
+handoff, child, review, retry and abandoned work. Split reported cached/uncached
+input where available; retain unknowns and distinguish local estimates, admitted
+requests and confirmed usage. Do not sum unique prompt bytes and call that total
+input. Record repeated-read rate (same still-valid operation identity), original and
+model-visible tool-output volume, checkpoint size, handoff/revalidation overhead,
+and whole-task latency/cost. Metric payloads need no raw content.
+
+G0 freezes schemas, counting definitions and deterministic negative fixtures. G1
+demonstrates milestone completion → private checkpoint → explicit fresh-context
+continuation → detection of changed repository state → verified completion, while
+preserving outstanding obligations, aggregate budgets and critic isolation. Test
+missing evidence, stale tests, changed instructions, concurrent/duplicate handoffs,
+budget-reset attempts, required-tool omission and memory/checkpoint confusion.
+
+G3 compares the existing selection policy with bounded units/checkpoints, narrow
+tool views and task profiles on matched representative and held-out tasks, with
+ablation where feasible. Freeze model/routes, rubrics, total budgets and quality
+criteria before measuring. Include completion, missed evidence, stale-state errors,
+verifier disagreement, harmful actions, latency and total cost. Promote defaults
+only after preregistered quality/non-inferiority gates pass and cumulative context
+or cost improves; inconclusive results retain the baseline. Fixture enforcement
+alone establishes no live quality or savings claim.
 
 ---
 
@@ -689,7 +872,11 @@ Tier is a property of the *role*, not the request. An agent cannot escalate its 
 
 ### 8.2 Output discipline
 
-Truncate to a byte cap with head/tail retention and an explicit `[truncated: N bytes omitted, full output at <path>]` marker. Write the full output to disk, hand the agent a greppable path. Unbounded tool output is the most common way a loop dies and the most common source of budget overrun.
+Use the typed bounded-view/full-artifact contract in §6.6.1 and scoped acquisition
+defaults in §6.7.4. Head/tail excerpts alone are insufficient: retain operation and
+stream identity, exit status, content digest and explicit omission/completeness
+metadata. Full output stays in the private policy-governed artifact store when
+retention permits, with bounded retrieval; a mutable path is not evidence identity.
 
 ---
 
@@ -904,6 +1091,10 @@ env     = ["PGHOST", "PGDATABASE"]     # explicit allowlist, not inherited
 ```
 
 ### 13.1 Startup, health, and authentication
+
+Apply the task/role tool-profile selection in §6.7.5 before request assembly. Lazy
+startup and schema disclosure are separate: an unstarted server's schemas must not
+remain in every prompt merely because that server exists in the approved catalog.
 
 Start MCP clients lazily and concurrently so an unused or optional server cannot
 block session startup. Report an explicit `starting | ready | degraded | failed`
@@ -1413,6 +1604,12 @@ product decisions, not a claim of complete Codex parity or current availability.
   Resuming a selected conversation or explicitly opening a prior run retrieves only
   that user's requested records; full saved conversations are never ambient memory
   for new tasks. Saving a specific fact to memory is a separate, scoped action.
+- Close bounded work units and update private task checkpoints under §6.7. Keep
+  the ongoing conversation usable; a fresh-context handoff is visible and explicitly
+  selected, while an already-authorized next work unit can proceed without renewed
+  permission. Preserve task obligations and ledgers across both compaction and
+  session changes. Context-pressure advisories explain the next useful action and
+  never interrupt work solely because a heuristic threshold was crossed.
 
 **Terminal layout:** a scrollable conversation, compact expandable tool/review
 details, a multiline composer, and the persistent status line specified in §16.4.
@@ -1486,7 +1683,15 @@ The requirements below remain the complete target.
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
 | User | Personal preferences and facts the user chooses to reuse across projects. | Private user memory under the configured Mos home. |
-| Project | Project decisions, conventions, setup details and ongoing context the user chooses to retain for that project. | Private memory keyed by owner and canonical project root under the configured Mos home. |
+| Project | Curated reusable project decisions, conventions, setup details and verified traps the user chooses to retain. | Private memory keyed by owner and canonical project root under the configured Mos home. |
+
+Temporary execution state belongs in the task checkpoint (§6.7.2): active branch,
+current test results, blockers, pending work and next actions are not ordinary
+startup memory. A deliberate request to retain a temporary fact may record its
+revision/expiry and revalidation requirement; it must not become an evergreen
+claim. Do not silently migrate or delete existing user-authored memory. The new
+classification is a planned proposal/edit contract, not a claim that the current
+Markdown memory implementation enforces semantic categories.
 
 Use readable Markdown content with versioned metadata (scope, project identity,
 source, revision and update time). The UI exposes the exact storage location.
@@ -1641,6 +1846,10 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 
 `Alt+,` / `Alt+.` steps effort down/up mid-session. Persistent status line: model, effort, sandbox mode, live token count against budget.
 
+Extend context/status inspection and fresh continuation with §6.7's selection,
+pressure and checkpoint contracts. Command names listed here remain planned where
+the conversation documentation does not report an implementation.
+
 ### 16.5 Event stream
 
 ```
@@ -1710,6 +1919,12 @@ history. It cannot embed, reference for automatic loading, or launder saved memo
 notes, telemetry results, or conversation summaries into fresh sessions. Those
 remain explicitly selected evidence under §§17.2 and 17.6. Template selection never
 authorizes publishing private run data into a shared repository.
+
+Apply §6.7.5's instruction-size diagnostics and task-scoped materialization to
+templates and approved directory guidance. Root instructions hold stable broad
+rules and canonical verification commands; specialized rules and detailed reference
+material enter only the scopes that need them. Diagnostics are advisory and cannot
+discard accepted requirements or select new authority-bearing inputs.
 
 Acceptance: two projects using the same base retain independent overrides and
 detach behavior; two users cannot see each other's private bindings or artifacts.
@@ -1920,9 +2135,11 @@ audit failure, isolation, incomplete windows, and unchanged spending enforcement
 ### 17.6 Bounded project memory and work notes
 
 Provide optional project-scoped memory and note templates using the production
-template's evidence-index pattern. Memory contains stable keyed constraints,
-accepted decisions, verified traps, and open work, each with a source reference and
-last-verified date. Verify entries against requirements, code, tests, or ADRs before
+template's evidence-index pattern. Reusable memory contains stable keyed constraints,
+accepted durable decisions and verified traps, each with a source reference and
+last-verified date. Open work and volatile execution facts belong in task checkpoints
+or bounded work notes (§6.7.2), not automatically loaded reusable memory. Verify
+entries against requirements, code, tests, or ADRs before
 use; memory is not evidence by itself. Retrieve before editing, update keys in place,
 label uncertainty, and remove stale or duplicate entries. Never turn routine
 progress, raw logs, transcripts, secrets, or hidden reasoning into durable memory.
@@ -1931,14 +2148,18 @@ Do not auto-rewrite policy based on a successful trajectory.
 Keep disposable scratch private and ignored with task-end cleanup. Use a bounded
 work note for multi-session work, handoffs, incidents, experiments, or material
 investigations: objective, concise observations/attempts, evidence links, remaining
-work, owner, and review/delete date. On closure, promote verified facts to memory,
-decisions to ADRs, maintained explanations to docs, and work history to issues;
-close or remove obsolete notes. Tracking/export into project Git is an explicit
+work, owner, and review/delete date. On closure, propose reusable verified facts for
+scoped memory acceptance under §16.0.2, decisions for ADRs, maintained explanations
+for docs, and work history for issues. Apply already-authorized publications within
+their scope; closure alone grants no export or automatic memory-promotion authority.
+Close obsolete notes and remove them only under the selected retention/deletion
+policy. Tracking/export into project Git is an explicit
 publication of a reviewed, sanitized project document, not default persistence.
 
 Memory and notes default to private artifacts bound to both owner and project under
-§17. A fresh session requires explicit selection of the relevant memory/note or
-explicit same-owner resume; attaching a best-practice template does not authorize
+§17. Enabled, explicitly curated reusable user/project memory may load at startup
+under §16.0.2. Task checkpoints and work notes require explicit selection or
+same-owner resume; attaching a best-practice template does not authorize
 automatic historical retrieval. The template's general "read project memory at
 startup" guidance is narrowed accordingly. Independent critics receive only relevant
 verified evidence deliberately frozen into their briefs, never creator work notes
@@ -1956,398 +2177,25 @@ concurrent edits, export boundaries, and deletion of derived copies.
 
 ### 17.7 Long-session storage and independent budgets
 
-**Direction following the 2 MB capacity discussion:** the snapshot limit is an
-interim preview constraint, not a long-session product target. The first
-[storage-budget implementation](CONVERSATION_STORAGE.md) now lets the user save a
-64 KB–32 MB snapshot budget with `--session-max-bytes` on launch or resume. The
-default remains 2 MB; legacy canonical hashes remain unchanged. `mos sessions`
-reports actual bytes and the saved limit. Listing/latest selection has a separate
-8 MB scan budget, explicitly adjustable up to 128 MB with `--catalog-max-bytes`.
-Budget changes preserve history and consumed attempts and do not dispatch work.
+**Current baseline:** the recorded preview has independent storage, selected-context,
+complete-request, active-input and pending-text admission limits. SQLite provides
+incremental record/artifact persistence, bounded navigation and explicit migration,
+export and retention operations. `/context` previews selection and full-request
+admission; saved request admissions retain source selection, omissions and budgets.
+These are byte-based local checks, not provider-native token measurements.
 
-The default JSON backend still reads and rewrites whole snapshots. An
-[opt-in SQLite adapter](CONVERSATION_SQLITE.md) now commits changed message records
-and session-scoped artifact references transactionally, with exact-state deletion
-and bounded metadata pages. Cursors bind the owner, database, workspace and catalog
-generation; a changed catalog requires restarting pagination. SQLite currently
-verifies historical entries one at a time on initial resume, then uses reference-based
-working state for current records; active memory/recordings remain decoded. Its physical file has an
-initial 256 MB ceiling. `mos session-migrate SESSION_ID` now previews a same-root
-JSON-to-SQLite copy; applying requires its exact source hash. Import preserves
-owner, revision, history and consumed attempts, verifies the reconstructed state
-inside the transaction and retains the JSON source. Verified retries cover rollback
-and an already committed import. Single-session cross-root transfer is described
-below; retention and incomplete database initializer repair remain open.
-`mos session-transcript SESSION_ID` now reads
-bounded, verified text pages without loading the header or artifact contents.
-Pages use saved per-entry digests and owner/session/catalog-bound cursors; older
-indexes require an explicit exact-hash preparation step. The SQLite terminal now
-uses this reader for F5 history browsing, Page Up/Down navigation and F6 reload.
-It retains one page plus visited cursors, serializes background reads, discards
-obsolete results and preserves the draft. Session changes clear the selected page;
-browsing never dispatches or saves work. Its live display shows four recent messages.
-F7 selects a memory/review reference on the current page; F8 opens or closes one
-artifact. `mos session-artifact SELECTION` provides the same explicit read through
-the CLI. Selections bind the store, owner, workspace, session, snapshot, catalog
-generation, message position, field, hash and byte size. Reads verify the selected
-message reference, enforce a 512,000-byte default before fetching the artifact,
-then verify its hash and typed schema. The CLI accepts an explicit limit up to
-32 MB; this budget covers stored payload bytes, not rendered output or RAM.
-The terminal retains at most one expanded artifact and clears it on selection,
-page, session or view changes; obsolete background results are discarded.
-Expansion grants no model or critic access.
+Cold verification still reads history, accepted saves still hash logical history,
+and active text bookkeeping remains bounded by the preview's small message cap.
+Visible author compaction, task-checkpoint continuation (§6.7), bounded history
+transitions and the long-session acceptance gate remain open. The SQLite resume
+checkpoint is storage metadata; it is not the task checkpoint defined in §6.7.
 
-SQLite saves now include a derived resume checkpoint: the exact stored header hash
-and byte size, plus bounded message status, review kind, steering links and record
-sizes. Full loads verify it against the complete state. `mos resume --last
---storage-backend sqlite --inspect` reads this checkpoint in a read-only transaction,
-verifies the header, and selects the last four messages, queued/running work and
-their complete steering ancestry. It verifies only selected message payloads and
-reference availability; artifacts stay unexpanded. Header plus selected records
-must fit 512,000 bytes, with admission before fetching message payloads. Inspection
-reports omitted-message count, pending positions and which running position would
-be interrupted on normal resume. It does not recover, save or dispatch work.
-Older indexes require the existing exact-hash `session-transcript --prepare` step,
-which now prepares both page and resume metadata while preserving state and raw
-records. The checkpoint still has a 16-message bound and needs a scalable layout
-before the message cap can be lifted.
-
-Routine SQLite saves now reuse a verified checkpoint while the same connection
-observes no external commits or uncoordinated local writes. The write transaction
-checks the stored index and expected revision/hash, skips unchanged message and
-artifact writes, inserts new artifacts and removes only unreferenced ones. It does
-not reread old payloads into Python for the full-state compatibility API; the
-reference-based controller path streams retained bytes as described below.
-External commits anywhere in the
-database trigger full session validation before another save. Failed operations,
-preparation, deletion and connection reopen clear the local checkpoint; publication
-happens only after a successful commit. No artifact payload is cached in this
-checkpoint, only bounded metadata, canonical verification status and artifact digests. Import and explicit
-load/delete retain full validation.
-
-Chat dispatch now builds context through a text-only message interface and admits
-the canonical UTF-8 JSON for system instructions and selected turns before saving
-`running` or consuming an attempt. Both backends retain an independent
-`--context-max-bytes` budget (256,000 default; 4,000–1,000,000 range). Selection
-preserves all earlier completed exchanges and unanswered steering ancestry;
-active memory contributes through the system instructions, while historical
-memory/review artifacts stay outside selection. An oversized request reports its
-required size and saved limit, remains queued and pauses continuation. No automatic
-compaction or omission occurs. This budget is neither provider tokens nor a bound
-on complete wire requests or peak RAM; review execution retains its isolated packet
-limits. The selected config is frozen before the running transition and reused for
-dispatch. Context resizing preserves attempts and saves its own transition.
-The complete model request also passes the agent loop's shared byte-budget check
-before the running transition; a larger context budget cannot bypass the recorded
-provider's 79,800-byte usable input limit. Provider-budget rejection likewise leaves
-work queued, reports required/available bytes and consumes no attempt.
-
-SQLite controllers now release historical memory/review values during incremental
-initial verification and retain their admitted references. Current saves validate working
-inputs and source-record hashes, stream archived bytes in 32 KiB chunks, and preserve
-the canonical snapshot hash and logical byte budget without rebuilding historical
-artifact objects. Changed records, artifact insertion/collection and generation
-updates remain atomic; checkpoint and working-state publication follow commit.
-Archived content cannot change through a reference; queued cancellation and
-running-to-interrupted recovery are the admitted status-only changes. Queued review
-packets hydrate at execution under a 512,000-byte aggregate record/artifact input
-limit. At most the latest result stays decoded for the live renderer. JSON snapshots
-reject runtime references. Older indexes and noncanonical artifact JSON retain the
-full-state compatibility path until an ordinary save and reopen.
-
-Current prepared sessions now verify cold loads and external commits one historical
-entry at a time. Header/entry hashes and sizes, contiguous positions and the complete
-artifact inventory are verified inside one transaction. Each entry admits its packed
-record plus referenced artifacts against 512,000 bytes before fetching them, then
-checks hashes, complete typed entry constraints and historical memory identity.
-Decoded historical values are released before the next entry; only the latest
-review result remains cached. Cross-entry progress and steering still validate,
-and streamed canonical bytes must match the exact snapshot hash, logical size and
-summary before publication. Legacy record whitespace/defaults preserve semantics;
-unprepared indexes and noncanonical artifacts keep the full-state compatibility path.
-Failed reads publish no new state/revision and clear the previous checkpoint.
-
-Active inputs now have independent per-launch limits: `--active-memory-max-bytes`
-(131,072 default, 4,096–262,144 range) and `--recording-max-bytes` (2,000,000 default,
-4,096–32,000,000 range). SQLite checks both stored header inputs before fetching
-either artifact, including unprepared legacy loads and external-commit revalidation.
-Recording files are admitted before JSON decoding. Canonical selected memory and
-recording sizes also pass admission before controller recovery, memory refresh,
-transitions and dispatch. A rejected open does not recover/save/dispatch; a rejected
-refresh leaves the controller usable. The welcome and structured lifecycle event
-show the current limits. They are not persisted and cannot alter saved hashes,
-attempts, history, memory-content bounds or provider authority. Raising storage or
-context budgets does not raise these limits. Historical memory has separate bounds.
-JSON still decodes its whole bounded snapshot before controller admission; local
-memory files retain their existing bounded readers. These limits cover serialized
-inputs, not total process RAM.
-
-Active-input size checks and retained-recording integrity checks now stream
-canonical JSON encoder segments instead of allocating a complete encoded string
-and byte buffer. One fingerprint contains the exact SHA-256 and byte count; fresh
-launch, controller startup and refresh reuse that checked recording digest within
-the operation. There is no cache keyed by model identity: nested changes are
-measured again at later boundaries, and changed recordings still fail resume or
-retained-state validation. The JSON-compatible model tree and one encoder segment
-remain resident; large scalar fields can produce large segments. Other state and
-persistence boundaries still serialize active values, so this does not complete
-bounded transitions or establish a latency improvement.
-
-Working-state saves now encode each packed header/message record once per operation.
-The admitted bytes and message digests are reused for archive checks, checkpoint
-metadata and writes; new records no longer undergo an encode/parse round trip during
-preparation. Selected-entry hydration likewise reuses its record encoding for
-source verification and byte admission. Cold resume does not prepare the already
-verified message records again when normalizing the header. Prepared records are
-operation-local, with no persistent payload or model-identity cache. Existing
-validation, exact snapshot hashes, record limits and atomic publication still apply.
-
-Runtime-state revalidation now rebuilds a Python data tree and applies the strict
-schema without encoding and parsing a complete state JSON buffer. Nested models
-and mutable containers are revalidated and detached; tuples and UTC timestamps
-retain their native types. The excluded latest-review cache also receives full
-nested schema validation before its hash/summary checks and reattachment. Malformed
-runtime values cannot rely on JSON conversion to coerce their types. Persisted JSON
-readers keep their existing decoding boundary, including legacy defaults and date/
-tuple conversion; valid runtime states preserve exact canonical bytes. The complete
-working data tree still exists, and active-input integrity checks still serialize
-their selected values. This reduces allocation but does not bound a transition to
-only its changed fields.
-
-SQLite working saves now preflight their exact logical snapshot size inside the
-write transaction, after checkpoint and archive validation. A shared canonical
-traversal counts record structure and artifact lengths, including every repeated
-reference and the snapshot envelope. When the checkpoint is current, oversized
-saves reject before artifact payload reads or session writes; the storage error
-carries required/allowed bytes. Changed or missing checkpoints still undergo cold
-verification first.
-Admitted saves continue streaming every logical history byte, verifying hashes and
-requiring exact agreement with the preflight size before commit/publication. This
-adds a record/metadata pass to successful saves; it avoids archived payload work
-on capacity rejection but does not provide bounded accepted transitions.
-
-Admitted working saves now reuse repeated small archived artifacts within a
-save-local cache capped at 64 KiB of encoded payload. Only complete, size- and
-SHA-256-verified immutable chunks enter it; partial reads and late failures leave
-no cached result. First eligible values that fit share their bytes across later
-references. Single-use, oversized, non-fitting and newly encoded values bypass
-the cache. Every occurrence still contributes its bytes to the canonical snapshot
-hash and logical size. The cache clears when streaming exits and never carries
-payloads into the next save or cold verification. This bounds added cached payload,
-not total process RAM, and reduces repeated disk reads rather than full-history
-hashing or working-state validation.
-
-Cold verification still reads all history. Admitted active memory/recording values
-remain decoded, and each save still hashes all logical history bytes. The current
-working state keeps text for all 16 messages. Next reduce text/record bookkeeping
-into bounded transitions and reduce repeated active-input serialization. Preserve
-attempt accounting, interrupted-work recovery and
-steering ancestry. The inspection selection is not a provider context policy;
-context selection/compaction must explicitly preserve or account for earlier intent.
-Neither backend has passed the long-session gate below.
-
-Pending message text now has an independent per-launch budget through
-`--pending-text-max-bytes` (default 64,000 UTF-8 bytes; range 4,000–512,000).
-Chat, steering and review-prompt submissions count queued text before saving;
-rejection reports usage without changing saved work or attempts. The composer and
-TUI message editor retain rejected drafts. Typed `/steer TEXT` and `/review` now
-wait for durable admission before clearing the editor, so budget/capacity or
-missing-prerequisite rejections preserve the exact command. Stop and quit still
-cancel pending handoffs; pasted or explicitly literal commands remain text.
-Running/finished text, review artifacts
-and unsent input buffers retain separate bounds. A lower limit on resume does not
-block existing queued work from running or being cancelled. The setting is not
-persisted, and SQLite needs no queued artifact hydration to perform admission.
-This supplies the pending-text part of independent budgets, not a total RAM quota
-or bounded history transitions. See the
-[pending text contract](CONVERSATION_STORAGE.md#pending-text-budget).
-
-`/context` now provides an ephemeral, versioned selection preview for the next
-queued chat. Dispatch and preview share one projection function; the report maps
-turns to source positions, explains omitted positions, and hashes/measures exact
-canonical system-and-turns JSON with selected saved memory. It reports metadata
-without copying message or memory text, saves nothing and consumes no attempt.
-Queued reviews retain their isolated-packet boundary. Active work makes a preview
-provisional; the TUI marks it stale after revision changes. Existing context rules
-are preserved. This is visibility into current selection, not persisted dispatch
-provenance, compaction or evidence that the long-session gate has passed.
-
-The preview now also measures and fingerprints the complete canonical model request
-through the same builder and budget resolution used before dispatch. Ephemeral
-preview schema 2 adds route, request bytes/hash, usable input limit, output reserve,
-headroom and an independent fit result. Selection policy remains version 1.
-A context may fit the saved context budget while the complete request is too large;
-both results remain visible without consuming an attempt. These are local byte
-budgets, not native provider payload/token estimates. Actual dispatch still
-revalidates all limits, current memory and recording availability.
-
-New recorded chat attempts now persist a version-1 request admission on the message
-in the same save as the running status and consumed exchange, before model-client
-dispatch. It records the source revision and message count, exchange index,
-versioned source selection/omissions, context fingerprint/limit, selected-memory
-flag and complete request fingerprint/budgets. Outcomes and crash recovery retain
-it unchanged; later queue, memory and limit changes do not rewrite historical
-admission. It contains no copied input text. SQLite keeps the metadata inline in
-bounded records for transcript and resume inspection without artifact expansion;
-both backends and migration preserve it. Existing entries remain unmodified with
-no invented historical provenance. This records admitted inputs and may survive a
-crash before transmission; it is not proof of provider receipt. Visible compaction,
-retention and the long-session capacity gate remain open. See the
-[saved admission contract](CONVERSATION_STORAGE.md#saved-request-admissions).
-
-`/context N` now inspects that saved metadata directly from a zero-based transcript
-position in the line and screen terminals. It shows the original hashes, byte
-budgets and source selection with the current message status, without rebuilding
-requests, loading historical artifacts, saving or enabling paused work. Missing,
-queued, review and legacy targets yield notices without reconstructing admission.
-The version-1 inspection event is separate from the schema-2 next-queued preview.
-The screen toggles the selected report and marks the displayed status/revision
-stale after session changes; refreshing leaves the admission unchanged. Pasted and
-composed command text remains literal input.
-
-Bounded same-root JSON-to-SQLite batch migration is now available through
-`session-migrate-batch`: 1–32 explicit session IDs, at most 64 MB of selected source
-JSON, metadata-only planning and an exact batch hash required for apply. The plan
-binds source hashes/sizes, owner, workspace and storage-directory identity while
-excluding destination status, so a partial batch can retry the same selection.
-Every source is preflighted before destination work, then each import uses the
-existing source lock, size/hash rechecks, full destination verification and atomic
-transaction. Completed imports remain after a later failure; results report the
-verified prefix and failing session. Retry verifies existing copies and does not
-overwrite advanced destinations. Read-only preview refuses hot journals; explicit
-apply permits recovery after validating the batch selection. Sources, attempts and
-admission records are preserved. Retention and the
-long-session capacity gate remain open. See the
-[batch contract](CONVERSATION_SQLITE.md#import-a-selected-batch-of-json-sessions).
-
-Single-session cross-root JSON-to-SQLite copies are now available through
-`session-transfer`. Its read-only metadata preview binds both existing private
-directory paths/device/inodes, owner, workspace and source hashes/sizes; apply
-requires the exact transfer hash. The source lock is held throughout, the
-destination uses its own session lock, and directory identity is checked before
-destination metadata creation. Source selection and both directories are checked
-again inside the atomic import transaction. Identical existing copies verify on
-retry, including after a lost commit acknowledgment; advanced destinations are
-never overwritten. Transfer retains JSON, original workspace, memory, evidence,
-admission records and attempts, without recovering running messages or starting
-queued work. Read-only preview refuses hot journals; explicit apply permits
-recovery after selection validation. Physical
-retention and the long-session gate remain open. See the
-[transfer contract](CONVERSATION_SQLITE.md#copy-a-json-session-to-another-storage-directory).
-
-Bounded cross-root batches are now available through `session-transfer-batch`:
-1–32 explicit session IDs and at most 64 MB of selected source JSON, with all
-sources preflighted before destination inspection. The version-1 batch transfer
-plan binds both directories, owner, workspace and exact source metadata; apply
-requires its hash. Each single-session transfer is bound to that selection and
-limits source rereads to the selected size. Imports commit independently under
-both session locks; a later failure reports the verified prefix and failing ID
-without undoing earlier commits. Retry verifies existing copies, including a
-copy committed before its acknowledgment was lost. Directory replacements,
-source changes and advanced destinations cannot silently change the selection.
-Preview remains read-only and explicit apply permits hot-journal recovery.
-Source files, workspace identity, evidence, admission records and attempts are
-preserved. Retention and the long-session capacity gate remain
-open. See the [batch transfer contract](CONVERSATION_SQLITE.md#copy-a-selected-batch-to-another-storage-directory).
-
-Single-session reverse migration is now available as `session-export`, copying
-SQLite into JSON in another existing private directory. The metadata-only preview
-binds both roots, backend direction, owner/workspace, exact state hash, revision,
-message count and canonical output size. Apply requires its export hash, holds
-both session locks, writes and syncs a private temporary snapshot, then rechecks
-source state, directory identity and destination absence before atomic publication.
-Identical copies verify on retry; different or invalid destinations are rejected.
-The original revision, attempts, admission records, memory and evidence survive
-SQLite-to-JSON-to-SQLite round trips. Queued/running entries are not resumed.
-SQLite remains read-only even on apply, so hot source journals block export and
-must be recovered separately. Output retains the saved logical/32 MB limits;
-complete state is decoded. Pre-publication crashes can leave private temporary
-files; retry publishes a complete snapshot and post-publication retry verifies
-the existing copy. Retention and the long-session gate
-remain open. See the [export contract](CONVERSATION_SQLITE.md#export-a-sqlite-session-to-json).
-
-Same-directory export is now supported and is the `session-export` CLI default
-when `--destination-storage` is omitted. SQLite and JSON share one session lock
-in that directory, so export reuses the held lock and directory handle for JSON
-inspection/publication while SQLite remains read-only. Different paths to the
-same physical directory use the same lock behavior. Plans for this layout use
-version 2; cross-directory version-1 plans and hashes remain unchanged. Both
-paths and identities are still bound to the export hash, and version/layout
-mismatches are rejected. Existing JSON copies are verified if identical and
-rejected if different, preserving originals retained by earlier migrations.
-Explicit JSON resume can advance that copy without modifying SQLite; a later
-export rejects the divergence. Retention and the long-session
-capacity gate remain open.
-
-Bounded SQLite-to-JSON batch export is now available through
-`session-export-batch`, selecting 1–32 explicit IDs and at most 64 MB of canonical
-JSON output. The version-1 batch plan binds sorted single-export plans, both
-directories, owner/workspace and exact source state/size metadata; apply requires
-its hash. Preflight verifies every source before destination JSON work and retains
-only metadata between sessions. Indexed snapshot sizes gate full decoding against
-the remaining output budget; full verification checks those index claims. Each
-execution read and final source recheck is capped at the selected snapshot size.
-Publication remains per session under the existing locks, with a verified prefix
-and failing ID reported after a late failure. Retry verifies identical published
-copies, including a publication whose acknowledgment was lost, without overwriting
-different destinations. Both directory layouts preserve SQLite, evidence and
-attempts, refuse hot source journals, and leave execution paused. This admits
-verified output bytes rather than reserving disk or bounding total Python memory.
-Retention and the long-session capacity gate remain open. See the
-[batch export contract](CONVERSATION_SQLITE.md#export-a-selected-batch-of-sqlite-sessions).
-
-The first retention step now provides `session-cleanup SESSION_ID`: explicit
-storage-owner selection of unpublished JSON staging files, including interrupted
-first writes without a published session or readable workspace metadata. A
-version-1 plan binds directory/lock/file identities, timestamps, sizes and streamed
-content hashes; apply requires its exact hash and validates all targets under the
-shared session lock before removing any. The bounded pass admits 256 files,
-32 MB per file and 64 MB total within a 4,096-entry directory scan. Partial removals
-and directory-sync failures produce receipts; restart requires a fresh preview of
-the remaining files, including an empty selection when a sync needs retrying.
-Published JSON, SQLite, journals, backups and lock inodes are preserved. Temporary
-bytes are discarded rather than recovered. The command is explicitly storage
-scoped because truncated bytes cannot prove project membership. Broader object
-retention, quotas, backup/journal expiry and the capacity gate remain open. See the
-[cleanup contract](CONVERSATION_CLEANUP.md).
-
-Workspace retention preview is now available through `session-retention`, using
-an explicit UTC saved-time cutoff and a configurable keep-newest count (default
-20). One read-only SQLite transaction admits at most 1,000 workspace indexes,
-checks their digests and identity, and reports candidates, retained sessions, all
-retention reasons and indexed logical-byte totals. Newest, active and noncompleted
-sessions are protected. Metadata is read one bounded index at a time without
-hydrating bodies; activity probes are momentary and do not reserve deletion. The
-version-1 plan binds storage, workspace, store/generation, policy and ordered
-results. Its hash identifies the observation and grants no deletion authority.
-The report remains metadata-only and has no apply option. See the
-[retention preview contract](CONVERSATION_RETENTION.md).
-
-Single-session retention apply is now available through `session-prune`. An
-explicit ID must qualify under the cutoff/keep-newest policy and pass full-state
-verification. Its separate version-1 plan binds the complete retention observation,
-selected state digest, database/session-lock identities and artifact counts. Apply
-requires that prune hash, repeats read-only preflight before writable access, and
-rechecks policy and full state under `BEGIN IMMEDIATE` before atomically deleting
-the session and its cascading records. Root and file identities are rechecked;
-generation or observed policy changes require a fresh preview. Receipts are issued
-after commit, and missing IDs are not treated as proof of an earlier successful
-prune. JSON copies, temporary files and lock inodes remain. Automatic policy
-apply and physical-space reclamation remain open. See the
-[pruning contract](CONVERSATION_PRUNE.md).
-
-Explicit batch retention apply now uses `session-prune-batch` for 1–32 unique IDs
-and at most 64 MB of logical snapshots. All selected session locks are held in
-sorted order. Each verification phase reads the workspace policy once, rejects
-ineligible or oversized selections before loading bodies, and fully verifies each
-selected state while releasing previous states. The separate batch hash binds one
-retention observation and all selected state/file identities. Apply repeats
-read-only preflight before writable access, then rechecks the complete selection
-under `BEGIN IMMEDIATE`. All selected rows and cascades are deleted in one commit
-with one generation increment; precommit failures roll back the entire batch.
-Missing IDs are not proof of a successful prior batch, and JSON copies remain.
-Automatic expiry, quotas and physical reclamation remain open. See the
-[batch pruning contract](CONVERSATION_BATCH_PRUNE.md).
+Detailed changes and original limitations are retained in the
+[session storage implementation history](SESSION_STORAGE_IMPLEMENTATION_HISTORY.md).
+Operator contracts remain in [CONVERSATION_STORAGE.md](CONVERSATION_STORAGE.md)
+and [CONVERSATION_SQLITE.md](CONVERSATION_SQLITE.md). Add future implementation
+history to the linked record; keep this section focused on current behavior,
+outstanding work and acceptance.
 
 The recorded preview still caps messages/attempts at 16. Raising the snapshot budget
 does not lift
@@ -2359,7 +2207,7 @@ work before claiming support for long coding sessions:
 | Incremental persistence | Versioned local SQLite metadata and incremental records, with private owner-scoped immutable artifact/memory references. Commit each transition and its references before dispatch without rewriting all earlier content. Retain revision checks, consumed attempts and steering ancestry. |
 | Bounded navigation | Stable cursors and bounded pages for listings and transcript reads. Resume loads a bounded working set; listing does not parse every transcript. Concurrent writes, stale cursors and missing references produce defined recoverable outcomes. |
 | Independent budgets | Separate disk/retention quotas, page/record read limits, pending-input capacity, active model context, memory and provider spending. Report usage before capacity rejection. A storage increase grants no inference or tool authority. |
-| Context management | Visible, versioned compaction preserves current user instructions, decisions, unresolved work and required task links. Retain original evidence and record request selection/omissions. Fresh sessions and independent critics cannot retrieve ambient history. |
+| Context management | Visible, versioned author compaction and §6.7 checkpoint continuation preserve current user instructions, decisions, unresolved work, task ledgers and required evidence links. Retain originals under policy and record selection/omissions. Detect stale repository/test state before dependent execution. Fresh sessions and independent critics cannot retrieve ambient history. |
 | Migration and retention | Explicit owner-preserving migration with dry-run sizing, interruption recovery and count/digest verification. Retention previews and crash-safe cleanup include unreferenced objects and journals/backups under their documented expiry. Listing never silently migrates data. |
 | Capacity and recovery gate | Demonstrate at least 1,000 messages and retained content above 32 MB with bounded page reads. Test crash boundaries, disk-full/truncated writes, concurrent writers, corrupt objects, stale cursors, interrupted migration, retention races, ownership and critic isolation using fixtures. |
 
@@ -2997,1467 +2845,247 @@ diagnostics, tool output, events, run/replay/export, and crash paths. Before doc
 define a versioned result contract and prove offline mode opens no network path;
 mandatory security checks cannot succeed by skipping.
 
+The first offline doctor/template diagnostics should also expose §6.7.5's instruction
+sizes, duplicate/scoped-rule advisories and selected MCP/tool schema costs. Required
+missing capabilities fail explicitly; editorial size heuristics remain warnings.
+These checks parse bounded data and reuse approved metadata. They do not import
+skill code, start servers, resolve secrets or make provider calls merely to report
+context overhead. Keep them separate from deferred executable remedies and fixes.
+
 The package snapshot prevents ordinary post-validation drift but not a malicious
 same-UID process racing trusted ancestor directories. Package signatures and archives
 are absent, so historical reconstruction depends on retaining the exact digest-named
 package. These limits are explicit in `docs/SKILLS.md` and milestone review 22.
 
+**Historical evidence index:** the implementation sequence below is retained in
+[skills and provider implementation history](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md).
+The original headings remain as stable reference targets. Current delivery work is
+in §26.4 and the roadmap; append future detailed execution records to the history
+instead of expanding the active plan.
+
 ### 25.4 Implemented paired evidence gate
 
-Evaluation routes now bind an exact inline or persona-skill prompt asset. A separate
-two-arm protocol seals the dataset, full plan, prompt identities, non-inferiority
-margins, paired equal-group estimand, fixed stopping rule, and six-comparison family
-before results are inspected. The arms must be identical except for their prompt,
-and the candidate must be a digest-identified persona skill.
-
-Scoring reverifies the complete dual-authenticated human-grading lineage, averages
-repetitions within cases, pairs candidate-minus-baseline case outcomes, then weights
-declared independence groups equally. Holdout CLI use consumes an atomic private
-claim before validation so failed or repeated attempts cannot be selectively rerun
-without explicit local-control tampering. Cost and latency deltas are reported.
-
-This closes the recommended evidence-foundation slice, not persona promotion. Every
-artifact denies activation and each report denies promotion. A later milestone must
-define independent signed promotion, retained package archives, rollback, expiry,
-and drift monitoring before a skill can replace a default.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#254-implemented-paired-evidence-gate).
 
 ### 25.5 Implemented independent promotion-readiness gate
 
-An authority policy now enrolls sorted unique Ed25519 release keys and bounds both
-its own validity and the maximum lifetime of a decision. The only signable decision
-is deterministically derived from the exact sealed comparison plus matching
-calibration and holdout reports; both registered gates must pass. The signature
-domain binds the authority policy, exact skill and prompt identities, both reports,
-and UTC decision window.
-
-Authentication recomputes both reports from their complete dual-human-grade source
-chains, rejects authority overlap with any grader or resolver, checks expiry, derives
-the decision again, and verifies the signature. A signed failed experiment remains
-a denial. The resulting receipt can claim promotion readiness but literally denies
-configuration mutation and activation.
-
-This is an evidence-authorization boundary, not installation. The next retained-byte
-archive slice is documented below; author signatures, rollback, revocation,
-transactional default changes, and drift monitoring remain mandatory future work.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#255-implemented-independent-promotion-readiness-gate).
 
 ### 25.6 Implemented deterministic package retention
 
-A retained skill archive now serializes every path and exact byte from the loader's
-immutable validated snapshot. Canonical base64, per-file byte counts and digests,
-canonical path ordering, collision checks, and the existing domain-separated package
-digest make the archive deterministic and content addressed. Retention never
-reopens the package, so a post-discovery filesystem mutation cannot change the
-archive selected by its exact qualified reference.
-
-Archive verification is deliberately semantic as well as structural: it reparses
-the retained `SKILL.md` and optional `mos.yaml`, re-applies the prompt-only rules,
-and rebuilds the complete descriptor and normalized instruction-body digest from
-the retained bytes. It performs no extraction or materialization. Project-source
-retention requires invocation-local approval, and the archive schema fixes
-installation, activation, and configuration mutation authority to false.
-
-This closes byte retention alone, not deployment. The next subsection adds a current
-promotion-evidence binding; authorship, revocation, rollback, transactional
-installation/default changes, and post-install drift monitoring remain separate
-mandatory gates.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#256-implemented-deterministic-package-retention).
 
 ### 25.7 Implemented current archive-to-promotion binding
 
-A `SkillReleaseEvidence` artifact now joins one semantically reverified retained
-archive to one authenticated promotion receipt. Creation recomputes both complete
-dual-human-grade lineages, the signed promotion decision, and the archive's parsed
-descriptor before requiring exact `SkillIdentity` equality. The CLI supplies the
-host UTC clock and rejects a receipt at its expiration boundary.
-
-The artifact embeds both sources and commits their canonical digests, exact candidate
-identity, check time, and receipt-bounded expiration. It can only represent a passing,
-retained evidence state; literal schema fields continue to deny installation,
-activation, and configuration mutation. Reverification rebuilds the artifact and can
-also require that it remains current at a separately supplied time.
-
-This closes package substitution between evaluated identity and retained bytes. It
-does not authenticate the package author, establish an external timestamp, consult a
-revocation witness, select a rollback target, materialize files, change defaults, or
-monitor post-install drift. Those remain independent prerequisites for deployment.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#257-implemented-current-archive-to-promotion-binding).
 
 ### 25.8 Implemented authenticated revocation and rollback nomination
 
-A separate release-control policy enrolls sorted unique Ed25519 authorities and
-bounds decision lifetime. Every enrolled control identity and public key must be
-disjoint from the promotion authorities and all graders and resolvers across both
-splits. The only signable control decision is deterministically derived after
-reverifying the exact release evidence and its complete upstream lineage.
-
-The signature commits the trust-policy digest, release-evidence digest, current
-archive, candidate identity, monotonic sequence, allow/revoke disposition, optional
-rollback nomination, and UTC window. A rollback nomination is permitted only for a
-revoked release, embeds exact semantically reverified retained bytes in the resulting
-receipt, and must identify a different package for the same source-qualified persona
-name. It remains a nomination rather than an extraction or install instruction.
-
-A private SQLite anchor is scoped to one release-evidence digest and pins the exact
-authority policy, allowed control signers, and a minimum bootstrap sequence. Canonical
-entries are hash-linked and fully reverified on every read. Sequence and issue time
-must advance, a revocation cannot be removed, and consumers can require the exact
-latest signed state. This prevents ordinary older-message replay but not owner-driven
-whole-database rollback or cloning; an external monotonic witness is still required.
-
-Every new contract and CLI event continues to fix installation, activation, and
-configuration mutation to false. Transactional staging, exact post-write checks,
-atomic default switching, crash recovery, and drift-triggered rollback remain the
-next independent deployment gate.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#258-implemented-authenticated-revocation-and-rollback-nomination).
 
 ### 25.9 Implemented transactional quarantine staging
 
-An exclusive private store can now materialize the exact candidate archive from an
-allowed control or the exact embedded rollback archive from a revoked control. The
-staging entry point first rebuilds the authenticated control at its recorded time,
-then reauthenticates the release, promotion, both comparison splits, and retained
-archive at the current host time.
-
-The store policy pins the exact release-control anchor policy and caps both completed
-packages and incomplete transactions. Each transaction binds the current control
-receipt and exact anchor entry, writes payload files exclusively with private modes,
-reconstructs the archive and semantic skill descriptor from the written bytes, writes
-the completion manifest last, and fsyncs files and all directory levels. Only then is
-the verified directory atomically renamed to its archive-digest path and both sides
-of that rename fsynced. Exact existing packages are verified before idempotent reuse;
-there is no overwrite or repair path.
-
-Latest-control validation and package commit share one SQLite read transaction. A
-concurrent anchor advance cannot commit a newer revocation between verification and
-the atomic staging rename. This closes the local check-to-use race, not same-UID
-replacement of the entire anchor/store or rollback of their external trust roots.
-
-Interrupted transactions remain bounded and visible under a separate transaction
-directory. Status inventories intent/completion-marker presence but never resumes,
-deletes, or promotes partial state automatically. Every contract and event continues
-to deny installation, activation, and configuration mutation, and no runtime code
-reads the quarantine store. Independent signed install authority, atomic default
-switching and recovery, and post-install drift evidence remain future gates.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#259-implemented-transactional-quarantine-staging).
 
 ### 25.10 Implemented independent one-use installation authorization
 
-A separate installation-authority policy enrolls sorted unique Ed25519 identities
-and keys that must be disjoint from the release controllers, promotion authorities,
-graders, and resolvers in both evidence splits. It pins the exact quarantine-store
-policy, release-control anchor policy, one private claim-store identity, one inert
-installation-target identity, its own validity window, and a maximum decision life.
-
-The derived signable decision reverifies the entire release lineage and every staged
-byte. It binds the exact staging manifest, archive, source-qualified persona, candidate
-or rollback action, signed control, latest anchor entry, release evidence, claim store,
-target, and UTC window. Authentication recomputes that decision, checks the independent
-signature, reauthenticates all sources at the host clock, and again requires the same
-latest anchor entry. The receipt grants installation permission for only that exact
-target while fixing activation and configuration mutation to false; it records that
-installation has not occurred.
-
-A private SQLite claim ledger is pinned back to the exact authority policy. Guarded
-consumption reverifies the authenticated receipt, burns the signed decision digest
-durably before any caller side effect, retains the exact receipt used, and keeps the
-release-control read transaction open across the
-caller's commit window. Exceptions never refund the claim, so ambiguous or failed
-attempts require a newly signed authorization. The raw claim operation is private and
-there is deliberately no standalone consume CLI that could waste permission without
-an installer transaction.
-
-This is an authority and at-most-once substrate, not deployment. No installed-package
-store, default pointer, runtime lookup, completed-install receipt, automatic recovery,
-or drift monitor exists. Local claim and control databases can still be rolled back or
-cloned by their owner without an external monotonic witness. The next slice must define
-the atomic installation/default transaction, complete-or-incomplete recovery evidence,
-and post-commit verification before any authorized prompt reaches a model request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2510-implemented-independent-one-use-installation-authorization).
 
 ### 25.11 Implemented atomic inert installation and recovery evidence
 
-An installed-store policy now pins one exact installation-authority policy, quarantine
-store, at-most-once claim store, and opaque installation-target identity. Its private
-layout contains an immutable policy, owner-private cross-process lock, content-addressed
-completed packages, and bounded transaction directory. It has no default pointer or
-runtime reader.
-
-The installer preflights existing content and capacity before consuming authority,
-then reauthenticates the complete evaluation/promotion/release/staging chain under the
-latest-control guard. The claim is durably burned before writes. While that revocation
-guard remains held, the installed-store lock serializes a second inventory check,
-transaction creation, provenance files, exact payload writes, post-write semantic
-archive reconstruction, completion-manifest write, directory fsyncs, and atomic rename
-to the archive digest. Concurrent installs cannot exceed configured limits or overwrite
-an existing exact package. An already installed digest is rejected before consuming a
-new authorization when visible at preflight; a later race fails conservatively.
-
-Every completed package retains its exact authenticated authorization, consumed claim,
-quarantine manifest, intent, descriptor, and payload. Store loads reverify the external
-installation signature and rebuild the full archive from disk. The result alone records
-`installation_performed: true`; every store, intent, manifest, result, and event fixes
-default mutation, configuration mutation, activation, and runtime lookup to false.
-
-Read-only recovery inspection correlates durable claim-ledger entries with completed
-manifests and incomplete intents. It distinguishes `completed`, `incomplete`, and
-`claim_only`, and separately inventories transaction directories without an intent.
-It never retries, finalizes, deletes, refunds, or changes a default. Local owner rollback
-and cloning, same-UID path replacement, external monotonic state, default selection,
-runtime consumption, and drift monitoring remain open. The next slice requires a
-separate signed default-change authority and an atomic recoverable pointer transaction.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2511-implemented-atomic-inert-installation-and-recovery-evidence).
 
 ### 25.12 Implemented independent atomic default selection
 
-A default-authority policy now pins independent Ed25519 identities, the exact installed
-store and historical installation-authority policy, latest release-control anchor, one
-private default-store identity, and a bounded decision lifetime. Default authority IDs
-and keys must be disjoint from every evaluator, resolver, promoter, release controller,
-and installer in the reverified source lineage.
-
-Each decision binds the exact installed manifest, historical installation authorization
-and signed installation decision, archive and persona identity, current release-control
-entry, candidate or rollback action, next sequence, expected previous pointer digest,
-and validity window. Authentication rebuilds the complete evaluation through installed
-package provenance and rejects any release-control or default-state advance.
-
-The private default store uses rollback-journal SQLite with `synchronous=EXTRA`. Under
-the latest release-control read guard, one `BEGIN IMMEDIATE` transaction reverifies the
-entire canonical revision chain and installed packages, performs the signed
-sequence/prior-pointer compare-and-swap, inserts the unique decision and immutable
-selection record, and updates the singleton current pointer. Consumption and mutation
-therefore either commit together or both roll back. An ambiguous commit response is
-resolved through read-only status; automatic recovery is unnecessary and absent.
-
-This is a narrow control-plane configuration change. Results record
-`default_changed: true`, while every authority, pointer, result, status, and event denies
-all other configuration mutation, activation, and runtime lookup. No shipped runtime
-reads the pointer. Local database/control rollback or cloning, external monotonic state,
-post-selection health evidence, runtime consumption, drift monitoring, and automatic
-rollback remain open. The next slice adds post-promotion drift and health evidence
-before any selected prompt can reach a model request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2512-implemented-independent-atomic-default-selection).
 
 ### 25.13 Implemented signed post-selection health and drift eligibility
 
-A health-authority policy now pins the exact default/control/promotion trust roots and
-requires at least two independent Ed25519 identities. The identities and keys must be
-disjoint from each other by role and from every evaluator, resolver, promoter, release
-controller, installer, and default selector in the fully reverified source lineage.
-
-One signer fixes the exact current pointer, installed bytes, latest release-control
-entry, authenticated promotion holdout reference, measurement-protocol digest,
-freshness/lifetime limits, independent-group floor, and direction-aware numeric
-thresholds. A distinct observer signs the exact post-selection measurement window,
-evidence-bundle digest, group counts, confidence-bound rates in integer parts per
-million, complete-cost coverage and delta, and p95 latency delta.
-
-Issuance rebuilds promotion and release control, holds the latest local control guard,
-verifies the complete default revision chain and installed package, and accepts only
-the archive currently permitted by control. It rejects observations that predate
-selection, are future-dated or stale, have insufficient groups, fail the original
-registered health gate, or drift beyond the separately signed tolerances from the
-holdout report. The result expires at the earliest source or policy boundary.
-
-This remains evidence, not execution. The CLI accepts no private keys; the evidence
-bundle and measurement protocol are authenticated by digest but not fetched or
-recomputed. Local database rollback/cloning, clock integrity, continuous monitoring,
-alert delivery, provider dispatch, and automatic rollback remain
-open. Every artifact denies dispatch, activation, configuration mutation, and
-automatic rollback. The non-sending preparation substrate below addresses one-use
-request, prompt, health, route, and spending admission; brokered provider dispatch
-remains a separate gate.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2513-implemented-signed-post-selection-health-and-drift-eligibility).
 
 ### 25.14 Implemented one-use skill runtime preparation and spend admission
 
-A new runtime-authority policy pins the exact health authority, default store, model
-registry, and shared spend ledger while requiring its signers to be identity- and
-key-disjoint from every upstream health, default, installation, release, promotion,
-grading, and resolution authority. The signable decision fixes one request, current
-pointer and health receipt, exact reconstructed persona prompt, provider/model/effort
-route, routing-preflight digest, normalized provider/broker request hashes, reviewed
-spend policy, deterministic ledger entry, worst-case reservation, and short validity
-window.
-
-Preparation reverifies the full skill-health chain, selected installed bytes, current
-control/default state, registry and exact route with no effort substitution. The
-request explicitly acknowledges external data transfer but no transfer occurs. To
-avoid a non-atomic claim-ledger/spend-ledger composition, the shared spend-ledger insert
-itself is the one-use authorization burn. Verified release-control and default-pointer
-read locks remain held across that insertion. All provider-independent checks occur
-first. The reservation pessimistically charges the policy's maximum input tokens plus
-the requested output cap without contacting a provider.
-
-The prepared private artifact contains the exact prompt and user input but issues no
-bearer grant and records that no request was sent. A read-only status path distinguishes
-absent, held, settled, uncertain, and violation states while denying retry and automatic
-budget release. Failed inserts consume nothing; a crash after commit leaves authority
-burned and budget held.
-
-This is not dispatch. The routing preflight is exact-route matched and bound by the
-independent runtime signature. Runtime policy schema version 2 and the preparation path
-now also pin and recompute its complete empirical source chain. The existing provider
-transport cannot consume a pre-reserved entry and must not be composed because it would
-reserve twice. External monotonic state, dispatch authority, credentials, network send,
-response audit, settlement, and automatic rollback remain open.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2514-implemented-one-use-skill-runtime-preparation-and-spend-admission).
 
 ### 25.15 Implemented full routing revalidation and guarded broker admission
 
-A pre-created admission-store policy pins one private store identity, both control
-anchors, the default store, and the spend ledger. The signed runtime-authority policy
-pins that complete policy, plus the routing activation-authority and control-anchor
-policies. Runtime signers must be independent of authorities and evaluators in both the
-skill and routing lineages.
-
-Preparation and broker admission now reconstruct the routing preflight from its full
-calibration, holdout, promotion, operational-signature, eligibility, and anchored
-control sources. The admission commit holds read locks on the exact latest routing
-control, exact latest skill release control, current default pointer, and exact held
-spend entry. A deterministic insert uniquely claims the prepared request, runtime
-decision, and existing ledger entry in the pinned admission store. It does not create
-a second reservation, and injected failures roll back only the admission while leaving
-the earlier conservative reservation held.
-
-Admission remains non-executing. It contains no request body, credential, or bearer
-capability, and every policy, artifact, status, and event denies provider dispatch,
-send, retry, and automatic release. Store copying/rollback, clock integrity, and
-organizational collusion remain external. The following slice adds independent
-dispatch authority and durable consumption while deliberately deferring the first
-request-bound bearer, provider transfer, and ambiguous-send settlement.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2515-implemented-full-routing-revalidation-and-guarded-broker-admission).
 
 ### 25.16 Implemented independent dispatch-authority consumption
 
-A separate Ed25519 dispatch policy now pins the runtime-preparation authority and a
-pre-created claim-store policy. That store policy pins the admission store, both
-control anchors, default store, and spend ledger. Dispatch signers must be identity-
-and key-disjoint from runtime-preparation signers. Decisions last at most 60 seconds
-and bind the exact admission, prepared and signed runtime artifacts, route, normalized
-provider and broker request hashes, both controls, default pointer, ledger entry, and
-reservation.
-
-Consumption reconstructs the complete routing and skill lineages and exact stored
-admission. Read guards hold both latest controls, current default, existing held spend,
-and exact admission through an at-most-once claim commit. Replay, stale state, policy
-substitution, settled spend, expiry, and invalid signatures fail closed. Injected
-database failure leaves the admission and conservative spend reservation unchanged.
-
-The resulting claim authorizes only a future exchange for one request-bound grant. It
-is not a bearer and no current transport accepts it. Every contract and event records
-that no grant was issued, direct provider dispatch is unauthorized, no request was
-sent, and retry and automatic budget release are denied. Ephemeral bearer issuance,
-the durable before-send boundary, pre-reserved transport, outcome settlement, external
-monotonic state, and credentialed conformance remain open.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2516-implemented-independent-dispatch-authority-consumption).
 
 ### 25.17 Implemented ephemeral request-bound broker capability
 
-Dispatch-authority policy schema version 2 now pins a pre-created broker-grant-store
-policy, which in turn pins the dispatch-claim and admission stores, both control
-anchors, default store, and spend ledger. Grant issuance reconstructs the entire
-routing and skill evidence graph, exact signed preparation and admission, and exact
-signed and consumed dispatch authority. It holds both control anchors, current
-default, existing held spend, admission, and dispatch claim through one durable unique
-issuance commit.
-
-The issuance store persists only exact provenance and a domain-separated hash of a
-fresh random 256-bit capability. The bearer remains in process memory, is capped at 30
-seconds and by the signed decision, redacts its representation, can be delivered once,
-and can be validly redeemed once under a lock. Redemption returns only issuance
-metadata, never prompt bytes, credentials, or a transport. A committed but lost bearer
-cannot be recreated, and an injected store failure returns no bearer while leaving all
-prior state and spend unchanged.
-
-No CLI path exports the secret. CLI commands create and inspect only the hash-bearing
-durable store. Provider request transmission, pre-reserved settlement, an fsynced
-before-send marker, response handling, cancellation, timeout, crash recovery, and
-credentialed conformance remain open. Missing or ambiguous outcomes must never imply
-retry or budget release.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2517-implemented-ephemeral-request-bound-broker-capability).
 
 ### 25.18 Implemented provider-owning pre-reserved transaction
 
-Broker-grant-store policy schema version 2 now pins one provider-transaction-store
-policy. The latter pins the grant-store identity, both control anchors, default store,
-spend ledger, capacity, and a maximum 60-second provider wait. Before redemption, the
-transaction checks exact preparation/issuance request hashes, route, model, pricing,
-and existing reservation plus a zero-retry OpenAI transport contract.
-
-Fresh routing-control, skill-control, default, held-spend, and exact-grant read guards
-remain open while the capability is burned and an exact send intent commits in a
-private rollback-journal SQLite store using `synchronous=EXTRA`. Transport is invoked
-only after that commit and at most once. The store persists no bearer, prompt,
-credential, request body, or response body.
-
-Verified model/tier/usage settles the existing ledger entry at locally computed actual
-cost. Provider errors, malformed or missing usage, timeout, cancellation, and lost
-response retain the full reservation as uncertain. Pricing-bound violations retain
-the full reservation as a blocking violation. The ledger commits before hash-only
-outcome metadata, so either cross-store failure remains conservatively accounted
-behind the durable marker. Recovery never authorizes retry or automatic release.
-
-Credentialed conformance and external billing reconciliation remain open. Durable
-content-verified response/result publication is the separately pinned next layer.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2518-implemented-provider-owning-pre-reserved-transaction).
 
 ### 25.19 Implemented content-verified runtime response publication
 
-Provider-transaction policy schema version 2 now pins one complete response-store
-policy. That policy binds the exact transaction-store identity, capacity, individual
-and aggregate byte limits while structurally denying reasoning or provider-credential
-publication, provider retry, and automatic budget release.
-
-Publication accepts only the exact stored `response_received` transaction with its
-existing ledger entry settled. It recomputes response bytes, request and response
-digests, full preparation/issuance/route/ledger lineage, model, provider request ID,
-stop reason, token usage, and locally charged cost. The exact canonical provider
-response, reasoning-free result, manifest, send intent, and outcome commit together in
-one private rollback-journal SQLite transaction. Unique identities reject replay.
-
-Every subsequent status or result read repeats canonical-record, digest, lineage, and
-result-to-raw-response verification. The public result accepts only assistant text;
-reasoning, including encrypted provider state, remains retained in the private raw
-record. Tool-bearing and reasoning-only responses are not publishable. The CLI can
-create and inspect the store and read verified results but has no raw-response export.
-Provider credentials are not accepted or added, but model-authored text remains
-untrusted and may require a separate sensitive-output policy.
-
-This closes local durable result publication, not external proof. Same-UID access,
-trusted transport/parser behavior, store rollback/cloning, retention policy, hardware
-durability, provider authorship, invoice reconciliation, and credentialed OpenAI
-conformance remain open. A separately authorized credentialed run must traverse this
-exact zero-retry boundary before stronger operational claims are made.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2519-implemented-content-verified-runtime-response-publication).
 
 ### 25.20 Implemented authenticated runtime conformance attestation
 
-A separate conformance policy now pins the exact response-store policy, UTC validity
-and freshness bounds, canonical trusted Ed25519 observer identities and keys, reviewed
-OpenAI SDK versions, production origin, Responses API family, API-key credential mode,
-official SDK, zero-retry, no-storage, and no-truncation requirements.
-
-After an operator actually observes a credentialed exchange, signable metadata binds
-the exact verified publication, result, transaction, model, effort, provider request
-ID, SDK version, and a digest of separately retained redacted transport evidence. The
-derive CLI requires explicit credentialed-exchange acknowledgement and never accepts a
-provider credential or signing key. External signing retains private-key custody.
-
-Authentication verifies the enrolled observer's domain-separated Ed25519 signature,
-policy and observation freshness, allowlisted SDK, and the exact private publication.
-Loading that publication repeats canonical raw-response, result, settled transaction,
-and ledger-lineage verification. Output carries hashes and metadata only, not prompt,
-answer, reasoning, raw response, API credential, or signing key.
-
-This authenticates an observer claim, not the truth of every claimed transport fact.
-Provider authorship, TLS peer identity, invoice reconciliation, quality, promotion,
-and routing activation remain structurally false. The observer can lie or collude;
-the external evidence digest is not fetched. No live or paid request was made for this
-milestone. Next, a separately authorized run must traverse the exact path, followed by
-external billing/provider-receipt reconciliation and the repeated blinded quality
-study before stronger operational or routing claims.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2520-implemented-authenticated-runtime-conformance-attestation).
 
 ### 25.21 Implemented portable publication-history witness
 
-Response-store policy schema version 2 now persists and validates an explicit,
-gap-free publication sequence rather than SQLite's mutable implicit row ID. The store
-computes a domain-separated rolling SHA-256 commitment over publication-manifest
-digests in that order only after fully reverifying every canonical raw response,
-result, manifest, transaction, and ledger relationship. The hash-only
-history includes store-policy identity, count, rolling digest, and latest publication
-identifiers, never raw response or published assistant content.
-
-A separate witness policy pins that exact store, UTC validity and freshness bounds,
-positive minimum publication count, and canonical trusted Ed25519 witness identities
-and keys. Signable checkpoints bind the policy, full current history, and witness time.
-Verification authenticates the signature and requires that checkpoint history remain
-an exact prefix of the current store. Legitimate later publications remain valid;
-deletion, reordering, or divergence at or before the checkpoint fails closed.
-
-The CLI derives and verifies hash-only artifacts but never accepts signing private
-keys. A useful signed checkpoint must be retained in a separate trust or storage
-domain. Both checkpoint and verification schemas explicitly deny proof of external
-retention or newest-checkpoint delivery, as well as response/result export, retry, and
-budget release. A matching old store and old checkpoint can still be presented if a
-newer external checkpoint is suppressed. External delivery, latest-state service,
-clock integrity, key custody, and availability remain open, as do provider billing
-reconciliation and separately authorized credentialed conformance.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2521-implemented-portable-publication-history-witness).
 
 ### 25.22 Implemented authenticated aggregate billing evidence
 
-A billing policy now pins the exact response-store and conformance policies, UTC
-validity and freshness bounds, the documented OpenAI organization completion-usage and
-cost endpoints, their narrowest supported bucket widths and grouping dimensions, and
-canonical trusted Ed25519 billing auditors. Billing identities and keys must be
-disjoint from every enrolled conformance observer at authentication time.
-
-Signable evidence reauthenticates the full historical conformance receipt and private
-publication before binding transaction, outcome, ledger, provider response identifier,
-route, local usage and cost, exactly matching external aggregate values, closed bucket
-windows, hashes of project/API-key identifiers, and digests of separately retained
-complete Admin API pages. The attested scope must contain exactly one request. Evidence
-retrieval must follow both the one-minute usage bucket and one-day cost bucket.
-
-The documented aggregates do not expose a response ID, and Mos Eisley does not fetch or
-parse the retained evidence in this layer. Consequently every artifact fixes exact
-request-cost attribution, provider authorship, and invoice finality to false even when
-the exclusive aggregate matches exactly. Ledger mutation, automatic budget release,
-retry, quality, promotion, and routing activation are also structurally denied. The CLI
-only derives and authenticates metadata, never accepts provider credentials or signing
-private keys, and does not export content or raw billing pages.
-
-No live or paid request was made for this milestone. Next, separately authorized
-credentialed conformance and a credential-isolated strict Admin API evidence collector
-must exercise the real boundary. Request-level claims require a future documented
-provider field rather than inference from aggregate isolation.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2522-implemented-authenticated-aggregate-billing-evidence).
 
 ### 25.23 Implemented credential-isolated Admin API billing collection
 
-An explicit-consent `openai-billing-collect` process now owns `OPENAI_ADMIN_KEY` only
-for bounded OpenAI organization completion-usage and cost reads. It first
-reauthenticates the exact conformance publication and current billing policy, rejects
-open reporting windows and unusable output paths before credential access, then uses
-the official SDK with automatic retries, environment proxies, redirects, and streaming
-disabled. Each decoded response and the complete cursor chain are bounded.
-
-The retained private bundle strictly validates one exact one-minute completion group,
-project/API-key/model/default-tier equality, one model request, one closed daily cost
-bucket, exact project/API-key cost groups, no duplicate line items, and an integer
-microusd total. Canonical rolling digests over the retained raw pages feed the existing
-signable observation path; the collector neither holds a signing key nor mutates the
-spend ledger. Console output omits raw pages, identifiers, totals, prompts, responses,
-and the Admin credential.
-
-The adversarial boundary is narrower than “exclusive request receipt.” The completion
-endpoint proves only one request in the selected minute, while the costs endpoint is a
-daily aggregate with no response ID. Collection therefore fixes complete daily
-API-key exclusivity and exact request-cost attribution to false. The existing derive
-step still requires a separate completeness/exclusivity attestation, and authenticated
-evidence continues to deny invoice finality, ledger release, retry, quality, promotion,
-and activation. Fixture HTTP tests exercise the SDK boundary without a paid model
-request. A separately authorized real conformance run and real Admin read remain
-operator work.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2523-implemented-credential-isolated-admin-api-billing-collection).
 
 ### 25.24 Implemented failure-preserving brokered evaluation assembly
 
-Broker audit outcome schema version 3 now requires bounded elapsed latency for every
-terminal state and distinguishes a generic provider execution error, an actual broker
-deadline, and caller cancellation. Successful outcomes continue to bind exact reply
-bytes. Failed and cancelled outcomes carry no response hash or provider request ID;
-their recovery state preserves absent, held, uncertain, or violation ledger exposure
-without authorizing retry or release. Older outcomes remain readable for recovery but
-cannot mint failure evidence without the new latency and error fields.
-
-A verification-only failure compiler requires an independently supplied assignment
-authorization, the exact private audit chain, and the named shared ledger. It emits no
-invented response, usage, critique, or cost when no reservation exists. A separate
-assembler revalidates every artifact against the blinded execution batch, requires
-exact sample coverage and unique authorization, outcome, response, provider-request,
-and ledger identities, and restores canonical batch order. Omission, duplication,
-route substitution, and mixed-ledger assembly fail closed.
-
-The assembled `BrokeredEvaluationResultSet` is intentionally not `RawResultSet`. Its
-contract and CLI output fix credentialed conformance proof, live-result issuance,
-grading, scoring, promotion, retry, and automatic budget release to false. This closes
-failure-preserving coverage composition only. A real provider conformance run,
-authenticated live-execution policy, and separately reviewed conversion remain
-mandatory before empirical scoring. No provider or paid request was made.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2524-implemented-failure-preserving-brokered-evaluation-assembly).
 
 ### 25.25 Implemented authenticated brokered evaluation conformance receipt
 
-A pre-registered evaluation-conformance policy now fixes one exact blinded OpenAI
-assignment before an observer claim can be accepted: plan, batch, sample, candidate,
-evaluation request, serialized provider request, spend policy, ledger, ledger entry,
-UTC window, observation age, SDK allowlist, and sorted unique Ed25519 observer keys.
-Provider, endpoint, Responses family, API-key mode, explicit conformance command,
-official SDK, bounded client, isolated broker, zero retries, disabled storage, and
-disabled truncation are strict literals rather than signable free text.
-
-Derivation requires explicit credentialed-exchange attestation plus the successful
-broker artifact, exact blinded batch, independently retained assignment authorization,
-private audit, and shared ledger. Authentication verifies the domain-separated
-signature and freshness, then reparses every contract and reopens the audit and ledger.
-The terminal response and outcome hashes, measured latency, settled status, and
-charged amount must continue to match. Trust anchors or derived inputs inside the
-audit tree, symlink aliases, hard links to the audit authorization, and output/input
-overlap fail closed. CLI output omits prompt, critique, usage, provider request ID,
-raw response, credential, and signing key.
-
-This authenticates a trusted observer statement, not OpenAI authorship or billing.
-The observer can lie; transport-evidence bytes are externally retained and not fetched;
-the observation time and host clock are trusted. Only successful settled token-usage
-artifacts qualify because current failure state does not prove whether a provider send
-occurred. One probe cannot establish complete-batch conformance and every policy,
-observation, receipt, and event fixes conversion, grading, scoring, quality, promotion,
-and routing activation to false. A separately authorized real probe is still required;
-tests use synthetic artifacts and keys and make no provider or paid request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2525-implemented-authenticated-brokered-evaluation-conformance-receipt).
 
 ### 25.26 Implemented no-send evaluation conformance ceremony preflight
 
-A dedicated preparation command now deterministically derives the exact
-evaluation-conformance policy from one blinded assignment, reviewed spend policy,
-existing shared ledger, planned fresh audit path, UTC window, sorted observer roster,
-and sorted installed-SDK allowlist. It reconstructs the strict OpenAI request and
-pins its hash plus every assignment and spending identity. The ceremony reads no
-provider credential, creates no audit, makes no reservation, starts no container,
-and sends no request; its event reports those facts explicitly.
-
-The paid-capable `openai-conformance` command now requires that prepared policy.
-Before reading `OPENAI_API_KEY`, it reconstructs the authorization and rejects any
-request, assignment, spend-policy, ledger, audit-derived entry, installed SDK, or
-validity mismatch. The policy window must fit inside the spend-policy window and
-cover the configured request timeout. Both preparation and live preflight require an
-unblocked ledger, unused exact entry, fresh audit path, and non-overlapping inputs and
-outputs. Atomic spending admission remains authoritative against concurrent changes.
-
-This is a local pre-credential commitment, not a spend reservation, provider
-authorization, conformance result, or observer signature. File custody, host clocks,
-same-UID races, and ledger rollback/cloning remain outside the local proof. All
-conversion, grading, scoring, promotion, and routing flags remain false. Tests use
-synthetic provider and Docker behavior and make no credentialed or paid request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2526-implemented-no-send-evaluation-conformance-ceremony-preflight).
 
 ### 25.27 Implemented signed evaluation conformance authorization
 
-The paid-capable evaluation conformance boundary now requires an independent,
-short-lived Ed25519 authorization in addition to explicit local transfer confirmation.
-A strict authority policy enrolls sorted unique identities and keys and caps each
-authorization at one hour. Every enrolled authority must be disjoint by both identity
-and key from every post-run observer in the exact conformance policy.
-
-Unsigned derivation binds the authority and conformance policy hashes, complete
-assignment and provider-request identity, spend policy, ledger and entry, maximum
-micro-USD exposure, issue time, and expiry. It reads no provider credential or private
-key, reserves no money, creates no audit, and sends nothing. Signing is out of process
-under a distinct domain. Before API-key access, the live command verifies enrollment,
-signature, exact reconstructed content, authority separation, nested authority,
-conformance and spend windows, and enough signed lifetime for the request timeout.
-
-The signature authorizes one exact blinded transfer, credential access, and bounded
-spend; it explicitly denies unblinded transfer, retry, automatic budget release,
-conversion, grading, scoring, promotion, and routing activation. It proves possession
-of an enrolled key, not human identity or informed judgment. Trust-policy custody,
-signer independence, clocks, same-UID replacement, and ledger rollback/cloning remain
-external. Tests use synthetic keys and transport behavior and make no credentialed or
-paid request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2527-implemented-signed-evaluation-conformance-authorization).
 
 ### 25.28 Recorded first authenticated Terra/medium live conformance success
 
-The first committed Terra/medium campaign probe traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled the shared campaign ledger at 3,468 micro-USD, and
-published a strict artifact with 384 input tokens, 225 combined visible/reasoning
-output tokens, and 6,642 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and freshness
-lineage.
-
-This is one qualifying Terra/medium success under the frozen live-conformance gate.
-Together with the earlier Luna/low result, progress is 2 of 18 required successes:
-Luna/low and Terra/medium are each 1 of 3. The unused expired no-send authorization
-package did not access a credential, create an audit, reserve spend, or contact the
-provider and does not count as a live attempt.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. The observer statement, local clock, host and key custody,
-and retained evidence remain trusted. Four probes remain in the initial campaign,
-followed by 12 newly precommitted successes and the five frozen failure boundaries.
-No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2528-recorded-first-authenticated-terramedium-live-conformance-success).
 
 ### 25.29 Recorded first authenticated Sol/medium live conformance success
 
-The committed Sol/medium campaign probe traversed the exact independently signed,
-explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 8,448 micro-USD against the shared campaign ledger,
-and published a strict artifact with 377 input tokens, 347 combined
-visible/reasoning output tokens, and 9,300 ms measured latency. A separately enrolled
-observer signed the derived record, and local authentication reverified the exact
-batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
-SDK, and freshness lineage.
-
-This is one qualifying Sol/medium success under the frozen live-conformance gate.
-Together with the earlier Luna/low and Terra/medium results, progress is 3 of 18:
-each of those profiles is 1 of 3. The shared success ledger contains two settled
-campaign entries, 11,916 micro-USD charged in total, no unresolved entries, and
-138,084 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. The observer statement, local clock, host and key
-custody, and retained evidence remain trusted. Three probes remain in the initial
-campaign, followed by 12 newly precommitted successes and the five frozen failure
-boundaries. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2529-recorded-first-authenticated-solmedium-live-conformance-success).
 
 ### 25.30 Recorded first authenticated Sol/high live conformance success
 
-The committed Sol/high campaign probe traversed the exact independently signed,
-explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 3,008 micro-USD against the shared campaign ledger,
-and published a strict artifact with 392 input tokens, 72 combined visible/reasoning
-output tokens, and 5,625 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-This is one qualifying Sol/high success under the frozen live-conformance gate.
-Together with the Luna/low, Terra/medium, and Sol/medium results, progress is 4 of 18:
-each of those profiles is 1 of 3. The shared success ledger contains three settled
-campaign entries, 14,924 micro-USD charged in total, no unresolved entries, and
-135,076 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. The observer statement, local clock, host and key
-custody, and retained evidence remain trusted. Two probes remain in the initial
-campaign, followed by 12 newly precommitted successes and the five frozen failure
-boundaries. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2530-recorded-first-authenticated-solhigh-live-conformance-success).
 
 ### 25.31 Recorded first authenticated Astra/high live conformance success
 
-The committed Astra/high campaign probe traversed the exact independently signed,
-explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 18,050 micro-USD against the shared campaign ledger,
-and published a strict artifact with 390 input tokens, 283 combined
-visible/reasoning output tokens, and 9,569 ms measured latency. A separately enrolled
-observer signed the derived record, and local authentication reverified the exact
-batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
-SDK, and freshness lineage.
-
-This is one qualifying Astra/high success under the frozen live-conformance gate.
-Together with the Luna/low, Terra/medium, Sol/medium, and Sol/high results, progress
-is 5 of 18: each of those profiles is 1 of 3. The shared success ledger contains four
-settled campaign entries, 32,974 micro-USD charged in total, no unresolved entries,
-and 117,026 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. The observer statement, local clock, host and key
-custody, and retained evidence remain trusted. One Astra/max probe remains in the
-initial campaign, followed by 12 newly precommitted successes and the five frozen
-failure boundaries. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2531-recorded-first-authenticated-astrahigh-live-conformance-success).
 
 ### 25.32 Recorded first authenticated Astra/max live conformance success
 
-The committed Astra/max campaign probe traversed the exact independently signed,
-explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 12,450 micro-USD against the shared campaign ledger,
-and published a strict artifact with 385 input tokens, 172 combined
-visible/reasoning output tokens, and 8,143 ms measured latency. A separately enrolled
-observer signed the derived record, and local authentication reverified the exact
-batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
-SDK, and freshness lineage.
-
-This is one qualifying Astra/max success under the frozen live-conformance gate.
-Together with the Luna/low, Terra/medium, Sol/medium, Sol/high, and Astra/high
-results, progress is 6 of 18: every profile is now 1 of 3. The initial sealed
-five-probe campaign is complete. Its shared success ledger contains five settled
-entries, 45,424 micro-USD charged in total, no unresolved entries, and 104,576
-micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. The observer statement, local clock, host and key
-custody, and retained evidence remain trusted. Twelve newly precommitted successful
-probes and the five frozen failure boundaries remain. No calibration conversion is
-authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2532-recorded-first-authenticated-astramax-live-conformance-success).
 
 ### 25.33 Sealed the second OpenAI live-conformance campaign
 
-A second private campaign manifest now commits the 12 remaining success-matrix
-attempts before any of their provider outcomes are known: two distinct assignments
-for each of Luna/low, Terra/medium, Sol/medium, Sol/high, Astra/high, and Astra/max.
-Selection is mechanical—the two lexicographically smallest sample IDs for each exact
-profile that are absent from the six authenticated prior-success receipts. The
-manifest binds those receipts, the existing blinded batch and plan, the exact route,
-execution sequence, standard pricing source and rates, token caps, and a fresh shared
-ledger. It also requires the campaign to stop after any non-success.
-
-The private manifest digest is
-`c16548cebc197d4515a8cb01226201e1db23412de4c1b92d3bd5ec2e1853b5c8`.
-Its fresh ledger identity is
-`3a70da17b19c50af40722f1746e3ab9b0a0eb5ce32851a89029cfe9a656bfae7`,
-with a 300,000 micro-USD ceiling. Two capped attempts per profile produce a 217,278
-micro-USD worst case and 82,722 micro-USD headroom. At sealing, the ledger contained
-zero entries, zero charged exposure, and no unresolved or blocking state.
-
-The sealing path read no credential, made no provider request, reserved no spend,
-and authorized no data transfer, conformance, retry, grading, scoring, promotion, or
-routing activation. The committed attempts are not presumed successes: every outcome
-must remain in chronology, and any failure requires a reviewed disposition and a new
-commitment under the frozen gate rules. Fresh per-attempt policies, independent
-signature, and explicit local consent remain mandatory.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2533-sealed-the-second-openai-live-conformance-campaign).
 
 ### 25.34 Recorded second authenticated Luna/low live conformance success
 
-The first committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 335 micro-USD against the campaign ledger, and
-published a strict artifact with 377 input tokens, 216 combined visible/reasoning
-output tokens, and 13,302 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-This is the second qualifying Luna/low success under the frozen live-conformance
-gate and the first completed attempt from the second campaign. Overall progress is 7
-of 18: Luna/low is 2 of 3 and Terra/medium, Sol/medium, Sol/high, Astra/high, and
-Astra/max are each 1 of 3. The second campaign ledger contains one settled entry,
-335 micro-USD charged, no unresolved entries, and 299,665 micro-USD available.
-
-After the provider request had completed, the operator exposed the credential in an
-interactive shell input. The credential was treated as compromised and revoked
-before campaign continuation; a repository scan found no persisted project copy.
-This post-run handling incident does not alter the retained request lineage, but it
-requires a new credential for every later live attempt and remains an operator- and
-shell-history boundary rather than machine-verifiable proof of revocation.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion,
-and routing activation to false. Eleven precommitted successful probes and the five
-frozen failure boundaries remain. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2534-recorded-second-authenticated-lunalow-live-conformance-success).
 
 ### 25.35 Completed the Luna/low live-conformance profile
 
-The second committed attempt in the second campaign traversed the exact
-independently signed, explicit-consent, zero-retry broker path on 2026-09-08. The
-broker retained a response-received audit, settled 314 micro-USD against the campaign
-ledger, and published a strict artifact with 386 input tokens, 197 combined
-visible/reasoning output tokens, and 6,254 ms measured latency. A separately enrolled
-observer signed the derived record, and local authentication reverified the exact
-batch, request, authorization, policy, artifact, audit, ledger entry, response hash,
-SDK, and freshness lineage.
-
-This is the third qualifying Luna/low success under the frozen live-conformance gate
-and completes that exact profile at 3 of 3 consecutive authenticated successes.
-Overall progress is 8 of 18: Terra/medium, Sol/medium, Sol/high, Astra/high, and
-Astra/max remain 1 of 3. The second campaign ledger contains two settled entries,
-649 micro-USD charged, no unresolved entries, and 299,351 micro-USD available.
-
-Profile completion is not gate completion. The authenticated receipt continues to
-fix provider authorship, billing reconciliation, complete-batch conformance, grading,
-scoring, quality, promotion, and routing activation to false. Ten precommitted
-successful probes and the five frozen failure boundaries remain. No calibration
-conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2535-completed-the-lunalow-live-conformance-profile).
 
 ### 25.36 Recorded second authenticated Terra/medium live conformance success
 
-The third committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 2,590 micro-USD against the campaign ledger, and
-published a strict artifact with 377 input tokens, 153 output tokens, and 5,024 ms
-measured latency. The provider usage record reported zero reasoning tokens; that is
-retained as usage data rather than interpreted as proof about provider-internal
-reasoning. A separately enrolled observer signed the derived record, and local
-authentication reverified the exact batch, request, authorization, policy, artifact,
-audit, ledger entry, response hash, SDK, and freshness lineage.
-
-This is the second qualifying Terra/medium success under the frozen live-conformance
-gate. Overall progress is 9 of 18: Luna/low is complete at 3 of 3, Terra/medium is 2
-of 3, and Sol/medium, Sol/high, Astra/high, and Astra/max are each 1 of 3. The second
-campaign ledger contains three settled entries, 3,239 micro-USD charged, no unresolved
-entries, and 296,761 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. Nine precommitted successful probes and the five frozen
-failure boundaries remain. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2536-recorded-second-authenticated-terramedium-live-conformance-success).
 
 ### 25.37 Completed the Terra/medium live-conformance profile
 
-The fourth committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 6,766 micro-USD against the campaign ledger, and
-published a strict artifact with 425 input tokens, 493 combined visible/reasoning
-output tokens, and 9,419 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-This is the third qualifying Terra/medium success under the frozen live-conformance
-gate and completes that exact profile at 3 of 3 consecutive authenticated successes.
-Overall progress is 10 of 18: Luna/low and Terra/medium are complete, while
-Sol/medium, Sol/high, Astra/high, and Astra/max are each 1 of 3. The second campaign
-ledger contains four settled entries, 10,005 micro-USD charged, no unresolved
-entries, and 289,995 micro-USD available.
-
-Profile completion is not gate completion. The authenticated receipt continues to
-fix provider authorship, billing reconciliation, complete-batch conformance, grading,
-scoring, quality, promotion, and routing activation to false. Eight precommitted
-successful probes and the five frozen failure boundaries remain. No calibration
-conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2537-completed-the-terramedium-live-conformance-profile).
 
 ### 25.38 Recorded second authenticated Sol/medium live conformance success
 
-The fifth committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 4,712 micro-USD against the campaign ledger, and
-published a strict artifact with 393 input tokens, 157 combined visible/reasoning
-output tokens, and 6,887 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-An earlier no-send preparation for the same committed sequence expired before
-signature, credential access, reservation, or provider contact. It remains retained
-privately under an explicit archival name. Regeneration preserved the exact committed
-sample, request, ledger entry, model, effort, token caps, and maximum while creating
-fresh policy and authorization windows; it did not create or conceal a live provider
-outcome.
-
-This is the second qualifying Sol/medium success under the frozen live-conformance
-gate. Overall progress is 11 of 18: Luna/low and Terra/medium are complete at 3 of 3,
-Sol/medium is 2 of 3, and Sol/high, Astra/high, and Astra/max are each 1 of 3. The
-second campaign ledger contains five settled entries, 14,717 micro-USD charged, no
-unresolved entries, and 285,283 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. Seven precommitted successful probes and the five frozen
-failure boundaries remain. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2538-recorded-second-authenticated-solmedium-live-conformance-success).
 
 ### 25.39 Completed the Sol/medium live-conformance profile
 
-The sixth committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 4,608 micro-USD against the campaign ledger, and
-published a strict artifact with 377 input tokens, 155 combined visible/reasoning
-output tokens, and 5,565 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-This is the third qualifying Sol/medium success under the frozen live-conformance
-gate and completes that exact profile at 3 of 3 consecutive authenticated successes.
-Overall progress is 12 of 18: Luna/low, Terra/medium, and Sol/medium are complete,
-while Sol/high, Astra/high, and Astra/max are each 1 of 3. The second campaign ledger
-contains six settled entries, 19,325 micro-USD charged, no unresolved entries, and
-280,675 micro-USD available.
-
-Profile completion is not gate completion. The authenticated receipt continues to
-fix provider authorship, billing reconciliation, complete-batch conformance, grading,
-scoring, quality, promotion, and routing activation to false. Six precommitted
-successful probes and the five frozen failure boundaries remain. No calibration
-conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2539-completed-the-solmedium-live-conformance-profile).
 
 ### 25.40 Recorded second authenticated Sol/high live conformance success
 
-The seventh committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 4,788 micro-USD against the campaign ledger, and
-published a strict artifact with 397 input tokens, 160 combined visible/reasoning
-output tokens, and 5,736 ms measured latency. A separately enrolled observer signed
-the derived record, and local authentication reverified the exact batch, request,
-authorization, policy, artifact, audit, ledger entry, response hash, SDK, and
-freshness lineage.
-
-This is the second qualifying Sol/high success under the frozen live-conformance
-gate. Overall progress is 13 of 18: Luna/low, Terra/medium, and Sol/medium are
-complete at 3 of 3, Sol/high is 2 of 3, and Astra/high and Astra/max are each 1 of 3.
-The second campaign ledger contains seven settled entries, 24,113 micro-USD charged,
-no unresolved entries, and 275,887 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion, and
-routing activation to false. Five precommitted successful probes and the five frozen
-failure boundaries remain. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2540-recorded-second-authenticated-solhigh-live-conformance-success).
 
 ### 25.41 Completed the Sol/high live-conformance profile
 
-The eighth committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 3,776 micro-USD against the campaign ledger, and
-published a strict artifact with 399 input tokens, 109 combined visible/reasoning
-output tokens, including 84 reported reasoning tokens, and 5,334 ms measured latency.
-A separately enrolled observer signed the derived record, and local authentication
-reverified the exact batch, request, authorization, policy, artifact, audit, ledger
-entry, response hash, SDK, and freshness lineage.
-
-This is the third qualifying Sol/high success under the frozen live-conformance gate
-and completes that exact profile at 3 of 3 consecutive authenticated successes.
-Overall progress is 14 of 18: Luna/low, Terra/medium, Sol/medium, and Sol/high are
-complete, while Astra/high and Astra/max are each 1 of 3. The second campaign ledger
-contains eight settled entries, 27,889 micro-USD charged, no unresolved entries, and
-272,111 micro-USD available.
-
-Profile completion is not gate completion. The authenticated receipt continues to
-fix provider authorship, billing reconciliation, complete-batch conformance, grading,
-scoring, quality, promotion, and routing activation to false. Four precommitted
-successful probes and the five frozen failure boundaries remain. No calibration
-conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2541-completed-the-solhigh-live-conformance-profile).
 
 ### 25.42 Recorded second authenticated Astra/high live conformance success
 
-The ninth committed attempt in the second campaign traversed the exact independently
-signed, explicit-consent, zero-retry broker path on 2026-09-08. The broker retained a
-response-received audit, settled 25,700 micro-USD against the campaign ledger, and
-published a strict artifact with 375 input tokens, 439 combined visible/reasoning
-output tokens, including 285 reported reasoning tokens, and 13,846 ms measured
-latency. A separately enrolled observer signed the derived record, and local
-authentication reverified the exact batch, request, authorization, policy, artifact,
-audit, ledger entry, response hash, SDK, and freshness lineage.
-
-This is the second qualifying Astra/high success under the frozen live-conformance
-gate. Overall progress is 15 of 18: Luna/low, Terra/medium, Sol/medium, and Sol/high
-are complete at 3 of 3, Astra/high is 2 of 3, and Astra/max is 1 of 3. The second
-campaign ledger contains nine settled entries, 53,589 micro-USD charged, no
-unresolved entries, and 246,411 micro-USD available.
-
-The authenticated receipt continues to fix provider authorship, billing
-reconciliation, complete-batch conformance, grading, scoring, quality, promotion,
-and routing activation to false. Three precommitted successful probes and the five
-frozen failure boundaries remain. No calibration conversion is authorized.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2542-recorded-second-authenticated-astrahigh-live-conformance-success).
 
 ### 25.43 Recovered the Astra/high output-limit failure
 
-The tenth committed attempt in the second campaign reached the provider on
-2026-09-08, received a hash-bound response, settled 29,850 micro-USD, and removed its
-container. The receipt recorded 425 input tokens and exactly the configured 512
-combined output tokens over 18,437 ms. Strict critique compilation failed, so the
-attempt produced no success artifact. Exact use of the output ceiling strongly
-supports truncation, consistent with OpenAI's definition of `max_output_tokens` as
-including visible and reasoning generation, but retained evidence does not prove the
-provider's exact terminal status or expose its raw body.
-
-Brokered evaluation artifact schema 4 now preserves this distinct post-response
-validation boundary. The repaired offline compiler bound sequence 10's independent
-authorization, response-received audit, response hash, settled ledger entry, latency,
-and cost into a non-scoreable `invalid_response` / `validation` artifact. The normal
-live command now performs the same publication automatically with a structured
-rejection event and exit code 2. It retains no raw response, prompt, provider request
-ID, critique, or invented usage and fixes retry, automatic release, live-result
-eligibility, and promotion to false. Recorded regression coverage exercises
-incomplete output, automatic publication, offline recovery, reply-hash substitution,
-and credential non-persistence.
-
-Campaign v2 is halted and its unused eleventh and twelfth requests are not
-authorized to run. The failed attempt breaks the Astra/high streak: although 15
-authenticated successes remain historical evidence, current gate credit is 13 of
-18. The four lower profiles remain complete, Astra/high requires three newly
-precommitted consecutive successes, and Astra/max retains its first success. This
-natural failure does not satisfy controlled boundary F4. A new public campaign and
-budget disposition are required before any further provider request.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2543-recovered-the-astrahigh-output-limit-failure).
 
 ### 25.44 Sealed the replacement Astra campaign
 
-A third private conformance manifest is sealed against the same blinded batch and
-plan, the halted v2 manifest, and its terminal sequence-10 failure artifact. It
-commits three fresh Astra/high attempts for a new consecutive streak followed by two
-fresh Astra/max attempts for positions two and three. A deterministic lexical
-selector excludes all six pre-v2 success IDs and all 12 v2 commitments, including
-the failed request and unused sequences 11 and 12. The manifest commitment is
-`df66aba92b145d243bf3cb5b378ec477ea81adafcf072286a250078b8f44b885`.
-
-The sequence-10 boundary showed that 512 combined visible/reasoning output tokens
-were insufficient. The replacement fixes each request at no more than 1,000 input,
-2,048 combined output tokens, 60 seconds, and 112,400 micro-USD using the checked
-Astra standard rates. Five per-request maxima total 562,000 micro-USD. A fresh
-600,000 micro-USD ledger
-`771cc6fcb438d44cbe2f51502bce2c9adc20bd26a89aa25fa17d57321c0ca9c6`
-retains 38,000 micro-USD aggregate headroom and was empty and unblocked at sealing.
-
-Sealing accessed no credential, reserved no spend, transferred no data, and sent no
-provider request. It authorizes neither execution nor continuation of v2. Sequence 1
-still requires fresh short-lived policies, independent authorization, operator
-review, and explicit local consent. Any non-success stops v3. The current gate
-remains 13 of 18, and successful completion of all five attempts would still leave
-the five controlled failure boundaries and every downstream quality, calibration,
-promotion, and activation gate outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2544-sealed-the-replacement-astra-campaign).
 
 ### 25.45 Preserved the v3 pre-dispatch image failure
 
-The first v3 sequence-1 invocation failed closed because its previously pinned
-Docker image was absent locally. Policy and signature verification completed and the
-API key entered ephemeral process memory, but the broker never recorded admission.
-The audit remained `prepared`, the ledger remained `absent` with zero entries and
-zero exposure, no container lifecycle existed, and no prompt or provider request
-crossed the execution boundary. This is a local preparation failure, not a campaign
-result, retry, controlled boundary, or change to the 13-of-18 gate.
-
-The expired signed stub is preserved intact and cannot mint conformance evidence. A
-locked rebuild produced no-volume image
-`sha256:929977cba2903c990b567b1341f0d97b965ef31e670c73a4db30638204856dc7`,
-which completed an offline, read-only, no-network smoke invocation and is now pinned
-in the private v3 runner. A fresh authorization identity may be prepared against the
-same committed sequence only after this public disposition. It still provides no
-send authority without independent signing and new explicit operator consent; any
-admitted non-success will halt v3.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2545-preserved-the-v3-pre-dispatch-image-failure).
 
 ### 25.46 Authenticated the first replacement Astra/high success
 
-The first admitted v3 sequence completed against the corrected immutable container
-boundary and was independently authenticated. It used 409 input and 438 combined
-output tokens, including 203 reported reasoning tokens, over 13,730 ms. The shared
-ledger settled 25,990 micro-USD against the 112,400 micro-USD request maximum and
-retains 574,010 micro-USD with no unresolved or blocking state. Container cleanup
-reached `removed` on its first attempt.
-
-The completed artifact is
-`2c94ce6d6126874368afa26fe0af9f30997615fc80670225d541120288590185`, the
-observer-signed observation is
-`fc821ec9ba65a54587c75f20ecae0b9b80e17ca36a278f681fdb407c3fea0b9d`, and fresh
-authentication produced receipt
-`07e85687a8093574301c37a1470edeef612606beb7dc9e8edd1b77c03cd604eb`.
-All provider-authorship, billing, complete-batch, conversion, grading, scoring,
-quality, promotion, and activation claims remain false.
-
-This result begins a new Astra/high streak rather than joining successes across the
-sequence-10 failure. Current qualifying progress is 14 of 18: four lower profiles
-remain complete, Astra/high is 1 of 3, and Astra/max is 1 of 3. Sequence 2 requires
-fresh no-send preparation, independent authorization, and explicit local consent.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2546-authenticated-the-first-replacement-astrahigh-success).
 
 ### 25.47 Authenticated the second replacement Astra/high success
 
-The second admitted v3 sequence completed through the same corrected immutable
-container boundary and was independently authenticated. It used 373 input and 149
-combined output tokens, including 124 reported reasoning tokens, over 8,701 ms. The
-shared ledger settled 11,180 micro-USD against the 112,400 micro-USD request maximum
-and now retains 562,830 micro-USD with no unresolved or blocking state. Container
-cleanup reached `removed` on its first attempt.
-
-The completed artifact is
-`4c78321bfc90adb0fbb2149192af5d7522dcc07d6a85b357bbe852667f257b80`, the
-observer-signed observation payload is
-`450a050bae6f5eb3230be6e0ab0c05bf54c4b8b968e3f49ae5fa996ebc43f361`, and fresh
-authentication produced receipt
-`a637226ad6119f4b9878637613d8d4837ccdfc2d5e7675fd634dee42df971add`.
-The distinct sample, request, authorization, audit, ledger-entry, response,
-artifact, signature, and receipt identities prevent sequence-1 replay from
-supplying this position. All provider-authorship, billing, complete-batch,
-conversion, grading, scoring, quality, promotion, and activation claims remain
-false.
-
-This result is position two of the new Astra/high streak. Current qualifying
-progress is 15 of 18: four lower profiles remain complete, Astra/high is 2 of 3,
-and Astra/max is 1 of 3. Sequence 3 requires fresh no-send preparation, independent
-authorization, and explicit local consent.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2547-authenticated-the-second-replacement-astrahigh-success).
 
 ### 25.48 Completed the replacement Astra/high streak
 
-The third admitted v3 sequence completed through the corrected immutable container
-boundary and was independently authenticated. It used 392 input and 71 combined
-output tokens, including 46 reported reasoning tokens, over 5,087 ms. The shared
-ledger settled 7,470 micro-USD against the 112,400 micro-USD request maximum and now
-retains 555,360 micro-USD with no unresolved or blocking state. Container cleanup
-reached `removed` on its first attempt.
-
-The completed artifact is
-`7e5fa9b48e38ac21b69921a621e3af95235f00c3806a227f65a75898d30d86c8`, the
-observer-signed observation payload is
-`3301fb4d710c0108ade8ff1031c4c7af713e80ef19d36773796430b4f2610861`, and fresh
-authentication produced receipt
-`140022e6666d9d69a9e93d9afcf361ad856a7a58f2d307cd7226cdbb69c48101`.
-All three replacement positions have distinct sample, request, authorization,
-audit, ledger-entry, response, artifact, signature, and receipt identities. All
-provider-authorship, billing, complete-batch, conversion, grading, scoring, quality,
-promotion, and activation claims remain false.
-
-This result completes the new Astra/high streak at 3 of 3. Current qualifying
-progress is 16 of 18: five profiles are complete and Astra/max remains 1 of 3.
-Sequence 4 begins the remaining Astra/max tranche and requires fresh no-send
-preparation, independent authorization, and explicit local consent.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2548-completed-the-replacement-astrahigh-streak).
 
 ### 25.49 Authenticated the second Astra/max success
 
-The fourth admitted v3 sequence completed through the corrected immutable container
-boundary and was independently authenticated. It used 373 input and 206 combined
-output tokens, including 181 reported reasoning tokens, over 6,411 ms. The shared
-ledger settled 14,030 micro-USD against the 112,400 micro-USD request maximum and
-now retains 541,330 micro-USD with no unresolved or blocking state. Container
-cleanup reached `removed` on its first attempt.
-
-The completed artifact is
-`08490de0e3f399ff63813525103fd2e337b31d0c89e6b7809d78f00cf692f528`, the
-observer-signed observation payload is
-`01e47b33d54776f8991ab59777fdd3e784c68ff495e8df325e67257f118c5fa3`, and fresh
-authentication produced receipt
-`d27e63abf37d6d0e58999841ea7f8a3309e17ca8a29d950f1526351c953bb0da`.
-Its sample, request, authorization, audit, ledger-entry, response, artifact,
-signature, and receipt identities are distinct from the earlier Astra/max result.
-All provider-authorship, billing, complete-batch, conversion, grading, scoring,
-quality, promotion, and activation claims remain false.
-
-This result is position two of the Astra/max profile. Current qualifying progress is
-17 of 18: five profiles are complete and Astra/max is 2 of 3. Sequence 5 is the
-remaining success assignment and requires fresh no-send preparation, independent
-authorization, and explicit local consent. The success matrix alone will not satisfy
-the gate because all five controlled failure boundaries remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2549-authenticated-the-second-astramax-success).
 
 ### 25.50 Completed the OpenAI live success matrix
 
-The fifth and final admitted v3 sequence completed through the corrected immutable
-container boundary and was independently authenticated. It used 399 input and 349
-combined output tokens, including 324 reported reasoning tokens, over 9,976 ms. The
-shared ledger settled 21,440 micro-USD against the 112,400 micro-USD request maximum
-and retains 519,890 micro-USD of unused campaign capacity with no unresolved or
-blocking state. Container cleanup reached `removed` on its first attempt.
-
-The completed artifact is
-`937c80e6f0bb31da1114a1733f13379c275e2a4afe1888c78019cc2cc2ae3d55`, the
-observer-signed observation payload is
-`c7d8e67ce75dd4b80b4dfcf165b73daeee4f3dd230ac3de2563e98bd41604232`, and fresh
-authentication produced receipt
-`42f593529a9052da8d1d776b4955d7945b0e854f492ba012bdfe7cefa2b3c1fe`.
-The three Astra/max positions have distinct sample, request, authorization, audit,
-ledger-entry, response, artifact, signature, and receipt identities. All
-provider-authorship, billing, complete-batch, conversion, grading, scoring, quality,
-promotion, and activation claims remain false.
-
-All six registered profiles now have three qualifying consecutive authenticated
-successes, completing the 18-of-18 success matrix. Twenty successes remain in
-historical evidence because the two pre-failure Astra/high results are retained but
-do not count across the reset. The five-request v3 campaign is closed and its unused
-ledger headroom authorizes no further send. The OpenAI live-conformance exit gate
-remains incomplete until controlled boundaries F1 through F5 pass; only then may a
-reviewed gate report consider calibration conversion.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2550-completed-the-openai-live-success-matrix).
 
 ### 25.51 Made F1 precredential rejection retainable
 
-The real `openai-conformance` path can now write a canonical, content-addressed F1
-receipt when an authentic signed authorization is expired or mismatched against the
-current exact policy binding. The receipt binds the batch, sample, candidate,
-request, spend policy, conformance policy, authority policy, signed authorization,
-ledger, installed Mos Eisley version, and OpenAI SDK version. It records identical
-before/after ledger snapshots and fixes credential access, audit creation, normal
-output publication, container start, provider send, spend reservation, retry,
-grading, scoring, promotion, and routing activation to false.
-
-Receipt production is fail closed: malformed or invalidly signed authority cannot
-mint one; an existing or overlapping receipt path is rejected; and any ledger entry,
-ledger mutation, audit, assignment output, artifact, or lifecycle observation blocks
-issuance. Tests exercise the actual CLI path while independently asserting that the
-credential accessor and broker dispatcher are never called. This completes the F1
-instrumentation, not F1 itself. The boundary still requires a reviewed run from an
-installed wheel with retained operational evidence. F2 through F5 and all downstream
-conversion, quality, promotion, and activation gates also remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2551-made-f1-precredential-rejection-retainable).
 
 ### 25.52 Passed the installed-wheel F1 boundary
 
-The first controlled failure boundary ran through a separately installed 0.1.0
-wheel with SHA-256
-`a7519afe7df26cc66ca94695e6e90be41723bb0b0e6b27c480af77f856702545`.
-The operator independently signed authorization payload
-`9d8fd80cfa82952f5581b8fe4acd188134936b45450a727321d5dd0227466cba`
-against source conformance policy
-`ae921f5eaf46c023b23b07b55e578c7532362b9fedefc7d8b63e1bbfaa2011f6`.
-The installed command received target policy
-`304ce847061259308de7e55ca6bccede82e1509dc1e9dbadf7e293836973834b`,
-which differed only in the reviewed policy identity, and retained F1 receipt
-`6a0d132074a27272851ddc0affe08ba3ce096a59e0f7ff68dc450489080941bf`.
-
-Dedicated ledger
-`5fa56e12fa183b0af7b18a4eb601560390e0b6b986e9c181272003ef5b9d95ad`
-remained byte-for-byte unchanged with zero entries, zero charged, 10,000 micro-USD
-available, no unresolved exposure, and no block. The exact ledger entry was absent
-before and after. The receipt and independent filesystem check show no credential
-access, audit, assignment output, conformance artifact, container lifecycle,
-provider request, spend reservation, retry, grading, scoring, promotion, or routing
-activation.
-
-The first private verifier invocation completed and verified the one-use F1 command,
-then failed while serializing only its final local summary because it passed a plain
-dictionary to the contract serializer. The reporting wrapper was corrected and
-resumed from the already-retained receipt; the controlled command was not rerun.
-This post-boundary tooling defect does not alter the receipt or ledger evidence but
-is retained in the disposition. F1 is complete; F2 through F5 and the reviewed gate
-report remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2552-passed-the-installed-wheel-f1-boundary).
 
 ### 25.53 Made F2 authentication rejection retainable
 
-The real `openai-conformance` path can now retain a canonical status-`error` artifact
-when an admitted request terminates specifically with `authentication_error` during
-`token_count`. The artifact is compiled against the independently persisted
-assignment authorization, terminal broker audit, and dedicated ledger. It requires
-absent ledger state and null cost, while retry, automatic release, live-result,
-grading, scoring, promotion, and routing authority remain false.
-
-This path is intentionally narrower than generic provider-failure recovery. The
-terminal audit classification and compiled artifact must agree on the exact F2
-tuple. Partial audits and all other failure stages or categories
-remain unable to publish an artifact; post-reservation ambiguity therefore retains
-the existing conservative F3 behavior. Automated tests additionally prove the token
-count is attempted once, generation is never attempted, no reservation or ledger
-entry appears, and the full ledger snapshot is unchanged.
-
-This completes F2 instrumentation, not F2 itself. A separately installed reviewed
-wheel, disposable ledger, independently signed short-lived authorization, explicit
-local consent, one deliberately invalid credentialed request, and retained
-operational verification are still required. F3 through F5 and the aggregate gate
-report also remain outstanding, and no provider request or downstream authority is
-granted by this implementation.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2553-made-f2-authentication-rejection-retainable).
 
 ### 25.54 Passed the installed-wheel F2 boundary
 
-The second controlled failure boundary ran once through a separately installed
-Mos Eisley 0.1.0 wheel with SHA-256
-`6da01d8b82f5ac1de884be8c83e4daf351fdba84cfe7a0bdc3cbc7675d1bde17`
-and immutable image
-`sha256:711d60232e9f7c49da6a5e26ef2ec0b663f182f2f22b02731e679dc1dab74efe`.
-The operator independently signed authorization payload
-`f19b0576522be558de6a85c3f1254e1cabab4d515486c6a7659778d03bee3e40`
-and explicitly consented to one exact live token-count request using a deliberately
-invalid disposable credential.
-
-The request terminated after 1,498 ms with `authentication_error` at `token_count`.
-Assignment authorization
-`43c67406e1698bccbc401426278285c919906c6e81af777a2875e69a1754a8f2`
-and terminal outcome
-`c44cac0621f94234ee5029c3ccfc2dde9250924f1f2f7de0899fb3037d51cc14`
-bind canonical failure artifact
-`ee6cb8800a13985b38978d16b2d6cc54809fca23e6a1aa8930b0f466cb3bb3fa`.
-It contains no response, provider request ID, usage, critique, or cost; generation was
-never requested and retry, automatic release, live-result, promotion, and activation
-authority remain false.
-
-Dedicated ledger
-`e00ec143a109677ce9e4be5cb7c0858e2e5099820b24e00843cd33b9ba0115a8`
-remained unchanged at zero entries and zero charged with no unresolved or blocked
-state. The exact prospective entry and both spend files are absent. Container cleanup
-reached `removed` on its first attempt. This completes F2 but does not prove that
-OpenAI inspected a particular request body or establish provider billing. The
-18-of-18 success matrix plus F1 and F2 are complete; F3 through F5 and the reviewed
-aggregate gate report remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2554-passed-the-installed-wheel-f2-boundary).
 
 ### 25.55 Passed the installed-wheel F3 boundary
 
-The third controlled failure boundary ran once through the separately installed
-Mos Eisley 0.1.0 wheel with SHA-256
-`6da01d8b82f5ac1de884be8c83e4daf351fdba84cfe7a0bdc3cbc7675d1bde17`
-and immutable image
-`sha256:711d60232e9f7c49da6a5e26ef2ec0b663f182f2f22b02731e679dc1dab74efe`.
-The operator independently signed exact authorization payload
-`582c3e0f4455e11e65344c806b7527979d6b805b44178027483ca89150661dbd`.
-The installed harness refused to run with an OpenAI credential available, used a
-precommitted synthetic input count only to trigger normal spending admission, and
-then injected one controlled `transport_error` at the `response` stage. No provider
-request was sent.
-
-Assignment authorization
-`3ae79a0f3255f72943237a67213b15e029e82cd399312cc3c44afd0328907722`
-and terminal outcome
-`3e6b99a8e473ffecc28d940a3511f8f412d90a529f4790762dbc71534504b2ee`
-bind reservation
-`7aee410d8e0ff1118d0623f328c41377049792655d5e35d8f181b40c316c1914`
-to uncertain spend receipt
-`93d0aef34a888b5e08bc5bfa809db86f11a9107829a1e4cbf66ca101318e805f`.
-The full 635-micro-USD reservation remains charged with null actual usage, and no
-conformance artifact was published.
-
-Dedicated disposable ledger
-`70bae33b7b19656582d5f36c1bf669c2194d82e0adb83aa3e8b5e603e6296de7`
-now contains exactly one unresolved `uncertain` entry, 635 micro-USD charged, and
-9,365 micro-USD available. It will never be reset, released, or reused for a
-successful probe. Retry and automatic release remain false; the container reached
-`removed` on its first cleanup attempt. This completes controlled local boundary F3
-but proves no OpenAI behavior, provider receipt, real token accounting, or billing.
-The 18-of-18 success matrix plus F1 through F3 are complete; F4, F5, and the reviewed
-aggregate gate report remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2555-passed-the-installed-wheel-f3-boundary).
 
 ### 25.56 Passed the installed-wheel F4 boundary
 
-The fourth controlled failure boundary ran through a separate installation of the
-same Mos Eisley 0.1.0 wheel and immutable image used for F3. The operator
-independently signed exact authorization payload
-`20645429198674bf74229005fc78805f47aee358ba01fcca91c42af0c2a1b7b9`.
-The installed harness refused to run with an OpenAI credential available and
-returned one controlled Responses envelope with precommitted synthetic usage of 100
-input and 20 output tokens but deliberately invalid `Critique` JSON. No provider
-request was sent.
-
-Assignment authorization
-`d575a9b6cdc99fd78ba160878aa9255429239c8a3d1f9310c65a93c77b7db230`
-and terminal response outcome
-`0955e1b82225476fc75fb033d8f9e8fb72d2ff98daf1a15dac1780f1cfd56c8b`
-bind response hash
-`3a1034b648e1c6de05def3b031ccfd88accba49a0a248c1b852a1f2399d99c4f`.
-The strict compiler rejected it and retained status-`error` artifact
-`16304946b61a491af26010f35350c2b24d1ced3b08f3a54f04b64ba11363098d`
-with `invalid_response` at `validation`. The artifact contains no provider request
-ID, usage, critique, completed-result eligibility, retry, automatic-release, or
-promotion authority.
-
-Reservation
-`67baaf6b9825d35837813a57957a5739eefd55d94688cc4c2c9faebb7029d7cc`
-and settled receipt
-`954bf0bad92ee966771d321b3b4cdeeaba2f7e2e0aa4ac6f8f2f1498ca78f2b0`
-leave dedicated disposable ledger
-`a89d76056904c1eb7702b52deea22c5706be1592e8b6d17279bb5ae2d7da4233`
-with one settled entry, 44 micro-USD charged, 9,956 available, no unresolved
-exposure, and no block. The ledger will not be reused for a successful probe, and
-the container reached `removed` on its first cleanup attempt. This completes F4 but
-proves no OpenAI behavior, provider authorship, real token accounting, or billing.
-The 18-of-18 success matrix plus F1 through F4 are complete; only F5 and the reviewed
-aggregate gate report remain outstanding.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2556-passed-the-installed-wheel-f4-boundary).
 
 ### 25.57 Passed the installed-wheel F5 boundary
 
-The fifth controlled failure boundary ran through another separate installation of
-the reviewed Mos Eisley 0.1.0 wheel and the immutable image used for F3 and F4. The
-operator independently signed exact authorization payload
-`fcb4077d726d4c924b49d28c3121066c9efa53511814573fb869393db5647f25`.
-The installed harness refused to run with an OpenAI credential available and used a
-no-network transport that blocked only after normal broker admission and spending
-reservation. No provider request was sent.
-
-Assignment authorization
-`a1da497479fa4ceb729c5c7c2f22233d0aa97100fa0b324826722d36fbaaebf3`
-and admission
-`414adef78d436f07fa4a78cb51d20cf6687cc2866b3db57b8daf6ee7d809f5d3`
-preceded held reservation
-`d61a95be7e621a2ebb49cc55c30aaeee37e094ca2769cc8a77c10c0e7c8dbf1c`.
-After independently observing the held entry and armed watchdog, the harness killed
-its own launcher with SIGKILL. The launcher could not execute normal cleanup.
-Independent watchdog result
-`5166fca1bd66c9755ae6c82a6eb761830f2b0ca3f87077b930f6c73f5580a1a2`
-removed exact container
-`890bb4c6c1190c86c590d8910bcdc34cf6d85fedd9c9c0b1650c76278a480e30`
-on its first attempt, and a separate Docker query confirmed that it is absent.
-
-Dedicated disposable ledger
-`156724341d384d8746e90b240875633178d7fd0945f6a0d40562ef8be38e3635`
-now contains exactly one unresolved `held` entry, 635 micro-USD charged, and 9,365
-available. It will never be reset, released, retried, or reused. Read-only recovery
-reports phase `admitted`, with no terminal outcome, spend receipt, conformance
-artifact, success, or failure claim. Retry, automatic release, and promotion remain
-false. This completes F5 but proves no OpenAI behavior, provider receipt, or billing.
-
-All 18 success positions and F1 through F5 now exist, completing the 23 required
-execution positions. The overall gate remains open until a reviewed aggregate report
-reverifies the complete lineage and fixes every unsupported downstream claim to
-false. No calibration conversion or provider request is authorized by this result.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2557-passed-the-installed-wheel-f5-boundary).
 
 ### 25.58 Passed the aggregate OpenAI live-conformance gate
 
-An offline, credential-refusing compiler reauthenticated all 20 retained successful
-exchanges at their original authentication timestamps against the exact frozen batch,
-policy, observer signature, assignment, artifact, broker audit, and ledger source.
-It counted 18 qualifying positions across the six required profiles and separately
-retained the two earlier Astra/high successes invalidated by the sequence-10 break.
-Every sample, receipt, signature, artifact, authorization, outcome, provider request,
-provider response, and ledger-entry identity is distinct.
-
-The aggregate also reverified the v2 terminal validation failure, the v3 pre-dispatch
-no-send event, both expired unsigned preparations, both forbidden v2 continuations,
-all three campaign manifests, every success-ledger entry, and F1 through F5 from
-their authoritative sources. The private 32,624-byte sorted compact report hashes to
-`e58dc274b5087271fe1f241724fdd1f319956b4fffba8bf1e83e086db26ea72a`
-and records 23 of 23 required execution positions with `outcome=pass`.
-
-The compiler accessed no credential and sent no request. Provider authorship,
-billing reconciliation, quality, complete-batch conformance, calibration conversion,
-grading, scoring, promotion, routing activation, and additional-request authority
-remain literal false. Passing this gate permits only the design of a separate,
-reviewed offline converter for the 18 qualifying records. No conversion or empirical
-routing claim exists yet.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2558-passed-the-aggregate-openai-live-conformance-gate).
 
 ### 25.59 Implemented partial OpenAI conformance calibration conversion
 
-A committed conversion policy now pins the exact passed aggregate-report digest,
-frozen plan and 360-assignment batch, six profiles, and 18 qualifying position names.
-The offline converter requires exactly those 18 authenticated receipts and their
-matching brokered artifacts. It rechecks canonical receipt/artifact hashes and every
-sample, route, request, authorization, outcome, response, ledger, latency, cost,
-usage, and critique binding against the aggregate before restoring frozen batch
-order. Invalidated historical successes, omissions, additions, substitutions,
-noncanonical reports, changed pass claims, and any newly granted authority fail
-closed.
-
-The command requires explicit offline consent and refuses to run while either
-supported OpenAI key variable is present. Its first real conversion accessed no
-credential, sent no request, and produced a private 30,592-byte seed with SHA-256
-`c67dfcfac073ba4946afd59b2f2960fb9de10740654cdaf8ad1183f91e8cf570`.
-The seed contains 18 of 360 assignments and the same 135,812 micro-USD local cost
-total as its sources. It is deliberately incompatible with `RawResultSet`, exposes
-route identity, and fixes complete-batch coverage, provider authorship, billing,
-quality, grading, scoring, promotion, activation, and further request authority to
-false. A complete-batch brokered calibration and separately reviewed gradeable
-issuance boundary remain required.
+[Recorded evidence and limitations](SKILLS_PROVIDER_IMPLEMENTATION_HISTORY.md#2559-implemented-partial-openai-conformance-calibration-conversion).
 
 ---
 
@@ -4588,10 +3216,10 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 
 | Gate | Work and dependencies | Concrete exit evidence |
 |---|---|---|
-| G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry mapping; §6.6 artifact/view, durable-state, and measurement contracts | Versioned clause/decision/outcome fixtures, truthful unknowns, old replay compatibility, negative tests for stale IDs/probabilities, owner boundaries, reproducible bounded views with disclosed loss |
-| G1 — usable product slice | G0; conversational controller over recorded providers; L1 reading experiment; `author` compaction and explicit memory selection | Conversation → frozen plan/review → visible result → cancel/resume demo; sealed reading leak tests; template/rubric revisions invalidate approval; compaction lineage/reconstructability and overflow-stop tests pass |
+| G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry; §§6.6–6.7 artifact/view, work-unit/checkpoint schemas, cumulative input metrics and offline instruction/tool-profile diagnostics | Versioned clause/decision/outcome and task-state fixtures, truthful unknowns, old replay compatibility, owner boundaries, bounded views with disclosed loss; required-tool omission, stale state and budget-reset negative cases |
+| G1 — usable product slice | G0; recorded conversation controller; L1 reading experiment; author compaction, explicit checkpoint continuation, pressure indicators and reusable-memory/task-state separation | Conversation → frozen review → visible result → cancel/resume; milestone → checkpoint → fresh continuation detects changed tree/tests and completes with obligations/ledgers intact; duplicate handoff, blindness, stale approval, compaction reconstruction and overflow-stop tests pass |
 | G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
-| G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; live claims require G2 | Sealed baseline/ablation design, attainable sample/assignment/cost calculation, independently graded clean/defective cases, held-out quality and total-cost report |
+| G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; G1 for session-policy comparisons; live claims require G2 | Sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading; matched and held-out context-policy completion, missed-evidence/stale-state, latency, cumulative-input and total-cost report; quality gates pass before claiming savings |
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
 | G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
 | G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
@@ -4604,6 +3232,14 @@ provider extensions retain their separate release gates and do not substitute fo
 this sequence. The revised designs are approved planning inputs, not evidence that
 G0–G7 have shipped.
 
+Within G0, freeze the shared records and counting definitions before implementing
+offline diagnostics. Within G1, connect scoped acquisition/profile selection and
+memory classification to the existing admission path, then ship checkpoint closure,
+fresh continuation and pressure indicators under §6.7. Do not introduce a parallel
+roadmap or wait for deferred executable doctor/SecretRef subsystems. A G3 study may
+evaluate available policies incrementally; label unavailable arms and keep live
+quality/savings claims behind their applicable provider and measurement gates.
+
 ### 26.5 Required adversarial acceptance matrix
 
 | Boundary | Required negative cases |
@@ -4615,6 +3251,8 @@ G0–G7 have shipped.
 | Routing | Missing/zero-support propensity, changed eligibility after selection, unqualified exploration, effort/budget substitution, stale catalog/freshness, partial feedback/cost |
 | Dispatch/storage | Revocation between preflight/send, copied or rolled-back anchor, duplicate/uncertain dispatch, cross-owner aggregate access, reset with stale dependent policy |
 | Context reduction | Mutable/missing full artifact, digest mismatch, hidden omitted range, stdout/stderr reorder, meaningful duplicate collapse, stale file-read cache, superseded instruction revival, retrieved prompt injection, cross-owner memory/cache hit, compaction lineage break, hard-cap false completeness |
+| Task lifecycle | Changed branch/dirty tree after checkpoint, stale test success, lost pending work/steering, missing checkpoint evidence, concurrent or duplicate continuation, uncertain-effect replay, reset spend/review counters, expired approval revived by a new session |
+| Context selection | Temporary checkpoint loaded as ambient memory, unaccepted fact promoted on closure, nested guidance broadens authority, required rule/tool omitted to fit, unrelated schemas enter request, optional profile teardown interrupts another task, byte counts mislabeled as provider tokens |
 
 Pass/fail fixtures prove controller enforcement; representative independent live
 evidence proves a quality or savings claim. Keep those statements separate in each
