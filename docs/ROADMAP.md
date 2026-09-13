@@ -359,6 +359,15 @@ loading and telemetry adapters remain planned.
    spending admission. Integrate review results into the main conversation while
    keeping critic briefs isolated; add repository reads, edits, and tests only after
    their execution gates. Keep `exec`/JSON automation on the same controller.
+   **Planned — repository-grouped sessions and isolated worktrees:** add a repository
+   picker with sessions grouped across its registered worktrees, showing names,
+   branches/commits, paths and activity. Start a new session in a worktree from a
+   selected base revision; retain its exact workspace through switching and resume.
+   Preserve independent drafts, history, memory choices and tool permissions.
+   Deliver owner-scoped identity and metadata-only navigation after the G1 session
+   foundations; managed Git operations belong to item 7 / G4 and do not extend G2.
+   See [plan §16.0.4](mos-eisley-plan.md#1604-repository-grouped-sessions-and-isolated-worktrees)
+   for lifecycle, migration, cleanup and acceptance requirements.
    **V1 — live full-screen diff panel:** deliver `/diff` beside the conversation
    after the trusted read-only Git and workspace/path boundaries are available,
    alongside item 7's Git-backed coding integration. Show changed files, added/removed
@@ -572,6 +581,10 @@ loading and telemetry adapters remain planned.
    Windows storage/process/sandbox suites required by plan §27 for version 0.1.1;
    isolated test runner, scoped filesystem and network policy, cancellation.
 7. **Author/VCS:** disposable worktrees and trusted Git broker after containment.
+   Deliver the managed session-worktree lifecycle from plan §16.0.4: pinned base
+   creation, existing-worktree registration, exact session binding, shared Git
+   coordination and guarded cleanup. Session worktrees survive run completion;
+   removal preserves retained evidence and protects active work and unmerged changes.
    Supply the trusted read-only diff interface for item 3's required v1 full-screen
    panel; integrate live refresh with coding changes under plan §16.4.1.
    Integrate L0–L5 from the revised loop plan: immutable clauses, fresh sealed

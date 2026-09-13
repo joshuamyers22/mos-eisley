@@ -812,7 +812,14 @@ Cache approvals per `(command_hash, cwd, session)` so the same command isn't re-
 
 ### 11.1 Worktree isolation
 
-**Never operate on the user's checked-out working tree.** Every agent gets `git worktree add runs/<id>/worktrees/<agent>/` from a pinned base SHA, disposable at run end. Benefits: parallel agents can't collide, the user's uncommitted work is untouched, and cleanup is `git worktree remove`.
+**Never operate on the user's checked-out working tree.** Every coding agent gets
+an isolated Git worktree from a pinned base SHA through the trusted VCS broker.
+Session worktrees persist across turns and resume; run completion alone does not
+authorize deletion. Child worktrees may be disposable after their changes and
+evidence are retained and the lifecycle checks pass. The user-facing creation,
+repository grouping and cleanup contract is in [§16.0.4](#1604-repository-grouped-sessions-and-isolated-worktrees).
+Separate checkouts prevent overlapping file edits; shared Git metadata still
+requires broker coordination and the execution sandbox remains mandatory.
 
 ### 11.2 `.git` is protected
 
@@ -1926,6 +1933,85 @@ sessions; JSON keeps its existing 256-session, default 8 MB snapshot scan. Large
 catalogs require existing paginated listing and explicit-ID resume. These are
 navigation bounds, not an increase to conversation capacity. Live setup and
 cross-workspace browsing remain separate work.
+
+### 16.0.4 Repository-grouped sessions and isolated worktrees
+
+**User direction, 2026-09-12 — planned:** let users organize sessions by repository
+and start independent tasks in isolated Git worktrees, following the interaction
+pattern of Codex. The official [worktree documentation](https://learn.chatgpt.com/docs/environments/git-worktrees)
+describes parallel chats in separate checkouts and choosing a starting branch.
+The requirements below define Mos Eisley's scope; they are not availability claims.
+
+**Repository and session navigation:**
+
+- Provide a repository list in the terminal and an equivalent CLI listing. Under
+  each repository, group its registered local-checkout and linked-worktree sessions.
+  Show session name/ID, branch or detached commit, worktree path, last activity,
+  active/idle status and whether the worktree is missing. Support bounded paging,
+  filtering, keyboard selection, new session and explicit resume. Keep the active
+  repository and worktree visible alongside the conversation and diff panel.
+- Use an owner-scoped repository identity verified against Git's common directory
+  and registered worktrees. A directory name or matching remote URL is insufficient:
+  unrelated clones and nested repositories remain separate. Aliases of the same
+  verified checkout should not duplicate groups. Relocation requires an explicit
+  verified rebind; missing or replaced paths must not silently select another tree.
+  Non-Git directories retain ordinary workspace sessions with worktree creation
+  shown as unavailable.
+- Grouping is navigation metadata. It does not merge transcripts, broaden file
+  permissions, select project memory across worktrees, or feed sibling sessions to
+  a model. Preserve existing explicit memory mappings and same-owner storage rules.
+  Cross-worktree selection resolves the saved session's exact workspace and policy;
+  existing workspace-scoped `--last` behavior remains unchanged. Opening a session
+  stays passive until the user submits work.
+
+**Create and use an isolated worktree:**
+
+- From a selected repository, offer a new session in an isolated worktree. Let the
+  user choose a local starting branch or commit and optionally name the session and
+  new branch. Resolve and retain the exact base SHA before creation; use a unique
+  private managed path and either a unique branch or detached HEAD. Respect Git's
+  branch checkout restrictions and never reset an existing branch to make room.
+  Register an existing owner-approved worktree as an alternative to creating one.
+- Preserve the source checkout, staged/unstaged changes and untracked files. Start
+  from the selected commit by default; including local edits is a separate explicit
+  snapshot operation with conflict handling. Do not copy secrets, ignored files or
+  run repository setup hooks automatically. Environment setup uses the existing
+  trusted execution policy.
+- Bind the session, tools, terminal, tests and diff view to its selected worktree.
+  Multiple sessions may progress in separate worktrees while keeping independent
+  drafts, task state, approvals and evidence. Switching the visible session neither
+  redirects an active operation nor cancels another session. Serialize conflicting
+  writers to one checkout and shared Git metadata operations through the broker.
+  Git worktrees share repository metadata and are not a security sandbox.
+- Persist repository/worktree IDs, canonical path, starting SHA and observed
+  branch/HEAD with the session using versioned JSON/SQLite metadata. Resume rechecks
+  ownership, Git registration and tree identity before enabling tools; external
+  moves, branch changes and missing worktrees require reconciliation. Preserve
+  legacy session hashes and workspace identities during migration.
+
+**Lifecycle and acceptance:** retain worktrees across restart and conversation
+archival. Archiving/deleting a session and removing a worktree are separate actions.
+Removal must check active sessions/processes, Git locks, dirty/untracked files and
+unmerged or unreferenced commits, with no automatic force removal or branch deletion.
+Require a verified preservation path or an explicit decision to discard changes.
+Retain session history and review evidence independently of checkout cleanup; a
+removed worktree remains visible as unavailable for execution. Interrupted creation
+or removal must have inspectable, bounded recovery without touching unrelated paths.
+
+Acceptance tests must demonstrate two simultaneous sessions on one repository in
+different worktrees, isolated edits and correct tool/diff targets, grouped discovery
+and exact resume after restart on both storage backends, and unchanged source edits.
+Cover duplicate names, unrelated clones with identical remotes, nested repositories,
+path substitution, foreign owners, stale selections, branch collisions, concurrent
+Git operations, active/dirty worktree cleanup and interrupted creation/removal.
+Verify that grouping never imports sibling history or changes memory selection.
+
+**Delivery:** repository identity and metadata-only grouped navigation can follow
+the G1 session foundations. Managed worktree creation, coding and integration belong
+to G4 / Author-VCS (original M6), after trusted Git and applicable containment gates;
+coordinate the session selector with the v1 diff panel (§16.4.1). This feature adds
+no new dependency to the G2 live read-only review exit gate. WSL2 and native Windows
+qualification follow §27.
 
 ### 16.1 Commands
 
