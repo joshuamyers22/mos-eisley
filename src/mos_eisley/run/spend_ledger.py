@@ -17,6 +17,9 @@ from mos_eisley.run.store import private_write
 Amount = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 Outcome = Literal["settled", "uncertain", "violation"]
 
+_CONNECTION_SETUP_TIMEOUT_SECONDS = 5.0
+_OPERATION_BUSY_TIMEOUT_MILLISECONDS = 250
+
 
 class LedgerPolicy(Contract):
     schema_version: Literal[1] = 1
@@ -59,13 +62,19 @@ def _connect(path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(
         path.absolute().as_uri() + "?mode=rw",
         uri=True,
-        timeout=0.25,
+        # Configuring a new connection briefly needs an exclusive schema lock.
+        # Give an in-flight ledger commit time to release it, then restore the
+        # short fail-closed timeout before returning the connection to callers.
+        timeout=_CONNECTION_SETUP_TIMEOUT_SECONDS,
         isolation_level=None,
     )
     try:
         connection.execute("PRAGMA synchronous=EXTRA")
         if connection.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
             raise ValueError("spending ledger requires rollback journaling")
+        connection.execute(
+            f"PRAGMA busy_timeout={_OPERATION_BUSY_TIMEOUT_MILLISECONDS}"
+        )
         return connection
     except BaseException:
         connection.close()
