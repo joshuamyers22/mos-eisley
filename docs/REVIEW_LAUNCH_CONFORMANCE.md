@@ -79,3 +79,7 @@ do not establish independent production custody or an actual live tranche.
 Independent runtime assessment and commitment custody, authorized live attempts and
 a separately reviewed launch-admission decision remain required. This comparison
 does not prove remote provider authorship, reconciled billing or review quality.
+
+[Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces a separately signed
+decision in the owning library flow. This check remains read-only and does not
+create that decision, provide independent assessment or activate live execution.

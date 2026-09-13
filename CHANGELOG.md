@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Require a separate signed decision for an exact library-owned review launch,
+  with fresh campaign verification, policy/guidance checks, deadline caps and
+  revocation checks at credential and provider use.
+
 - Check a freshly prepared launch against current three-slot campaign evidence and
   exact role/quorum/runtime scope, without granting live launch or dispatch authority.
 

@@ -5374,6 +5374,17 @@ credentials, reservations and dispatch. Actual independent custody/runtime asses
 and a separately reviewed launch-admission decision remain required. See
 [launch conformance](REVIEW_LAUNCH_CONFORMANCE.md).
 
+**Exact library launch admission implemented:** a separately enrolled independent
+reviewer can now sign one exact launch scope after assessing real commitment custody,
+credentialed campaign evidence and observer assessment. The owning flow checks this
+decision alongside both signed phase approvals and local prompts, freshly verifying
+all campaign evidence, current policy, guidance, runtime and spending at use. Changes
+or revocation stop further dispatch; timeouts are capped by the decision/evidence
+windows, and cancellation retains spending and awaits worker cleanup. This gate is
+tested with synthetic keys/providers and introduces no public live-launch CLI or
+automatic activation. Actual independent operating evidence and production review
+remain outstanding. See [launch admission](REVIEW_LAUNCH_ADMISSION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

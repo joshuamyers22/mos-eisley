@@ -207,6 +207,11 @@ loading and telemetry adapters remain planned.
    [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) now compare a fresh guided
    launch preview with freshly verified campaign evidence and exact role/quorum/runtime
    scope. A separately reviewed launch-admission decision remains required.
+   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that separate
+   signed decision in the owning library flow, freshly checking campaign evidence,
+   policy and guidance at approvals and credential/provider use. Real independent
+   custody, live campaign assessment and a production decision remain outstanding;
+   there is no public live-launch CLI or automatic activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
