@@ -185,6 +185,11 @@ loading and telemetry adapters remain planned.
    runtime verification, distinct responses/workers and complete dedicated-ledger
    accounting. Commitment custody, independently authorized live attempts and a
    reviewed launch-admission decision remain outstanding.
+   The [offline campaign ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews exact
+   three-attempt bundles, seals private commitments after empty-ledger and unused-path
+   checks, and freshly reviews separately pinned evidence submissions. Independent
+   custody, authorized live attempts and launch admission still require actual
+   operator execution and review; the ceremony grants no dispatch authority.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

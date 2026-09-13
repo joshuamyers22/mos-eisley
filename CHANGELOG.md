@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add offline review campaign preview, private hash-confirmed commitment sealing
+  and fresh review of independently pinned three-attempt evidence submissions.
+
 - Evaluate three precommitted review probes with fresh observer, runtime and ledger
   verification, preserving exact profile scope and denying live execution authority.
 

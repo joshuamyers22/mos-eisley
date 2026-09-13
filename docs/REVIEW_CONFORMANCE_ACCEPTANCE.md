@@ -79,10 +79,11 @@ observers must still inspect actual runtime and supporting evidence. The evaluat
 does not turn successful fixtures or the older evaluation-calibration conformance
 gate into live review conformance.
 
-Live launch remains unavailable. An operator ceremony for independently retained
-commitments and evidence, explicitly authorized live attempts, and a separately
-reviewed launch-admission decision remain outstanding. No live tranche was executed
-or accepted during this implementation.
+An [offline operator ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews and seals
+exact commitments and freshly reviews separately pinned evidence submissions.
+Independent custody, explicitly authorized live attempts, and a separately reviewed
+launch-admission decision remain outstanding. Live launch remains unavailable; no
+live tranche was executed or accepted during this implementation.
 
 ## Validation
 

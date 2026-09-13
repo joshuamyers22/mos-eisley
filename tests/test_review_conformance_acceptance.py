@@ -24,7 +24,7 @@ from mos_eisley.run.review_runtime_evidence import collect_review_runtime_exchan
 from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement
 
 
-class ReviewAcceptanceTests(IsolatedAsyncioTestCase):
+class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.fixtures: list[RuntimeEvidenceFixture] = []
         for _ in range(3):
@@ -83,6 +83,7 @@ class ReviewAcceptanceTests(IsolatedAsyncioTestCase):
                 )
             ),
         )
+        self.before_attempts(observation_policies)
         self.evidence: list[ReviewAttemptEvidence] = []
         for index, (fixture, probe, observation_policy) in enumerate(
             zip(self.fixtures, probes, observation_policies, strict=True)
@@ -150,11 +151,18 @@ class ReviewAcceptanceTests(IsolatedAsyncioTestCase):
             )
         self.now = datetime.now(UTC)
 
+    def before_attempts(
+        self, observation_policies: list[ReviewObservationPolicy]
+    ) -> None:
+        pass
+
     def evaluate(self):
         return evaluate_review_conformance(
             self.policy, tuple(self.evidence), now=self.now
         )
 
+
+class ReviewAcceptanceTests(ReviewAcceptanceFixture):
     def test_three_precommitted_verified_probes_accept_only_exact_profile(self):
         before = [fixture.base.ledger.path.read_bytes() for fixture in self.fixtures]
         result = self.evaluate()

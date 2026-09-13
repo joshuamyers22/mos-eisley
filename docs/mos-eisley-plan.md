@@ -5173,6 +5173,17 @@ no retries, provider dispatch or live launch. Independent commitment custody,
 authorized live attempts and reviewed launch admission remain outstanding. See
 [acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md).
 
+**Offline review campaign ceremony implemented:** explicit commands now preview a
+fixed three-attempt bundle, confirm its canonical hash and privately seal it before
+attempts, then freshly review a separately pinned evidence submission. Sealing
+requires unused run directories and empty dedicated ledgers funding all allowances.
+Review reconstructs the committed configuration and complete evidence chain, keeps
+missing slots incomplete and rejects changed artifacts. Local seals are not
+independent timestamps or proof of prior custody, and cannot resume prepared
+controllers. Actual independent retention, separately authorized live attempts and
+reviewed launch admission remain required. See the
+[operator ceremony](REVIEW_CAMPAIGN_CEREMONY.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
