@@ -14,6 +14,8 @@ from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
+    ReviewLaunchConfiguration,
+    ReviewLaunchPreview,
     decode_launch_configuration,
     prepare_review_launch_preview,
 )
@@ -37,6 +39,20 @@ def run_command(args: argparse.Namespace) -> int:
     configuration = decode_launch_configuration(
         read_bounded(cast(Path, args.config), CONFIGURATION_BYTES)
     )
+    preview = prepare_from_arguments(args, configuration)
+    print(
+        json.dumps(
+            {"type": "review.launch.preview", **preview.model_dump(mode="json")},
+            ensure_ascii=True,
+            indent=None if args.json else 2,
+        )
+    )
+    return 0
+
+
+def prepare_from_arguments(
+    args: argparse.Namespace, configuration: ReviewLaunchConfiguration
+) -> ReviewLaunchPreview:
     prepared = decode_prepared_review(
         read_bounded(cast(Path, args.prepared), REVIEW_GUIDANCE_BYTES)
     )
@@ -56,11 +72,4 @@ def run_command(args: argparse.Namespace) -> int:
         )
     except sqlite3.Error:
         raise ValueError("selected spending ledger is unavailable") from None
-    print(
-        json.dumps(
-            {"type": "review.launch.preview", **preview.model_dump(mode="json")},
-            ensure_ascii=True,
-            indent=None if args.json else 2,
-        )
-    )
-    return 0
+    return preview

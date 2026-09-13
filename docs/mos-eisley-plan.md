@@ -5365,6 +5365,15 @@ signatures fail without updating existing evidence. The command grants no dispat
 resume or live activation authority. Actual independent assessment remains required.
 See [evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md).
 
+**Proposed launch conformance check implemented:** a command now prepares a launch
+with current guidance and spending admission, freshly verifies independently pinned
+campaign evidence and compares exact critic/judge, quorum, duration and SDK/image
+profiles. Missing slots remain incomplete and changed profiles or artifacts fail.
+Output binds the proposed preview and evidence hashes while explicitly denying
+credentials, reservations and dispatch. Actual independent custody/runtime assessment
+and a separately reviewed launch-admission decision remain required. See
+[launch conformance](REVIEW_LAUNCH_CONFORMANCE.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

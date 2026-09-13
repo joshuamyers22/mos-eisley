@@ -227,6 +227,7 @@ def main() -> int:
             "test_review_controller_inspection.py",
             "test_review_approval_flow.py",
             "test_review_launch_preview.py",
+            "test_review_launch_conformance.py",
             "test_review_conformance_admission.py",
             "test_review_conformance_probe.py",
             "test_review_conformance_observation.py",

@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Check a freshly prepared launch against current three-slot campaign evidence and
+  exact role/quorum/runtime scope, without granting live launch or dispatch authority.
+
 - Assemble campaign evidence one fixed slot at a time from pinned completions,
   previews and separately signed observations, freshly verifying the entire prefix.
 

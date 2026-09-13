@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from mos_eisley import (
     review_campaign_cli,
     review_launch_cli,
+    review_launch_conformance_cli,
     review_observer_cli,
     review_submission_cli,
 )
@@ -708,6 +709,12 @@ def parser() -> argparse.ArgumentParser:
         help="Preview explicit review configuration without live launch authority",
     )
     review_launch_cli.add_arguments(launch_preview)
+    review_launch_conformance_cli.add_arguments(
+        subcommands.add_parser(
+            "review-launch-conformance-check",
+            help="Check fresh campaign evidence against a proposed launch profile",
+        )
+    )
     for name in (
         "review-campaign-preview",
         "review-campaign-seal",
@@ -7888,6 +7895,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "review-campaign-review",
             "review-campaign-observation-preview",
             "review-campaign-evidence-append",
+            "review-launch-conformance-check",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -7898,6 +7906,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "review-campaign-review": review_campaign_cli.run_command,
                 "review-campaign-observation-preview": review_observer_cli.run_command,
                 "review-campaign-evidence-append": review_submission_cli.run_command,
+                "review-launch-conformance-check": (
+                    review_launch_conformance_cli.run_command
+                ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

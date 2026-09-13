@@ -204,6 +204,9 @@ loading and telemetry adapters remain planned.
    [Evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md) now appends separately signed
    observations to fixed slots after checking selected input hashes and freshly
    verifying the whole supplied prefix. Private outputs preserve previous submissions.
+   [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) now compare a fresh guided
+   launch preview with freshly verified campaign evidence and exact role/quorum/runtime
+   scope. A separately reviewed launch-admission decision remains required.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
