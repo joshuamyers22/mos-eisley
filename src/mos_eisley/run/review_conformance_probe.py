@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from mos_eisley.core.models import ReviewPolicy
+from mos_eisley.core.models import ReviewPolicy, canonical_bytes
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import request_payload
@@ -223,11 +223,16 @@ class BrokeredReviewConformanceProbe:
         self.controller = BrokeredReviewController(
             envelope, reviewer, policy, total_seconds=total_seconds
         )
-        campaign_admission = (
+        self._campaign_binding = (
             None
             if campaign is None
+            else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
+        campaign_admission = (
+            None
+            if self._campaign_binding is None
             else ReviewCampaignAdmission(
-                campaign,
+                self._campaign_binding,
                 self.controller,
                 envelope,
                 reviewer,
@@ -281,6 +286,11 @@ class BrokeredReviewConformanceProbe:
         return ReviewConformanceRuntime(
             sdk_version=version("openai"), image_id=next(iter(images))
         )
+
+    @property
+    def campaign_binding(self) -> ReviewCampaignBinding | None:
+        """Frozen host selection, not evidence of approval or execution."""
+        return self._campaign_binding
 
     @property
     def judge_preview(self) -> ControllerJudgePreview | None:

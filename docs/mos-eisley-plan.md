@@ -5337,6 +5337,16 @@ activation and does not reconstruct or automatically sequence attempts. Actual
 independent custody, authorized live attempts and reviewed launch admission remain
 required. See [campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md).
 
+**Owned review campaign sequencing implemented:** a one-use host runner now invokes
+the exact three bound probes in order, hands trusted completion inputs to an
+independent observer callback and freshly verifies returned evidence before invoking
+the next probe. Missing observations stop the campaign, invalid records fail it, and
+bounded observer waits and cancellation cannot silently continue into another probe.
+Verified partial submissions and the latest completion remain available for explicit
+retention, without retry or resume authority. Actual independent custody, authorized
+live attempts and reviewed launch admission remain required. See
+[campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

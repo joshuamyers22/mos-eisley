@@ -33,3 +33,4 @@ container:
 	uv run --frozen python tools/smoke_review_probe.py
 	uv run --frozen python tools/smoke_review_runtime_evidence.py
 	uv run --frozen python tools/smoke_review_campaign.py
+	uv run --frozen python tools/smoke_review_campaign_runner.py

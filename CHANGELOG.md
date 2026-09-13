@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Sequence three bound review probes with independent observer handoff and fresh
+  evidence verification, stopping on missing evidence, failure, timeout or cancellation.
+
 - Bind owned review probes to independently pinned campaign slots, rechecking seals,
   profiles and policy at approval and provider use and capping calls by campaign expiry.
 
