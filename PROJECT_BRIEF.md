@@ -122,7 +122,10 @@
   full judging remain the baseline; lookup/cascade experiments precede any learned
   policy. Proxy outcomes never replace verified labels or owner-scoped data rules.
   See `docs/PROJECT_REVIEW_2026-09-08.md` and plan §26 for findings, dependencies,
-  sample-size feasibility, and remaining runtime gates. These contracts are planned.
+  sample-size feasibility, and remaining runtime gates. The G0 offline record,
+  cumulative-measurement, profile-diagnostic and private-replay contracts are now
+  implemented with deterministic negative fixtures. G1 runtime lifecycle behavior
+  and later gates remain planned; see `docs/G0_MILESTONE_REVIEW.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

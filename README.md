@@ -246,6 +246,10 @@ and critic/judge workflows retain their existing tool-free boundaries.
 - An [explicit recorded review inside the conversation](docs/CONVERSATION_REVIEW.md),
   with isolated critic requests, retained review evidence and contextual follow-ups.
 - Immutable, versioned Pydantic contracts with strict input validation.
+- [G0 bounded task-state contracts](docs/G0_MILESTONE_REVIEW.md) for clauses,
+  decisions, outcomes, work units, milestone checkpoints, reproducible lossy views,
+  cumulative context accounting, offline instruction/tool diagnostics and private
+  content-addressed replay. Runtime continuation and compaction remain disabled.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

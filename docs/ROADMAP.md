@@ -5,12 +5,18 @@
 [adversarial review-loop project plan](adversarial-review-loop-project-plan.md)
 under [plan §26](mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract).
 The [review](PROJECT_REVIEW_2026-09-08.md) records gaps, decisions and local checks.
-These are planned extensions; current implementation status below is unchanged.
-Execute this dependency order alongside the existing capability workstreams:
+These extensions entered the roadmap as planned work; their current implementation
+status is recorded below. Execute this dependency order alongside the existing
+capability workstreams:
+
+**G0 completion, 2026-09-13:** the offline contracts, cumulative measurement,
+profile diagnostics and private replay gate are implemented and reviewed in
+[the G0 milestone review](G0_MILESTONE_REVIEW.md). This does not enable G1 task
+continuation, compaction or pressure behavior.
 
 | Order | Next deliverable | Gate |
 |---|---|---|
-| G0 | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
+| G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
@@ -18,22 +24,23 @@ Execute this dependency order alongside the existing capability workstreams:
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
-G0/G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
+G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 
-**Session-shape adoption, 2026-09-13 — planned:** implement
+**Session-shape adoption, 2026-09-13 — G0 implemented; G1 planned:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
-through the existing controller and private store. G0 first freezes work-unit and
-checkpoint schemas, measurement definitions, and offline guidance/tool-profile
-diagnostics. G1 then applies scoped tool views and schema selection at admission,
-separates reusable memory from temporary task state, and connects milestone closure
-to explicit fresh-context continuation and advisory pressure signals. Preserve
-task-wide budgets, outstanding steering, correction counters and uncertain effects
-across handoffs. Advancing an already-authorized work unit requires no new user
-confirmation. These controls do not enable a deferred tool or execution capability.
+through the existing controller and private store. G0 freezes work-unit and
+checkpoint schemas, measurement definitions, offline guidance/tool-profile
+diagnostics and private replay. G1 applies scoped tool views and schema selection at
+admission, separates reusable memory from temporary task state, and connects
+milestone closure to explicit fresh-context continuation and advisory pressure
+signals. Preserve task-wide budgets, outstanding steering, correction counters and
+uncertain effects across handoffs. Advancing an already-authorized work unit
+requires no new user confirmation. These controls do not enable a deferred tool or
+execution capability.
 
 The acceptance demonstration completes a milestone, writes a concise private
 checkpoint, continues in fresh context, detects changed repository/test state and

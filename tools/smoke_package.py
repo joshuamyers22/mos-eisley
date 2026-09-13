@@ -274,6 +274,7 @@ def main() -> int:
             "test_analysis_evaluation.py",
             "test_analysis_raw.py",
             "test_analysis_schedule.py",
+            "test_task_state_g0.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(
