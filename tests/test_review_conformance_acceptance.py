@@ -99,6 +99,9 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
             if self._testMethodName == "test_duplicate_provider_response_is_rejected":
                 fixture.base.fake.response["id"] = "repeated-response"
             fixture.judge.response["id"] = f"fixture-judge-{index}"
+            # The exact campaign is already committed; issue each synthetic grant
+            # at its actual probe boundary instead of aging all three during setup.
+            fixture.timestamp = datetime.now(UTC)
             with patch(
                 "mos_eisley.run.review_conformance_probe.EphemeralOpenAITransport",
                 fixture.sdk,
