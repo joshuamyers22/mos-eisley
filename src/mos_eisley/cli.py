@@ -18,7 +18,7 @@ from typing import Literal, cast
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
-from mos_eisley import review_launch_cli
+from mos_eisley import review_campaign_cli, review_launch_cli
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
@@ -703,6 +703,12 @@ def parser() -> argparse.ArgumentParser:
         help="Preview explicit review configuration without live launch authority",
     )
     review_launch_cli.add_arguments(launch_preview)
+    for name in (
+        "review-campaign-preview",
+        "review-campaign-seal",
+        "review-campaign-review",
+    ):
+        review_campaign_cli.add_arguments(subcommands.add_parser(name), name)
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -7860,11 +7866,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             "broker-audit-status",
             "review-controller-status",
             "review-launch-preview",
+            "review-campaign-preview",
+            "review-campaign-seal",
+            "review-campaign-review",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
                 "review-controller-status": _review_controller_status_command,
                 "review-launch-preview": review_launch_cli.run_command,
+                "review-campaign-preview": review_campaign_cli.run_command,
+                "review-campaign-seal": review_campaign_cli.run_command,
+                "review-campaign-review": review_campaign_cli.run_command,
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

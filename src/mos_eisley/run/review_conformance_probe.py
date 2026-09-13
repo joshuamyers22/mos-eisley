@@ -19,6 +19,10 @@ from mos_eisley.providers.openai_spend import count_payload, spending_request_sh
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.review_approval import BrokeredReviewApprovalFlow, ReviewApprovalUI
 from mos_eisley.run.review_broker import PreparedReviewEnvelope
+from mos_eisley.run.review_campaign_dispatch import (
+    ReviewCampaignAdmission,
+    ReviewCampaignBinding,
+)
 from mos_eisley.run.review_conformance_admission import (
     ReviewConformanceRuntime,
     SignedReviewApprovalUI,
@@ -52,6 +56,7 @@ class _ApprovedReviewTransport:
         *,
         phase: Literal["critics", "judge"],
         index: int = 0,
+        campaign_deadline: datetime | None = None,
     ) -> None:
         self._ui = ui
         self._controller = controller
@@ -62,6 +67,7 @@ class _ApprovedReviewTransport:
         self.lifecycle_path: Path | None = None
         self._phase: Literal["critics", "judge"] = phase
         self._index = index
+        self._campaign_deadline = campaign_deadline
         self._count_used = False
         self._count_succeeded = False
         self._response_used = False
@@ -98,6 +104,11 @@ class _ApprovedReviewTransport:
             (authorization.valid_until - datetime.now(UTC)).total_seconds(),
             (start.expires_at - datetime.now(UTC)).total_seconds(),
         )
+        if self._campaign_deadline is not None:
+            remaining = min(
+                remaining,
+                (self._campaign_deadline - datetime.now(UTC)).total_seconds(),
+            )
         if remaining <= 0:
             raise ValueError("review conformance dispatch authorization expired")
         return remaining
@@ -198,6 +209,7 @@ class BrokeredReviewConformanceProbe:
         ],
         load_api_key: Callable[[], str],
         total_seconds: float = 30,
+        campaign: ReviewCampaignBinding | None = None,
     ) -> None:
         if len(critic_containers) != len(envelope.critics) or len(
             {id(container) for container in critic_containers}
@@ -211,6 +223,21 @@ class BrokeredReviewConformanceProbe:
         self.controller = BrokeredReviewController(
             envelope, reviewer, policy, total_seconds=total_seconds
         )
+        campaign_admission = (
+            None
+            if campaign is None
+            else ReviewCampaignAdmission(
+                campaign,
+                self.controller,
+                envelope,
+                reviewer,
+                authority_policy=authority_policy,
+                runtime=self._runtime,
+            )
+        )
+        campaign_deadline = (
+            None if campaign_admission is None else campaign_admission.expires_at
+        )
         self.approval_ui = SignedReviewApprovalUI(
             self.controller.preview,
             ui,
@@ -218,6 +245,7 @@ class BrokeredReviewConformanceProbe:
             runtime=self._runtime,
             controller_start=lambda: self.controller.start,
             load_authorization=load_authorization,
+            campaign=campaign_admission,
         )
         self._flow = BrokeredReviewApprovalFlow(self.controller, self.approval_ui)
         self._critics = tuple(
@@ -231,6 +259,7 @@ class BrokeredReviewConformanceProbe:
                 / envelope.critics[index].authorization.ledger_entry_id,
                 phase="critics",
                 index=index,
+                campaign_deadline=campaign_deadline,
             )
             for index in range(len(critic_containers))
         )
@@ -242,6 +271,7 @@ class BrokeredReviewConformanceProbe:
             judge_container,
             Path(envelope.envelope.artifact_directory) / "judge",
             phase="judge",
+            campaign_deadline=campaign_deadline,
         )
 
     def _runtime(self) -> ReviewConformanceRuntime:

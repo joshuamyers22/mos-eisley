@@ -204,6 +204,20 @@ loading and telemetry adapters remain planned.
    intervals and hashes, captures worker lifecycle paths and verifies matching
    cleanup receipts. These host measurements support independent inspection;
    observer assessment and repeated-probe acceptance remain separate requirements.
+   [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires all
+   three precommitted slots, exact role/runtime/quorum profiles, fresh observer and
+   runtime verification, distinct responses/workers and complete dedicated-ledger
+   accounting. Commitment custody, independently authorized live attempts and a
+   reviewed launch-admission decision remain outstanding.
+   The [offline campaign ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews exact
+   three-attempt bundles, seals private commitments after empty-ledger and unused-path
+   checks, and freshly reviews separately pinned evidence submissions. Independent
+   custody, authorized live attempts and launch admission still require actual
+   operator execution and review; the ceremony grants no dispatch authority.
+   [Campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an owned
+   probe to its exact sealed slot at approval and credential/provider use, including
+   current policy/runtime/path checks and campaign deadline caps. It preserves the
+   separate signature/local approval gate and introduces no live activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

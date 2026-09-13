@@ -1,5 +1,8 @@
 # Brokered review conformance probe
 
+An optional [sealed campaign binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an
+owned probe to an exact committed slot, with fresh checks at approval and dispatch.
+
 `BrokeredReviewConformanceProbe` connects the guided review controller, independent
 phase signatures, local approval and the credentialed OpenAI transport. It is a
 paid-capable library entry point. Constructing it previews the selected review;

@@ -73,9 +73,9 @@ proved solely by the retained local review artifacts.
 
 ## Remaining conformance work
 
-This increment implements an authenticated record for one successful probe. A
-review-specific acceptance policy for repeated probes, collection and inspection
-of independent runtime evidence, and explicitly authorized live runs remain
+This increment implements an authenticated record for one successful probe. The
+runtime collector and repeated-probe evaluator now check its local evidence.
+Independent runtime assessment and explicitly authorized live runs remain
 outstanding. Failure/cancellation observations require their own semantics; this
 success-only format cannot certify an incomplete run. Live launch remains unavailable.
 
@@ -84,3 +84,7 @@ execution. They cover identity separation, signature/domain and policy substitut
 historical expiry and age, execution ordering, missing evidence, result tampering,
 infrastructure errors and read-only reconstruction. No live observation was created
 or provider call made during implementation.
+
+[Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now combines three
+precommitted observations with fresh runtime and ledger verification. Commitment
+custody, independently authorized live attempts and launch admission remain separate.

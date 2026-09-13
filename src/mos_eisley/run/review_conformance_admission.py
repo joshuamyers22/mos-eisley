@@ -1,8 +1,10 @@
 """Require independent phase signatures in addition to the local review prompts."""
 
+from __future__ import annotations
+
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from mos_eisley.core.models import Contract, Identifier, canonical_bytes
 from mos_eisley.run.review_approval import ApprovalPreview, ReviewApprovalUI
@@ -17,6 +19,9 @@ from mos_eisley.run.review_conformance_authorization import (
 )
 from mos_eisley.run.review_controller import ControllerCriticPreview, ControllerStart
 from mos_eisley.run.review_verdict import RetainedReviewResult
+
+if TYPE_CHECKING:
+    from mos_eisley.run.review_campaign_dispatch import ReviewCampaignAdmission
 
 
 class ReviewConformanceRuntime(Contract):
@@ -48,6 +53,7 @@ class SignedReviewApprovalUI:
             Awaitable[SignedReviewConformanceAuthorization | None],
         ],
         now: Callable[[], datetime] = _now,
+        campaign: ReviewCampaignAdmission | None = None,
     ):
         self._critics = ControllerCriticPreview.model_validate_json(
             canonical_bytes(critics)
@@ -58,6 +64,7 @@ class SignedReviewApprovalUI:
         self._start = controller_start
         self._load = load_authorization
         self._now = now
+        self._campaign = campaign
         self._authorizations: list[SignedReviewConformanceAuthorization] = []
         self._approvals: dict[
             Literal["critics", "judge"],
@@ -70,6 +77,8 @@ class SignedReviewApprovalUI:
         return tuple(self._authorizations)
 
     def _scope(self, preview: ApprovalPreview) -> ReviewConformanceScope:
+        if self._campaign is not None:
+            self._campaign.check(preview)
         runtime = self._runtime()
         if isinstance(preview, ControllerCriticPreview):
             if canonical_bytes(preview) != canonical_bytes(self._critics):
