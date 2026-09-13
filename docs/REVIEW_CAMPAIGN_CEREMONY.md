@@ -60,6 +60,8 @@ a restart. Keep the prepared objects in the owning host for any separately autho
 probe. There is no paid CLI or resume mechanism in this ceremony. A
 [probe](REVIEW_CONFORMANCE_PROBE.md) still requires its own exact critic and judge
 signatures, local approvals, current guidance and fresh runtime/spending admission.
+The owning host can now supply a [campaign binding](REVIEW_CAMPAIGN_DISPATCH.md)
+to require the pinned seal and exact slot at approval and provider-use boundaries.
 
 ## Select and review evidence
 

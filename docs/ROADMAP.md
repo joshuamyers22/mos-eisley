@@ -190,6 +190,10 @@ loading and telemetry adapters remain planned.
    checks, and freshly reviews separately pinned evidence submissions. Independent
    custody, authorized live attempts and launch admission still require actual
    operator execution and review; the ceremony grants no dispatch authority.
+   [Campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an owned
+   probe to its exact sealed slot at approval and credential/provider use, including
+   current policy/runtime/path checks and campaign deadline caps. It preserves the
+   separate signature/local approval gate and introduces no live activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

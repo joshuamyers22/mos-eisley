@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind owned review probes to independently pinned campaign slots, rechecking seals,
+  profiles and policy at approval and provider use and capping calls by campaign expiry.
+
 - Add offline review campaign preview, private hash-confirmed commitment sealing
   and fresh review of independently pinned three-attempt evidence submissions.
 

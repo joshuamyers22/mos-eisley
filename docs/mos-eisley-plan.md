@@ -5184,6 +5184,16 @@ controllers. Actual independent retention, separately authorized live attempts a
 reviewed launch admission remain required. See the
 [operator ceremony](REVIEW_CAMPAIGN_CEREMONY.md).
 
+**Sealed campaign probe binding implemented:** an owning host can now bind each
+prepared probe to a fixed slot and independently retained seal hash. Admission
+freshly checks the exact bundle, critic preview, current authority/runtime, ledger
+path and judge profile at approval and credential/provider use. Campaign deadlines
+also bound SDK operations. Changes block further dispatch while preserving held
+spending and cancellation cleanup. The binding grants no signatures, retries or live
+activation and does not reconstruct or automatically sequence attempts. Actual
+independent custody, authorized live attempts and reviewed launch admission remain
+required. See [campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

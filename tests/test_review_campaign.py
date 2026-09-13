@@ -28,7 +28,7 @@ from mos_eisley.run.review_launch import LaunchCritic, ReviewLaunchConfiguration
 from mos_eisley.run.store import private_write
 
 
-class CampaignCeremonyTests(ReviewAcceptanceFixture):
+class CampaignCeremonyFixture(ReviewAcceptanceFixture):
     def before_attempts(
         self, observation_policies: list[ReviewObservationPolicy]
     ) -> None:
@@ -117,6 +117,8 @@ class CampaignCeremonyTests(ReviewAcceptanceFixture):
             ),
         )
 
+
+class CampaignCeremonyTests(CampaignCeremonyFixture):
     def test_cli_seals_before_attempts_and_freshly_reviews_completed_evidence(self):
         self.assertEqual(self.preview_output["attempts"], 3)
         self.assertEqual(self.preview_output["total_planned_microusd"], 1950)

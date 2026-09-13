@@ -26,20 +26,25 @@ from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement
 
 class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.fixtures: list[RuntimeEvidenceFixture] = []
-        for _ in range(3):
-            fixture = RuntimeEvidenceFixture()
-            fixture.setUp()
-            self.addCleanup(fixture.doCleanups)
-            self.fixtures.append(fixture)
+        self.prepare_attempts()
+        await self.execute_attempts()
+
+    def create_fixture(self) -> RuntimeEvidenceFixture:
+        fixture = RuntimeEvidenceFixture()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        return fixture
+
+    def prepare_attempts(self) -> None:
+        self.fixtures = [self.create_fixture() for _ in range(3)]
         if self._testMethodName == "test_shared_ledger_counts_each_attempt_once":
             for fixture in self.fixtures[1:]:
                 fixture.base.ledger = self.fixtures[0].base.ledger
                 fixture.call = fixture.prepare()
                 fixture.review = fixture.envelope()
                 fixture.base.fake.directory = fixture.critic_directory()
-        probes = [fixture.probe() for fixture in self.fixtures]
-        observation_policies = [
+        self.probes = [fixture.probe() for fixture in self.fixtures]
+        self.observation_policies = [
             ReviewObservationPolicy(
                 policy_id=f"fixture-{index}",
                 authority_policy_sha256=fixture.policy.sha256,
@@ -79,14 +84,16 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                     authority_policy_sha256=fixture.policy.sha256,
                 )
                 for fixture, observation_policy in zip(
-                    self.fixtures, observation_policies, strict=True
+                    self.fixtures, self.observation_policies, strict=True
                 )
             ),
         )
-        self.before_attempts(observation_policies)
+        self.before_attempts(self.observation_policies)
+
+    async def execute_attempts(self) -> None:
         self.evidence: list[ReviewAttemptEvidence] = []
         for index, (fixture, probe, observation_policy) in enumerate(
-            zip(self.fixtures, probes, observation_policies, strict=True)
+            zip(self.fixtures, self.probes, self.observation_policies, strict=True)
         ):
             fixture.base.fake.response["id"] = f"fixture-critic-{index}"
             if self._testMethodName == "test_duplicate_provider_response_is_rejected":
