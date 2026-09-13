@@ -5339,6 +5339,54 @@ activation and does not reconstruct or automatically sequence attempts. Actual
 independent custody, authorized live attempts and reviewed launch admission remain
 required. See [campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md).
 
+**Owned review campaign sequencing implemented:** a one-use host runner now invokes
+the exact three bound probes in order, hands trusted completion inputs to an
+independent observer callback and freshly verifies returned evidence before invoking
+the next probe. Missing observations stop the campaign, invalid records fail it, and
+bounded observer waits and cancellation cannot silently continue into another probe.
+Verified partial submissions and the latest completion remain available for explicit
+retention, without retry or resume authority. Actual independent custody, authorized
+live attempts and reviewed launch admission remain required. See
+[campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md).
+
+**Offline observer handoff preview implemented:** a read-only command now verifies
+an independently pinned completion against its sealed slot, phase signatures and
+selected runtime/cleanup records, then prepares an unsigned observation proposal.
+Optional private output is exclusive and outside evidence directories. Proposed
+attestation claims remain subject to actual independent assessment; the wrapper
+explicitly denies observer authentication and signature creation. No provider or
+signing keys are loaded, and live admission remains gated. See
+[observer handoff](REVIEW_OBSERVER_HANDOFF.md).
+
+**Offline campaign evidence assembly implemented:** a command now appends an
+independently signed observation to the next fixed slot using separately pinned
+completion, preview and signature files, plus any previous submission. It binds
+the exact proposed observation and freshly verifies every supplied slot before
+writing a new private submission. Gaps, replacements, changed artifacts and invalid
+signatures fail without updating existing evidence. The command grants no dispatch,
+resume or live activation authority. Actual independent assessment remains required.
+See [evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md).
+
+**Proposed launch conformance check implemented:** a command now prepares a launch
+with current guidance and spending admission, freshly verifies independently pinned
+campaign evidence and compares exact critic/judge, quorum, duration and SDK/image
+profiles. Missing slots remain incomplete and changed profiles or artifacts fail.
+Output binds the proposed preview and evidence hashes while explicitly denying
+credentials, reservations and dispatch. Actual independent custody/runtime assessment
+and a separately reviewed launch-admission decision remain required. See
+[launch conformance](REVIEW_LAUNCH_CONFORMANCE.md).
+
+**Exact library launch admission implemented:** a separately enrolled independent
+reviewer can now sign one exact launch scope after assessing real commitment custody,
+credentialed campaign evidence and observer assessment. The owning flow checks this
+decision alongside both signed phase approvals and local prompts, freshly verifying
+all campaign evidence, current policy, guidance, runtime and spending at use. Changes
+or revocation stop further dispatch; timeouts are capped by the decision/evidence
+windows, and cancellation retains spending and awaits worker cleanup. This gate is
+tested with synthetic keys/providers and introduces no public live-launch CLI or
+automatic activation. Actual independent operating evidence and production review
+remain outstanding. See [launch admission](REVIEW_LAUNCH_ADMISSION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

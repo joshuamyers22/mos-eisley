@@ -218,6 +218,24 @@ loading and telemetry adapters remain planned.
    probe to its exact sealed slot at approval and credential/provider use, including
    current policy/runtime/path checks and campaign deadline caps. It preserves the
    separate signature/local approval gate and introduces no live activation.
+   [Owned campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md) now invokes the three bound
+   probes in order and requires freshly verified observer evidence before the next
+   invocation. Missing evidence, failures and cancellation stop future attempts;
+   actual independent custody, live assessment and launch admission remain required.
+   [Offline observer handoff](REVIEW_OBSERVER_HANDOFF.md) now checks pinned completions,
+   historical phase signatures and independently selected runtime records, producing
+   an explicitly unsigned proposal for assessment without credentials or signing keys.
+   [Evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md) now appends separately signed
+   observations to fixed slots after checking selected input hashes and freshly
+   verifying the whole supplied prefix. Private outputs preserve previous submissions.
+   [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) now compare a fresh guided
+   launch preview with freshly verified campaign evidence and exact role/quorum/runtime
+   scope. A separately reviewed launch-admission decision remains required.
+   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that separate
+   signed decision in the owning library flow, freshly checking campaign evidence,
+   policy and guidance at approvals and credential/provider use. Real independent
+   custody, live campaign assessment and a production decision remain outstanding;
+   there is no public live-launch CLI or automatic activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed

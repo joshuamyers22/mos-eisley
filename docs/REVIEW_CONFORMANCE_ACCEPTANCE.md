@@ -85,6 +85,10 @@ Independent custody, explicitly authorized live attempts, and a separately revie
 launch-admission decision remain outstanding. Live launch remains unavailable; no
 live tranche was executed or accepted during this implementation.
 
+The [launch conformance check](REVIEW_LAUNCH_CONFORMANCE.md) now compares a freshly
+prepared launch with this exact scope and re-verifies the campaign evidence. Its
+result supports launch review without granting execution or activation authority.
+
 ## Validation
 
 Tests build three distinct synthetic probes after committing their exact slots,
