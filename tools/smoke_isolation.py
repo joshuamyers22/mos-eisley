@@ -24,6 +24,7 @@ from mos_eisley.core.models import (
     JudgeRequest,
     ReviewPolicy,
     canonical_bytes,
+    digest,
 )
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Turn
@@ -64,6 +65,10 @@ from mos_eisley.run.review_broker import (
 from mos_eisley.run.review_evidence import (
     PreparedEvidenceJudgeTransfer,
     verify_evidence_judge_transfer,
+)
+from mos_eisley.run.review_verdict import (
+    retain_review_result,
+    verify_retained_review_result,
 )
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.watchdog import CleanupLease, CleanupRecord, remove_exact
@@ -630,6 +635,21 @@ def check_review_envelope(container: OfflineContainer, root: Path) -> None:
         ).status
         == "response_received"
     )
+    result = retain_review_result(
+        prepared.envelope, reviewer, ledger, transfer.authorization
+    )
+    assert result.result.verdict.decision == "accept"
+    assert (
+        verify_retained_review_result(
+            prepared.envelope,
+            reviewer,
+            ledger,
+            transfer.authorization,
+            digest(canonical_bytes(result)),
+        )
+        == result
+    )
+    assert fixture.counts == 3 and ledger.snapshot().charged_microusd == 60
     try:
         transfer.issue(
             approved_evidence_sha256=transfer.approval_sha256,

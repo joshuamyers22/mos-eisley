@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
 from pydantic import JsonValue
@@ -67,7 +67,7 @@ class BoundClient:
         return await self.target.complete(request)
 
 
-class ReviewAdmissionTests(IsolatedAsyncioTestCase):
+class ReviewAdmissionFixture(TestCase):
     def setUp(self) -> None:
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -136,6 +136,8 @@ class ReviewAdmissionTests(IsolatedAsyncioTestCase):
         finally:
             self.finished = True
 
+
+class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
     def test_preview_has_no_dispatch_storage_or_reservation(self) -> None:
         self.assertEqual(self.fake.counts, [])
         self.assertEqual(self.fake.calls, [])

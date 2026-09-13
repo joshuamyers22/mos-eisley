@@ -4,6 +4,36 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Retain private review runtime measurements and verify their request, response and
+  worker-cleanup bindings for independent observer inspection.
+
+- Authenticate independent observer records for completed review probes against
+  exact approvals, execution windows and reconstructed results, without live authority.
+
+- Compose an owned review probe with fresh signed/local admission at credential and
+  provider use, exact payload checks, bounded SDK calls and cancellation cleanup.
+
+- Require independent, short-lived signatures for exact review conformance phases
+  alongside local critic/judge approvals, with policy and runtime rechecks.
+
+- Preview explicitly configured guided reviews and aggregate spending through a
+  no-dispatch CLI that preserves the credentialed review-conformance launch gate.
+
+- Connect exact critic and judge approval prompts to the brokered review controller,
+  with cancellable terminal input, shared deadlines and conservative decline handling.
+
+- Inspect saved brokered controller records and held or uncertain spending through
+  a read-only CLI, preserving incomplete crash attribution without retry authority.
+
+- Compose brokered critic fan-out, a separately approved judge and retained final
+  results under one deadline, with owned cancellation cleanup and no automatic retry.
+
+- Bind brokered critic/judge approvals to current project guidance, revalidate at
+  dispatch boundaries and preserve conservative spending on stale-policy failures.
+
+- Reconstruct, privately retain and verify final review verdicts against complete
+  critic/judge evidence, sharing strict judge decoding and deterministic verdict rules.
+
 - Retain request-bound critic responses and recompute valid findings and quorum
   before separately approved judge admission, with read-only evidence verification.
 

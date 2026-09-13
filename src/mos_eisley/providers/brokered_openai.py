@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import math
 import threading
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 
@@ -44,6 +45,7 @@ class BrokeredOpenAIClient:
         *,
         timeout: float = 30,
         response_directory: Path | None = None,
+        admission_check: Callable[[], None] | None = None,
     ) -> None:
         if not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError("invalid brokered model timeout")
@@ -71,6 +73,7 @@ class BrokeredOpenAIClient:
         ):
             raise ValueError("canonical request does not match the issued broker")
         self._response_directory = response_directory
+        self._admission_check = admission_check
         self._request = frozen
         self._broker = broker
         self._container = container
@@ -98,9 +101,13 @@ class BrokeredOpenAIClient:
                 raise ValueError("canonical request changed")
             frozen = ModelRequest.model_validate_json(self._request)
             assert frozen.max_output_tokens is not None
+            if self._admission_check is not None:
+                self._admission_check()
             reply = await run_isolated_broker_async(
                 self._broker, self._container, timeout=self._timeout
             )
+            if self._admission_check is not None:
+                self._admission_check()
             # The broker/transport bound wire allocation. This separately rejects
             # oversize host envelopes before the provider adapter parses output.
             if canonical_fingerprint(reply).bytes > MAX_WIRE_BYTES:
