@@ -12,6 +12,12 @@ and team-export examples throughout this design history. Current implementation
 status is tracked in
 `docs/ROADMAP.md`; planned modules and commands below are not availability claims.
 
+**User clarification, 2026-09-13:** author, critic and judge are three distinct
+model assignments. The normal review workflow requires no additional human
+authorizer, observer or launch reviewer. The clarified role and implementation
+contract in [§7.7.1](#771-model-review-roles-and-operator-authority) supersedes
+conflicting G2 operating requirements and interpretations in this design history.
+
 **Integrated review, 2026-09-08:** §26 incorporates the reviewed adaptive-reasoning
 and adversarial-loop proposals and supersedes their conflicting defaults. The
 [project review](PROJECT_REVIEW_2026-09-08.md) distinguishes verified implementation
@@ -671,6 +677,53 @@ backend, model, and supported effort before use; expose the resolved roster and
 reject an unsupported `max` request rather than silently weaken it. The critic and
 judge assess the creator-written plan and tests before the creator approves
 execution as specified in §15.7.
+
+### 7.7.1 Model review roles and operator authority
+
+**User-directed clarification, 2026-09-13:** assign one model as author, a different
+model as critic and a third model as judge. The author creates the plan, tests and
+implementation and integrates corrections. The critic independently examines the
+frozen work and produces supported findings. The judge adjudicates those findings
+against the same work and requirements. All three roles are model roles; normal
+review does not require recruiting human authorizers, observers or launch reviewers.
+The user remains the operator controlling provider credentials, spending and actual
+machine permissions.
+
+Record each assignment's exact provider/backend/model, supported reasoning effort,
+context and permissions before dispatch. Models are distinct for this three-role
+profile; the three-provider profile additionally requires distinct providers under
+§7.7. No vendor is permanently assigned to a role. Provider API credentials enable
+calls to the selected models and stay in the trusted host. They are separate from
+keys that sign local evidence; models receive neither kind of secret. A model's
+approval or verdict cannot grant provider, spending, shell, write or publish authority.
+
+Independence here means distinct model assignments with controller-enforced context
+separation and role capabilities. The critic receives the frozen artifact and
+approved review context without the author's private conversation or reasoning.
+The judge receives the artifact, requirements and structured findings needed for
+adjudication, without private author reasoning or provider/model identity cues.
+Retain the actual inputs, outputs, model identities and checks in owner-controlled
+evidence. Model agreement is not proof of correctness or independent human attestation.
+
+**Required implementation alignment:** the current brokered probe/campaign path
+uses external phase-authorizer and observer signatures; the staged launch gate adds
+a separate signed launch decision. Those mechanisms must not become mandatory
+human staffing requirements for this product workflow. Implement an explicit
+operator-authorized model-review path with a pinned three-role roster, current
+guidance, real provider conformance, enforced quorum, aggregate spending admission,
+one-use dispatch, bounded deadlines, cancellation cleanup and retained results.
+Use distinct/versioned evidence semantics for operator authorization and model
+review. Preserve historical signature verification; do not fabricate independent
+signatures or relabel model outputs as human custody/observation claims.
+
+Acceptance must exercise the three assigned models through authoring, frozen critic
+review and judge adjudication, plus rejection of role/model substitution, context
+leaks, missing required responses, stale artifacts, budget exhaustion and attempted
+authority escalation by model output. Recorded fixtures precede an explicitly
+budgeted live demonstration. This clarification changes the planned G2 operating
+model; it does not claim the runtime already implements it or that live conformance
+has passed. Separate research grading and automatic-routing activation requirements
+retain their own scope and must not be imposed as normal three-role review staffing.
 
 ---
 
@@ -5448,7 +5501,7 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 |---|---|---|
 | G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry mapping; §6.6 artifact/view, durable-state, and measurement contracts | Versioned clause/decision/outcome fixtures, truthful unknowns, old replay compatibility, negative tests for stale IDs/probabilities, owner boundaries, reproducible bounded views with disclosed loss |
 | G1 — usable product slice | G0; conversational controller over recorded providers; L1 reading experiment; `author` compaction and explicit memory selection | Conversation → frozen plan/review → visible result → cancel/resume demo; sealed reading leak tests; template/rubric revisions invalidate approval; compaction lineage/reconstructability and overflow-stop tests pass |
-| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
+| G2 — live read-only review | Operator-authorized three-model roster under §7.7.1; provider conformance, shared spend and isolated broker integration; independent of later machine writing | Recorded and authorized live author-prepared brief → critic → judge flow; exact distinct model assignments, context separation, preserved quorum, bounded spend, cancellation and evidence artifacts |
 | G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; live claims require G2 | Sealed baseline/ablation design, attainable sample/assignment/cost calculation, independently graded clean/defective cases, held-out quality and total-cost report |
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
 | G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
