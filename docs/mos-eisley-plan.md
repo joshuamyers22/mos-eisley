@@ -2043,6 +2043,8 @@ mos models
 mos features                            # maturity + effective-policy status
 mos auth login|logout <provider>
 mos mcp login|logout <server>
+mos update check                        # planned: check published application releases
+mos update                              # planned: guided application upgrade
 mos completion <shell>
 ```
 
@@ -5558,3 +5560,164 @@ version. Its capability/status output must show native Windows, the filesystem a
 sandbox backend, and any independently unsupported external environment. There is no
 "full Windows" release while an advertised macOS/Linux capability is silently
 disabled or delegated to WSL2.
+
+## 28. Application update notifications and guided upgrades
+
+**User-directed addition, 2026-09-12 — planned, required for the finished product.**
+When maintainers publish an update, installed Mos Eisley clients should alert users
+and offer an easy update flow in the terminal, following the Codex-style experience.
+This is application distribution work, separate from the evaluated prompt-skill
+installation machinery in §25. The [official Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+documents startup update checks; the behavior below is Mos Eisley's product contract.
+
+### 28.1 Release publication and discovery
+
+- A pushed version tag triggers the release pipeline. Publish immutable versioned
+  packages and release notes only after required quality and platform checks pass;
+  advance the public release feed only when the advertised packages are available.
+  Ordinary branch pushes do not notify stable users. Stable is the default channel;
+  preview releases require explicit user selection.
+- Check the trusted release feed asynchronously at interactive startup and at a
+  bounded interval during long-running sessions. Cache results, cap network time
+  and response size, and back off on failures. Users see new releases on the next
+  successful check; discovery does not require a persistent push connection.
+- Compare installed and available versions, release channel, OS/architecture,
+  installation method and runtime compatibility. Do not advertise an incompatible,
+  withdrawn or already-installed release as an available upgrade.
+- Provide `mos update check` and `/update` inspection with installed/latest version,
+  channel, release notes, compatibility and check status. Network failure means
+  “unable to check,” with cached results labeled, rather than “up to date.”
+
+### 28.2 User experience and installation
+
+- Show a nonblocking update notice with current/new versions, a short change summary,
+  release notes and **Update now**, **Remind me later**, and **Skip this version**
+  actions. Preserve the composer, focus and running work; deduplicate notices for
+  the same release. Manual inspection remains available after dismissal.
+- `mos update` and the terminal action use the same guided flow. Show the exact
+  target version and installation method, then obtain user confirmation. Default
+  behavior is automatic discovery with user-initiated installation. Allow trusted
+  user/admin policy to disable checks or delegate updates to central management;
+  repository configuration and model output cannot change update policy.
+- Detect and respect the supported installation method. Use its approved package
+  manager or the verified standalone updater; for unsupported, editable or centrally
+  managed installations, show precise manual instructions instead of modifying an
+  unrelated environment. Never infer installation commands from release-note text.
+- Before replacement or restart, finish or explicitly cancel active work and await
+  worker cleanup, then durably save the session, draft and queued intent. If saving
+  fails, defer the update. After successful installation, report the installed
+  version and offer restart/resume of the exact session. Do not replay consumed
+  provider requests or release uncertain spending during restart or recovery.
+- Noninteractive commands never prompt, update or restart implicitly, and update
+  notices never contaminate their machine-readable output. Provide a structured
+  check result and require explicit installation selection for automation.
+
+### 28.3 Integrity, persistence and recovery
+
+Fetch metadata and packages only through trusted distribution endpoints with TLS,
+authenticated publisher provenance and artifact-integrity verification. Release
+metadata is bounded inert data. Reject tampered artifacts, unexpected redirects,
+channel substitution and unintended downgrades before installation. Update checks
+send only necessary release/platform information, without workspace paths,
+conversations, memory, provider credentials or cross-user telemetry.
+
+Serialize updates across running clients and retain the current runnable version
+until a staged replacement verifies successfully, using the package manager's
+supported transaction/recovery mechanism where applicable. Preserve configuration,
+credentials, memory, sessions, repository/worktree bindings and audit/spending
+records. Version storage migrations, back up affected state before mutation, and
+verify supported upgrade paths. An incompatible rollback must not open newer
+storage with an older binary: recover a compatible version or an explicitly selected
+backup without discarding newer evidence. Failed downloads, installation, migration
+or restart must report an actionable recovery path and never claim success.
+
+### 28.4 Delivery and acceptance
+
+Deliver release publication/feed and read-only notification first, then guided
+installation and safe restart, then migration/recovery qualification. This is a
+finished-product release requirement alongside packaging and the conversation UI;
+it does not advance or block the G2 live-review capability gate. Qualify macOS,
+Linux and Windows-hosted WSL2 under the 0.1.0 platform contract, and full native
+Windows under 0.1.1 (§27), for every advertised installation method.
+
+Acceptance evidence must cover a published release reaching an older installed
+client; notice, notes, defer/skip and manual recheck; successful update and exact
+session resume; offline/timeout behavior; disabled and centrally managed checks;
+stable/preview and platform selection; invalid provenance and damaged packages;
+concurrent clients and active work; interrupted download/install/restart; storage
+migration failure and compatible recovery; and clean noninteractive output. Run
+the upgrade and recovery scenarios against packaged installations on each supported
+platform before claiming this feature is available.
+
+## 29. Codex-style installation and first launch
+
+**User-directed addition, 2026-09-12 — planned, required for the finished product.**
+Users must be able to install Mos Eisley with a short terminal command and then run
+`mos` from a project directory, without cloning the repository, building source or
+manually setting up Python. The [official Codex CLI installation guide](https://learn.chatgpt.com/docs/codex/cli)
+provides the reference experience: standalone installation, Windows, npm and
+Homebrew options, followed by launch and authentication. This section defines Mos
+Eisley's distribution requirements; package names and installer endpoints must be
+secured and verified before runnable public instructions are published.
+
+### 29.1 Supported installation routes
+
+| Route | Required Mos Eisley experience |
+|---|---|
+| Standalone macOS/Linux | One copyable shell command downloads the official installer, selects a compatible release and installs the `mos` launcher in a user-owned executable directory. Also offer download/inspect/run instructions. |
+| Windows-hosted WSL2, 0.1.0 | A Windows-facing guide checks WSL2 prerequisites, then uses the Linux installer inside the selected distribution. Identify the installed environment and explain how to launch from Windows Terminal. |
+| Native Windows, 0.1.1 | One copyable PowerShell command installs a verified native package in a per-user location and makes `mos` available in a new terminal, after §27 native qualification. |
+| npm | An official scoped package supports a single global-install command and exposes `mos`, selecting the same verified platform release. Clearly state the supported Node/npm prerequisites. |
+| Homebrew | A maintained official tap/package provides a single install command on qualified macOS/Linux targets, with normal upgrade and uninstall behavior. |
+| Direct download | Versioned OS/architecture archives with integrity/provenance information support manual, pinned and offline installation using a previously acquired complete package. |
+
+Package the Python application with its required interpreter and runtime
+dependencies for standalone distribution, or deliver an equivalently self-contained
+runtime. npm and Homebrew routes use the same versioned application artifacts;
+users do not manage a separate Python environment. Retain wheels/source installs
+for developers and existing automation, with their prerequisites clearly documented.
+All routes expose the same `mos` CLI and record installation origin, version,
+channel and architecture for §28's update resolver. Native Windows remains gated
+on 0.1.1 even if a package manager can install a launcher earlier.
+
+### 29.2 Setup, coexistence and removal
+
+- Install for the current user without administrator access by default. Support an
+  explicit destination and version selection. Check OS/architecture and prerequisites
+  before mutation; explain unsupported targets and required external tools.
+- Make PATH setup explicit, bounded and idempotent. Detect existing `mos` commands,
+  alternate installations and package-manager ownership before replacement; explain
+  conflicts and require deliberate selection rather than overwriting another tool.
+  Re-running the installer must repair or report the selected installation safely.
+- After installation, show the installed version and the next step: enter a project
+  directory and run `mos`. First launch guides provider selection and supported
+  authentication, explains missing prerequisites and verifies local readiness.
+  Installation itself does not require provider credentials or make paid requests.
+- Use §28's release feed, artifact verification, channel controls and transactional
+  recovery for first installation as well as upgrades. Bound downloads/extraction,
+  reject archive path escapes and unsafe links, and leave no partial active launcher
+  after failure. Support proxy/managed environments with explicit diagnostics.
+- Document install, version verification, update and uninstall together for every
+  route. Uninstall removes only that installation's owned files and launcher;
+  preserve credentials, configuration, memory, sessions and evidence by default.
+  Any data deletion is a separately selected, previewed operation. Switching install
+  methods must preserve user state and leave one clearly selected active launcher.
+
+### 29.3 Delivery and acceptance
+
+Deliver the verified standalone artifacts and shell installer first, then npm and
+Homebrew distribution, first-launch guidance and uninstall instructions. Qualify
+the Windows paths according to §27. Publish the supported installation commands
+prominently in the README and release documentation only after endpoint/package
+ownership and installed-artifact checks pass. Connect every advertised method to
+§28's notifications and method-specific upgrade flow before finished-product release.
+This packaging work does not change the G2 capability gate.
+
+Test each advertised route on clean supported OS/architecture environments,
+including machines without Python and standalone targets without Node. Verify
+`mos --version`, help, first launch, credential-free setup, session save/resume,
+upgrade through §28, repeat install, custom paths and paths with spaces, PATH
+conflicts, denied permissions, failed/interrupted downloads, tampered archives,
+unsupported platforms, pinned/offline installation and state-preserving uninstall.
+Exercise npm/Homebrew ownership and switching explicitly; mocks or a source-tree
+launch cannot substitute for a successful installed-package journey.

@@ -36,6 +36,30 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
+**Application updates, 2026-09-12 — planned:** the finished product must notify
+installed users when maintainers publish a compatible release and offer release
+notes, Update now, Remind me later and Skip this version. Deliver a verified release
+feed, bounded startup/periodic checks, `mos update check`, and guided `mos update`
+with installation-method detection, saved-session restart and migration/recovery
+checks. Publish the feed only after release packages pass their gates; branch pushes
+do not notify stable users. Automatic discovery defaults on, installation requires
+user action, and trusted user/admin policy can disable or centrally manage updates.
+This is required release/distribution work alongside the conversation product,
+separate from G2 and prompt-skill installation. See
+[plan §28](mos-eisley-plan.md#28-application-update-notifications-and-guided-upgrades)
+for privacy, integrity, platform and acceptance requirements.
+
+**Codex-style installation, 2026-09-12 — planned:** users install with a short
+terminal command and launch `mos` without cloning/building or configuring Python.
+Deliver standalone shell and native PowerShell installers, an official npm package,
+Homebrew distribution and verified direct-download archives, with platform scope
+following §27 (WSL2 in 0.1.0; native Windows in 0.1.1). Include PATH/conflict handling,
+first-launch provider setup, pinned installs and state-preserving uninstall. All
+routes share release artifacts and §28's update flow. This is a finished-product
+packaging requirement, separate from G2; distribution names/endpoints and clean
+installed-package checks must pass before advertising commands. See
+[plan §29](mos-eisley-plan.md#29-codex-style-installation-and-first-launch).
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -659,6 +683,10 @@ loading and telemetry adapters remain planned.
 10. **Convenience:** advanced TUI polish and provenance navigation. The core
     conversation, resume, live diff panel, and configurable storage belong to the
     product workstream above; shared analytics or team-wide database exports are excluded.
+    Application update alerts and guided upgrades are required release work under
+    plan §28, with packaged upgrade/recovery evidence; they are not optional polish.
+    Codex-style installation and first-launch setup are required under plan §29,
+    with clean-machine verification for every advertised distribution method.
 
 ## Remote MCP connections
 
