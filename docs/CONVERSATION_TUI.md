@@ -24,9 +24,40 @@ session ID. Resume from the same project directory:
 mos resume --last
 ```
 
+`mos resume` opens the [session picker](CONVERSATION_NAMES.md), with name/ID
+filtering, paging and explicit selection. Use `mos chat --name "Parser cleanup"`
+to name a new session, `/rename NAME` or `/rename --clear` to edit the current name,
+and `mos resume --name "Parser cleanup"` to look it up. Names appear beside IDs;
+ambiguous names require a choice and never silently select the latest match.
+
 Saved queued messages remain paused until F4, `/continue`, or a new submitted
 message explicitly continues them. Opening the screen and editing a draft do
-not start work. Each bare `mos` or `mos chat` starts an empty conversation.
+not start work. Each bare `mos` or `mos chat` without a prompt starts an empty
+conversation. An explicit launch prompt starts a new conversation and submits its
+first message immediately:
+
+```sh
+mos -- "Remember that the fixture boundary is ten."
+mos chat "Remember that the fixture boundary is ten."
+mos -C /path/to/project "Remember that the fixture boundary is ten."
+```
+
+Use one quoted argument for the whole prompt, including any newlines. Direct bare
+prompt input uses `--` to distinguish it from a subcommand; unknown command names
+still fail. Put launch options before `--`; everything after it is literal text.
+The prompt is always a chat message: `/quit`, `/review`, `review this change` and
+option-like text cannot invoke terminal controls. It must contain nonblank valid
+UTF-8 text within 8,000 characters and 256 lines. Invalid text or a prompt exceeding
+the launch's pending-text byte budget fails before session storage is created,
+with a fixed explanation or byte counts rather than rejected content.
+
+The initial message passes through the same controller, persistence, memory,
+context and provider-input checks as typed messages. It is queued before piped
+follow-ups; EOF finishes enabled work and saves. Interactive launches run it without
+an extra Enter, and normal stop/quit controls remain available. Resume does not
+accept another positional prompt or repeat the original one; submit follow-ups
+after opening the saved session. Recorded request failures and capacity pauses
+behave as they do for typed input; startup prompts do not enable live answers.
 
 `mos -C /path/to/project` selects another workspace without changing your shell's
 directory. The welcome screen shows the canonical workspace, session ID and the
@@ -35,6 +66,12 @@ default, created privately on the first new session. `mos sessions` lists only
 your current workspace's sessions. `mos resume SESSION_ID` selects one explicitly.
 The existing owner, permissions, locking and workspace checks apply to default
 storage too; an unsafe existing directory is rejected, never repaired silently.
+
+`mos --choose-directory` and `mos resume --choose-directory` open the
+[startup directory selector](CONVERSATION_DIRECTORY.md) before session or memory
+access. Tab completes directory names, Enter previews the resolved path, and
+Ctrl-S selects it. Escape cancels startup. The selected project's memory applies
+to a fresh chat; resume keeps the same workspace checks and paused queue behavior.
 
 Use `--storage /private/path` to select another location; its parent must exist.
 `--session-max-bytes BYTES` on launch or resume saves a per-session snapshot budget;
@@ -58,13 +95,37 @@ Launch options may follow `mos` directly; use `mos chat --help` for their full l
 
 The startup reference is [Codex's documented project-directory launch](https://learn.chatgpt.com/docs/codex/cli),
 checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
-authentication, an initial positional prompt and an interactive resume picker
-remain future work; this is not complete Codex feature parity.
+authentication remains future work; this is not complete Codex feature parity.
 
 The persistent header now shows the working directory and active user/project memory
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory
 details in the scrollable transcript. See [memory management](CONVERSATION_MEMORY.md)
 for explicit saves, scope selection, no-memory launches and changed-memory recovery.
+`/memory show user|project` displays a complete saved-document receipt in the
+scrollable transcript. `/memory append|set user|project TEXT` saves single-line text;
+`/memory clear|enable|disable user|project` manages that scope. These commands require
+idle requests and pause queued work. `/memory` returns to the active selection;
+saved-document receipts are snapshots and must be rerun to inspect later edits.
+Directly typed `remember this for this project: TEXT` and `remember this everywhere:
+TEXT` provide scoped append shortcuts. Rejected requests retain the editor draft;
+pasted/composed text stays literal. A successful receipt includes saved text.
+`/memory forget SCOPE EXACT_TEXT` and the matching scoped forget phrases show a
+complete removal preview. `/memory apply-forget HASH` confirms it;
+`/memory discard-forget` cancels it. Reviews last only in the current session.
+See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+`/memory replace SCOPE {"old":"TEXT","new":"TEXT"}` previews an exact replacement;
+`/memory apply-replace HASH` confirms it and `/memory discard-replace` cancels it.
+Forget, replacement and assistant proposals share one pending review per session. The complete result
+is scrollable with terminal control characters escaped. See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
+`/memory review-proposal SCOPE INDEX` reviews a structured assistant reply at the
+displayed zero-based message index. `/memory apply-proposal HASH` accepts it;
+`/memory discard-proposal` cancels. Receiving a suggestion does not save it.
+See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
+`/memory review-text SCOPE INDEX "EXACT_TEXT"` instead reviews a selected span from
+an ordinary assistant reply, using the same confirmation/discard controls. See
+[selected reply text](CONVERSATION_MEMORY_SELECTION.md).
+See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
+
 `/memory refresh` applies current saved memory between requests; `/memory off`
 disables it for this session. Both save the selection and pause queued work until
 F4, `/continue`, or a newly submitted message continues it.
@@ -88,6 +149,16 @@ F4, `/continue`, or a newly submitted message continues it.
 | F6 | Reload saved history from its first page after a change or read error. |
 | F7 | Select the next memory or review reference on the saved history page. |
 | F8 | Open/close the selected artifact; only one stays expanded. |
+| F9 | Choose another directory once active work and unsent input are resolved. |
+
+`/directory switch` opens the same selector, and `/directory switch PATH` selects
+a path relative to this session's workspace. Selection opens a fresh conversation;
+the previous session and queued messages remain saved. Cancelling the selector
+returns to the current session. See [directory switching](CONVERSATION_DIRECTORY.md#switch-during-a-conversation)
+for memory, recording and input handoff behavior.
+The header also shows the detected Git-marker root. `/directory` shows its full
+path and discovery status alongside the workspace and effective project-memory
+identity. This display snapshot is refreshed on launch, resume and directory switch.
 
 ## Saved SQLite history
 

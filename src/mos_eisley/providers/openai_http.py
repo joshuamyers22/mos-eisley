@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
+import httpx2
 
 MAX_OPENAI_RESPONSE_BYTES = 1_000_000
 
 
-class OpenAIResponseLimitError(httpx.NetworkError):
+class OpenAIResponseLimitError(httpx2.NetworkError):
     """A response crossed the application-owned byte ceiling."""
 
 
-class BoundedOpenAIHttpClient(httpx.AsyncClient):
+class BoundedOpenAIHttpClient(httpx2.AsyncClient):
     """Non-streaming client with an application-owned decoded body ceiling.
 
     OpenAI authentication and request serialization remain owned by the official
@@ -33,14 +33,14 @@ class BoundedOpenAIHttpClient(httpx.AsyncClient):
 
     async def send(
         self,
-        request: httpx.Request,
+        request: httpx2.Request,
         *,
         stream: bool = False,
-        auth: Any = httpx.USE_CLIENT_DEFAULT,
-        follow_redirects: Any = httpx.USE_CLIENT_DEFAULT,
-    ) -> httpx.Response:
+        auth: Any = httpx2.USE_CLIENT_DEFAULT,
+        follow_redirects: Any = httpx2.USE_CLIENT_DEFAULT,
+    ) -> httpx2.Response:
         if stream:
-            raise httpx.NetworkError(
+            raise httpx2.NetworkError(
                 "streaming responses are disabled by the bounded client",
                 request=request,
             )
@@ -76,7 +76,7 @@ class BoundedOpenAIHttpClient(httpx.AsyncClient):
                         "OpenAI response exceeds byte limit", request=request
                     )
                 content.extend(block)
-            return httpx.Response(
+            return httpx2.Response(
                 status_code=response.status_code,
                 headers=response.headers,
                 content=bytes(content),

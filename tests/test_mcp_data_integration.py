@@ -9,9 +9,9 @@ from typing import Any
 from unittest import IsolatedAsyncioTestCase, skipUnless
 from uuid import uuid4
 
-from mos_eisley.analysis.controller import AnalysisConfig, run_analysis
+from mos_eisley.analysis.controller import AnalysisConfig, AnalysisFailure, run_analysis
 from mos_eisley.analysis.demo import AnalysisFixtureClient
-from mos_eisley.analysis.evidence import ContextMode
+from mos_eisley.analysis.evidence import ContextMode, source_data
 from mos_eisley.analysis.fixture_server import REVISION
 from mos_eisley.core.protocol import (
     ModelRequest,
@@ -343,6 +343,10 @@ type="date"
 description="Exclusive end"
 minimum=2026-01-01
 maximum=2027-01-01
+[[metrics.total.output_contract]]
+name="total"
+sql_type="HUGEINT"
+nullable=false
 """
             )
             server.write_text(
@@ -394,6 +398,42 @@ maximum=2027-01-01
                 self.assertEqual(answer.sql_trail[0].submitted_sql, query)
                 self.assertIn("$start_day", answer.sql_trail[0].normalized_sql or "")
                 self.assertEqual(answer.semantic_revision, revision)
+                source = source_data(answer.tool_trace[1])
+                self.assertEqual(source["column_types"], ["HUGEINT"])
+                self.assertIs(source["output_contract_verified"], True)
+
+            # A string that would match the proposed cell must still fail the
+            # database output contract before becoming accepted tool evidence.
+            ontology.write_text(
+                ontology.read_text().replace(
+                    "SUM(value) AS total", "CAST(SUM(value) AS VARCHAR) AS total"
+                )
+            )
+            async with connect_mcp(config) as dispatcher:
+                changed = await invoke(dispatcher, "get_semantic_context")
+            with self.assertRaises(AnalysisFailure):
+                await run_analysis(
+                    AnalysisConfig(
+                        provider="fixture",
+                        model="tool-reviewer-v1",
+                        account="fixture",
+                        question="Total for January?",
+                    ),
+                    config,
+                    fixture_registry(),
+                    ParquetCaseClient(
+                        "promoted",
+                        {
+                            "id": "total",
+                            "expected": "8",
+                            "parameters": {
+                                "start_day": "2026-01-01",
+                                "end_day": "2026-02-01",
+                            },
+                        },
+                        changed["revision"],
+                    ),
+                )
 
     @skipUnless(
         os.environ.get("DATA_MCP_TEST_DSN"), "Requires a disposable PostgreSQL DSN"

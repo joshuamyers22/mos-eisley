@@ -4,6 +4,150 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Bind owned review probes to independently pinned campaign slots, rechecking seals,
+  profiles and policy at approval and provider use and capping calls by campaign expiry.
+
+- Add offline review campaign preview, private hash-confirmed commitment sealing
+  and fresh review of independently pinned three-attempt evidence submissions.
+
+- Evaluate three precommitted review probes with fresh observer, runtime and ledger
+  verification, preserving exact profile scope and denying live execution authority.
+
+- Retain private review runtime measurements and verify their request, response and
+  worker-cleanup bindings for independent observer inspection.
+
+- Authenticate independent observer records for completed review probes against
+  exact approvals, execution windows and reconstructed results, without live authority.
+
+- Compose an owned review probe with fresh signed/local admission at credential and
+  provider use, exact payload checks, bounded SDK calls and cancellation cleanup.
+
+- Require independent, short-lived signatures for exact review conformance phases
+  alongside local critic/judge approvals, with policy and runtime rechecks.
+
+- Preview explicitly configured guided reviews and aggregate spending through a
+  no-dispatch CLI that preserves the credentialed review-conformance launch gate.
+
+- Connect exact critic and judge approval prompts to the brokered review controller,
+  with cancellable terminal input, shared deadlines and conservative decline handling.
+
+- Inspect saved brokered controller records and held or uncertain spending through
+  a read-only CLI, preserving incomplete crash attribution without retry authority.
+
+- Compose brokered critic fan-out, a separately approved judge and retained final
+  results under one deadline, with owned cancellation cleanup and no automatic retry.
+
+- Bind brokered critic/judge approvals to current project guidance, revalidate at
+  dispatch boundaries and preserve conservative spending on stale-policy failures.
+
+- Reconstruct, privately retain and verify final review verdicts against complete
+  critic/judge evidence, sharing strict judge decoding and deterministic verdict rules.
+
+- Retain request-bound critic responses and recompute valid findings and quorum
+  before separately approved judge admission, with read-only evidence verification.
+
+- Bind deferred judge allowances to separately approved exact requests through an
+  atomic spending transfer, retained audit lineage and one-use broker issuance.
+
+- Reserve critic calls and a deferred judge allowance atomically, issue each critic
+  from its existing hold, and block later pre-reserved calls after pricing violations.
+
+- Add explicit per-call review transfer approval, durable full spending reservation,
+  one-use broker issuance and private role/request audit verification.
+
+- Bind canonical model calls to existing one-use isolated brokers, including exact
+  provider payloads, local output limits and retained spending on failed responses.
+
+- Add an async isolated broker with awaited worker/guardian cleanup and preserve
+  provider spending teardown when callers cancel repeatedly.
+
+- Add a canonical model-backed critic/judge bridge with isolated requests, explicit
+  finding IDs, strict JSON decoding and bounded single-exchange behavior.
+
+- Connect frozen guided reviews to terminal `/review`, with explicit launch policy,
+  queue/resume checks and retained guidance in snapshot and SQLite artifacts.
+
+- Add guidance-bearing recorded review briefs, exact critic/judge rubric pairing,
+  current admission checks and hashed guidance provenance in replayable runs.
+
+- Add exact current role-context checks and a guarded local loader that rejects
+  stale guidance, policy changes and mismatched role/scope/content selections.
+
+- Add reviewed immutable role-guidance packets with explicit requirement omissions,
+  selected rule/rubric provenance and reconstruction from pinned guidance and policy.
+
+- Add read-only checks against explicit owner-private guidance prohibitions, with
+  exact policy hashes, project identity, decision provenance and blocked exit status.
+
+- Add combined requirement/advisory conflict review with pinned revisions, visible
+  precedence, unresolved accepted contradictions and stale-assessment rejection.
+
+- Add reviewed project requirement acceptance from explicitly selected briefs/ADRs,
+  exact source provenance, guarded whole-set replacement/clear and private history.
+
+- Add explicit advisory conflict assessments with reviewed preferences, unresolved
+  and stale status, pinned history, and conflict-aware effective guidance inspection.
+- Add reviewed project advisory overrides, explicit replace/omit reasons, pinned
+  history and effective-rule provenance. Binding changes require a fresh review.
+- Add reviewed private project-guidance attach/show/update/detach, immutable pinned
+  snapshots, exact owner/directory identity checks and stale-review rejection.
+- Add read-only local project-guidance inspection with versioned advisory descriptors,
+  exact content hashes and rule locations, bounded source reads and complete unbound
+  snapshots. Include an editable example; attachment is a separate explicit command.
+- Allow explicit selection of an exact span from an ordinary assistant reply for
+  memory review. Show the complete source and result, bind selection offsets to the
+  confirmation, and reuse guarded apply/refresh without automatic extraction.
+- Add explicit review and acceptance of structured assistant memory proposals.
+  Bind the selected reply and user-chosen scope to a complete preview and guarded
+  confirmation; suggestions stay inert until accepted and reviews never resume.
+- Add reviewed exact replacement in user/project memory using explicit old/new JSON,
+  complete previews and hash confirmation. Share stale-edit and interrupted-write
+  protections with selective forgetting; retain one pending review per session.
+- Add reviewed selective forgetting for user/project memory. Preview one unique
+  exact text span, confirm with a session-bound hash and reject stale revisions.
+  Preserve surrounding text, enabled state and historical session context;
+  report uncertain writes and require new reviews after resume or interruption.
+
+- Add explicit scoped remember phrases for directly entered terminal requests.
+  Ask for missing scope/content, preserve rejected drafts and report saved text
+  without dispatching a model turn or loading memory before an explicit refresh.
+
+- Add explicitly scoped terminal memory inspection and editing in full-screen and
+  plain/JSON sessions. Preserve session selection until refresh, pause queued work,
+  reject edits during active requests and keep pasted/composed chat literal.
+
+- Add explicit mapping-history retention with newest-count, age-cutoff and
+  current-registry protections. Review complete bounded inventories, delete at
+  most 32 backups, recheck retained files before each deletion and report partial
+  unlink/flush progress without changing memory or saved-session identities.
+
+- Add reviewed bulk import of project-memory mappings from a private owner-scoped
+  manifest. Expose merge conflict previews and explicit keep/replace policies,
+  whole-registry replacement, fresh directory pins and durable prior-state backups.
+  Preserve memory documents and existing session identities on both backends.
+
+- Retain the previous project-memory mapping registry before each replacement.
+  Add bounded history inspection, reviewed backup/staging restore and exact-file
+  cleanup. Preserve corrupt current bytes before recovery, recheck directory pins,
+  keep source files and existing session identities, and report partial progress.
+
+- Add explicit project-memory mappings across unrelated worktrees. Preserve the
+  selected identity through resume, refresh, SQLite history and storage transfers;
+  keep workspace authority unchanged and clear mappings on directory switches.
+
+- Add reviewed project-memory collision resolution with explicit keep, replace,
+  append or supplied-text strategies. Preserve root enabled state and source/user
+  files; save a durable private prior-root snapshot before guarded replacement.
+
+- Add explicit project-memory recovery previews and guarded cleanup of one exact
+  interrupted-publication staging alias. Bind the approved target hash and file
+  identities, preserve memory documents, and retain ordinary single-link checks.
+
+- Add preview-bound project-memory copying from a workspace to an empty ancestor
+  root. Preserve source documents and session history; reject stale identities,
+  changed content and collisions, with atomic no-overwrite publication and fault
+  tests. Document interrupted-publication recovery and deferred merge support.
+
 - Plan version 0.1.0 support for Windows hosts through a tested WSL2/Linux deployment
   and full native Windows parity in version 0.1.1. Define platform-neutral identity,
   storage, terminal, credential, process, sandbox, migration, CI, and release gates;

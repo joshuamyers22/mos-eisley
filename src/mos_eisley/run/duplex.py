@@ -11,6 +11,15 @@ ExchangeHandler = Callable[[bytes], Awaitable[bytes]]
 CLAIM_LIMIT = 1024
 
 
+def _cancel_once[T](future: asyncio.Future[T]) -> None:
+    # gather may already have cancelled this task. Repeating cancel while its
+    # finally block awaits provider/spending teardown can interrupt that cleanup.
+    if not future.done() and not (
+        isinstance(future, asyncio.Task) and future.cancelling()
+    ):
+        future.cancel()
+
+
 async def _frame(reader: asyncio.StreamReader, limit: int) -> bytes:
     result = await reader.readuntil(b"\n")
     if len(result) > limit + 1:
@@ -61,7 +70,7 @@ async def _conversation(
     finally:
         pending = [early] if response is None else [early, response]
         for task in pending:
-            task.cancel()
+            _cancel_once(task)
         await asyncio.gather(*pending, return_exceptions=True)
     writer.write(reply + b"\n")
     await writer.drain()
@@ -121,7 +130,7 @@ async def bounded_exchange(
         raise ValueError("broker exchange failed") from None
     finally:
         for task in tasks:
-            task.cancel()
+            _cancel_once(task)
         await asyncio.gather(*tasks, return_exceptions=True)
         if process is not None:
             if process.stdin is not None:

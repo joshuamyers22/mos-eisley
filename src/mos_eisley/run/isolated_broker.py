@@ -27,3 +27,26 @@ def run_isolated_broker(
         raise ValueError("broker worker acknowledgement mismatch")
     # Return host-held data, never worker-authored provider output.
     return reply
+
+
+async def run_isolated_broker_async(
+    broker: RequestBoundBroker, container: OfflineContainer, *, timeout: float = 30
+) -> BrokerReply:
+    """Await host-held response, worker acknowledgement and exact worker cleanup."""
+    reply: BrokerReply | None = None
+
+    async def handle(wire: bytes) -> bytes:
+        nonlocal reply
+        reply = BrokerReply(response=await broker.redeem(wire))
+        return canonical_bytes(reply)
+
+    output = await container.exchange_async(
+        ("-m", "mos_eisley.run.broker_worker"),
+        canonical_bytes(broker.claim()),
+        handle,
+        timeout,
+    )
+    ack = BrokerAck.model_validate_json(output)
+    if reply is None or ack.response_sha256 != digest(canonical_bytes(reply)):
+        raise ValueError("broker worker acknowledgement mismatch")
+    return reply

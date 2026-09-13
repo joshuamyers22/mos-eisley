@@ -488,3 +488,10 @@ Automatic expiry, quotas and physical reclamation remain open. See the
    migration and retention remain open.
    Mid-request interruption and live review
    remain open.
+
+## Integration with main on 2026-09-13
+
+The newer main-branch roadmap corrects the earlier bulk-retention status above:
+temporary cleanup, metadata retention preview, and verified single/batch pruning
+are implemented; automatic expiry and physical quotas remain open. The active
+roadmap preserves that implemented-retention baseline in its concise summary.

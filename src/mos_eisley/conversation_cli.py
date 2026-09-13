@@ -11,11 +11,12 @@ import signal
 import stat
 import sys
 import termios
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Awaitable, Callable
+from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
+from prompt_toolkit.input import create_input
 from pydantic import ValidationError
 
 from mos_eisley.conversation import (
@@ -34,6 +35,11 @@ from mos_eisley.conversation_context import ContextBudgetError
 from mos_eisley.conversation_context_preview import (
     ContextPreviewUnavailable,
     preview_context,
+)
+from mos_eisley.conversation_directory import (
+    DirectorySelection,
+    DirectorySelectionError,
+    pick_directory,
 )
 from mos_eisley.conversation_input import (
     ConversationInput,
@@ -57,18 +63,45 @@ from mos_eisley.conversation_limits import (
 )
 from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
+    RECORD_BYTES,
     ConversationMemory,
     MemoryChangedError,
     MemoryRefreshError,
     MemoryStore,
 )
+from mos_eisley.conversation_memory_batch_cleanup import (
+    MemoryBatchCleanupError,
+    cleanup_memory_batch,
+    read_cleanup_manifest,
+)
+from mos_eisley.conversation_memory_cleanup import cleanup_memory_project
+from mos_eisley.conversation_memory_migration import (
+    migrate_memory_project,
+    recover_memory_project,
+    relocate_memory_project,
+    resolve_memory_project,
+)
+from mos_eisley.conversation_memory_project import (
+    preview_memory_project,
+    select_memory_project,
+)
+from mos_eisley.conversation_memory_registry import MemoryMappingResolver
 from mos_eisley.conversation_memory_runtime import ConversationMemoryRuntime
+from mos_eisley.conversation_memory_staging import (
+    MemoryStagingDiscardError,
+    discard_memory_staging,
+    discard_project_memory_staging,
+)
+from mos_eisley.conversation_name import SessionSelectionError, parse_name
 from mos_eisley.conversation_pending import (
     DEFAULT_PENDING_TEXT_BYTES,
     PendingTextBudgetError,
     PendingTextLimits,
     pending_text_byte_limit,
 )
+from mos_eisley.conversation_picker import ResumeSelection, pick_session
+from mos_eisley.conversation_project import ProjectLocation
+from mos_eisley.conversation_remember import memory_phrase_command
 from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
@@ -78,6 +111,11 @@ from mos_eisley.conversation_review import (
     run_conversation_review,
 )
 from mos_eisley.conversation_state import WorkingConversationState
+from mos_eisley.conversation_switch import (
+    DirectoryHandoff,
+    fresh_directory_arguments,
+    is_directory_switch,
+)
 from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
@@ -107,6 +145,11 @@ from mos_eisley.run.conversation_cleanup import (
 )
 from mos_eisley.run.conversation_export import export_conversation
 from mos_eisley.run.conversation_migration import ConversationMigration
+from mos_eisley.run.conversation_names import (
+    named_sessions,
+    rename_session,
+    resume_catalog,
+)
 from mos_eisley.run.conversation_prune import prune_session
 from mos_eisley.run.conversation_resume import inspect_sqlite_resume
 from mos_eisley.run.conversation_retention import preview_retention, retention_cutoff
@@ -140,21 +183,44 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--review-packet",
+        "--review-guidance-policy",
+        "--expected-review-policy-sha256",
+        "--review-guidance-storage",
         "--tui",
         "--plain",
         "--json",
         "--no-memory",
         "--memory-storage",
+        "--memory-project-root",
+        "--memory-project-map",
+        "--memory-project-local",
         "--session-max-bytes",
         "--context-max-bytes",
         "--active-memory-max-bytes",
         "--recording-max-bytes",
         "--pending-text-max-bytes",
         "--storage-backend",
+        "--name",
+        "--choose-directory",
     }
-    if not argv or argv[0].split("=", 1)[0] in launch_options:
+    if not argv or argv[0] == "--" or argv[0].split("=", 1)[0] in launch_options:
         return ["chat", *argv]
     return argv
+
+
+def launch_prompt(value: str) -> str:
+    """Admit literal launch text without echoing rejected content in parser errors."""
+    try:
+        value.encode("utf-8")
+    except UnicodeError:
+        raise argparse.ArgumentTypeError(
+            "Initial prompt must be valid UTF-8 text."
+        ) from None
+    if not value.strip() or len(value) > 8000 or value.count("\n") >= 256:
+        raise argparse.ArgumentTypeError(
+            "Initial prompt requires text within 8,000 characters and 256 lines."
+        )
+    return value
 
 
 def demo_cassette(
@@ -209,7 +275,199 @@ def demo_cassette(
     return AgentCassette(exchanges=tuple(exchanges))
 
 
+def add_memory_project_options(command: argparse.ArgumentParser) -> None:
+    identity = command.add_mutually_exclusive_group()
+    identity.add_argument(
+        "--memory-project-root",
+        type=Path,
+        help="Use this explicit ancestor's project memory for the new session",
+    )
+    identity.add_argument(
+        "--memory-project-map",
+        dest="memory_project_mapping",
+        type=Path,
+        help="Explicitly share this directory's memory, including across worktrees",
+    )
+
+    identity.add_argument(
+        "--memory-project-local",
+        action="store_true",
+        help="Use this workspace's own memory, ignoring saved mappings for this launch",
+    )
+
+
 def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
+    from mos_eisley.conversation_memory_registry import add_command as add_mapping
+
+    add_mapping(
+        add_parser(
+            "memory-project-mapping",
+            help="Review and save exact workspace memory mappings",
+        )
+    )
+    from mos_eisley.conversation_memory_retention import add_command as add_retention
+
+    add_retention(
+        add_parser(
+            "memory-project-retention", help="Review inventory-based backup retention"
+        )
+    )
+    from mos_eisley.conversation_memory_backup_discard import add_command as add_discard
+
+    add_discard(
+        add_parser("memory-backup-discard", help="Review exact invalid backup bytes"),
+        project=False,
+    )
+    add_discard(
+        add_parser(
+            "memory-project-backup-discard",
+            help="Review unsupported project backups while protecting current memory",
+        ),
+        project=True,
+    )
+    staging_discard = add_parser(
+        "memory-staging-discard",
+        help="Review exact invalid staging bytes without claiming a project identity",
+    )
+    staging_discard.add_argument("--temporary-name", required=True)
+    staging_discard.add_argument("--raw-sha256", required=True)
+    staging_discard.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    staging_discard.add_argument("--review-max-bytes", type=int, default=RECORD_BYTES)
+    staging_discard.add_argument("--apply", action="store_true")
+    staging_discard.add_argument("--expected-sha256")
+    staging_discard.add_argument("--json", action="store_true")
+    project_staging = add_parser(
+        "memory-project-staging-discard",
+        help="Review valid project staging snapshots with exact raw-byte bindings",
+    )
+    project_staging.add_argument("--workspace-identity", required=True)
+    project_staging.add_argument("--temporary-name", required=True)
+    project_staging.add_argument("--raw-sha256", required=True)
+    project_staging.add_argument("--review-max-bytes", type=int, default=RECORD_BYTES)
+    project_staging.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    project_staging.add_argument("--apply", action="store_true")
+    project_staging.add_argument("--expected-sha256")
+    project_staging.add_argument("--json", action="store_true")
+    memory_batch_cleanup = add_parser(
+        "memory-project-cleanup-batch",
+        help="Review named staging cleanup and retained-backup pruning",
+    )
+    memory_batch_cleanup.add_argument("--workspace-identity", required=True)
+    memory_batch_cleanup.add_argument("--selection", type=Path, required=True)
+    memory_batch_cleanup.add_argument("--before-ns", type=int)
+    memory_batch_cleanup.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_batch_cleanup.add_argument("--apply", action="store_true")
+    memory_batch_cleanup.add_argument("--expected-sha256")
+    memory_batch_cleanup.add_argument("--json", action="store_true")
+    memory_cleanup = add_parser(
+        "memory-project-cleanup",
+        help="Review one memory staging deletion or backup-link repair",
+    )
+    memory_cleanup.add_argument("--workspace-identity", required=True)
+    memory_cleanup.add_argument(
+        "--action", choices=("discard-staging", "recover-backup-link"), required=True
+    )
+    memory_cleanup.add_argument("--temporary-name", required=True)
+    memory_cleanup.add_argument("--record-sha256", required=True)
+    memory_cleanup.add_argument("--backup-name")
+    memory_cleanup.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_cleanup.add_argument("--apply", action="store_true")
+    memory_cleanup.add_argument("--expected-sha256")
+    memory_cleanup.add_argument("--json", action="store_true")
+    relocation = add_parser(
+        "memory-project-relocate",
+        help="Review project-memory copying or collision resolution",
+    )
+    relocation.add_argument("--from-workspace", required=True)
+    relocation.add_argument("--to-workspace", type=Path, required=True)
+    relocation.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    relocation_mode = relocation.add_mutually_exclusive_group()
+    relocation_mode.add_argument("--temporary-name")
+    relocation_mode.add_argument(
+        "--strategy",
+        choices=("keep-target", "use-source", "append-source", "use-text"),
+        help="Explicitly resolve a collision between existing memory documents",
+    )
+    relocation.add_argument("--text")
+    relocation.add_argument("--target-sha256")
+    relocation.add_argument("--apply", action="store_true")
+    relocation.add_argument("--expected-sha256")
+    relocation.add_argument("--json", action="store_true")
+    resolution = add_parser(
+        "memory-project-resolve", help="Review and resolve a project-memory collision"
+    )
+    resolution.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    resolution.add_argument("--memory-project-root", type=Path, required=True)
+    resolution.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    resolution.add_argument(
+        "--strategy",
+        required=True,
+        choices=("keep-target", "use-source", "append-source", "use-text"),
+    )
+    resolution.add_argument("--text")
+    resolution.add_argument("--apply", action="store_true")
+    resolution.add_argument("--expected-sha256")
+    resolution.add_argument("--json", action="store_true")
+    recovery = add_parser(
+        "memory-project-recover",
+        help="Preview or remove an interrupted copy's staging alias",
+    )
+    recovery.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    recovery.add_argument("--memory-project-root", type=Path, required=True)
+    recovery.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    recovery.add_argument("--temporary-name", required=True)
+    recovery.add_argument("--target-sha256", required=True)
+    recovery.add_argument("--apply", action="store_true")
+    recovery.add_argument("--expected-sha256")
+    recovery.add_argument("--json", action="store_true")
+    migration = add_parser(
+        "memory-project-migrate", help="Preview or apply a guarded project-memory copy"
+    )
+    migration.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    migration.add_argument("--memory-project-root", type=Path, required=True)
+    migration.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    migration.add_argument("--apply", action="store_true")
+    migration.add_argument("--expected-sha256")
+    migration.add_argument("--json", action="store_true")
+    memory_preview = add_parser(
+        "memory-project-preview", help="Preview workspace/root memory before adoption"
+    )
+    memory_preview.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    memory_preview.add_argument("--memory-project-root", type=Path, required=True)
+    memory_preview.add_argument(
+        "--memory-storage", type=Path, default=Path.home() / ".mos-eisley-memory"
+    )
+    memory_preview.add_argument("--json", action="store_true")
+    rename = add_parser("session-rename", help="Rename or clear a saved session label")
+    rename.add_argument("session_id")
+    name_change = rename.add_mutually_exclusive_group(required=True)
+    name_change.add_argument("--name", type=parse_name)
+    name_change.add_argument("--clear", action="store_true")
+    rename.add_argument("--expected-sha256", required=True)
+    rename.add_argument(
+        "--storage", type=Path, default=Path.home() / ".mos-eisley-sessions"
+    )
+    rename.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
+    rename.add_argument(
+        "--storage-backend", choices=("snapshot", "sqlite"), default="snapshot"
+    )
+    rename.add_argument("--json", action="store_true")
     batch_prune = add_parser(
         "session-prune-batch",
         help="Preview or atomically delete explicit eligible SQLite sessions",
@@ -494,13 +752,32 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     review_demo.add_argument("--review-output", type=Path, required=True)
     for generator in (demo, review_demo):
         add_memory_options(generator)
+        add_memory_project_options(generator)
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
+        if name == "chat":
+            add_memory_project_options(command)
+            command.add_argument(
+                "--name",
+                type=parse_name,
+                help="Optional session name (1–120 characters)",
+            )
+            command.add_argument(
+                "prompt",
+                nargs="?",
+                type=launch_prompt,
+                help="Initial literal message; quote multiline or multiword text",
+            )
         if name == "resume":
-            selection = command.add_mutually_exclusive_group(required=True)
+            selection = command.add_mutually_exclusive_group()
             selection.add_argument("session_id", nargs="?")
             selection.add_argument("--last", action="store_true")
+            selection.add_argument(
+                "--name",
+                type=parse_name,
+                help="Resume an exact name; duplicates require selection",
+            )
             command.add_argument(
                 "--inspect",
                 action="store_true",
@@ -520,6 +797,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
+            command.add_argument(
+                "--choose-directory",
+                action="store_true",
+                help="Choose a workspace interactively before opening a session",
+            )
             add_memory_options(command)
             command.add_argument(
                 "--session-max-bytes",
@@ -552,6 +834,13 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 help="Queued UTF-8 text bytes this launch (4000–512000; default 64000)",
             )
             command.add_argument("--review-packet", type=Path)
+            command.add_argument("--review-guidance-policy", type=Path)
+            command.add_argument("--expected-review-policy-sha256")
+            command.add_argument(
+                "--review-guidance-storage",
+                type=Path,
+                default=Path.home() / ".mos-eisley-guidance",
+            )
             display = command.add_mutually_exclusive_group()
             display.add_argument(
                 "--tui",
@@ -648,9 +937,17 @@ async def terminal(
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
+    *,
+    initial_prompt: str | None = None,
+    memory_command: Callable[[str], dict[str, object]] | None = None,
+    switch_directory: Callable[[str], Awaitable[bool]] | None = None,
+    project_location: ProjectLocation | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
+    project_location = project_location or ProjectLocation.inspect(
+        Path(controller.state.workspace)
+    )
     composer = ConversationComposer()
 
     def discard_draft(reason: str) -> None:
@@ -684,6 +981,17 @@ async def terminal(
             controller.submit_review(review_packet)
         except PendingTextBudgetError as error:
             reject_pending(error)
+            return False
+        except ValueError:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": (
+                        "Review guidance changed or is unavailable; "
+                        "select current inputs."
+                    ),
+                }
+            )
             return False
         render()
         return True
@@ -782,6 +1090,45 @@ async def terminal(
             enabled = True
         return True
 
+    def manage_memory(command: str) -> bool:
+        nonlocal enabled
+        if active is not None:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Stop active work before managing saved memory.",
+                }
+            )
+            return False
+        # Pause before storage access, including a partial failure.
+        enabled = False
+        if memory_command is None:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Memory management is not configured here.",
+                }
+            )
+            return False
+        try:
+            receipt = memory_command(command)
+        except ValueError as exc:
+            emit({"type": "conversation.unavailable", "text": str(exc)})
+            return False
+        emit(receipt)
+        return True
+
+    def remember(text: str) -> bool | None:
+        nonlocal enabled
+        try:
+            command = memory_phrase_command(text)
+        except ValueError as exc:
+            if active is None:
+                enabled = False
+            emit({"type": "conversation.unavailable", "text": str(exc)})
+            return False
+        return None if command is None else manage_memory(command)
+
     def render() -> None:
         for index, entry in enumerate(controller.state.entries):
             if seen.get(index) != entry.status:
@@ -801,9 +1148,11 @@ async def terminal(
                 emit(event)
 
     render()
+    enabled = False  # Resume displays pending input; only explicit input starts work.
+    if initial_prompt is not None:
+        enabled = submit_text(initial_prompt)
     incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
     active: asyncio.Task[bool] | None = None
-    enabled = False  # Resume displays pending input; only explicit input starts work.
     eof = False
     try:
         while True:
@@ -863,6 +1212,13 @@ async def terminal(
                         command = (
                             None if line.literal else submission_command(line.text)
                         )
+                        remembered = None if line.literal else remember(line.text)
+                        if remembered is not None:
+                            # Saving is a local control, never a queued model turn.
+                            if not line.accepted.done():
+                                line.accepted.set_result(remembered)
+                            incoming = asyncio.create_task(queue.get())
+                            continue
                         if command == "steer":
                             accepted = submit_text(
                                 line.text.removeprefix("/steer").lstrip(),
@@ -907,6 +1263,44 @@ async def terminal(
                     pass
                 elif line == "/continue":
                     enabled = True
+                elif line == "/rename" or line.startswith("/rename "):
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before renaming the session.",
+                            }
+                        )
+                    else:
+                        try:
+                            name = (
+                                None
+                                if line == "/rename --clear"
+                                else parse_name(line.removeprefix("/rename").strip())
+                            )
+                        except argparse.ArgumentTypeError:
+                            emit(
+                                {
+                                    "type": "conversation.unavailable",
+                                    "text": (
+                                        "Use /rename NAME or /rename --clear "
+                                        "with a valid name."
+                                    ),
+                                }
+                            )
+                        else:
+                            controller.rename(name)
+                            enabled = False
+                            emit(
+                                {
+                                    "type": "conversation.renamed",
+                                    "session_name": name,
+                                    "text": (
+                                        f"Session name: {name or '(unnamed)'}. "
+                                        "Queued work is paused."
+                                    ),
+                                }
+                            )
                 elif line in {"/memory refresh", "/memory off"}:
                     if active is not None:
                         emit(
@@ -949,6 +1343,10 @@ async def terminal(
                             ),
                         }
                     )
+                elif line.split(maxsplit=1)[:1] == ["/memory"]:
+                    manage_memory(line)
+                elif remember(line) is not None:
+                    pass
                 elif line == "/context":
                     try:
                         preview = preview_context(controller.state)
@@ -978,12 +1376,45 @@ async def terminal(
                             }
                         )
                 elif line == "/directory":
+                    memory_mapping = controller.state.memory_project_mapping
                     emit(
                         {
                             "type": "conversation.directory",
-                            "text": controller.state.workspace,
+                            **project_location.fields(
+                                controller.state.effective_memory_workspace
+                            ),
+                            **(
+                                {"memory_project_mapping": memory_mapping}
+                                if memory_mapping is not None
+                                else {}
+                            ),
+                            "text": project_location.describe(
+                                controller.state.effective_memory_workspace
+                            ),
                         }
                     )
+                elif is_directory_switch(line):
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before switching directory.",
+                            }
+                        )
+                    elif switch_directory is None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": (
+                                    "Directory switching requires "
+                                    "the interactive terminal."
+                                ),
+                            }
+                        )
+                    else:
+                        enabled = False
+                        if await switch_directory(line):
+                            return
                 elif line == "/steer" or line.startswith("/steer "):
                     if submit_text(
                         line.removeprefix("/steer").lstrip(), require_active=True
@@ -1001,7 +1432,8 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/steer TEXT, /review, /memory, /directory, "
+                                    "/steer TEXT, /review, "
+                                    "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
                                     "/stop, /continue, /quit"
                                 ),
@@ -1026,6 +1458,10 @@ async def _run_terminal(
     emit: Callable[[dict[str, object]], None],
     review_packet: ConversationReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
+    *,
+    initial_prompt: str | None = None,
+    memory_command: Callable[[str], dict[str, object]] | None = None,
+    project_location: ProjectLocation | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -1051,7 +1487,16 @@ async def _run_terminal(
 
     loop.add_signal_handler(signal.SIGINT, interrupt)
     try:
-        await terminal(controller, queue, emit, review_packet, refresh_memory)
+        await terminal(
+            controller,
+            queue,
+            emit,
+            review_packet,
+            refresh_memory,
+            memory_command=memory_command,
+            initial_prompt=initial_prompt,
+            project_location=project_location,
+        )
     finally:
         stop()
         loop.remove_signal_handler(signal.SIGINT)
@@ -1060,8 +1505,73 @@ async def _run_terminal(
 
 def run_command(args: argparse.Namespace) -> int:
     try:
-        return _run_command(args)
-    except ActiveInputLimitError as error:
+        if getattr(args, "choose_directory", False):
+            if (
+                args.json
+                or args.plain
+                or getattr(args, "inspect", False)
+                or not sys.stdin.isatty()
+                or not sys.stdout.isatty()
+            ):
+                raise DirectorySelectionError(
+                    "--choose-directory requires terminal input/output; "
+                    "use -C PATH for noninteractive commands."
+                )
+            mapping = getattr(args, "memory_project_mapping", None)
+            root = getattr(args, "memory_project_root", None)
+            if mapping is not None and root is not None:
+                raise ValueError("Choose one project memory identity.")
+            memory_path = mapping if mapping is not None else root
+            memory_directory = (
+                DirectorySelection.inspect(memory_path)
+                if memory_path is not None
+                else None
+            )
+            resolver = MemoryMappingResolver(
+                args.memory_storage,
+                disabled=memory_path is not None
+                or getattr(args, "memory_project_local", False)
+                or args.no_memory
+                or args.command != "chat",
+            )
+            args.saved_mapping_resolver = resolver
+            selected = pick_directory(
+                args.workspace,
+                memory_project_root=None
+                if memory_directory is None or mapping is not None
+                else memory_directory.path,
+                memory_project_mapping=None
+                if memory_directory is None or mapping is None
+                else memory_directory.path,
+                **(
+                    {"memory_resolver": resolver.resolve}
+                    if not resolver.disabled
+                    else {}
+                ),
+            )
+            if selected is None:
+                return 0
+            if memory_directory is not None:
+                memory_directory.verify()
+                if mapping is None:
+                    args.memory_project_root = memory_directory.path
+                else:
+                    args.memory_project_mapping = memory_directory.path
+            args.workspace = selected.path
+            args.directory_selection = selected
+        while True:
+            result = _run_command(args)
+            if isinstance(result, int):
+                return result
+            # Input typed while the old screen closes belongs to that screen.
+            termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+            args = fresh_directory_arguments(args, result.target)
+    except (
+        ActiveInputLimitError,
+        PendingTextBudgetError,
+        SessionSelectionError,
+        DirectorySelectionError,
+    ) as error:
         # Only byte counts and fixed guidance, never rejected payloads or paths.
         print(f"mos-eisley: {error}", file=sys.stderr)
         return 2
@@ -1179,7 +1689,241 @@ def _run_prune(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_command(args: argparse.Namespace) -> int:
+def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
+    interactive = (
+        not (args.json or args.plain or args.inspect)
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+    )
+    if args.name is None and not interactive:
+        raise SessionSelectionError(
+            "Resume requires a session ID or --last/--name "
+            "outside the interactive picker."
+        )
+
+    def load():
+        return resume_catalog(
+            args.storage,
+            args.workspace,
+            sqlite=args.storage_backend == "sqlite",
+            max_bytes=args.catalog_max_bytes,
+        )
+
+    catalog = load()
+    if args.name is not None:
+        matches = named_sessions(catalog, args.name)
+        if not matches:
+            raise SessionSelectionError(
+                "No saved conversation matches that name in this workspace."
+            )
+        if len(matches) == 1:
+            return ResumeSelection(catalog.location, catalog.workspace, matches[0])
+        if not interactive:
+            raise SessionSelectionError(
+                "Session name is ambiguous; use mos sessions "
+                "and an explicit session ID."
+            )
+    return pick_session(catalog, load, query=args.name or "")
+
+
+def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
+    if args.command in {"memory-backup-discard", "memory-project-backup-discard"}:
+        from mos_eisley.conversation_memory_backup_discard import (
+            run_command as run_discard,
+        )
+
+        return run_discard(args)
+    if args.command == "memory-project-retention":
+        from mos_eisley.conversation_memory_retention import (
+            run_command as run_retention,
+        )
+
+        return run_retention(args)
+    if args.command == "memory-project-mapping":
+        from mos_eisley.conversation_memory_registry import run_command as run_mapping
+
+        return run_mapping(args)
+    if args.command in {"memory-staging-discard", "memory-project-staging-discard"}:
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        notice = None
+        try:
+            if args.command == "memory-project-staging-discard":
+                receipt = discard_project_memory_staging(
+                    args.memory_storage,
+                    args.workspace_identity,
+                    args.temporary_name,
+                    args.raw_sha256,
+                    expected_sha256=args.expected_sha256,
+                    review_max_bytes=args.review_max_bytes,
+                )
+            else:
+                receipt = discard_memory_staging(
+                    args.memory_storage,
+                    args.temporary_name,
+                    args.raw_sha256,
+                    expected_sha256=args.expected_sha256,
+                    review_max_bytes=getattr(args, "review_max_bytes", RECORD_BYTES),
+                )
+        except MemoryStagingDiscardError as error:
+            receipt = error.receipt
+            notice = str(error)
+        payload = {
+            "type": "memory.project_staging_discard"
+            if args.command == "memory-project-staging-discard"
+            else "memory.staging_discard",
+            **receipt,
+        }
+        if notice is not None:
+            payload["text"] = notice
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+        return 0 if notice is None else 2
+    if args.command == "memory-project-cleanup-batch":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        try:
+            manifest = read_cleanup_manifest(args.selection)
+        except ValidationError:
+            raise ValueError("Memory cleanup selection failed validation.") from None
+        notice = None
+        try:
+            receipt = cleanup_memory_batch(
+                args.memory_storage,
+                args.workspace_identity,
+                manifest,
+                before_ns=args.before_ns,
+                expected_sha256=args.expected_sha256,
+            )
+        except MemoryBatchCleanupError as error:
+            receipt = error.receipt
+            notice = str(error)
+        payload = {"type": "memory.project_cleanup_batch", **receipt}
+        if notice is not None:
+            payload["text"] = notice
+        print(json.dumps(payload, ensure_ascii=True, indent=None if args.json else 2))
+        return 0 if notice is None else 2
+    if args.command == "memory-project-cleanup":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = cleanup_memory_project(
+            args.memory_storage,
+            args.workspace_identity,
+            action=args.action,
+            temporary_name=args.temporary_name,
+            record_sha256=args.record_sha256,
+            backup_name=args.backup_name,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_cleanup", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    if args.command == "memory-project-relocate":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = relocate_memory_project(
+            args.memory_storage,
+            args.from_workspace,
+            args.to_workspace,
+            expected_sha256=args.expected_sha256,
+            temporary_name=args.temporary_name,
+            target_sha256=args.target_sha256,
+            strategy=args.strategy,
+            text=args.text,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_relocation", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    if args.command == "memory-project-resolve":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = resolve_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            strategy=args.strategy,
+            text=args.text,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_resolution", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    if args.command == "memory-project-recover":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = recover_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            temporary_name=args.temporary_name,
+            target_sha256=args.target_sha256,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_recovery", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    if args.command == "memory-project-migrate":
+        if args.apply != (args.expected_sha256 is not None):
+            raise ValueError("Use --apply and --expected-sha256 together.")
+        receipt = migrate_memory_project(
+            args.memory_storage,
+            args.workspace,
+            args.memory_project_root,
+            expected_sha256=args.expected_sha256,
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_migration", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    if args.command == "memory-project-preview":
+        receipt = preview_memory_project(
+            args.memory_storage, args.workspace, args.memory_project_root
+        )
+        print(
+            json.dumps(
+                {"type": "memory.project_preview", **receipt},
+                ensure_ascii=True,
+                indent=None if args.json else 2,
+            )
+        )
+        return 0
+    directory = getattr(args, "directory_selection", None)
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
+    if args.command == "session-rename":
+        receipt = rename_session(
+            args.storage,
+            args.workspace,
+            args.session_id,
+            sqlite=args.storage_backend == "sqlite",
+            expected_sha256=args.expected_sha256,
+            name=None if args.clear else args.name,
+        )
+        print(json.dumps(receipt, ensure_ascii=True, indent=None if args.json else 2))
+        return 0
     if args.command == "session-prune-batch":
         return _run_batch_prune(args)
     if args.command == "session-prune":
@@ -1354,6 +2098,19 @@ def _run_command(args: argparse.Namespace) -> int:
         raise ValueError(
             "--catalog-max-bytes applies to snapshot storage; SQLite uses --limit"
         )
+    picked: ResumeSelection | None = None
+    if args.command == "resume" and args.session_id is None and not args.last:
+        picked = _choose_resume(args)
+        if picked is None:
+            return 0
+    if picked is not None:
+        args.session_id = picked.summary.session_id
+    if (
+        args.command in {"resume", "session-delete"}
+        and not isinstance(args.session_id, str)
+        and not getattr(args, "last", False)
+    ):
+        raise ValueError("A session ID is required.")
     if args.command == "resume" and args.inspect:
         if not sqlite_backend:
             raise ValueError("--inspect requires --storage-backend sqlite")
@@ -1367,12 +2124,14 @@ def _run_command(args: argparse.Namespace) -> int:
             or args.pending_text_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
+            or args.review_guidance_policy is not None
+            or args.expected_review_policy_sha256 is not None
             or args.no_memory
             or args.tui
             or args.plain
         ):
             raise ValueError("--inspect cannot use session changes or terminal options")
-        latest = None
+        latest = None if picked is None else picked.summary
         if args.last:
             page = list_sqlite_conversations(args.storage, args.workspace, limit=1)
             if not page.sessions:
@@ -1380,7 +2139,7 @@ def _run_command(args: argparse.Namespace) -> int:
             latest = page.sessions[0]
         inspection = inspect_sqlite_resume(
             args.storage,
-            args.session_id if latest is None else latest.session_id,
+            str(args.session_id) if latest is None else latest.session_id,
             args.workspace,
             expected_sha256=None if latest is None else latest.snapshot_sha256,
         )
@@ -1418,11 +2177,50 @@ def _run_command(args: argparse.Namespace) -> int:
         print("--refresh-cassette requires --refresh-memory", file=sys.stderr)
         return 2
     memory = None
+    memory_project = None
+    saved_resolver: MemoryMappingResolver | None = None
+    mapping = getattr(args, "memory_project_mapping", None)
+    root = getattr(args, "memory_project_root", None)
+    if mapping is not None and root is not None:
+        raise ValueError("Choose one project memory identity.")
+    memory_path = mapping if mapping is not None else root
+    if memory_path is None and args.command in {
+        "chat",
+        "conversation-demo",
+        "conversation-review-demo",
+    }:
+        if not isinstance(directory, DirectorySelection):
+            directory = DirectorySelection.inspect(args.workspace)
+        directory.verify()
+        args.workspace = directory.path
+        resolver = getattr(args, "saved_mapping_resolver", None)
+        if not isinstance(resolver, MemoryMappingResolver):
+            resolver = MemoryMappingResolver(
+                args.memory_storage,
+                disabled=getattr(args, "memory_project_local", False) or args.no_memory,
+            )
+        saved_resolver = resolver
+        memory_project = resolver.resolve(args.workspace)
+        if memory_project is not None:
+            mapping = memory_project.path
+    if memory_path is not None:
+        memory_project = select_memory_project(
+            args.workspace, memory_path, mapped=mapping is not None
+        )
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
     if (
         args.command in {"chat", "conversation-demo", "conversation-review-demo"}
         and not args.no_memory
     ):
-        memory = MemoryStore(args.memory_storage, args.workspace).load()
+        memory = MemoryStore(
+            args.memory_storage,
+            args.workspace if memory_project is None else memory_project.path,
+        ).load()
+    if memory_project is not None:
+        memory_project.verify()
+    if saved_resolver is not None:
+        saved_resolver.resolve(args.workspace)
     if args.command == "conversation-review-demo":
         brief, cassette = demo_inputs()
         packet = ConversationReviewPacket(brief=brief, cassette=cassette)
@@ -1507,7 +2305,12 @@ def _run_command(args: argparse.Namespace) -> int:
                     {
                         "type": "conversation.summary",
                         "text": (
-                            f"{summary.session_id} | {saved} | "
+                            (
+                                f"{summary.session_name} | "
+                                if summary.session_name
+                                else ""
+                            )
+                            + f"{summary.session_id} | {saved} | "
                             f"{summary.messages} messages | "
                             f"{'active' if summary.active else 'available'} | "
                             f"{summary.snapshot_bytes}/"
@@ -1528,7 +2331,7 @@ def _run_command(args: argparse.Namespace) -> int:
         emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
         with store_type(
             args.storage,
-            args.session_id,
+            str(args.session_id),
             args.workspace,
             create=False,
             require_workspace=False,
@@ -1550,6 +2353,9 @@ def _run_command(args: argparse.Namespace) -> int:
     pending_limits = PendingTextLimits(
         max_bytes=args.pending_text_max_bytes or DEFAULT_PENDING_TEXT_BYTES
     )
+    initial_prompt = args.prompt if args.command == "chat" else None
+    if initial_prompt is not None:
+        pending_limits.admit((), initial_prompt)
     explicit_cassette = (
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
@@ -1560,8 +2366,22 @@ def _run_command(args: argparse.Namespace) -> int:
         if args.review_packet is not None
         else None
     )
+    from mos_eisley.conversation_guidance_review import review_guidance_validator
+
+    validate_review = review_guidance_validator(
+        args.workspace,
+        args.review_guidance_storage,
+        args.review_guidance_policy,
+        args.expected_review_policy_sha256,
+    )
+    if review_packet is not None and review_packet.guidance_review is not None:
+        if validate_review is None:
+            raise ValueError(
+                "Guided review requires an explicit policy/hash for this launch."
+            )
+        validate_review(review_packet)
     fresh: ConversationState | None = None
-    selected: ConversationSummary | None = None
+    selected: ConversationSummary | None = None if picked is None else picked.summary
     if args.command == "chat":
         cassette = explicit_cassette or demo_cassette(memory=memory)
         fresh = ConversationController.fresh(
@@ -1569,10 +2389,18 @@ def _run_command(args: argparse.Namespace) -> int:
             cassette,
             memory,
             memory_disabled=args.no_memory,
+            memory_project_root=None
+            if memory_project is None or mapping is not None
+            else str(memory_project.path),
+            memory_project_mapping=None
+            if memory_project is None or mapping is None
+            else str(memory_project.path),
             snapshot_max_bytes=args.session_max_bytes,
             context_max_bytes=args.context_max_bytes,
             input_limits=input_limits,
         )
+        if args.name is not None:
+            fresh = fresh.model_copy(update={"session_name": args.name})
         session_id = fresh.session_id
     elif args.last:
         summaries = (
@@ -1593,14 +2421,28 @@ def _run_command(args: argparse.Namespace) -> int:
         selected = summaries[0]
         session_id = selected.session_id
     else:
-        session_id = args.session_id
+        session_id = str(args.session_id)
     emit({"type": "conversation.storage", "text": str(args.storage.absolute())})
+    if isinstance(directory, DirectorySelection):
+        directory.verify()
+    if memory_project is not None:
+        memory_project.verify()
     with store_type(
-        args.storage, session_id, args.workspace, create=fresh is not None
+        args.storage,
+        session_id,
+        args.workspace,
+        create=fresh is not None,
+        expected_root_identity=None if picked is None else picked.location.identity,
     ) as store:
         if isinstance(store, SQLiteConversationStore):
             store.input_limits = input_limits
         if fresh is not None:
+            if saved_resolver is not None:
+                saved_resolver.resolve(args.workspace)
+            if memory_project is not None:
+                memory_project.verify()
+            if isinstance(directory, DirectorySelection):
+                directory.verify()
             store.save(fresh)
         state = (
             store.load_working()
@@ -1618,12 +2460,18 @@ def _run_command(args: argparse.Namespace) -> int:
             )
             != selected.snapshot_sha256
         ):
-            raise ValueError("selected latest conversation changed; list again")
+            raise SessionSelectionError("Selected conversation changed; select again.")
         selected_refresh = args.command == "resume" and args.refresh_memory
         ignore_memory = args.no_memory or (
             state.memory_disabled and not selected_refresh
         )
-        memory_store = MemoryStore(args.memory_storage, args.workspace)
+        memory_store = MemoryStore(
+            args.memory_storage, Path(state.effective_memory_workspace)
+        )
+        if memory_store.workspace != state.effective_memory_workspace:
+            raise ValueError(
+                "Saved memory project identity changed; use its original directory."
+            )
         if args.command == "resume":
             memory = None if ignore_memory else memory_store.load()
         cassette = (
@@ -1660,6 +2508,7 @@ def _run_command(args: argparse.Namespace) -> int:
             ignore_memory=ignore_memory,
         )
         controller.validate_memory = memory_runtime.check
+        controller.validate_review = validate_review
         if selected_refresh:
             replacement = (
                 None
@@ -1679,15 +2528,33 @@ def _run_command(args: argparse.Namespace) -> int:
             controller.resize_storage(args.session_max_bytes)
         if args.command == "resume" and args.context_max_bytes is not None:
             controller.resize_context(args.context_max_bytes)
+        project_location = ProjectLocation.inspect(Path(controller.state.workspace))
         emit(
             {
                 "type": "conversation.opened",
+                **project_location.fields(controller.state.effective_memory_workspace),
+                **(
+                    {"memory_project_mapping": controller.state.memory_project_mapping}
+                    if controller.state.memory_project_mapping is not None
+                    else {}
+                ),
                 "session_id": session_id,
+                **(
+                    {"session_name": controller.state.session_name}
+                    if controller.state.session_name is not None
+                    else {}
+                ),
                 "text": (
-                    f"Session {session_id}. Recorded preview. "
+                    f"Session {session_id} "
+                    f"({controller.state.session_name or 'unnamed'}). "
+                    "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
-                    "/steer TEXT, /review, /context [N], /stop, /continue, /quit. "
-                    "Ctrl-C stops work."
+                    "/steer TEXT, /review, /context [N], /rename NAME, "
+                    "/stop, /continue, /quit. "
+                    "Ctrl-C stops work.\n"
+                    + project_location.describe(
+                        controller.state.effective_memory_workspace
+                    )
                 ),
             }
         )
@@ -1746,6 +2613,7 @@ def _run_command(args: argparse.Namespace) -> int:
             welcome += (
                 "\nStorage: SQLite (logical snapshot budget; incremental records)."
             )
+        handoff: DirectoryHandoff | None = None
         if args.tui or (
             not args.plain
             and not args.json
@@ -1757,26 +2625,48 @@ def _run_command(args: argparse.Namespace) -> int:
             fd = sys.stdin.fileno()
             original_modes = termios.tcgetattr(fd)
             try:
-                asyncio.run(
-                    ConversationTUI(
+                with closing(create_input()) as terminal_input:
+                    switch_mappings = MemoryMappingResolver(
+                        args.memory_storage,
+                        disabled=getattr(args, "memory_project_local", False)
+                        or args.no_memory,
+                    )
+                    ui = ConversationTUI(
                         controller,
                         review_packet,
+                        initial_prompt=initial_prompt,
                         welcome=welcome,
+                        allow_directory_switch=True,
+                        memory_resolver=switch_mappings.resolve,
+                        project_location=project_location,
+                        input=terminal_input,
                         refresh_memory=memory_runtime.refresh,
+                        memory_command=memory_runtime.command,
                         load_transcript=store.transcript_page
                         if isinstance(store, SQLiteConversationStore)
                         else None,
                         load_artifact=store.transcript_artifact
                         if isinstance(store, SQLiteConversationStore)
                         else None,
-                    ).run()
-                )
+                    )
+                    asyncio.run(ui.run())
+                    if isinstance(ui.directory_target, DirectorySelection):
+                        args.saved_mapping_resolver = switch_mappings
+                        handoff = DirectoryHandoff(ui.directory_target)
             finally:
                 termios.tcsetattr(fd, termios.TCSANOW, original_modes)
         else:
             emit({"type": "conversation.welcome", "text": welcome})
             asyncio.run(
-                _run_terminal(controller, emit, review_packet, memory_runtime.refresh)
+                _run_terminal(
+                    controller,
+                    emit,
+                    review_packet,
+                    memory_runtime.refresh,
+                    memory_command=memory_runtime.command,
+                    initial_prompt=initial_prompt,
+                    project_location=project_location,
+                )
             )
         emit(
             {
@@ -1785,4 +2675,6 @@ def _run_command(args: argparse.Namespace) -> int:
                 "text": f"Saved session {session_id}.",
             }
         )
+        if handoff is not None:
+            return handoff
     return 0

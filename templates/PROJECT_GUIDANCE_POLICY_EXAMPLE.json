@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "owner_guidance_prohibitions",
+  "policy_id": "project-guidance-policy",
+  "revision": "v1",
+  "owner_uid": 0,
+  "workspace": {
+    "path": "/replace/with/canonical/project",
+    "device": 0,
+    "inode": 0
+  },
+  "prohibitions": [
+    {
+      "id": "DENY-EXAMPLE",
+      "reference": {
+        "kind": "requirement",
+        "rule_id": "REPLACE-WITH-PROHIBITED-ID"
+      },
+      "reason": "Replace with the owner’s reason for prohibiting selection of this rule."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "kind": "project_requirement_selection",
+  "review_rationale": "Reviewed this project brief and accepted its storage requirement.",
+  "sources": [
+    {
+      "id": "brief",
+      "kind": "brief",
+      "content_sha256": "249a00d34acabc943e1d1627abbb5e841629b532e1e490386f5865c55a59650f"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ1",
+      "source_id": "brief",
+      "text": "Retain project data locally.",
+      "applies_when": "Storing project data",
+      "rationale": "The project requires local data ownership.",
+      "checks": [
+        "Verify project data is stored locally."
+      ]
+    }
+  ]
+}

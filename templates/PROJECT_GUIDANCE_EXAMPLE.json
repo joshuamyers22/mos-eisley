@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "advisory_project_guidance",
+  "template_id": "engineering-example",
+  "version": "1.0.0",
+  "source_revision": "local-example-v1",
+  "content_sha256": "660fac01bc84ea23ced555fda7525fa2fb661e10f98733db6b1e45722155b7c1",
+  "rules": [
+    {
+      "id": "ENG-001",
+      "kind": "advisory",
+      "text": "Prefer simple, maintainable code; earn complexity with evidence.",
+      "applies_when": "Implementation and architecture decisions",
+      "rationale": "Keep complexity justified by project needs.",
+      "checks": [
+        "Explain the relevant tradeoff in the project review."
+      ]
+    },
+    {
+      "id": "ENG-002",
+      "kind": "advisory",
+      "text": "Measure correctness, relevant efficiency, and whole-task cost together.",
+      "applies_when": "Comparing implementation approaches",
+      "rationale": "Avoid optimizing one metric at the expense of the task outcome.",
+      "checks": [
+        "Record applicable correctness and resource evidence."
+      ]
+    }
+  ]
+}

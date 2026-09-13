@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import JsonValue
 
@@ -76,22 +76,22 @@ class EphemeralOpenAITransportTests(IsolatedAsyncioTestCase):
         payload = build_openai_conformance_payload(
             batch, batch.requests[0].sample_id, policy
         )
-        requests: list[httpx.Request] = []
+        requests: list[httpx2.Request] = []
         clients: list[BoundedOpenAIHttpClient] = []
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             requests.append(request)
             if request.url.path.endswith("/input_tokens"):
-                return httpx.Response(200, json={"input_tokens": 100}, request=request)
+                return httpx2.Response(200, json={"input_tokens": 100}, request=request)
             body = conformance_response(policy.model)
             body["object"] = "response"
             body["created_at"] = 0
-            return httpx.Response(200, json=body, request=request)
+            return httpx2.Response(200, json=body, request=request)
 
         def bounded_client(**options: object) -> BoundedOpenAIHttpClient:
             self.assertFalse(options["trust_env"])
             self.assertFalse(options["follow_redirects"])
-            client = BoundedOpenAIHttpClient(transport=httpx.MockTransport(reply))
+            client = BoundedOpenAIHttpClient(transport=httpx2.MockTransport(reply))
             clients.append(client)
             return client
 

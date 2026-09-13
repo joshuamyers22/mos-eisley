@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal, Protocol, Self
 
-import httpx
+import httpx2
 from openai import AsyncOpenAI, OpenAIError
 from pydantic import Field, model_validator
 
@@ -43,11 +43,11 @@ def _safe_readiness_failure_detail(
         seen.add(id(current))
         if isinstance(current, OpenAIResponseLimitError):
             return "response_limit_error"
-        if isinstance(current, httpx.DecodingError):
+        if isinstance(current, httpx2.DecodingError):
             return "response_decode_error"
-        if isinstance(current, httpx.ProtocolError):
+        if isinstance(current, httpx2.ProtocolError):
             return "protocol_error"
-        if isinstance(current, httpx.NetworkError):
+        if isinstance(current, httpx2.NetworkError):
             return "connection_error"
         current = current.__cause__ or current.__context__
     return "unknown_transport_error"

@@ -22,14 +22,72 @@ Start the interactive recorded conversation from your project directory:
 uv run --frozen mos
 # After installing the CLI on PATH, simply run: mos
 uv run --frozen mos resume --last
+uv run --frozen mos -- "Remember that the fixture boundary is ten."
 ```
 
 The welcome screen shows the workspace and supported preview messages. Sessions
 save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Live conversation is still pending. See the
 [terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
+launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
+
+[Named sessions](docs/CONVERSATION_NAMES.md) support `mos chat --name "Parser cleanup"`,
+`/rename NAME`, and `mos resume --name "Parser cleanup"`. Bare `mos resume` opens
+a keyboard picker with name/ID filtering; duplicate names require explicit
+selection. Resumed queued work stays paused until you continue it.
+
+Use `mos --choose-directory` or `mos resume --choose-directory` to open the
+[startup directory selector](docs/CONVERSATION_DIRECTORY.md). Edit the path,
+press Enter to preview its resolved target, then Ctrl-S to select it.
+During a conversation, F9 or `/directory switch` selects another project and opens
+a fresh session. Active work and unsent drafts must be resolved first; the old
+session and its queued messages remain saved.
+The terminal shows the working directory and detected Git-marker project root
+separately. `/directory` shows full paths and the effective project-memory identity.
+Use [`--memory-project-root PATH`](docs/CONVERSATION_MEMORY_PROJECT.md) to select
+shared project memory explicitly for a new session. `memory-project-preview` compares
+workspace and root documents before adoption. `memory-project-migrate` previews
+and applies a guarded copy to an empty root, preserving the source document.
+`memory-project-recover` provides explicit, preview-bound cleanup of a verified
+extra staging link left by interrupted publication.
+`memory-project-resolve` reviews existing-document collisions and preserves a
+private prior-root backup before applying an explicit text resolution.
+Use `--memory-project-map PATH` to explicitly share another existing directory's
+memory across unrelated worktrees. The choice is saved per session; directory
+switching clears it, and workspace/tool authority stays with the working directory.
+`memory-project-relocate` reviews a copy from an exact former project path, including
+a vanished directory, to an absent destination document. It preserves old memory
+and session identities and supports explicit interrupted-copy recovery. Add an
+explicit `--strategy` to review collisions across worktrees or from vanished
+directories, with a durable prior-target backup before changing destination text.
+[`memory-project-cleanup`](docs/CONVERSATION_MEMORY_CLEANUP.md) reviews one staging
+discard or interrupted-backup link repair while preserving live memory.
+`memory-project-cleanup-batch` reviews up to 32 named records, including backup
+pruning under an explicit age cutoff, and reports partial progress on failure.
+[`memory-project-retention`](docs/CONVERSATION_MEMORY_RETENTION.md) adds a bounded
+inventory and reviewed newest-count protection for backup pruning.
+[`memory-staging-discard`](docs/CONVERSATION_MEMORY_STAGING.md) separately reviews
+the exact bytes of one invalid staging file with unverified project attribution.
+Both it and [`memory-project-staging-discard`](docs/CONVERSATION_MEMORY_STAGING_REVIEW.md)
+support an explicit review limit up to 4 MiB; the project command verifies valid
+canonical/noncanonical snapshots against an exact project identity.
+[Unsupported backup disposal](docs/CONVERSATION_MEMORY_BACKUP_DISCARD.md) now adds
+`memory-backup-discard` for invalid bytes and `memory-project-backup-discard` for
+verified noncanonical or misnamed backups, with current-memory protection.
 
 Explicit [user and project memory](docs/CONVERSATION_MEMORY.md) now loads at startup.
+Save shared memory selection with `mos memory-project-mapping set -C WORKSPACE
+--target PROJECT` and its reviewed apply hash. New sessions then use that mapping;
+`--memory-project-local` bypasses it. See [saved mappings](docs/CONVERSATION_MEMORY_MAPPINGS.md).
+Updates retain the previous registry. Inspect it with `mos memory-project-mapping
+history`; [reviewed restore and cleanup](docs/CONVERSATION_MEMORY_MAPPING_RECOVERY.md)
+recover interrupted mapping writes without changing saved session identities.
+Use [reviewed bulk import](docs/CONVERSATION_MEMORY_MAPPING_IMPORT.md) to add or
+replace several mappings together with explicit conflict previews.
+[Mapping-history retention](docs/CONVERSATION_MEMORY_MAPPING_RETENTION.md) reviews
+old backups with count/age protections and bounded, explicit deletion batches.
+
 Use `mos memory append --scope user --text "..."` for personal preferences, or
 `--scope project` for the current project. `/memory` inspects active context and
 `mos --no-memory` bypasses it. Use `/memory refresh` to apply changes to the
@@ -372,7 +430,9 @@ exercises both arms. The optional
 [Parquet case integration](docs/ANALYSIS_PARQUET_CASES.md) also checks six
 nonconstant cases through the real data-mcp server.
 [Parameterized metric integration](docs/ANALYSIS_METRIC_PARAMETERS.md) adds checked
-date-window calls using the same controller. See the
+date-window calls using the same controller.
+[Output-contract regression](docs/ANALYSIS_OUTPUT_CONTRACTS.md) checks that changed
+database types cannot support an answer. See the
 [configuration and limits](docs/ANALYSIS.md) and
 [verification record](docs/ANALYSIS_VERIFICATION.md).
 

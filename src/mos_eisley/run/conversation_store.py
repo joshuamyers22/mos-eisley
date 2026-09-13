@@ -20,6 +20,7 @@ from mos_eisley.conversation_limits import (
     MAX_CATALOG_SCAN_BYTES,
     MAX_SNAPSHOT_BYTES,
 )
+from mos_eisley.conversation_name import SessionName
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 
 MAX_BYTES = MAX_SNAPSHOT_BYTES
@@ -35,6 +36,9 @@ class ConversationSnapshot(Contract):
 
 class ConversationSummary(Contract):
     session_id: SessionID
+    session_name: SessionName | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     snapshot_sha256: Digest
     revision: Annotated[int, Field(ge=0)]
     modified_ns: Annotated[int, Field(ge=0)]
@@ -160,6 +164,7 @@ def list_conversations(
             summaries.append(
                 ConversationSummary(
                     session_id=session_id,
+                    session_name=state.session_name,
                     snapshot_sha256=snapshot.sha256,
                     revision=state.revision,
                     modified_ns=modified_ns,

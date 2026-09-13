@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "kind": "project_role_guidance_selection",
+  "role": "creator",
+  "scope": "Implement the project storage requirement.",
+  "review_rationale": "REQ1 applies to this implementation scope.",
+  "rules": [
+    {
+      "kind": "requirement",
+      "rule_id": "REQ1"
+    }
+  ],
+  "omitted_requirements": []
+}

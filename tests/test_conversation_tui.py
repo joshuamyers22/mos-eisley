@@ -569,7 +569,10 @@ class TUIContractTests(TestCase):
             with self.subTest(bare=bare):
                 self.check_real_terminal(bare=bare)
 
-    def check_real_terminal(self, *, bare: bool) -> None:
+    def test_real_terminal_launch_prompt_runs_without_typing(self) -> None:
+        self.check_real_terminal(bare=True, initial=True)
+
+    def check_real_terminal(self, *, bare: bool, initial: bool = False) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             cassette = root / "cassette.json"
@@ -589,6 +592,8 @@ class TUIContractTests(TestCase):
                     str(root),
                 ]
             )
+            if initial:
+                arguments.extend(["--", DEMO_PROMPTS[0]])
             process = subprocess.Popen(
                 [sys.executable, "-m", "mos_eisley.cli", *arguments],
                 stdin=slave,
@@ -630,13 +635,14 @@ class TUIContractTests(TestCase):
             try:
                 read_until(b"\x1b[?1049h")
                 read_until(b"Directory:")
-                if bare:
+                if bare and not initial:
                     # Startup details can exceed the live viewport. Scroll to the
                     # welcome notice instead of assuming it is initially visible.
                     os.write(master, b"\x1b[5~\x0c")
                     read_until(b"live conversations are not connected yet")
                     os.write(master, b"\t")
-                os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
+                if not initial:
+                    os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
                 # A differential repaint can reuse old glyphs via cursor moves.
                 # Request a full repaint before matching contiguous answer bytes.
                 read_until(b"\x1b[?1049h", answer_saved)
@@ -654,6 +660,8 @@ class TUIContractTests(TestCase):
                 self.assertEqual(restored, original)
                 storage = root / (".mos-eisley-sessions" if bare else "sessions")
                 self.assertEqual(len(list(storage.glob("*.json"))), 1)
+                saved = json.loads(next(storage.glob("*.json")).read_bytes())["state"]
+                self.assertEqual(len(saved["entries"]), 1)
             finally:
                 if process.poll() is None:
                     process.kill()

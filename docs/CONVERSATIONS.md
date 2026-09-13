@@ -5,6 +5,10 @@ privately. Run it from your project directory; the built-in recorded preview and
 `~/.mos-eisley-sessions` storage require no setup. Use `mos resume --last` to return
 to that workspace's latest session. See [terminal startup](CONVERSATION_TUI.md)
 for workspace selection, custom recordings and keyboard controls.
+`mos -- "Remember that the fixture boundary is ten."` or
+`mos chat "Remember that the fixture boundary is ten."` submits a literal initial
+message in a new session. Quote multiline text as one argument; it precedes piped
+follow-ups and uses the same recorded-request and input limits as typed messages.
 `--storage-backend sqlite` selects [incremental local storage](CONVERSATION_SQLITE.md)
 with paginated metadata listing. Repeat that option for its resume/list/delete
 commands; the examples below otherwise use the default JSON snapshot backend.
@@ -51,6 +55,11 @@ that preserves consumed exchanges and retains its replacement recording. A new `
 starts empty and never retrieves other sessions' content.
 
 ## Finding and removing sessions
+
+Use `mos chat --name "Parser cleanup"` and `mos resume --name "Parser cleanup"`
+for readable labels, or bare `mos resume` for an interactive picker. `/rename NAME`
+changes the current label; `mos session-rename` edits a closed session with its
+current hash. See [naming, duplicate handling and picker limits](CONVERSATION_NAMES.md).
 
 List saved sessions for the current workspace, newest first:
 

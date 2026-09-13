@@ -20,10 +20,13 @@ mos
 
 `--scope` is always explicit. User memory applies to your other project sessions;
 project memory does not. `-C /path/to/project` selects the project for both memory
-commands and new conversations. The selected canonical workspace is currently the
-project boundary: launching in a subdirectory creates a different project scope.
-Use the same `-C` root consistently. Git-root discovery, project moves and explicit
-worktree sharing remain planned; remote repository URLs never merge stores.
+commands and new conversations. By default the canonical workspace is the project
+boundary: launching in a subdirectory creates a different scope. New chats can
+explicitly select an ancestor with [`--memory-project-root PATH`](CONVERSATION_MEMORY_PROJECT.md).
+The saved identity is reused on resume and refresh. Use `memory-project-preview`
+to compare existing documents first; reviewed migration and
+[explicit project/worktree mappings](CONVERSATION_MEMORY_MAPPINGS.md) are available. Git discovery and remote URLs never merge stores. `/directory` shows
+the effective memory identity separately from the detected Git-marker root.
 
 The runtime includes memory as labelled user/project context. Project preferences
 override general user defaults, and current user instructions override both.
@@ -59,9 +62,101 @@ an explicit operation applies to the latest document under the store lock.
 `--json` emits one structured receipt, including the selected path and document.
 
 Updates are commands invoked by the user. The model cannot call them as tools.
-Natural-language remember/forget, in-session editing, automatic extraction and
-proposed-memory approval controls remain planned. Ordinary chat text is not
+Explicit scoped remember shortcuts are described below. Free-form remember/forget
+interpretation and automatic extraction remain planned.
+[Assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md) now accepts a selected
+structured reply only after explicit scope selection, preview and confirmation.
+[Reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md) now removes one
+explicitly identified span after preview and hash confirmation.
+[Reviewed replacement](CONVERSATION_MEMORY_REPLACE.md) substitutes explicitly supplied
+new text for one unique exact span. Ordinary chat text is not
 automatically promoted to either memory scope.
+
+## Edit from a terminal session
+
+Both the full-screen terminal and plain/JSON mode accept explicitly scoped commands:
+
+```text
+/memory show user
+/memory append project Run make check before publishing.
+/memory set user Prefer concise explanations.
+/memory disable project
+/memory enable project
+/memory clear project
+/memory refresh
+/continue
+```
+
+`show` reads the saved document, including disabled or empty documents; `/memory`
+still displays the session's active selection. Every management command requires
+`user` or `project`. `append` and `set` require nonempty text; use `clear` to empty a
+scope. These commands apply to the latest document under the existing store lock,
+like CLI edits without `--expected-sha256`. Use the standalone CLI with that option
+when an edit must match a previously inspected revision. Text after the scope is
+literal: shell syntax and quote marks are saved as text. Commands accept one line
+within the terminal's 8,000-character input limit; use the file-based CLI for larger
+or multiline edits. Existing 32-KiB document bounds still apply.
+
+Stop or finish active requests before managing memory. Inspection and attempted
+edits pause queued work, including rejected edits. A successful edit reports the
+scope, path, revision, enabled state and digest. The project target is the session's
+retained memory identity, including an explicitly selected root or saved mapping.
+
+An edit changes the saved document; it does not change this session's selection,
+consumed recording exchanges or historical context. Use `/memory refresh` to load
+the new selection, then `/continue` for queued messages. Refresh may reject a
+combined memory/context/storage limit or require a custom recording replacement;
+the saved edit still exists. A session with memory off stays off until explicitly
+refreshed. Saving does not implicitly enable a disabled document. Storage failures
+may occur after publication, so inspect the saved scope before retrying an append.
+
+Only directly entered commands and the scoped remember phrases below use this path. Full-screen pasted text and composed
+messages remain literal chat input; model/tool output and ordinary remember/forget
+phrases outside the documented forms never invoke storage edits. Plain input treats each command line as an
+explicit command; use `/compose` when supplying literal slash-prefixed chat text.
+
+## Remember a preference
+
+Enter either of these single-line requests directly in the terminal:
+
+```text
+remember this for this project: Run make check before publishing.
+remember this everywhere: Prefer concise explanations.
+```
+
+The project phrase appends to the session's retained project-memory scope; the
+other appends to user memory. The prefix is case-insensitive. Everything after
+the first colon is explicit text to save, including any quotes or shell syntax.
+The receipt shows the scope, saved text, path, revision and digest. This is a local
+memory operation: it creates no conversation message, consumes no model attempt
+and leaves queued work paused. The same storage limits, locks, disabled-document
+behavior and refresh requirements apply as for `/memory append`.
+
+`remember this: TEXT` asks for an explicit scope without saving. A recognized
+prefix without a colon or content asks for the complete request; Mos never infers
+what "this" means from previous messages. Correct the request using one of the
+two complete forms. Rejected full-screen submissions stay in the editor. Stop or
+finish active requests before saving; storage failures retain the draft and warn
+that a write might already have been published, so inspect before retrying.
+
+These forms are recognized only as directly entered terminal input. Full-screen
+pastes, `/compose` drafts, initial command-line prompts, model/tool output and
+quoted or embedded phrases remain chat data. In plain/JSON input, each line is a
+user command; use `/compose` for literal text matching a shortcut. No classifier,
+transcript extraction or model tool receives permission to save memory. Broader
+natural-language interpretation remains planned. Structured assistant proposals now require
+explicit review and confirmation as described below.
+Use `/memory forget SCOPE EXACT_TEXT` or `forget this for this project: TEXT` /
+`forget this everywhere: TEXT` for a reviewed selective removal; then confirm with
+`/memory apply-forget PREVIEW_SHA256`. See [selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+To accept a structured assistant suggestion, use `/memory review-proposal SCOPE INDEX`,
+then `/memory apply-proposal PREVIEW_SHA256`. Indices match the displayed zero-based
+message labels. See [assistant proposals](CONVERSATION_MEMORY_PROPOSALS.md).
+To curate a span from an ordinary reply, use `/memory review-text SCOPE INDEX "EXACT_TEXT"`
+and the same confirmation control. See [selected reply text](CONVERSATION_MEMORY_SELECTION.md).
+For a reviewed edit, use `/memory replace SCOPE {"old":"TEXT","new":"TEXT"}`, then
+`/memory apply-replace PREVIEW_SHA256`. See [replacement](CONVERSATION_MEMORY_REPLACE.md).
+Use explicit `/memory clear SCOPE` to clear a current document.
 
 ## Session consistency and retention
 

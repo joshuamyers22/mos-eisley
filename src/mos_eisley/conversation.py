@@ -117,6 +117,7 @@ class ConversationController(Generic[StateT]):
         save: Callable[[StateT], StateT | None],
         *,
         validate_memory: Callable[[], None] | None = None,
+        validate_review: Callable[[ConversationReviewPacket], None] | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -135,6 +136,7 @@ class ConversationController(Generic[StateT]):
         self.cassette = cassette
         self.save = save
         self.validate_memory = validate_memory
+        self.validate_review = validate_review
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
@@ -157,6 +159,8 @@ class ConversationController(Generic[StateT]):
         memory: ConversationMemory | None = None,
         *,
         memory_disabled: bool = False,
+        memory_project_root: str | None = None,
+        memory_project_mapping: str | None = None,
         snapshot_max_bytes: int | None = None,
         context_max_bytes: int | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -175,6 +179,8 @@ class ConversationController(Generic[StateT]):
             cassette_sha256=recording.sha256,
             memory=memory,
             memory_disabled=memory_disabled,
+            memory_project_root=memory_project_root,
+            memory_project_mapping=memory_project_mapping,
             snapshot_max_bytes=snapshot_max_bytes,
             context_max_bytes=context_max_bytes,
         )
@@ -190,8 +196,11 @@ class ConversationController(Generic[StateT]):
         updated = type(self.state).model_validate(
             dict(
                 session_id=self.state.session_id,
+                session_name=self.state.session_name,
                 owner_uid=self.state.owner_uid,
                 workspace=self.state.workspace,
+                memory_project_root=self.state.memory_project_root,
+                memory_project_mapping=self.state.memory_project_mapping,
                 cassette_sha256=self.state.cassette_sha256,
                 revision=self.state.revision + 1,
                 exchanges_consumed=(
@@ -267,8 +276,11 @@ class ConversationController(Generic[StateT]):
             updated = type(self.state).model_validate(
                 dict(
                     session_id=self.state.session_id,
+                    session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
                     workspace=self.state.workspace,
+                    memory_project_root=self.state.memory_project_root,
+                    memory_project_mapping=self.state.memory_project_mapping,
                     revision=self.state.revision + 1,
                     exchanges_consumed=consumed,
                     entries=entries,
@@ -292,6 +304,17 @@ class ConversationController(Generic[StateT]):
             ) from None
         self._commit(updated)
         self.cassette = cassette
+
+    def rename(self, name: str | None) -> None:
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise ValueError("Stop active work before renaming the session.")
+        updated = validate_runtime_state(
+            self.state.model_copy(
+                update={"session_name": name, "revision": self.state.revision + 1}
+            )
+        )
+        if name != self.state.session_name:
+            self._commit(updated)
 
     def resize_storage(self, maximum: int) -> None:
         if self._busy or any(entry.status == "running" for entry in self.state.entries):
@@ -347,7 +370,22 @@ class ConversationController(Generic[StateT]):
 
     def submit_review(self, packet: ConversationReviewPacket) -> None:
         packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+        self._check_review_guidance(packet)
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
+
+    def _check_review_guidance(self, packet: ConversationReviewPacket) -> None:
+        guidance = packet.guidance_review
+        if guidance is None:
+            return
+        if (
+            self.validate_review is None
+            or guidance.owner_uid != self.state.owner_uid
+            or guidance.workspace.path != self.state.workspace
+        ):
+            raise ValueError(
+                "Guided review requires this project's current policy selection."
+            )
+        self.validate_review(packet)
 
     def cancel_queued(self) -> None:
         self._update(
@@ -388,6 +426,8 @@ class ConversationController(Generic[StateT]):
                 raise ValueError("archived work requires its verified storage handle")
             entry = self.load_entry(index, entry)
         is_review = entry.is_review
+        if entry.review_packet is not None:
+            self._check_review_guidance(entry.review_packet)
         if not is_review and self.state.retained_cassette is not None:
             entry = entry.model_copy(
                 update={
@@ -440,7 +480,17 @@ class ConversationController(Generic[StateT]):
                 on_started()
             try:
                 if entry.review_packet is not None:
-                    review_result = await run_conversation_review(entry.review_packet)
+                    packet = entry.review_packet
+                    review_result = (
+                        await run_conversation_review(
+                            packet,
+                            validate_guidance=lambda: self._check_review_guidance(
+                                packet
+                            ),
+                        )
+                        if packet.guidance_review is not None
+                        else await run_conversation_review(packet)
+                    )
                     completed = ConversationEntry(
                         text=entry.text,
                         status="failed"

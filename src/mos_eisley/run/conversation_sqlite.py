@@ -99,6 +99,12 @@ class PackedPart(Contract):
 class SessionIndex(Contract):
     owner_uid: Annotated[int, Field(ge=0)]
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
+    memory_project_root: Annotated[str | None, Field(max_length=4096)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    memory_project_mapping: Annotated[str | None, Field(max_length=4096)] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     summary: ConversationSummary
     entry_sha256: Annotated[tuple[Digest, ...] | None, Field(max_length=16)] = Field(
         default=None, exclude_if=lambda value: value is None
@@ -106,6 +112,19 @@ class SessionIndex(Contract):
     resume_checkpoint: ResumeCheckpoint | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+
+    @model_validator(mode="after")
+    def valid_memory_project(self) -> Self:
+        _ = self.effective_memory_workspace
+        return self
+
+    @property
+    def effective_memory_workspace(self) -> str:
+        from mos_eisley.conversation_memory_project import memory_workspace
+
+        return memory_workspace(
+            self.workspace, self.memory_project_root, self.memory_project_mapping
+        )
 
 
 @dataclass(frozen=True)
@@ -209,8 +228,11 @@ def _index(
     return SessionIndex(
         owner_uid=state.owner_uid,
         workspace=state.workspace,
+        memory_project_root=state.memory_project_root,
+        memory_project_mapping=state.memory_project_mapping,
         summary=ConversationSummary(
             session_id=state.session_id,
+            session_name=state.session_name,
             snapshot_sha256=sha,
             revision=state.revision,
             modified_ns=modified_ns,
@@ -864,12 +886,13 @@ class SQLiteConversationStore(ConversationStore):
         sha: str,
         *,
         retain_result: bool,
+        memory_workspace: str,
     ) -> tuple[ConversationEntry | ArchivedConversationEntry, PackedPart] | None:
         fields = ("memory_context", "review_packet", "review_result")
         body = self._cold_part(db, part, sizes, fields, MAX_ACTIVE_ENTRY_BYTES)
         entry = ConversationEntry.model_validate_json(_json(body))
         if entry.memory_context is not None and entry.memory_context.memory is not None:
-            entry.memory_context.memory.validate_identity(os.getuid(), self.workspace)
+            entry.memory_context.memory.validate_identity(os.getuid(), memory_workspace)
         normalized = PackedPart.model_validate_json(
             _pack(entry.model_dump(mode="json"), fields, {})
         )
@@ -973,7 +996,12 @@ class SQLiteConversationStore(ConversationStore):
         normalized: list[PackedPart] = []
         for position, part in enumerate(parts):
             verified = self._cold_entry(
-                db, part, sizes, digests[position], retain_result=position == latest
+                db,
+                part,
+                sizes,
+                digests[position],
+                retain_result=position == latest,
+                memory_workspace=index.effective_memory_workspace,
             )
             if verified is None:
                 return None
@@ -997,6 +1025,8 @@ class SQLiteConversationStore(ConversationStore):
             state.session_id != self.session_id
             or state.owner_uid != os.getuid()
             or state.workspace != self.workspace
+            or state.memory_project_root != index.memory_project_root
+            or state.memory_project_mapping != index.memory_project_mapping
         ):
             raise ValueError("cold-resume state identity mismatch")
         artifacts: dict[str, bytes] = {}
@@ -1030,6 +1060,7 @@ class SQLiteConversationStore(ConversationStore):
                 checksum.update(chunk)
         summary = ConversationSummary(
             session_id=state.session_id,
+            session_name=state.session_name,
             snapshot_sha256=checksum.hexdigest(),
             revision=state.revision,
             modified_ns=index.summary.modified_ns,
@@ -1301,6 +1332,7 @@ class SQLiteConversationStore(ConversationStore):
                 raise ValueError("conversation snapshot size changed after admission")
             summary = ConversationSummary(
                 session_id=self.session_id,
+                session_name=state.session_name,
                 snapshot_sha256=checksum.hexdigest(),
                 revision=state.revision,
                 modified_ns=time.time_ns(),
@@ -1314,6 +1346,8 @@ class SQLiteConversationStore(ConversationStore):
             index = SessionIndex(
                 owner_uid=state.owner_uid,
                 workspace=state.workspace,
+                memory_project_root=state.memory_project_root,
+                memory_project_mapping=state.memory_project_mapping,
                 summary=summary,
                 entry_sha256=digests,
                 resume_checkpoint=resume_checkpoint(state, header_bytes, payloads),

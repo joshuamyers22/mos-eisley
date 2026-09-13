@@ -7,3 +7,6 @@ e800043af4061dcdc39d6fe6fdb4b38236c8c932:.gitleaksignore:generic-api-key:1
 # False positive: slash-separated names of the broker, spending, and quorum gates
 # in the integrated delivery roadmap. No credential value is present.
 3583aa580aebcd77f86ab5a086efede0888595e4:docs/ROADMAP.md:generic-api-key:14
+# False positive: a typed Ed25519 signing-key function parameter, with no value.
+# Limit the exception to this exact historical finding.
+3f7437276504e1f2a8d19586068e51a4fcc5a402:src/mos_eisley/run/review_conformance_observation.py:generic-api-key:299

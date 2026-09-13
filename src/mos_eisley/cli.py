@@ -18,6 +18,7 @@ from typing import Literal, cast
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
+from mos_eisley import review_campaign_cli, review_launch_cli
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import Brief, Contract, ReviewPolicy, canonical_bytes
@@ -224,6 +225,8 @@ from mos_eisley.run.openai_responses_canary import (
     verify_openai_responses_canary_authorization,
 )
 from mos_eisley.run.provider_broker import RequestBoundBroker
+from mos_eisley.run.review_controller import ControllerStart
+from mos_eisley.run.review_controller_inspection import inspect_review_controller
 from mos_eisley.run.routing_preflight import (
     RoutingRuntimePreflight,
     RoutingRuntimeSources,
@@ -385,6 +388,69 @@ def parser() -> argparse.ArgumentParser:
     from mos_eisley.conversation_cli import add_commands
 
     add_commands(subcommands.add_parser)
+    from mos_eisley.project_guidance_cli import add_command as add_guidance_command
+
+    add_guidance_command(
+        subcommands.add_parser(
+            "guidance-inspect", help="Inspect a pinned local advisory guidance template"
+        )
+    )
+    from mos_eisley.project_guidance_binding_cli import add_command as add_binding
+
+    add_binding(
+        subcommands.add_parser(
+            "guidance", help="Review private project guidance bindings"
+        )
+    )
+    from mos_eisley.project_guidance_override_cli import add_command as add_overrides
+
+    add_overrides(
+        subcommands.add_parser(
+            "guidance-overrides", help="Review project advisory overrides"
+        )
+    )
+    from mos_eisley.project_guidance_conflict_cli import add_command as add_conflicts
+
+    add_conflicts(
+        subcommands.add_parser(
+            "guidance-conflicts", help="Review advisory guidance conflicts"
+        )
+    )
+    from mos_eisley.project_requirement_cli import add_command as add_requirements
+
+    add_requirements(
+        subcommands.add_parser(
+            "requirements", help="Review accepted project requirements"
+        )
+    )
+    from mos_eisley.project_guidance_precedence_cli import add_command as add_assessment
+
+    add_assessment(
+        subcommands.add_parser(
+            "guidance-assess", help="Review requirement and advisory precedence"
+        )
+    )
+    from mos_eisley.project_guidance_policy_cli import add_command as add_policy_check
+
+    add_policy_check(
+        subcommands.add_parser(
+            "guidance-policy-check", help="Check explicit owner guidance policy"
+        )
+    )
+    from mos_eisley.project_guidance_role_cli import add_command as add_role_context
+
+    add_role_context(
+        subcommands.add_parser("guidance-context", help="Freeze relevant role guidance")
+    )
+    from mos_eisley.project_guidance_review_cli import (
+        add_command as add_guidance_review,
+    )
+
+    add_guidance_review(
+        subcommands.add_parser(
+            "guidance-review", help="Prepare and replay guided review briefs"
+        )
+    )
     for name in ("mcp-list", "mcp-call", "mcp-login", "mcp-logout"):
         mcp_command = subcommands.add_parser(
             name, help="Connect to an explicitly configured MCP server"
@@ -624,6 +690,25 @@ def parser() -> argparse.ArgumentParser:
     broker_status.add_argument("--audit-dir", type=Path, required=True)
     broker_status.add_argument("--expected-authorization", type=Path, required=True)
     broker_status.add_argument("--spend-ledger", type=Path, required=True)
+    controller_status = subcommands.add_parser(
+        "review-controller-status",
+        help="Inspect saved review records and spending without provider authority",
+    )
+    controller_status.add_argument("--review-dir", type=Path, required=True)
+    controller_status.add_argument("--expected-start", type=Path, required=True)
+    controller_status.add_argument("--spend-ledger", type=Path, required=True)
+    controller_status.add_argument("--expected-judge-preview-sha256")
+    launch_preview = subcommands.add_parser(
+        "review-launch-preview",
+        help="Preview explicit review configuration without live launch authority",
+    )
+    review_launch_cli.add_arguments(launch_preview)
+    for name in (
+        "review-campaign-preview",
+        "review-campaign-seal",
+        "review-campaign-review",
+    ):
+        review_campaign_cli.add_arguments(subcommands.add_parser(name), name)
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -2426,6 +2511,31 @@ def _broker_audit_status_command(args: argparse.Namespace) -> int:
                 "type": "broker.audit.status",
                 **state.model_dump(mode="json"),
             }
+        )
+    )
+    return 0
+
+
+def _review_controller_status_command(args: argparse.Namespace) -> int:
+    directory = cast(Path, args.review_dir)
+    expected_path = cast(Path, args.expected_start)
+    retained = directory / "controller-start.json"
+    if expected_path.resolve().is_relative_to(directory.resolve()) or (
+        retained.exists() and expected_path.samefile(retained)
+    ):
+        raise ValueError("expected start must be independently supplied")
+    expected = ControllerStart.model_validate_json(read_bounded(expected_path, 4096))
+    state = inspect_review_controller(
+        directory,
+        expected,
+        SpendLedger(cast(Path, args.spend_ledger)),
+        expected_judge_preview_sha256=cast(
+            str | None, args.expected_judge_preview_sha256
+        ),
+    )
+    print(
+        json.dumps(
+            {"type": "review.controller.status", **state.model_dump(mode="json")}
         )
     )
     return 0
@@ -7444,13 +7554,75 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         if args.command in {
+            "guidance-inspect",
+            "guidance",
+            "guidance-overrides",
+            "guidance-conflicts",
+            "requirements",
+            "guidance-assess",
+            "guidance-policy-check",
+            "guidance-context",
+            "guidance-review",
+        }:
+            from mos_eisley.project_guidance_binding_cli import (
+                run_command as run_binding,
+            )
+            from mos_eisley.project_guidance_cli import run_command as run_guidance
+            from mos_eisley.project_guidance_conflict_cli import (
+                run_command as run_conflicts,
+            )
+            from mos_eisley.project_guidance_override_cli import (
+                run_command as run_overrides,
+            )
+            from mos_eisley.project_guidance_policy_cli import (
+                run_command as run_policy_check,
+            )
+            from mos_eisley.project_guidance_precedence_cli import (
+                run_command as run_assessment,
+            )
+            from mos_eisley.project_guidance_review_cli import (
+                run_command as run_guidance_review,
+            )
+            from mos_eisley.project_guidance_role_cli import (
+                run_command as run_role_context,
+            )
+            from mos_eisley.project_requirement_cli import (
+                run_command as run_requirements,
+            )
+
+            return {
+                "guidance-context": run_role_context,
+                "guidance-review": run_guidance_review,
+                "guidance-policy-check": run_policy_check,
+                "guidance-assess": run_assessment,
+                "requirements": run_requirements,
+                "guidance-inspect": run_guidance,
+                "guidance": run_binding,
+                "guidance-overrides": run_overrides,
+                "guidance-conflicts": run_conflicts,
+            }[args.command](args)
+        if args.command in {
             "memory",
+            "memory-project-preview",
+            "memory-project-migrate",
+            "memory-project-relocate",
+            "memory-project-cleanup",
+            "memory-project-cleanup-batch",
+            "memory-backup-discard",
+            "memory-project-backup-discard",
+            "memory-staging-discard",
+            "memory-project-staging-discard",
+            "memory-project-mapping",
+            "memory-project-retention",
+            "memory-project-recover",
+            "memory-project-resolve",
             "chat",
             "resume",
             "conversation-demo",
             "conversation-review-demo",
             "sessions",
             "session-delete",
+            "session-rename",
             "session-cleanup",
             "session-retention",
             "session-prune",
@@ -7690,8 +7862,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 authorization_output=authorization_output,
                 artifact_output=artifact_output,
             )
-        if args.command == "broker-audit-status":
-            return _broker_audit_status_command(args)
+        if args.command in (
+            "broker-audit-status",
+            "review-controller-status",
+            "review-launch-preview",
+            "review-campaign-preview",
+            "review-campaign-seal",
+            "review-campaign-review",
+        ):
+            return {
+                "broker-audit-status": _broker_audit_status_command,
+                "review-controller-status": _review_controller_status_command,
+                "review-launch-preview": review_launch_cli.run_command,
+                "review-campaign-preview": review_campaign_cli.run_command,
+                "review-campaign-seal": review_campaign_cli.run_command,
+                "review-campaign-review": review_campaign_cli.run_command,
+            }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
                 SpendLedger.create(

@@ -30,6 +30,15 @@ the linked records.
 
 ---
 
+**Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded
+review batch and run focused tests as each job lands. Test affected security,
+storage and identity boundaries immediately. Run full quality checks once against
+the combined batch before publishing, with required CI, secret scanning, dependency
+audit and container gates before merge. Failures block dependent changes; later
+code changes require fresh applicable checks and final-revision validation. Keep
+test coverage and security gates intact while avoiding a full run per small job.
+See [contribution workflow](../CONTRIBUTING.md).
+
 ## 1. Goals and non-goals
 
 ### Goals
@@ -990,7 +999,14 @@ Cache approvals per `(command_hash, cwd, session)` so the same command isn't re-
 
 ### 11.1 Worktree isolation
 
-**Never operate on the user's checked-out working tree.** Every agent gets `git worktree add runs/<id>/worktrees/<agent>/` from a pinned base SHA, disposable at run end. Benefits: parallel agents can't collide, the user's uncommitted work is untouched, and cleanup is `git worktree remove`.
+**Never operate on the user's checked-out working tree.** Every coding agent gets
+an isolated Git worktree from a pinned base SHA through the trusted VCS broker.
+Session worktrees persist across turns and resume; run completion alone does not
+authorize deletion. Child worktrees may be disposable after their changes and
+evidence are retained and the lifecycle checks pass. The user-facing creation,
+repository grouping and cleanup contract is in [§16.0.4](#1604-repository-grouped-sessions-and-isolated-worktrees).
+Separate checkouts prevent overlapping file edits; shared Git metadata still
+requires broker coordination and the execution sandbox remains mandatory.
 
 ### 11.2 `.git` is protected
 
@@ -1550,8 +1566,11 @@ Bare `mos` now opens that interface in the current workspace, displays the works
 and session ID, and uses a built-in recording with private default storage.
 `mos -C PATH` selects another workspace; `mos resume --last` reopens the latest
 session in that workspace without requiring cassette/storage flags. Initial
-positional prompts, an interactive resume picker and live authentication/setup
-remain planned. The default preview needs no credentials or network connection.
+literal prompts now use `mos chat "PROMPT"`, `mos -- "PROMPT"`, or session launch
+options followed by a prompt. [User-defined session names and a resume picker](CONVERSATION_NAMES.md)
+now support optional labels, rename/clear controls, filtering and explicit selection
+for duplicate names. Live authentication/setup remains planned. The default preview
+needs no credentials or network connection.
 The full product contract below remains the target; live conversation/review,
 mid-request interruption and advanced terminal controls are not yet available.
 
@@ -1659,8 +1678,32 @@ used by the session, following the terminal startup interaction in Codex.
 - Validate the selected directory before creating a session. Resolve aliases and
   symlinks consistently, show the resolved target, and retain the same binding for
   resume. A directory selection supplies context, not broader filesystem access.
-- The current startup implementation provides `-C`, a persistent directory header
-  and `/directory` inspection. The selector and in-session switching are planned.
+- The startup implementation provides `-C`, a persistent directory header,
+  `/directory` inspection, and the opt-in
+  [startup selector](CONVERSATION_DIRECTORY.md) via `--choose-directory` for chat
+  and resume. Enter previews the canonical target; Ctrl-S selects it. Cancellation
+  precedes session/memory access, and edits invalidate the preview. Directory
+  identity is rechecked during selection and startup. New chats load the chosen
+  project's memory; resume retains its workspace checks and paused queued work.
+  Paths are bounded to 4,096 printable UTF-8 bytes; Tab scans at most 1,024 immediate
+  entries and offers at most 100 directories, with no partial list on overflow.
+  Pipes, plain/JSON mode and inspection use `-C PATH`. In-session F9 and
+  `/directory switch [PATH]` now support an explicit handoff: active work and
+  unsent/pending input block switching; the picker keeps the old session locked
+  and cancellation returns to the same controller. Selection closes that session
+  and opens a fresh recorded conversation with the target project's memory.
+  Old queued work remains saved, while history, name, recording, review packet,
+  initial prompt and resume/refresh selectors are cleared from the new launch.
+  Invocation storage/backend, memory location, no-memory choice and budgets remain.
+  The terminal input parser is fresh for each screen and buffered keystrokes are
+  cleared at handoff. Git-marker discovery now displays the nearest candidate root
+  separately in the header, selector preview and `/directory`; startup JSON also
+  includes the root, discovery status and effective memory workspace. The scan
+  checks at most 64 ancestors without opening marker/configuration files or running
+  Git. File markers keep worktrees separate; symlinks, special markers, read errors
+  and bounds produce an unknown root. Discovery is cached for each launch and
+  refreshed on resume/switch. It supplies display metadata only. These checks preserve
+  canonical-path persistence and do not add a durable inode identity or filesystem sandbox.
 
 ### 16.0.2 User and project memory
 
@@ -1676,9 +1719,310 @@ selection between requests and leave queued work paused until `/continue`.
 `--no-memory` to disable loading. Earlier messages retain their historical context;
 consumed recording exchanges remain unchanged. Custom recordings require an explicit
 replacement via `--refresh-cassette`, retained privately for subsequent resumes.
-Project scope currently uses the selected canonical workspace; Git-root
-discovery, mapping, natural-language saves and automatic extraction remain planned.
+Project scope defaults to the canonical workspace. New sessions can explicitly
+select an ancestor via [`--memory-project-root PATH`](CONVERSATION_MEMORY_PROJECT.md).
+The identity is retained across resume, refresh, historical artifact reads and
+JSON/SQLite transfers; legacy sessions retain their original bindings and bytes.
+The startup selector previews the effective identity, and switching directories
+clears it for the fresh session. Git-marker roots are displayed separately and
+never select memory. Explicit mappings and terminal scoped edits are implemented
+as described below. Explicit scoped remember phrases are implemented; broader
+natural-language interpretation and automatic extraction remain planned.
 The requirements below remain the complete target.
+
+**Terminal memory controls:** `/memory show|append|set|clear|enable|disable user|project`
+now manages the session-bound saved scope in full-screen and plain/JSON modes.
+Append/set require explicit single-line text; other actions reject extra text.
+Active requests block management, and attempted edits/inspection pause queued work.
+Receipts identify the saved document while session selection and historical requests
+remain unchanged until explicit refresh. Pasted/composed chat and model output
+cannot invoke this path. Existing locks, ownership and document limits apply;
+write failures warn that publication may have occurred. Reviewed selective forgetting
+and individual-entry replacement are implemented below, along with reviewed
+acceptance of selected structured assistant proposals.
+See [terminal memory controls](CONVERSATION_MEMORY.md#edit-from-a-terminal-session).
+
+**Scoped remember shortcuts:** directly entered `remember this for this project: TEXT`
+and `remember this everywhere: TEXT` now append the explicitly supplied text to the
+retained project or user scope. Ambiguous scope, missing content and oversized or
+multiline control requests ask for correction without persistence. Pasted/composed
+text, initial prompts, quoted/embedded phrases and model/tool output do not invoke
+the shortcut. No model request is created; the receipt shows actual saved text,
+queued work stays paused and session memory still requires explicit refresh.
+Active work blocks saves and rejected full-screen submissions retain their draft.
+General natural-language interpretation and contextual references remain planned.
+See [remember a preference](CONVERSATION_MEMORY.md#remember-a-preference).
+
+**Reviewed selective forgetting:** `/memory forget user|project EXACT_TEXT` and the
+explicit scoped `forget this ...: TEXT` forms preview removal of one unique exact
+span. Receipts show the complete resulting text; `/memory apply-forget HASH` checks
+the reviewed current-document hash under the existing exclusive lock before saving.
+Missing or overlapping/duplicate matches reject, and all other characters remain
+unchanged. One ephemeral per-session review is replaced by a new scoped preview command, invalidated
+by ordinary memory writes and consumed before a matching apply. Resume/directory
+handoff require a fresh preview. Active work blocks controls; pasted/composed input
+cannot apply them. Current selection/history remain unchanged until refresh and
+historical copies are not erased. Tests cover stale edits, unsafe current files,
+partial publication, real process death, both storage backends and session review
+loss. See [reviewed selective forgetting](CONVERSATION_MEMORY_FORGET.md).
+
+**Reviewed exact replacement:** `/memory replace user|project {"old":"TEXT","new":"TEXT"}`
+previews replacing one unique exact span with explicitly supplied new text. JSON
+supports escaped newlines and quotes; duplicate keys, invalid types, empty/unchanged
+text and oversized results reject before a review is created. The complete result,
+old/new text, target, before revision and fresh review identifier bind the confirmation
+hash. `/memory apply-replace HASH` uses the shared locked compare-and-swap and
+consume-before-write safeguards; `/memory discard-replace` cancels. Forget and
+replacement share one ephemeral review per terminal session. All other characters
+and the document's enabled state are preserved; session selection changes only on
+explicit refresh. Tests cover overlapping matches, UTF-8 limits, stale/unsafe targets,
+partial publication and process death, literal pasted/composed input, disabled
+selection, combined-context rejection and CLI apply/refresh/resume on both storage
+backends. General interpretation remains planned; structured assistant proposal
+review is implemented below.
+See [reviewed replacement](CONVERSATION_MEMORY_REPLACE.md).
+
+**Assistant proposal acceptance:** `/memory review-proposal user|project INDEX`
+selects a completed assistant chat reply containing exactly one strict JSON proposal
+(append/text, replace/old/new or forget/old). Indices match displayed zero-based
+message labels; the user chooses the scope. Receiving model output does not create
+memory storage, and user prompts, files, review/judge output and free-form prose
+cannot enter this path. Full source, before state and complete result bind the
+fresh review hash. `/memory apply-proposal HASH` rechecks the source and uses a
+locked compare-and-swap, including expected absence; `/memory discard-proposal`
+cancels. All three memory review kinds share one ephemeral slot. Explicit apply
+preserves other text and enabled state; refresh alone adopts the saved change.
+Tests cover malformed/untrusted proposals, source and target changes, concurrent
+creation, partial publication and process death, idle/literal-input boundaries,
+and actual recorded-reply acceptance/resume on snapshot and SQLite backends.
+No live provider dispatch, automatic extraction or transcript interpretation is
+introduced. See [assistant proposal review](CONVERSATION_MEMORY_PROPOSALS.md).
+
+**Selected assistant text:** `/memory review-text user|project INDEX "EXACT_TEXT"`
+now previews appending a user-selected span from an ordinary completed assistant
+reply. A JSON string supports exact multiline/quoted content. Missing, repeated or
+overlapping matches reject, with no normalization or inferred selection. The complete
+source reply, selected text, target and complete result are visible before applying
+through `/memory apply-proposal HASH`. The confirmation binds a distinct selection
+operation, complete source and character offsets. It shares the existing ephemeral
+review slot, locked stale-write checks, private storage and consume-before-write
+handling. Tests cover literal controls, source changes outside the selected span,
+concurrent creation, bounds, active work and CLI apply/refresh/resume on both backends.
+This is explicit curation; automatic extraction and broad interpretation remain
+planned. See [selected reply text](CONVERSATION_MEMORY_SELECTION.md).
+
+**Adoption batch:** explicit selection and a read-only `memory-project-preview`
+now support inspection before adopting a root. The preview reads both project
+documents under one shared lock and reports source-only, target-only, empty,
+same-identity or collision states, including disabled/empty documents. Starting a
+root-selected chat uses the root document; it leaves workspace documents untouched.
+
+**Guarded copy batch:** `memory-project-migrate` previews the complete proposed
+document and copies an existing workspace document only to an absent ancestor-root
+document. Apply requires its fresh hash, binds storage/lock and directory identities
+plus source/target snapshots and proposed bytes, and rechecks under an exclusive lock
+immediately before atomic no-overwrite publication. Disabled and empty documents
+count as collisions. Source/user documents, saved session identities, historical
+memory and request hashes are preserved. The earlier `memory-project-preview` hash
+remains informational and is not accepted for apply. Focused stale-input, identity,
+locking, collision and interrupted-publication tests run before the combined gate.
+
+**Guarded recovery batch:** `memory-project-recover` previews one explicitly named
+interrupted-publication alias against the originally approved target document hash.
+Apply requires the recovery hash, rechecks storage/lock/directory and record identities
+under an exclusive lock, and removes only the verified extra link. Ordinary readers
+retain their single-link rule; target/source/user bytes and session history remain
+unchanged. Stale inputs, wrong scope/owner, symlinks, extra links and noncanonical
+records fail closed. Fault tests include recovery after actual process death.
+
+**Reviewed collision batch:** `memory-project-resolve` requires an explicit
+keep-target, use-source, append-source or use-text strategy and a fresh preview hash.
+Apply preserves source/user files, target enabled state and session history. Changed
+text increments the target revision and receives an apply-time UTC timestamp; all
+other proposed fields are fixed by the preview. No-ops preserve bytes and metadata.
+Before atomic replacement, a verified private canonical prior-target backup is
+flushed durably. Source/target records and file identities, storage/lock and directory
+identities are rechecked under the exclusive lock immediately before publication.
+Literal append does not deduplicate or infer a conflict resolution. Fault tests cover
+backup/replacement interruption, stale inputs and existing changed-memory guards.
+
+**Explicit worktree mapping batch:** new sessions accept `--memory-project-map PATH`
+to select another existing directory's owner-scoped memory without an ancestor
+relationship. The choice is mutually exclusive with ancestor-root selection, is
+canonicalized and saved as `memory_project_mapping`, and survives refresh, resume,
+cold SQLite reads, historical artifacts and JSON/SQLite transfers. The directory
+picker previews it; `--no-memory` retains it without memory reads. Directory switching
+clears it. Default Git discovery never selects it, and source workspace/tool authority
+remain unchanged. Resume accepts no identity override.
+
+**Reviewed relocation batch:** `memory-project-relocate` copies from an exact
+canonical saved project identity to an absent document at any existing destination,
+including unrelated worktrees. The source directory can be gone; its nearest
+existing ancestor identity and absence are bound to the review alongside target,
+storage/lock, source record identity and complete snapshots. Reappearance, changed
+inputs, unsafe records and collisions reject apply. Fresh operation-specific hashes
+and exclusive locking guard atomic no-overwrite publication. Source/user documents
+and all saved session identities/history remain intact. Explicit recovery supports
+one interrupted publication's verified staging alias even with a vanished source.
+Ordinary memory access and resume still require their saved directories to exist.
+
+**Cross-mapping collision batch:** `memory-project-relocate --strategy` now
+requires a separate resolution review for two existing documents across unrelated
+worktrees or from a vanished source identity. Keep-target, use-source, append-source
+and use-text use the existing durable backup and replacement protocol. Resolution
+binds source presence/ancestor, both record identities, target directory, storage,
+lock, strategy and reviewed content to an operation-specific hash. Target enabled
+state is preserved; no-ops preserve bytes and metadata. Changed text gets the next
+target revision and an apply-time UTC timestamp. Source/user documents and session
+history remain intact. Copy, resolution and recovery reviews are not interchangeable,
+and recovery flags cannot mix with a resolution strategy. Fault tests cover late
+source reappearance and actual process death before/after replacement.
+
+**Reviewed staging cleanup batch:** `memory-project-cleanup` explicitly discards
+one complete single-link project staging record or repairs one interrupted backup
+publication by removing only its verified extra staging link. Exact filenames,
+record hashes and canonical owner/project snapshots are required. Preview binds
+current project memory, candidate records/identities, storage/lock and the selected
+workspace's presence/ancestor, including vanished directories. Apply rechecks under
+an exclusive existing lock, unlinks only the selected name and flushes the directory.
+Backup bytes, live memory and saved sessions remain intact. Discard can remove the
+selected staging copy even when no live project document exists; the full receipt
+makes that absence explicit. Fault tests cover actual process death during copy,
+resolution, backup publication and cleanup. Invalid records use the separate raw
+staging review below. See [memory cleanup](CONVERSATION_MEMORY_CLEANUP.md).
+
+**Reviewed retention and batch cleanup:** `memory-project-cleanup-batch` accepts
+1–32 explicit records in a bounded, strict JSON manifest. Staging discard, backup
+link repair and retained-backup pruning share the existing private owner/project
+validation. Pruning requires an explicit modification-time cutoff and distinct,
+readable current project memory; backups matching current memory are protected.
+It does not infer backup age from document timestamps or promise a newest-count
+policy without an inventory. Full records, observed identities, policy and current
+memory are bound to one preview. Every selection is checked under one exclusive lock
+before deletion, then each is rechecked before unlink. Duplicate/overlapping names
+are rejected. Sequential apply reports unlinked and directory-flushed names
+separately on in-process failure; process death requires inspection and fresh review
+of the remaining exact selection. No rollback or automatic continuation is claimed.
+Live memory, user preferences and saved sessions remain intact.
+
+**Reviewed invalid staging disposal:** `memory-staging-discard` reviews one exact
+migration/resolution staging filename and its raw SHA-256, with complete base64
+bytes bounded to 256 KiB. Its storage-wide receipt explicitly leaves project
+attribution unverified; it does not infer identity from invalid JSON or the current
+directory. Private current-user ownership, one link, regular-file type, exact names
+and existing storage/lock are required. Valid snapshots are always refused,
+including noncanonical serializations and foreign-owner/project or user-scope
+snapshots. The raw review binds file bytes/identity/metadata and storage/lock before
+exclusive-lock unlink and directory flush. Current memory documents are not read
+or bound, and remain untouched. In-process failure receipts distinguish unlink from
+successful directory flush; process death requires inspection and fresh review.
+Tests cover actual interrupted publication with empty/partial writes and death
+after unlink. Shared storage locking is separated from project-document selection.
+This command is not part of project-scoped cleanup batches. See
+[raw staging review](CONVERSATION_MEMORY_STAGING.md).
+
+**Persistent mapping configuration:** `memory-project-mapping show/set/remove`
+reviews an owner-private registry in the configured memory storage. Exact canonical
+workspace/target paths carry directory device/inode pins; changed directories
+require fresh review. Bounded canonical JSON (128 mappings, 1 MiB), whole-registry
+before/after receipts, revisions, shared locks and atomic durable replacement guard
+updates. Read-only missing-registry inspection does not create storage. Removal
+accepts a vanished workspace's exact saved identity. New launches and both recording
+generators use saved mappings, explicit root/map flags override them, and
+`--memory-project-local` bypasses the registry. `--no-memory` retains its existing
+no-memory-storage-access guarantee and skips automatic registry lookup.
+Picker/startup and directory handoff share a captured registry snapshot with directory rechecks. Resume retains the saved
+session mapping independently of registry changes or corruption. Memory editing
+continues to address explicit `-C` identities. Tests cover both session backends,
+unsafe storage, stale reviews, directory replacement, publication failures,
+picker/handoff selection, overrides and resume. See
+[saved mapping configuration](CONVERSATION_MEMORY_MAPPINGS.md).
+
+**Inventory-based backup retention:** `memory-project-retention` now proposes
+reviewed pruning with explicit `--keep-newest` and `--before-ns` policies. Its
+complete inventory is bounded to 1,024 directory entries, 128 backups and 8 MiB
+(256 KiB per record), failing closed on unsupported backups even for other
+projects. Exact canonical private single-link backups, storage/lock/workspace
+identities, full selected-project records, current memory and deterministic file
+mtime/name ordering are bound to review. Newest-count, age and current-memory
+protections combine. At most 32 oldest eligible backups are selected; excess
+requires fresh review. Under one exclusive lock, apply rescans the reviewed
+inventory minus its own deletions before every unlink and reports removed/flushed
+progress separately. Tests include real limits, retained-file changes, partial
+failures and process death. No background retention is enabled. See
+[backup retention](CONVERSATION_MEMORY_RETENTION.md).
+
+**Expanded staging review:** the raw invalid-file command now accepts an explicit
+`--review-max-bytes` limit through 4 MiB, retaining its 256 KiB default and refusing
+all valid snapshots. Separate `memory-project-staging-discard` verifies owner,
+project identity and snapshot integrity for canonical/noncanonical staging records;
+it rejects duplicate JSON keys. Full raw bytes, validated record, current project
+memory, historical workspace anchor, file/storage/lock identities and review limit
+are bound to one preview. Stale raw, logical, metadata or policy bindings fail
+before deletion. Both paths share private single-link reads and interrupted
+unlink/flush receipts. Actual process death, real maximum-size inputs and preserved
+live memory/session state are covered. Snapshot/context limits are unchanged. See
+[exact-byte staging review](CONVERSATION_MEMORY_STAGING_REVIEW.md).
+
+**Unsupported backup disposal:** `memory-backup-discard` reviews exact invalid
+backup bytes with explicitly unverified project attribution and current-memory
+protection. `memory-project-backup-discard` validates owner/project identity and
+snapshot integrity for noncanonical, misnamed or oversized backup encodings. It
+refuses duplicate keys, supported canonical backups, and missing, unreadable or
+matching current project memory. Complete raw bytes, actual/canonical backup names,
+unsupported reasons, historical workspace anchor, current memory, file/storage/lock
+identities and review limit (256 KiB by default, configurable through 4 MiB) bind
+preview to exclusive-lock apply. Staging and backups share bounded single-link reads and interrupted
+unlink/flush receipts. No inventory, age/count promise, normalization, publication
+or automatic recovery is added. Real size boundaries, unsafe files, stale bindings,
+current-memory protection, partial failure and process death are tested. See
+[unsupported backup review](CONVERSATION_MEMORY_BACKUP_DISCARD.md).
+
+**Mapping registry history and recovery:** updates now retain and flush the exact
+previous registry before publication. Explicit history lists at most 128 backup or
+staging files, 8 MiB total, within a 1,024-entry scan; each file is bounded to 1 MiB.
+Reviewed restore accepts canonical same-owner records, verifies content-addressed
+backup names and every directory pin, preserves the source, backs up current bytes
+including bounded corruption, and publishes revision `max(current, source) + 1`.
+If the current record is absent or invalid, only the source revision is available.
+Reviewed discard binds exact raw bytes, current registry, file/storage/lock identities
+and refuses valid recovery-file deletion while current mappings are absent or invalid.
+Partial receipts distinguish backup durability, publication, deletion and final flush.
+Real process-death, partial backup, file replacement, size limits and both session
+backend resume tests cover these boundaries. No automatic recovery or cleanup runs.
+See [mapping history and recovery](CONVERSATION_MEMORY_MAPPING_RECOVERY.md).
+
+**Reviewed mapping import:** a private same-owner versioned path manifest now
+imports up to 128 mappings/1 MiB. Merge previews identify additions, unchanged
+entries and conflicts; apply blocks conflicts unless keep/replace is explicitly
+selected. Whole-registry replacement lists removals and permits a reviewed empty
+registry. Duplicate JSON keys, unsupported fields/types, foreign owners, unsafe
+files, duplicate canonical workspaces and stale file/parent/directory identities
+are rejected. Preview hashes bind complete input/current bytes, resolved mappings,
+policies and destination identities. Publication retains the exact prior registry
+and reports backup/publication/flush progress. Existing snapshot/SQLite resumes
+and memory documents retain their identities/content. No startup import, automatic
+rebind or history retrieval is added. See
+[reviewed bulk mapping import](CONVERSATION_MEMORY_MAPPING_IMPORT.md).
+
+**Mapping-history retention:** explicit `memory-project-mapping retain` reviews
+up to 128 canonical owner-scoped backups/8 MiB within a 1,024-entry scan, with a
+1-MiB per-file limit. Newest-count, explicit filesystem-mtime cutoff and exact
+current-registry protections combine; an absent current registry protects every
+backup, while corrupt current data or any invalid/unsafe backup blocks retention.
+At most 32 oldest eligible backups are selected. Apply rechecks the complete
+inventory minus its own removals before every unlink and reports removed/flushed
+names separately. Real limits, retained-file changes, process death, partial CLI
+errors and both backend resumes are tested. No automatic cleanup or session/memory
+changes are introduced. See [mapping-history retention](CONVERSATION_MEMORY_MAPPING_RETENTION.md).
+
+**Remaining migration limits:** mapping files larger than 1 MiB and unsupported artifact basenames remain
+outside registry recovery/cleanup. Files above 4 MiB, ambiguous duplicate-key snapshots,
+unsupported backup filename syntax and foreign-owner/project or user snapshots
+remain outside the supported backup disposal workflows.
+Unselected resolution backups are retained; no automatic deletion, startup recovery
+or session identity rewriting is enabled. Common Git metadata or remote URLs never
+merge memory.
 
 | Scope | Contents and reach | Initial storage design |
 | --- | --- | --- |
@@ -1740,12 +2084,156 @@ current-message precedence, scoped remember/forget, disabled memory, bounded
 loading, concurrent-edit conflict detection, safe resume after edits/deletion,
 and unchanged critic isolation. Deliver inspectable, explicit memory first;
 automatic memory extraction remains a later, separately configurable feature.
+### 16.0.3 Session names and easy resume
+
+**User direction, 2026-09-10 — implemented for the recorded terminal:** users can give sessions memorable names
+so they can find and resume the right conversation without remembering its ID.
+Naming and the resume picker are delivered together. See the
+[usage, integrity and capacity contract](CONVERSATION_NAMES.md).
+
+- Allow an optional name when creating a session, for example
+  `mos chat --name "Parser cleanup"`. Support renaming or clearing an existing name
+  from the terminal (`/rename`) and an explicit session-management command.
+  Unnamed sessions remain supported, and the immutable session ID remains the
+  authoritative identity through every rename.
+- Show the name alongside the ID in the session header, `mos sessions`, and the
+  resume picker. Support filtering the picker by name and explicit lookup such as
+  `mos resume --name "Parser cleanup"`, scoped to the selected owner, workspace,
+  storage location and backend. Exact-ID and `--last` resume remain available.
+- Allow duplicate names, but never silently select one matching session over
+  another. Show matching IDs, saved times and workspace information for explicit
+  selection; noninteractive ambiguous lookup must fail with guidance to use an ID.
+  Specify consistent Unicode normalization, whitespace and case matching rules.
+- Treat names as bounded, private user-authored metadata. Render them safely and
+  keep them out of model instructions, curated memory and automatic fresh-session
+  history retrieval. Naming or renaming must not dispatch work, alter conversation
+  content, or make another user's or project's sessions discoverable.
+- Persist names across restart, resume, migration and export/import for both JSON
+  and SQLite storage. Define versioned metadata and integrity coverage so existing
+  unnamed sessions and saved state hashes remain verifiable. Use the existing
+  ownership, locking and stale-selection guards for rename and resume; a changed
+  or deleted selection requires an explicit new choice.
+
+**Acceptance:** create, rename, clear, list, filter and resume named sessions on
+both backends; preserve names through restart and transfers; retain compatibility
+with unnamed sessions; test duplicate and Unicode names, invalid/oversized input,
+safe terminal rendering, workspace/user isolation, concurrent rename and stale
+selection. Selecting a name must not automatically continue queued work.
+
+**Delivered scope:** `mos chat --name NAME`, `/rename NAME`, `/rename --clear`,
+`mos session-rename`, `mos resume --name NAME`, and interactive bare `mos resume`.
+Names use 1–120 printable NFC characters, trim outer spaces, preserve interior
+spaces, and match with Unicode case folding. Duplicate names require explicit
+selection; noninteractive ambiguous lookup fails with ID guidance. Rename uses
+the existing lock/save path and changes revision, state hash and saved time while
+preserving conversation content and recording progress. Optional metadata is
+omitted for unnamed state so older canonical bytes and hashes remain verifiable.
+Name persistence is covered across SQLite working saves, migration, export and
+transfer. Names stay outside model requests and memory.
+
+The picker retains bounded summaries and renders 20 rows per page, with filtering,
+refresh, cancel, active-session status, full selected name/ID and stale-selection
+checks before controller recovery. SQLite reads metadata pages of 100 up to 1,000
+sessions; JSON keeps its existing 256-session, default 8 MB snapshot scan. Larger
+catalogs require existing paginated listing and explicit-ID resume. These are
+navigation bounds, not an increase to conversation capacity. Live setup and
+cross-workspace browsing remain separate work.
+
+### 16.0.4 Repository-grouped sessions and isolated worktrees
+
+**User direction, 2026-09-12 — planned:** let users organize sessions by repository
+and start independent tasks in isolated Git worktrees, following the interaction
+pattern of Codex. The official [worktree documentation](https://learn.chatgpt.com/docs/environments/git-worktrees)
+describes parallel chats in separate checkouts and choosing a starting branch.
+The requirements below define Mos Eisley's scope; they are not availability claims.
+
+**Repository and session navigation:**
+
+- Provide a repository list in the terminal and an equivalent CLI listing. Under
+  each repository, group its registered local-checkout and linked-worktree sessions.
+  Show session name/ID, branch or detached commit, worktree path, last activity,
+  active/idle status and whether the worktree is missing. Support bounded paging,
+  filtering, keyboard selection, new session and explicit resume. Keep the active
+  repository and worktree visible alongside the conversation and diff panel.
+- Use an owner-scoped repository identity verified against Git's common directory
+  and registered worktrees. A directory name or matching remote URL is insufficient:
+  unrelated clones and nested repositories remain separate. Aliases of the same
+  verified checkout should not duplicate groups. Relocation requires an explicit
+  verified rebind; missing or replaced paths must not silently select another tree.
+  Non-Git directories retain ordinary workspace sessions with worktree creation
+  shown as unavailable.
+- Grouping is navigation metadata. It does not merge transcripts, broaden file
+  permissions, select project memory across worktrees, or feed sibling sessions to
+  a model. Preserve existing explicit memory mappings and same-owner storage rules.
+  Cross-worktree selection resolves the saved session's exact workspace and policy;
+  existing workspace-scoped `--last` behavior remains unchanged. Opening a session
+  stays passive until the user submits work.
+
+**Create and use an isolated worktree:**
+
+- From a selected repository, offer a new session in an isolated worktree. Let the
+  user choose a local starting branch or commit and optionally name the session and
+  new branch. Resolve and retain the exact base SHA before creation; use a unique
+  private managed path and either a unique branch or detached HEAD. Respect Git's
+  branch checkout restrictions and never reset an existing branch to make room.
+  Register an existing owner-approved worktree as an alternative to creating one.
+- Preserve the source checkout, staged/unstaged changes and untracked files. Start
+  from the selected commit by default; including local edits is a separate explicit
+  snapshot operation with conflict handling. Do not copy secrets, ignored files or
+  run repository setup hooks automatically. Environment setup uses the existing
+  trusted execution policy.
+- Bind the session, tools, terminal, tests and diff view to its selected worktree.
+  Multiple sessions may progress in separate worktrees while keeping independent
+  drafts, task state, approvals and evidence. Switching the visible session neither
+  redirects an active operation nor cancels another session. Serialize conflicting
+  writers to one checkout and shared Git metadata operations through the broker.
+  Git worktrees share repository metadata and are not a security sandbox.
+- Persist repository/worktree IDs, canonical path, starting SHA and observed
+  branch/HEAD with the session using versioned JSON/SQLite metadata. Resume rechecks
+  ownership, Git registration and tree identity before enabling tools; external
+  moves, branch changes and missing worktrees require reconciliation. Preserve
+  legacy session hashes and workspace identities during migration.
+
+**Lifecycle and acceptance:** retain worktrees across restart and conversation
+archival. Archiving/deleting a session and removing a worktree are separate actions.
+Removal must check active sessions/processes, Git locks, dirty/untracked files and
+unmerged or unreferenced commits, with no automatic force removal or branch deletion.
+Require a verified preservation path or an explicit decision to discard changes.
+Retain session history and review evidence independently of checkout cleanup; a
+removed worktree remains visible as unavailable for execution. Interrupted creation
+or removal must have inspectable, bounded recovery without touching unrelated paths.
+
+Acceptance tests must demonstrate two simultaneous sessions on one repository in
+different worktrees, isolated edits and correct tool/diff targets, grouped discovery
+and exact resume after restart on both storage backends, and unchanged source edits.
+Cover duplicate names, unrelated clones with identical remotes, nested repositories,
+path substitution, foreign owners, stale selections, branch collisions, concurrent
+Git operations, active/dirty worktree cleanup and interrupted creation/removal.
+Verify that grouping never imports sibling history or changes memory selection.
+
+**Delivery:** repository identity and metadata-only grouped navigation can follow
+the G1 session foundations. Managed worktree creation, coding and integration belong
+to G4 / Author-VCS (original M6), after trusted Git and applicable containment gates;
+coordinate the session selector with the v1 diff panel (§16.4.1). This feature adds
+no new dependency to the G2 live read-only review exit gate. WSL2 and native Windows
+qualification follow §27.
+
 ### 16.1 Commands
+
+Initial prompts now use `mos chat "PROMPT"` or `mos -- "PROMPT"`; a launch beginning
+with session options also accepts one prompt. The explicit separator preserves
+unknown-command errors. Startup submits literal text through the shared controller
+before reading piped follow-ups or awaiting TUI input, with existing input, memory,
+context, storage and recorded-request checks. Blank, oversized or invalid UTF-8
+prompts fail before storage creation. Resume without submitted input stays passive
+and never repeats the initial prompt. See the [terminal guide](CONVERSATION_TUI.md).
+The command examples below also include later planned capabilities.
 
 ```
 mos                                    # interactive TUI in cwd
 mos -C /path/to/project                 # select and display the working directory
-mos "prompt"                           # TUI with initial prompt
+mos -- "prompt"                        # TUI with literal initial prompt
+mos chat "prompt"                      # explicit new-session form
 mos exec "prompt"                      # non-interactive
 mos exec --json "prompt"               # NDJSON events, one per state change
 mos exec resume --last
@@ -1760,6 +2248,8 @@ mos models
 mos features                            # maturity + effective-policy status
 mos auth login|logout <provider>
 mos mcp login|logout <server>
+mos update check                        # planned: check published application releases
+mos update                              # planned: guided application upgrade
 mos completion <shell>
 ```
 
@@ -1850,6 +2340,63 @@ Extend context/status inspection and fresh continuation with §6.7's selection,
 pressure and checkpoint contracts. Command names listed here remain planned where
 the conversation documentation does not report an implementation.
 
+### 16.4.1 V1 — live full-screen diff panel
+
+**User direction, 2026-09-12:** include a live `/diff` panel in product v1's
+conversation/TUI workstream. Its acceptance criteria are required for v1 release;
+the feature remains planned. Deliver it after the trusted read-only Git and
+workspace/path boundaries are available, alongside Git-backed coding integration.
+No package version is assigned by this entry. The interaction reference is the
+Claude Code newsletter from Lydia, received 2026-09-12, titled "This week in
+Claude Code: /resume on desktop, start sessions from your phone, and more",
+specifically its live diff panel and selected-lines-to-prompt behavior.
+
+- In full-screen mode, `/diff` toggles a panel beside the conversation. Show the
+  changed-file list, per-file added/removed line counts, and a navigable diff.
+  Preserve the composer draft, conversation scroll position and active task when
+  opening, closing or moving focus between panes. Support keyboard navigation
+  and mouse selection where the terminal supports it.
+- Refresh as agent or external edits change the selected workspace. Coalesce
+  updates and perform bounded Git reads outside the UI event loop; preserve file,
+  hunk and scroll selection where possible. Show refresh failures and stale data
+  explicitly. Cancel old refreshes on directory switches and reject results bound
+  to the previous workspace or an obsolete refresh generation.
+- Label the comparison basis. Initially show tracked staged and unstaged changes
+  relative to HEAD, with their status distinguished; list untracked files separately
+  and preview them only within existing read policy. Handle an unborn HEAD,
+  renames, deletions, binary files, no changes and non-Git directories explicitly.
+  Bound files, bytes and rendered hunks, disclose omissions and offer explicit
+  bounded expansion. Never imply a partial view is the complete patch.
+- Let users select diff lines and attach them to the next prompt. The composer
+  shows a removable attachment preview with workspace, path, old/new line ranges,
+  comparison basis and snapshot digest. Freeze the selected bytes; later refreshes
+  cannot silently change the attachment. Indicate when its source has changed.
+  Count attachments against request/context limits, preserve them on rejected
+  submission, and retain admitted provenance with the request. Selection alone
+  neither sends a request nor authorizes an edit or review. Treat excerpts as
+  untrusted source content, never as instructions or an automatic critic brief.
+- Target a side-by-side layout at 110 or more terminal columns, following the
+  reference. At narrower widths use a focused diff view or an explicit resize
+  notice; preserve drafts and selections through resize. Keep plain/JSON modes
+  functional without terminal layout or escape sequences.
+
+Dependencies: full-screen conversation controls, the trusted read-only Git broker
+and workspace/path policy, plus bounded prompt attachments. Diff reads must disable
+external diff/textconv helpers and use the existing trusted Git configuration.
+Panel operations do not stage, revert, commit or expand tool authority.
+
+Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
+and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized
+inputs; stale selections and attachments; request rejection and retry; directory
+switch isolation; hostile paths/terminal text and Git configuration; and continued
+conversation, cancellation and draft preservation while the panel is open.
+
+**Preliminary engineering estimate:** 60–100 hours, with 80 hours for planning:
+12–20 for layout/navigation, 16–26 for bounded Git refresh, 16–28 for selected-line
+attachments, and 16–26 for integration, review, tests and documentation. This assumes
+the trusted Git and conversation foundations have shipped; their implementation,
+Windows qualification and desktop pop-out windows are outside this estimate.
+
 ### 16.5 Event stream
 
 ```
@@ -1876,7 +2423,120 @@ Provide a guided initialize/attach/show/update/detach flow in the planned CLI an
 conversation controls. Start with local Markdown plus a versioned descriptor;
 remote distribution can follow the trusted package/extension gates. The editable
 starter is `templates/PROJECT_POINT_OF_VIEW.md`. Copying it into a repository is
-usable as documentation today; automatic loading and binding remain planned work.
+usable as documentation today; automatic role-context loading remains planned work.
+
+**Local inspection slice implemented:** `mos guidance-inspect --descriptor FILE
+--markdown FILE -C WORKSPACE` now verifies a bounded, versioned advisory descriptor
+and its exact Markdown content digest. Stable rule IDs map to unique exact text
+spans; inspection reports applicability, rationale, checks, full source bytes and
+locations. A revalidatable snapshot binds the inspector's owner, canonical target,
+raw descriptor bytes and content while remaining explicitly unbound. Unknown or
+executable/authority-bearing fields, duplicate keys/IDs, missing/ambiguous spans,
+unsafe final files and oversized inputs reject. Only the two user-selected files
+are read. Inspection does not attach templates or activate conversation, history,
+tool or provider paths. See [local guidance inspection](PROJECT_GUIDANCE_INSPECTION.md).
+
+**Private binding slice implemented:** `mos guidance attach|show|update|detach`
+binds explicitly reviewed snapshots to the owner's exact canonical workspace and
+directory identity. Mutations preview complete before/after data and a diff, then
+apply the reviewed hash under the private storage lock. Immutable snapshots survive
+updates/detach and can be inspected by digest; empty records retain a revision counter
+for stale-review rejection. Sources and stored identities are revalidated before
+publication. Eight templates per project and 512 KiB per stored file bound this
+slice. Binding neither loads history nor changes session contexts. Automatic semantic
+analysis, accepted requirements and role materialization
+remain subsequent work. See [private project guidance binding](PROJECT_GUIDANCE_BINDING.md).
+
+**Independent override slice implemented:** `mos guidance-overrides set|clear|show|effective`
+reviews and pins a complete project profile of up to 64 advisory rule replacements
+or omissions with explicit reasons. Qualified rule IDs must exist in attached
+templates. Effective inspection shows defaults, approved adjustments, omitted rules
+and exact provenance; it does not materialize model context. The profile is bound
+to the entire binding revision, so any binding change requires explicit re-review
+before effective use. Previews include previous/proposed rule text and source bytes;
+guarded publication retains immutable versions. Unknown authority fields and unsafe
+or oversized inputs reject. User direction, accepted requirements and trusted policy
+remain separate higher-authority layers; automatic semantic analysis and role contexts
+remain later work. See [project guidance overrides](PROJECT_GUIDANCE_OVERRIDES.md).
+
+**Explicit conflict assessment slice implemented:** `mos guidance-conflicts set|clear|show|effective`
+records reviewed conflicts among active qualified advisory rules. Preferred-rule
+choices require rationale, respect advisory precedence, and cannot exclude another
+chosen winner through overlapping resolutions. The complete assessment is pinned
+to binding/override revisions; changed guidance makes it stale. Both effective
+inspection paths expose unresolved/stale/unassessed status and retained exclusion
+provenance. Empty assessments require explicit review rationale and claim only that
+no conflicts were reported. Guarded publication retains immutable source/basis
+snapshots; historical views cannot claim current resolution completion. Automatic
+semantic detection, trusted-policy integration and role
+materialization remain later work. See [project guidance conflict review](PROJECT_GUIDANCE_CONFLICTS.md).
+
+**Requirement acceptance slice implemented:** `mos requirements set|show|clear`
+reviews a complete accepted set from up to eight explicitly selected brief/ADR
+files. Stable requirement/source IDs, exact unique source passages, content hashes,
+applicability, rationale and checks are retained in private project revisions.
+Guarded apply binds the complete proposal, prior state and owner/directory identity;
+clear preserves history and a revision tombstone. Source labels and advisory templates
+cannot self-accept requirements. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
+documents limits and examples. The combined review below pins these accepted
+revisions; trusted-policy integration and role-context materialization remain subsequent work.
+
+**Combined precedence slice implemented:** `mos guidance-assess set|clear|show|effective`
+reviews accepted requirements and active advisory rules in one independently reviewed
+assessment. Accepted requirements outrank approved overrides and advisory defaults;
+contradictory accepted requirements remain unresolved until the accepted set changes.
+The complete requirement/binding/override basis is pinned, stale choices stop applying,
+and historical reports cannot claim current completion. Existing advisory-only
+assessments do not establish combined completion. [Combined guidance review](PROJECT_GUIDANCE_PRECEDENCE.md)
+documents explicit conflict references, guarded publication and scope. Automatic
+semantic detection, trusted-policy evaluation and role-context loading remain subsequent work.
+
+**Owner-policy selection check slice implemented:** `mos guidance-policy-check`
+checks the current combined view against explicitly selected owner-private policy
+outside the project, bound to a reviewed raw hash and exact owner/project identity.
+Qualified prohibitions can block selected requirements or advisory rules; they cannot
+grant runtime authority or be waived by a guidance assessment. Allowed output requires
+current complete combined review and satisfied prohibitions; blocked/incomplete results
+return nonzero. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md) document scope,
+consistency, limits and a private-file example. This read-only slice does not evaluate
+arbitrary policy prose or replace runtime controls. Broader user/admin policy
+intersection, runtime admission and frozen role contexts remain subsequent work.
+
+**Frozen role-context slice implemented:** `mos guidance-context freeze|show`
+projects explicitly selected rules into bounded creator/coder/critic/judge packets.
+Every omitted accepted requirement needs a scope reason; unresolved/stale guidance,
+policy prohibitions and unavailable rules reject. Guarded apply pins selection,
+policy and the combined assessment into immutable private snapshots. Historical reads
+reconstruct exact projections from retained sources and cannot claim current authority.
+[Role guidance packets](PROJECT_GUIDANCE_ROLE_CONTEXT.md) exclude unselected source
+text, private policy prose and automatic history loading. Safe-boundary run/provider
+admission, broader policy intersection and retention/recovery remain subsequent work.
+
+**Current role-context admission slice implemented:** `mos guidance-context check`
+requires exact role/scope and snapshot/context hashes, current complete assessment
+and an explicitly selected unchanged private policy. The guarded local loader
+reconstructs the packet and holds the guidance lock through short local use, with
+source/identity rechecks. Its diagnostic output is not reusable authority.
+[Current role admission](PROJECT_GUIDANCE_ROLE_ADMISSION.md) documents stale rejection,
+consumer constraints and remaining run-manifest/provider integration.
+
+**Recorded review guidance slice implemented:** `mos guidance-review prepare|run`
+projects matching current critic/judge packets into an explicit review brief before
+request hashing and byte-budget checks. Run admission checks both current packets
+and the selected policy before and after offline execution. Hashed guidance artifacts
+pin source/derived briefs and role provenance; historical replay verifies projection
+without reopening current sources. [Guided recorded reviews](PROJECT_GUIDANCE_REVIEW.md)
+document bounded inputs, exact rubric pairing, schema compatibility and remaining
+live terminal/provider integration. Recorded fixtures do not establish live quality.
+
+**Terminal guided review slice implemented:** `mos guidance-review packet` exports
+bounded guidance-bearing review packets for terminal `/review`. Plain/TUI execution
+checks explicit launch policy and current exact project guidance before queueing and
+execution, and rechecks after recorded execution. Resume never reuses historical
+admission; directory handoff clears project-specific selections. Snapshot/SQLite
+artifacts retain exact provenance without importing chat memory or creator history.
+[Terminal guided reviews](CONVERSATION_GUIDANCE_REVIEW.md) document the unchanged
+terminal budgets, schema compatibility and remaining live provider authorization.
 
 A template describes its ID/version, scope, source revision and content digest,
 engineering preferences, applicability, rationale, verification rubric, logging
@@ -3109,6 +3769,204 @@ The three priorities are a usable recorded conversation/review slice, completion
 of live read-only provider integration, and an affordable independent quality study.
 No new learning algorithm or evidence artifact should obscure those deliverables.
 
+**Implementation update, 2026-09-12:** the recorded terminal conversation/review
+slice and frozen guidance admission are implemented. The
+[canonical model review bridge](MODEL_REVIEWER.md) now connects the existing
+`Reviewer` and `ModelClient` contracts with one isolated, tool-free request per
+critic or judge. It supplies exact finding IDs for adjudication, includes prompt
+and response envelopes in byte checks, validates complete JSON answers, and
+preserves the pipeline's quorum/evidence/verdict rules and cancellation behavior.
+This is an offline-tested library boundary. G2 still requires brokered live
+dispatch, explicit transfer/spending admission and credentialed conformance;
+the terminal continues to use recorded reviews.
+
+**Async broker lifecycle implemented:** the existing isolated request broker now
+has an awaitable entry point. Setup operations retain ownership through cancellation;
+provider/pipe teardown completes before exact container removal and guardian finish.
+Repeated cancellation cannot interrupt spending cleanup. Shared confinement flags,
+one-use claims and uncertain reservations are preserved, with real Docker fixture
+coverage. See [async broker lifecycle](ASYNC_BROKER.md). Live review-specific
+authorization, aggregate spending and credentialed conformance remain G2 work.
+
+**Broker-bound model client implemented:** one frozen canonical model request can
+now consume an existing exact-payload broker through the async worker boundary.
+Full request equality preserves local limits omitted from provider payloads; a
+single attempt is consumed before asynchronous work. Response validation and failed
+cleanup cannot release incurred spending or trigger a retry. The
+[brokered model client](BROKERED_MODEL_CLIENT.md) is tested with synthetic review
+and real Docker fixtures. It issues no review authority: transfer/audit bindings,
+aggregate reservations, dynamic judge admission and credentialed evidence remain next.
+
+**Single-call review admission implemented:** trusted host code can now preview
+and explicitly approve one critic or judge request using the reviewer's shared pure
+projection. The confirmation binds exact content, role, model, spending policy,
+ledger and expiry. Issuance reserves the full conservative per-call allowance before
+creating a broker grant; its unique ledger entry prevents repeated issuance. Private
+review-mode audit records retain the input/request and spending bindings, and reject
+cross-mode or incomplete verification. Crashes and ambiguous sends retain their
+holds. See [review broker admission](REVIEW_BROKER_ADMISSION.md). Aggregate critic/judge
+reservation, dynamic judge admission with retained finding lineage, guidance gates,
+response/evidence retention and authorized credentialed conformance remain G2 work;
+this library does not enable a live terminal mode.
+
+**Combined spending allowance implemented:** one explicit envelope approval now
+atomically reserves all selected critic calls and a full conservative allowance for
+the deferred judge. Failed group admission leaves no new partial reservations.
+Critics issue through fixed private paths and consume their existing holds; pricing
+violations block subsequent pre-reserved provider operations. The judge allowance
+still grants no transfer or request authority. See
+[review spending envelope](REVIEW_SPENDING_ENVELOPE.md). Exact dynamic judge-request
+binding, retained critic/finding evidence, guidance admission and credentialed
+conformance remain required before live review activation.
+
+**Deferred judge allowance transfer implemented:** a separate exact-request
+approval can now move the reserved judge allowance to its request-specific hold in
+one transaction, with unchanged aggregate exposure. It preserves the original
+brief/model/spending policy, requires terminal critic accounting states, retains a
+parent-to-child audit record and issues one bounded judge broker. It does not infer
+finding validity or quorum from spending records. See
+[deferred judge reservation](DEFERRED_JUDGE_RESERVATION.md). Retained critic/response
+and finding verification, guidance admission and authorized conformance remain G2
+requirements before live terminal activation.
+
+**Retained critic evidence and judge admission implemented:** review broker clients
+now save private raw/canonical responses and explicit completion receipts after
+worker cleanup. Read-only reconstruction checks every selected critic against the
+approved request, broker audit and terminal accounting, then reuses strict decoding,
+citation, deduplication and quorum rules. Missing or inconsistent artifacts block
+admission; fully recorded invalid/failed critics cannot vote but may coexist with
+a valid quorum. Separate judge approval binds the exact evidence and derived request
+and rechecks both before issuance. The existing default provider diversity remains
+unchanged. See [response evidence](REVIEW_RESPONSE_EVIDENCE.md). Guidance admission,
+retained final-verdict verification and authorized credentialed conformance remain
+required before live terminal activation.
+
+**Current broker guidance admission implemented:** explicitly selected prepared
+guidance now binds critic and judge approvals to the same frozen rubric. The broker
+path rechecks the current workspace, assessment and owner policy before reservation,
+issuance, provider operations and model completion, with no guidance locks held
+over network awaits. Detected changes stop new generation or invalidate an answer
+while preserving uncertain or already settled spending. Historical audit checks
+reconstruct pinned guidance without reopening current policy or granting new
+authority. See [broker guidance admission](REVIEW_GUIDANCE_ADMISSION.md). These
+moment-of-use checks do not establish uninterrupted policy validity or atomic
+revocation at remote send; live workflow and credentialed conformance remain gated.
+
+**Retained final verdict verification implemented:** read-only reconstruction now
+checks the complete approved critic/judge chain and terminal accounting, reuses the
+live judge decoder, rejects duplicate/unknown finding IDs and applies the same
+deterministic verdict rules as the pipeline. Fully recorded invalid or failed judge
+answers yield infrastructure errors with spending preserved; missing or inconsistent
+records block reconstruction. A private exclusive result artifact binds approval,
+completion and outcome hashes; historical verification requires its independently
+pinned hash and recomputes the entire result. See
+[final verdict evidence](REVIEW_VERDICT_EVIDENCE.md). Current guidance admission and
+authorized credentialed conformance remain required before live activation.
+
+**Brokered review controller implemented:** a process-local controller now binds
+the reviewed envelope and policy to an exact approval, runs critics concurrently,
+reconstructs their evidence and pauses for separately approved judge transfer. One
+deadline includes the approval pause; cancellation waits for every child to finish
+broker cleanup. The controller retains the fully reconstructed final result and
+bounded private phase records without retries or automatic budget release. It
+preserves current guidance checks and the configured quorum. See
+[brokered review controller](BROKERED_REVIEW_CONTROLLER.md). Durable records do not
+authorize crash resume; live launch/approval UX and credentialed conformance remain
+separate requirements before terminal activation.
+
+**Read-only controller inspection implemented:** independently pinned start records
+now anchor a metadata-only inventory of saved controller stages, critic/judge
+audits and model completions, result presence and conservative spending. Missing
+transfer records after an atomic judge allowance transfer leave explicit incomplete
+attribution; no inspection grants replay, frees spending or claims a verified
+verdict. See [controller inspection](REVIEW_CONTROLLER_INSPECTION.md).
+
+**Host approval interaction implemented:** a one-use flow now presents exact critic
+requests and the complete spending envelope before reservation, then separately
+presents the evidence-bound judge request. The asynchronous terminal adapter
+requires explicit hashes, safely displays exact content, and retains conservative
+spending on decline, prompt expiry or cancellation. Real Docker fixtures exercise
+the UI/controller boundary. See [approval flow](REVIEW_APPROVAL_FLOW.md). This adds
+no credential loading or live launch/configuration authority; conformance remains
+a separate gate.
+
+**Explicit launch configuration preview implemented:** a no-dispatch CLI now
+projects the selected model registry, critic/judge spending policies, budgets and
+current prepared guidance into the exact controller preview. It rejects mismatched
+models, implicit effort substitutions, stale guidance and insufficient aggregate
+capacity without creating a run or reserving spending. Evaluation conformance
+receipts and registry labels cannot establish review-controller conformance;
+live launch remains unavailable. See [launch preview](REVIEW_LAUNCH_PREVIEW.md).
+
+**Independent review probe authorization implemented:** exact guided critic and
+evidence-derived judge previews now have separate, short-lived Ed25519 authorization
+scopes, bound to spending, current authority policy, runtime and controller identity.
+An approval adapter checks each signature before and after explicit local consent;
+judge scope transfers only the existing allowance. This adds no credentialed executor
+or conformance proof. Actual dispatch-time enforcement and authenticated observations
+remain G2 work. See [signed authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md).
+
+**Owned review probe dispatch implemented:** a paid-capable library now composes
+both signed/local approvals with the controller and bounded OpenAI SDK transport.
+It rechecks exact payloads, current policy/guidance, installed SDK, selected images
+and expiry before credentials and provider operations, and after provider awaits.
+Each count/generation attempt is consumed once; shared spending and cancellation
+cleanup remain controller-owned. Real Docker and mocked HTTP/SDK fixtures cover the
+boundary. No live provider probe or authenticated conformance observation is claimed;
+review-specific observation/acceptance and live launch remain G2 work. See
+[owned probe](REVIEW_CONFORMANCE_PROBE.md).
+
+**Authenticated review observation implemented:** one successful probe can now have
+an independently signed observer record binding exact phase approvals, observed
+exchange intervals, external evidence pins and the retained verdict. Historical
+authentication reconstructs the complete local controller/evidence/spending chain
+and rejects failed critics, infrastructure errors, stale observations and substituted
+policies or artifacts. It authenticates observer identity without proving provider
+authorship, billing or repeated conformance. Independent evidence collection,
+review-specific repeated-probe acceptance and authorized live runs remain required;
+live launch remains unavailable. See [observer records](REVIEW_CONFORMANCE_OBSERVATION.md).
+
+**Review runtime evidence collection implemented:** the owned probe now writes
+private count/generation start and end records with exact approval/request/result
+hashes, UTC intervals, monotonic durations and active worker lease bindings. It
+captures lifecycle paths for independent retention. A read-only collector verifies
+these records and matching removal receipts, derives observer evidence pins and
+checks pinned exchanges against later changes. Recording failures preserve
+conservative spending and cancellation cleanup. Host measurements do not replace
+independent runtime assessment or grant live authority. Repeated-probe acceptance
+and authorized live runs remain next. See [runtime evidence](REVIEW_RUNTIME_EVIDENCE.md).
+
+**Repeated review probe acceptance implemented:** one read-only evaluator now
+requires three distinct, ordered attempts committed before their outcomes, each
+matching exact role, SDK/image and quorum profiles. It freshly authenticates observer
+records, reconstructs review artifacts, verifies runtime/cleanup pins and requires
+complete dedicated-ledger accounting. Missing slots stay incomplete; corrupted
+records, repeated responses or unexplained spending cannot pass. The result grants
+no retries, provider dispatch or live launch. Independent commitment custody,
+authorized live attempts and reviewed launch admission remain outstanding. See
+[acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md).
+
+**Offline review campaign ceremony implemented:** explicit commands now preview a
+fixed three-attempt bundle, confirm its canonical hash and privately seal it before
+attempts, then freshly review a separately pinned evidence submission. Sealing
+requires unused run directories and empty dedicated ledgers funding all allowances.
+Review reconstructs the committed configuration and complete evidence chain, keeps
+missing slots incomplete and rejects changed artifacts. Local seals are not
+independent timestamps or proof of prior custody, and cannot resume prepared
+controllers. Actual independent retention, separately authorized live attempts and
+reviewed launch admission remain required. See the
+[operator ceremony](REVIEW_CAMPAIGN_CEREMONY.md).
+
+**Sealed campaign probe binding implemented:** an owning host can now bind each
+prepared probe to a fixed slot and independently retained seal hash. Admission
+freshly checks the exact bundle, critic preview, current authority/runtime, ledger
+path and judge profile at approval and credential/provider use. Campaign deadlines
+also bound SDK operations. Changes block further dispatch while preserving held
+spending and cancellation cleanup. The binding grants no signatures, retries or live
+activation and does not reconstruct or automatically sequence attempts. Actual
+independent custody, authorized live attempts and reviewed launch admission remain
+required. See [campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing
@@ -3371,3 +4229,164 @@ version. Its capability/status output must show native Windows, the filesystem a
 sandbox backend, and any independently unsupported external environment. There is no
 "full Windows" release while an advertised macOS/Linux capability is silently
 disabled or delegated to WSL2.
+
+## 28. Application update notifications and guided upgrades
+
+**User-directed addition, 2026-09-12 — planned, required for the finished product.**
+When maintainers publish an update, installed Mos Eisley clients should alert users
+and offer an easy update flow in the terminal, following the Codex-style experience.
+This is application distribution work, separate from the evaluated prompt-skill
+installation machinery in §25. The [official Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+documents startup update checks; the behavior below is Mos Eisley's product contract.
+
+### 28.1 Release publication and discovery
+
+- A pushed version tag triggers the release pipeline. Publish immutable versioned
+  packages and release notes only after required quality and platform checks pass;
+  advance the public release feed only when the advertised packages are available.
+  Ordinary branch pushes do not notify stable users. Stable is the default channel;
+  preview releases require explicit user selection.
+- Check the trusted release feed asynchronously at interactive startup and at a
+  bounded interval during long-running sessions. Cache results, cap network time
+  and response size, and back off on failures. Users see new releases on the next
+  successful check; discovery does not require a persistent push connection.
+- Compare installed and available versions, release channel, OS/architecture,
+  installation method and runtime compatibility. Do not advertise an incompatible,
+  withdrawn or already-installed release as an available upgrade.
+- Provide `mos update check` and `/update` inspection with installed/latest version,
+  channel, release notes, compatibility and check status. Network failure means
+  “unable to check,” with cached results labeled, rather than “up to date.”
+
+### 28.2 User experience and installation
+
+- Show a nonblocking update notice with current/new versions, a short change summary,
+  release notes and **Update now**, **Remind me later**, and **Skip this version**
+  actions. Preserve the composer, focus and running work; deduplicate notices for
+  the same release. Manual inspection remains available after dismissal.
+- `mos update` and the terminal action use the same guided flow. Show the exact
+  target version and installation method, then obtain user confirmation. Default
+  behavior is automatic discovery with user-initiated installation. Allow trusted
+  user/admin policy to disable checks or delegate updates to central management;
+  repository configuration and model output cannot change update policy.
+- Detect and respect the supported installation method. Use its approved package
+  manager or the verified standalone updater; for unsupported, editable or centrally
+  managed installations, show precise manual instructions instead of modifying an
+  unrelated environment. Never infer installation commands from release-note text.
+- Before replacement or restart, finish or explicitly cancel active work and await
+  worker cleanup, then durably save the session, draft and queued intent. If saving
+  fails, defer the update. After successful installation, report the installed
+  version and offer restart/resume of the exact session. Do not replay consumed
+  provider requests or release uncertain spending during restart or recovery.
+- Noninteractive commands never prompt, update or restart implicitly, and update
+  notices never contaminate their machine-readable output. Provide a structured
+  check result and require explicit installation selection for automation.
+
+### 28.3 Integrity, persistence and recovery
+
+Fetch metadata and packages only through trusted distribution endpoints with TLS,
+authenticated publisher provenance and artifact-integrity verification. Release
+metadata is bounded inert data. Reject tampered artifacts, unexpected redirects,
+channel substitution and unintended downgrades before installation. Update checks
+send only necessary release/platform information, without workspace paths,
+conversations, memory, provider credentials or cross-user telemetry.
+
+Serialize updates across running clients and retain the current runnable version
+until a staged replacement verifies successfully, using the package manager's
+supported transaction/recovery mechanism where applicable. Preserve configuration,
+credentials, memory, sessions, repository/worktree bindings and audit/spending
+records. Version storage migrations, back up affected state before mutation, and
+verify supported upgrade paths. An incompatible rollback must not open newer
+storage with an older binary: recover a compatible version or an explicitly selected
+backup without discarding newer evidence. Failed downloads, installation, migration
+or restart must report an actionable recovery path and never claim success.
+
+### 28.4 Delivery and acceptance
+
+Deliver release publication/feed and read-only notification first, then guided
+installation and safe restart, then migration/recovery qualification. This is a
+finished-product release requirement alongside packaging and the conversation UI;
+it does not advance or block the G2 live-review capability gate. Qualify macOS,
+Linux and Windows-hosted WSL2 under the 0.1.0 platform contract, and full native
+Windows under 0.1.1 (§27), for every advertised installation method.
+
+Acceptance evidence must cover a published release reaching an older installed
+client; notice, notes, defer/skip and manual recheck; successful update and exact
+session resume; offline/timeout behavior; disabled and centrally managed checks;
+stable/preview and platform selection; invalid provenance and damaged packages;
+concurrent clients and active work; interrupted download/install/restart; storage
+migration failure and compatible recovery; and clean noninteractive output. Run
+the upgrade and recovery scenarios against packaged installations on each supported
+platform before claiming this feature is available.
+
+## 29. Codex-style installation and first launch
+
+**User-directed addition, 2026-09-12 — planned, required for the finished product.**
+Users must be able to install Mos Eisley with a short terminal command and then run
+`mos` from a project directory, without cloning the repository, building source or
+manually setting up Python. The [official Codex CLI installation guide](https://learn.chatgpt.com/docs/codex/cli)
+provides the reference experience: standalone installation, Windows, npm and
+Homebrew options, followed by launch and authentication. This section defines Mos
+Eisley's distribution requirements; package names and installer endpoints must be
+secured and verified before runnable public instructions are published.
+
+### 29.1 Supported installation routes
+
+| Route | Required Mos Eisley experience |
+|---|---|
+| Standalone macOS/Linux | One copyable shell command downloads the official installer, selects a compatible release and installs the `mos` launcher in a user-owned executable directory. Also offer download/inspect/run instructions. |
+| Windows-hosted WSL2, 0.1.0 | A Windows-facing guide checks WSL2 prerequisites, then uses the Linux installer inside the selected distribution. Identify the installed environment and explain how to launch from Windows Terminal. |
+| Native Windows, 0.1.1 | One copyable PowerShell command installs a verified native package in a per-user location and makes `mos` available in a new terminal, after §27 native qualification. |
+| npm | An official scoped package supports a single global-install command and exposes `mos`, selecting the same verified platform release. Clearly state the supported Node/npm prerequisites. |
+| Homebrew | A maintained official tap/package provides a single install command on qualified macOS/Linux targets, with normal upgrade and uninstall behavior. |
+| Direct download | Versioned OS/architecture archives with integrity/provenance information support manual, pinned and offline installation using a previously acquired complete package. |
+
+Package the Python application with its required interpreter and runtime
+dependencies for standalone distribution, or deliver an equivalently self-contained
+runtime. npm and Homebrew routes use the same versioned application artifacts;
+users do not manage a separate Python environment. Retain wheels/source installs
+for developers and existing automation, with their prerequisites clearly documented.
+All routes expose the same `mos` CLI and record installation origin, version,
+channel and architecture for §28's update resolver. Native Windows remains gated
+on 0.1.1 even if a package manager can install a launcher earlier.
+
+### 29.2 Setup, coexistence and removal
+
+- Install for the current user without administrator access by default. Support an
+  explicit destination and version selection. Check OS/architecture and prerequisites
+  before mutation; explain unsupported targets and required external tools.
+- Make PATH setup explicit, bounded and idempotent. Detect existing `mos` commands,
+  alternate installations and package-manager ownership before replacement; explain
+  conflicts and require deliberate selection rather than overwriting another tool.
+  Re-running the installer must repair or report the selected installation safely.
+- After installation, show the installed version and the next step: enter a project
+  directory and run `mos`. First launch guides provider selection and supported
+  authentication, explains missing prerequisites and verifies local readiness.
+  Installation itself does not require provider credentials or make paid requests.
+- Use §28's release feed, artifact verification, channel controls and transactional
+  recovery for first installation as well as upgrades. Bound downloads/extraction,
+  reject archive path escapes and unsafe links, and leave no partial active launcher
+  after failure. Support proxy/managed environments with explicit diagnostics.
+- Document install, version verification, update and uninstall together for every
+  route. Uninstall removes only that installation's owned files and launcher;
+  preserve credentials, configuration, memory, sessions and evidence by default.
+  Any data deletion is a separately selected, previewed operation. Switching install
+  methods must preserve user state and leave one clearly selected active launcher.
+
+### 29.3 Delivery and acceptance
+
+Deliver the verified standalone artifacts and shell installer first, then npm and
+Homebrew distribution, first-launch guidance and uninstall instructions. Qualify
+the Windows paths according to §27. Publish the supported installation commands
+prominently in the README and release documentation only after endpoint/package
+ownership and installed-artifact checks pass. Connect every advertised method to
+§28's notifications and method-specific upgrade flow before finished-product release.
+This packaging work does not change the G2 capability gate.
+
+Test each advertised route on clean supported OS/architecture environments,
+including machines without Python and standalone targets without Node. Verify
+`mos --version`, help, first launch, credential-free setup, session save/resume,
+upgrade through §28, repeat install, custom paths and paths with spaces, PATH
+conflicts, denied permissions, failed/interrupted downloads, tampered archives,
+unsupported platforms, pinned/offline installation and state-preserving uninstall.
+Exercise npm/Homebrew ownership and switching explicitly; mocks or a source-tree
+launch cannot substitute for a successful installed-package journey.

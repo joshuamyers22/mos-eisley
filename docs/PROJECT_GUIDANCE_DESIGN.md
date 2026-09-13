@@ -3,8 +3,19 @@
 Mos Eisley should adopt the runtime mechanisms for structured operational events,
 bounded evidence handling, and project-specific guidance. Engineering opinions
 remain editable per-project defaults. The telemetry platform itself remains a
-separate optional integration. This is a planning amendment, not implemented runtime
-support or an upgrade of the production-template repository.
+separate optional integration. The [local inspection slice](PROJECT_GUIDANCE_INSPECTION.md)
+now validates an explicit descriptor and Markdown snapshot. [Private bindings](PROJECT_GUIDANCE_BINDING.md)
+support reviewed attach/show/update/detach with retained versions.
+[Project overrides](PROJECT_GUIDANCE_OVERRIDES.md) add independent advisory adjustments
+and visible effective rules. [Explicit conflict review](PROJECT_GUIDANCE_CONFLICTS.md)
+records unresolved entries and reviewed preferences. [Requirement acceptance](PROJECT_REQUIREMENTS.md)
+adds reviewed brief/ADR snapshots. [Combined review](PROJECT_GUIDANCE_PRECEDENCE.md)
+now pins requirement/advisory precedence and conflicts. [Owner policy checks](PROJECT_GUIDANCE_POLICY.md)
+add explicit private selection prohibitions. Broader runtime/user/admin policy integration,
+automatic semantic analysis,
+role-context loading and telemetry
+integration remain planned; the production-template
+repository is unchanged.
 
 ## Sources and scope
 
@@ -102,8 +113,9 @@ Required audit and spending transactions remain on their own durable path.
 ## Project-by-project use
 
 The reusable starter is [PROJECT_POINT_OF_VIEW.md](../templates/PROJECT_POINT_OF_VIEW.md).
-It is usable now as a manually selected project document. Future automatic support
-binds a reviewed snapshot and local overrides in trusted owner configuration.
+It is usable now as a manually selected project document. A matching advisory descriptor
+can be inspected and bound in trusted owner configuration. Local overrides can be
+reviewed independently for each project; automatic role-context materialization remains planned.
 
 For example, a CLI project can select a Python engineering profile and its own
 logging policy; a quantitative project can select a statistical point of view and

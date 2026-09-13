@@ -3,7 +3,7 @@
 import gzip
 from unittest import IsolatedAsyncioTestCase
 
-import httpx
+import httpx2
 from openai import AsyncOpenAI
 
 from mos_eisley.core.ports import ProviderError
@@ -13,23 +13,23 @@ from mos_eisley.providers.openai_responses import SDKOpenAITransport
 
 class OpenAIHTTPTests(IsolatedAsyncioTestCase):
     async def test_small_body_is_materialized_for_sdk(self) -> None:
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             self.assertEqual(request.headers["accept-encoding"], "identity")
-            return httpx.Response(200, json={"ok": True}, request=request)
+            return httpx2.Response(200, json={"ok": True}, request=request)
 
         async with BoundedOpenAIHttpClient(
-            response_limit=1024, transport=httpx.MockTransport(reply)
+            response_limit=1024, transport=httpx2.MockTransport(reply)
         ) as client:
             response = await client.get("https://api.openai.com/v1/responses")
         self.assertEqual(response.json(), {"ok": True})
 
     async def test_caller_cannot_reenable_response_compression(self) -> None:
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             self.assertEqual(request.headers["accept-encoding"], "identity")
-            return httpx.Response(200, json={"ok": True}, request=request)
+            return httpx2.Response(200, json={"ok": True}, request=request)
 
         async with BoundedOpenAIHttpClient(
-            response_limit=1024, transport=httpx.MockTransport(reply)
+            response_limit=1024, transport=httpx2.MockTransport(reply)
         ) as client:
             response = await client.get(
                 "https://api.openai.com/v1/models/example",
@@ -40,7 +40,7 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
     async def test_declared_oversize_rejected_before_body_read(self) -> None:
         closed = False
 
-        class Body(httpx.AsyncByteStream):
+        class Body(httpx2.AsyncByteStream):
             async def __aiter__(self):
                 yield b"should not be read"
 
@@ -48,8 +48,8 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
                 nonlocal closed
                 closed = True
 
-        async def reply(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
+        async def reply(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
                 200,
                 headers={"content-length": "1025"},
                 stream=Body(),
@@ -57,14 +57,14 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
             )
 
         async with BoundedOpenAIHttpClient(
-            response_limit=1024, transport=httpx.MockTransport(reply)
+            response_limit=1024, transport=httpx2.MockTransport(reply)
         ) as client:
-            with self.assertRaises(httpx.NetworkError):
+            with self.assertRaises(httpx2.NetworkError):
                 await client.get("https://api.openai.com/v1/responses")
         self.assertTrue(closed)
 
     async def test_chunked_and_decompressed_oversize_rejected(self) -> None:
-        class Body(httpx.AsyncByteStream):
+        class Body(httpx2.AsyncByteStream):
             def __init__(self, parts: tuple[bytes, ...]) -> None:
                 self.parts = parts
 
@@ -82,44 +82,44 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
         for headers, blocks in cases:
 
             async def reply(
-                request: httpx.Request,
+                request: httpx2.Request,
                 headers: dict[str, str] = headers,
                 blocks: tuple[bytes, ...] = blocks,
-            ) -> httpx.Response:
-                return httpx.Response(
+            ) -> httpx2.Response:
+                return httpx2.Response(
                     200, headers=headers, stream=Body(blocks), request=request
                 )
 
             async with BoundedOpenAIHttpClient(
-                response_limit=1024, transport=httpx.MockTransport(reply)
+                response_limit=1024, transport=httpx2.MockTransport(reply)
             ) as client:
                 with (
                     self.subTest(headers=headers),
-                    self.assertRaises(httpx.NetworkError),
+                    self.assertRaises(httpx2.NetworkError),
                 ):
                     await client.get("https://api.openai.com/v1/responses")
 
     async def test_exact_limit_allowed_and_streaming_refused(self) -> None:
         calls = 0
 
-        async def reply(request: httpx.Request) -> httpx.Response:
+        async def reply(request: httpx2.Request) -> httpx2.Response:
             nonlocal calls
             calls += 1
-            return httpx.Response(200, content=b"x" * 1024, request=request)
+            return httpx2.Response(200, content=b"x" * 1024, request=request)
 
         async with BoundedOpenAIHttpClient(
-            response_limit=1024, transport=httpx.MockTransport(reply)
+            response_limit=1024, transport=httpx2.MockTransport(reply)
         ) as client:
             response = await client.get("https://api.openai.com/v1/responses")
             self.assertEqual(len(response.content), 1024)
             request = client.build_request("GET", "https://api.openai.com/v1/responses")
-            with self.assertRaises(httpx.NetworkError):
+            with self.assertRaises(httpx2.NetworkError):
                 await client.send(request, stream=True)
         self.assertEqual(calls, 1)
 
     async def test_official_sdk_maps_oversize_to_generic_provider_error(self) -> None:
-        async def reply(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
+        async def reply(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
                 200,
                 json={
                     "id": "resp_test",
@@ -136,7 +136,7 @@ class OpenAIHTTPTests(IsolatedAsyncioTestCase):
             )
 
         async with BoundedOpenAIHttpClient(
-            response_limit=1024, transport=httpx.MockTransport(reply)
+            response_limit=1024, transport=httpx2.MockTransport(reply)
         ) as http_client:
             sdk = AsyncOpenAI(
                 api_key="synthetic-test-key",

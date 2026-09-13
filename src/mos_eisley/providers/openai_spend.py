@@ -199,7 +199,7 @@ def _normalized_text_request(
     return request, output_cap
 
 
-def _count_payload(request: dict[str, JsonValue]) -> dict[str, JsonValue]:
+def count_payload(request: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         key: value
         for key, value in request.items()
@@ -215,11 +215,31 @@ def _count_payload(request: dict[str, JsonValue]) -> dict[str, JsonValue]:
     }
 
 
-def _request_sha256(request: dict[str, JsonValue]) -> str:
+def spending_request_sha256(request: dict[str, JsonValue]) -> str:
     return digest(
         json.dumps(
             request, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode()
+    )
+
+
+def prepare_full_reservation(
+    payload: dict[str, JsonValue], policy: SpendPolicy
+) -> SpendReservation:
+    """Pure, current-policy envelope for a later pre-reserved text dispatch."""
+    policy.check_current()
+    request, output_cap = _normalized_text_request(payload, policy)
+    if output_cap != policy.max_output_tokens:
+        raise ValueError("full reservation requires the exact policy output cap")
+    amount = policy.reservation_cost(policy.max_input_tokens, output_cap)
+    if amount > policy.max_cost_microusd:
+        raise ValueError("full reservation exceeds the per-call spending limit")
+    return SpendReservation(
+        policy_sha256=policy.policy_sha256,
+        request_sha256=spending_request_sha256(request),
+        input_tokens=policy.max_input_tokens,
+        max_output_tokens=output_cap,
+        reserved_microusd=amount,
     )
 
 
@@ -249,7 +269,7 @@ class BudgetedOpenAITransport:
         self.policy.check_current()
         request, output_cap = _normalized_text_request(payload, self.policy)
         tokens = await self.transport.count_input_tokens(
-            copy.deepcopy(_count_payload(request))
+            copy.deepcopy(count_payload(request))
         )
         if type(tokens) is not int or not 0 <= tokens <= self.policy.max_input_tokens:
             raise ProviderError("input count exceeds spending policy")
@@ -259,7 +279,7 @@ class BudgetedOpenAITransport:
             raise ProviderError("response reservation exceeds spending limit")
         reservation = SpendReservation(
             policy_sha256=self.policy.policy_sha256,
-            request_sha256=_request_sha256(request),
+            request_sha256=spending_request_sha256(request),
             input_tokens=tokens,
             max_output_tokens=output_cap,
             reserved_microusd=reserved,
@@ -390,6 +410,8 @@ class PreReservedOpenAITransport:
         return self.ledger
 
     def _require_held(self) -> None:
+        if self._required_ledger().snapshot().blocked:
+            raise ValueError("spending ledger is blocked by a pricing violation")
         status = self._required_ledger().entry_status(self.ledger_entry.entry_id)
         if (
             status is None
@@ -412,7 +434,7 @@ class PreReservedOpenAITransport:
         reservation_hash = digest(canonical_bytes(self.reservation))
         if (
             self.reservation.policy_sha256 != self.policy.policy_sha256
-            or self.reservation.request_sha256 != _request_sha256(request)
+            or self.reservation.request_sha256 != spending_request_sha256(request)
             or self.reservation.input_tokens != self.policy.max_input_tokens
             or self.reservation.max_output_tokens != self.policy.max_output_tokens
             or output_cap != self.reservation.max_output_tokens
@@ -430,7 +452,7 @@ class PreReservedOpenAITransport:
         )
         try:
             tokens = await self.transport.count_input_tokens(
-                copy.deepcopy(_count_payload(request))
+                copy.deepcopy(count_payload(request))
             )
         except BaseException:
             self._receipt(
