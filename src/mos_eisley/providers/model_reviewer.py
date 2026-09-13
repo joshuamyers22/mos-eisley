@@ -163,6 +163,12 @@ class ModelReviewer:
         """Reapply the same bounded decoder to retained, request-bound output."""
         return self._parse(self.critic_request(critic, request), response, Critique)
 
+    def parse_judge(
+        self, request: JudgeRequest, response: ModelResponse
+    ) -> JudgeDecision:
+        """Apply the live judge decoder to retained, request-bound output."""
+        return self._parse(self.judge_request(request), response, JudgeDecision)
+
     def _parse(
         self,
         request: ModelRequest,
@@ -198,7 +204,12 @@ class ModelReviewer:
             elif not isinstance(block, ReasoningBlock):
                 raise ValueError("review response contains a tool block")
         raw = "".join(chunks)
-        decoded: object = json.loads(raw, object_pairs_hook=_unique_object)
+        try:
+            decoded: object = json.loads(raw, object_pairs_hook=_unique_object)
+        except RecursionError:
+            raise ValueError(
+                "review response exceeds the decoder nesting limit"
+            ) from None
         if not isinstance(decoded, dict):
             raise ValueError("review response must be an object")
         value = cast(dict[str, object], decoded)

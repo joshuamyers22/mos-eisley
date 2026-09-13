@@ -27,3 +27,9 @@ container:
 	docker run --rm --network none --read-only --tmpfs /tmp mos-eisley:local --help
 	python3 tools/smoke_container.py
 	uv run --frozen python tools/smoke_isolation.py
+	uv run --frozen python tools/smoke_review_controller.py
+	uv run --frozen python tools/smoke_review_approval.py
+	uv run --frozen python tools/smoke_review_conformance.py
+	uv run --frozen python tools/smoke_review_probe.py
+	uv run --frozen python tools/smoke_review_runtime_evidence.py
+	uv run --frozen python tools/smoke_review_campaign.py

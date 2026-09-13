@@ -20,6 +20,10 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.protocol import ModelRequest
+from mos_eisley.project_guidance_review import (
+    REVIEW_GUIDANCE_BYTES,
+    decode_prepared_review,
+)
 from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_responses import request_payload
@@ -43,6 +47,10 @@ from mos_eisley.run.provider_broker import (
     ApprovedRequest,
     RequestBoundBroker,
 )
+from mos_eisley.run.review_guidance import (
+    GuidanceCheckedTransport,
+    ReviewGuidanceAdmission,
+)
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
@@ -59,6 +67,9 @@ class ReviewAuthorization(BrokerAuthorization):
     reserved_microusd: Money
     ledger_policy_sha256: Digest
     expires_at: datetime
+    guidance_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def coherent_role(self) -> Self:
@@ -85,7 +96,10 @@ class PreparedReviewCall:
         *,
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
+        guidance: ReviewGuidanceAdmission | None = None,
     ) -> None:
+        if guidance is not None:
+            guidance.check_brief(request.brief)
         if isinstance(request, CriticRequest) and critic is not None:
             model_request = reviewer.critic_request(critic, request)
             role = "critic"
@@ -147,6 +161,7 @@ class PreparedReviewCall:
             expires_at=min(
                 datetime.now(UTC) + timedelta(minutes=10), policy.valid_until
             ),
+            guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
         self._request = frozen
         self._input = canonical_bytes(request)
@@ -154,6 +169,7 @@ class PreparedReviewCall:
         self._policy = policy
         self._reservation = reservation
         self._ledger = ledger
+        self._guidance = guidance
 
     @property
     def authorization(self) -> ReviewAuthorization:
@@ -167,6 +183,11 @@ class PreparedReviewCall:
     @property
     def model_request(self) -> ModelRequest:
         return ModelRequest.model_validate_json(self._request)
+
+    @property
+    def review_request(self) -> CriticRequest | JudgeRequest:
+        kind = CriticRequest if self._authorization.role == "critic" else JudgeRequest
+        return kind.model_validate_json(self._input)
 
     def issue(
         self,
@@ -210,7 +231,13 @@ class PreparedReviewCall:
             else CriticSpec.model_validate_json(self._critic)
         )
 
+    @property
+    def guidance(self) -> ReviewGuidanceAdmission | None:
+        return self._guidance
+
     def check_current(self, timeout: float) -> None:
+        if self._guidance is not None:
+            self._guidance.check()
         if not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError(
                 "review broker timeout must be between zero and 60 seconds"
@@ -245,6 +272,12 @@ class PreparedReviewCall:
             private_write(directory / "critic.json", self._critic)
         private_write(directory / "spend-policy.json", canonical_bytes(self._policy))
         private_write(directory / "spend-plan.json", canonical_bytes(self._reservation))
+        if self._guidance is not None:
+            private_write(
+                directory / "guidance-review.json",
+                canonical_bytes(self._guidance.prepared),
+            )
+            transport = GuidanceCheckedTransport(transport, self._guidance)
         remaining = (authorization.expires_at - datetime.now(UTC)).total_seconds()
         controller = PreReservedOpenAITransport(
             transport, self._policy, directory, self._ledger, self._reservation, entry
@@ -261,6 +294,7 @@ class PreparedReviewCall:
             container,
             timeout=timeout,
             response_directory=directory,
+            admission_check=None if self._guidance is None else self._guidance.check,
         )
 
 
@@ -318,6 +352,7 @@ class ReviewSpendingEnvelope(Contract):
             or call.brief_sha256 != self.judge.brief_sha256
             or call.ledger_policy_sha256 != self.ledger_policy_sha256
             or call.ledger_id != first.ledger_id
+            or call.guidance_sha256 != first.guidance_sha256
             for call in self.critics
         ):
             raise ValueError("review envelope mixes role, brief or spending scopes")
@@ -517,6 +552,7 @@ class PreparedJudgeTransfer:
             envelope.envelope.judge.spend_policy,
             envelope.ledger,
             reserved_allowance=envelope.envelope.judge,
+            guidance=envelope.critics[0].guidance,
         )
         self._authorization = JudgeTransferAuthorization(
             envelope_sha256=envelope.approval_sha256,
@@ -604,10 +640,12 @@ def verify_judge_transfer(
         != expected
     ):
         raise ValueError("judge transfer authorization mismatch")
+    raw_envelope = read_bounded(directory / "envelope.json", 32_768)
+    envelope = ReviewSpendingEnvelope.model_validate_json(raw_envelope)
     if (
-        digest(read_bounded(directory / "envelope.json", 32_768))
-        != expected.envelope_sha256
+        digest(raw_envelope) != expected.envelope_sha256
         or ledger.policy.ledger_id != expected.call.ledger_id
+        or expected.call.guidance_sha256 != envelope.critics[0].guidance_sha256
     ):
         raise ValueError("judge transfer envelope or ledger mismatch")
     source = ledger.entry_status(expected.allowance.entry_id)
@@ -643,6 +681,18 @@ def verify_review_broker_audit(
     )
     if actual != expected:
         raise ValueError("review audit authorization mismatch")
+    guidance_path = directory / "guidance-review.json"
+    if expected.guidance_sha256 is not None:
+        raw = read_bounded(guidance_path, REVIEW_GUIDANCE_BYTES)
+        prepared = decode_prepared_review(raw)
+        if (
+            raw != canonical_bytes(prepared)
+            or prepared.sha256 != expected.guidance_sha256
+            or prepared.brief.brief_id != expected.brief_sha256
+        ):
+            raise ValueError("review audit guidance mismatch")
+    elif guidance_path.exists():
+        raise ValueError("unexpected review guidance artifact")
     artifacts = {
         "model-request.json": expected.model_request_sha256,
         "review-input.json": expected.review_input_sha256,

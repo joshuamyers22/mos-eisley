@@ -139,6 +139,61 @@ loading and telemetry adapters remain planned.
    critic responses to request/audit hashes, recomputes citations and quorum, and
    binds judge approval to verified deduplicated findings. Guidance admission, final
    verdict verification and credentialed conformance remain required for live review.
+   [Current broker guidance](REVIEW_GUIDANCE_ADMISSION.md) now binds approved
+   critic/judge requests to the same frozen rubric, rechecks current policy at
+   reservation and provider boundaries, and rejects changes before returning an
+   answer while preserving spending. Historical checks retain the pinned guidance
+   without treating it as current permission. Final verdict verification and
+   credentialed conformance remain separate live-integration prerequisites.
+
+   [Retained final verdicts](REVIEW_VERDICT_EVIDENCE.md) now reconstruct complete
+   critic/judge lineage, reject invalid judge decisions, apply shared verdict rules
+   and verify saved results against independently pinned hashes. Current guidance
+   admission and credentialed conformance remain required for live activation.
+   The [brokered review controller](BROKERED_REVIEW_CONTROLLER.md) now runs approved
+   critics concurrently, reconstructs their evidence, pauses for exact judge
+   approval and retains the verified final result. A shared deadline includes the
+   approval pause; cancellation awaits child cleanup and preserves spending. This
+   process-local library adds no crash resume or live launch command. Credentialed
+   conformance and a user-facing live approval flow remain separate gates.
+   [Controller inspection](REVIEW_CONTROLLER_INSPECTION.md) now inventories saved
+   stages, audit/completion records and spending without dispatch or resume
+   authority, explicitly flagging incomplete judge-transfer crash attribution.
+   The [approval flow](REVIEW_APPROVAL_FLOW.md) now connects an asynchronous terminal
+   adapter to both controller phases, shows exact requests and spending, requires
+   separate hashes and awaits cancellation cleanup. Live launch/configuration and
+   credentialed conformance remain gated.
+   [Launch configuration preview](REVIEW_LAUNCH_PREVIEW.md) now combines explicit
+   model/pricing inputs, current guidance, quorum and aggregate spending into exact
+   requests without reservation or dispatch. Existing evaluation receipts and
+   registry labels cannot substitute for credentialed review-controller conformance.
+   [Signed review probe authorization](REVIEW_CONFORMANCE_AUTHORIZATION.md) now binds
+   independent, short-lived signatures to exact critic and judge phases alongside
+   local approval, with current policy/runtime checks. The
+   [owned probe](REVIEW_CONFORMANCE_PROBE.md) now rechecks authorization at credential
+   and provider use, bounds operations by signed expiry, preserves one-use spending
+   and awaits cancellation cleanup. [Observer records](REVIEW_CONFORMANCE_OBSERVATION.md)
+   now authenticate one successful probe against exact approvals, execution windows
+   and reconstructed artifacts. Independent runtime evidence collection, repeated
+   probe acceptance and authorized live runs remain required; live launch is unavailable.
+   [Runtime evidence](REVIEW_RUNTIME_EVIDENCE.md) now records count/generation
+   intervals and hashes, captures worker lifecycle paths and verifies matching
+   cleanup receipts. These host measurements support independent inspection;
+   observer assessment and repeated-probe acceptance remain separate requirements.
+   [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires all
+   three precommitted slots, exact role/runtime/quorum profiles, fresh observer and
+   runtime verification, distinct responses/workers and complete dedicated-ledger
+   accounting. Commitment custody, independently authorized live attempts and a
+   reviewed launch-admission decision remain outstanding.
+   The [offline campaign ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews exact
+   three-attempt bundles, seals private commitments after empty-ledger and unused-path
+   checks, and freshly reviews separately pinned evidence submissions. Independent
+   custody, authorized live attempts and launch admission still require actual
+   operator execution and review; the ceremony grants no dispatch authority.
+   [Campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an owned
+   probe to its exact sealed slot at approval and credential/provider use, including
+   current policy/runtime/path checks and campaign deadline caps. It preserves the
+   separate signature/local approval gate and introduces no live activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
