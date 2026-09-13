@@ -236,6 +236,7 @@ def main() -> int:
             "test_review_campaign_dispatch.py",
             "test_review_campaign_runner.py",
             "test_review_observer_handoff.py",
+            "test_review_campaign_submission.py",
             "test_held_spend_transfer.py",
             "test_spend_ledger_batch.py",
             "test_openai_spend.py",

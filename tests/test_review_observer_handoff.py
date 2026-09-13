@@ -24,7 +24,7 @@ from mos_eisley.run.review_conformance_observation import sign_review_probe_obse
 from mos_eisley.run.store import private_write
 
 
-class ObserverHandoffTests(CampaignRunnerFixture):
+class ObserverHandoffFixture(CampaignRunnerFixture):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         with patch.object(self, "observe", return_value=None):
@@ -63,6 +63,8 @@ class ObserverHandoffTests(CampaignRunnerFixture):
             now=datetime.now(UTC),
         )
 
+
+class ObserverHandoffTests(ObserverHandoffFixture):
     def test_cli_preview_is_read_only_unsigned_and_does_not_load_credentials(self):
         before = [f.base.ledger.path.read_bytes() for f in self.fixtures]
         out = io.StringIO()

@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Assemble campaign evidence one fixed slot at a time from pinned completions,
+  previews and separately signed observations, freshly verifying the entire prefix.
+
 - Preview unsigned review observations from pinned campaign completions and selected
   runtime evidence, with explicit independent-attestation requirements and no key use.
 

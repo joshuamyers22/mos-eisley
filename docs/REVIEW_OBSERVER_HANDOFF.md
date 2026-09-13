@@ -64,6 +64,10 @@ signed record in a `CampaignAttemptSubmission`. The runner and
 [campaign review command](REVIEW_CAMPAIGN_CEREMONY.md) freshly verify it before treating
 the slot as qualifying. A preview alone cannot qualify a slot or start another probe.
 
+Use [evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md) to combine the retained
+completion, exact preview and separately signed observation into a new submission.
+The command freshly verifies the whole supplied prefix before writing it.
+
 ## Validation and remaining gate
 
 Tests verify no credential or signer use, unchanged ledgers, private exclusive output,

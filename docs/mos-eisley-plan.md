@@ -5356,6 +5356,15 @@ explicitly denies observer authentication and signature creation. No provider or
 signing keys are loaded, and live admission remains gated. See
 [observer handoff](REVIEW_OBSERVER_HANDOFF.md).
 
+**Offline campaign evidence assembly implemented:** a command now appends an
+independently signed observation to the next fixed slot using separately pinned
+completion, preview and signature files, plus any previous submission. It binds
+the exact proposed observation and freshly verifies every supplied slot before
+writing a new private submission. Gaps, replacements, changed artifacts and invalid
+signatures fail without updating existing evidence. The command grants no dispatch,
+resume or live activation authority. Actual independent assessment remains required.
+See [evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

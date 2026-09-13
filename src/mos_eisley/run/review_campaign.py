@@ -312,6 +312,25 @@ def read_campaign_seal(
     return bundle, seal
 
 
+def write_campaign_export(
+    directory: Path, expected_seal_sha256: str, output: Path, raw: bytes
+) -> None:
+    """Exclusive private export outside the sealed campaign and its run evidence."""
+    if len(raw) > CAMPAIGN_BYTES:
+        raise ValueError("campaign export exceeds its byte limit")
+    bundle, _ = read_campaign_seal(directory, expected_seal_sha256)
+    protected = (
+        directory,
+        *(
+            Path(attempt.preview.envelope.artifact_directory)
+            for attempt in bundle.attempts
+        ),
+    )
+    if any(output.resolve().is_relative_to(path.resolve()) for path in protected):
+        raise ValueError("campaign export must be outside campaign and run directories")
+    private_write(output, raw)
+
+
 class CampaignAttemptSubmission(Contract):
     start: ControllerStart
     judge: ControllerJudgePreview

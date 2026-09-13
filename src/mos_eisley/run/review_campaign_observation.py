@@ -64,6 +64,16 @@ class CampaignObservationPreview(Contract):
         return digest(canonical_bytes(self.unsigned_observation))
 
 
+def decode_observation_preview(raw: bytes) -> CampaignObservationPreview:
+    if len(raw) > CAMPAIGN_BYTES:
+        raise ValueError("observation preview exceeds its byte limit")
+    try:
+        json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+        return CampaignObservationPreview.model_validate_json(raw)
+    except (ValueError, RecursionError):
+        raise ValueError("invalid observation preview JSON") from None
+
+
 def preview_campaign_observation(
     campaign_directory: Path,
     expected_seal_sha256: str,

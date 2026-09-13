@@ -9,12 +9,11 @@ from typing import cast
 
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.run.files import read_bounded
-from mos_eisley.run.review_campaign import CAMPAIGN_BYTES, read_campaign_seal
+from mos_eisley.run.review_campaign import CAMPAIGN_BYTES, write_campaign_export
 from mos_eisley.run.review_campaign_observation import (
     decode_probe_completion,
     preview_campaign_observation,
 )
-from mos_eisley.run.store import private_write
 
 
 def add_arguments(command: argparse.ArgumentParser) -> None:
@@ -50,20 +49,9 @@ def _run(args: argparse.Namespace) -> int:
         now=datetime.now(UTC),
     )
     if args.output is not None:
-        output = cast(Path, args.output)
-        bundle, _ = read_campaign_seal(directory, seal_sha)
-        protected = (
-            directory,
-            *(
-                Path(attempt.preview.envelope.artifact_directory)
-                for attempt in bundle.attempts
-            ),
+        write_campaign_export(
+            directory, seal_sha, cast(Path, args.output), canonical_bytes(preview)
         )
-        if any(output.resolve().is_relative_to(path.resolve()) for path in protected):
-            raise ValueError(
-                "observation output must be outside campaign and run directories"
-            )
-        private_write(output, canonical_bytes(preview))
     report = preview.model_dump(mode="json", exclude={"unsigned_observation"})
     report.update(
         {

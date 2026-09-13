@@ -201,6 +201,9 @@ loading and telemetry adapters remain planned.
    [Offline observer handoff](REVIEW_OBSERVER_HANDOFF.md) now checks pinned completions,
    historical phase signatures and independently selected runtime records, producing
    an explicitly unsigned proposal for assessment without credentials or signing keys.
+   [Evidence assembly](REVIEW_CAMPAIGN_SUBMISSION.md) now appends separately signed
+   observations to fixed slots after checking selected input hashes and freshly
+   verifying the whole supplied prefix. Private outputs preserve previous submissions.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
