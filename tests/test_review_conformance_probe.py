@@ -22,7 +22,7 @@ from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
 
 
-class ReviewProbeTests(ReviewConformanceFixture, IsolatedAsyncioTestCase):
+class ReviewProbeFixture(ReviewConformanceFixture):
     def setUp(self) -> None:
         super().setUp()
         self.key_loader = Mock(return_value="synthetic-test-key")
@@ -60,6 +60,8 @@ class ReviewProbeTests(ReviewConformanceFixture, IsolatedAsyncioTestCase):
         )
         return probe
 
+
+class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
     async def test_probe_checks_both_phases_and_keeps_credentials_in_host(self):
         probe = self.probe()
         self.key_loader.assert_not_called()

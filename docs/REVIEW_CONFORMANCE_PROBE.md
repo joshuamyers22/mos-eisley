@@ -64,8 +64,10 @@ count and generation operation; loaders must be short, trusted local operations.
 The returned `RetainedReviewResult` proves the controller's local reconstruction
 against its saved artifacts. It does not independently authenticate provider
 authorship, actual runtime execution or billing, nor certify repeated conformance.
-An independently authenticated observation format and review-specific conformance
-acceptance policy remain required. A signature is permission, not proof of a call.
+An [independent observer format](REVIEW_CONFORMANCE_OBSERVATION.md) now authenticates
+one successful probe's provenance. Independent runtime evidence collection,
+review-specific repeated-probe acceptance and authorized live runs remain required.
+An authorization signature is permission, not proof of a call.
 
 `review-launch-preview` continues to report live launch unavailable. No credentialed
 probe was run as part of this implementation; all provider responses in validation

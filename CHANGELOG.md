@@ -4,6 +4,9 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Authenticate independent observer records for completed review probes against
+  exact approvals, execution windows and reconstructed results, without live authority.
+
 - Compose an owned review probe with fresh signed/local admission at credential and
   provider use, exact payload checks, bounded SDK calls and cancellation cleanup.
 

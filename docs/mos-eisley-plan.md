@@ -5143,6 +5143,16 @@ boundary. No live provider probe or authenticated conformance observation is cla
 review-specific observation/acceptance and live launch remain G2 work. See
 [owned probe](REVIEW_CONFORMANCE_PROBE.md).
 
+**Authenticated review observation implemented:** one successful probe can now have
+an independently signed observer record binding exact phase approvals, observed
+exchange intervals, external evidence pins and the retained verdict. Historical
+authentication reconstructs the complete local controller/evidence/spending chain
+and rejects failed critics, infrastructure errors, stale observations and substituted
+policies or artifacts. It authenticates observer identity without proving provider
+authorship, billing or repeated conformance. Independent evidence collection,
+review-specific repeated-probe acceptance and authorized live runs remain required;
+live launch remains unavailable. See [observer records](REVIEW_CONFORMANCE_OBSERVATION.md).
+
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
 as a measured profile, not a mandatory tax on ordinary questions. Reuse existing

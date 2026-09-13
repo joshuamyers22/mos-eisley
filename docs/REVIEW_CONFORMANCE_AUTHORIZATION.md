@@ -5,7 +5,9 @@ probe phases. An enrolled authorizer signs one exact critic phase, and later sig
 the evidence-derived judge phase separately. The existing local approval prompts
 remain required. This implements authorization checks. The
 [owned probe](REVIEW_CONFORMANCE_PROBE.md) now enforces them at credential and
-provider use; authenticated observation of review-path conformance remains G2 work.
+provider use. [Observer records](REVIEW_CONFORMANCE_OBSERVATION.md) now authenticate
+one completed probe; independent evidence collection and repeated-probe acceptance
+remain G2 work.
 
 ## Trusted inputs and signed scope
 
@@ -62,8 +64,8 @@ The verifier is read-only and repeatable. Verification does not consume permissi
 load credentials, attest runtime configuration or establish provider conformance.
 The owned probe verifies again at credential and provider use, checks the installed
 SDK and selected images, uses the bounded transport, and preserves guidance and
-controller/ledger one-use rules. Independently authenticated observations remain
-outstanding. Trusted runtime callback values are bindings to check against
+controller/ledger one-use rules. Observer authentication still requires independent
+runtime evidence. Trusted runtime callback values are bindings to check against
 execution, not runtime attestation by themselves.
 
 The signed statement explicitly grants no automatic retry, automatic budget release

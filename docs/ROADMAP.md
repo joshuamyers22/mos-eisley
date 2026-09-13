@@ -172,8 +172,10 @@ loading and telemetry adapters remain planned.
    local approval, with current policy/runtime checks. The
    [owned probe](REVIEW_CONFORMANCE_PROBE.md) now rechecks authorization at credential
    and provider use, bounds operations by signed expiry, preserves one-use spending
-   and awaits cancellation cleanup. Authenticated review-path observations remain
-   required for conformance; live launch remains unavailable.
+   and awaits cancellation cleanup. [Observer records](REVIEW_CONFORMANCE_OBSERVATION.md)
+   now authenticate one successful probe against exact approvals, execution windows
+   and reconstructed artifacts. Independent runtime evidence collection, repeated
+   probe acceptance and authorized live runs remain required; live launch is unavailable.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,
    private local snapshots and explicit same-user/workspace resume. A consumed
