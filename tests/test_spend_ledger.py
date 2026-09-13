@@ -6,6 +6,8 @@ import multiprocessing
 import sqlite3
 import subprocess
 import sys
+import threading
+import time
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import closing, redirect_stderr, redirect_stdout
 from multiprocessing.synchronize import Barrier
@@ -206,6 +208,33 @@ os._exit(23)
                 with self.assertRaises(sqlite3.OperationalError):
                     ledger.reserve(entry(1, 1))
             self.assertEqual(ledger.snapshot().entries, 0)
+
+    def test_connection_setup_waits_for_transient_exclusive_lock(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "spend.sqlite"
+            SpendLedger.create(path, 100)
+            locked = threading.Event()
+            failures: list[BaseException] = []
+
+            def hold_exclusive_lock() -> None:
+                try:
+                    with closing(sqlite3.connect(path)) as connection:
+                        connection.execute("BEGIN EXCLUSIVE")
+                        locked.set()
+                        time.sleep(0.5)
+                except BaseException as error:
+                    failures.append(error)
+                    locked.set()
+
+            worker = threading.Thread(target=hold_exclusive_lock)
+            worker.start()
+            self.assertTrue(locked.wait(timeout=2))
+            ledger = SpendLedger(path)
+            worker.join(timeout=2)
+
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(failures, [])
+            self.assertEqual(ledger.policy.ceiling_microusd, 100)
 
     def test_entry_status_is_read_only_and_exact(self) -> None:
         with TemporaryDirectory() as directory:
