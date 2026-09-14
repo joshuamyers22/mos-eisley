@@ -210,10 +210,16 @@ Typing `/review`, `/steer TEXT`, `/stop`, `/continue`, or `/quit` and pressing
 Enter uses the existing conversation controls. `/context` toggles a read-only
 preview of the next queued chat's selected history, steering ancestry, omissions
 and context-byte usage, alongside the complete model request's independent byte
-budget, output reserve and headroom. It returns from saved history to live view,
-does not enable paused work, and marks the report stale after the session revision
+budget, output reserve, headroom and pressure categories. `/status` toggles the same
+pressure policy, capacity, growth and cumulative counters without requiring a queued
+message. Both return from saved history to live view, do not enable paused work,
+and mark the report stale after the session revision
 changes. See the
 [context preview contract](CONVERSATION_STORAGE.md#context-selection-preview).
+With work stopped and an author message queued, `/compact FILE` validates and saves
+an explicit [author compaction](AUTHOR_COMPACTION.md). It never starts the queued
+request; use F4, `/continue`, or a new submitted message after reviewing the
+content-free receipt. Failed validation leaves the session unchanged.
 `/context N` toggles the saved admission for message N, using the zero-based
 transcript number. The report shows historical hashes, budgets and source positions
 with the message's current status. Re-run the same command after a revision change

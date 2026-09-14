@@ -257,6 +257,8 @@ def main() -> int:
             "test_conversation_checkpoint_saves.py",
             "test_conversation_context.py",
             "test_conversation_context_preview.py",
+            "test_conversation_context_pressure.py",
+            "test_conversation_compaction.py",
             "test_conversation_request_admission.py",
             "test_conversation_admission_inspection.py",
             "test_conversation_working_state.py",
@@ -275,8 +277,30 @@ def main() -> int:
             "test_analysis_raw.py",
             "test_analysis_schedule.py",
             "test_task_state_g0.py",
+            "test_task_profile_admission.py",
+            "test_task_profile_acquisition.py",
+            "test_task_semantic_discovery.py",
+            "test_task_tool_catalog.py",
+            "test_task_state_acquisition.py",
+            "test_task_state_checkpoint.py",
+            "test_task_state_continuation.py",
+            "test_task_state_approval.py",
+            "test_task_state_replacement_verification.py",
+            "test_g1_conversation_lifecycle.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
+        templates = root / "templates"
+        templates.mkdir()
+        for selection_example in (
+            "TASK_PROFILE_SELECTION_EXAMPLE.json",
+            "TASK_SEMANTIC_DISCOVERY_EXAMPLE.json",
+            "RUNTIME_TOOL_CATALOG_EXAMPLE.json",
+            "RUNTIME_TOOL_SELECTION_EXAMPLE.json",
+            "TASK_STATE_SELECTION_EXAMPLE.json",
+        ):
+            (templates / selection_example).write_text(
+                (Path("templates") / selection_example).read_text()
+            )
         subprocess.run(
             [
                 str(python),

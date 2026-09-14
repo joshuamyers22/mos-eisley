@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "current_task_state",
+  "project_id": "replace-with-project-id",
+  "bundle_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "bundle_revision": 1,
+  "checkpoint_id": "replace-with-checkpoint-id",
+  "checkpoint_revision": 1,
+  "checkpoint_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "current_work_unit": {
+    "work_unit_id": "replace-with-current-work-unit-id",
+    "revision": 1
+  },
+  "grants_authority": false
+}

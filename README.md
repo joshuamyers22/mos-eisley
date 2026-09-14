@@ -245,11 +245,35 @@ and critic/judge workflows retain their existing tool-free boundaries.
   a scrollable transcript, review details and persistent status.
 - An [explicit recorded review inside the conversation](docs/CONVERSATION_REVIEW.md),
   with isolated critic requests, retained review evidence and contextual follow-ups.
+  The [G1 lifecycle acceptance](docs/G1_CONVERSATION_LIFECYCLE.md) composes that
+  frozen review path with claimed task state, terminal cancellation and passive
+  same-session resume without replay.
 - Immutable, versioned Pydantic contracts with strict input validation.
 - [G0 bounded task-state contracts](docs/G0_MILESTONE_REVIEW.md) for clauses,
   decisions, outcomes, work units, milestone checkpoints, reproducible lossy views,
   cumulative context accounting, offline instruction/tool diagnostics and private
-  content-addressed replay. Runtime continuation and compaction remain disabled.
+  content-addressed replay. G1 adds explicit one-session
+  [fresh-context continuation](docs/TASK_STATE_CONTINUATION.md) with live Git/file
+  freshness, stale-test disclosure and
+  [stale-approval rejection](docs/TASK_STATE_APPROVAL_FRESHNESS.md) plus advisory-only
+  [context-pressure indicators](docs/CONTEXT_PRESSURE.md) in `/status` and `/context`;
+  neither grants execution authority. G1 also provides explicit
+  [validated author compaction](docs/AUTHOR_COMPACTION.md), with exact private
+  reconstruction, lineage/freshness checks and hard overflow rollback; it is never
+  available to critic or judge contexts and grants no authority. A
+  [validated semantic task discovery](docs/TASK_SEMANTIC_DISCOVERY.md) can select one
+  frozen author profile for exact queued text while keeping its private objective,
+  source excerpts and reasons out of the request.
+- A schema-only [runtime tool-catalog selector](docs/TASK_TOOL_CATALOG.md) pins an
+  approved catalog and exact task decision, exposes only selected canonical schemas,
+  and fails closed on stale catalogs or required/unavailable tools. It starts no
+  servers and enables no dispatch.
+- A claim-bound
+  [changed-tree replacement verifier](docs/TASK_STATE_REPLACEMENT_VERIFICATION.md)
+  supersedes stale historical passes only when newly supplied passing evidence binds
+  the exact claimed live workspace and input state, then publishes the completed
+  checkpoint through the immutable archive and atomic current pointer. It executes
+  no command and grants no authority.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

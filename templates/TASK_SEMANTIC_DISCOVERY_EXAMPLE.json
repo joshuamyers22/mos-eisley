@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "kind": "semantic_task_profile_discovery",
+  "project_id": "example-project",
+  "candidates": [
+    {
+      "schema_version": 1,
+      "kind": "frozen_role_task_profile",
+      "profile_id": "documentation-profile",
+      "project_id": "example-project",
+      "work_unit": {
+        "work_unit_id": "implement-bounded-component",
+        "revision": 1
+      },
+      "guidance": {
+        "snapshot_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "context_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "role": "coder",
+        "scope": "Document one bounded component."
+      },
+      "expected_policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "schema_version": 1,
+      "kind": "frozen_role_task_profile",
+      "profile_id": "implementation-profile",
+      "project_id": "example-project",
+      "work_unit": {
+        "work_unit_id": "implement-bounded-component",
+        "revision": 1
+      },
+      "guidance": {
+        "snapshot_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "context_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "role": "coder",
+        "scope": "Implement one bounded component."
+      },
+      "expected_policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "decisions": [
+    {
+      "decision_id": "implement-example-component",
+      "task_text_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "work_unit": {
+        "work_unit_id": "implement-bounded-component",
+        "revision": 1
+      },
+      "category": "implementation",
+      "objective": "Implement the selected bounded component.",
+      "signals": [
+        {
+          "start": 0,
+          "end": 9,
+          "quote": "Implement"
+        }
+      ],
+      "selected_profile_id": "implementation-profile",
+      "selection_reason": "The exact queued task requests implementation.",
+      "omitted_profiles": [
+        {
+          "profile_id": "documentation-profile",
+          "reason": "The task is not documentation-only."
+        }
+      ],
+      "ambiguous": false,
+      "grants_authority": false
+    }
+  ],
+  "offline_only": true,
+  "grants_authority": false,
+  "selects_tools": false,
+  "starts_servers": false
+}
