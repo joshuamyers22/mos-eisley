@@ -248,7 +248,7 @@ def _index(
                 digest(
                     _pack(
                         entry.model_dump(mode="json"),
-                        ("memory_context", "review_packet", "review_result"),
+                        ENTRY_ARTIFACT_FIELDS,
                         {},
                     )
                 )
@@ -262,6 +262,13 @@ def _index(
 
 STREAM_CHUNK_BYTES = 32_768
 MAX_ACTIVE_ENTRY_BYTES = 512_000
+ENTRY_ARTIFACT_FIELDS = (
+    "memory_context",
+    "task_state_context",
+    "review_packet",
+    "review_result",
+)
+HEADER_ARTIFACT_FIELDS = ("memory", "retained_cassette", "author_compactions")
 
 
 def _working_parts(
@@ -269,7 +276,7 @@ def _working_parts(
 ) -> tuple[_PreparedPart, list[_PreparedPart], dict[str, bytes]]:
     artifacts: dict[str, bytes] = {}
     body = state.model_dump(mode="json", exclude={"entries"})
-    header = _prepare_part(_pack_part(body, ("memory", "retained_cassette"), artifacts))
+    header = _prepare_part(_pack_part(body, HEADER_ARTIFACT_FIELDS, artifacts))
     parts: list[_PreparedPart] = []
     for entry in state.entries:
         if isinstance(entry, ArchivedConversationEntry):
@@ -277,7 +284,7 @@ def _working_parts(
         else:
             part = _pack_part(
                 entry.model_dump(mode="json"),
-                ("memory_context", "review_packet", "review_result"),
+                ENTRY_ARTIFACT_FIELDS,
                 artifacts,
             )
         parts.append(_prepare_part(part))
@@ -708,11 +715,11 @@ class SQLiteConversationStore(ConversationStore):
         # Bound repeated references before allocating their decoded values.
         if expanded > MAX_SNAPSHOT_BYTES + 17 * MAX_RECORD_BYTES:
             raise ValueError("expanded SQLite conversation exceeds byte limit")
-        body = _unpack(packed[0], ("memory", "retained_cassette"), artifacts, used)
+        body = _unpack(packed[0], HEADER_ARTIFACT_FIELDS, artifacts, used)
         body["entries"] = [
             _unpack(
                 part,
-                ("memory_context", "review_packet", "review_result"),
+                ENTRY_ARTIFACT_FIELDS,
                 artifacts,
                 used,
             )
@@ -888,7 +895,7 @@ class SQLiteConversationStore(ConversationStore):
         retain_result: bool,
         memory_workspace: str,
     ) -> tuple[ConversationEntry | ArchivedConversationEntry, PackedPart] | None:
-        fields = ("memory_context", "review_packet", "review_result")
+        fields = ENTRY_ARTIFACT_FIELDS
         body = self._cold_part(db, part, sizes, fields, MAX_ACTIVE_ENTRY_BYTES)
         entry = ConversationEntry.model_validate_json(_json(body))
         if entry.memory_context is not None and entry.memory_context.memory is not None:
@@ -981,7 +988,7 @@ class SQLiteConversationStore(ConversationStore):
             db,
             header,
             sizes,
-            ("memory", "retained_cassette"),
+            HEADER_ARTIFACT_FIELDS,
             MAX_SNAPSHOT_BYTES + MAX_RECORD_BYTES,
         )
         latest = next(
@@ -1033,7 +1040,7 @@ class SQLiteConversationStore(ConversationStore):
         canonical_header = _prepare_part(
             _pack_part(
                 state.model_dump(mode="json", exclude={"entries"}),
-                ("memory", "retained_cassette"),
+                HEADER_ARTIFACT_FIELDS,
                 artifacts,
             )
         ).part
@@ -1231,7 +1238,7 @@ class SQLiteConversationStore(ConversationStore):
                     artifacts[sha] = payload
                 body = _unpack(
                     part,
-                    ("memory_context", "review_packet", "review_result"),
+                    ENTRY_ARTIFACT_FIELDS,
                     artifacts,
                     set(),
                 )
@@ -1546,13 +1553,8 @@ class SQLiteConversationStore(ConversationStore):
         artifacts: dict[str, bytes] = {}
         body = state.model_dump(mode="json")
         entries = body.pop("entries")
-        header = _pack(body, ("memory", "retained_cassette"), artifacts)
-        parts = [
-            _pack(
-                entry, ("memory_context", "review_packet", "review_result"), artifacts
-            )
-            for entry in entries
-        ]
+        header = _pack(body, HEADER_ARTIFACT_FIELDS, artifacts)
+        parts = [_pack(entry, ENTRY_ARTIFACT_FIELDS, artifacts) for entry in entries]
         index = index.model_copy(
             update={"resume_checkpoint": resume_checkpoint(state, header, parts)}
         )

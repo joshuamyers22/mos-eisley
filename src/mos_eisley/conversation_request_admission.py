@@ -9,6 +9,8 @@ from mos_eisley.conversation_limits import ContextByteLimit
 from mos_eisley.core.budget import Budget
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_fingerprint
 from mos_eisley.core.protocol import Effort, ModelRequest
+from mos_eisley.task_profile import TaskProfileAdmission
+from mos_eisley.task_state_acquisition import TaskStateAdmission
 
 
 class RequestBudgetPreview(Contract):
@@ -57,6 +59,12 @@ class RequestAdmission(Contract):
     context_max_bytes: ContextByteLimit
     request: RequestBudgetPreview
     memory_selected: bool
+    task_profile: TaskProfileAdmission | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    task_state: TaskStateAdmission | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def admitted_selection(self) -> Self:
@@ -65,6 +73,28 @@ class RequestAdmission(Contract):
             or not self.request.within_budget
         ):
             raise ValueError("request admission requires both byte budgets to fit")
+        if self.task_profile is not None and (
+            self.task_profile.request_sha256 != self.request.sha256
+            or self.memory_selected
+            != (self.task_profile.reusable_memory_context_sha256 is not None)
+        ):
+            raise ValueError("task profile does not bind this admitted request context")
+        if self.task_state is not None and (
+            self.task_state.request_sha256 != self.request.sha256
+        ):
+            raise ValueError("task state does not bind this admitted request")
+        expected_task_state = (
+            None if self.task_state is None else self.task_state.context_sha256
+        )
+        if self.task_profile is not None and (
+            self.task_profile.temporary_task_state_sha256 != expected_task_state
+            or (
+                self.task_state is not None
+                and self.task_profile.manifest.work_unit
+                != self.task_state.current_work_unit
+            )
+        ):
+            raise ValueError("task profile and task state select different work")
         selection = self.selection
         sources = selection.turn_sources
         target = selection.message_index
@@ -79,23 +109,40 @@ class RequestAdmission(Contract):
             ):
                 raise ValueError("invalid admission turn sources")
             if source.role == "assistant":
-                if (
-                    len(source.positions) != 1
-                    or source.positions[-1] >= target
-                    or sources[turn - 1].positions[-1] != source.positions[0]
-                ):
-                    raise ValueError("invalid admission completed exchange")
-                completed.append(source.positions[0])
+                compacted_derivative = selection.policy_version == 2 and turn == 1
+                if compacted_derivative:
+                    if source.positions != sources[0].positions:
+                        raise ValueError("invalid admitted compaction provenance")
+                else:
+                    if (
+                        len(source.positions) != 1
+                        or source.positions[-1] >= target
+                        or sources[turn - 1].positions[-1] != source.positions[0]
+                    ):
+                        raise ValueError("invalid admission completed exchange")
+                    completed.append(source.positions[0])
         if completed != sorted(set(completed)) or sources[-1].positions[-1] != target:
             raise ValueError("invalid admission exchange order")
         selected = {position for source in sources for position in source.positions}
         omitted = [item.position for item in selection.omitted]
+
+        def expected_omission(position: int) -> str:
+            if position > target:
+                return "after_target"
+            if (
+                selection.policy_version == 2
+                and selection.compacted_through is not None
+                and position <= selection.compacted_through
+            ):
+                return "replaced_by_author_compaction"
+            return "no_completed_answer_or_required_link"
+
         if (
             omitted != sorted(set(omitted))
             or selected & set(omitted)
             or selected | set(omitted) != set(range(self.message_count))
             or any(
-                (item.reason == "after_target") != (item.position > target)
+                item.reason != expected_omission(item.position)
                 for item in selection.omitted
             )
         ):
@@ -113,6 +160,8 @@ def record_admission(
     request: ModelRequest,
     budget: Budget,
     memory_selected: bool,
+    task_profile: TaskProfileAdmission | None = None,
+    task_state: TaskStateAdmission | None = None,
 ) -> RequestAdmission:
     context = canonical_fingerprint(
         RequestContext(system=request.system, turns=request.turns)
@@ -127,4 +176,6 @@ def record_admission(
         context_max_bytes=context_max_bytes,
         request=describe_request(request, budget),
         memory_selected=memory_selected,
+        task_profile=task_profile,
+        task_state=task_state,
     )

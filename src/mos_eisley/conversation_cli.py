@@ -30,8 +30,18 @@ from mos_eisley.conversation_admission_inspection import (
     admission_position,
     inspect_admission,
 )
+from mos_eisley.conversation_compaction import (
+    MAX_COMPACTION_DRAFT_BYTES,
+    decode_author_compaction_draft,
+)
 from mos_eisley.conversation_composer import ConversationComposer
 from mos_eisley.conversation_context import ContextBudgetError
+from mos_eisley.conversation_context_pressure import (
+    ContextPressureMonitor,
+    ContextPressurePolicy,
+    ContextPressureReport,
+    context_pressure_report,
+)
 from mos_eisley.conversation_context_preview import (
     ContextPreviewUnavailable,
     preview_context,
@@ -166,6 +176,10 @@ from mos_eisley.run.conversation_transcript import read_sqlite_transcript
 from mos_eisley.run.conversation_transfer import transfer_conversation
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import private_write
+from mos_eisley.task_semantic_discovery import task_profile_acquirer_from_paths
+from mos_eisley.task_state_acquisition import CurrentTaskStateAcquirer
+from mos_eisley.task_state_continuation import FreshContextContinuationAcquirer
+from mos_eisley.task_tool_catalog import RuntimeToolCatalogSelectingAcquirer
 from mos_eisley.tools.none import NoToolsDispatcher
 
 DEMO_PROMPTS = (
@@ -186,6 +200,15 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--review-guidance-policy",
         "--expected-review-policy-sha256",
         "--review-guidance-storage",
+        "--task-profile-selection",
+        "--task-profile-policy",
+        "--task-guidance-storage",
+        "--task-tool-catalog",
+        "--task-tool-selection",
+        "--task-state-selection",
+        "--task-state-storage",
+        "--task-state-continuation-selection",
+        "--task-state-continuation-claim",
         "--tui",
         "--plain",
         "--json",
@@ -196,6 +219,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--memory-project-local",
         "--session-max-bytes",
         "--context-max-bytes",
+        "--context-pressure-percent",
+        "--substantial-tool-call-threshold",
         "--active-memory-max-bytes",
         "--recording-max-bytes",
         "--pending-text-max-bytes",
@@ -814,6 +839,20 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 help="Save a chat context budget (4000–1000000 bytes; default 256000)",
             )
             command.add_argument(
+                "--context-pressure-percent",
+                type=int,
+                choices=range(30, 41),
+                default=35,
+                help="Advisory model-input usage percentage (30–40; default 35)",
+            )
+            command.add_argument(
+                "--substantial-tool-call-threshold",
+                type=int,
+                choices=range(20, 31),
+                default=25,
+                help="Advisory substantial-call count (20–30; default 25)",
+            )
+            command.add_argument(
                 "--active-memory-max-bytes",
                 type=active_memory_byte_limit,
                 help="Memory bytes for this launch (4096–262144; default 131072)",
@@ -840,6 +879,56 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--review-guidance-storage",
                 type=Path,
                 default=Path.home() / ".mos-eisley-guidance",
+            )
+            command.add_argument(
+                "--task-profile-selection",
+                type=Path,
+                help=(
+                    "Acquire author guidance from a frozen selection or validated "
+                    "semantic discovery"
+                ),
+            )
+            command.add_argument(
+                "--task-profile-policy",
+                type=Path,
+                help="Private owner policy named by the task-profile selection",
+            )
+            command.add_argument(
+                "--task-guidance-storage",
+                type=Path,
+                default=Path.home() / ".mos-eisley-guidance",
+                help="Private frozen-guidance storage for task-profile acquisition",
+            )
+            command.add_argument(
+                "--task-tool-catalog",
+                type=Path,
+                help="Approved runtime tool-schema catalog snapshot",
+            )
+            command.add_argument(
+                "--task-tool-selection",
+                type=Path,
+                help="Exact task decisions pinned to the runtime tool catalog",
+            )
+            command.add_argument(
+                "--task-state-selection",
+                type=Path,
+                help="Private current task-state selection for this launch",
+            )
+            command.add_argument(
+                "--task-state-storage",
+                type=Path,
+                default=Path.home() / ".mos-eisley-task-state",
+                help="Private immutable archive storage for task-state acquisition",
+            )
+            command.add_argument(
+                "--task-state-continuation-selection",
+                type=Path,
+                help="Explicit checkpoint/work-unit selection for fresh continuation",
+            )
+            command.add_argument(
+                "--task-state-continuation-claim",
+                type=Path,
+                help="Private one-session claim created before continuation dispatch",
             )
             display = command.add_mutually_exclusive_group()
             display.add_argument(
@@ -942,6 +1031,7 @@ async def terminal(
     memory_command: Callable[[str], dict[str, object]] | None = None,
     switch_directory: Callable[[str], Awaitable[bool]] | None = None,
     project_location: ProjectLocation | None = None,
+    pressure_policy: ContextPressurePolicy | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -949,6 +1039,26 @@ async def terminal(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    pressure_monitor = ContextPressureMonitor(
+        policy=pressure_policy or ContextPressurePolicy()
+    )
+
+    def emit_pressure_advisory(report: ContextPressureReport) -> None:
+        event = pressure_monitor.observe(report)
+        if event is None:
+            return
+        emit(
+            {
+                "type": "conversation.context_pressure",
+                **event.model_dump(mode="json"),
+                "text": (
+                    "Context pressure cleared; no action was taken."
+                    if event.kind == "pressure_cleared"
+                    else "Context pressure changed; assess /status or /context. "
+                    "No action or authority was granted."
+                ),
+            }
+        )
 
     def discard_draft(reason: str) -> None:
         if composer.active:
@@ -1347,12 +1457,72 @@ async def terminal(
                     manage_memory(line)
                 elif remember(line) is not None:
                     pass
+                elif line == "/compact" or line.startswith("/compact "):
+                    if active is not None:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Stop active work before compacting context.",
+                            }
+                        )
+                    elif line == "/compact":
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": (
+                                    "Use /compact FILE with a validated JSON draft."
+                                ),
+                            }
+                        )
+                    else:
+                        try:
+                            payload = read_bounded(
+                                Path(line.removeprefix("/compact").strip()),
+                                MAX_COMPACTION_DRAFT_BYTES,
+                            )
+                            draft = decode_author_compaction_draft(payload)
+                            compaction = controller.compact_author_context(draft)
+                        except (OSError, ValueError) as error:
+                            emit(
+                                {
+                                    "type": "conversation.unavailable",
+                                    "text": str(error),
+                                }
+                            )
+                        else:
+                            enabled = False
+                            manifest = compaction.manifest
+                            emit(
+                                {
+                                    "type": "conversation.compacted",
+                                    "revision": controller.state.revision,
+                                    "compaction_sha256": compaction.sha256,
+                                    "count": len(controller.state.author_compactions),
+                                    "before_bytes": manifest.before_bytes,
+                                    "after_bytes": manifest.after_bytes,
+                                    "text": (
+                                        "Validated author compaction saved; "
+                                        f"{manifest.before_bytes} to "
+                                        f"{manifest.after_bytes} canonical bytes. "
+                                        "Queued work is paused; /continue resumes it."
+                                    ),
+                                }
+                            )
                 elif line == "/context":
                     try:
-                        preview = preview_context(controller.state)
+                        controller.validate_author_compaction_freshness()
+                        preview = preview_context(
+                            controller.state,
+                            task_profile=controller.task_profile,
+                            task_profile_acquirer=controller.task_profile_acquirer,
+                            task_state=controller.task_state,
+                            task_state_acquirer=controller.task_state_acquirer,
+                            pressure_policy=pressure_monitor.policy,
+                        )
                     except ContextPreviewUnavailable as error:
                         emit({"type": "conversation.unavailable", "text": str(error)})
                     else:
+                        emit_pressure_advisory(preview.pressure)
                         emit(
                             {
                                 "type": "conversation.context",
@@ -1360,6 +1530,35 @@ async def terminal(
                                 "text": preview.describe(),
                             }
                         )
+                elif line == "/status":
+                    try:
+                        controller.validate_author_compaction_freshness()
+                        preview = preview_context(
+                            controller.state,
+                            task_profile=controller.task_profile,
+                            task_profile_acquirer=controller.task_profile_acquirer,
+                            task_state=controller.task_state,
+                            task_state_acquirer=controller.task_state_acquirer,
+                            pressure_policy=pressure_monitor.policy,
+                        )
+                    except ContextPreviewUnavailable:
+                        task_state = controller.acquire_task_state()
+                        report = context_pressure_report(
+                            controller.state,
+                            task_state=task_state,
+                            policy=pressure_monitor.policy,
+                        )
+                    else:
+                        report = preview.pressure
+                    emit_pressure_advisory(report)
+                    emit(
+                        {
+                            "type": "conversation.status",
+                            **report.model_dump(mode="json"),
+                            "revision": report.source_revision,
+                            "text": report.describe(),
+                        }
+                    )
                 elif line.split(maxsplit=1)[:1] == ["/context"]:
                     try:
                         inspection = inspect_admission(
@@ -1435,6 +1634,8 @@ async def terminal(
                                     "/steer TEXT, /review, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
+                                    "/compact FILE, "
+                                    "/status, "
                                     "/stop, /continue, /quit"
                                 ),
                             }
@@ -1462,6 +1663,7 @@ async def _run_terminal(
     initial_prompt: str | None = None,
     memory_command: Callable[[str], dict[str, object]] | None = None,
     project_location: ProjectLocation | None = None,
+    pressure_policy: ContextPressurePolicy | None = None,
 ) -> None:
     queue: asyncio.Queue[str | Exception | None] = asyncio.Queue(maxsize=32)
     stop = _input_reader(sys.stdin.fileno(), queue)
@@ -1496,6 +1698,7 @@ async def _run_terminal(
             memory_command=memory_command,
             initial_prompt=initial_prompt,
             project_location=project_location,
+            pressure_policy=pressure_policy,
         )
     finally:
         stop()
@@ -2126,6 +2329,13 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             or args.review_packet is not None
             or args.review_guidance_policy is not None
             or args.expected_review_policy_sha256 is not None
+            or args.task_profile_selection is not None
+            or args.task_profile_policy is not None
+            or args.task_tool_catalog is not None
+            or args.task_tool_selection is not None
+            or args.task_state_selection is not None
+            or args.task_state_continuation_selection is not None
+            or args.task_state_continuation_claim is not None
             or args.no_memory
             or args.tui
             or args.plain
@@ -2380,6 +2590,66 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 "Guided review requires an explicit policy/hash for this launch."
             )
         validate_review(review_packet)
+    task_profile_inputs = (
+        args.task_profile_selection,
+        args.task_profile_policy,
+    )
+    if any(value is not None for value in task_profile_inputs) and not all(
+        value is not None for value in task_profile_inputs
+    ):
+        raise ValueError(
+            "Automatic task profiles require both selection and owner policy."
+        )
+    task_profile_acquirer = (
+        None
+        if args.task_profile_selection is None or args.task_profile_policy is None
+        else task_profile_acquirer_from_paths(
+            args.task_guidance_storage,
+            args.task_profile_selection,
+            args.task_profile_policy,
+        )
+    )
+    task_tool_inputs = (args.task_tool_catalog, args.task_tool_selection)
+    if any(value is not None for value in task_tool_inputs) and not all(
+        value is not None for value in task_tool_inputs
+    ):
+        raise ValueError(
+            "Runtime tool selection requires both catalog and selection files."
+        )
+    if args.task_tool_catalog is not None:
+        if task_profile_acquirer is None or args.task_tool_selection is None:
+            raise ValueError(
+                "Runtime tool selection requires automatic task-profile acquisition."
+            )
+        task_profile_acquirer = RuntimeToolCatalogSelectingAcquirer.from_paths(
+            task_profile_acquirer,
+            args.task_tool_catalog,
+            args.task_tool_selection,
+        )
+    continuation_inputs = (
+        args.task_state_continuation_selection,
+        args.task_state_continuation_claim,
+    )
+    if any(value is not None for value in continuation_inputs) and (
+        args.task_state_continuation_selection is None
+        or args.task_state_selection is None
+    ):
+        raise ValueError(
+            "Fresh continuation requires current and continuation selections."
+        )
+    if args.task_state_selection is None:
+        task_state_acquirer = None
+    elif args.task_state_continuation_selection is None:
+        task_state_acquirer = CurrentTaskStateAcquirer.from_paths(
+            args.task_state_storage, args.task_state_selection
+        )
+    else:
+        task_state_acquirer = FreshContextContinuationAcquirer.from_paths(
+            args.task_state_storage,
+            args.task_state_selection,
+            args.task_state_continuation_selection,
+            args.task_state_continuation_claim,
+        )
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None if picked is None else picked.summary
     if args.command == "chat":
@@ -2492,6 +2762,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 load_entry=store.load_working_entry,
                 input_limits=input_limits,
                 pending_limits=pending_limits,
+                task_profile_acquirer=task_profile_acquirer,
+                task_state_acquirer=task_state_acquirer,
             )
         else:
             controller = ConversationController(
@@ -2500,6 +2772,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 store.save,
                 input_limits=input_limits,
                 pending_limits=pending_limits,
+                task_profile_acquirer=task_profile_acquirer,
+                task_state_acquirer=task_state_acquirer,
             )
         memory_runtime = ConversationMemoryRuntime(
             controller,
@@ -2529,6 +2803,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if args.command == "resume" and args.context_max_bytes is not None:
             controller.resize_context(args.context_max_bytes)
         project_location = ProjectLocation.inspect(Path(controller.state.workspace))
+        pressure_policy = ContextPressurePolicy(
+            context_advisory_basis_points=args.context_pressure_percent * 100,
+            substantial_tool_call_threshold=args.substantial_tool_call_threshold,
+        )
         emit(
             {
                 "type": "conversation.opened",
@@ -2550,6 +2828,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
+                    "/compact FILE, "
+                    "/status, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
                     + project_location.describe(
@@ -2648,6 +2928,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                         load_artifact=store.transcript_artifact
                         if isinstance(store, SQLiteConversationStore)
                         else None,
+                        pressure_policy=pressure_policy,
                     )
                     asyncio.run(ui.run())
                     if isinstance(ui.directory_target, DirectorySelection):
@@ -2666,6 +2947,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     memory_command=memory_runtime.command,
                     initial_prompt=initial_prompt,
                     project_location=project_location,
+                    pressure_policy=pressure_policy,
                 )
             )
         emit(

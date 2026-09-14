@@ -42,14 +42,61 @@ uncertain effects across handoffs. Advancing an already-authorized work unit
 requires no new user confirmation. These controls do not enable a deferred tool or
 execution capability.
 
+**G1 admission/acquisition slice, 2026-09-13 — implemented on a stacked feature
+branch:** an
+already selected, owner/workspace-scoped runtime task profile can now enter the
+recorded conversation path. Admission binds its exact guidance and tool-schema
+inventory, reproducible diagnostics, work-unit revision and request digest while
+binding reusable memory through a separate private context digest. The schemas are
+descriptive only: the controller's
+tool-call limit remains zero and the profile grants no execution authority. See the
+[bounded slice review](G1_ADMISSION_SLICE.md). Automatic acquisition now loads an
+explicitly selected frozen creator/coder context at each request boundary,
+revalidating its project, assessment and private policy while keeping critic contexts
+and unselected tools out; see
+[the profile acquisition contract](TASK_PROFILE_ACQUISITION.md). A separate private
+current pointer now replays one exact G0 archive and binds a bounded task-state
+projection as a temporary SQLite artifact; see
+[the task-state acquisition contract](TASK_STATE_ACQUISITION.md). A separate
+[checkpoint-closure boundary](TASK_STATE_CHECKPOINT_CLOSURE.md) now appends one
+verified terminal work revision, preserves obligations and cumulative ledgers, writes
+the next immutable archive and atomically advances the exact old pointer. It grants
+no continuation authority. A separate explicit
+[fresh-context continuation boundary](TASK_STATE_CONTINUATION.md) now binds one new
+session to a selected outstanding unit, revalidates the complete archive and
+cumulative baselines, inspects live Git/main files, discloses stale checkpoint passes
+and commits a private idempotent one-session claim before recorded-model dispatch.
+It grants no tool or execution authority and does not re-run stale tests. A separate
+[context-pressure boundary](CONTEXT_PRESSURE.md) now extends `/status` and `/context`
+with exact categorized request bytes, capacity/growth, truthful provider-token
+unknowns, task counters and bounded advisory events. It takes no automatic action.
+A separate [validated author-compaction boundary](AUTHOR_COMPACTION.md) now accepts
+only an explicit bounded draft, retains current user text and exact private source,
+binds omissions/lineage/live Git and file state, and rolls back on stale inputs or
+either hard request limit. Critics and judges cannot use it. A separate
+[validated semantic task-discovery boundary](TASK_SEMANTIC_DISCOVERY.md) now maps an
+exact queued-message digest and source-anchored excerpts to one candidate frozen
+author packet, records complete candidate omissions and persists only text-free
+evidence. Its supplied classification is not a quality verdict. A schema-only
+[runtime tool-catalog boundary](TASK_TOOL_CATALOG.md) now pins approved catalog bytes,
+requires complete exact-task decisions and exposes only selected schemas without
+starting servers or enabling dispatch. A claim-bound
+[changed-tree replacement-verification boundary](TASK_STATE_REPLACEMENT_VERIFICATION.md)
+now replaces stale historical passes with evidence bound to the exact claimed live
+tree before atomic checkpoint publication. G1 remains incomplete pending stale-
+approval handling and the final composite conversation/review/cancel-resume
+demonstration.
+
 The acceptance demonstration completes a milestone, writes a concise private
 checkpoint, continues in fresh context, detects changed repository/test state and
 finishes with required evidence and obligations intact. G3 compares this workflow
 with the existing selection policy; smaller cumulative context or cost counts as
 an improvement only after independent quality gates pass. Numeric guide heuristics
-remain configurable evaluation candidates. Current `/context` byte previews and
-saved admissions do not establish that compaction or checkpoint continuation has
-shipped. The SQLite storage-resume checkpoint is a different metadata structure.
+remain configurable evaluation candidates. Current `/status` and `/context` pressure
+reports expose the selected continuation and its freshness overlay. Explicit author
+compaction establishes reconstruction and overflow-stop behavior, and the real-Git
+replacement fixture now establishes successful changed-tree re-verification. The
+SQLite storage-resume checkpoint is a different metadata structure.
 
 **Platform release direction, 2026-09-11:** version 0.1.0 adds a tested WSL2
 deployment using the Linux backend; version 0.1.1 delivers full native Windows

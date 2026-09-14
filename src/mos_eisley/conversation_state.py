@@ -5,6 +5,11 @@ from typing import Annotated, Generic, Literal, Self
 from pydantic import Field, model_validator
 from typing_extensions import TypeVar
 
+from mos_eisley.conversation_compaction import (
+    MAX_AUTHOR_COMPACTIONS,
+    AuthorCompaction,
+    validate_author_compaction_chain,
+)
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
@@ -33,6 +38,11 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.providers.agent_recorded import AgentCassette
+from mos_eisley.task_profile import (
+    conversation_workspace_sha256,
+    validate_task_profile_manifest_scope,
+)
+from mos_eisley.task_state_acquisition import RuntimeTaskState, admit_task_state
 
 SessionID = Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
 Status = Literal["queued", "running", "completed", "cancelled", "interrupted", "failed"]
@@ -40,6 +50,10 @@ Status = Literal["queued", "running", "completed", "cancelled", "interrupted", "
 
 class ConversationMemoryContext(Contract):
     memory: ConversationMemory | None = None
+
+
+class ConversationTaskStateContext(Contract):
+    task_state: RuntimeTaskState
 
 
 class ConversationEntry(Contract):
@@ -51,6 +65,9 @@ class ConversationEntry(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     memory_context: ConversationMemoryContext | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    task_state_context: ConversationTaskStateContext | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
@@ -72,6 +89,10 @@ class ConversationEntry(Contract):
         return self.memory_context is not None
 
     @property
+    def has_task_state_context(self) -> bool:
+        return self.task_state_context is not None
+
+    @property
     def review_brief_id(self) -> str | None:
         return None if self.review_packet is None else self.review_packet.brief.brief_id
 
@@ -87,6 +108,10 @@ class ConversationEntry(Contract):
             self.status == "queued" or self.review_packet is not None
         ):
             raise ValueError("queued messages and reviews cannot bind chat memory")
+        if self.task_state_context is not None and (
+            self.status == "queued" or self.review_packet is not None
+        ):
+            raise ValueError("queued messages and reviews cannot bind task state")
         if self.review_packet is not None:
             if self.steering_for is not None:
                 raise ValueError("review packets cannot carry conversation steering")
@@ -139,13 +164,17 @@ class ArchivedConversationEntry(Contract):
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    artifact_refs: Annotated[dict[str, Digest], Field(min_length=1, max_length=3)]
+    artifact_refs: Annotated[dict[str, Digest], Field(min_length=1, max_length=4)]
     source_sha256: Digest
     review_brief_id: Identifier | None = None
     review_result: ReviewResult | None = Field(default=None, exclude=True)
 
     @property
     def memory_context(self) -> None:
+        return None
+
+    @property
+    def task_state_context(self) -> None:
         return None
 
     @property
@@ -160,6 +189,10 @@ class ArchivedConversationEntry(Contract):
     def has_memory_context(self) -> bool:
         return "memory_context" in self.artifact_refs
 
+    @property
+    def has_task_state_context(self) -> bool:
+        return "task_state_context" in self.artifact_refs
+
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
         if self.request_admission is not None and (
@@ -169,10 +202,17 @@ class ArchivedConversationEntry(Contract):
                 "only dispatched chat entries can retain request admission"
             )
         refs = self.artifact_refs
-        if not refs.keys() <= {"memory_context", "review_packet", "review_result"}:
+        if not refs.keys() <= {
+            "memory_context",
+            "task_state_context",
+            "review_packet",
+            "review_result",
+        }:
             raise ValueError("invalid archived artifact field")
         if self.has_memory_context and (self.status == "queued" or self.is_review):
             raise ValueError("invalid archived memory context")
+        if self.has_task_state_context and (self.status == "queued" or self.is_review):
+            raise ValueError("invalid archived task-state context")
         if self.is_review:
             if (
                 self.text != REVIEW_PROMPT
@@ -245,6 +285,9 @@ class ConversationState(Contract, Generic[EntryT]):
     revision: Annotated[int, Field(ge=0)] = 0
     exchanges_consumed: Annotated[int, Field(ge=0, le=16)] = 0
     entries: Annotated[tuple[EntryT, ...], Field(max_length=16)] = ()
+    author_compactions: Annotated[
+        tuple[AuthorCompaction, ...], Field(max_length=MAX_AUTHOR_COMPACTIONS)
+    ] = Field(default=(), exclude_if=lambda value: not value)
     memory: ConversationMemory | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -277,6 +320,15 @@ class ConversationState(Contract, Generic[EntryT]):
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
         selected_memory_workspace = self.effective_memory_workspace
+        validate_author_compaction_chain(
+            self.author_compactions,
+            self.entries,
+            session_id=self.session_id,
+            owner_uid=self.owner_uid,
+            workspace=self.workspace,
+            cassette_sha256=self.cassette_sha256,
+            revision=self.revision,
+        )
         if self.memory_disabled and self.memory is not None:
             raise ValueError("disabled memory must not contain active context")
         if self.retained_cassette is not None and (
@@ -303,6 +355,75 @@ class ConversationState(Contract, Generic[EntryT]):
                         "request admission does not match its saved attempt"
                     )
                 admitted_exchanges.add(admission.exchange_index)
+                if admission.task_profile is not None:
+                    validate_task_profile_manifest_scope(
+                        admission.task_profile.manifest,
+                        owner_uid=self.owner_uid,
+                        workspace=self.workspace,
+                    )
+                    expected_memory = (
+                        entry.artifact_refs.get("memory_context")
+                        if isinstance(entry, ArchivedConversationEntry)
+                        else None
+                        if entry.memory_context is None
+                        or entry.memory_context.memory is None
+                        else digest(canonical_bytes(entry.memory_context))
+                    )
+                    if (
+                        admission.task_profile.reusable_memory_context_sha256
+                        != expected_memory
+                    ):
+                        raise ValueError(
+                            "task profile does not bind the saved memory context"
+                        )
+                saved_task_state = (
+                    None
+                    if isinstance(entry, ArchivedConversationEntry)
+                    or entry.task_state_context is None
+                    else canonical_fingerprint(entry.task_state_context)
+                )
+                expected_task_state = (
+                    entry.artifact_refs.get("task_state_context")
+                    if isinstance(entry, ArchivedConversationEntry)
+                    else None
+                    if saved_task_state is None
+                    else saved_task_state.sha256
+                )
+                if (admitted_task_state := admission.task_state) is not None:
+                    if (
+                        admitted_task_state.scope.owner_uid != self.owner_uid
+                        or admitted_task_state.scope.workspace_sha256
+                        != conversation_workspace_sha256(self.workspace)
+                    ):
+                        raise ValueError(
+                            "task-state admission belongs to another conversation"
+                        )
+                    if admitted_task_state.context_sha256 != expected_task_state:
+                        raise ValueError(
+                            "task-state admission does not bind the saved context"
+                        )
+                    if saved_task_state is not None:
+                        assert not isinstance(entry, ArchivedConversationEntry)
+                        assert entry.task_state_context is not None
+                        expected_admission = admit_task_state(
+                            entry.task_state_context.task_state,
+                            request_sha256=admission.request.sha256,
+                            context_sha256=saved_task_state.sha256,
+                            context_bytes=saved_task_state.bytes,
+                        )
+                        if admitted_task_state != expected_admission:
+                            raise ValueError(
+                                "task-state admission differs from the saved context"
+                            )
+                elif expected_task_state is not None:
+                    raise ValueError("saved task state requires request admission")
+                if admission.task_profile is not None and (
+                    admission.task_profile.temporary_task_state_sha256
+                    != expected_task_state
+                ):
+                    raise ValueError(
+                        "task profile does not bind the saved task-state context"
+                    )
             if (
                 entry.memory_context is not None
                 and entry.memory_context.memory is not None
