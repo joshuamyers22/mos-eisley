@@ -245,6 +245,9 @@ and critic/judge workflows retain their existing tool-free boundaries.
   a scrollable transcript, review details and persistent status.
 - An [explicit recorded review inside the conversation](docs/CONVERSATION_REVIEW.md),
   with isolated critic requests, retained review evidence and contextual follow-ups.
+  The [G1 lifecycle acceptance](docs/G1_CONVERSATION_LIFECYCLE.md) composes that
+  frozen review path with claimed task state, terminal cancellation and passive
+  same-session resume without replay.
 - Immutable, versioned Pydantic contracts with strict input validation.
 - [G0 bounded task-state contracts](docs/G0_MILESTONE_REVIEW.md) for clauses,
   decisions, outcomes, work units, milestone checkpoints, reproducible lossy views,

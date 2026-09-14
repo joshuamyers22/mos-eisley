@@ -286,6 +286,7 @@ def main() -> int:
             "test_task_state_continuation.py",
             "test_task_state_approval.py",
             "test_task_state_replacement_verification.py",
+            "test_g1_conversation_lifecycle.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         templates = root / "templates"

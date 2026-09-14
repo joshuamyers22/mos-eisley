@@ -2,9 +2,10 @@
 
 ## Disposition
 
-Implemented as bounded G1 admission, acquisition, closure, continuation,
-context-pressure and validated-author-compaction increments,
-not accepted as the complete G1 milestone. The recorded conversation controller can
+Implemented and accepted as the bounded recorded G1 usable-product slice, including
+admission, acquisition, closure, continuation, context pressure, validated author
+compaction and the composed conversation/review/cancel/resume path. The recorded
+conversation controller can
 consume one exact owner/workspace-scoped task profile and bind its material to request admission. It can
 also acquire that profile automatically at each request boundary from an explicitly
 selected frozen creator/coder guidance context. A separate current pointer can now
@@ -23,6 +24,11 @@ publishing its checkpoint. Executable tool capability is not enabled.
 Continuation approvals are now treated as expiring, revocable evidence bound to the
 exact work subject and revalidated at claim and request boundaries; they grant no
 execution authority.
+An end-to-end recorded fixture now carries claimed task state from author
+conversation into an explicitly frozen blind review, returns the bounded result to
+visible context, then proves terminal cancellation and passive same-session resume
+without replay or ledger reset. Live providers and executable tools remain outside
+G1.
 
 The increment follows the small walking-skeleton, evidence and stopping guidance in
 [`production-project-template` commit `d59f3e6`](https://github.com/joshuamyers22/production-project-template/commit/d59f3e661a1fa3456505cf36f91b51f4a1c873ac),
@@ -40,8 +46,9 @@ G0 task-state branch because that contract is still under review in
 - Resource ceiling: no paid/provider calls; bounded admission, acquisition and
   checkpoint-closure, fresh-continuation, pressure-indicator, author-compaction,
   semantic-discovery, runtime-tool-selection and changed-tree-replacement slices,
-  stale-approval handling, focused tests and the repository's full locked gate. Stop
-  before adding executable tools or execution authority.
+  stale-approval handling, composed conversation/review/cancel/resume acceptance,
+  focused tests and the repository's full locked gate. Stop before adding executable
+  tools or execution authority.
 - Rollback: remove runtime materialization, optional preview/admission fields and the
   separate closure/continuation modules and their launch options. Legacy serialized
   admissions omit the optional fields and remain unchanged; prior task-state archives
@@ -148,6 +155,13 @@ G0 task-state branch because that contract is still under review in
   ledger invariants before durable archive publication and one atomic current-pointer
   replacement. The boundary executes no command and grants no authority. See
   [the replacement-verification contract](TASK_STATE_REPLACEMENT_VERIFICATION.md).
+- The composed G1 conversation path admits author requests with the claimed task
+  state, freezes an explicit review packet outside author context, retains and makes
+  the bounded result visible to later conversation, then persists terminal `/stop`
+  cancellation. Same-session resume must reproduce the claim, remain passive until
+  new or explicitly continued work, burn the cancelled recorded position, preserve
+  the checkpoint ledger and never replay the cancelled request. See
+  [the G1 conversation lifecycle](G1_CONVERSATION_LIFECYCLE.md).
 
 ## Acceptance evidence
 
@@ -165,14 +179,16 @@ validation and final admission now reconstruct and revalidate the full runtime
 profile before use; forged instruction content, tool schemas and failing diagnostics
 are rejected before an attempt. Negative fixtures cover those paths.
 
-The complete G1 acceptance demonstration remains open for conversation-to-review and
-cancel/resume. Changed-tree replacement is now demonstrated with a real Git repository
-and an actually executed changed test; stale-approval handling proves absolute expiry,
-revocation and exact-subject binding across claims, retries, fresh sessions and request
-dispatch. Author-compaction fixtures cover reconstruction and overflow-stop behavior.
-Fresh continuation preserves obligations/aggregate ledgers and rejects duplicate
-handoffs, while pressure indicators remain advisory. Fixture enforcement is not the
-full end-to-end milestone or live quality evidence.
+The bounded recorded G1 acceptance demonstration is complete. Its composed fixture
+now covers conversation-to-review visibility, structural critic/judge blindness,
+terminal cancellation, passive same-session resume and no replay. Changed-tree
+replacement uses a real Git repository and an actually executed changed test;
+stale-approval handling proves absolute expiry, revocation and exact-subject binding
+across claims, retries, fresh sessions and request dispatch. Author-compaction
+fixtures cover reconstruction and overflow-stop behavior. Fresh continuation
+preserves obligations/aggregate ledgers and rejects duplicate handoffs, while
+pressure indicators remain advisory. This is recorded-provider controller evidence,
+not live review quality, machine containment or executable-agent acceptance.
 
 ## Verification
 
@@ -203,14 +219,18 @@ Verification on 2026-09-14:
   edited-selection, fresh-session non-revival, same-session expiry, mid-claim expiry
   and per-request dispatch-prevention tests pass; the 36-test continuation,
   approval and replacement set and 102-test compatibility set pass.
+- Conversation-to-review and cancel/resume: 2 composed acceptance tests pass. They
+  cover claimed author admission, frozen-packet blindness, visible retained results,
+  `/stop`, durable cancellation, passive same-session resume, burned attempts, no
+  replay and exact task-ledger preservation.
 - Full G1 stack `make check`: pass. Ruff and formatting are clean; Pyright reports
-  zero findings. The 2,359 source-tree tests run successfully with 4 skips at
+  zero findings. The 2,361 source-tree tests run successfully with 4 skips at
   89% repository coverage, and runtime export verification and package builds pass.
   The installed-wheel run,
-  including all eleven G1 profile-admission, profile-acquisition, task-state,
+  including all twelve G1 profile-admission, profile-acquisition, task-state,
   closure, continuation, pressure, compaction, discovery, tool-catalog,
-  changed-tree-replacement and stale-approval suites plus all five editable
-  selection fixtures, passes all 1,762 tests.
+  changed-tree-replacement, stale-approval and composed-conversation suites plus all
+  five editable selection fixtures, passes all 1,764 tests.
 
 The full gate emits the existing Pydantic serialization warning documented in the
 G0 review. It does not fail the gate and is outside this increment. No live provider
