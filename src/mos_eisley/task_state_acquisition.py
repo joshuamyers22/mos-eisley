@@ -31,6 +31,10 @@ from mos_eisley.task_state import (
     WorkUnitRecord,
     WorkUnitReference,
 )
+from mos_eisley.task_state_approval import (
+    TaskApprovalFreshness,
+    task_approval_subject_sha256,
+)
 
 TASK_STATE_SELECTION_BYTES = 32 * 1024
 TASK_STATE_CONTEXT_BYTES = 256 * 1024
@@ -103,12 +107,18 @@ class TaskStateAcquisitionEvidence(Contract):
     continuation_claim_sha256: Digest | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    approval: TaskApprovalFreshness | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     continuation_blockers: Annotated[
         tuple[ShortText, ...],
         Field(max_length=64, exclude_if=lambda value: not value),
     ] = ()
     live_workspace_freshness_verified: bool = False
     continuation_claimed: bool = False
+    authority_revalidated: Annotated[
+        bool, Field(exclude_if=lambda value: not value)
+    ] = False
     freshness_ready: bool = Field(False, exclude_if=lambda value: not value)
     grants_authority: Literal[False] = False
 
@@ -138,11 +148,19 @@ class TaskStateAcquisitionEvidence(Contract):
                 and not self.continuation_blockers
             ):
                 raise ValueError("continuation freshness readiness is inconsistent")
+            if (self.approval is None) != (not self.authority_revalidated):
+                raise ValueError(
+                    "continuation approval evidence and revalidation differ"
+                )
+            if self.approval is not None and not self.approval.approval_ready:
+                raise ValueError("continuation carries a stale task approval")
         elif (
             any(value is not None for value in continuation_values)
             or self.stale_verification_ids
             or self.continuation_blockers
             or self.live_workspace_freshness_verified
+            or self.approval is not None
+            or self.authority_revalidated
             or self.freshness_ready
         ):
             raise ValueError("ordinary task-state acquisition claims continuation")
@@ -230,6 +248,22 @@ class RuntimeTaskState(Contract):
                 raise ValueError(
                     "runtime continuation does not stale changed-workspace passes"
                 )
+            authorization_refs = self.current_work_unit.authorization_refs
+            if authorization_refs:
+                approval = evidence.approval
+                if (
+                    approval is None
+                    or not evidence.authority_revalidated
+                    or approval.required_approval_refs != authorization_refs
+                    or approval.current_approval_refs != authorization_refs
+                    or approval.work_subject_sha256
+                    != task_approval_subject_sha256(self.current_work_unit)
+                ):
+                    raise ValueError(
+                        "runtime continuation lacks exact current approval evidence"
+                    )
+            elif evidence.approval is not None or evidence.authority_revalidated:
+                raise ValueError("runtime continuation invents approval evidence")
         if len(canonical_bytes(self)) > TASK_STATE_CONTEXT_BYTES:
             raise ValueError("runtime task-state context exceeds 256 KiB")
         return self

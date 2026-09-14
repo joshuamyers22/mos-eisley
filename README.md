@@ -251,7 +251,8 @@ and critic/judge workflows retain their existing tool-free boundaries.
   cumulative context accounting, offline instruction/tool diagnostics and private
   content-addressed replay. G1 adds explicit one-session
   [fresh-context continuation](docs/TASK_STATE_CONTINUATION.md) with live Git/file
-  freshness and stale-test disclosure plus advisory-only
+  freshness, stale-test disclosure and
+  [stale-approval rejection](docs/TASK_STATE_APPROVAL_FRESHNESS.md) plus advisory-only
   [context-pressure indicators](docs/CONTEXT_PRESSURE.md) in `/status` and `/context`;
   neither grants execution authority. G1 also provides explicit
   [validated author compaction](docs/AUTHOR_COMPACTION.md), with exact private

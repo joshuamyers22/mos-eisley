@@ -209,6 +209,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--task-state-storage",
         "--task-state-continuation-selection",
         "--task-state-continuation-claim",
+        "--task-approval-selection",
         "--tui",
         "--plain",
         "--json",
@@ -929,6 +930,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--task-state-continuation-claim",
                 type=Path,
                 help="Private one-session claim created before continuation dispatch",
+            )
+            command.add_argument(
+                "--task-approval-selection",
+                type=Path,
+                help="Pinned, time-bounded approval evidence for continuation",
             )
             display = command.add_mutually_exclusive_group()
             display.add_argument(
@@ -2336,6 +2342,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             or args.task_state_selection is not None
             or args.task_state_continuation_selection is not None
             or args.task_state_continuation_claim is not None
+            or args.task_approval_selection is not None
             or args.no_memory
             or args.tui
             or args.plain
@@ -2637,6 +2644,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         raise ValueError(
             "Fresh continuation requires current and continuation selections."
         )
+    if args.task_approval_selection is not None and (
+        args.task_state_continuation_selection is None
+    ):
+        raise ValueError("Task approvals apply only to a fresh continuation.")
     if args.task_state_selection is None:
         task_state_acquirer = None
     elif args.task_state_continuation_selection is None:
@@ -2649,6 +2660,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             args.task_state_selection,
             args.task_state_continuation_selection,
             args.task_state_continuation_claim,
+            approval_selection_path=args.task_approval_selection,
         )
     fresh: ConversationState | None = None
     selected: ConversationSummary | None = None if picked is None else picked.summary

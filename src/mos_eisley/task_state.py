@@ -359,6 +359,7 @@ class WorkUnitRecord(Contract):
                 "dependency",
             ),
             (self.interfaces, "interface"),
+            (self.authorization_refs, "authorization"),
             (
                 tuple(
                     (item.clause_id, item.revision) for item in self.applicable_clauses

@@ -10,9 +10,10 @@ import selectors
 import stat
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal, Protocol, Self, cast
 from uuid import uuid4
@@ -41,6 +42,10 @@ from mos_eisley.task_state_acquisition import (
     TaskStateAcquisitionEvidence,
     decode_task_state_selection,
     validate_task_state_scope,
+)
+from mos_eisley.task_state_approval import (
+    PinnedTaskApprovalGuard,
+    TaskApprovalFreshness,
 )
 
 CONTINUATION_SELECTION_BYTES = 64 * 1024
@@ -137,8 +142,24 @@ class ContinuationClaim(Contract):
     selected_work_unit_id: Identifier
     selected_work_unit_revision: Annotated[int, Field(ge=1)]
     freshness_sha256: Digest
+    approval_selection_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    authorization_refs: Annotated[
+        tuple[Digest, ...], Field(max_length=16, exclude_if=lambda value: not value)
+    ] = ()
     continuation_claimed: Literal[True] = True
     grants_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def exact_approval_binding(self) -> Self:
+        if (self.approval_selection_sha256 is None) != (not self.authorization_refs):
+            raise ValueError(
+                "continuation claim approval selection and references differ"
+            )
+        if len(set(self.authorization_refs)) != len(self.authorization_refs):
+            raise ValueError("continuation claim approval references must be unique")
+        return self
 
     @property
     def sha256(self) -> str:
@@ -640,6 +661,7 @@ class FreshContextContinuationAcquirer:
     continuation_selection_payload: bytes
     claim_path: Path
     inspector: WorkspaceInspector = GitWorkspaceInspector()
+    approval_guard: PinnedTaskApprovalGuard | None = None
 
     def __post_init__(self) -> None:
         decode_task_state_selection(self.current_selection_payload)
@@ -667,6 +689,8 @@ class FreshContextContinuationAcquirer:
         claim_path: Path | None = None,
         *,
         inspector: WorkspaceInspector | None = None,
+        approval_selection_path: Path | None = None,
+        approval_clock: Callable[[], datetime] | None = None,
     ) -> Self:
         continuation_payload = read_private_continuation_payload(
             continuation_selection_path,
@@ -700,6 +724,11 @@ class FreshContextContinuationAcquirer:
             ),
             claim_path=claim_path.absolute(),
             inspector=GitWorkspaceInspector() if inspector is None else inspector,
+            approval_guard=None
+            if approval_selection_path is None
+            else PinnedTaskApprovalGuard.from_path(
+                approval_selection_path, clock=approval_clock
+            ),
         )
 
     def validate_launch(
@@ -790,6 +819,13 @@ class FreshContextContinuationAcquirer:
             ) from None
         validate_continuation(bundle.checkpoint, source_work, selection)
         _validate_dependencies(bundle, source_work)
+        approval: TaskApprovalFreshness | None = None
+        if source_work.authorization_refs:
+            if self.approval_guard is None:
+                raise ValueError("continuation work requires a task approval selection")
+            approval = self.approval_guard.revalidate(source_work)
+        elif self.approval_guard is not None:
+            raise ValueError("continuation supplied unreferenced task approvals")
         inspection = self.inspector.inspect(
             Path(workspace), bundle.checkpoint.main_files
         )
@@ -822,6 +858,10 @@ class FreshContextContinuationAcquirer:
             selected_work_unit_id=source_work.work_unit_id,
             selected_work_unit_revision=source_work.revision,
             freshness_sha256=freshness.sha256,
+            approval_selection_sha256=None
+            if approval is None
+            else approval.selection_sha256,
+            authorization_refs=source_work.authorization_refs,
         )
         omitted = tuple(
             item.evidence_id for item in source_work.evidence if item.view is not None
@@ -864,9 +904,11 @@ class FreshContextContinuationAcquirer:
                 stale_verification_ids=freshness.stale_verification_ids,
                 continuation_selection_sha256=digest(continuation_payload),
                 continuation_claim_sha256=proposed_claim.sha256,
+                approval=approval,
                 continuation_blockers=freshness.blockers,
                 live_workspace_freshness_verified=True,
                 continuation_claimed=True,
+                authority_revalidated=approval is not None,
                 freshness_ready=freshness.freshness_ready,
             ),
         )
@@ -894,4 +936,19 @@ class FreshContextContinuationAcquirer:
             != inspection
         ):
             raise ValueError("live workspace changed during continuation acquisition")
+        if self.approval_guard is not None:
+            final_approval = self.approval_guard.revalidate(source_work)
+            if (
+                final_approval.selection_sha256
+                != proposed_claim.approval_selection_sha256
+            ):
+                raise ValueError("task approval selection changed during acquisition")
+            result = result.model_copy(
+                update={
+                    "acquisition": result.acquisition.model_copy(
+                        update={"approval": final_approval}
+                    )
+                }
+            )
+            result = RuntimeTaskState.model_validate(result.model_dump())
         return result

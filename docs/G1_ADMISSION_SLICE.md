@@ -20,6 +20,9 @@ Runtime tool-catalog selection now exposes only exact-task schemas from one
 byte-pinned approved catalog. Claim-bound changed-tree replacement verification now
 requires current passing evidence before completing the continued work and atomically
 publishing its checkpoint. Executable tool capability is not enabled.
+Continuation approvals are now treated as expiring, revocable evidence bound to the
+exact work subject and revalidated at claim and request boundaries; they grant no
+execution authority.
 
 The increment follows the small walking-skeleton, evidence and stopping guidance in
 [`production-project-template` commit `d59f3e6`](https://github.com/joshuamyers22/production-project-template/commit/d59f3e661a1fa3456505cf36f91b51f4a1c873ac),
@@ -37,8 +40,8 @@ G0 task-state branch because that contract is still under review in
 - Resource ceiling: no paid/provider calls; bounded admission, acquisition and
   checkpoint-closure, fresh-continuation, pressure-indicator, author-compaction,
   semantic-discovery, runtime-tool-selection and changed-tree-replacement slices,
-  focused tests and the repository's full locked gate. Stop before adding executable
-  tools or execution authority.
+  stale-approval handling, focused tests and the repository's full locked gate. Stop
+  before adding executable tools or execution authority.
 - Rollback: remove runtime materialization, optional preview/admission fields and the
   separate closure/continuation modules and their launch options. Legacy serialized
   admissions omit the optional fields and remain unchanged; prior task-state archives
@@ -103,6 +106,13 @@ G0 task-state branch because that contract is still under review in
   changes fail closed. The bounded context and saved admission disclose the claim but
   grant no tools or execution authority. See
   [the continuation contract](TASK_STATE_CONTINUATION.md).
+- Referenced continuation approvals are owner/workspace scoped, byte-pinned and bound
+  to the immutable work subject, evidence source and exact ordered action set. Missing,
+  mismatched, not-yet-valid, expired or revoked records fail before a claim; approval
+  expiry is checked again after the claim and before every request. A fresh session
+  cannot revive an expired record, and neither replay nor session reset extends its
+  absolute UTC lifetime. Approval records remain evidence only and grant no execution
+  authority. See [the approval-freshness contract](TASK_STATE_APPROVAL_FRESHNESS.md).
 - The version-3 `/context` preview and new `/status` report expose the exact upcoming
   request's non-overlapping byte categories, both available-capacity calculations,
   growth since the checkpoint/session boundary, cumulative provider-known/unknown
@@ -156,12 +166,13 @@ profile before use; forged instruction content, tool schemas and failing diagnos
 are rejected before an attempt. Negative fixtures cover those paths.
 
 The complete G1 acceptance demonstration remains open for conversation-to-review and
-cancel/resume plus stale-approval handling. Changed-tree replacement is now
-demonstrated with a real Git repository and an actually executed changed test;
-author-compaction fixtures cover reconstruction and overflow-stop behavior. Fresh
-continuation preserves obligations/aggregate ledgers and rejects duplicate handoffs,
-while pressure indicators remain advisory. Fixture enforcement is not the full
-end-to-end milestone or live quality evidence.
+cancel/resume. Changed-tree replacement is now demonstrated with a real Git repository
+and an actually executed changed test; stale-approval handling proves absolute expiry,
+revocation and exact-subject binding across claims, retries, fresh sessions and request
+dispatch. Author-compaction fixtures cover reconstruction and overflow-stop behavior.
+Fresh continuation preserves obligations/aggregate ledgers and rejects duplicate
+handoffs, while pressure indicators remain advisory. Fixture enforcement is not the
+full end-to-end milestone or live quality evidence.
 
 ## Verification
 
@@ -188,14 +199,18 @@ Verification on 2026-09-14:
 - Changed-tree replacement verification: 7 focused real-Git completion, stale-pass,
   missing/wrong replacement, claim-session, workspace-race and ledger-preservation
   tests pass; all 81 task-state tests pass.
+- Stale approval handling: 9 focused exact-binding, missing, revoked, mismatched,
+  edited-selection, fresh-session non-revival, same-session expiry, mid-claim expiry
+  and per-request dispatch-prevention tests pass; the 36-test continuation,
+  approval and replacement set and 102-test compatibility set pass.
 - Full G1 stack `make check`: pass. Ruff and formatting are clean; Pyright reports
-  zero findings. The 2,350 source-tree tests run successfully with 4 skips at
+  zero findings. The 2,359 source-tree tests run successfully with 4 skips at
   89% repository coverage, and runtime export verification and package builds pass.
   The installed-wheel run,
-  including all ten G1 profile-admission, profile-acquisition, task-state,
-  closure, continuation, pressure, compaction, discovery and tool-catalog suites
-  plus changed-tree replacement verification and all five editable selection
-  fixtures, passes all 1,753 tests.
+  including all eleven G1 profile-admission, profile-acquisition, task-state,
+  closure, continuation, pressure, compaction, discovery, tool-catalog,
+  changed-tree-replacement and stale-approval suites plus all five editable
+  selection fixtures, passes all 1,762 tests.
 
 The full gate emits the existing Pydantic serialization warning documented in the
 G0 review. It does not fail the gate and is outside this increment. No live provider

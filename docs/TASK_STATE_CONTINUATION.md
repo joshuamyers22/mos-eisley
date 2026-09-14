@@ -23,6 +23,12 @@ mos --plain -C /path/to/project \
   --task-state-storage /path/to/private/task-state-archives
 ```
 
+If the selected work unit has `authorization_refs`, the launch must also supply
+`--task-approval-selection /path/to/task-approvals.json`. Approval-bound work fails
+closed when that pinned selection is absent, changed, revoked, not yet valid,
+expired or bound to another scope, work revision or planning subject. See
+[stale-approval handling](TASK_STATE_APPROVAL_FRESHNESS.md).
+
 The selection and current pointer are pinned by their exact launch bytes. Their
 files and parent directories, and the claim directory, must be owner-only. An
 unclaimed continuation refuses an existing conversation: its first claim must use a
@@ -66,6 +72,9 @@ digests, archive/checkpoint revisions, selected work unit and freshness digest. 
 different session, changed selection, conflicting claim or concurrent claimant fails
 closed. The selections and live workspace are checked again after the durable claim,
 before recorded-model dispatch. An exact same-session retry is idempotent.
+Approval-bound continuations recheck the absolute expiry both before and after this
+claim and on every later request acquisition. The claim binds the exact approval
+selection digest and work authorization references; it does not extend them.
 
 The first claim fixes its freshness digest. A subsequent workspace change stops
 reuse of that claim; recording a revised checkpoint and selecting a revised work
@@ -91,3 +100,6 @@ stale-verification disclosure, forged overlays, private storage, conversation
 admission and real tracked/untracked Git changes. These fixtures establish boundary
 enforcement, not live-provider quality. The separate replacement-verification
 acceptance demonstrates a successful check and atomic closure on a changed workspace.
+`tests/test_task_state_approval.py` separately covers current, missing, expired,
+revoked, mismatched and edited approvals, expiry during claim, same-session expiry,
+fresh-session non-revival and fail-before-dispatch behavior.

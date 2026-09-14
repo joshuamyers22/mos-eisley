@@ -186,6 +186,8 @@ def validate_changed_tree_replacement_verification(
         or claim.selected_work_unit_id != source.work_unit_id
         or claim.selected_work_unit_revision != source.revision
         or claim.freshness_sha256 != freshness.sha256
+        or claim.authorization_refs != source.authorization_refs
+        or (claim.approval_selection_sha256 is None) != (not source.authorization_refs)
     ):
         raise ValueError("replacement verification differs from its continuation claim")
 
