@@ -5,23 +5,98 @@
 [adversarial review-loop project plan](adversarial-review-loop-project-plan.md)
 under [plan §26](mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract).
 The [review](PROJECT_REVIEW_2026-09-08.md) records gaps, decisions and local checks.
-These are planned extensions; current implementation status below is unchanged.
-Execute this dependency order alongside the existing capability workstreams:
+These extensions entered the roadmap as planned work; their current implementation
+status is recorded below. Execute this dependency order alongside the existing
+capability workstreams:
+
+**G0 completion, 2026-09-13:** the offline contracts, cumulative measurement,
+profile diagnostics and private replay gate are implemented and reviewed in
+[the G0 milestone review](G0_MILESTONE_REVIEW.md). This does not enable G1 task
+continuation, compaction or pressure behavior.
 
 | Order | Next deliverable | Gate |
 |---|---|---|
-| G0/G1 | Clause/decision/outcome contracts, recorded conversation/review slice and sealed plan-reading experiment | Accurate private records, replay, no early reveal, revision invalidation, cancel/resume |
+| G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
+| G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
-| G3 | Affordable independent utility study | Pre-spend sample/assignment feasibility, protected holdout, clean/defective labels and whole-task outcomes |
+| G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
-G0/G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
+G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**Session-shape adoption, 2026-09-13 — G0 implemented; G1 planned:** implement
+[plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
+through the existing controller and private store. G0 freezes work-unit and
+checkpoint schemas, measurement definitions, offline guidance/tool-profile
+diagnostics and private replay. G1 applies scoped tool views and schema selection at
+admission, separates reusable memory from temporary task state, and connects
+milestone closure to explicit fresh-context continuation and advisory pressure
+signals. Preserve task-wide budgets, outstanding steering, correction counters and
+uncertain effects across handoffs. Advancing an already-authorized work unit
+requires no new user confirmation. These controls do not enable a deferred tool or
+execution capability.
+
+**G1 admission/acquisition slice, 2026-09-13 — implemented on a stacked feature
+branch:** an
+already selected, owner/workspace-scoped runtime task profile can now enter the
+recorded conversation path. Admission binds its exact guidance and tool-schema
+inventory, reproducible diagnostics, work-unit revision and request digest while
+binding reusable memory through a separate private context digest. The schemas are
+descriptive only: the controller's
+tool-call limit remains zero and the profile grants no execution authority. See the
+[bounded slice review](G1_ADMISSION_SLICE.md). Automatic acquisition now loads an
+explicitly selected frozen creator/coder context at each request boundary,
+revalidating its project, assessment and private policy while keeping critic contexts
+and unselected tools out; see
+[the profile acquisition contract](TASK_PROFILE_ACQUISITION.md). A separate private
+current pointer now replays one exact G0 archive and binds a bounded task-state
+projection as a temporary SQLite artifact; see
+[the task-state acquisition contract](TASK_STATE_ACQUISITION.md). A separate
+[checkpoint-closure boundary](TASK_STATE_CHECKPOINT_CLOSURE.md) now appends one
+verified terminal work revision, preserves obligations and cumulative ledgers, writes
+the next immutable archive and atomically advances the exact old pointer. It grants
+no continuation authority. A separate explicit
+[fresh-context continuation boundary](TASK_STATE_CONTINUATION.md) now binds one new
+session to a selected outstanding unit, revalidates the complete archive and
+cumulative baselines, inspects live Git/main files, discloses stale checkpoint passes
+and commits a private idempotent one-session claim before recorded-model dispatch.
+It grants no tool or execution authority and does not re-run stale tests. A separate
+[context-pressure boundary](CONTEXT_PRESSURE.md) now extends `/status` and `/context`
+with exact categorized request bytes, capacity/growth, truthful provider-token
+unknowns, task counters and bounded advisory events. It takes no automatic action.
+A separate [validated author-compaction boundary](AUTHOR_COMPACTION.md) now accepts
+only an explicit bounded draft, retains current user text and exact private source,
+binds omissions/lineage/live Git and file state, and rolls back on stale inputs or
+either hard request limit. Critics and judges cannot use it. A separate
+[validated semantic task-discovery boundary](TASK_SEMANTIC_DISCOVERY.md) now maps an
+exact queued-message digest and source-anchored excerpts to one candidate frozen
+author packet, records complete candidate omissions and persists only text-free
+evidence. Its supplied classification is not a quality verdict. A schema-only
+[runtime tool-catalog boundary](TASK_TOOL_CATALOG.md) now pins approved catalog bytes,
+requires complete exact-task decisions and exposes only selected schemas without
+starting servers or enabling dispatch. A claim-bound
+[changed-tree replacement-verification boundary](TASK_STATE_REPLACEMENT_VERIFICATION.md)
+now replaces stale historical passes with evidence bound to the exact claimed live
+tree before atomic checkpoint publication. G1 remains incomplete pending stale-
+approval handling and the final composite conversation/review/cancel-resume
+demonstration.
+
+The acceptance demonstration completes a milestone, writes a concise private
+checkpoint, continues in fresh context, detects changed repository/test state and
+finishes with required evidence and obligations intact. G3 compares this workflow
+with the existing selection policy; smaller cumulative context or cost counts as
+an improvement only after independent quality gates pass. Numeric guide heuristics
+remain configurable evaluation candidates. Current `/status` and `/context` pressure
+reports expose the selected continuation and its freshness overlay. Explicit author
+compaction establishes reconstruction and overflow-stop behavior, and the real-Git
+replacement fixture now establishes successful changed-tree re-verification. The
+SQLite storage-resume checkpoint is a different metadata structure.
 
 **Platform release direction, 2026-09-11:** version 0.1.0 adds a tested WSL2
 deployment using the Linux backend; version 0.1.1 delivers full native Windows
@@ -356,93 +431,17 @@ loading and telemetry adapters remain planned.
    backups, protects the newest count, explicit age cutoff and current memory,
    and reviews at most 32 deletions. Apply rechecks the complete retained inventory
    between deletions and reports partial progress; no cleanup runs at startup.
-   [Snapshot budgets](CONVERSATION_STORAGE.md) are now configurable per session,
-   with visible usage and a separate bounded catalog scan override. The 2 MB default
-   remains an interim preview limit. Plan §17.7 now sequences incremental records,
-   paginated listing/transcript reads, independent context/retention budgets,
-   explicit migration and recovery tests before lifting the message cap.
-   The first [SQLite adapter](CONVERSATION_SQLITE.md) now implements opt-in
-   incremental message/artifact writes, atomic saves/deletes and bounded metadata
-   pages with generation-bound cursors. Explicit same-root JSON-to-SQLite migration
-   now preserves exact state and source files, with dry-run sizing and verified
-   retries after transaction interruption. Bounded same-root batches now select up
-   to 32 explicit sessions under a 64 MB source budget, bind the selection to a
-   versioned batch hash and commit one import at a time. Partial results and retries
-   verify completed copies without overwriting or recovering uncertain attempts.
-   Single-session and bounded batch cross-root copies now bind both directories
-   and source selections to preview hashes, with per-session transactions and
-   verified retries. Single-session `session-export` now copies SQLite back to JSON
-   in the same or another private directory with exact-hash preview, atomic
-   publication and source preservation. Same-directory export reuses the shared
-   session lock and version-2 plans; existing cross-directory hashes retain version 1.
-   Bounded batch export now preflights up to 32 sessions and 64 MB of JSON output,
-   binds exact source plans to one hash, and reports verified per-session results
-   for safe retry after partial publication. Temporary cleanup, metadata retention
-   preview, and verified single/batch pruning are now implemented; automatic expiry
-   and physical quotas remain open. The transcript CLI now
-   reads bounded text pages using saved entry hashes and stale-cursor guards, with
-   explicit preparation for legacy indexes. SQLite's terminal now browses those pages with
-   F5, Page Up/Down and F6 reload, retaining one page and preserving the draft.
-   F7/F8 and `session-artifact` now expand one explicitly selected memory/review
-   artifact with snapshot binding, integrity checks and a separate byte budget.
-   A separately verified resume checkpoint now supports `resume --inspect` with
-   the last four messages, all queued/running work and required steering ancestors,
-   under a fixed record-read budget. It leaves artifacts unexpanded and performs
-   no recovery. Routine saves reuse a verified checkpoint and skip unchanged writes.
-   SQLite controllers now retain historical artifact references and stream stored
-   bytes when saving, preserving canonical hashes without rebuilding old artifact
-   values. Queued reviews hydrate one admitted packet at execution; at most the
-   latest result stays decoded for the renderer. Initial loads and external commits
-   now verify historical entries one at a time under a separate input bound, then
-   stream the exact snapshot hash and logical size. Active memory/recording values
-   remain decoded. Chat context uses a text-only selection
-   interface and a separately saved byte budget, checked before an attempt is
-   consumed. It preserves completed history and steering, and pauses oversized
-   queued work with required/available byte counts. Per-launch memory/recording limits
-   now admit SQLite header sizes before either artifact is fetched, including legacy
-   loads, and bound recording-file reads. Controller recovery, refresh and dispatch
-   check canonical selected inputs; limits leave saved hashes unchanged. Size/hash
-   checks now stream canonical JSON and reuse the recording fingerprint within an
-   operation; nested mutations are checked anew at the next boundary. Working saves
-   now encode each packed record once and reuse its bytes/digest for admission and
-   persistence; cold resume skips redundant preparation of verified entries. Runtime
-   revalidation now checks a fresh native data tree without a whole-state JSON
-   buffer, including full schema validation of the excluded review cache. Working
-   saves now preflight exact logical size from record structure and artifact lengths;
-   a current checkpoint permits capacity rejection before artifact reads or writes.
-   Admitted saves still stream all logical history and verify the preflight size.
-   Repeated small archived artifacts can now reuse verified chunks within a 64 KiB
-   cache for that save, reducing repeated disk reads without carrying payloads
-   between operations. Queued message text now has a per-launch UTF-8 byte budget
-   checked before saving new chat, steering or review-prompt submissions. Rejection
-   preserves queued work, attempts and message drafts; tighter resume limits allow
-   existing work to run or be cancelled. Typed `/steer` and `/review` submissions
-   now retain editor text until durable admission, including rejection for missing
-   prerequisites, while stop/quit still cancel pending handoffs. `/context` now
-   previews selected turn sources, steering ancestry, omissions and canonical
-   context usage through the same projection as dispatch, without saving or
-   starting work. This metadata preview is versioned and ephemeral. Preview schema
-   2 now includes complete request bytes/hash, route, output reserve, headroom and
-   the independent request fit result through the same builder used by dispatch.
-   A saved-context fit does not imply the complete request fits. New chat attempts
-   now atomically retain versioned admission metadata with the running transition:
-   exact context/request fingerprints, limits and selected/omitted message positions.
-   Completion, failure and recovery preserve it; existing entries are not backfilled.
-   SQLite transcript/inspection reads expose this metadata without artifact hydration.
-   `/context N` now exposes a saved message's admission in both terminal modes,
-   showing historical hashes, budgets and selections with its current status.
-   It reads existing metadata without rebuilding requests, saving or enabling work;
-   missing/legacy admissions produce notices and the TUI marks changed views stale.
-   Admission does not prove provider receipt. Visible compaction, smaller
-   text/record transitions and the long-session acceptance gate
-   remain open.
-   Single-session cross-root JSON-to-SQLite transfer now previews both directory
-   identities and source sizes/hashes, then requires its transfer hash for apply.
-   It retains source/workspace identity, admission records and attempts; retries
-   verify existing copies without overwriting advanced destinations. Reverse
-   migration and retention remain open.
-   Mid-request interruption and live review
-   remain open.
+   Storage now has independent admission budgets, incremental SQLite records,
+   bounded transcript/artifact navigation, explicit migration/export and retention,
+   and saved request-selection metadata. `/context` exposes queued selection and
+   complete-request fit; `/context N` inspects retained admission. These are local
+   byte checks, not provider-native token estimates. The preview remains capped at
+   16 messages/attempts; cold verification reads history and accepted saves still
+   hash logical history. Visible compaction, task-checkpoint continuation, bounded
+   text/record transitions and the long-session gate remain open, as do live review
+   and mid-request interruption. See [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets),
+   [operator controls](CONVERSATION_STORAGE.md), and the
+   [preserved implementation history](SESSION_STORAGE_IMPLEMENTATION_HISTORY.md).
    Define a versioned provider-adapter interface and extensible model catalog so
    new providers/backends and model entries can be added without rewriting the
    agent loop. Keep explicit route identities, capability/pricing provenance, and
