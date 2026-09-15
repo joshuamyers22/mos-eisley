@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from mos_eisley.core.models import ReviewPolicy
+from mos_eisley.core.models import ReviewPolicy, canonical_bytes
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import request_payload
@@ -38,6 +38,14 @@ from mos_eisley.run.review_controller import (
     ControllerJudgePreview,
 )
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
+from mos_eisley.run.review_launch_admission import (
+    ReviewLaunchAdmission,
+    ReviewLaunchAdmissionInputs,
+)
+from mos_eisley.run.review_launch_authorization import (
+    ReviewLaunchScope,
+    SignedReviewLaunchDecision,
+)
 from mos_eisley.run.review_runtime_evidence import RuntimeOperationRecorder
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
@@ -108,6 +116,12 @@ class _ApprovedReviewTransport:
             remaining = min(
                 remaining,
                 (self._campaign_deadline - datetime.now(UTC)).total_seconds(),
+            )
+        admission_deadline = self._ui.admission_deadline
+        if admission_deadline is not None:
+            remaining = min(
+                remaining,
+                (admission_deadline - datetime.now(UTC)).total_seconds(),
             )
         if remaining <= 0:
             raise ValueError("review conformance dispatch authorization expired")
@@ -210,7 +224,12 @@ class BrokeredReviewConformanceProbe:
         load_api_key: Callable[[], str],
         total_seconds: float = 30,
         campaign: ReviewCampaignBinding | None = None,
+        launch: ReviewLaunchAdmissionInputs | None = None,
     ) -> None:
+        if campaign is not None and launch is not None:
+            raise ValueError(
+                "select either a campaign probe or a separately admitted launch"
+            )
         if len(critic_containers) != len(envelope.critics) or len(
             {id(container) for container in critic_containers}
         ) != len(critic_containers):
@@ -223,11 +242,16 @@ class BrokeredReviewConformanceProbe:
         self.controller = BrokeredReviewController(
             envelope, reviewer, policy, total_seconds=total_seconds
         )
-        campaign_admission = (
+        self._campaign_binding = (
             None
             if campaign is None
+            else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
+        campaign_admission = (
+            None
+            if self._campaign_binding is None
             else ReviewCampaignAdmission(
-                campaign,
+                self._campaign_binding,
                 self.controller,
                 envelope,
                 reviewer,
@@ -238,6 +262,18 @@ class BrokeredReviewConformanceProbe:
         campaign_deadline = (
             None if campaign_admission is None else campaign_admission.expires_at
         )
+        self._launch_admission = (
+            None
+            if launch is None
+            else ReviewLaunchAdmission(
+                launch,
+                self.controller,
+                envelope,
+                reviewer,
+                authority_policy=authority_policy,
+                runtime=self._runtime,
+            )
+        )
         self.approval_ui = SignedReviewApprovalUI(
             self.controller.preview,
             ui,
@@ -245,7 +281,7 @@ class BrokeredReviewConformanceProbe:
             runtime=self._runtime,
             controller_start=lambda: self.controller.start,
             load_authorization=load_authorization,
-            campaign=campaign_admission,
+            campaign=self._launch_admission or campaign_admission,
         )
         self._flow = BrokeredReviewApprovalFlow(self.controller, self.approval_ui)
         self._critics = tuple(
@@ -281,6 +317,24 @@ class BrokeredReviewConformanceProbe:
         return ReviewConformanceRuntime(
             sdk_version=version("openai"), image_id=next(iter(images))
         )
+
+    @property
+    def launch_scope(self) -> ReviewLaunchScope | None:
+        """Exact proposal for separate independent review; never an automatic grant."""
+        return None if self._launch_admission is None else self._launch_admission.scope
+
+    @property
+    def launch_decision(self) -> SignedReviewLaunchDecision | None:
+        return (
+            None
+            if self._launch_admission is None
+            else self._launch_admission.signed_decision
+        )
+
+    @property
+    def campaign_binding(self) -> ReviewCampaignBinding | None:
+        """Frozen host selection, not evidence of approval or execution."""
+        return self._campaign_binding
 
     @property
     def judge_preview(self) -> ControllerJudgePreview | None:

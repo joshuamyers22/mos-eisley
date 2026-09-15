@@ -86,8 +86,11 @@ by this preview, by a registry label, or by successful fixture tests.
 independent critic/judge signature checks alongside local approval. The
 [owned probe](REVIEW_CONFORMANCE_PROBE.md) now adds dispatch-time enforcement;
 [observer records](REVIEW_CONFORMANCE_OBSERVATION.md) authenticate one completed
-probe. Independent runtime evidence and repeated-probe acceptance remain outstanding.
-Neither signatures nor fixture execution change this preview's activation status.
+probe. [Runtime evidence](REVIEW_RUNTIME_EVIDENCE.md) and
+[repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now support campaign
+verification. [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) compare a fresh
+preview with that evidence and its exact profile. Actual independent assessment and
+reviewed launch admission remain required; this preview's activation status is unchanged.
 
 Each invocation creates fresh *in-memory* attempt identities. Consequently, the
 controller preview hash changes even when the configuration hash stays the same;

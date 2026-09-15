@@ -55,7 +55,11 @@ the independently selected observer inputs. The binding does not reconstruct own
 state after a restart, sequence the three attempts, lock other processes, or prove
 prior commitment custody. Execute the fixed slots in order and retain each observer
 record before starting the next slot, as required by the acceptance chronology.
-No paid CLI, automatic campaign runner or live review activation is introduced.
+This binding introduces no paid CLI or live review activation.
+
+An [owned campaign runner](REVIEW_CAMPAIGN_RUNNER.md) now provides optional fixed-order
+sequencing with independently verified observer handoff between probes. It uses this
+binding without replacing any phase approval or enabling live review activation.
 
 ## Validation and remaining gate
 
