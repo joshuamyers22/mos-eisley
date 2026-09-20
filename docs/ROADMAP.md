@@ -282,13 +282,14 @@ loading and telemetry adapters remain planned.
    [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires all
    three precommitted slots, exact role/runtime/quorum profiles, fresh observer and
    runtime verification, distinct responses/workers and complete dedicated-ledger
-   accounting. Commitment custody, independently authorized live attempts and a
-   reviewed launch-admission decision remain outstanding.
+   accounting. The selected schema-1 separated or schema-2 single-operator contract,
+   authorized live attempts and a reviewed launch-admission decision remain outstanding.
    The [offline campaign ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews exact
    three-attempt bundles, seals private commitments after empty-ledger and unused-path
    checks, and freshly reviews separately pinned evidence submissions. Independent
    custody, authorized live attempts and launch admission still require actual
-   operator execution and review; the ceremony grants no dispatch authority.
+   operator execution and review under the declared operator mode; the ceremony grants
+   no dispatch authority.
    [Campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an owned
    probe to its exact sealed slot at approval and credential/provider use, including
    current policy/runtime/path checks and campaign deadline caps. It preserves the
@@ -296,7 +297,7 @@ loading and telemetry adapters remain planned.
    [Owned campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md) now invokes the three bound
    probes in order and requires freshly verified observer evidence before the next
    invocation. Missing evidence, failures and cancellation stop future attempts;
-   actual independent custody, live assessment and launch admission remain required.
+   actual declared custody, live assessment and launch admission remain required.
    [Offline observer handoff](REVIEW_OBSERVER_HANDOFF.md) now checks pinned completions,
    historical phase signatures and independently selected runtime records, producing
    an explicitly unsigned proposal for assessment without credentials or signing keys.
@@ -306,10 +307,12 @@ loading and telemetry adapters remain planned.
    [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) now compare a fresh guided
    launch preview with freshly verified campaign evidence and exact role/quorum/runtime
    scope. A separately reviewed launch-admission decision remains required.
-   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that separate
-   signed decision in the owning library flow, freshly checking campaign evidence,
-   policy and guidance at approvals and credential/provider use. Real independent
-   custody, live campaign assessment and a production decision remain outstanding;
+   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that signed
+   decision in the owning library flow, freshly checking campaign evidence, policy and
+   guidance at approvals and credential/provider use. Schema 1 preserves separated
+   human roles; explicit schema-2 single-operator mode permits one shared signer while
+   recording that no independent human review occurred. A live campaign and production
+   decision remain outstanding;
    there is no public live-launch CLI or automatic activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,

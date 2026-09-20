@@ -1,13 +1,34 @@
 # Threat Model
 
-- Scope, version, date, owner, and review trigger:
-- Assets and sensitivity:
+## Scope and ownership
+
+- System/version:
+- Owner and reviewers:
+- Date and review trigger:
+- In scope / out of scope:
+
+## Assets, actors, and boundaries
+
+| Asset | Sensitivity | Integrity/availability need | Owner |
+|---|---|---|---|
+| | | | |
+
 - Actors and capabilities:
-- Entry points, trust boundaries, and data flows:
+- Entry points and trust boundaries:
+- Data flows and external dependencies:
 
-| Abuse case | Impact | Prevention/detection/response | Evidence | Residual risk owner |
-|---|---|---|---|---|
-| | | | | |
+## Abuse cases and controls
 
-Cover authorization bypass, injection, credential exposure, data exfiltration,
-denial of service, replay, supply-chain compromise, and privileged misuse.
+| Abuse case | Preconditions | Impact | Prevent/detect/respond controls | Evidence | Residual risk |
+|---|---|---|---|---|---|
+| | | | | | |
+
+Cover authorization bypass, injection, supply-chain compromise, credential
+exposure, data exfiltration, denial of service, replay/duplication, dependency
+failure, malicious inputs, and privileged insider behavior where applicable.
+
+## Decisions
+
+- Accepted risks with owner and expiry:
+- Required tests and monitoring:
+- Incident and recovery dependencies:

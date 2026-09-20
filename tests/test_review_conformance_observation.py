@@ -69,7 +69,7 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
             return
         self.observation = self.make_observation()
         self.signed = sign_review_probe_observation(
-            self.observation, "observer", self.observer_key
+            self.observation, self.policy.observers[0].signer_id, self.observer_key
         )
 
     def make_observation(self):
@@ -129,14 +129,14 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         self.signed = sign_review_probe_observation(
             self.observation, "authority", self.key
         )
-        with self.assertRaisesRegex(ValueError, "independently enrolled"):
+        with self.assertRaisesRegex(ValueError, "not enrolled"):
             self.authenticate()
 
     def test_changed_observer_key_is_rejected(self):
         self.signed = sign_review_probe_observation(
             self.observation, "observer", self.key
         )
-        with self.assertRaisesRegex(ValueError, "independently enrolled"):
+        with self.assertRaisesRegex(ValueError, "not enrolled"):
             self.authenticate()
 
     def test_modified_observation_fails_signature(self):

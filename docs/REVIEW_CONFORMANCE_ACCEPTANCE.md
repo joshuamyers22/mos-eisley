@@ -1,8 +1,8 @@
 # Review conformance acceptance
 
 `evaluate_review_conformance` now evaluates one fixed tranche of three precommitted
-review probes. All three must have fresh, independently authenticated observations,
-verified runtime evidence and fully explained settled ledger entries. The evaluator
+review probes. All three must have fresh authenticated observations under one declared
+operator mode, verified runtime evidence and fully explained settled ledger entries. The evaluator
 is read-only and grants no provider dispatch, retry or live review activation.
 
 ## Commit one exact tranche
@@ -11,7 +11,7 @@ The host selects and independently retains `ReviewAcceptancePolicy` before any o
 the three attempts starts. The policy fixes:
 
 - Three ordered slots, each pinning the complete critic preview, observation policy
-  and independent authority policy.
+  and authority policy.
 - The exact critic roster identities and role profiles, judge role profile, review
   quorum policy and controller duration.
 - The installed SDK version, immutable worker image, commitment time, validity
@@ -22,13 +22,18 @@ limits. `review_role_profile` derives these fields from a tool-free canonical re
 The judge profile can be projected with an empty finding set before execution;
 acceptance checks the actual evidence-derived judge request against it. Full request,
 guidance and spending bindings remain pinned separately in each committed preview
-and its independently authenticated phase authorizations.
+and its authenticated phase authorizations.
 
 Three is the minimum fixed tranche size for this review-specific criterion. All
 slots must pass; this is not a pool from which to select favorable results. A missing,
 declined, failed or unproven attempt cannot be replaced silently. A different tranche
 requires a separately retained policy and fresh exact approvals. That is not automatic
 retry authority or a disposition of an earlier failure.
+
+The policy also declares `separated` schema 1 or `single_operator` schema 2. Every
+attempt authority policy and signed observation must use the same mode; mixed-mode
+campaigns fail closed. Single-operator acceptance authenticates one accountable
+signer but does not establish independent human observation or custody.
 
 The OpenAI-only evaluator preserves the explicitly selected review policy. It rejects
 a profile that cannot meet that policy, including two-provider quorum. Acceptance of
@@ -39,7 +44,7 @@ the default two-provider review policy or for other models, effort levels or ima
 
 Supply one `ReviewAttemptEvidence` for each slot in commitment order. These are
 trusted caller-selected contexts and paths: previews, controller start, both phase
-authorizations, signed observation, independent final-result pin, reviewer, ledger
+authorizations, signed observation, separately selected final-result pin, reviewer, ledger
 and every worker lifecycle directory. Do not populate them from a saved acceptance
 report. Supply `None` for a slot with no qualifying evidence; retain all three slots.
 
@@ -66,7 +71,7 @@ supported. Conflicting filesystem paths for the same ledger identity are rejecte
 ## Results and limits
 
 `status: "accepted"` requires all three slots and complete ledger accounting.
-`status: "incomplete"` reports how many supplied slots independently qualified when
+`status: "incomplete"` reports how many supplied slots qualified when
 one or more slots is `None`. Malformed, mismatched or corrupt supplied evidence raises
 an error instead of being silently omitted. Neither result creates reservations or
 loads credentials. Historical reports are not execution authority; callers must

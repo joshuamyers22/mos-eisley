@@ -33,6 +33,7 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
         self, observation_policies: list[ReviewObservationPolicy]
     ) -> None:
         self.bundle = ReviewCampaignBundle(
+            schema_version=(2 if self.policy.operator_mode == "single_operator" else 1),
             policy=self.policy,
             attempts=tuple(
                 CampaignAttempt(

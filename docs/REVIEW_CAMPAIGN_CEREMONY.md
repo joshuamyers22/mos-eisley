@@ -9,11 +9,14 @@ live review. They wrap [repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE
 
 The host assembles a `ReviewCampaignBundle` from its three prepared controller
 previews and `ReviewAcceptancePolicy`. Each `CampaignAttempt` includes the exact
-`ReviewLaunchConfiguration`, critic preview, independent authority and observation
+`ReviewLaunchConfiguration`, critic preview, authority and observation
 policies, and absolute path to an existing dedicated spending ledger. Serialize with
 `canonical_bytes`. The bundle validates all three commitment hashes and role/quorum
 profiles, reconstructs critic requests from the selected configuration and checks
 the projected judge profile. Runtime remains the exact SDK/image pair in the policy.
+The bundle must use one operator mode throughout: schema-1 `separated` policies use
+disjoint human-role signers; schema-2 `single_operator` policies use the same one
+signer and do not claim independent custody or observation.
 
 ```sh
 mos review-campaign-preview --bundle /private/campaign-input.json
@@ -91,9 +94,9 @@ records is rechecked even when an earlier review passed.
 Exit status is 0 for three accepted attempts, 1 for an incomplete tranche, and 2 for
 invalid input or unavailable files/ledgers. Acceptance applies only to this exact
 profile and tranche. Reports grant no dispatch, retry or live activation authority.
-Actual independently authorized live attempts, independent custody/runtime assessment
-and a reviewed launch-admission decision remain required. Synthetic test successes
-do not satisfy those gates.
+Actual authorized live attempts, the custody/runtime assessment required by the
+declared operator mode, and a reviewed launch-admission decision remain required.
+Synthetic test successes do not satisfy those gates.
 
 ## Validation
 

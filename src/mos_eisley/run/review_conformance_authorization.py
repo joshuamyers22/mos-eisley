@@ -23,6 +23,7 @@ from mos_eisley.run.review_controller import (
 _DOMAIN = b"mos-eisley/review-conformance-authorization/v1\x00"
 Amount = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 ImageID = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+ReviewOperatorMode = Literal["separated", "single_operator"]
 
 
 def _decode(value: str, size: int) -> bytes:
@@ -65,7 +66,7 @@ def review_conformance_signer(
 
 
 class ReviewConformanceAuthorityPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_authority_policy"] = (
         "review_conformance_authority_policy"
     )
@@ -80,6 +81,9 @@ class ReviewConformanceAuthorityPolicy(Contract):
     valid_until: datetime
     max_authorization_seconds: Annotated[int, Field(gt=0, le=600)]
     max_reserved_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     explicit_local_consent_required: Literal[True] = True
     live_review_activation_authorized: Literal[False] = False
 
@@ -89,15 +93,29 @@ class ReviewConformanceAuthorityPolicy(Contract):
         return _utc(value)
 
     @model_validator(mode="after")
-    def independent_keys_and_window(self) -> Self:
+    def operator_keys_and_window(self) -> Self:
         if self.valid_until <= self.valid_from:
             raise ValueError("review authority window must be positive")
         all_signers = self.authorities + self.observers
-        if len({s.signer_id for s in all_signers}) != len(all_signers) or len(
-            {s.key_sha256 for s in all_signers}
-        ) != len(all_signers):
+        identities = {(s.signer_id, s.key_sha256) for s in all_signers}
+        if self.operator_mode == "separated":
+            if self.schema_version != 1:
+                raise ValueError("separated review authority policy requires schema 1")
+            if len({s.signer_id for s in all_signers}) != len(all_signers) or len(
+                {s.key_sha256 for s in all_signers}
+            ) != len(all_signers):
+                raise ValueError(
+                    "review authorities and observers require distinct "
+                    "identities and keys"
+                )
+        elif (
+            self.schema_version != 2
+            or len(self.authorities) != 1
+            or len(self.observers) != 1
+            or len(identities) != 1
+        ):
             raise ValueError(
-                "review authorities and observers require distinct identities and keys"
+                "single-operator review requires schema 2 and one shared signer"
             )
         for group in (self.authorities, self.observers):
             if tuple(s.signer_id for s in group) != tuple(
@@ -227,11 +245,14 @@ def review_conformance_scope(
 
 
 class ReviewConformanceAuthorization(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_authorization"] = (
         "review_conformance_authorization"
     )
     authority_policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     scope: ReviewConformanceScope
     issued_at: datetime
     valid_until: datetime
@@ -284,7 +305,9 @@ def make_review_conformance_authorization(
             "review conformance authorization exceeds its time or spending scope"
         )
     return ReviewConformanceAuthorization(
+        schema_version=2 if policy.operator_mode == "single_operator" else 1,
         authority_policy_sha256=policy.sha256,
+        operator_mode=policy.operator_mode,
         scope=scope,
         issued_at=issued_at,
         valid_until=valid_until,
@@ -331,6 +354,7 @@ def verify_review_conformance_authorization(
     )
     if (
         signed.authorization != expected
+        or signed.authorization.operator_mode != policy.operator_mode
         or not signed.authorization.issued_at <= now < signed.authorization.valid_until
     ):
         raise ValueError("review conformance scope changed or authorization expired")

@@ -1,7 +1,7 @@
 # Authenticated review probe observations
 
 One completed [review probe](REVIEW_CONFORMANCE_PROBE.md) can now be described by an
-independent observer, signed with Ed25519 and authenticated against the complete
+enrolled observer, signed with Ed25519 and authenticated against the complete
 retained review chain. Authentication confirms the enrolled observer's signature
 and locally reconstructible provenance. It does not establish provider authorship,
 billing reconciliation, repeated conformance or permission for live review launch.
@@ -52,8 +52,10 @@ without including unrelated ledger spending or claiming reconciled billing.
 
 `sign_review_probe_observation` signs canonical observation bytes with a distinct
 review-observation domain separator. Only an observer enrolled in the selected
-authority policy can authenticate the record. Authorizer and observer keys and
-identities remain disjoint. The runtime does not automatically sign for an observer.
+authority policy can authenticate the record. Schema-1 separated mode keeps
+authorizer and observer keys and identities disjoint. Schema-2 single-operator mode
+requires the same signer for both roles and marks resulting evidence accordingly. The
+runtime does not automatically sign for an observer.
 
 `authenticate_review_probe` verifies the signature, age and independently supplied
 policy/context, then repeats local reconstruction. A signature cannot override
@@ -75,8 +77,9 @@ proved solely by the retained local review artifacts.
 
 This increment implements an authenticated record for one successful probe. The
 runtime collector and repeated-probe evaluator now check its local evidence.
-Independent runtime assessment and explicitly authorized live runs remain
-outstanding. Failure/cancellation observations require their own semantics; this
+Independent runtime assessment is absent in single-operator mode; this is an accepted
+self-review risk, not a fact inferred from authentication. Explicitly authorized live
+runs remain outstanding. Failure/cancellation observations require their own semantics; this
 success-only format cannot certify an incomplete run. Live launch remains unavailable.
 
 The tests use synthetic signatures, timing and evidence pins around fixture review
@@ -87,4 +90,4 @@ or provider call made during implementation.
 
 [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now combines three
 precommitted observations with fresh runtime and ledger verification. Commitment
-custody, independently authorized live attempts and launch admission remain separate.
+custody, authorized live attempts and launch admission remain separate.

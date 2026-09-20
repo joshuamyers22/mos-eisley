@@ -1,19 +1,21 @@
 # Signed review conformance authorization
 
-The brokered review path now has a library boundary for independently authorized
+The brokered review path now has a library boundary for signed, explicitly governed
 probe phases. An enrolled authorizer signs one exact critic phase, and later signs
 the evidence-derived judge phase separately. The existing local approval prompts
 remain required. This implements authorization checks. The
 [owned probe](REVIEW_CONFORMANCE_PROBE.md) now enforces them at credential and
 provider use. [Observer records](REVIEW_CONFORMANCE_OBSERVATION.md) now authenticate
-one completed probe; independent evidence collection and repeated-probe acceptance
+one completed probe; evidence collection and repeated-probe acceptance
 remain G2 work.
 
 ## Trusted inputs and signed scope
 
 The host selects the authority policy, runtime, exact critic preview and controller
-start independently of retained artifacts. An Ed25519 authority identity and key
-must be distinct from every enrolled observer. The policy fixes its validity window,
+start independently of retained artifacts. Schema-1 `separated` policy requires every
+Ed25519 authority identity and key to be distinct from every enrolled observer.
+Schema-2 `single_operator` policy instead requires exactly one authority and one
+observer with the same identity and key. The policy fixes its validity window,
 maximum authorization lifetime (at most 600 seconds) and reservation ceiling.
 
 `review_conformance_scope` derives the signed scope from the trusted previews. It
@@ -35,9 +37,10 @@ signature cannot authorize the later judge request.
 `make_review_conformance_authorization` bounds the signed window by both policy
 and phase expiry. `sign_review_conformance_authorization` signs its canonical
 bytes with a review-specific domain separator. Production signing keys belong to
-the independent authorizer; deterministic test keys are fixtures only.
+the accountable authorizer; deterministic test keys are fixtures only.
 `verify_review_conformance_authorization` checks the selected policy, exact expected
-scope, enrolled key, signature and current UTC time. Expiry is exclusive. Evaluation
+scope, enrolled key, signature, declared operator mode and current UTC time. Expiry is
+exclusive. Evaluation
 authorization modes and receipts cannot substitute for this statement.
 
 ## Local approval composition
@@ -45,7 +48,7 @@ authorization modes and receipts cannot substitute for this statement.
 Wrap a `ReviewApprovalUI` with `SignedReviewApprovalUI`, then pass the adapter to
 the existing [approval flow](REVIEW_APPROVAL_FLOW.md). The host supplies callbacks
 for the current authority policy, runtime and controller start, plus an asynchronous
-loader for an independently signed authorization matching the requested scope.
+loader for a signed authorization matching the requested scope.
 The adapter does not create signatures automatically.
 
 Each phase loads and verifies its signature before asking for local approval, then
@@ -64,8 +67,10 @@ The verifier is read-only and repeatable. Verification does not consume permissi
 load credentials, attest runtime configuration or establish provider conformance.
 The owned probe verifies again at credential and provider use, checks the installed
 SDK and selected images, uses the bounded transport, and preserves guidance and
-controller/ledger one-use rules. Observer authentication still requires independent
-runtime evidence. Trusted runtime callback values are bindings to check against
+controller/ledger one-use rules. Observer authentication still requires selected
+runtime evidence. In separated mode that evidence is intended for independent
+assessment; single-operator mode records self-attestation and does not claim
+independence. Trusted runtime callback values are bindings to check against
 execution, not runtime attestation by themselves.
 
 The signed statement explicitly grants no automatic retry, automatic budget release
@@ -76,7 +81,7 @@ the separately constructed owned probe is the paid-capable library boundary.
 
 ## Verification
 
-The focused tests exercise independent keys, scope and policy substitution, invalid
+The focused tests exercise separated and single-operator keys, scope and policy substitution, invalid
 signatures, exclusive expiry, local decline, changes during prompts, current guidance
 and separate critic/judge approvals. `tools/smoke_review_conformance.py` repeats the
 two-phase flow and rejected critic-signature reuse with real Docker workers,

@@ -117,7 +117,7 @@ class CampaignAttempt(Contract):
 
 
 class ReviewCampaignBundle(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_campaign_bundle"] = "review_campaign_bundle"
     policy: ReviewAcceptancePolicy
     attempts: Annotated[tuple[CampaignAttempt, ...], Field(min_length=3, max_length=3)]
@@ -126,6 +126,10 @@ class ReviewCampaignBundle(Contract):
 
     @model_validator(mode="after")
     def committed_slots(self) -> Self:
+        if (self.policy.operator_mode == "separated" and self.schema_version != 1) or (
+            self.policy.operator_mode == "single_operator" and self.schema_version != 2
+        ):
+            raise ValueError("campaign schema differs from operator mode")
         paths: set[str] = set()
         for slot, attempt in zip(self.policy.attempts, self.attempts, strict=True):
             preview = attempt.preview
@@ -135,6 +139,7 @@ class ReviewCampaignBundle(Contract):
                 or slot.observation_policy_sha256
                 != digest(canonical_bytes(observation))
                 or slot.authority_policy_sha256 != attempt.authority_policy.sha256
+                or attempt.authority_policy.operator_mode != self.policy.operator_mode
                 or observation.critic_preview_sha256 != slot.critic_preview_sha256
                 or observation.authority_policy_sha256 != slot.authority_policy_sha256
                 or preview.authorization.policy != self.policy.review_policy

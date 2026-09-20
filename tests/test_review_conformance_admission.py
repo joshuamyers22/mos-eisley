@@ -89,7 +89,7 @@ class ReviewConformanceFixture(GuidedBrokerFixture):
             min(self.timestamp + timedelta(seconds=20), selected.expires_at),
         )
         return sign_review_conformance_authorization(
-            authorization, "authority", self.key
+            authorization, self.policy.authorities[0].signer_id, self.key
         )
 
     async def load_certificate(self, scope: ReviewConformanceScope):
@@ -142,6 +142,32 @@ class ReviewConformanceTests(ReviewConformanceFixture, IsolatedAsyncioTestCase):
                 ReviewConformanceAuthorityPolicy.model_validate_json(
                     canonical_bytes(broken)
                 )
+
+    def test_schema_two_allows_one_explicit_shared_operator(self):
+        signer = review_conformance_signer("joshua-myers", self.key.public_key())
+        policy = ReviewConformanceAuthorityPolicy(
+            schema_version=2,
+            operator_mode="single_operator",
+            policy_id="joshua-single-operator",
+            authorities=(signer,),
+            observers=(signer,),
+            valid_from=self.policy.valid_from,
+            valid_until=self.policy.valid_until,
+            max_authorization_seconds=60,
+            max_reserved_microusd=5_000_000,
+        )
+        self.assertEqual(policy.authorities, policy.observers)
+        self.assertEqual(policy.operator_mode, "single_operator")
+        self.assertNotIn(b'"operator_mode"', canonical_bytes(self.policy))
+        self.assertIn(b'"operator_mode":"single_operator"', canonical_bytes(policy))
+        with self.assertRaisesRegex(ValueError, "schema 2"):
+            ReviewConformanceAuthorityPolicy.model_validate(
+                policy.model_dump() | {"schema_version": 1}
+            )
+        with self.assertRaisesRegex(ValueError, "one shared signer"):
+            ReviewConformanceAuthorityPolicy.model_validate(
+                policy.model_dump() | {"observers": self.policy.observers}
+            )
 
     def test_observer_signature_cannot_authorize_a_probe(self):
         signed = sign_review_conformance_authorization(

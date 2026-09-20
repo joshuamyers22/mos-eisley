@@ -57,6 +57,10 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
         ]
         first = self.fixtures[0]
         self.policy = ReviewAcceptancePolicy(
+            schema_version=(
+                2 if first.policy.operator_mode == "single_operator" else 1
+            ),
+            operator_mode=first.policy.operator_mode,
             policy_id="fixture-tranche",
             committed_at=datetime.now(UTC),
             valid_until=datetime.now(UTC) + timedelta(minutes=5),
@@ -142,7 +146,9 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                 observed_at=datetime.now(UTC),
             )
             signed = sign_review_probe_observation(
-                observation, "observer", fixture.observer_key
+                observation,
+                fixture.policy.observers[0].signer_id,
+                fixture.observer_key,
             )
             self.evidence.append(
                 ReviewAttemptEvidence(

@@ -1,4 +1,4 @@
-"""Require fresh campaign evidence and an independent decision at every launch edge."""
+"""Require fresh campaign evidence and a signed decision at every launch edge."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -75,6 +75,41 @@ class ReviewLaunchAdmissionInputs:
     load_decision: Callable[[], SignedReviewLaunchDecision | None]
 
 
+def validate_review_operator_roles(
+    launch_policy: ReviewLaunchAuthorityPolicy,
+    phase_policy: ReviewConformanceAuthorityPolicy,
+    campaign_policies: tuple[ReviewConformanceAuthorityPolicy, ...],
+) -> None:
+    """Enforce either separated human roles or one explicit shared operator."""
+    phase_policies = (phase_policy, *campaign_policies)
+    if launch_policy.operator_mode == "separated":
+        if any(policy.operator_mode != "separated" for policy in phase_policies):
+            raise ValueError("launch and campaign operator modes must match")
+        forbidden = [
+            signer
+            for policy in phase_policies
+            for signer in (*policy.authorities, *policy.observers)
+        ]
+        if any(
+            signer.signer_id == other.signer_id or signer.key_sha256 == other.key_sha256
+            for signer in launch_policy.reviewers
+            for other in forbidden
+        ):
+            raise ValueError(
+                "launch reviewers must be separate from phase authorities and observers"
+            )
+        return
+    if any(policy.operator_mode != "single_operator" for policy in phase_policies):
+        raise ValueError("launch and campaign operator modes must match")
+    operators = {
+        (signer.signer_id, signer.key_sha256)
+        for policy in phase_policies
+        for signer in (*policy.authorities, *policy.observers)
+    } | {(signer.signer_id, signer.key_sha256) for signer in launch_policy.reviewers}
+    if len(operators) != 1:
+        raise ValueError("single-operator launch requires one shared signer and key")
+
+
 class ReviewLaunchAdmission:
     def __init__(
         self,
@@ -128,8 +163,10 @@ class ReviewLaunchAdmission:
             if supplied is not None
         ]
         self._scope = ReviewLaunchScope(
+            schema_version=2 if policy.operator_mode == "single_operator" else 1,
             launch_authority_policy_sha256=policy.sha256,
             phase_authority_policy_sha256=self._phase_policy().sha256,
+            operator_mode=policy.operator_mode,
             configuration_sha256=digest(canonical_bytes(self._configuration)),
             critic_preview_sha256=digest(canonical_bytes(controller.preview)),
             seal_sha256=self._binding.expected_seal_sha256,
@@ -211,19 +248,11 @@ class ReviewLaunchAdmission:
         bundle, _ = read_campaign_seal(
             Path(self._binding.campaign_directory), scope.seal_sha256
         )
-        forbidden = [
-            s
-            for p in (phase_policy, *(a.authority_policy for a in bundle.attempts))
-            for s in (*p.authorities, *p.observers)
-        ]
-        if any(
-            s.signer_id == other.signer_id or s.key_sha256 == other.key_sha256
-            for s in policy.reviewers
-            for other in forbidden
-        ):
-            raise ValueError(
-                "launch reviewers must be separate from phase authorities and observers"
-            )
+        validate_review_operator_roles(
+            policy,
+            phase_policy,
+            tuple(attempt.authority_policy for attempt in bundle.attempts),
+        )
         if any(
             Path(a.ledger_path).resolve() == Path(scope.ledger_path)
             or a.preview.envelope.critics[0].ledger_id
@@ -283,7 +312,7 @@ class ReviewLaunchAdmission:
     def check(self, preview: ApprovalPreview) -> None:
         signed = self._decision()
         if signed is None:
-            raise ValueError("launch requires an independent signed decision")
+            raise ValueError("launch requires a signed decision")
         signed = SignedReviewLaunchDecision.model_validate_json(canonical_bytes(signed))
         policy = self._fresh(preview)
         verify_review_launch_decision(signed, policy, self.scope, datetime.now(UTC))

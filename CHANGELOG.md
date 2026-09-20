@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an explicit schema-2 single-operator review contract so one accountable signer
+  can authorize, observe and approve an exact launch while recording self-review risk;
+  schema-1 separated roles remain the backward-compatible default.
+
 - Require a separate signed decision for an exact library-owned review launch,
   with fresh campaign verification, policy/guidance checks, deadline caps and
   revocation checks at credential and provider use.

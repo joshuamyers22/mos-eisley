@@ -1,8 +1,8 @@
 # Exact review launch admission
 
 An owning host can now pass `ReviewLaunchAdmissionInputs` to
-`BrokeredReviewConformanceProbe(..., launch=...)` to require a separate independent
-decision for one exact review launch. This is a library gate. The public preview
+`BrokeredReviewConformanceProbe(..., launch=...)` to require a signed decision under
+an explicit operator mode for one exact review launch. This is a library gate. The public preview
 and conformance-check commands remain inert, and no live-launch CLI or automatic
 activation is introduced.
 
@@ -11,15 +11,15 @@ launch fixtures, the existing broker, signed phase/local approval flow, source a
 installed-package checks, and real offline Docker workers. Provider spend is zero;
 fixtures permit at most three campaign probes and one new owned launch per case.
 Each launch retains the existing one-use operation and whole-review bounds.
-Production independent assessment and the resulting launch decision remain pending.
+Production execution and the resulting launch decision remain pending.
 
 ## Select the campaign and proposed launch
 
 The host supplies a `ReviewLaunchBinding` with independently selected absolute
 campaign/evidence paths and exact retained seal/evidence-file hashes. Its
 `ReviewLaunchAdmissionInputs` also contains the proposed `ReviewLaunchConfiguration`,
-a trusted current launch-authority-policy loader and a loader for the independently
-signed decision. The host constructs a fresh guided envelope, current spending
+a trusted current launch-authority-policy loader and a loader for the signed decision.
+The host constructs a fresh guided envelope, current spending
 policies, reviewer and pinned workers using the existing approval flow.
 
 Construction checks the complete campaign again, rejects incomplete or corrupt
@@ -35,20 +35,26 @@ Construction does not load credentials, sign a decision, reserve funds or create
 the run directory. A campaign-slot binding and launch admission cannot be selected
 on the same owned flow.
 
-## Independent decision
+## Operator mode and decision
 
-`ReviewLaunchAuthorityPolicy` enrolls launch reviewers independently of all campaign
-and target phase authorizers and observers. Both identities and public-key hashes
-must be disjoint. The host selects this current policy outside saved artifacts;
+`ReviewLaunchAuthorityPolicy` declares one of two contracts. Schema-1 `separated`
+mode enrolls launch reviewers independently of all campaign and target phase
+authorizers and observers; identities and public-key hashes must be disjoint.
+Schema-2 `single_operator` mode requires exactly one shared signer identity and key
+across every campaign authority/observer, the target phase, and launch review. Mixed
+modes fail closed. The host selects this current policy outside saved artifacts;
 changing it invalidates the pinned scope. It fixes a UTC window, maximum reservation
 and maximum decision lifetime of at most 600 seconds.
 
-An enrolled reviewer must independently assess actual operating evidence before
-deciding whether to authorize the exact exposed scope. `ReviewLaunchDecision`
-requires explicit assertions for commitment custody, a credentialed campaign and
-independent observer assessment. These are signed human operating claims, not facts
-inferred by local verification. Different keys controlled by one operator do not
-establish independent judgment. Synthetic test decisions are not production evidence.
+In separated mode, an enrolled reviewer independently assesses actual operating
+evidence before deciding whether to authorize the exact exposed scope.
+`ReviewLaunchDecision` asserts commitment custody, a credentialed campaign and an
+independent observer assessment. In single-operator mode, the same accountable signer
+reviews their own custody, campaign, and observations. The decision must omit the
+independent-assessment assertion and sign
+`single_operator_self_review_risk_accepted: true`. These are human operating claims,
+not facts inferred by local verification. Synthetic test decisions are not production
+evidence.
 
 `sign_review_launch_decision` uses a separate Ed25519 signing domain. It requires an
 explicit decision, signer identity and private key; the executor never calls it.
@@ -103,7 +109,8 @@ and signing domains, expiry, decision replacement, deadline caps, tampered retai
 admission and cancellation cleanup. Docker smoke checks run successful and cancelled
 flows through actual offline workers with synthetic providers and signing keys.
 
-Production use still requires real independently assessed live conformance evidence,
-actual custody separation and a separately reviewed production launch decision.
-No such evidence or signature was created during implementation, and the public
+Production use still requires real live conformance evidence and the decision required
+by the selected operator mode. Single-operator mode deliberately provides no custody
+separation or independent human review. No such evidence or signature was created
+during implementation, and the public
 live-launch path remains unavailable.
