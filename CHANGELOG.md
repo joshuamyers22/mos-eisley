@@ -4,6 +4,19 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Separate the review model's sealed 8,000-byte visible-text limit from its bounded
+  64,000-byte canonical response envelope, preserving provider token/spend ceilings
+  while allowing bounded opaque reasoning and retaining exact-limit failure handling.
+
+- Record the approved default-retention OpenAI data boundary for live review,
+  including the exact count/generation field inventory, mandatory `store: false`,
+  minimum critic/judge content, and the explicit absence of any ZDR claim.
+
+- Add an inert one-process single-operator review host with an ephemeral Ed25519
+  identity, explicit phase/observation/launch signing operations, and a late,
+  uncached native-macOS-Keychain OpenAI credential callback. The host adds no public
+  live CLI, automatic approval, provider call or spending authority.
+
 - Add an explicit schema-2 single-operator review contract so one accountable signer
   can authorize, observe and approve an exact launch while recording self-review risk;
   schema-1 separated roles remain the backward-compatible default.

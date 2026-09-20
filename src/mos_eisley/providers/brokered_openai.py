@@ -62,6 +62,8 @@ class BrokeredOpenAIClient:
                 not isinstance(block, TextBlock) for block in request.turns[0].blocks
             )
             or request.max_output > MAX_WIRE_BYTES
+            or request.max_text_output_bytes is None
+            or request.max_text_output_bytes > request.max_output
             or request.max_output_tokens is None
         ):
             raise ValueError("brokered model client requires one bounded text request")
@@ -101,6 +103,7 @@ class BrokeredOpenAIClient:
                 raise ValueError("canonical request changed")
             frozen = ModelRequest.model_validate_json(self._request)
             assert frozen.max_output_tokens is not None
+            assert frozen.max_text_output_bytes is not None
             if self._admission_check is not None:
                 self._admission_check()
             reply = await run_isolated_broker_async(
@@ -121,8 +124,14 @@ class BrokeredOpenAIClient:
             if reply.response.get("model") != frozen.model:
                 raise ValueError("brokered response model does not match request")
             response = response_from_payload(reply.response)
+            text_output_bytes = sum(
+                len(block.text.encode("utf-8"))
+                for block in response.turn.blocks
+                if isinstance(block, TextBlock)
+            )
             if (
                 canonical_fingerprint(response).bytes > frozen.max_output
+                or text_output_bytes > frozen.max_text_output_bytes
                 or response.usage.output > frozen.max_output_tokens
                 or any(
                     isinstance(block, ToolCallBlock) for block in response.turn.blocks

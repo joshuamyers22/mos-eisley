@@ -114,3 +114,9 @@ by the selected operator mode. Single-operator mode deliberately provides no cus
 separation or independent human review. No such evidence or signature was created
 during implementation, and the public
 live-launch path remains unavailable.
+
+ADR-0005 operators can use the
+[one-process single-operator host](SINGLE_OPERATOR_REVIEW_HOST.md) to retain one
+ephemeral key across phase, observation and launch signatures and to supply the
+existing probe's late macOS Keychain credential callback. The host does not create or
+approve a campaign and does not change this admission boundary.

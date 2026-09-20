@@ -26,6 +26,11 @@ The remaining dependencies are trusted host callbacks:
 - `load_api_key()` synchronously returns the host credential after admission. The
   probe does not search environment variables or select a key store itself.
 
+For ADR-0005 schema-2 operation, the
+[one-process single-operator host](SINGLE_OPERATOR_REVIEW_HOST.md) supplies one
+ephemeral signing identity and a late native-Keychain credential callback without
+adding a public live command.
+
 `controller.preview` provides the exact initial preview. After execution, the host
 can retain `controller.start`, `judge_preview` and `approval_ui.authorizations`
 independently. The existing controller retains its broker, model, spending and

@@ -4,7 +4,11 @@ from unittest import TestCase
 
 from pydantic import ValidationError
 
-from mos_eisley.core.budget import BudgetPolicy, resolve_budget
+from mos_eisley.core.budget import (
+    BudgetPolicy,
+    resolve_budget,
+    resolve_response_envelope,
+)
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.protocol import (
     Block,
@@ -42,6 +46,7 @@ class ProtocolTests(TestCase):
             max_output=100,
         )
         self.assertNotIn(b"max_output_tokens", canonical_bytes(request))
+        self.assertNotIn(b"max_text_output_bytes", canonical_bytes(request))
         call = ToolCallBlock(id="call", name="tool", args={})
         self.assertNotIn(b"provider_call_id", canonical_bytes(call))
 
@@ -197,13 +202,60 @@ class RegistryBudgetTests(TestCase):
         self.assertEqual(budget.output_reserve, 12_000)
         self.assertEqual(budget.usable_input, 7_200)
         self.assertEqual(budget.headroom, 800)
+        self.assertEqual(
+            resolve_response_envelope(model, BudgetPolicy(), budget.output_reserve),
+            16_000,
+        )
         openai = openai_registry().models[0]
         openai_budget = resolve_budget(openai, "medium", BudgetPolicy())
         self.assertEqual(openai_budget.max_output_tokens, 4096)
+        self.assertEqual(
+            resolve_response_envelope(
+                openai, BudgetPolicy(), openai_budget.output_reserve
+            ),
+            64_000,
+        )
         tiny = model.model_copy(update={"context_bytes": 100, "max_output_bytes": 99})
         with self.assertRaisesRegex(ValueError, "reserve"):
             resolve_budget(
                 tiny,
                 "low",
                 BudgetPolicy(session_cap_bytes=99, reserve_low_bytes=100),
+            )
+
+    def test_response_envelope_must_cover_visible_output_reserve(self) -> None:
+        model = fixture_registry().models[0]
+        self.assertIn(
+            b'"response_envelope_bytes":64000', canonical_bytes(BudgetPolicy())
+        )
+        self.assertIn(
+            b'"response_envelope_bytes":32000',
+            canonical_bytes(BudgetPolicy(response_envelope_bytes=32_000)),
+        )
+        with self.assertRaisesRegex(ValueError, "envelope"):
+            resolve_response_envelope(
+                model,
+                BudgetPolicy(response_envelope_bytes=7_999),
+                output_reserve=8_000,
+            )
+        for value in (0, 16_000_001):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                BudgetPolicy(response_envelope_bytes=value)
+
+    def test_explicit_output_reserve_controls_input_headroom(self) -> None:
+        model = fixture_registry().models[0]
+        budget = resolve_budget(
+            model,
+            "low",
+            BudgetPolicy(session_cap_bytes=20_000, headroom_pct=0.1),
+            output_reserve_bytes=8_000,
+        )
+        self.assertEqual(budget.output_reserve, 8_000)
+        self.assertEqual(budget.usable_input, 10_800)
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            resolve_budget(
+                model,
+                "low",
+                BudgetPolicy(),
+                output_reserve_bytes=True,
             )

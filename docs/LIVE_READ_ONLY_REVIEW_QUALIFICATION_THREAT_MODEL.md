@@ -42,6 +42,9 @@
 | Post-hoc or replaced campaign commitment | Host can rewrite local inputs | Cherry-picked successful evidence | Seal before attempts, independently retain raw hashes, fixed slots, reject replacement and starts before seal | Fresh campaign review of exact retained bytes | Malicious host rollback of all trusted inputs needs an external witness |
 | Stale/substituted policy, guidance, SDK, image, request, or result | Local files/config change | Unauthorized or incomparable review | Fresh reconstruction at approvals, credential access, SDK operations, evidence and launch checks | Mutation/revocation tests and exact digests | Provider service behavior can change behind a stable client contract |
 | Credential access before authorization | Flow or callback reads environment early | Secret exposure or unintended transfer | Credential loader runs only after current phase/campaign/launch/local gates and retained admission; recheck after loading | Credential-order/revocation tests | Trusted host code and same-UID memory remain trusted |
+| Default provider retention is mistaken for ZDR | No explicit account control is visible and `store: false` is overinterpreted | Private brief or response content may be retained longer than expected | Record default abuse-monitoring retention, distinguish application state from ZDR, require minimum text-only payload and exact preview inspection | `LIVE_READ_ONLY_REVIEW_TRANSFER_REVIEW.md`; explicit Joshua Myers acceptance | Abuse-monitoring logs may retain customer content for up to 30 days; prompt caching may retain encrypted tensors temporarily |
+| Keychain adapter leaks or eagerly caches the provider credential | Diagnostic, representation, construction, or retained host state contains the secret | Credential disclosure or access before approval | Native backend is selected directly; construction performs no lookup; every load is late, bounded, owner-checked and uncached; failures are fixed and redacted | Adapter unit tests and an existing-probe integration test that scans retained files | The API key necessarily exists briefly in trusted host/SDK memory and the OS keychain may prompt interactively |
+| Ephemeral signing key is persisted or silently replaced | Serialization, restart, or multiple host instances | Unaccountable or mixed-key campaign evidence | Generate once inside one owning process, expose only the public enrollment record, provide no private-key serialization, reject use after close, and require the same host for phase, observation and launch signatures | Cross-signature identity tests and mixed-mode/mixed-key rejection | Python and cryptography do not guarantee physical memory zeroization; process compromise remains trusted risk |
 | Duplicate dispatch or automatic retry | Race, crash, timeout, or operator repeats a slot | Duplicate transfer/charge and invalid sample | One-use owned objects, consumed grants, fixed paths/slots, no resume/retry, missing slot stays missing | Concurrency/cancellation and campaign-order tests | Remote receipt can be uncertain after process/network failure |
 | Ledger reuse, double reservation, or optimistic release | Wrong path/policy or partial failure | Spend exceeds approved ceiling | Dedicated empty campaign ledgers, separate launch ledger, atomic holds, exact settlement, uncertain retention | Ledger reconstruction and mutation tests | Account-wide invoice finality remains outside local evidence |
 | Joshua signs host assertions without meaningful assessment | Convenience, fatigue or compromised host | Local artifacts are authenticated but misleading | Exact reconstruction, fixed slots, explicit self-review label and retained evidence; stop on ambiguity | Observer policy and signed exact observation | Human process quality has no independent backstop in this mode |
@@ -52,9 +55,10 @@
 ## Decisions
 
 - Accepted risks with owner and expiry: Joshua Myers explicitly accepts the absence of
-  independent human custody/review, plus remote provider receipt and invoice finality
-  and host-wide compromise. Joshua must reassess before every production qualification/
-  launch window and before raising the USD 5.00 ceiling.
+  independent human custody/review, default OpenAI retention without a ZDR/MAM claim,
+  remote provider receipt and invoice finality, and host-wide compromise. Joshua must
+  reassess before every production qualification/launch window and before raising the
+  USD 5.00 ceiling.
 - Required tests and monitoring: existing conformance, campaign, launch-admission,
   revocation, cancellation, ledger, response, and Docker cleanup suites; focused reruns
   for changed boundaries; final `make check`; accountable live self-observation.

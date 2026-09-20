@@ -9,7 +9,11 @@ from __future__ import annotations
 import json
 from typing import TypeVar, cast
 
-from mos_eisley.core.budget import BudgetPolicy, resolve_budget
+from mos_eisley.core.budget import (
+    BudgetPolicy,
+    resolve_budget,
+    resolve_response_envelope,
+)
 from mos_eisley.core.models import (
     CriticRequest,
     CriticSpec,
@@ -74,13 +78,20 @@ class ModelReviewer:
         judge_model: str,
         effort: Effort | None = None,
         budget: BudgetPolicy | None = None,
+        max_text_output_bytes: int | None = None,
     ) -> None:
+        if max_text_output_bytes is not None and (
+            type(max_text_output_bytes) is not int
+            or not 0 < max_text_output_bytes <= 64_000
+        ):
+            raise ValueError("invalid review text-output limit")
         self._client = client
         self._registry = ModelRegistry.model_validate_json(canonical_bytes(registry))
         self._budget = BudgetPolicy.model_validate_json(
             canonical_bytes(budget if budget is not None else BudgetPolicy())
         )
         self._effort: Effort | None = effort
+        self._max_text_output_bytes = max_text_output_bytes
         self._judge = self._registry.resolve(judge_provider, judge_model, effort)
 
     def critic_request(
@@ -126,7 +137,15 @@ class ModelReviewer:
         text: str,
         result: type[Critique] | type[JudgeDecision],
     ) -> ModelRequest:
-        budget = resolve_budget(model.spec, model.effort, self._budget)
+        budget = resolve_budget(
+            model.spec,
+            model.effort,
+            self._budget,
+            output_reserve_bytes=self._max_text_output_bytes,
+        )
+        response_envelope = resolve_response_envelope(
+            model.spec, self._budget, budget.output_reserve
+        )
         if len(text.encode("utf-8")) > budget.usable_input:
             raise ValueError("review input exceeds budget")
         request = ModelRequest(
@@ -143,7 +162,8 @@ class ModelReviewer:
                     ),
                 ),
             ),
-            max_output=budget.output_reserve,
+            max_output=response_envelope,
+            max_text_output_bytes=budget.output_reserve,
             max_output_tokens=budget.max_output_tokens,
         )
         if canonical_fingerprint(request).bytes > budget.usable_input:
@@ -176,7 +196,12 @@ class ModelReviewer:
         result: type[Result],
     ) -> Result:
         model = self._registry.resolve(request.provider, request.model, request.effort)
-        budget = resolve_budget(model.spec, model.effort, self._budget)
+        budget = resolve_budget(
+            model.spec,
+            model.effort,
+            self._budget,
+            output_reserve_bytes=self._max_text_output_bytes,
+        )
         # Include usage, request ID and opaque reasoning in the local byte ceiling.
         if canonical_fingerprint(response).bytes > request.max_output:
             raise ValueError("review response exceeds budget")
@@ -204,6 +229,11 @@ class ModelReviewer:
             elif not isinstance(block, ReasoningBlock):
                 raise ValueError("review response contains a tool block")
         raw = "".join(chunks)
+        if (
+            request.max_text_output_bytes is None
+            or len(raw.encode("utf-8")) > request.max_text_output_bytes
+        ):
+            raise ValueError("review answer exceeds output reserve")
         try:
             decoded: object = json.loads(raw, object_pairs_hook=_unique_object)
         except RecursionError:

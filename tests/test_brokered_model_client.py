@@ -53,6 +53,7 @@ def model_request() -> ModelRequest:
         system="Only text.",
         turns=(Turn(role="user", blocks=(TextBlock(text="Review."),)),),
         max_output=8000,
+        max_text_output_bytes=4000,
         max_output_tokens=100,
     )
 
@@ -148,12 +149,12 @@ class BrokeredModelTests(IsolatedAsyncioTestCase):
     async def test_changed_local_limit_rejects_even_with_same_provider_payload(
         self,
     ) -> None:
-        changed = self.request.model_copy(update={"max_output": 9000})
-        self.assertEqual(request_payload(changed), self.payload)
-        with self.assertRaises(ProviderError):
-            await self.client.complete(changed)
-        with self.assertRaises(ProviderError):
-            await self.client.complete(self.request)
+        for update in ({"max_output": 9000}, {"max_text_output_bytes": 3999}):
+            client = BrokeredOpenAIClient(self.request, self.broker, self.container)
+            changed = self.request.model_copy(update=update)
+            self.assertEqual(request_payload(changed), self.payload)
+            with self.subTest(update=update), self.assertRaises(ProviderError):
+                await client.complete(changed)
         self.assertEqual(self.calls, 0)
         self.assertEqual(self.fake.counts, [])
 
@@ -194,6 +195,8 @@ class BrokeredModelTests(IsolatedAsyncioTestCase):
         requests = (
             self.request.model_copy(update={"provider": "other"}),
             self.request.model_copy(update={"max_output_tokens": None}),
+            self.request.model_copy(update={"max_text_output_bytes": None}),
+            self.request.model_copy(update={"max_text_output_bytes": 8001}),
             self.request.model_copy(update={"max_output": 16_000_001}),
             self.request.model_copy(update={"tools": (tool,)}),
             self.request.model_copy(
@@ -278,11 +281,33 @@ class BrokeredModelTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.ledger.snapshot().charged_microusd, 20)
 
     async def test_canonical_response_budget_includes_envelope(self) -> None:
-        request = self.request.model_copy(update={"max_output": 100})
+        request = self.request.model_copy(
+            update={"max_output": 100, "max_text_output_bytes": 100}
+        )
         client = BrokeredOpenAIClient(request, self.broker, self.container)
         with self.assertRaises(ProviderError):
             await client.complete(request)
         self.assertEqual(self.ledger.snapshot().charged_microusd, 20)
+
+    async def test_bounded_encrypted_reasoning_fits_separate_envelope(self) -> None:
+        provider_output = self.fake.response["output"]
+        self.assertIsInstance(provider_output, list)
+        assert isinstance(provider_output, list)
+        provider_output.insert(
+            0,
+            {
+                "type": "reasoning",
+                "id": "reasoning-fixture",
+                "summary": [],
+                "encrypted_content": "x" * 8_000,
+            },
+        )
+        request = self.request.model_copy(update={"max_output": 16_000})
+        client = BrokeredOpenAIClient(request, self.broker, self.container)
+        response = await client.complete(request)
+        self.assertGreater(len(canonical_bytes(response)), 8_000)
+        self.assertLessEqual(len(canonical_bytes(response)), request.max_output)
+        self.assertEqual(response.turn.blocks[-1], TextBlock(text="fixture"))
 
     async def test_excess_usage_is_a_spending_violation(self) -> None:
         self.fake.response["usage"] = {"input_tokens": 10, "output_tokens": 101}

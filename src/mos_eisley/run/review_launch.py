@@ -58,6 +58,7 @@ class ReviewLaunchConfiguration(Contract):
     judge_spending: SpendPolicy
     effort: Effort
     budget: BudgetPolicy
+    max_text_output_bytes: Annotated[int, Field(gt=0, le=64_000)] = 8_000
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
@@ -160,6 +161,7 @@ def prepare_review_launch_preview(
         judge_model=configuration.judge_model,
         effort=configuration.effort,
         budget=configuration.budget,
+        max_text_output_bytes=configuration.max_text_output_bytes,
     )
     calls = tuple(
         PreparedReviewCall(

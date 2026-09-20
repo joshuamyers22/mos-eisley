@@ -94,6 +94,14 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(
             result.conformance_status, "review_controller_conformance_required"
         )
+        request = result.preview.requests[0]
+        self.assertEqual(request.max_output, 64_000)
+        self.assertEqual(request.max_text_output_bytes, 8_000)
+        self.assertEqual(request.max_output_tokens, 100)
+        self.assertIn(b'"max_text_output_bytes":8000', canonical_bytes(result))
+        self.assertIn(
+            b'"response_envelope_bytes":64000', canonical_bytes(self.configuration)
+        )
         self.assertEqual(before, self.base.ledger.path.read_bytes())
         self.assertFalse(self.review_directory.exists())
 

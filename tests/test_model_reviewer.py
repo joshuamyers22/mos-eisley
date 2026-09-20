@@ -133,7 +133,20 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent.turns), 1)
         self.assertNotIn(self.critic.id, canonical_bytes(sent).decode())
         self.assertNotIn("Frozen project rubric", sent.system)
+        self.assertEqual(sent.max_output, 16_000)
+        self.assertEqual(sent.max_text_output_bytes, 8_000)
         self.assertEqual(sent.max_output_tokens, 4096)
+
+    def test_explicit_text_output_limit_is_validated(self) -> None:
+        for value in (0, True, 64_001):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                ModelReviewer(
+                    self.client,
+                    self.registry,
+                    judge_provider="judge",
+                    judge_model="model",
+                    max_text_output_bytes=value,
+                )
 
     async def test_judge_receives_exact_ids_without_critic_metadata(self) -> None:
         decision = JudgeDecision(
@@ -321,7 +334,7 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
             await self.reviewer.critique(self.critic, self.request)
         self.assertEqual(len(self.client.requests), 4)
 
-    async def test_whole_response_budget_includes_opaque_reasoning(self) -> None:
+    async def test_opaque_reasoning_uses_separate_response_envelope(self) -> None:
         self.client.reply = lambda _: response(Critique()).model_copy(
             update={
                 "turn": Turn(
@@ -335,8 +348,68 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
                 )
             }
         )
-        with self.assertRaises(ProviderError):
-            await self.reviewer.critique(self.critic, self.request)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+
+    async def test_visible_answer_and_whole_envelope_fail_independently(self) -> None:
+        raw = canonical_bytes(Critique()).decode()
+
+        def answer_of_size(size: int) -> ModelResponse:
+            text = raw + " " * (size - len(raw.encode()))
+            return response(Critique()).model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=tuple(
+                            TextBlock(text=text[offset : offset + 8_000])
+                            for offset in range(0, len(text), 8_000)
+                        ),
+                    )
+                }
+            )
+
+        def envelope_of_size(size: int) -> ModelResponse:
+            empty = response(Critique()).model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=(
+                            ReasoningBlock(provider="alpha", opaque={"payload": ""}),
+                            TextBlock(text=raw),
+                        ),
+                    )
+                }
+            )
+            padding = size - len(canonical_bytes(empty))
+            candidate = empty.model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=(
+                            ReasoningBlock(
+                                provider="alpha", opaque={"payload": "x" * padding}
+                            ),
+                            TextBlock(text=raw),
+                        ),
+                    )
+                }
+            )
+            self.assertEqual(len(canonical_bytes(candidate)), size)
+            return candidate
+
+        self.client.reply = lambda _: answer_of_size(8_000)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+        self.client.reply = lambda _: envelope_of_size(16_000)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+        for reply in (answer_of_size(8_001), envelope_of_size(16_001)):
+            self.client.reply = lambda _, reply=reply: reply
+            with self.subTest(reply=reply), self.assertRaises(ProviderError):
+                await self.reviewer.critique(self.critic, self.request)
 
     async def test_usage_ceilings_and_tampered_response_revalidated(self) -> None:
         for usage in (

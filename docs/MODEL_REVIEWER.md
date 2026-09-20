@@ -22,12 +22,14 @@ Prompt instructions are advisory isolation aids, not a sandbox against malicious
 review content. Deterministic validation remains mandatory.
 
 Admission counts the complete canonical model request, including prompt/schema,
-block wrappers and output settings, against the resolved input byte budget. The
-response cap includes the entire canonical response, including opaque reasoning,
-usage and request IDs. Reported byte/token usage is also checked against configured
-limits. These local acceptance checks do not bound transport allocation or grant
-spending authority: the existing bounded transport and spending controller must
-enforce those limits before a future live integration dispatches.
+block wrappers and output settings, against the resolved input byte budget. Two
+independently request-bound byte limits apply: `max_text_output_bytes` bounds the
+concatenated UTF-8 answer text, while `max_output` bounds the entire canonical
+response, including opaque reasoning, usage and request IDs. The reviewed live
+profile uses 8,000 and 64,000 bytes respectively. Reported byte/token usage is also
+checked against configured limits, and the 4,096-token/spending ceiling is separate.
+These local acceptance checks do not grant spending authority: the existing bounded
+transport and spending controller must enforce those limits before dispatch.
 
 Only a completed assistant response containing text and optional reasoning can
 produce a result. Text blocks concatenate; reasoning is excluded from the answer.

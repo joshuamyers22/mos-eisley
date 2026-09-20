@@ -47,6 +47,9 @@ class ReviewRoleProfile(Contract):
     system_sha256: Digest
     max_output_tokens: Annotated[int, Field(gt=0)]
     max_output_bytes: Annotated[int, Field(gt=0)]
+    max_text_output_bytes: Annotated[
+        int | None, Field(gt=0, exclude_if=lambda value: value is None)
+    ] = None
     critic_sha256: Digest | None = None
 
 
@@ -66,6 +69,7 @@ def review_role_profile(
         system_sha256=digest(request.system.encode()),
         max_output_tokens=request.max_output_tokens,
         max_output_bytes=request.max_output,
+        max_text_output_bytes=request.max_text_output_bytes,
         critic_sha256=critic_sha256,
     )
 

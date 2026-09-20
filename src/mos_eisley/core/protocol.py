@@ -182,6 +182,10 @@ class ModelRequest(Contract):
     turns: Annotated[tuple[Turn, ...], Field(min_length=1, max_length=256)]
     # Local canonical-response byte ceiling; this is not a provider token limit.
     max_output: Annotated[int, Field(gt=0)]
+    # Optional aggregate UTF-8 text ceiling inside the larger canonical response.
+    max_text_output_bytes: Annotated[
+        int | None, Field(gt=0, exclude_if=lambda value: value is None)
+    ] = None
     max_output_tokens: Annotated[
         int | None, Field(gt=0, exclude_if=lambda value: value is None)
     ] = None
