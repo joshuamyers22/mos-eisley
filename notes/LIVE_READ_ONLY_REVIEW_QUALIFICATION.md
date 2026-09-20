@@ -63,6 +63,7 @@
 | 2026-09-20 | cleanup | Both final-campaign critic containers have lifecycle result `removed`, and no matching remaining Docker container was found. The owning operator process exited, discarding its ephemeral signing-key reference. | Two lifecycle result records and filtered Docker inventory | Preserve private evidence; no campaign continuation or replacement is authorized. |
 | 2026-09-20 | offline correction | Exact retained-shape inspection found 4,243/2,680 visible UTF-8 bytes inside the 8,617/8,221-byte canonical responses. Current code now independently seals an 8,000-byte answer cap and 64,000-byte canonical envelope while preserving the 4,096-token/spend ceiling; both historical shapes parse and validate offline. | `docs/REVIEW_RESPONSE_BUDGET_FIX_VERIFICATION.md`; focused/broad tests; private read-only replay | Keep every historical completion receipt and the terminal qualification result unchanged. This grants no campaign or provider authority. |
 | 2026-09-20 | offline correction | The final finding's multiline postimage quote was exact within one diff hunk but could not be an exact raw-patch substring because raw continuation lines carry `+` markers. Current code adds opt-in schema-2 content-bound raw/before/after hunk units and exact single-unit validation while preserving schema-1 bytes and semantics. | `docs/REVIEW_CITATION_FIDELITY_FIX_VERIFICATION.md`; ADR-0006; focused, broad, full and container gates | Keep the failed campaign and every retained artifact unchanged. This grants no campaign or provider authority. |
+| 2026-09-20 | standalone retest | A freshly authorized one-attempt retest at `81e9ff5` sent two schema-2 critic requests with 54 citation units each. Both critics returned zero findings; quorum reached the separately authorized judge and the retained result freshly reconstructed as `accept`. All 13,161 micro-USD settled, all three containers were removed, and no secret-shaped retained value was found. Post-result observation construction then failed, so no signed observation exists. | `docs/LIVE_REVIEW_CITATION_RETEST_2026-09-20.md`; result `f1e59022…`; ledger `afe509bd…` | Treat this as end-to-end schema-2 compatibility evidence, not a positive live citation case or qualification. Do not retry. |
 
 ## Handoff
 
@@ -71,7 +72,9 @@
   and no production launch authority exists. The final failure is a local mismatch
   exposed both a canonical-response budget mismatch and a raw-patch citation-model
   mismatch. Current code corrects both contracts offline, but the sealed campaign and
-  qualification remain terminally failed.
+  qualification remain terminally failed. A later standalone retest completed with a
+  verified `accept` result but no critic findings and no signed observation; it does
+  not revive qualification.
 - Next smallest safe action: stop the live qualification. The response-budget and
   citation-fidelity contracts have been corrected and adversarially tested offline,
   but this work note grants no new provider run or campaign replacement.
