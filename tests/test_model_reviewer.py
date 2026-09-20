@@ -7,6 +7,8 @@ import json
 import unittest
 from collections.abc import Callable
 
+from pydantic import JsonValue
+
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import (
     Brief,
@@ -147,7 +149,67 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("set evidence.source_unit", sent.system)
         self.assertIn('"source_unit"', sent.system)
         self.assertIn("Never combine text across units", sent.system)
+        self.assertIn("Set source_unit to null", sent.system)
         self.assertEqual(payload.count(self.brief.diff), 1)
+
+    def test_capable_models_receive_native_strict_result_schemas(self) -> None:
+        registry = self.registry.model_copy(
+            update={
+                "models": tuple(
+                    spec.model_copy(update={"structured_output": True})
+                    for spec in self.registry.models
+                )
+            }
+        )
+        reviewer = ModelReviewer(
+            self.client,
+            registry,
+            judge_provider="judge",
+            judge_model="model",
+        )
+        schema_one = reviewer.critic_request(self.critic, self.request).response_format
+        schema_two = reviewer.critic_request(
+            self.critic, citation_bound_request(self.brief, self.critic.persona)
+        ).response_format
+        judge = reviewer.judge_request(
+            JudgeRequest(brief=self.brief, findings=(self.finding,))
+        ).response_format
+        assert schema_one is not None and schema_two is not None and judge is not None
+        self.assertEqual(schema_one.name, "mos_eisley_critique")
+        self.assertEqual(schema_two.name, "mos_eisley_critique")
+        self.assertEqual(judge.name, "mos_eisley_judge_decision")
+        self.assertNotIn("source_unit", json.dumps(schema_one.json_schema))
+        self.assertIn("source_unit", json.dumps(schema_two.json_schema))
+
+        def inspect(value: JsonValue) -> None:
+            if isinstance(value, list):
+                for item in value:
+                    inspect(item)
+            elif isinstance(value, dict):
+                self.assertNotIn("default", value)
+                self.assertNotIn("title", value)
+                properties = value.get("properties")
+                if value.get("type") == "object" and isinstance(properties, dict):
+                    required = value.get("required")
+                    self.assertIsInstance(required, list)
+                    assert isinstance(required, list)
+                    self.assertTrue(all(isinstance(item, str) for item in required))
+                    self.assertEqual(set(required), set(properties))
+                    self.assertIs(value["additionalProperties"], False)
+                for item in value.values():
+                    inspect(item)
+
+        inspect(schema_one.json_schema)
+        inspect(schema_two.json_schema)
+        inspect(judge.json_schema)
+
+    def test_incapable_models_remain_prompt_only(self) -> None:
+        critic = self.reviewer.critic_request(self.critic, self.request)
+        judge = self.reviewer.judge_request(
+            JudgeRequest(brief=self.brief, findings=(self.finding,))
+        )
+        self.assertIsNone(critic.response_format)
+        self.assertIsNone(judge.response_format)
 
     def test_explicit_text_output_limit_is_validated(self) -> None:
         for value in (0, True, 64_001):

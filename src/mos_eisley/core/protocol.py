@@ -172,6 +172,21 @@ class Usage(Contract):
     cache_write: Annotated[int, Field(ge=0)] = 0
 
 
+class JsonSchemaOutput(Contract):
+    """Optional provider-neutral strict JSON Schema response constraint."""
+
+    schema_version: Literal[1] = 1
+    name: Identifier
+    json_schema: Annotated[dict[str, JsonValue], Field(min_length=1, max_length=128)]
+    strict: Literal[True] = True
+
+    @model_validator(mode="after")
+    def object_root(self) -> Self:
+        if self.json_schema.get("type") != "object":
+            raise ValueError("response JSON schema root must be an object")
+        return self
+
+
 class ModelRequest(Contract):
     schema_version: Literal[1] = 1
     provider: Identifier
@@ -189,6 +204,9 @@ class ModelRequest(Contract):
     max_output_tokens: Annotated[
         int | None, Field(gt=0, exclude_if=lambda value: value is None)
     ] = None
+    response_format: JsonSchemaOutput | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def unique_tools(self) -> Self:

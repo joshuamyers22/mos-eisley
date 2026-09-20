@@ -12,6 +12,7 @@ from mos_eisley.core.budget import (
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.protocol import (
     Block,
+    JsonSchemaOutput,
     ModelRequest,
     ModelResponse,
     StopReason,
@@ -47,8 +48,29 @@ class ProtocolTests(TestCase):
         )
         self.assertNotIn(b"max_output_tokens", canonical_bytes(request))
         self.assertNotIn(b"max_text_output_bytes", canonical_bytes(request))
+        self.assertNotIn(b"response_format", canonical_bytes(request))
         call = ToolCallBlock(id="call", name="tool", args={})
         self.assertNotIn(b"provider_call_id", canonical_bytes(call))
+
+    def test_json_schema_output_requires_a_named_strict_object(self) -> None:
+        value = JsonSchemaOutput(
+            name="review_result",
+            json_schema={"type": "object", "properties": {}},
+        )
+        self.assertTrue(value.strict)
+        invalid: tuple[dict[str, object], ...] = (
+            {"name": "bad name", "json_schema": {"type": "object"}},
+            {"name": "result", "json_schema": {}},
+            {"name": "result", "json_schema": {"type": "array"}},
+            {
+                "name": "result",
+                "json_schema": {"type": "object"},
+                "strict": False,
+            },
+        )
+        for payload in invalid:
+            with self.subTest(payload=payload), self.assertRaises(ValidationError):
+                JsonSchemaOutput.model_validate(payload)
 
     def test_tool_schema_rejects_unsupported_shapes(self) -> None:
         invalid = (

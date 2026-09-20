@@ -65,6 +65,7 @@
 | 2026-09-20 | offline correction | The final finding's multiline postimage quote was exact within one diff hunk but could not be an exact raw-patch substring because raw continuation lines carry `+` markers. Current code adds opt-in schema-2 content-bound raw/before/after hunk units and exact single-unit validation while preserving schema-1 bytes and semantics. | `docs/REVIEW_CITATION_FIDELITY_FIX_VERIFICATION.md`; ADR-0006; focused, broad, full and container gates | Keep the failed campaign and every retained artifact unchanged. This grants no campaign or provider authority. |
 | 2026-09-20 | standalone retest | A freshly authorized one-attempt retest at `81e9ff5` sent two schema-2 critic requests with 54 citation units each. Both critics returned zero findings; quorum reached the separately authorized judge and the retained result freshly reconstructed as `accept`. All 13,161 micro-USD settled, all three containers were removed, and no secret-shaped retained value was found. Post-result observation construction then failed, so no signed observation exists. | `docs/LIVE_REVIEW_CITATION_RETEST_2026-09-20.md`; result `f1e59022…`; ledger `afe509bd…` | Treat this as end-to-end schema-2 compatibility evidence, not a positive live citation case or qualification. Do not retry. |
 | 2026-09-20 | standalone observation-fix retest | A freshly authorized one-attempt retest at `e34c8c8` sent two schema-2 critic requests with 34 citation units each. One critic returned a valid empty critique; the other duplicated `impact` and failed strict response parsing, so quorum failed before the judge and observation paths. Both critic containers were removed; 7,867 micro-USD settled and the unused 20,916-micro-USD judge reservation remains held. | `docs/LIVE_REVIEW_CITATION_OBSERVATION_RETEST_2026-09-20.md`; manifest `2045b5f9…`; ledger `55049fbc…` | Treat the run as inconclusive for both fixes and consumed without retry; no signed observation, qualification or launch authority exists. |
+| 2026-09-20 | offline correction | Capable critic and judge requests now carry provider-native strict JSON Schema while the duplicate-aware local decoder remains unchanged. A deterministic three-critic/two-threshold replay reaches an `accept` judge result when one critic is malformed, without repair or retry. | `docs/REVIEW_STRUCTURED_OUTPUT_QUORUM_FIX_VERIFICATION.md`; ADR-0007; complete package and container gates | Require a committed exact revision and fresh authority before any live retest. |
 
 ## Handoff
 
@@ -78,8 +79,9 @@
   standalone retest of the observation fix failed critic quorum on a duplicate-key
   model answer before reaching the judge. Neither run revives qualification.
 - Next smallest safe action: stop the live qualification. The response-budget and
-  citation-fidelity contracts have been corrected and adversarially tested offline,
-  but this work note grants no new provider run or campaign replacement.
+  citation-fidelity, observation, structured-output, and quorum-resilience contracts
+  have been corrected and adversarially tested offline, but this work note grants no
+  new provider run or campaign replacement.
 - Required operational inputs: none for this closed qualification. Any future live
   qualification would require new owner direction and a newly reviewed plan; it cannot
   reuse these seals, ledgers, policies, reservations or process keys. Single-operator

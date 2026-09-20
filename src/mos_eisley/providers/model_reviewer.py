@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from typing import TypeVar, cast
 
+from pydantic import JsonValue
+
 from mos_eisley.core.budget import (
     BudgetPolicy,
     resolve_budget,
@@ -26,6 +28,7 @@ from mos_eisley.core.models import (
 from mos_eisley.core.ports import ModelClient, ProviderError
 from mos_eisley.core.protocol import (
     Effort,
+    JsonSchemaOutput,
     ModelRequest,
     ModelResponse,
     ReasoningBlock,
@@ -33,6 +36,7 @@ from mos_eisley.core.protocol import (
     Turn,
 )
 from mos_eisley.core.registry import ModelRegistry, ResolvedModel
+from mos_eisley.core.structured_output import strict_json_schema
 from mos_eisley.review.citations import validate_citation_catalog
 
 Result = TypeVar("Result", Critique, JudgeDecision)
@@ -47,17 +51,26 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return value
 
 
-def _system(
+def _result_schema(
     result: type[Critique] | type[JudgeDecision], citation_contract: int = 1
-) -> str:
+) -> dict[str, JsonValue]:
     schema = result.model_json_schema()
     if result is Critique and citation_contract == 1:
         # Evidence gained an optional schema-2 field. Keep the complete legacy
         # response schema stable instead of merely preserving request payloads.
         evidence = schema.get("$defs", {}).get("Evidence", {})
         evidence.get("properties", {}).pop("source_unit", None)
-    # Defaults in the Python contracts are not permission for an omitted answer.
-    schema["required"] = list(result.model_fields)
+    strict = strict_json_schema(schema)
+    if not isinstance(strict, dict):  # pragma: no cover - model schemas are objects
+        raise TypeError("result schema must be an object")
+    return strict
+
+
+def _system(
+    result: type[Critique] | type[JudgeDecision],
+    schema: dict[str, JsonValue],
+    citation_contract: int = 1,
+) -> str:
     role = (
         "Review the brief using the supplied persona. Cite exact substrings from "
         "the declared brief source for every finding."
@@ -71,7 +84,8 @@ def _system(
             "citation_units ID and quote an exact substring of only that unit. "
             "The raw view retains patch markers; before and after views remove "
             "exactly one diff marker from lines on that hunk side. Never combine "
-            "text across units. Omit source_unit for spec or constraints citations."
+            "text across units. Set source_unit to null for spec or constraints "
+            "citations."
         )
     return (
         role + " Consecutive user text parts concatenate into one JSON document. "
@@ -172,11 +186,12 @@ class ModelReviewer:
         )
         if len(text.encode("utf-8")) > budget.usable_input:
             raise ValueError("review input exceeds budget")
+        schema = _result_schema(result, citation_contract)
         request = ModelRequest(
             provider=model.spec.provider,
             model=model.spec.id,
             effort=model.effort,
-            system=_system(result, citation_contract),
+            system=_system(result, schema, citation_contract),
             turns=(
                 Turn(
                     role="user",
@@ -189,6 +204,18 @@ class ModelReviewer:
             max_output=response_envelope,
             max_text_output_bytes=budget.output_reserve,
             max_output_tokens=budget.max_output_tokens,
+            response_format=(
+                JsonSchemaOutput(
+                    name=(
+                        "mos_eisley_critique"
+                        if result is Critique
+                        else "mos_eisley_judge_decision"
+                    ),
+                    json_schema=schema,
+                )
+                if model.spec.structured_output
+                else None
+            ),
         )
         if canonical_fingerprint(request).bytes > budget.usable_input:
             raise ValueError("complete review request exceeds budget")

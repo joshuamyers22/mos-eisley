@@ -25,6 +25,7 @@ from mos_eisley.run.review_controller import (
     ControllerTerminal,
 )
 from mos_eisley.run.review_verdict import verify_retained_review_result
+from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ControllerFixture(TestCase):
@@ -198,6 +199,72 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertNotIn(
             b"SECRET", (self.directory / "controller-terminal.json").read_bytes()
         )
+
+    async def test_three_critics_reach_two_quorum_with_one_invalid_response(self):
+        ledger = SpendLedger.create(self.base.root / "redundant.sqlite", 2_000)
+        directory = self.base.root / "redundant-review"
+        calls = tuple(
+            PreparedReviewCall(
+                self.base.reviewer,
+                self.base.request,
+                self.base.policy,
+                ledger,
+                critic=self.base.critic.model_copy(update={"id": name}),
+            )
+            for name in ("one", "two", "three")
+        )
+        envelope = PreparedReviewEnvelope(
+            calls,
+            self.base.policy,
+            ledger,
+            max_total_microusd=1_300,
+            directory=directory,
+        )
+        controller = BrokeredReviewController(
+            envelope,
+            self.base.reviewer,
+            ReviewPolicy(min_critics=2, min_providers=1),
+            total_seconds=30,
+        )
+        containers = tuple(
+            OfflineContainer(Path("/usr/bin/docker"), "sha256:" + char * 64)
+            for char in ("b", "c", "d")
+        )
+        for container in containers:
+            patcher = patch.object(
+                container, "exchange_async", side_effect=self.base.exchange
+            )
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        transports = tuple(
+            FakeTransport(directory / call.authorization.ledger_entry_id)
+            for call in calls
+        )
+        transports[0].response = broker_fixture.output("{}")
+        for transport in transports[1:]:
+            transport.response = broker_fixture.output(
+                canonical_bytes(Critique()).decode()
+            )
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=containers,
+        )
+        self.assertEqual(
+            [item.result.status for item in preview.evidence.critics],
+            ["error", "completed", "completed"],
+        )
+        judge = FakeTransport(directory / "judge")
+        judge.response = broker_fixture.output(
+            canonical_bytes(JudgeDecision(upheld=(), rationale="Fixture")).decode()
+        )
+        result = await controller.run_judge(
+            approved_preview_sha256=preview.sha256,
+            transport=judge,
+            container=containers[0],
+        )
+        self.assertEqual(result.result.verdict.decision, "accept")
+        self.assertEqual(len(judge.calls), 1)
 
     async def test_missing_quorum_blocks_judge_and_fails_controller(self):
         self.transports[0].response = broker_fixture.output("{}")

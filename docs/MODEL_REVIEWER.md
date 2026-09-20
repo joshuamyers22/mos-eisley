@@ -21,11 +21,14 @@ Frozen guidance already incorporated into `Brief.constraints` remains review dat
 
 Provider/model pairs resolve through the explicit model registry, including its
 effort fallback. The judge model is selected separately at construction. A system
-prompt describes the role and embeds the expected JSON schema. This is prompted
-JSON with local validation, not provider-native structured output. Long input JSON
-is split into ordered text blocks; their concatenation exactly reconstructs it.
-Prompt instructions are advisory isolation aids, not a sandbox against malicious
-review content. Deterministic validation remains mandatory.
+prompt describes the role and embeds the expected JSON schema. When the resolved
+model declares structured-output support, the same recursively strict schema is
+also carried by the canonical request and the OpenAI adapter projects it to
+Responses API `text.format`. Models without that capability remain prompt-only.
+Long input JSON is split into ordered text blocks; their concatenation exactly
+reconstructs it. Prompt instructions and provider constraints are advisory and
+transport controls, not a sandbox against malicious review content. Deterministic
+local validation remains mandatory.
 
 Admission counts the complete canonical model request, including prompt/schema,
 block wrappers and output settings, against the resolved input byte budget. Two
@@ -39,13 +42,17 @@ transport and spending controller must enforce those limits before dispatch.
 
 Only a completed assistant response containing text and optional reasoning can
 produce a result. Text blocks concatenate; reasoning is excluded from the answer.
-The answer must be exactly one JSON object with every top-level contract field,
-an integer schema version of 1, no extra fields and no duplicate keys at any depth.
-Typed contract validation enforces nested fields. Refusal/filtering, truncation,
-tools, malformed JSON, omitted answers and budget violations become coarse provider
-errors. There is one client call per role, no repair/retry loop, and cancellation
-propagates to the client. A caller-provided client must also disable transport
-retries to preserve the eventual one-exchange spending contract.
+The strict provider schema removes descriptive titles/defaults, requires every
+object property and rejects additional properties. Nullable contract fields are
+therefore present as JSON `null`; schema-1 critic schemas omit the schema-2-only
+`source_unit` property entirely. The answer must still be exactly one JSON object
+with every top-level contract field, an integer schema version of 1, no extra fields
+and no duplicate keys at any depth. Typed contract validation enforces nested
+fields. Refusal/filtering, truncation, tools, malformed JSON, omitted answers and
+budget violations become coarse provider errors. There is one client call per role,
+no repair/retry loop, and cancellation propagates to the client. A caller-provided
+client must also disable transport retries to preserve the one-exchange spending
+contract.
 
 The review pipeline still validates exact quoted evidence, critic/provider quorum,
 finding deduplication and judge IDs, then computes the verdict deterministically.
@@ -67,6 +74,12 @@ conformance. Guidance admission is separate and still required at runtime.
 Model labels or passing local fixtures do not establish provider independence or
 live quality. See [the delivery roadmap](ROADMAP.md) and
 [the project plan](mos-eisley-plan.md#26-integrated-project-review-and-delivery-contract).
+
+For a bounded live retest where the threshold is two critics, use three separately
+admitted critic calls and retain the threshold at two. This tolerates one failed or
+invalid critic without retrying it. The extra call must be included in the exact
+transfer and aggregate spending approvals; redundancy does not create authority or
+provider diversity and can still suffer correlated failures.
 
 Rollback removes this library adapter and its tests/docs. Existing recorded
 packet schemas, run artifacts, terminal commands and provider commands are unchanged.

@@ -12,6 +12,7 @@ from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import (
+    JsonSchemaOutput,
     ModelRequest,
     TextBlock,
     ToolDefinition,
@@ -83,6 +84,7 @@ class OpenAITranslationTests(TestCase):
         self.assertIs(payload["store"], False)
         self.assertEqual(payload["truncation"], "disabled")
         self.assertEqual(payload["include"], ["reasoning.encrypted_content"])
+        self.assertNotIn("text", payload)
         tools = payload["tools"]
         assert isinstance(tools, list)
         tool = tools[0]
@@ -92,6 +94,34 @@ class OpenAITranslationTests(TestCase):
         assert isinstance(parameters, dict)
         self.assertIs(parameters["additionalProperties"], False)
         self.assertEqual(parameters["required"], ["key"])
+
+    def test_strict_json_schema_is_projected_to_text_format(self) -> None:
+        request, _ = openai_request()
+        constrained = request.model_copy(
+            update={
+                "response_format": JsonSchemaOutput(
+                    name="review_result",
+                    json_schema={
+                        "type": "object",
+                        "properties": {"result": {"type": "string"}},
+                        "required": ["result"],
+                        "additionalProperties": False,
+                    },
+                )
+            }
+        )
+        assert constrained.response_format is not None
+        self.assertEqual(
+            request_payload(constrained)["text"],
+            {
+                "format": {
+                    "type": "json_schema",
+                    "name": "review_result",
+                    "strict": True,
+                    "schema": constrained.response_format.json_schema,
+                }
+            },
+        )
 
     def test_request_rejects_wrong_provider_missing_limit_and_optional_schema(
         self,
