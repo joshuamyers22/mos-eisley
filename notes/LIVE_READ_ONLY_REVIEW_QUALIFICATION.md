@@ -64,6 +64,7 @@
 | 2026-09-20 | offline correction | Exact retained-shape inspection found 4,243/2,680 visible UTF-8 bytes inside the 8,617/8,221-byte canonical responses. Current code now independently seals an 8,000-byte answer cap and 64,000-byte canonical envelope while preserving the 4,096-token/spend ceiling; both historical shapes parse and validate offline. | `docs/REVIEW_RESPONSE_BUDGET_FIX_VERIFICATION.md`; focused/broad tests; private read-only replay | Keep every historical completion receipt and the terminal qualification result unchanged. This grants no campaign or provider authority. |
 | 2026-09-20 | offline correction | The final finding's multiline postimage quote was exact within one diff hunk but could not be an exact raw-patch substring because raw continuation lines carry `+` markers. Current code adds opt-in schema-2 content-bound raw/before/after hunk units and exact single-unit validation while preserving schema-1 bytes and semantics. | `docs/REVIEW_CITATION_FIDELITY_FIX_VERIFICATION.md`; ADR-0006; focused, broad, full and container gates | Keep the failed campaign and every retained artifact unchanged. This grants no campaign or provider authority. |
 | 2026-09-20 | standalone retest | A freshly authorized one-attempt retest at `81e9ff5` sent two schema-2 critic requests with 54 citation units each. Both critics returned zero findings; quorum reached the separately authorized judge and the retained result freshly reconstructed as `accept`. All 13,161 micro-USD settled, all three containers were removed, and no secret-shaped retained value was found. Post-result observation construction then failed, so no signed observation exists. | `docs/LIVE_REVIEW_CITATION_RETEST_2026-09-20.md`; result `f1e59022…`; ledger `afe509bd…` | Treat this as end-to-end schema-2 compatibility evidence, not a positive live citation case or qualification. Do not retry. |
+| 2026-09-20 | standalone observation-fix retest | A freshly authorized one-attempt retest at `e34c8c8` sent two schema-2 critic requests with 34 citation units each. One critic returned a valid empty critique; the other duplicated `impact` and failed strict response parsing, so quorum failed before the judge and observation paths. Both critic containers were removed; 7,867 micro-USD settled and the unused 20,916-micro-USD judge reservation remains held. | `docs/LIVE_REVIEW_CITATION_OBSERVATION_RETEST_2026-09-20.md`; manifest `2045b5f9…`; ledger `55049fbc…` | Treat the run as inconclusive for both fixes and consumed without retry; no signed observation, qualification or launch authority exists. |
 
 ## Handoff
 
@@ -73,8 +74,9 @@
   exposed both a canonical-response budget mismatch and a raw-patch citation-model
   mismatch. Current code corrects both contracts offline, but the sealed campaign and
   qualification remain terminally failed. A later standalone retest completed with a
-  verified `accept` result but no critic findings and no signed observation; it does
-  not revive qualification.
+  verified `accept` result but no critic findings and no signed observation. A second
+  standalone retest of the observation fix failed critic quorum on a duplicate-key
+  model answer before reaching the judge. Neither run revives qualification.
 - Next smallest safe action: stop the live qualification. The response-budget and
   citation-fidelity contracts have been corrected and adversarially tested offline,
   but this work note grants no new provider run or campaign replacement.
