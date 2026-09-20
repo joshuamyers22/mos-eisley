@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from pydantic import JsonValue
 from test_review_conformance_probe import ReviewProbeFixture
@@ -21,6 +21,7 @@ from mos_eisley.run.review_runtime_evidence import (
     RuntimeOperationEnd,
     RuntimeOperationStart,
     collect_review_runtime_exchange,
+    collect_review_runtime_exchanges,
     verify_review_runtime_exchange,
 )
 from mos_eisley.run.store import private_write
@@ -74,6 +75,10 @@ class RuntimeEvidenceFixture(ReviewProbeFixture):
 
 
 class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
+    def test_probe_cannot_collect_runtime_evidence_before_completion(self):
+        with self.assertRaisesRegex(ValueError, "completed review"):
+            self.probe().collect_runtime_exchanges()
+
     async def test_collect_exact_records_for_both_phases_without_exporting_secrets(
         self,
     ):
@@ -88,18 +93,7 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
         )
         result = await probe.run()
         assert result is not None and probe.judge_preview is not None
-        observed = tuple(
-            collect_review_runtime_exchange(
-                directory, lifecycle, request, signed.authorization
-            )
-            for directory, lifecycle, request, signed in zip(
-                (self.critic_directory(), self.directory / "judge"),
-                self.lifecycles,
-                (*self.preview.requests, probe.judge_preview.model_request),
-                probe.approval_ui.authorizations,
-                strict=True,
-            )
-        )
+        observed = probe.collect_runtime_exchanges()
         self.assertEqual(len(observed), 2)
         self.assertEqual(probe.lifecycle_paths, tuple(self.lifecycles))
         verify_review_runtime_exchange(
@@ -164,6 +158,85 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
         )
         self.assertTrue(verified.local_artifacts_verified)
         self.assertFalse(verified.live_review_activation_authorized)
+
+    def test_multi_critic_collection_reuses_critic_phase_authorization(self):
+        critic_request = self.preview.requests[0]
+        judge_request = critic_request.model_copy(update={"system": "judge"})
+        critic_authorization = self.certificate().authorization
+        judge_authorization = critic_authorization.model_copy(
+            update={
+                "scope": critic_authorization.scope.model_copy(
+                    update={"phase": "judge"}
+                )
+            }
+        )
+        directories = tuple(
+            Path(f"/evidence/{role}") for role in ("one", "two", "judge")
+        )
+        lifecycles = tuple(
+            Path(f"/lifecycle/{role}") for role in ("one", "two", "judge")
+        )
+        with patch(
+            "mos_eisley.run.review_runtime_evidence.collect_review_runtime_exchange",
+            side_effect=("critic-one", "critic-two", "judge"),
+        ) as collect:
+            observed = collect_review_runtime_exchanges(
+                directories,
+                lifecycles,
+                (critic_request, critic_request),
+                judge_request,
+                (critic_authorization, judge_authorization),
+            )
+        self.assertEqual(observed, ("critic-one", "critic-two", "judge"))
+        self.assertEqual(
+            collect.call_args_list,
+            [
+                call(
+                    directories[0], lifecycles[0], critic_request, critic_authorization
+                ),
+                call(
+                    directories[1], lifecycles[1], critic_request, critic_authorization
+                ),
+                call(directories[2], lifecycles[2], judge_request, judge_authorization),
+            ],
+        )
+
+    def test_grouped_collection_rejects_incomplete_exchange_shape(self):
+        authorization = self.certificate().authorization
+        with (
+            patch(
+                "mos_eisley.run.review_runtime_evidence.collect_review_runtime_exchange"
+            ) as collect,
+            self.assertRaisesRegex(ValueError, "every critic"),
+        ):
+            collect_review_runtime_exchanges(
+                (Path("/critic"),),
+                (Path("/critic-lifecycle"), Path("/judge-lifecycle")),
+                (self.preview.requests[0],),
+                self.preview.requests[0],
+                (authorization, authorization),
+            )
+        collect.assert_not_called()
+
+    def test_grouped_collection_rejects_reversed_phase_authorizations(self):
+        critic = self.certificate().authorization
+        judge = critic.model_copy(
+            update={"scope": critic.scope.model_copy(update={"phase": "judge"})}
+        )
+        with (
+            patch(
+                "mos_eisley.run.review_runtime_evidence.collect_review_runtime_exchange"
+            ) as collect,
+            self.assertRaisesRegex(ValueError, "match review phases"),
+        ):
+            collect_review_runtime_exchanges(
+                (Path("/critic"), Path("/judge")),
+                (Path("/critic-lifecycle"), Path("/judge-lifecycle")),
+                (self.preview.requests[0],),
+                self.preview.requests[0],
+                (judge, critic),
+            )
+        collect.assert_not_called()
 
     async def test_missing_begin_record_is_not_reconstructed_as_success(self):
         probe = self.probe()

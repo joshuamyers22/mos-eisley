@@ -162,7 +162,7 @@ class ObserverHandoffTests(ObserverHandoffFixture):
         )
         with (
             patch(
-                "mos_eisley.run.review_campaign_observation.collect_review_runtime_exchange"
+                "mos_eisley.run.review_campaign_observation.collect_review_runtime_exchanges"
             ) as collect,
             self.assertRaises(ValueError),
         ):

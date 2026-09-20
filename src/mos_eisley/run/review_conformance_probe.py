@@ -32,6 +32,7 @@ from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceScope,
     SignedReviewConformanceAuthorization,
 )
+from mos_eisley.run.review_conformance_observation import ReviewObservedExchange
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
@@ -46,7 +47,10 @@ from mos_eisley.run.review_launch_authorization import (
     ReviewLaunchScope,
     SignedReviewLaunchDecision,
 )
-from mos_eisley.run.review_runtime_evidence import RuntimeOperationRecorder
+from mos_eisley.run.review_runtime_evidence import (
+    RuntimeOperationRecorder,
+    collect_review_runtime_exchanges,
+)
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
 
@@ -345,6 +349,39 @@ class BrokeredReviewConformanceProbe:
         """Captured worker paths in critic/judge order; unavailable paths stay None."""
         return tuple(
             transport.lifecycle_path for transport in (*self._critics, self._judge)
+        )
+
+    def collect_runtime_exchanges(self) -> tuple[ReviewObservedExchange, ...]:
+        """Collect local post-result evidence with critic/judge phase separation."""
+        judge = self.judge_preview
+        lifecycle_paths = self.lifecycle_paths
+        if (
+            self.controller.phase != "finished"
+            or judge is None
+            or len(self.approval_ui.authorizations) != 2
+            or any(path is None for path in lifecycle_paths)
+        ):
+            raise ValueError("completed review runtime evidence is unavailable")
+        directory = Path(self.controller.preview.envelope.artifact_directory)
+        call_directories = (
+            *(
+                directory / call.ledger_entry_id
+                for call in self.controller.preview.envelope.critics
+            ),
+            directory / "judge",
+        )
+        complete_lifecycles = tuple(
+            path for path in lifecycle_paths if path is not None
+        )
+        authorizations = tuple(
+            signed.authorization for signed in self.approval_ui.authorizations
+        )
+        return collect_review_runtime_exchanges(
+            call_directories,
+            complete_lifecycles,
+            self.controller.preview.requests,
+            judge.model_request,
+            authorizations,
         )
 
     async def run(self) -> RetainedReviewResult | None:

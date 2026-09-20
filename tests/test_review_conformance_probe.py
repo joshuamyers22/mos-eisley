@@ -4,6 +4,7 @@ import asyncio
 import json
 from datetime import timedelta
 from importlib.metadata import version
+from pathlib import Path
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, patch
 
@@ -11,15 +12,26 @@ import httpx2
 from pydantic import JsonValue
 from test_openai_spend import FakeTransport
 from test_review_approval_flow import ScriptedUser
+from test_review_broker_admission import output
 from test_review_conformance_admission import ReviewConformanceFixture
 
-from mos_eisley.core.models import ReviewPolicy
+from mos_eisley.core.models import (
+    Brief,
+    Critique,
+    Evidence,
+    Finding,
+    JudgeDecision,
+    ReviewPolicy,
+    canonical_bytes,
+)
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import request_payload
 from mos_eisley.providers.openai_spend import count_payload
+from mos_eisley.review.citations import citation_bound_request
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
+from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
 
 
 class ReviewProbeFixture(ReviewConformanceFixture):
@@ -62,6 +74,72 @@ class ReviewProbeFixture(ReviewConformanceFixture):
 
 
 class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
+    async def test_positive_source_unit_reaches_retained_judge_result(self):
+        brief = Brief(
+            spec="Drop review authority.",
+            diff=(
+                "--- a/host.py\n"
+                "+++ b/host.py\n"
+                "@@ -1 +1,4 @@\n"
+                " def close(self):\n"
+                "+    self._credential = None\n"
+                "+    self._signer = None\n"
+                "+    self._authorized = None\n"
+            ),
+        )
+        prepared = self.guided.prepare(brief)
+        self.admission = ReviewGuidanceAdmission(
+            self.guided.store,
+            self.guided.fixture.workspace,
+            prepared,
+            self.guided.fixture.policy_path,
+            self.guided.policy_sha,
+        )
+        self.base.request = citation_bound_request(
+            prepared.brief, self.base.critic.persona
+        )
+        self.call = self.prepare()
+        self.review = self.envelope()
+        self.base.fake.directory = (
+            Path(self.review.envelope.artifact_directory)
+            / self.call.authorization.ledger_entry_id
+        )
+        unit = next(
+            item for item in self.base.request.citation_units if item.view == "after"
+        )
+        quote = (
+            "    self._credential = None\n"
+            "    self._signer = None\n"
+            "    self._authorized = None\n"
+        )
+        finding = Finding(
+            location="diff",
+            category="correctness",
+            impact="medium",
+            claim="The reviewed change needs revision.",
+            evidence=Evidence(
+                source="diff",
+                source_unit=unit.id,
+                quote=quote,
+                explanation="Exact content-bound fixture citation.",
+            ),
+        )
+        self.base.fake.response = output(
+            canonical_bytes(Critique(findings=(finding,))).decode()
+        )
+        self.judge.response = output(
+            canonical_bytes(
+                JudgeDecision(upheld=(finding.finding_id,), rationale="Supported")
+            ).decode()
+        )
+        result = await self.probe().run()
+        assert result is not None
+        self.assertEqual(result.result.verdict.decision, "revise")
+        self.assertEqual(result.result.verdict.findings, (finding,))
+        self.assertEqual(
+            result.result.verdict.findings[0].evidence.source_unit, unit.id
+        )
+
     async def test_probe_checks_both_phases_and_keeps_credentials_in_host(self):
         probe = self.probe()
         self.key_loader.assert_not_called()

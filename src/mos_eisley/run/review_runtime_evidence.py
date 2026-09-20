@@ -250,6 +250,54 @@ def collect_review_runtime_exchange(
     )
 
 
+def collect_review_runtime_exchanges(
+    call_directories: tuple[Path, ...],
+    lifecycle_directories: tuple[Path, ...],
+    critic_requests: tuple[ModelRequest, ...],
+    judge_request: ModelRequest,
+    phase_authorizations: tuple[ReviewConformanceAuthorization, ...],
+) -> tuple[ReviewObservedExchange, ...]:
+    """Collect critic and judge records with explicit phase authorization mapping.
+
+    A review has one signed authorization for the complete critic phase and one for
+    the judge phase. It does not have one authorization per model exchange.
+    """
+    exchange_count = len(critic_requests) + 1
+    if (
+        not critic_requests
+        or len(call_directories) != exchange_count
+        or len(lifecycle_directories) != exchange_count
+        or len(phase_authorizations) != 2
+    ):
+        raise ValueError(
+            "runtime evidence must contain every critic and one judge exchange"
+        )
+    critic_authorization, judge_authorization = phase_authorizations
+    if (
+        critic_authorization.scope.phase != "critics"
+        or judge_authorization.scope.phase != "judge"
+    ):
+        raise ValueError("runtime evidence authorizations must match review phases")
+    critics = tuple(
+        collect_review_runtime_exchange(
+            directory, lifecycle, request, critic_authorization
+        )
+        for directory, lifecycle, request in zip(
+            call_directories[:-1],
+            lifecycle_directories[:-1],
+            critic_requests,
+            strict=True,
+        )
+    )
+    judge = collect_review_runtime_exchange(
+        call_directories[-1],
+        lifecycle_directories[-1],
+        judge_request,
+        judge_authorization,
+    )
+    return (*critics, judge)
+
+
 def verify_review_runtime_exchange(
     expected: ReviewObservedExchange,
     directory: Path,
