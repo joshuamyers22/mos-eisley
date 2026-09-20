@@ -10,7 +10,6 @@ from mos_eisley.conversation_memory_replace import unique_object
 from mos_eisley.core.budget import BudgetPolicy, resolve_budget
 from mos_eisley.core.models import (
     Contract,
-    CriticRequest,
     CriticSpec,
     Digest,
     Identifier,
@@ -24,6 +23,7 @@ from mos_eisley.project_guidance_review import PreparedGuidanceReview
 from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.review.citations import citation_bound_request
 from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvelope
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
@@ -166,7 +166,7 @@ def prepare_review_launch_preview(
     calls = tuple(
         PreparedReviewCall(
             reviewer,
-            CriticRequest(brief=prepared.brief, persona=item.critic.persona),
+            citation_bound_request(prepared.brief, item.critic.persona),
             item.spending,
             ledger,
             critic=item.critic,

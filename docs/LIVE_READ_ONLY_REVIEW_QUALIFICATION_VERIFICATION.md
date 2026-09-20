@@ -70,6 +70,7 @@
 | 11 | Single-use final-campaign exception | Joshua Myers explicitly granted an exception after the replacement key passed the bounded authentication check | A third campaign would otherwise violate the no-replacement stopping rule | Permit exactly one fresh campaign with new ledgers, commitments, bundle and seal; preserve both prior campaigns, and stop qualification if the final campaign fails | Authority recorded before creating the new ledgers or any credential/provider access; no prior artifact is reusable |
 | 12 | Final sealed live campaign | Fresh ledgers, 59,391-byte brief, bundle `eea43f90…`, seal `35da4356…`, exact critic scope `c79c3e0e…`, local approval `c57090f0…`, pinned image and SDK | Both OpenAI critic responses completed, but their canonical responses were 8,221 and 8,617 bytes against the sealed 4,000-byte response ceiling because retained encrypted reasoning is included. Both local completions failed, verified critic quorum was not met, and no judge prompt or observation followed. | Fail closed and consume the exception. Do not run attempts 2–3, launch, or any replacement campaign; retain the response-budget mismatch as a blocking defect. | Critic charges settled at 4,875 and 5,047 micro-USD; the 20,916-micro-USD judge reservation remains held; both containers are recorded removed; later ledgers remain empty |
 | 13 | Separate offline response-budget correction | Exact retained shapes measured 4,243/2,680 visible UTF-8 bytes inside 8,617/8,221-byte canonical responses; synthetic exact-boundary and opaque-reasoning cases | The original 4,000-byte answer assumption was also insufficient for one valid response | Bind an 8,000-byte text cap and separate 64,000-byte canonical envelope while retaining the 4,096-token/spend ceiling; never rewrite the failed receipts | Both retained shapes parse and validate offline under the corrected profile; broad regression set passes; the terminal campaign remains failed and grants no live authority |
+| 14 | Separate offline citation-fidelity correction | The final finding quoted exact multiline postimage code from one hunk, but unified-diff `+` markers made it absent from the raw patch | Raw-only citation validation rejected supported evidence before quorum | Add opt-in schema-2 content-bound raw/before/after hunk units; keep schema 1 byte-compatible and raw-only; never rewrite the failed receipts | Retained-shape, stale/invented/normalized/cross-hunk, full offline, package and container gates pass; no live authority follows |
 
 ## Finding disposition
 
@@ -79,6 +80,7 @@
 | Q-002 | No public live-launch CLI by design | A casual command cannot safely begin the review | High | Accepted; use the owning library ceremony until a separately reviewed product boundary exists | Exact admitted owning flow and retained evidence | Josh Myers |
 | Q-003 | The owner requires Joshua Myers to hold every human role | No independent human can detect Joshua's mistaken or malicious self-approval | Accepted high risk | ADR-0005 explicitly changes the contract; schema 2 requires one shared signer and a signed self-review-risk assertion, while schema 1 remains separated | Positive full-path test, mixed-mode rejection, and no independence assertion in schema-2 decision | Joshua Myers |
 | Q-004 | Final campaign critic responses canonicalized to 8,221 and 8,617 bytes while each sealed request allowed only 4,000 response bytes | Valid provider responses could not become verified critic evidence, so the sealed campaign could not reach quorum | Blocking historical campaign finding; code defect corrected offline | Accepted as the immutable terminal final-campaign failure. The corrected contract independently seals 8,000 text bytes and a 64,000-byte envelope, but cannot change or revive dispatched evidence. | Exact retained-shape replay and synthetic boundaries pass; no new live campaign is authorized | Josh Myers |
+| Q-005 | Final-campaign evidence used an exact multiline postimage quote that is not an exact substring of raw unified-diff syntax | Supported evidence would still fail local validation after the response-budget correction | Blocking historical campaign finding; code defect corrected offline | Accepted as part of the immutable terminal campaign outcome. Schema 2 binds exact quotes to deterministic raw/before/after hunk units; schema 1 and retained artifacts are unchanged. | Retained-shape and adversarial citation regressions plus full offline/container gates pass; no new live campaign is authorized | Joshua Myers |
 
 ## Exit
 
@@ -90,8 +92,9 @@
   is authorized.
 - Rubric result and blocking findings: Q-003 remains accepted by the accountable owner;
   Q-001 remains open. The campaign has zero qualifying attempts and establishes no
-  live conformance or production-launch authority. Q-004 is corrected in current code
-  but remains the immutable failure classification for the sealed final campaign.
+  live conformance or production-launch authority. Q-004 and Q-005 are corrected in
+  current code but remain immutable failure classifications for the sealed final
+  campaign.
 - Full quality-gate command and result: `make check` passed on the clean rerun: Ruff
   and Pyright passed; 2,446 source tests passed with four skips and 89% coverage;
   export verification, sdist/wheel builds, and 1,839 installed-wheel tests passed. The
@@ -112,8 +115,8 @@
 - Human/domain approval, if required: Joshua Myers explicitly approved single-operator
   governance and the USD 5.00 aggregate ceiling on 2026-09-19
 - Durable facts promoted to tests, ADRs, docs, or `PROJECT_MEMORY.md`: latest delivery
-  state, single-operator host boundary and template-use rule recorded in
-  `PROJECT_MEMORY.md`
+  state, single-operator host boundary, response and citation corrections, and
+  template-use rule recorded in `PROJECT_MEMORY.md`
 
 ## Diagnostic resource accounting (optional)
 
@@ -125,7 +128,7 @@
   charges settled locally at 9,922 micro-USD; 146,412 micro-USD remains conservatively
   unresolved across all campaigns, and neither amount is an invoice reconciliation.
 - Accepted versus rejected findings: Q-001 launch qualification remains blocking;
-  Q-004 canonical response budgeting is corrected offline but remains the historical
-  terminal campaign finding; Q-003 single-operator governance risk and the documented
-  memory-zeroization limitation are accepted
+  Q-004 canonical response budgeting and Q-005 citation fidelity are corrected offline
+  but remain historical terminal campaign findings; Q-003 single-operator governance
+  risk and the documented memory-zeroization limitation are accepted
 - Escaped defects or regressions discovered later: unknown

@@ -5,7 +5,13 @@ interface through an explicitly supplied `ModelClient`. This library boundary is
 tested with local clients. It does not create a transport, load credentials, or
 enable a live CLI/terminal mode. The terminal `/review` remains recorded.
 
-Each critic receives one fresh user turn containing only its brief and persona.
+Each critic receives one fresh user turn containing only its brief, persona, and—
+for critic-request schema 2—a compact catalog of deterministic diff citation-unit
+descriptors. The catalog does not duplicate diff text. It identifies the whole raw
+patch plus the exact before/after view of each hunk; SHA-256-bearing IDs bind each
+descriptor to its locator and derived text. The original diff remains the readable
+review source.
+
 The judge receives the brief and deduplicated findings from the existing review
 pipeline, paired with their canonical SHA-256 IDs. Supplying IDs avoids asking a
 model to calculate hashes. Critic IDs, provider identities and personas are absent
@@ -43,6 +49,13 @@ retries to preserve the eventual one-exchange spending contract.
 
 The review pipeline still validates exact quoted evidence, critic/provider quorum,
 finding deduplication and judge IDs, then computes the verdict deterministically.
+Schema-2 diff evidence must identify one supplied source unit. Validation recomputes
+the catalog from the frozen brief and accepts the quote only as an exact substring of
+that one raw/before/after view. It performs no whitespace normalization and never
+joins hunks. `spec` and `constraints` remain exact source substrings and cannot claim
+a diff unit. Schema-1 requests retain their original raw-substring contract so
+historical request bytes and outcomes remain stable. New brokered production launch
+preparation emits schema 2.
 Invalid evidence or an insufficient critic quorum prevents judge dispatch; unknown
 or duplicate upheld IDs cannot produce acceptance. Model output alone cannot
 authorize execution, writes, routing or spending.

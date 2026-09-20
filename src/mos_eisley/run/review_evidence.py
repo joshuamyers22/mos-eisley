@@ -21,10 +21,10 @@ from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_responses import response_from_payload
 from mos_eisley.providers.openai_spend import CountedTransport
+from mos_eisley.review.citations import validate_evidence
 from mos_eisley.review.pipeline import (
     critic_quorum_met,
     judge_findings,
-    validate_evidence,
     validate_roster,
 )
 from mos_eisley.run.broker_audit import BrokerOutcome
@@ -163,7 +163,7 @@ def _critic_evidence(
             pass  # A complete but invalid model answer cannot satisfy quorum.
         else:
             try:
-                validate_evidence(request.brief, critique.findings)
+                validate_evidence(request, critique.findings)
             except ValueError:
                 result = CriticResult(
                     critic=critic, status="error", error="invalid_evidence"

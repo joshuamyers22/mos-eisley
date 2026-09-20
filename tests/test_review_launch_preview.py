@@ -10,7 +10,8 @@ from test_review_guidance_admission import GuidedBrokerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
-from mos_eisley.core.models import ReviewPolicy, canonical_bytes
+from mos_eisley.core.models import CriticRequest, ReviewPolicy, canonical_bytes
+from mos_eisley.core.protocol import TextBlock
 from mos_eisley.core.registry import openai_registry
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
@@ -95,6 +96,14 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             result.conformance_status, "review_controller_conformance_required"
         )
         request = result.preview.requests[0]
+        critic_input = "".join(
+            block.text
+            for block in request.turns[0].blocks
+            if isinstance(block, TextBlock)
+        )
+        critic_request = CriticRequest.model_validate_json(critic_input)
+        self.assertEqual(critic_request.schema_version, 2)
+        self.assertTrue(critic_request.citation_units)
         self.assertEqual(request.max_output, 64_000)
         self.assertEqual(request.max_text_output_bytes, 8_000)
         self.assertEqual(request.max_output_tokens, 100)

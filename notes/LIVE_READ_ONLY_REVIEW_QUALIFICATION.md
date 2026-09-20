@@ -62,18 +62,19 @@
 | 2026-09-20 | accounting | The final campaign settled its two critic entries at 4,875 and 5,047 micro-USD. The unused 20,916-micro-USD judge reservation remains held; attempt 1 reports 30,838 micro-USD charged/retained and 31,910 available. Attempts 2–3 and launch ledgers remain empty. With the earlier campaigns, 146,412 micro-USD is conservatively unresolved; actual provider billing is not reconciled. | Final ledger `63ec8aa…`, critic receipts and prior ledgers | Do not release or reuse the held entry. Treat 9,922 micro-USD as locally settled under the pricing policy, not as an invoice statement. |
 | 2026-09-20 | cleanup | Both final-campaign critic containers have lifecycle result `removed`, and no matching remaining Docker container was found. The owning operator process exited, discarding its ephemeral signing-key reference. | Two lifecycle result records and filtered Docker inventory | Preserve private evidence; no campaign continuation or replacement is authorized. |
 | 2026-09-20 | offline correction | Exact retained-shape inspection found 4,243/2,680 visible UTF-8 bytes inside the 8,617/8,221-byte canonical responses. Current code now independently seals an 8,000-byte answer cap and 64,000-byte canonical envelope while preserving the 4,096-token/spend ceiling; both historical shapes parse and validate offline. | `docs/REVIEW_RESPONSE_BUDGET_FIX_VERIFICATION.md`; focused/broad tests; private read-only replay | Keep every historical completion receipt and the terminal qualification result unchanged. This grants no campaign or provider authority. |
+| 2026-09-20 | offline correction | The final finding's multiline postimage quote was exact within one diff hunk but could not be an exact raw-patch substring because raw continuation lines carry `+` markers. Current code adds opt-in schema-2 content-bound raw/before/after hunk units and exact single-unit validation while preserving schema-1 bytes and semantics. | `docs/REVIEW_CITATION_FIDELITY_FIX_VERIFICATION.md`; ADR-0006; focused, broad, full and container gates | Keep the failed campaign and every retained artifact unchanged. This grants no campaign or provider authority. |
 
 ## Handoff
 
 - Current state: all three sealed campaigns failed in attempt 1 and are non-retryable.
   The single-use final-campaign exception is consumed, every owning process exited,
   and no production launch authority exists. The final failure is a local mismatch
-  between the 4,000-byte canonical-response ceiling and canonical responses that
-  retained encrypted reasoning. Current code corrects that contract offline, but the
-  sealed campaign and qualification remain terminally failed.
-- Next smallest safe action: stop the live qualification. A separate offline change
-  may correct and adversarially test the response-budget contract, but this work note
-  grants no new provider run or campaign replacement.
+  exposed both a canonical-response budget mismatch and a raw-patch citation-model
+  mismatch. Current code corrects both contracts offline, but the sealed campaign and
+  qualification remain terminally failed.
+- Next smallest safe action: stop the live qualification. The response-budget and
+  citation-fidelity contracts have been corrected and adversarially tested offline,
+  but this work note grants no new provider run or campaign replacement.
 - Required operational inputs: none for this closed qualification. Any future live
   qualification would require new owner direction and a newly reviewed plan; it cannot
   reuse these seals, ledgers, policies, reservations or process keys. Single-operator

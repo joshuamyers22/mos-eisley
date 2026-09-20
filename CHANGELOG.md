@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add versioned, content-bound review citation units for unified diffs. New
+  production critic requests bind exact raw/before/after hunk views while rejecting
+  stale IDs, normalization and cross-hunk splicing; schema-1 requests remain
+  byte-compatible for historical replay.
+
 - Separate the review model's sealed 8,000-byte visible-text limit from its bounded
   64,000-byte canonical response envelope, preserving provider token/spend ceilings
   while allowing bounded opaque reasoning and retaining exact-limit failure handling.

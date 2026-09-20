@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Text = Annotated[str, Field(min_length=1, max_length=8000)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Identifier = Annotated[str, Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$")]
+CitationUnitId = Annotated[
+    str, Field(pattern=r"^diff\.(raw|before|after)\.[0-9a-f]{64}$")
+]
 
 
 class Contract(BaseModel):
@@ -69,6 +72,9 @@ class Brief(Contract):
 class Evidence(Contract):
     kind: Literal["citation"] = "citation"
     source: Literal["spec", "diff", "constraints"]
+    source_unit: CitationUnitId | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     quote: Annotated[str, Field(min_length=1, max_length=4000)]
     explanation: Text
 
@@ -95,10 +101,26 @@ class CriticSpec(Contract):
     persona: Text
 
 
+class CitationUnit(Contract):
+    id: CitationUnitId
+    source: Literal["diff"] = "diff"
+    view: Literal["raw", "before", "after"]
+    locator: Annotated[str, Field(min_length=1, max_length=4096)]
+
+
 class CriticRequest(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     brief: Brief
     persona: Text
+    citation_units: Annotated[tuple[CitationUnit, ...], Field(max_length=2049)] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
+
+    @model_validator(mode="after")
+    def versioned_citations(self) -> Self:
+        if (self.schema_version == 1) != (not self.citation_units):
+            raise ValueError("critic request citation contract does not match version")
+        return self
 
 
 class Critique(Contract):
