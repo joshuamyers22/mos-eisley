@@ -30,7 +30,8 @@ remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 
-**Session-shape adoption, 2026-09-13 — G0 implemented; G1 planned:** implement
+**Session-shape adoption, 2026-09-14 — G0 and the recorded G1 lifecycle
+implemented; sealed G1 readings pending:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
 through the existing controller and private store. G0 freezes work-unit and
 checkpoint schemas, measurement definitions, offline guidance/tool-profile
@@ -83,9 +84,12 @@ requires complete exact-task decisions and exposes only selected schemas without
 starting servers or enabling dispatch. A claim-bound
 [changed-tree replacement-verification boundary](TASK_STATE_REPLACEMENT_VERIFICATION.md)
 now replaces stale historical passes with evidence bound to the exact claimed live
-tree before atomic checkpoint publication. G1 remains incomplete pending stale-
-approval handling and the final composite conversation/review/cancel-resume
-demonstration.
+tree before atomic checkpoint publication. Expiring and revocable continuation
+approvals and the final composite conversation/review/cancel-resume demonstration
+are implemented and accepted in [the bounded G1 slice](G1_ADMISSION_SLICE.md). The
+recorded lifecycle portion of G1 is complete; the full G1 milestone remains
+incomplete pending the sealed independent plan-reading experiment required by the
+delivery table and plan §26.4.
 
 The acceptance demonstration completes a milestone, writes a concise private
 checkpoint, continues in fresh context, detects changed repository/test state and

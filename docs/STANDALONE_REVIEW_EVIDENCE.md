@@ -10,7 +10,8 @@ the owning host already holds.
 The bundle reuses the validated `CampaignAttempt` and `CampaignAttemptSubmission`
 contracts and therefore retains:
 
-- the exact launch configuration and critic preview;
+- the exact launch configuration and critic preview, including the configured
+  visible-text output limit;
 - the authority and observation policies;
 - the controller start and conditional judge preview;
 - both signed phase authorizations;
@@ -25,10 +26,12 @@ to `false`. It contains no provider credential and grants no new authority.
 
 `retain_standalone_review_evidence` canonicalizes and decodes the bundle with
 duplicate-key and size checks, reconstructs the dispatch-refusing reviewer from the
-exact configuration, authenticates the signed observation, reconstructs the pinned
-result from the ledger and run artifacts, and verifies every approved runtime
-exchange and cleanup record. Only after all checks pass does it exclusively create
-a mode-0600 file in an existing private owner-controlled directory.
+exact configuration and its response limits, authenticates the signed observation,
+reconstructs the pinned result from the ledger and run artifacts, and verifies every
+approved runtime exchange and cleanup record. A configuration whose response limit
+would project different critic or judge requests fails closed. Only after all checks
+pass does it exclusively create a mode-0600 file in an existing private
+owner-controlled directory.
 
 The output must be an absolute new path outside the review run and worker lifecycle
 directories. Existing files are never replaced. Verification failure writes

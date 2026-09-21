@@ -124,8 +124,10 @@
   See `docs/PROJECT_REVIEW_2026-09-08.md` and plan §26 for findings, dependencies,
   sample-size feasibility, and remaining runtime gates. The G0 offline record,
   cumulative-measurement, profile-diagnostic and private-replay contracts are now
-  implemented with deterministic negative fixtures. G1 runtime lifecycle behavior
-  and later gates remain planned; see `docs/G0_MILESTONE_REVIEW.md`.
+  implemented with deterministic negative fixtures. The bounded recorded G1 runtime
+  lifecycle and its composite acceptance demonstration are implemented; the sealed
+  independent plan-reading experiment and later gates remain planned. See
+  `docs/G1_ADMISSION_SLICE.md` and `docs/ROADMAP.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

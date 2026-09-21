@@ -132,6 +132,12 @@ live host -> review application -> canonical contracts
   observation, result pin, ledger path, and ordered lifecycle paths. It authenticates
   before an exclusive mode-0600 write and rejects duplicate keys, oversize input,
   tampering, unsafe permissions, overwrites, and placement inside runtime evidence.
+- Q-010 preflight follow-up: corrected. Fresh retest preparation found that campaign
+  reconstruction did not pass the retained `max_text_output_bytes` value to the
+  dispatch-refusing reviewer. An 8,000-byte live preview could therefore be checked
+  after execution against a 4,000-byte reconstructed request. Reconstruction now
+  binds the exact configured limit for critic and judge projections, and a changed
+  limit is rejected before any live effect.
 - Historical boundary: none of these changes alter the live `reject` or reconstruct
   the inputs its harness omitted.
 - New blocking findings: none in the corrected scope.

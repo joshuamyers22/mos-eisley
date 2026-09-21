@@ -1,6 +1,6 @@
 # Work Note: structured review output and quorum resilience
 
-- Status: closed after post-live correction
+- Status: offline correction verified; awaiting immutable commit
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-20
 - Last updated (UTC): 2026-09-20
@@ -48,19 +48,24 @@
 | 2026-09-20 | implementation | Hardened every object node, distinguished omitted `properties` from explicit malformed values, allowed only controller-verified quorum-tolerated critic errors past observation construction, and added a no-dispatch standalone replay bundle that verifies before exclusive private retention. | source, ADR-0007, model/probe/standalone evidence docs | run focused, complete package, container, and adversarial gates |
 | 2026-09-20 | verification | The deterministic one-invalid-of-three path retains the failed slot, reaches the judge, signs/authenticates the four-exchange observation, writes a mode-0600 bundle, decodes and replays it from disk, and rejects tamper, duplicate, oversize, overwrite, public-parent, and runtime-directory cases. | focused test and 164-test review suite | complete repository gates |
 | 2026-09-20 | verification | Clean `make check` passed Ruff, formatting, Pyright, 2,476 source tests with four skips, 89% coverage, export/build checks, and 1,852 installed-wheel tests. `make container` rebuilt image `sha256:2cf85409…` and passed every offline smoke suite. An earlier unrestricted run had one transient missing runtime-start fixture; its exact test and the complete rerun passed. | complete gate output and exact reproduction | close Q-008–Q-010 offline; preserve the historical live reject |
+| 2026-09-20 | pre-live correction | Fresh retest preflight found that `campaign_reviewer` omitted the retained 8,000-byte visible-text limit and reconstructed requests with the 4,000-byte default. No credential, reservation, container, or provider request occurred. The reconstruction now passes the exact launch limit, fixtures declare their actual preview limit, and configuration substitution has a direct regression. | 29 focused campaign/runtime-evidence tests | run the complete gate before creating a new immutable retest revision |
+| 2026-09-20 | verification | The post-correction unrestricted `make check` passed Ruff, formatting, Pyright, 2,477 source tests with four skips, 89% coverage, export verification, sdist/wheel builds, and 1,853 installed-wheel tests. The sandbox-only attempt was stopped after localhost fixtures confirmed socket binding was denied. | complete gate output | review and commit the correction, then rebuild the production image from the immutable revision |
 
 ## Handoff
 
-- Current state: the live retest is immutable and rejected; Q-008–Q-010 are corrected
-  and verified offline for current/future runs. No credential or provider access is
-  authorized.
-- Next smallest safe action: review and commit this offline correction. Any later live
-  work requires wholly fresh planning and authority.
+- Current state: the live retest is immutable and rejected; the fresh retest preflight
+  exposed and corrected an exact reconstruction gap before any live effect. No
+  credential or provider access is authorized. The complete repository gate passes.
+- Next smallest safe action: review and commit this offline correction, then rebuild
+  the production image and create wholly fresh live inputs. Any later live work
+  requires wholly fresh planning and authority.
 - Blocker and required authority/input: none for offline work; any paid rerun would
   require wholly fresh authority and is outside this correction.
 - Checks already run: focused schema and lifecycle tests, 164 broad review tests,
   Ruff, formatting, Pyright, 2,476 complete source tests with four skips and 89%
-  coverage, 1,852 installed-wheel tests, and all container smoke tests.
+  coverage, 1,852 installed-wheel tests, and all container smoke tests for the prior
+  iteration; after V-006, 29 focused tests plus 2,477 complete source tests with four
+  skips, 89% coverage, export/build checks, and 1,853 installed-wheel tests pass.
 
 ## Close and promote
 

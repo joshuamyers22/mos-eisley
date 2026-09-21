@@ -424,6 +424,8 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
         signed = sign_review_probe_observation(
             observation, "observer", self.observer_key
         )
+        output_limit = self.preview.requests[0].max_text_output_bytes
+        assert output_limit is not None
         configuration = ReviewLaunchConfiguration(
             registry=openai_registry(),
             critics=tuple(
@@ -434,6 +436,7 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
             judge_spending=self.base.policy,
             effort="medium",
             budget=BudgetPolicy(max_output_tokens=100),
+            max_text_output_bytes=output_limit,
             policy=review_policy,
             total_seconds=30,
             max_total_microusd=1_300,
