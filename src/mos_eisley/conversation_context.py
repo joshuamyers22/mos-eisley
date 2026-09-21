@@ -40,11 +40,7 @@ class ContextTurnSource(Contract):
 
 class ContextOmission(Contract):
     position: Position
-    reason: Literal[
-        "after_target",
-        "no_completed_answer_or_required_link",
-        "replaced_by_author_compaction",
-    ]
+    reason: Literal["after_target", "no_completed_answer_or_required_link"]
 
 
 class ContextSelection(Contract):
@@ -54,25 +50,26 @@ class ContextSelection(Contract):
         tuple[ContextTurnSource, ...], Field(min_length=1, max_length=31)
     ]
     omitted: Annotated[tuple[ContextOmission, ...], Field(max_length=15)]
-    compaction_sha256: Digest | None = Field(
+    compaction_id: Digest | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    compacted_through: Position | None = Field(
-        default=None, exclude_if=lambda value: value is None
+    compacted_positions: Annotated[tuple[Position, ...], Field(max_length=16)] = Field(
+        default=(), exclude_if=lambda value: not value
     )
 
     @model_validator(mode="after")
-    def versioned_compaction(self) -> Self:
-        compacted = self.compaction_sha256 is not None
-        if (
-            compacted != (self.compacted_through is not None)
-            or compacted != (self.policy_version == 2)
-            or (
-                self.compacted_through is not None
-                and self.compacted_through >= self.message_index
-            )
+    def consistent_compaction(self) -> Self:
+        compacted = self.compacted_positions
+        if self.policy_version == 1:
+            if self.compaction_id is not None or compacted:
+                raise ValueError("selection policy 1 cannot contain compaction")
+        elif (
+            self.compaction_id is None
+            or not compacted
+            or compacted != tuple(range(compacted[-1] + 1))
+            or compacted[-1] >= self.message_index
         ):
-            raise ValueError("context selection compaction metadata is inconsistent")
+            raise ValueError("selection policy 2 requires an exact earlier prefix")
         return self
 
 
@@ -84,6 +81,14 @@ class ContextProjection(NamedTuple):
 def describe_selection(selection: ContextSelection) -> list[str]:
     """Describe source positions without accessing message or artifact content."""
     lines: list[str] = []
+    if selection.compaction_id is not None:
+        positions = ", ".join(
+            str(position) for position in selection.compacted_positions
+        )
+        lines.append(
+            f"Author compaction {selection.compaction_id} reconstructs message(s) "
+            f"{positions} from retained originals."
+        )
     for turn, source in enumerate(selection.turn_sources):
         positions = ", ".join(str(position) for position in source.positions)
         lines.append(f"Turn {turn}: {source.role} from message(s) {positions}.")
@@ -91,8 +96,6 @@ def describe_selection(selection: ContextSelection) -> list[str]:
         reason = (
             "after the selected message"
             if omission.reason == "after_target"
-            else "replaced by validated author compaction"
-            if omission.reason == "replaced_by_author_compaction"
             else "no completed answer or required steering link"
         )
         lines.append(f"Omitted message {omission.position}: {reason}.")
@@ -112,12 +115,8 @@ class ContextBudgetError(ValueError):
         )
 
 
-def context_turns(
-    entries: Sequence[ContextMessage],
-    index: int,
-    compaction: AuthorCompaction | None = None,
-) -> tuple[Turn, ...]:
-    return project_context(entries, index, compaction).turns
+def context_turns(entries: Sequence[ContextMessage], index: int) -> tuple[Turn, ...]:
+    return project_context(entries, index).turns
 
 
 def project_context(
@@ -133,6 +132,9 @@ def project_context(
     """
     if not 0 <= index < len(entries) <= 16:
         raise ValueError("invalid conversation context position or message count")
+    compacted_through = -1 if compaction is None else compaction.compacted_through
+    if compacted_through >= index:
+        raise ValueError("author compaction cannot cover the selected message")
     for position, entry in enumerate(entries[: index + 1]):
         if entry.steering_for is not None and not 0 <= entry.steering_for < position:
             raise ValueError("context steering must refer to an earlier message")
@@ -142,30 +144,16 @@ def project_context(
         while (target := entries[position].steering_for) is not None and entries[
             target
         ].status != "completed":
+            if target <= compacted_through:
+                break
             positions.append(target)
             position = target
         return tuple(reversed(positions))
 
-    active_compaction = (
-        compaction
-        if compaction is not None and index >= compaction.source.target_position
-        else None
-    )
     sources: list[ContextTurnSource] = []
-    turns: list[Turn] = []
-    start = 0
-    if active_compaction is not None:
-        boundary = active_compaction.source.target_position
-        retained = active_compaction.manifest.retained_user_positions
-        sources.extend(
-            (
-                ContextTurnSource(role="user", positions=retained),
-                ContextTurnSource(role="assistant", positions=retained),
-            )
-        )
-        turns.extend(active_compaction.compacted_turns)
-        start = boundary
-    for position, entry in enumerate(entries[start:index], start=start):
+    for position, entry in enumerate(
+        entries[compacted_through + 1 : index], start=compacted_through + 1
+    ):
         if entry.status == "completed" and entry.answer is not None:
             sources.extend(
                 (
@@ -175,36 +163,26 @@ def project_context(
             )
     sources.append(ContextTurnSource(role="user", positions=user_positions(index)))
     selected = {position for source in sources for position in source.positions}
+    compacted = set(range(compacted_through + 1))
     selection = ContextSelection(
-        policy_version=2 if active_compaction is not None else 1,
+        policy_version=2 if compaction is not None else 1,
         message_index=index,
         turn_sources=tuple(sources),
         omitted=tuple(
             ContextOmission(
                 position=position,
-                reason=(
-                    "after_target"
-                    if position > index
-                    else "replaced_by_author_compaction"
-                    if active_compaction is not None
-                    and position < active_compaction.source.target_position
-                    else "no_completed_answer_or_required_link"
-                ),
+                reason="after_target"
+                if position > index
+                else "no_completed_answer_or_required_link",
             )
             for position in range(len(entries))
-            if position not in selected
+            if position not in selected and position not in compacted
         ),
-        compaction_sha256=(
-            None if active_compaction is None else active_compaction.sha256
-        ),
-        compacted_through=(
-            None
-            if active_compaction is None
-            else active_compaction.source.target_position - 1
-        ),
+        compaction_id=None if compaction is None else compaction.compaction_id,
+        compacted_positions=tuple(sorted(compacted)),
     )
-    source_offset = 2 if active_compaction is not None else 0
-    for source in sources[source_offset:]:
+    turns: list[Turn] = []
+    for source in sources:
         blocks: list[TextBlock] = []
         for position in source.positions:
             text = (
