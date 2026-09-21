@@ -245,35 +245,34 @@ and critic/judge workflows retain their existing tool-free boundaries.
   a scrollable transcript, review details and persistent status.
 - An [explicit recorded review inside the conversation](docs/CONVERSATION_REVIEW.md),
   with isolated critic requests, retained review evidence and contextual follow-ups.
-  The [G1 lifecycle acceptance](docs/G1_CONVERSATION_LIFECYCLE.md) composes that
-  frozen review path with claimed task state, terminal cancellation and passive
-  same-session resume without replay.
 - Immutable, versioned Pydantic contracts with strict input validation.
 - [G0 bounded task-state contracts](docs/G0_MILESTONE_REVIEW.md) for clauses,
   decisions, outcomes, work units, milestone checkpoints, reproducible lossy views,
   cumulative context accounting, offline instruction/tool diagnostics and private
-  content-addressed replay. G1 adds explicit one-session
-  [fresh-context continuation](docs/TASK_STATE_CONTINUATION.md) with live Git/file
-  freshness, stale-test disclosure and
-  [stale-approval rejection](docs/TASK_STATE_APPROVAL_FRESHNESS.md) plus advisory-only
-  [context-pressure indicators](docs/CONTEXT_PRESSURE.md) in `/status` and `/context`;
-  neither grants execution authority. G1 also provides explicit
-  [validated author compaction](docs/AUTHOR_COMPACTION.md), with exact private
-  reconstruction, lineage/freshness checks and hard overflow rollback; it is never
-  available to critic or judge contexts and grants no authority. A
-  [validated semantic task discovery](docs/TASK_SEMANTIC_DISCOVERY.md) can select one
-  frozen author profile for exact queued text while keeping its private objective,
-  source excerpts and reasons out of the request.
-- A schema-only [runtime tool-catalog selector](docs/TASK_TOOL_CATALOG.md) pins an
-  approved catalog and exact task decision, exposes only selected canonical schemas,
-  and fails closed on stale catalogs or required/unavailable tools. It starts no
-  servers and enables no dispatch.
-- A claim-bound
-  [changed-tree replacement verifier](docs/TASK_STATE_REPLACEMENT_VERIFICATION.md)
-  supersedes stale historical passes only when newly supplied passing evidence binds
-  the exact claimed live workspace and input state, then publishes the completed
-  checkpoint through the immutable archive and atomic current pointer. It executes
-  no command and grants no authority.
+  content-addressed replay. A G0 archive does not enable continuation by itself.
+- [G1 scoped conversation admission](docs/G1_SCOPED_ADMISSION.md) now validates an
+  injected task profile against exact conversation scope, instruction bytes and the
+  trusted tool catalog before saving or dispatch. Admissions distinguish reusable
+  memory from temporary task state and expose only selected schema-bound tools.
+- [G1 work-unit-owned profile acquisition](docs/G1_WORK_UNIT_PROFILE_ACQUISITION.md)
+  now binds exact selected instruction bytes and profile policy to a checkpoint work
+  unit, reconstructs them from the private archive before dispatch, selects only
+  matching trusted tool schemas, and freezes text-free schema-6 provenance.
+- [G1 checkpoint closure](docs/G1_CHECKPOINT_CLOSURE.md) now atomically publishes
+  private, content-addressed task-state revisions against an expected checkpoint
+  head and retains only a scope-bound, text-free receipt in conversation state.
+- [G1 fresh-context continuation](docs/G1_FRESH_CONTEXT_CONTINUATION.md) now binds
+  one exact next action to one fresh session through a private idempotent claim,
+  bounded checkpoint context and pre-dispatch workspace/test revalidation.
+- [G1 visible author compaction](docs/G1_AUTHOR_COMPACTION.md) now commits at most
+  three advancing, source-bound derivatives, reconstructs them from retained
+  originals, preserves exact user instructions and steering, discloses omissions,
+  and freezes schema-4 request provenance.
+- [G1 advisory context pressure](docs/G1_CONTEXT_PRESSURE.md) now reports exact
+  per-category bytes, capacity, boundary growth, substantial tool results, repeated
+  reads, compactions, and explicitly unavailable provider-token counts in `/context`
+  and `/status`; bounded threshold events never stop, compact, delegate, request
+  approval, or grant authority.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

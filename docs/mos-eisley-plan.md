@@ -1635,6 +1635,9 @@ details, a multiline composer, and the persistent status line specified in §16.
 The main transcript distinguishes user input, assistant progress, final answers,
 and approval requests. Model and effort changes apply to subsequent eligible
 calls, retain the conversation, and remain subject to provider policy and budget.
+The embedded terminal-emulator pane and its background-process lifecycle are a
+post-Windows product phase defined in §30; they are not part of the initial
+conversation TUI or the v1 diff-panel gate.
 
 Illustrative interaction once review and write capabilities are available:
 
@@ -4146,6 +4149,42 @@ roadmap or wait for deferred executable doctor/SecretRef subsystems. A G3 study 
 evaluate available policies incrementally; label unavailable arms and keep live
 quality/savings claims behind their applicable provider and measurement gates.
 
+**Implementation status, 2026-09-21:** the six G1 implementation slices are complete.
+At the conversation request boundary, a scope-bound profile is revalidated
+against its selected instruction bytes, offline diagnostics and the current trusted
+tool catalog before persistence or dispatch; only its selected schema-bound tools
+are exposed. Schema-2 admissions separately classify reusable user/project memory,
+stable task instructions and temporary task state while retaining text-free profile
+provenance. Durable milestones, objective changes and deliberate handoffs now close
+through a private scope-bound checkpoint store with revision/hash compare-and-swap,
+content-addressed replay and an atomic current head; conversation state retains only
+a text-free receipt and admission does not treat it as memory. Explicit
+fresh-context continuation now binds one advertised next work unit to one fresh
+session through an atomic, idempotent claim; it reproduces bounded context and
+rechecks the current head, workspace and passing verification inputs immediately
+before every dispatch. Changed state stops without consuming an attempt, while
+lineage and cumulative context/resource baselines remain intact. Visible author
+compaction now binds an advancing settled prefix, exact user instructions and
+steering, source-backed advisory material, explicit omissions and prior lineage;
+strict load reconstructs it from retained originals, while schema-4 admission and
+context preview expose the exact derivative used. Versioned advisory pressure now
+partitions the complete request into exact byte categories, reports capacity and
+growth from explicit lifecycle boundaries, counts executed substantial results and
+duplicate reads, and keeps local token estimates distinct from unavailable provider
+counts. `/context`, `/status`, the TUI and schema-5/6 admission expose the same bounded
+metadata; threshold events grant no authority and cannot stop, compact, delegate or
+request approval. The default recorded CLI gains no ambient tool authority.
+Continued work units now bind an exact acquisition-ready profile in the private
+schema-2 task bundle. Claim and dispatch reconstruct its selected instruction bytes,
+diagnostics and policy binding from the current checkpoint archive, admit only exact
+matching trusted tool schemas, and retain text-free checkpoint/bundle provenance in
+schema-6 request admission. Legacy bundles remain readable but cannot acquire an
+unbound profile. See
+`docs/G1_SCOPED_ADMISSION.md`, `docs/G1_CHECKPOINT_CLOSURE.md` and
+`docs/G1_FRESH_CONTEXT_CONTINUATION.md` and
+`docs/G1_AUTHOR_COMPACTION.md`, `docs/G1_CONTEXT_PRESSURE.md` and
+`docs/G1_WORK_UNIT_PROFILE_ACQUISITION.md`.
+
 ### 26.5 Required adversarial acceptance matrix
 
 | Boundary | Required negative cases |
@@ -4438,3 +4477,114 @@ conflicts, denied permissions, failed/interrupted downloads, tampered archives,
 unsupported platforms, pinned/offline installation and state-preserving uninstall.
 Exercise npm/Homebrew ownership and switching explicitly; mocks or a source-tree
 launch cannot substitute for a successful installed-package journey.
+
+## 30. Post-Windows embedded terminal emulator
+
+**User-directed addition, 2026-09-20 — planned after Windows and update
+qualification.** Add an integrated terminal-emulator pane to the conversational
+TUI so a user can start a server, test watcher, build, REPL or other interactive
+command, hide the pane, continue chatting or switch sessions, and return to the
+same live terminal. This is a user-facing process surface, not a new model tool or
+an authority shortcut.
+
+Begin this phase only after native Windows parity in §27, guided updates and safe
+restart in §28, and the supported installation journeys in §29 are qualified on
+the advertised platforms. The terminal must reuse those platform process,
+credential, storage, update and recovery contracts rather than introducing a
+POSIX-only lifecycle after Windows support has shipped.
+
+### 30.1 Terminal and session model
+
+- A conversation may own multiple named terminals. Each terminal is bound at
+  creation to the owning user, conversation, exact workspace/worktree, canonical
+  working directory, environment policy, sandbox policy and process supervisor.
+  Switching the visible chat, repository, worktree or directory never retargets an
+  existing terminal.
+- Provide terminal create, list, show/hide, focus, rename, interrupt, terminate and
+  close actions through the TUI and equivalent explicit CLI operations. Display
+  command/process state, working directory, worktree, elapsed time and exit status.
+  Closing a pane is not termination; destructive termination identifies the exact
+  process tree and requires confirmation when useful work may be lost.
+- A terminal and its descendants continue while its pane is hidden and while the
+  user works in another chat. Completion, failure and approval-needed transitions
+  produce bounded, deduplicated notices without stealing composer focus. Apply
+  owner and resource limits to the total number of terminals and background jobs.
+- UI disconnect, application exit, session archive, worktree removal and machine
+  restart have distinct semantics. A supervised terminal may be explicitly left
+  running for later reattachment while its local supervisor remains healthy; never
+  claim that a process survived when only its transcript did. On restart, represent
+  unrecoverable processes as exited or unknown and preserve their last verified
+  output and identity. Worktree cleanup and updates must detect attached and
+  detached terminal processes before mutation.
+- Use a real PTY on qualified macOS/Linux and WSL2 paths and ConPTY or the reviewed
+  native equivalent on Windows. Preserve terminal size, resize events, UTF-8 input,
+  bracketed paste and ordinary interactive control behavior without assuming POSIX
+  signals or file-descriptor APIs on Windows.
+
+### 30.2 Chat integration and authority
+
+- The terminal pane sits beside or below the conversation and composes with the
+  v1 diff panel. Opening, hiding, resizing or changing focus preserves the chat
+  draft, transcript position, diff selection and active agent task. Narrow layouts
+  use an explicit focused view rather than silently discarding panes or input.
+- Terminal input and output are not ambient model context. A user may attach a
+  bounded, immutable command/output selection to a prompt; record terminal ID,
+  process identity, stream interval, exit state, byte range, omissions and digest.
+  Later output cannot alter an admitted attachment. Treat terminal content as
+  untrusted data and apply the normal request/context and secret-egress controls.
+- User typing into a terminal does not authorize an agent to type there. Model
+  access requires a separate, visible, narrowly scoped capability and continues to
+  use the normal tool classification, approval and sandbox policy. By default,
+  agents use structured tools or the EXEC shell tool and cannot inject keystrokes,
+  answer prompts, read another terminal, or adopt the terminal's environment.
+- A command started by an agent remains attributable to the exact agent/tool call
+  even when its output is displayed in a terminal pane. A user-started command is
+  never relabeled as agent verification evidence merely because the agent can see
+  an attached excerpt.
+
+### 30.3 Isolation, output and process lifecycle
+
+- Launch every terminal under the selected execution profile with a minimized
+  environment, scoped filesystem and network access, non-inherited credentials and
+  file descriptors/handles, private scratch space and enforced CPU, memory, PID,
+  disk, output and wall-time limits. Refuse terminal creation when the selected
+  backend cannot enforce the advertised profile; never fall back silently to an
+  unrestricted host shell.
+- Supervise the complete descendant tree with process groups/cgroups or Windows Job
+  Objects. Interrupt, timeout, termination, update and shutdown must account for
+  descendants and report uncertain effects when cleanup cannot be verified. A
+  background process cannot escape cancellation by daemonizing or closing the PTY.
+- Store live output in a bounded private spool with backpressure, rotation and
+  explicit omission markers. Rendering must safely handle hostile escape sequences,
+  OSC clipboard/title/hyperlink controls, binary output, floods and invalid text.
+  Persist only policy-approved transcript segments and metadata under the session's
+  retention limits; terminal scrollback is not automatically a conversation record.
+- Serialize operations that conflict within one checkout and coordinate shared Git
+  metadata through the trusted broker. Independent terminals in isolated worktrees
+  may run concurrently within aggregate host and task limits. No terminal receives
+  Docker/container sockets, SSH-agent sockets, provider credentials or another
+  terminal's spool unless a trusted policy explicitly mounts that capability.
+- The §28 updater treats live terminals as active work: show exact affected
+  terminals, save allowed state, and require an explicit stop or supported detach
+  decision before replacement. An update must not replay commands or manufacture a
+  new process as though it were the old terminal.
+
+### 30.4 Delivery and acceptance
+
+Deliver the process-supervisor and terminal identity contracts first, then the
+single-pane emulator, multiple named/background terminals, chat attachments and
+cross-session navigation. Add model-mediated terminal input only as a separately
+gated capability after the user-only terminal lifecycle is proven. Desktop pop-out
+windows, remote terminal hosting and multi-user terminal sharing remain outside
+this phase.
+
+Acceptance requires packaged-installation tests on qualified macOS, Linux, WSL2 and
+native Windows targets. Cover interactive shells, REPLs, test watchers and local
+servers; hidden-pane progress; two simultaneous worktree sessions; reattachment;
+resize, Unicode and bracketed paste; bounded scrollback and output floods; hostile
+escape sequences; stdin backpressure; exit, interrupt and descendant cleanup;
+client disconnect, crash, update and machine restart; stale workspace/worktree
+identity; denied filesystem/network/credential access; cross-user and cross-terminal
+isolation; attachment integrity and omissions; and continued chat, steering, diff
+navigation and cancellation while terminals run. Platform mocks may supplement but
+cannot replace real PTY and ConPTY evidence.

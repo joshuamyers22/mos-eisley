@@ -26,7 +26,7 @@ from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
-from mos_eisley.conversation_context_pressure import ContextPressurePolicy
+from mos_eisley.conversation_context_preview import pressure_status
 from mos_eisley.conversation_directory import (
     DirectoryPicker,
     DirectorySelection,
@@ -134,7 +134,6 @@ class ConversationTUI:
         load_artifact: Callable[[str], ArtifactContent] | None = None,
         input: Input | None = None,
         output: Output | None = None,
-        pressure_policy: ContextPressurePolicy | None = None,
     ) -> None:
         self.controller = controller
         self.review_packet = review_packet
@@ -148,7 +147,6 @@ class ConversationTUI:
         )
         self.refresh_memory = refresh_memory
         self.memory_command = memory_command
-        self.pressure_policy = pressure_policy
         self.history = (
             None
             if load_transcript is None
@@ -410,11 +408,20 @@ class ConversationTUI:
             else f"{self.controller.pending_text_bytes}/"
             f"{self.controller.pending_limits.max_bytes} queued text bytes • "
         )
+        pressure = pressure_status(state, self.controller.context_pressure_policy)
+        pressure_text = (
+            "pressure unmeasured"
+            if pressure.latest_request is None
+            else "pressure "
+            f"{pressure.latest_request.request_usage_basis_points / 100:.1f}%"
+        )
         return (
             f" fixture/tool-reviewer-v1 • high • tools off • {phase} • "
             f"{queued} queued • {state.exchanges_consumed}/"
             f"{len(self.controller.cassette.exchanges)} attempts • "
-            f"{pending}{usage} recorded bytes "
+            f"{pending}{usage} recorded bytes • {pressure_text} • "
+            f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
+            f"{pressure.repeated_reads_since_boundary} repeated reads "
         )
 
     def refresh(self) -> None:
@@ -485,8 +492,6 @@ class ConversationTUI:
                 else (
                     "Context preview is stale; run /context again."
                     if self.context_command == "/context"
-                    else "Status report is stale; run /status again."
-                    if self.context_command == "/status"
                     else "Saved admission view is stale; "
                     f"run {self.context_command} again."
                 )
@@ -579,15 +584,6 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
-        if event["type"] == "conversation.compacted":
-            if self.history:
-                self.history.close()
-            self.context_preview = None
-            self.memory_visible = self.directory_visible = False
-            self.memory_report = None
-            self.set_notice(str(event["text"]))
-            self.refresh()
-            return
         if event["type"] in {
             "conversation.context",
             "conversation.context_admission",
@@ -613,7 +609,7 @@ class ConversationTUI:
             self.context_command = command
             self.memory_visible = self.directory_visible = False
             self.memory_report = None
-            self.set_notice(f"Inspection report toggled. {command} shows or hides it.")
+            self.set_notice(f"Context report toggled. {command} shows or hides it.")
             self.refresh()
             return
         if event["type"] in {
@@ -800,7 +796,6 @@ class ConversationTUI:
                 switch_directory=self.switch_directory
                 if self.allow_directory_switch
                 else None,
-                pressure_policy=self.pressure_policy,
             )
         )
         screen = asyncio.create_task(self.app.run_async(set_exception_handler=False))

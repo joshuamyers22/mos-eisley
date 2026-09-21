@@ -1,26 +1,13 @@
-"""Diagnostics and inert materialization for task-scoped request profiles."""
+"""Offline diagnostics for task-scoped instruction and tool manifests."""
 
 from __future__ import annotations
 
-import json
-from typing import Annotated, Literal, Protocol, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
-from mos_eisley.core.protocol import ToolCallBlock, ToolDefinition, ToolResultBlock
 from mos_eisley.task_state import OwnerProjectScope, WorkUnitReference
-
-TaskCategory = Literal[
-    "implementation",
-    "debugging",
-    "verification",
-    "review",
-    "documentation",
-    "research",
-    "maintenance",
-    "other",
-]
 
 
 class InstructionProfileEntry(Contract):
@@ -34,6 +21,13 @@ class InstructionProfileEntry(Contract):
     selection_reason: Annotated[str, Field(min_length=1, max_length=1000)]
     location: Literal["root", "nested", "reference"]
     classification: Literal["stable_rule", "temporary_state", "unknown"]
+
+
+class TaskInstructionContent(Contract):
+    """Exact private bytes selected by one task-profile instruction entry."""
+
+    rule_id: Identifier
+    text: Annotated[str, Field(min_length=1, max_length=32_000)]
 
 
 class ToolProfileEntry(Contract):
@@ -131,6 +125,67 @@ class TaskProfileManifest(Contract):
     @property
     def sha256(self) -> str:
         return digest(canonical_bytes(self))
+
+
+class WorkUnitOwnedTaskProfile(Contract):
+    """A work-unit profile plus its exact selected private instruction bytes."""
+
+    schema_version: Literal[1] = 1
+    manifest: TaskProfileManifest
+    instructions: Annotated[
+        tuple[TaskInstructionContent, ...], Field(max_length=128)
+    ] = ()
+
+    @model_validator(mode="after")
+    def exact_instruction_materialization(self) -> Self:
+        selected = tuple(item for item in self.manifest.instructions if item.selected)
+        if tuple(item.rule_id for item in selected) != tuple(
+            item.rule_id for item in self.instructions
+        ):
+            raise ValueError(
+                "instruction content must match selected profile IDs and order"
+            )
+        for entry, content in zip(selected, self.instructions, strict=True):
+            payload = content.text.encode("utf-8")
+            if len(payload) != entry.bytes or digest(payload) != entry.content_sha256:
+                raise ValueError(
+                    f"instruction content does not match profile entry {entry.rule_id}"
+                )
+        return self
+
+
+class WorkUnitProfileAcquisition(Contract):
+    """Text-free provenance for a profile selected by a checkpoint work unit."""
+
+    schema_version: Literal[1] = 1
+    checkpoint_id: Identifier
+    checkpoint_revision: Annotated[int, Field(ge=1)]
+    checkpoint_sha256: Digest
+    bundle_revision: Annotated[int, Field(ge=1)]
+    bundle_sha256: Digest
+    work_unit: WorkUnitReference
+    profile_id: Identifier
+    profile_sha256: Digest
+    grants_authority: Literal[False] = False
+
+
+class AcquiredWorkUnitProfile(Contract):
+    """Runtime-only material and the private archive identity that supplied it."""
+
+    profile: WorkUnitOwnedTaskProfile
+    acquisition: WorkUnitProfileAcquisition
+
+    @model_validator(mode="after")
+    def exact_source(self) -> Self:
+        manifest = self.profile.manifest
+        source = self.acquisition
+        if (
+            source.work_unit != manifest.work_unit
+            or source.profile_id != manifest.profile_id
+            or source.profile_sha256 != manifest.sha256
+        ):
+            raise ValueError("acquired profile differs from its work-unit source")
+        return self
 
 
 class ProfileDiagnostic(Contract):
@@ -309,325 +364,3 @@ def diagnose_task_profile(manifest: TaskProfileManifest) -> ProfileDiagnosticRep
         status=status,
         diagnostics=tuple(diagnostics),
     )
-
-
-class MaterializedInstruction(Contract):
-    """Approved instruction content kept out of the persisted profile manifest."""
-
-    rule_id: Identifier
-    content: Annotated[str, Field(min_length=1, max_length=64_000)]
-
-
-class TaskSemanticDiscoveryEvidence(Contract):
-    """Text-free binding for one validated semantic profile decision."""
-
-    schema_version: Literal[1] = 1
-    discovery_source_sha256: Digest
-    decision_sha256: Digest
-    task_text_sha256: Digest
-    category: TaskCategory
-    selected_profile_id: Identifier
-    candidate_profile_ids: Annotated[
-        tuple[Identifier, ...], Field(min_length=1, max_length=16)
-    ]
-    omitted_profile_ids: Annotated[tuple[Identifier, ...], Field(max_length=15)] = ()
-    grants_authority: Literal[False] = False
-
-    @model_validator(mode="after")
-    def exact_candidate_partition(self) -> Self:
-        if len(set(self.candidate_profile_ids)) != len(self.candidate_profile_ids):
-            raise ValueError("semantic discovery candidate IDs must be unique")
-        if self.selected_profile_id not in self.candidate_profile_ids:
-            raise ValueError("semantic discovery selected profile is not a candidate")
-        expected = tuple(
-            item
-            for item in self.candidate_profile_ids
-            if item != self.selected_profile_id
-        )
-        if self.omitted_profile_ids != expected:
-            raise ValueError("semantic discovery omissions do not cover all candidates")
-        return self
-
-
-class RuntimeToolCatalogEvidence(Contract):
-    """Text-free binding for one approved runtime catalog decision."""
-
-    schema_version: Literal[1] = 1
-    catalog_source_sha256: Digest
-    selection_source_sha256: Digest
-    catalog_id: Identifier
-    catalog_revision: Annotated[int, Field(ge=1)]
-    decision_sha256: Digest
-    task_text_sha256: Digest
-    selected_tool_ids: Annotated[tuple[Identifier, ...], Field(max_length=64)] = ()
-    omitted_tool_ids: Annotated[tuple[Identifier, ...], Field(max_length=128)] = ()
-    schema_only: Literal[True] = True
-    starts_servers: Literal[False] = False
-    grants_authority: Literal[False] = False
-
-    @model_validator(mode="after")
-    def exact_partition(self) -> Self:
-        tool_ids = (*self.selected_tool_ids, *self.omitted_tool_ids)
-        if len(set(tool_ids)) != len(tool_ids):
-            raise ValueError("runtime tool-catalog evidence IDs must be unique")
-        return self
-
-
-class TaskProfileAcquisitionEvidence(Contract):
-    """Text-free provenance for one automatically acquired author profile."""
-
-    schema_version: Literal[1] = 1
-    kind: Literal["frozen_role_context"] = "frozen_role_context"
-    selection_source_sha256: Digest
-    role_context_snapshot_sha256: Digest
-    role_context_sha256: Digest
-    assessment_snapshot_sha256: Digest
-    policy_source_sha256: Digest
-    role: Literal["creator", "coder"]
-    omitted_requirement_ids: Annotated[
-        tuple[Identifier, ...], Field(max_length=64)
-    ] = ()
-    semantic_discovery: TaskSemanticDiscoveryEvidence | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    tool_catalog: RuntimeToolCatalogEvidence | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    grants_authority: Literal[False] = False
-
-    @model_validator(mode="after")
-    def unique_omissions(self) -> Self:
-        if len(set(self.omitted_requirement_ids)) != len(self.omitted_requirement_ids):
-            raise ValueError("acquired profile requirement omissions must be unique")
-        return self
-
-
-class RuntimeTaskProfile(Contract):
-    """Exact selected prompt material with schema-only, non-executable tools."""
-
-    manifest: TaskProfileManifest
-    instructions: Annotated[
-        tuple[MaterializedInstruction, ...], Field(max_length=128)
-    ] = ()
-    tool_definitions: Annotated[tuple[ToolDefinition, ...], Field(max_length=64)] = ()
-    acquisition: TaskProfileAcquisitionEvidence | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def exact_selected_material(self) -> Self:
-        selected_instructions = tuple(
-            item for item in self.manifest.instructions if item.selected
-        )
-        if any(
-            item.classification == "temporary_state" for item in selected_instructions
-        ):
-            raise ValueError(
-                "temporary task state cannot be materialized as an instruction"
-            )
-        if tuple(item.rule_id for item in self.instructions) != tuple(
-            item.rule_id for item in selected_instructions
-        ):
-            raise ValueError(
-                "materialized instructions differ from the selected profile inventory"
-            )
-        for materialized, selected in zip(
-            self.instructions, selected_instructions, strict=True
-        ):
-            payload = materialized.content.encode("utf-8")
-            if len(payload) != selected.bytes or digest(payload) != (
-                selected.content_sha256
-            ):
-                raise ValueError(
-                    "materialized instruction differs from its selected profile entry"
-                )
-
-        selected_tools = tuple(item for item in self.manifest.tools if item.selected)
-        if tuple(item.name for item in self.tool_definitions) != tuple(
-            item.tool_id for item in selected_tools
-        ):
-            raise ValueError(
-                "materialized tool schemas differ from the selected profile inventory"
-            )
-        for definition, selected in zip(
-            self.tool_definitions, selected_tools, strict=True
-        ):
-            payload = canonical_bytes(definition)
-            if len(payload) != selected.schema_bytes or digest(payload) != (
-                selected.schema_sha256
-            ):
-                raise ValueError(
-                    "materialized tool schema differs from its selected profile entry"
-                )
-
-        if diagnose_task_profile(self.manifest).status == "fail":
-            raise ValueError("a failing task profile cannot enter a model request")
-        if (
-            self.acquisition is not None
-            and self.acquisition.policy_source_sha256 != self.manifest.policy_sha256
-        ):
-            raise ValueError("acquired profile policy differs from its manifest")
-        if (
-            self.acquisition is not None
-            and self.acquisition.semantic_discovery is not None
-            and (
-                self.acquisition.semantic_discovery.selected_profile_id
-                != self.manifest.profile_id
-                or self.acquisition.semantic_discovery.discovery_source_sha256
-                != self.acquisition.selection_source_sha256
-            )
-        ):
-            raise ValueError("semantic discovery evidence differs from its profile")
-        if self.acquisition is not None and self.acquisition.tool_catalog is not None:
-            evidence = self.acquisition.tool_catalog
-            selected = tuple(
-                item.tool_id for item in self.manifest.tools if item.selected
-            )
-            omitted = tuple(
-                item.tool_id for item in self.manifest.tools if not item.selected
-            )
-            if (
-                evidence.selected_tool_ids != selected
-                or evidence.omitted_tool_ids != omitted
-                or (
-                    self.acquisition.semantic_discovery is not None
-                    and evidence.task_text_sha256
-                    != self.acquisition.semantic_discovery.task_text_sha256
-                )
-            ):
-                raise ValueError(
-                    "runtime tool-catalog evidence differs from its profile"
-                )
-        return self
-
-    @property
-    def definitions(self) -> tuple[ToolDefinition, ...]:
-        return self.tool_definitions
-
-    @property
-    def system_suffix(self) -> str:
-        if not self.instructions:
-            return ""
-        content = [
-            {"rule_id": item.rule_id, "content": item.content}
-            for item in self.instructions
-        ]
-        return (
-            "\nApproved task-scoped guidance follows as JSON. It narrows behavior "
-            "but grants no tools, credentials, spending, or other authority.\n"
-            + json.dumps(content, ensure_ascii=False, separators=(",", ":"))
-        )
-
-    async def dispatch(self, call: ToolCallBlock) -> ToolResultBlock:
-        raise ValueError(
-            "task-profile tool schemas are descriptive and grant no execution authority"
-        )
-
-
-class TaskProfileAcquirer(Protocol):
-    def acquire(
-        self, *, owner_uid: int, workspace: str, task_text: str | None = None
-    ) -> RuntimeTaskProfile: ...
-
-
-class TaskProfileAdmission(Contract):
-    """Text-free binding between one selected profile and one model request."""
-
-    schema_version: Literal[1] = 1
-    manifest: TaskProfileManifest
-    report: ProfileDiagnosticReport
-    request_sha256: Digest
-    reusable_memory_context_sha256: Digest | None = None
-    temporary_task_state_sha256: Digest | None = None
-    acquisition: TaskProfileAcquisitionEvidence | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    grants_authority: Literal[False] = False
-    tool_execution_enabled: Literal[False] = False
-
-    @model_validator(mode="after")
-    def reproducible_safe_profile(self) -> Self:
-        if diagnose_task_profile(self.manifest) != self.report:
-            raise ValueError("admitted task-profile diagnostics do not reproduce")
-        if self.report.status == "fail":
-            raise ValueError("a failing task profile cannot be admitted")
-        if (
-            self.acquisition is not None
-            and self.acquisition.policy_source_sha256 != self.manifest.policy_sha256
-        ):
-            raise ValueError("acquired profile policy differs from its admission")
-        if (
-            self.acquisition is not None
-            and self.acquisition.semantic_discovery is not None
-            and (
-                self.acquisition.semantic_discovery.selected_profile_id
-                != self.manifest.profile_id
-                or self.acquisition.semantic_discovery.discovery_source_sha256
-                != self.acquisition.selection_source_sha256
-            )
-        ):
-            raise ValueError("semantic discovery evidence differs from its profile")
-        if self.acquisition is not None and self.acquisition.tool_catalog is not None:
-            evidence = self.acquisition.tool_catalog
-            selected = tuple(
-                item.tool_id for item in self.manifest.tools if item.selected
-            )
-            omitted = tuple(
-                item.tool_id for item in self.manifest.tools if not item.selected
-            )
-            if (
-                evidence.selected_tool_ids != selected
-                or evidence.omitted_tool_ids != omitted
-                or (
-                    self.acquisition.semantic_discovery is not None
-                    and evidence.task_text_sha256
-                    != self.acquisition.semantic_discovery.task_text_sha256
-                )
-            ):
-                raise ValueError(
-                    "runtime tool-catalog evidence differs from its admission"
-                )
-        return self
-
-
-def admit_task_profile(
-    profile: RuntimeTaskProfile,
-    *,
-    request_sha256: str,
-    reusable_memory_context_sha256: str | None,
-    temporary_task_state_sha256: str | None = None,
-) -> TaskProfileAdmission:
-    validated = RuntimeTaskProfile.model_validate(profile.model_dump())
-    return TaskProfileAdmission(
-        manifest=validated.manifest,
-        report=diagnose_task_profile(validated.manifest),
-        request_sha256=request_sha256,
-        reusable_memory_context_sha256=reusable_memory_context_sha256,
-        temporary_task_state_sha256=temporary_task_state_sha256,
-        acquisition=validated.acquisition,
-    )
-
-
-def conversation_workspace_sha256(workspace: str) -> str:
-    return digest(
-        b"mos-eisley/conversation-workspace-scope/v1\x00" + workspace.encode("utf-8")
-    )
-
-
-def validate_task_profile_scope(
-    profile: RuntimeTaskProfile, *, owner_uid: int, workspace: str
-) -> None:
-    validated = RuntimeTaskProfile.model_validate(profile.model_dump())
-    validate_task_profile_manifest_scope(
-        validated.manifest, owner_uid=owner_uid, workspace=workspace
-    )
-
-
-def validate_task_profile_manifest_scope(
-    manifest: TaskProfileManifest, *, owner_uid: int, workspace: str
-) -> None:
-    scope = manifest.scope
-    if scope.owner_uid != owner_uid or scope.workspace_sha256 != (
-        conversation_workspace_sha256(workspace)
-    ):
-        raise ValueError("task profile belongs to a different conversation scope")

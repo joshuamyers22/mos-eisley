@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from mos_eisley.conversation_context import Position, describe_selection
+from mos_eisley.conversation_pressure import describe_pressure
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_state import RuntimeConversationState, SessionID, Status
 from mos_eisley.core.models import Contract
@@ -43,96 +44,81 @@ class AdmissionInspection(Contract):
             "Saved memory selected at admission."
             if saved.memory_selected
             else "No saved memory selected at admission.",
-            f"Context SHA-256: {saved.context_sha256}",
-            f"Request SHA-256: {request.sha256}",
-            *describe_selection(saved.selection),
-            "Positions describe messages present at admission; later submissions "
-            "are outside this record.",
         ]
         if saved.task_profile is not None:
             profile = saved.task_profile
             lines.extend(
                 (
-                    f"Task profile: {profile.manifest.profile_id}; "
-                    f"work unit {profile.manifest.work_unit.work_unit_id}@"
-                    f"{profile.manifest.work_unit.revision}; "
-                    f"diagnostics {profile.report.status}.",
-                    f"Task profile SHA-256: {profile.manifest.sha256}",
-                    "Reusable memory source: "
-                    + (profile.reusable_memory_context_sha256 or "none"),
-                    "Temporary task-state source: "
-                    + (profile.temporary_task_state_sha256 or "none"),
-                    "Selected tool schemas grant no execution authority.",
+                    f"Task profile: {profile.profile_id}; work unit "
+                    f"{profile.work_unit.work_unit_id} revision "
+                    f"{profile.work_unit.revision}.",
+                    f"Selected task inputs: {len(profile.selected_instruction_ids)} "
+                    f"instruction(s), {len(profile.selected_tool_ids)} tool(s); "
+                    f"{len(profile.warning_codes)} visible warning type(s).",
+                    f"Task profile SHA-256: {profile.profile_sha256}",
                 )
             )
             if profile.acquisition is not None:
                 acquisition = profile.acquisition
                 lines.extend(
                     (
-                        f"Automatically acquired {acquisition.role} guidance from "
-                        f"role-context snapshot "
-                        f"{acquisition.role_context_snapshot_sha256}.",
-                        f"Role-context SHA-256: {acquisition.role_context_sha256}",
-                        f"Selection source SHA-256: "
-                        f"{acquisition.selection_source_sha256}",
+                        "Profile acquisition: work-unit-owned checkpoint "
+                        f"{acquisition.checkpoint_id} revision "
+                        f"{acquisition.checkpoint_revision}.",
+                        f"Task bundle SHA-256: {acquisition.bundle_sha256}",
                     )
                 )
-                if acquisition.semantic_discovery is not None:
-                    discovery = acquisition.semantic_discovery
-                    lines.extend(
-                        (
-                            f"Validated semantic discovery: {discovery.category}; "
-                            f"selected {discovery.selected_profile_id} from "
-                            f"{len(discovery.candidate_profile_ids)} candidate(s).",
-                            f"Discovery decision SHA-256: {discovery.decision_sha256}",
-                            f"Queued-task SHA-256: {discovery.task_text_sha256}",
-                        )
-                    )
-                if acquisition.tool_catalog is not None:
-                    catalog = acquisition.tool_catalog
-                    candidate_count = len(catalog.selected_tool_ids) + len(
-                        catalog.omitted_tool_ids
-                    )
-                    lines.extend(
-                        (
-                            f"Runtime tool catalog: {catalog.catalog_id}@"
-                            f"{catalog.catalog_revision}; selected "
-                            f"{len(catalog.selected_tool_ids)} of "
-                            f"{candidate_count} candidate(s).",
-                            f"Tool decision SHA-256: {catalog.decision_sha256}",
-                            "Schemas are request-scoped; tool execution remains "
-                            "disabled.",
-                        )
-                    )
-        if saved.task_state is not None:
-            task_state = saved.task_state
+        if saved.task_continuation is not None:
+            continuation = saved.task_continuation
             lines.extend(
                 (
-                    f"Task-state bundle: {task_state.bundle_sha256}; "
-                    f"revision {task_state.bundle_revision}.",
-                    f"Checkpoint: {task_state.checkpoint_id}@"
-                    f"{task_state.checkpoint_revision}; SHA-256 "
-                    f"{task_state.checkpoint_sha256}.",
-                    f"Current work unit: "
-                    f"{task_state.current_work_unit.work_unit_id}@"
-                    f"{task_state.current_work_unit.revision}.",
-                    f"Task-state context SHA-256: {task_state.context_sha256}; "
-                    f"{task_state.context_bytes} bytes.",
-                    f"Current-selection source SHA-256: "
-                    f"{task_state.acquisition.selection_source_sha256}.",
-                    "Evidence views omitted from prompt: "
-                    + (
-                        ", ".join(task_state.acquisition.omitted_evidence_view_ids)
-                        or "none"
-                    )
-                    + ".",
-                    "Live workspace freshness is not yet verified; continuation "
-                    "is not enabled.",
+                    f"Continuation claim: {continuation.claim_id}; checkpoint "
+                    f"{continuation.checkpoint_id} revision "
+                    f"{continuation.checkpoint_revision}.",
+                    f"Selected continuation work unit: "
+                    f"{continuation.selected_work_unit.work_unit_id} revision "
+                    f"{continuation.selected_work_unit.revision}.",
+                    f"Fresh-context SHA-256: {continuation.context_sha256}",
                 )
             )
-        lines.append(
-            "Saved admission is not proof of transmission or provider receipt. "
-            "Read-only inspection; no work started."
+        if saved.author_compaction is not None:
+            compaction = saved.author_compaction
+            lines.extend(
+                (
+                    f"Author compaction: {compaction.compaction_id}; revision "
+                    f"{compaction.revision}; messages 0-"
+                    f"{compaction.compacted_through} reconstructed.",
+                    f"Compaction view: {compaction.before_bytes} source bytes → "
+                    f"{compaction.after_bytes} model-visible bytes; grants no "
+                    "authority.",
+                )
+            )
+        if saved.pressure is not None:
+            lines.extend(describe_pressure(saved.pressure, saved.pressure_advisory))
+        classification = saved.context_classification
+        if classification is not None:
+            lines.append(
+                "Context classes: "
+                f"{len(classification.reusable_memory)} reusable memory source(s), "
+                f"{len(classification.task_instruction_ids)} task instruction(s), "
+                f"{len(classification.temporary_task_state_ids)} temporary-state "
+                "item(s); "
+                + (
+                    f"checkpoint claim {classification.continuation_claim_id} selected."
+                    if classification.checkpoint_selected
+                    else "no checkpoint selected."
+                )
+            )
+        lines.extend(
+            (
+                f"Context SHA-256: {saved.context_sha256}",
+                f"Request SHA-256: {request.sha256}",
+                *describe_selection(saved.selection),
+                "Positions describe messages present at admission; later submissions "
+                "are outside this record.",
+                "Saved admission is not proof of transmission or provider receipt. "
+                "Read-only inspection; no work started.",
+            )
         )
         return "\n".join(lines)
 

@@ -4,22 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Generic
+from typing import Generic, Protocol
 from uuid import uuid4
 
 from typing_extensions import TypeVar
 
 from mos_eisley.conversation_compaction import (
-    MAX_AUTHOR_COMPACTIONS,
     AuthorCompaction,
     AuthorCompactionDraft,
-    build_author_compaction,
+    compaction_system,
+    create_author_compaction,
 )
 from mos_eisley.conversation_context import (
     admit_context,
-    context_turns,
     project_context,
 )
 from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
@@ -29,7 +28,19 @@ from mos_eisley.conversation_memory import (
     memory_system,
 )
 from mos_eisley.conversation_pending import PendingTextLimits, pending_text_bytes
-from mos_eisley.conversation_request_admission import record_admission
+from mos_eisley.conversation_pressure import (
+    ContextPressureBreakdown,
+    ContextPressurePolicy,
+    ContextPressureSnapshot,
+    assess_context_pressure,
+    build_pressure_snapshot,
+    make_pressure_boundary,
+    measure_pressure_activity,
+)
+from mos_eisley.conversation_request_admission import (
+    AuthorCompactionAdmission,
+    record_admission,
+)
 from mos_eisley.conversation_review import (
     REVIEW_PROMPT,
     ConversationReviewPacket,
@@ -52,13 +63,18 @@ from mos_eisley.conversation_state import (
     ConversationState as ConversationState,
 )
 from mos_eisley.conversation_state import (
-    ConversationTaskStateContext as ConversationTaskStateContext,
-)
-from mos_eisley.conversation_state import (
     SessionID as SessionID,
 )
 from mos_eisley.conversation_state import (
     Status as Status,
+)
+from mos_eisley.conversation_task_profile import (
+    ScopedTaskProfile,
+    ScopedToolDispatcher,
+    admit_fresh_continuation,
+    admit_scoped_profile,
+    classify_context,
+    continuation_system,
 )
 from mos_eisley.core.agent import (
     AgentConfig,
@@ -68,26 +84,25 @@ from mos_eisley.core.agent import (
     run_agent,
 )
 from mos_eisley.core.budget import Budget, resolve_budget
-from mos_eisley.core.models import canonical_fingerprint
-from mos_eisley.core.ports import ModelClient
+from mos_eisley.core.models import canonical_bytes, canonical_fingerprint, digest
+from mos_eisley.core.ports import ModelClient, ToolDispatcher
 from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.providers.agent_recorded import AgentCassette, RecordedAgentClient
-from mos_eisley.task_profile import (
-    RuntimeTaskProfile,
-    TaskProfileAcquirer,
-    admit_task_profile,
-    validate_task_profile_scope,
+from mos_eisley.run.task_checkpoint_store import (
+    CheckpointClosureError,
+    CheckpointClosureReason,
+    ClaimedContinuation,
+    ContinuationClaimError,
+    ResolvedContinuation,
 )
-from mos_eisley.task_state_acquisition import (
-    RuntimeTaskState,
-    TaskStateAcquirer,
-    admit_task_state,
-    validate_task_state_scope,
-)
-from mos_eisley.task_state_continuation import (
-    GitWorkspaceInspector,
-    WorkspaceInspector,
+from mos_eisley.run.task_state_store import TaskStateBundle
+from mos_eisley.task_state import (
+    ContinuationSelection,
+    OwnerProjectScope,
+    TaskCheckpointHead,
+    TaskContinuationClaim,
+    WorkspaceState,
 )
 from mos_eisley.tools.none import NoToolsDispatcher
 
@@ -95,44 +110,106 @@ from mos_eisley.tools.none import NoToolsDispatcher
 def conversation_config(
     turns: tuple[Turn, ...],
     memory: ConversationMemory | None = None,
-    task_profile: RuntimeTaskProfile | None = None,
-    task_state: RuntimeTaskState | None = None,
+    *,
+    task_system: str = "",
+    tools_enabled: bool = False,
 ) -> AgentConfig:
     return AgentConfig(
         provider="fixture",
         model="tool-reviewer-v1",
         effort="high",
-        system=(
-            "Continue the conversation using only its explicit text history."
-            if memory is None
-            else "Use the conversation's explicit history and saved context."
-        )
-        + ("" if task_profile is None else task_profile.system_suffix)
-        + ("" if task_state is None else task_state.system_suffix)
-        + memory_system(memory),
+        system=conversation_base_system(memory) + memory_system(memory) + task_system,
         initial_turns=turns,
-        max_iterations=1,
-        max_tool_calls=0,
+        max_iterations=8 if tools_enabled else 1,
+        max_tool_calls=32 if tools_enabled else 0,
+    )
+
+
+def conversation_base_system(memory: ConversationMemory | None) -> str:
+    return (
+        "Continue the conversation using only its explicit text history."
+        if memory is None
+        else "Use the conversation's explicit history and saved context."
     )
 
 
 def prepare_conversation_request(
-    config: AgentConfig, task_profile: RuntimeTaskProfile | None = None
+    config: AgentConfig, dispatcher: ToolDispatcher | None = None
 ) -> tuple[ModelRequest, Budget]:
     """Build the complete fixture request and resolve its local byte budget."""
     resolved = fixture_registry().resolve(config.provider, config.model, config.effort)
     budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
-    dispatcher = NoToolsDispatcher() if task_profile is None else task_profile
-    request = build_request(config, resolved, budget, dispatcher, config.initial_turns)
+    request = build_request(
+        config,
+        resolved,
+        budget,
+        NoToolsDispatcher() if dispatcher is None else dispatcher,
+        config.initial_turns,
+    )
     return request, budget
 
 
 def context_for(state: RuntimeConversationState, index: int) -> tuple[Turn, ...]:
-    compaction = state.author_compactions[-1] if state.author_compactions else None
-    return context_turns(state.entries, index, compaction)
+    compaction = None if not state.author_compactions else state.author_compactions[-1]
+    return project_context(state.entries, index, compaction).turns
 
 
 StateT = TypeVar("StateT", bound=RuntimeConversationState, default=ConversationState)
+
+
+class CheckpointCloser(Protocol):
+    def __call__(
+        self,
+        bundle: TaskStateBundle,
+        artifacts: Mapping[str, bytes],
+        *,
+        expected_revision: int,
+        reason: CheckpointClosureReason = "completed_milestone",
+    ) -> TaskCheckpointHead: ...
+
+
+class ContinuationClaimer(Protocol):
+    def __call__(
+        self,
+        selection: ContinuationSelection,
+        *,
+        session_id: str,
+        observed_workspace: WorkspaceState,
+    ) -> ClaimedContinuation: ...
+
+
+class ContinuationResolver(Protocol):
+    def __call__(
+        self,
+        claim: TaskContinuationClaim,
+        *,
+        observed_workspace: WorkspaceState,
+    ) -> ResolvedContinuation: ...
+
+
+def _latest_pressure_snapshot(
+    state: RuntimeConversationState,
+) -> ContextPressureSnapshot | None:
+    return next(
+        (
+            entry.request_admission.pressure
+            for entry in reversed(state.entries)
+            if entry.request_admission is not None
+            and entry.request_admission.pressure is not None
+        ),
+        None,
+    )
+
+
+def _pressure_boundary_position(state: RuntimeConversationState) -> int:
+    return next(
+        (
+            position
+            for position, entry in enumerate(state.entries)
+            if entry.status in {"queued", "running"}
+        ),
+        len(state.entries),
+    )
 
 
 class ConversationController(Generic[StateT]):
@@ -154,16 +231,15 @@ class ConversationController(Generic[StateT]):
         | None = None,
         input_limits: ActiveInputLimits | None = None,
         pending_limits: PendingTextLimits | None = None,
-        task_profile: RuntimeTaskProfile | None = None,
-        task_profile_acquirer: TaskProfileAcquirer | None = None,
-        task_state: RuntimeTaskState | None = None,
-        task_state_acquirer: TaskStateAcquirer | None = None,
-        compaction_workspace_inspector: WorkspaceInspector | None = None,
+        task_scope: OwnerProjectScope | None = None,
+        resolve_task_profile: Callable[[int], ScopedTaskProfile | None] | None = None,
+        tool_dispatcher: ToolDispatcher | None = None,
+        close_task_checkpoint: CheckpointCloser | None = None,
+        claim_task_continuation: ContinuationClaimer | None = None,
+        resolve_task_continuation: ContinuationResolver | None = None,
+        observe_task_workspace: Callable[[], WorkspaceState] | None = None,
+        context_pressure_policy: ContextPressurePolicy | None = None,
     ) -> None:
-        if task_profile is not None and task_profile_acquirer is not None:
-            raise ValueError("choose a fixed or automatically acquired task profile")
-        if task_state is not None and task_state_acquirer is not None:
-            raise ValueError("choose fixed or automatically acquired task state")
         if input_limits is not None:
             input_limits.admit_memory(state.memory)
         recording = canonical_fingerprint(cassette)
@@ -173,6 +249,54 @@ class ConversationController(Generic[StateT]):
             raise ValueError("resume requires the exact recorded cassette")
         if state.exchanges_consumed > len(cassette.exchanges):
             raise ValueError("cassette does not cover saved attempts")
+        if task_scope is None and (
+            resolve_task_profile is not None
+            or tool_dispatcher is not None
+            or close_task_checkpoint is not None
+            or claim_task_continuation is not None
+            or resolve_task_continuation is not None
+            or observe_task_workspace is not None
+        ):
+            raise ValueError("task runtime dependencies require an expected scope")
+        if tool_dispatcher is not None and (
+            resolve_task_profile is None and resolve_task_continuation is None
+        ):
+            raise ValueError("task tools require a profile acquisition path")
+        continuation_dependencies = (
+            claim_task_continuation,
+            resolve_task_continuation,
+            observe_task_workspace,
+        )
+        if any(item is not None for item in continuation_dependencies) and not all(
+            item is not None for item in continuation_dependencies
+        ):
+            raise ValueError("continuation runtime dependencies must be complete")
+        if (
+            task_scope is not None
+            and resolve_task_profile is None
+            and close_task_checkpoint is None
+            and claim_task_continuation is None
+        ):
+            raise ValueError(
+                "task scope requires a profile resolver or checkpoint store"
+            )
+        if task_scope is not None and (
+            task_scope.owner_uid != state.owner_uid
+            or task_scope.workspace_sha256 != digest(state.workspace.encode("utf-8"))
+        ):
+            raise ValueError("task scope does not match the conversation workspace")
+        if (
+            task_scope is not None
+            and state.task_checkpoint is not None
+            and state.task_checkpoint.scope != task_scope
+        ):
+            raise ValueError("saved checkpoint does not match the selected task scope")
+        if (
+            context_pressure_policy is not None
+            and state.context_pressure_policy is not None
+            and context_pressure_policy != state.context_pressure_policy
+        ):
+            raise ValueError("context-pressure policy differs from saved session")
         self.state = state
         self.cassette = cassette
         self.save = save
@@ -181,39 +305,18 @@ class ConversationController(Generic[StateT]):
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
-        if task_profile is not None:
-            validate_task_profile_scope(
-                task_profile, owner_uid=state.owner_uid, workspace=state.workspace
-            )
-        if task_state is not None:
-            validate_task_state_scope(
-                task_state, owner_uid=state.owner_uid, workspace=state.workspace
-            )
-            if task_state.acquisition.continuation_claimed:
-                raise ValueError(
-                    "claimed continuation requires its live acquisition boundary"
-                )
-        if (
-            task_profile is not None
-            and task_state is not None
-            and task_profile.manifest.work_unit
-            != task_state.current_work_unit.reference
-        ):
-            raise ValueError("task profile and task state select different work")
-        self.task_profile = task_profile
-        self.task_profile_acquirer = task_profile_acquirer
-        self.task_state = task_state
-        self.task_state_acquirer = task_state_acquirer
-        self.compaction_workspace_inspector = (
-            compaction_workspace_inspector or GitWorkspaceInspector()
+        self.task_scope = task_scope
+        self.resolve_task_profile = resolve_task_profile
+        self.tool_dispatcher = tool_dispatcher
+        self.close_task_checkpoint = close_task_checkpoint
+        self.claim_task_continuation = claim_task_continuation
+        self.resolve_task_continuation = resolve_task_continuation
+        self.observe_task_workspace = observe_task_workspace
+        self.context_pressure_policy = (
+            context_pressure_policy
+            or state.context_pressure_policy
+            or ContextPressurePolicy()
         )
-        if task_state_acquirer is not None:
-            task_state_acquirer.validate_launch(
-                session_id=state.session_id,
-                has_history=bool(state.entries),
-                owner_uid=state.owner_uid,
-                workspace=state.workspace,
-            )
         self._busy = False
         self._broken = False
         if any(entry.status == "running" for entry in state.entries):
@@ -225,54 +328,6 @@ class ConversationController(Generic[StateT]):
                     for entry in state.entries
                 )
             )
-
-    def acquire_task_profile(
-        self, *, task_text: str | None = None
-    ) -> RuntimeTaskProfile | None:
-        profile = self.task_profile
-        if self.task_profile_acquirer is not None:
-            if task_text is None:
-                queued = next(
-                    (
-                        entry
-                        for entry in self.state.entries
-                        if entry.status == "queued" and not entry.is_review
-                    ),
-                    None,
-                )
-                if queued is not None:
-                    task_text = queued.text
-                elif self.state.author_compactions:
-                    position = self.state.author_compactions[-1].source.target_position
-                    task_text = self.state.entries[position].text
-            profile = self.task_profile_acquirer.acquire(
-                owner_uid=self.state.owner_uid,
-                workspace=self.state.workspace,
-                task_text=task_text,
-            )
-        if profile is not None:
-            validate_task_profile_scope(
-                profile,
-                owner_uid=self.state.owner_uid,
-                workspace=self.state.workspace,
-            )
-        return profile
-
-    def acquire_task_state(self) -> RuntimeTaskState | None:
-        task_state = self.task_state
-        if self.task_state_acquirer is not None:
-            task_state = self.task_state_acquirer.acquire(
-                owner_uid=self.state.owner_uid,
-                workspace=self.state.workspace,
-                session_id=self.state.session_id,
-            )
-        if task_state is not None:
-            validate_task_state_scope(
-                task_state,
-                owner_uid=self.state.owner_uid,
-                workspace=self.state.workspace,
-            )
-        return task_state
 
     @staticmethod
     def fresh(
@@ -286,6 +341,7 @@ class ConversationController(Generic[StateT]):
         snapshot_max_bytes: int | None = None,
         context_max_bytes: int | None = None,
         input_limits: ActiveInputLimits | None = None,
+        context_pressure_policy: ContextPressurePolicy | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -305,6 +361,7 @@ class ConversationController(Generic[StateT]):
             memory_project_mapping=memory_project_mapping,
             snapshot_max_bytes=snapshot_max_bytes,
             context_max_bytes=context_max_bytes,
+            context_pressure_policy=context_pressure_policy,
         )
 
     def _update(
@@ -329,13 +386,17 @@ class ConversationController(Generic[StateT]):
                     self.state.exchanges_consumed if consumed is None else consumed
                 ),
                 entries=entries,
-                author_compactions=self.state.author_compactions,
                 memory=self.state.memory,
                 memory_disabled=self.state.memory_disabled,
                 retained_cassette=self.state.retained_cassette,
                 builtin_recording=self.state.builtin_recording,
                 snapshot_max_bytes=self.state.snapshot_max_bytes,
                 context_max_bytes=self.state.context_max_bytes,
+                task_checkpoint=self.state.task_checkpoint,
+                task_continuation=self.state.task_continuation,
+                author_compactions=self.state.author_compactions,
+                context_pressure_policy=self.context_pressure_policy,
+                context_pressure_boundary=self.state.context_pressure_boundary,
             )
         )
         self._commit(updated)
@@ -407,13 +468,17 @@ class ConversationController(Generic[StateT]):
                     revision=self.state.revision + 1,
                     exchanges_consumed=consumed,
                     entries=entries,
-                    author_compactions=self.state.author_compactions,
                     memory=memory,
                     memory_disabled=disabled,
                     retained_cassette=cassette,
                     cassette_sha256=recording.sha256,
                     builtin_recording=builtin,
                     context_max_bytes=self.state.context_max_bytes,
+                    task_checkpoint=self.state.task_checkpoint,
+                    task_continuation=self.state.task_continuation,
+                    author_compactions=self.state.author_compactions,
+                    context_pressure_policy=self.context_pressure_policy,
+                    context_pressure_boundary=self.state.context_pressure_boundary,
                     snapshot_max_bytes=(
                         self.state.snapshot_max_bytes
                         if snapshot_max_bytes is None
@@ -460,141 +525,250 @@ class ConversationController(Generic[StateT]):
         if maximum != self.state.context_max_bytes:
             self._commit(updated)
 
-    def compact_author_context(self, draft: AuthorCompactionDraft) -> AuthorCompaction:
-        """Validate and save an explicit author compaction without dispatching."""
-        if self._busy or any(entry.status == "running" for entry in self.state.entries):
-            raise ValueError("stop active work before compacting author context")
-        if len(self.state.author_compactions) >= MAX_AUTHOR_COMPACTIONS:
-            raise ValueError(
-                "author compaction limit reached; continue in a fresh session"
-            )
-        index = next(
-            (
-                position
-                for position, entry in enumerate(self.state.entries)
-                if entry.status == "queued"
-            ),
-            None,
-        )
-        if index is None or self.state.entries[index].is_review:
-            raise ValueError("author compaction requires a queued author message")
-        previous = (
-            self.state.author_compactions[-1] if self.state.author_compactions else None
-        )
-        if previous is not None and index <= previous.source.target_position:
-            raise ValueError("author compaction requires new completed author history")
-        task_state = self.acquire_task_state()
-        task_profile = self.acquire_task_profile()
-        if (
-            task_profile is not None
-            and task_state is not None
-            and task_profile.manifest.work_unit
-            != task_state.current_work_unit.reference
+    def compact_author(self, draft: AuthorCompactionDraft) -> AuthorCompaction:
+        """Commit one reconstructable author derivative without consuming work."""
+        if self._busy or any(
+            entry.status in {"queued", "running"} for entry in self.state.entries
         ):
-            raise ValueError("task profile and task state select different work")
-        inspection = self.compaction_workspace_inspector.inspect(
-            Path(self.state.workspace), draft.relevant_files
+            raise ValueError("stop or finish pending work before author compaction")
+        previous = (
+            None
+            if not self.state.author_compactions
+            else self.state.author_compactions[-1]
         )
-        before = project_context(self.state.entries, index, previous)
-        candidate = build_author_compaction(
+        continuation = self.state.task_continuation
+        compaction = create_author_compaction(
             entries=self.state.entries,
-            target=index,
-            session_id=self.state.session_id,
             owner_uid=self.state.owner_uid,
             workspace=self.state.workspace,
-            cassette_sha256=self.state.cassette_sha256,
             source_revision=self.state.revision,
+            source_state_sha256=digest(canonical_bytes(self.state)),
             draft=draft,
-            source_turns=before.turns[:-1],
-            workspace_inspection=inspection,
-            memory_sha256=(
-                None
-                if self.state.memory is None
-                else canonical_fingerprint(self.state.memory).sha256
-            ),
-            task_profile_sha256=(
-                None
-                if task_profile is None
-                else canonical_fingerprint(task_profile).sha256
-            ),
-            task_state_sha256=(
-                None if task_state is None else canonical_fingerprint(task_state).sha256
-            ),
             previous=previous,
+            repository_revision=(
+                None
+                if continuation is None
+                else continuation.selection.workspace.revision
+            ),
+            checkpoint_sha256=(
+                None
+                if continuation is None
+                else continuation.selection.checkpoint_sha256
+            ),
+            continuation_claim_id=(
+                None if continuation is None else continuation.claim_id
+            ),
+            task_ledger=(
+                None if continuation is None else continuation.selection.ledger_baseline
+            ),
+            work_unit_id=(
+                None
+                if continuation is None
+                else continuation.selection.selected_work_unit.work_unit_id
+            ),
+            work_unit_revision=(
+                None
+                if continuation is None
+                else continuation.selection.selected_work_unit.revision
+            ),
         )
-        projected = project_context(self.state.entries, index, candidate)
-        config = conversation_config(
-            projected.turns, self.state.memory, task_profile, task_state
-        )
-        admit_context(config.system, projected.turns, self.state.context_byte_limit)
-        request, budget = prepare_conversation_request(config, task_profile)
-        check_request_budget(request, budget)
-        # Close the inspection/save race: changed source inputs invalidate the draft.
-        if (
-            self.compaction_workspace_inspector.inspect(
-                Path(self.state.workspace), draft.relevant_files
-            )
-            != inspection
-        ):
-            raise ValueError("workspace changed while validating author compaction")
+        latest_pressure = _latest_pressure_snapshot(self.state)
         updated = validate_runtime_state(
             self.state.model_copy(
                 update={
+                    "author_compactions": self.state.author_compactions + (compaction,),
+                    "context_pressure_policy": self.context_pressure_policy,
+                    "context_pressure_boundary": make_pressure_boundary(
+                        kind="compaction",
+                        conversation_revision=self.state.revision + 1,
+                        next_message_position=len(self.state.entries),
+                        latest_request_bytes=(
+                            0
+                            if latest_pressure is None
+                            else latest_pressure.request_bytes
+                        ),
+                        compaction_count=len(self.state.author_compactions) + 1,
+                    ),
                     "revision": self.state.revision + 1,
-                    "author_compactions": self.state.author_compactions + (candidate,),
                 }
             )
         )
         self._commit(updated)
-        return candidate
+        return compaction
 
-    def validate_author_compaction_freshness(
+    def close_milestone(
         self,
+        bundle: TaskStateBundle,
+        artifacts: Mapping[str, bytes],
         *,
-        task_profile: RuntimeTaskProfile | None = None,
-        task_state: RuntimeTaskState | None = None,
-        inputs_acquired: bool = False,
-    ) -> None:
-        """Fail closed when live repository or referenced artifacts changed."""
-        if not self.state.author_compactions:
-            return
-        if not inputs_acquired:
-            task_state = self.acquire_task_state()
-            task_profile = self.acquire_task_profile()
-        latest = self.state.author_compactions[-1]
-        expected = latest.source.workspace_inspection
-        relevant = tuple(item.path for item in expected.relevant_files)
-        current = self.compaction_workspace_inspector.inspect(
-            Path(self.state.workspace), relevant
-        )
-        source = latest.source
-        if current != expected or (
-            source.memory_sha256
-            != (
-                None
-                if self.state.memory is None
-                else canonical_fingerprint(self.state.memory).sha256
+        expected_checkpoint_revision: int,
+        reason: CheckpointClosureReason = "completed_milestone",
+    ) -> TaskCheckpointHead:
+        """Close a durable task boundary and retain its text-free task-state head."""
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise CheckpointClosureError(
+                "stop active conversation work before closing a checkpoint"
             )
-            or source.task_profile_sha256
-            != (
-                None
-                if task_profile is None
-                else canonical_fingerprint(task_profile).sha256
+        if self.task_scope is None or self.close_task_checkpoint is None:
+            raise CheckpointClosureError(
+                "checkpoint closure requires a scoped checkpoint store"
             )
-            or source.task_state_sha256
-            != (
-                None if task_state is None else canonical_fingerprint(task_state).sha256
+        try:
+            bundle = TaskStateBundle.model_validate(bundle.model_dump(mode="python"))
+        except ValueError:
+            raise CheckpointClosureError(
+                "task-state bundle failed conversation closure validation"
+            ) from None
+        if bundle.scope != self.task_scope:
+            raise CheckpointClosureError(
+                "milestone checkpoint does not match the conversation task scope"
             )
+        saved_head = self.state.task_checkpoint
+        if saved_head is None:
+            if expected_checkpoint_revision != 0:
+                raise CheckpointClosureError(
+                    "conversation checkpoint revision changed before closure"
+                )
+        elif (
+            saved_head.checkpoint_id != bundle.checkpoint.checkpoint_id
+            or expected_checkpoint_revision != saved_head.checkpoint_revision
         ):
-            raise ValueError(
-                "author compaction is stale; validate a new compaction or continue "
-                "in a fresh session"
+            raise CheckpointClosureError(
+                "conversation checkpoint revision changed before closure"
             )
+        head = self.close_task_checkpoint(
+            bundle,
+            artifacts,
+            expected_revision=expected_checkpoint_revision,
+            reason=reason,
+        )
+        if (
+            head.scope != self.task_scope
+            or head.checkpoint_id != bundle.checkpoint.checkpoint_id
+            or head.checkpoint_revision != bundle.checkpoint.revision
+            or head.checkpoint_sha256 != bundle.checkpoint.sha256
+            or head.bundle_revision != bundle.revision
+            or head.bundle_sha256 != bundle.sha256
+            or head.closure_reason != reason
+        ):
+            raise CheckpointClosureError(
+                "checkpoint store returned a mismatched closure receipt"
+            )
+        if self.state.task_checkpoint == head:
+            return head
+        latest_pressure = _latest_pressure_snapshot(self.state)
+        updated = validate_runtime_state(
+            self.state.model_copy(
+                update={
+                    "task_checkpoint": head,
+                    "task_continuation": None,
+                    "context_pressure_policy": self.context_pressure_policy,
+                    "context_pressure_boundary": make_pressure_boundary(
+                        kind="checkpoint",
+                        conversation_revision=self.state.revision + 1,
+                        next_message_position=_pressure_boundary_position(self.state),
+                        latest_request_bytes=(
+                            0
+                            if latest_pressure is None
+                            else latest_pressure.request_bytes
+                        ),
+                        compaction_count=len(self.state.author_compactions),
+                    ),
+                    "revision": self.state.revision + 1,
+                }
+            )
+        )
+        try:
+            self._commit(updated)
+        except BaseException:
+            raise CheckpointClosureError(
+                "checkpoint closed but its conversation link is uncertain; "
+                "reopen and inspect before retrying"
+            ) from None
+        return head
+
+    def begin_continuation(
+        self, selection: ContinuationSelection
+    ) -> TaskContinuationClaim:
+        """Claim a checkpoint for this fresh session without dispatching work."""
+        if self._busy or any(entry.status == "running" for entry in self.state.entries):
+            raise ContinuationClaimError(
+                "stop active conversation work before selecting a continuation"
+            )
+        if self.state.entries:
+            raise ContinuationClaimError(
+                "checkpoint continuation requires a fresh conversation history"
+            )
+        if self.task_scope is None or self.claim_task_continuation is None:
+            raise ContinuationClaimError(
+                "continuation requires a scoped checkpoint store"
+            )
+        if self.state.task_continuation is not None:
+            if self.state.task_continuation.selection == selection:
+                return self.state.task_continuation
+            raise ContinuationClaimError("conversation already selected a continuation")
+        assert self.observe_task_workspace is not None
+        receipt = self.claim_task_continuation(
+            selection,
+            session_id=self.state.session_id,
+            observed_workspace=self.observe_task_workspace(),
+        )
+        profile_manifest = receipt.profile.profile.manifest
+        profile_source = receipt.profile.acquisition
+        if (
+            receipt.head.scope != self.task_scope
+            or receipt.claim.session_id != self.state.session_id
+            or receipt.claim.selection != selection
+            or receipt.claim.context_sha256 != receipt.context.sha256
+            or profile_manifest.scope != self.task_scope
+            or profile_manifest.work_unit != selection.selected_work_unit
+            or profile_source.checkpoint_id != receipt.head.checkpoint_id
+            or profile_source.checkpoint_revision != receipt.head.checkpoint_revision
+            or profile_source.checkpoint_sha256 != receipt.head.checkpoint_sha256
+            or profile_source.bundle_revision != receipt.head.bundle_revision
+            or profile_source.bundle_sha256 != receipt.head.bundle_sha256
+        ):
+            raise ContinuationClaimError(
+                "checkpoint store returned a mismatched continuation receipt"
+            )
+        updated = validate_runtime_state(
+            self.state.model_copy(
+                update={
+                    "task_checkpoint": receipt.head,
+                    "task_continuation": receipt.claim,
+                    "context_pressure_policy": self.context_pressure_policy,
+                    "context_pressure_boundary": make_pressure_boundary(
+                        kind="continuation",
+                        conversation_revision=self.state.revision + 1,
+                        next_message_position=0,
+                        latest_request_bytes=0,
+                        compaction_count=0,
+                    ),
+                    "revision": self.state.revision + 1,
+                }
+            )
+        )
+        try:
+            self._commit(updated)
+        except BaseException:
+            raise ContinuationClaimError(
+                "continuation was claimed but its conversation link is uncertain; "
+                "reopen the same session before retrying"
+            ) from None
+        return receipt.claim
 
     def submit(self, text: str) -> None:
         if not text.strip():
             raise ValueError("message cannot be blank")
         self._append(ConversationEntry(text=text, steering_for=self.active_chat_index))
+
+    def submit_continuation(
+        self, text: str, selection: ContinuationSelection
+    ) -> TaskContinuationClaim:
+        """Persist an explicit fresh-context selection and its user request."""
+        claim = self.begin_continuation(selection)
+        self.submit(text)
+        return claim
 
     @property
     def pending_text_bytes(self) -> int:
@@ -683,39 +857,11 @@ class ConversationController(Generic[StateT]):
         is_review = entry.is_review
         if entry.review_packet is not None:
             self._check_review_guidance(entry.review_packet)
-        task_state = None if is_review else self.acquire_task_state()
-        task_profile = (
-            None if is_review else self.acquire_task_profile(task_text=entry.text)
-        )
-        if not is_review:
-            self.validate_author_compaction_freshness(
-                task_profile=task_profile,
-                task_state=task_state,
-                inputs_acquired=True,
-            )
-        if (
-            task_profile is not None
-            and task_state is not None
-            and task_profile.manifest.work_unit
-            != task_state.current_work_unit.reference
-        ):
-            raise ValueError("task profile and task state select different work")
-        if not is_review and (
-            self.state.retained_cassette is not None
-            or (task_profile is not None and self.state.memory is not None)
-        ):
+        if not is_review and self.state.retained_cassette is not None:
             entry = entry.model_copy(
                 update={
                     "memory_context": ConversationMemoryContext(
                         memory=self.state.memory
-                    )
-                }
-            )
-        if not is_review and task_state is not None:
-            entry = entry.model_copy(
-                update={
-                    "task_state_context": ConversationTaskStateContext(
-                        task_state=task_state
                     )
                 }
             )
@@ -724,49 +870,132 @@ class ConversationController(Generic[StateT]):
         # Select and admit the exact immutable context before persisting running
         # or burning an attempt. The config is reused after dispatch admission.
         config: AgentConfig | None = None
+        request_dispatcher: ToolDispatcher = NoToolsDispatcher()
         if not is_review:
-            latest_compaction = (
-                self.state.author_compactions[-1]
-                if self.state.author_compactions
-                else None
+            author_compaction = (
+                None
+                if not self.state.author_compactions
+                else self.state.author_compactions[-1]
             )
-            projected = project_context(self.state.entries, index, latest_compaction)
+            projected = project_context(self.state.entries, index, author_compaction)
+            admitted_profile = None
+            continuation_context = None
+            continuation_admission = None
+            profile_acquisition = None
+            profile = None
+            if self.state.task_continuation is not None:
+                if (
+                    self.resolve_task_continuation is None
+                    or self.observe_task_workspace is None
+                ):
+                    raise ContinuationClaimError(
+                        "saved continuation requires its scoped checkpoint store"
+                    )
+                resolved_continuation = self.resolve_task_continuation(
+                    self.state.task_continuation,
+                    observed_workspace=self.observe_task_workspace(),
+                )
+                continuation_context = resolved_continuation.context
+                profile = resolved_continuation.profile.profile
+                profile_acquisition = resolved_continuation.profile.acquisition
+                continuation_admission = admit_fresh_continuation(
+                    self.state.task_continuation, continuation_context
+                )
+            elif self.resolve_task_profile is not None:
+                profile = self.resolve_task_profile(index)
+            if profile is not None:
+                assert self.task_scope is not None
+                available = (
+                    ()
+                    if self.tool_dispatcher is None
+                    else self.tool_dispatcher.definitions
+                )
+                admitted_profile = admit_scoped_profile(
+                    profile,
+                    self.task_scope,
+                    available,
+                    self.state.memory,
+                    acquisition=profile_acquisition,
+                )
+                if (
+                    continuation_context is not None
+                    and admitted_profile.record.work_unit
+                    != continuation_context.selection.selected_work_unit
+                ):
+                    raise ContinuationClaimError(
+                        "task profile selects a different continuation work unit"
+                    )
+                if admitted_profile.selected_tools:
+                    if self.tool_dispatcher is None:
+                        raise ValueError("selected task tools are unavailable")
+                    request_dispatcher = ScopedToolDispatcher(
+                        self.tool_dispatcher, admitted_profile.selected_tools
+                    )
+            classification = classify_context(
+                self.state.memory,
+                profile,
+                None
+                if self.state.task_continuation is None
+                else self.state.task_continuation.claim_id,
+            )
+            compaction_suffix = (
+                ""
+                if author_compaction is None
+                else compaction_system(author_compaction)
+            )
+            checkpoint_suffix = (
+                ""
+                if continuation_context is None
+                else continuation_system(continuation_context)
+            )
+            profile_suffix = (
+                "" if admitted_profile is None else admitted_profile.system_suffix
+            )
+            task_system = compaction_suffix + checkpoint_suffix + profile_suffix
             config = conversation_config(
-                projected.turns, self.state.memory, task_profile, task_state
+                projected.turns,
+                self.state.memory,
+                task_system=task_system,
+                tools_enabled=bool(request_dispatcher.definitions),
             )
-            admit_context(
+            context_size = admit_context(
                 config.system, config.initial_turns, self.state.context_byte_limit
             )
-            request, budget = prepare_conversation_request(config, task_profile)
-            check_request_budget(request, budget)
-            request_sha256 = canonical_fingerprint(request).sha256
-            task_state_admission = None
-            task_state_context_sha256 = None
-            if task_state is not None:
-                assert entry.task_state_context is not None
-                task_state_context = canonical_fingerprint(entry.task_state_context)
-                task_state_context_sha256 = task_state_context.sha256
-                task_state_admission = admit_task_state(
-                    task_state,
-                    request_sha256=request_sha256,
-                    context_sha256=task_state_context.sha256,
-                    context_bytes=task_state_context.bytes,
-                )
-            profile_admission = None
-            if task_profile is not None:
-                memory_context_sha256 = (
-                    None
-                    if self.state.memory is None
-                    else canonical_fingerprint(
-                        ConversationMemoryContext(memory=self.state.memory)
-                    ).sha256
-                )
-                profile_admission = admit_task_profile(
-                    task_profile,
-                    request_sha256=request_sha256,
-                    reusable_memory_context_sha256=memory_context_sha256,
-                    temporary_task_state_sha256=task_state_context_sha256,
-                )
+            request, budget = prepare_conversation_request(config, request_dispatcher)
+            request_size = check_request_budget(request, budget)
+            pressure = build_pressure_snapshot(
+                policy=self.context_pressure_policy,
+                source_revision=self.state.revision,
+                request_ordinal=consumed + 1,
+                context_bytes=context_size,
+                context_max_bytes=self.state.context_byte_limit,
+                request_bytes=request_size,
+                request_max_bytes=budget.usable_input,
+                known_breakdown=ContextPressureBreakdown(
+                    base_system_bytes=len(
+                        conversation_base_system(self.state.memory).encode("utf-8")
+                    ),
+                    conversation_bytes=sum(
+                        len(canonical_bytes(turn)) for turn in projected.turns
+                    ),
+                    reusable_memory_bytes=len(
+                        memory_system(self.state.memory).encode("utf-8")
+                    ),
+                    task_profile_bytes=len(profile_suffix.encode("utf-8")),
+                    checkpoint_bytes=len(checkpoint_suffix.encode("utf-8")),
+                    compaction_bytes=len(compaction_suffix.encode("utf-8")),
+                    tool_schema_bytes=sum(
+                        len(canonical_bytes(definition))
+                        for definition in request_dispatcher.definitions
+                    ),
+                ),
+                entries=self.state.entries,
+                boundary=self.state.context_pressure_boundary,
+                compaction_count=len(self.state.author_compactions),
+            )
+            pressure_advisory = assess_context_pressure(
+                pressure, _latest_pressure_snapshot(self.state)
+            )
             entry = entry.model_copy(
                 update={
                     "request_admission": record_admission(
@@ -778,8 +1007,28 @@ class ConversationController(Generic[StateT]):
                         request=request,
                         budget=budget,
                         memory_selected=self.state.memory is not None,
-                        task_profile=profile_admission,
-                        task_state=task_state_admission,
+                        context_classification=classification,
+                        task_profile=None
+                        if admitted_profile is None
+                        else admitted_profile.record,
+                        task_continuation=continuation_admission,
+                        author_compaction=(
+                            None
+                            if author_compaction is None
+                            else AuthorCompactionAdmission(
+                                compaction_id=author_compaction.compaction_id,
+                                revision=author_compaction.revision,
+                                compacted_through=(author_compaction.compacted_through),
+                                source_revision=author_compaction.source_revision,
+                                before_bytes=author_compaction.before_bytes,
+                                after_bytes=author_compaction.after_bytes,
+                                prior_compaction_sha256=(
+                                    author_compaction.prior_compaction_sha256
+                                ),
+                            )
+                        ),
+                        pressure=pressure,
+                        pressure_advisory=pressure_advisory,
                     )
                 }
             )
@@ -829,7 +1078,7 @@ class ConversationController(Generic[StateT]):
                         config,
                         fixture_registry(),
                         recorded if client is None else client,
-                        NoToolsDispatcher() if task_profile is None else task_profile,
+                        request_dispatcher,
                     )
                     if any(
                         not isinstance(block, TextBlock)
@@ -838,15 +1087,22 @@ class ConversationController(Generic[StateT]):
                         raise AgentFailure(
                             "conversation preview requires text responses"
                         )
+                    pressure_activity = measure_pressure_activity(
+                        result.turns, self.context_pressure_policy
+                    )
                     completed = ConversationEntry(
                         text=entry.text,
                         steering_for=entry.steering_for,
                         memory_context=entry.memory_context,
-                        task_state_context=entry.task_state_context,
                         request_admission=entry.request_admission,
                         status="completed",
                         answer=result.final_text,
                         usage=result.usage,
+                        pressure_activity=(
+                            None
+                            if pressure_activity.tool_calls == 0
+                            else pressure_activity
+                        ),
                     )
             except asyncio.CancelledError:
                 replace(entry.model_copy(update={"status": "cancelled"}))

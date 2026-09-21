@@ -18,7 +18,9 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import ArtifactHash, private_write
 from mos_eisley.task_profile import (
     ProfileDiagnosticReport,
+    TaskInstructionContent,
     TaskProfileManifest,
+    WorkUnitOwnedTaskProfile,
     diagnose_task_profile,
 )
 from mos_eisley.task_state import (
@@ -43,18 +45,39 @@ ARTIFACT_DIRECTORY = "artifacts"
 
 
 class ProfileAssessment(Contract):
+    schema_version: Literal[1, 2] = Field(
+        default=1, exclude_if=lambda value: value == 1
+    )
     manifest: TaskProfileManifest
     report: ProfileDiagnosticReport
+    instructions: Annotated[
+        tuple[TaskInstructionContent, ...], Field(max_length=128)
+    ] = Field(default=(), exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def reproducible_report(self) -> Self:
         if diagnose_task_profile(self.manifest) != self.report:
             raise ValueError("profile diagnostics do not reproduce from the manifest")
+        if self.schema_version == 1 and self.instructions:
+            raise ValueError("schema-1 profile assessment cannot retain instructions")
+        if self.schema_version == 2:
+            WorkUnitOwnedTaskProfile(
+                manifest=self.manifest,
+                instructions=self.instructions,
+            )
         return self
+
+    def materialize(self) -> WorkUnitOwnedTaskProfile:
+        if self.schema_version != 2:
+            raise ValueError("task profile has no retained instruction material")
+        return WorkUnitOwnedTaskProfile(
+            manifest=self.manifest,
+            instructions=self.instructions,
+        )
 
 
 class TaskStateBundle(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     kind: Literal["bounded_task_state"] = "bounded_task_state"
     scope: OwnerProjectScope
     revision: Annotated[int, Field(ge=1)]
@@ -71,7 +94,7 @@ class TaskStateBundle(Contract):
     ] = ()
     context_metrics: CumulativeContextMetrics
     profiles: Annotated[tuple[ProfileAssessment, ...], Field(max_length=64)] = ()
-    runtime_continuation_enabled: Literal[False] = False
+    runtime_continuation_enabled: bool = False
 
     @model_validator(mode="after")
     def connected_records(self) -> Self:
@@ -157,6 +180,39 @@ class TaskStateBundle(Contract):
         for assessment in self.profiles:
             if assessment.manifest.work_unit not in work_units:
                 raise ValueError("task profile references an absent work unit")
+        profiles = {item.manifest.profile_id: item for item in self.profiles}
+        if self.schema_version == 1 and (
+            any(item.task_profile_id is not None for item in self.work_units)
+            or any(item.schema_version == 2 for item in self.profiles)
+        ):
+            raise ValueError(
+                "schema-1 task bundle cannot contain owned profile material"
+            )
+        for work_unit in self.work_units:
+            profile_id = work_unit.task_profile_id
+            if profile_id is None:
+                continue
+            assessment = profiles.get(profile_id)
+            if assessment is None:
+                raise ValueError("work unit owns an absent task profile")
+            if (
+                assessment.manifest.work_unit != work_unit.reference
+                or assessment.manifest.policy_sha256 != work_unit.policy_sha256
+            ):
+                raise ValueError("work-unit task profile binding is stale")
+            if assessment.schema_version != 2 or assessment.report.status == "fail":
+                raise ValueError("work-unit task profile is not acquisition-ready")
+        if (
+            self.schema_version == 2
+            and self.runtime_continuation_enabled
+            and any(
+                work_units[item].task_profile_id is None
+                for item in checkpoint.next_actions
+            )
+        ):
+            raise ValueError(
+                "runtime continuation next actions require owned task profiles"
+            )
         if len(canonical_bytes(self)) > MAX_TASK_STATE_BYTES:
             raise ValueError("task-state bundle exceeds its replay byte limit")
         return self

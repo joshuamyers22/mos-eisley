@@ -324,7 +324,7 @@ class RequestAdmissionStorageTests(TestCase):
         admission = controller.state.entries[0].request_admission
         assert admission is not None
         changes: tuple[dict[str, object], ...] = (
-            {"schema_version": 2},
+            {"schema_version": 3},
             {"message_count": 1},
             {"context_max_bytes": 4000, "context_bytes": 4001},
             {
@@ -398,6 +398,6 @@ class RequestAdmissionStorageTests(TestCase):
             )
             with (
                 self.subTest(changed=changed),
-                self.assertRaisesRegex(ValueError, "saved attempt"),
+                self.assertRaisesRegex(ValueError, "saved attempt|pressure snapshot"),
             ):
                 validate_runtime_state(state)

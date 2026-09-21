@@ -1,15 +1,21 @@
 """Read-only inspection of a verified candidate working set for SQLite resume."""
 
+import json
 from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID
+from mos_eisley.conversation_compaction import AuthorCompaction
 from mos_eisley.conversation_limits import (
     DEFAULT_SNAPSHOT_BYTES,
     ContextByteLimit,
     SnapshotByteLimit,
+)
+from mos_eisley.conversation_pressure import (
+    ContextPressureBoundary,
+    ContextPressurePolicy,
 )
 from mos_eisley.core.models import Contract, Digest, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint
@@ -39,6 +45,11 @@ class ResumeHeader(Contract):
     builtin_recording: bool = False
     snapshot_max_bytes: SnapshotByteLimit | None = None
     context_max_bytes: ContextByteLimit | None = None
+    author_compactions: Annotated[
+        tuple[AuthorCompaction, ...], Field(max_length=3)
+    ] = ()
+    context_pressure_policy: ContextPressurePolicy | None = None
+    context_pressure_boundary: ContextPressureBoundary | None = None
 
 
 class HeaderArtifact(Contract):
@@ -153,7 +164,9 @@ def inspect_sqlite_resume(
             raise ValueError("resume header integrity mismatch")
         try:
             packed = PackedPart.model_validate_json(row[0])
-            header = ResumeHeader.model_validate(packed.body)
+            header = ResumeHeader.model_validate_json(
+                json.dumps(packed.body, separators=(",", ":"))
+            )
         except ValueError:
             raise ValueError("invalid resume header schema") from None
         if (
