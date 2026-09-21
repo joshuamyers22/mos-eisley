@@ -77,6 +77,7 @@
 | 18 | Separate offline structured-output and quorum correction | Official Responses API schema support, the retained duplicate-key response, and a three-critic fault replay | Prompt-only enforcement made malformed JSON avoidable, while the exact two-critic roster had no spare capacity | Apply capability-gated native strict schema without weakening local decoding, and use three separately admitted critics with threshold two for a future retest | One invalid critic plus two valid critics reaches an `accept` judge result without retry; `make check` passes 2,472 source and 1,851 installed-wheel tests with 89% coverage, and `make container` passes; no live authority follows |
 | 19 | Separately authorized structured-output/quorum retest | Three native strict-schema critics, threshold two, conditional strict-schema judge, and corrected four-exchange observation construction at `fe8659b` | Every role completed and the observation was signed, but the judge upheld a generic object-normalization gap and missing deterministic observation coverage in the quorum regression; the standalone harness also omitted durable policy/phase-signature inputs for later observation authentication replay | Retain the successful in-process runtime evidence and `reject` verdict with its replay limitation; correct both code/test findings offline before any acceptance claim | Result `29f1faae…`; signed observation `11ae0b03…`; 17,191 micro-USD settled; zero unresolved entries; four containers removed; no secret-shaped retained text |
 | 20 | Offline post-live correction | Q-008–Q-010, production Python/verification/threat/review guides, and immutable live evidence | No new blocking offline finding; one unrelated runtime-start fixture race passed on exact reproduction and the clean complete rerun | Normalize omitted/malformed object properties fail-closed, carry quorum-tolerated failures through signed observation, and verify before exclusive standalone-bundle retention | 164 focused review tests, 2,476 source tests, 1,852 installed-wheel tests, 89% coverage, and rebuilt container smoke suite pass; no live authority follows |
+| 21 | Separately authorized deadline-correction retest | Fresh `b3357aa` guidance, ledger, process key and exact approvals; three strict-schema critics with threshold two; one conditional judge; complete standalone retention | One critic's exact quote was absent from its declared source unit and was retained as `invalid_evidence`; two valid empty critiques preserved quorum, the judge returned `accept`, and post-result authentication replayed successfully | Accept as positive G2 live-path and V-007 evidence while preserving the invalid slot and every historical campaign; do not treat one standalone attempt as the three-slot qualification campaign | Result `00904170…`; signed observation `ad040926…`; standalone evidence `ebf31e12…`; 24,032 micro-USD settled; zero unresolved entries; four containers removed |
 
 ## Finding disposition
 
@@ -92,18 +93,17 @@
 | Q-008 | The generic strict-schema normalizer only hardened object nodes whose `properties` member was already a dictionary | An arbitrary object-shaped schema could escape recursive normalization or fail later at the provider boundary | Blocking live finding; corrected offline | Missing properties now become an explicit empty strict object; present non-object values reject recursively without weakening local decoding | Direct nested schema regressions plus package/container gates | Joshua Myers |
 | Q-009 | The original three-critic fault regression stopped after the judge and did not construct and authenticate a signed post-result observation | The complete claimed lifecycle lacked deterministic one-invalid-of-three observation coverage | High live finding; corrected offline | A failed critic remains visible but no longer invalidates an otherwise verified quorum/judge result; the regression now signs, authenticates, tampers, and replays the observation | Focused full-lifecycle regression plus package/container gates | Joshua Myers |
 | Q-010 | The standalone retest retained the signed observation but not the authority policy, observation policy, or signed phase authorizations required for later `authenticate_review_probe` replay | The historical in-process construction/signing success cannot become independently replayable authentication evidence | High historical evidence gap; future harness corrected offline | Preserve the historical limitation; a new bounded bundle verifies before exclusive mode-0600 retention and contains every serialized authentication input plus exact external-artifact paths | Disk-only decode/authentication, duplicate/size/tamper/permission/placement regressions, and container gate | Joshua Myers |
+| Q-011 | The accepted `b3357aa` retest is one standalone attempt rather than a sealed `CampaignEvidenceSubmission` with three precommitted slots | Positive live-path evidence cannot be substituted into the stricter production-qualification or launch-conformance contracts | Blocking for formal qualification; not a defect in the standalone result | Preserve the accepted result as V-007/G2 capability evidence; require new owner direction and a wholly fresh fixed-slot campaign if formal qualification is pursued | Three qualifying committed slots, assembled signed evidence, separate launch ledger and passing launch-conformance reconstruction | Joshua Myers |
 
 ## Exit
 
-- Stop reason: the final-campaign exception was consumed and the final campaign failed
-  closed in attempt 1 because both canonical critic responses exceeded the sealed
-  response-byte ceiling. Verified critic quorum was not met; the judge, observation,
-  attempts 2–3 and launch were not started. All three campaign process-local signing
-  keys are gone, none of their artifacts may be reused, and no replacement campaign
-  is authorized.
+- Stop reason: reassessed after a separately authorized successful standalone retest.
+  The original fixed-slot qualification remains stopped and immutable: its final
+  exception was consumed, no old artifact is reusable, and no replacement formal
+  campaign is authorized. The later standalone result is retained separately.
 - Rubric result and blocking findings: Q-003 remains accepted by the accountable owner;
-  Q-001 remains open. The campaign has zero qualifying attempts and establishes no
-  live conformance or production-launch authority. Q-004 and Q-005 are corrected in
+  Q-001 and Q-011 remain open. The terminal fixed-slot campaign still has zero
+  qualifying attempts and establishes no production-launch authority. Q-004 and Q-005 are corrected in
   current code but remain immutable failure classifications for the sealed final
   campaign. The later standalone retest supplies end-to-end schema-2 compatibility
   evidence only. Q-006 is corrected in current code, and a deterministic retained-path
@@ -112,41 +112,53 @@
   Q-007 now has fresh live proof for strict output, three-critic quorum, judge dispatch,
   and four-exchange signed observation, but the resulting review rejected Q-008 and
   Q-009 and the audit recorded Q-010. Current code corrects Q-008–Q-010 offline;
-  historical verdict/evidence limitations remain immutable. No new run or
-  qualification authority follows.
+  historical verdict/evidence limitations remain immutable. The `b3357aa` standalone
+  result now positively demonstrates strict output, threshold-two quorum with one
+  invalid critic, judge dispatch, signed observation, exact accounting/cleanup and
+  disk replay for current code. It closes the missing successful V-007 live example,
+  but does not fill the qualification campaign's three slots or grant qualification,
+  launch, retry or routing authority.
 - Full quality-gate command and result: `make check` passed on the clean rerun: Ruff
   and Pyright passed; 2,446 source tests passed with four skips and 89% coverage;
   export verification, sdist/wheel builds, and 1,839 installed-wheel tests passed. The
   first unrestricted run had one transient missing fixture timestamp after 2,446 tests;
   the exact test and complete rerun passed.
-- Production-like replay/fault/rollback evidence, if applicable: existing synthetic and
-  Docker coverage is documented in the feature guides; it is not production evidence
+- Production-like replay/fault/rollback evidence, if applicable: the new standalone
+  campaign is live production-like evidence for the current read-only path, including
+  one tolerated invalid critic, exact post-result authentication and four removed
+  workers. It is not a production launch or a complete fixed-slot qualification.
 - Remaining uncertainty, owners, and dates: final-campaign critic charges settled
   locally at 9,922 micro-USD total; its unused 20,916-micro-USD judge reservation and
   the two earlier 62,748-micro-USD attempt allowances leave 146,412 micro-USD
   conservatively unresolved. Actual provider billing and the minimal token-count check
   are not reconciled. The final campaign failed and no replacement is authorized.
   Default retention is an accepted risk, not a ZDR claim.
-  The current
-  final campaign used worker image
-  `sha256:42aac38dc474addd64eec136fc20a33a84fee7534533bbc7645f74be37860f4c`
-  with OpenAI SDK `3.11.0`.
+  The accepted standalone retest settled 24,032 micro-USD with zero unresolved
+  entries under image
+  `sha256:2adb3c8c39040fc01fc25d3800963c21dc08708bd9e3395ac248695533e92b6e`
+  and OpenAI SDK `3.11.0`. Historical unresolved accounting remains unchanged.
 - Human/domain approval, if required: Joshua Myers explicitly approved single-operator
   governance and the USD 5.00 aggregate ceiling on 2026-09-19
 - Durable facts promoted to tests, ADRs, docs, or `PROJECT_MEMORY.md`: latest delivery
-  state, single-operator host boundary, response and citation corrections, and
-  template-use rule recorded in `PROJECT_MEMORY.md`
+  state, single-operator host boundary, response/citation/deadline corrections,
+  immutable accepted standalone record, and template-use rule recorded in
+  `PROJECT_MEMORY.md`
 
 ## Diagnostic resource accounting (optional)
 
 - Iterations and elapsed time: one source-survey pass, two contract-review passes,
-  one host/adversarial-review pass, three sealed campaigns, one no-network Keychain
-  diagnostic and one bounded replacement-key authentication check
+  one host/adversarial-review pass, three sealed formal campaigns, one no-network
+  Keychain diagnostic, one bounded replacement-key authentication check, and five
+  separately authorized standalone attempts including the V-007 timeout precursor
+  and accepted deadline retest
 - Aggregate tokens/cost, when policy permits: the final campaign used 29,313 input
   tokens, including 29,307 cache-write tokens, and 2,161 output tokens. Its two critic
   charges settled locally at 9,922 micro-USD; 146,412 micro-USD remains conservatively
-  unresolved across all campaigns, and neither amount is an invoice reconciliation.
-- Accepted versus rejected findings: Q-001 launch qualification remains blocking;
+  unresolved across the original campaigns. The accepted standalone retest used
+  84,439 input, 84,427 cache-write and 2,434 output tokens and settled 24,032
+  micro-USD with zero unresolved entries. None of these figures is an invoice
+  reconciliation.
+- Accepted versus rejected findings: Q-001 and Q-011 formal qualification remain blocking;
   Q-004 canonical response budgeting and Q-005 citation fidelity are corrected offline
   but remain historical terminal campaign findings; Q-003 single-operator governance
   risk and the documented memory-zeroization limitation are accepted

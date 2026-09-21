@@ -69,32 +69,26 @@
 | 2026-09-20 | standalone structured-output/quorum retest | A freshly authorized attempt at `fe8659b` completed all three strict-schema critics, reached the separately authorized judge, and produced a signed four-exchange observation with zero retries. The judge returned `reject`, upholding a generic strict-schema-normalizer gap and missing deterministic observation coverage in the new quorum regression. The standalone harness did not retain the policies and phase signatures needed for later `authenticate_review_probe` replay. | `docs/LIVE_REVIEW_STRUCTURED_OUTPUT_QUORUM_RETEST_2026-09-20.md`; result `29f1faae…`; signed observation `11ae0b03…`; ledger `37e40766…` | Preserve the successful in-process runtime/observation evidence and its replay limitation; fix and verify the upheld findings offline. No retry or qualification authority follows. |
 | 2026-09-20 | offline structured-output/quorum correction | Missing object properties now normalize to an explicit empty strict object, malformed property maps reject recursively, and a quorum-tolerated critic failure can proceed through judge and signed observation without hiding the failed slot. A new bounded standalone bundle verifies before exclusive mode-0600 retention and replays authentication from its retained configuration, policies, phase signatures, observation, result pin, ledger path, and lifecycle paths. | direct schema tests; full-path one-invalid-of-three regression; `docs/STANDALONE_REVIEW_EVIDENCE.md` | Q-008–Q-010 are closed for current code while preserving the historical `reject` and missing historical replay inputs. No live authority follows. |
 | 2026-09-20 | fresh-retest preflight correction | A new attempt was stopped offline when exact standalone replay would have reconstructed its 8,000-byte live request with the reviewer's 4,000-byte default. The campaign reconstruction now binds the configured visible-text limit, and a substitution regression fails closed. Neither unused preparation accessed a credential, created a reservation/container, nor contacted the provider. | campaign/runtime-evidence focused tests; structured-output/quorum verification V-006 | Run the complete offline gate and commit an exact revision before preparing any replacement authority or live request. |
+| 2026-09-21 | offline deadline correction | A later fresh live attempt showed that one shared 60-second broker clock covered token counting and generation, cancelling all three otherwise-conforming generations after successful counts. Current code separates the one-use claim and per-operation limits from a derived count-plus-generation exchange bounded by controller, authorization, a 300-second absolute exchange ceiling and a 305-second guardian lease. | `docs/REVIEW_STRUCTURED_OUTPUT_QUORUM_FIX_VERIFICATION.md` V-007; commit `b3357aa`; rebuilt image `sha256:2adb3c8c…` | Require new exact authority and a wholly fresh standalone retest before making a live claim. |
+| 2026-09-21 | standalone deadline retest | A wholly fresh `b3357aa` campaign sent three strict schema-2 critic requests with 97 citation units each. One critic returned a 151-byte quote absent from its declared source unit and was retained as `invalid_evidence`; two valid empty critiques preserved quorum without retry, the separately authorized judge returned `accept`, and Joshua signed a four-exchange observation. The complete standalone bundle replayed successfully after process exit. | `docs/LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md`; result `00904170…`; signed observation `ad040926…`; standalone evidence `ebf31e12…` | Record positive V-007/G2 live-path evidence, but do not substitute it for the three precommitted slots required by formal qualification. |
+| 2026-09-21 | accounting and cleanup | The fresh standalone ledger settled 24,032 micro-USD with zero unresolved entries and 59,632 micro-USD unspent. All four exact workers were removed on the first cleanup attempt, and a filtered Docker inventory was empty. | ledger `f87e8078…`; four lifecycle receipts; terminal Docker inspection | Preserve the unspent allowance as non-authority and keep all historical accounting unchanged. |
 
 ## Handoff
 
-- Current state: all three sealed campaigns failed in attempt 1 and are non-retryable.
-  The single-use final-campaign exception is consumed, every owning process exited,
-  and no production launch authority exists. The final failure is a local mismatch
-  exposed both a canonical-response budget mismatch and a raw-patch citation-model
-  mismatch. Current code corrects both contracts offline, but the sealed campaign and
-  qualification remain terminally failed. A later standalone retest completed with a
-  verified `accept` result but no critic findings and no signed observation. A second
-  standalone retest of the observation fix failed critic quorum on a duplicate-key
-  model answer before reaching the judge. A third standalone retest proved native
-  strict responses, three-critic quorum, judge dispatch, and signed observation, but
-  its review verdict rejected two code/test gaps. Those gaps and the separately
-  identified harness-retention gap are corrected offline for future runs, but the
-  historical verdict and omitted evidence cannot be rewritten. None of these runs
-  revives qualification.
-- Next smallest safe action: stop the live qualification. The response-budget and
-  citation-fidelity, observation, structured-output, quorum-resilience, and future
-  standalone replay-retention contracts are corrected in current code. This work
-  note grants no new provider run or campaign replacement.
-- Required operational inputs: none for this closed qualification. Any future live
-  qualification would require new owner direction and a newly reviewed plan; it cannot
-  reuse these seals, ledgers, policies, reservations or process keys. Single-operator
-  mode accepts self-approval risk and must never be described as independent human
-  review.
+- Current state: all three original sealed campaigns remain failed, immutable and
+  non-retryable. A separately authorized standalone campaign at `b3357aa` now
+  completes the corrected live path with threshold-two quorum, an `accept` judge,
+  signed observation, authenticated disk replay, terminal accounting and exact worker
+  cleanup. It does not occupy any of the original campaign's three slots or revive
+  its qualification status. No production launch authority exists.
+- Next smallest safe action: finish this offline evidence reconciliation and stop.
+  If formal qualification is still desired, Joshua Myers must separately direct a
+  wholly fresh three-slot campaign and later launch-conformance review; no further
+  live call is implied or authorized by this note.
+- Required operational inputs: new owner direction, scope, budget, fresh ledgers,
+  seal and phase authorizations for any future formal campaign. No prior seal,
+  ledger, policy, reservation or process key is reusable. Single-operator mode
+  accepts self-approval risk and must never be described as independent human review.
 - Checks already run: current GitHub refs and exact template/repository documents were
   inspected; focused host tests and 356 review tests pass; the clean full gate ran 2,446
   source tests with four skips and 89% coverage, verified exports, built both
@@ -105,8 +99,9 @@
 ## Close and promote
 
 - Outcome and verification: schema-2 `single_operator` permits Joshua Myers to hold
-  every human review role, and the offline implementation gates pass, but live
-  qualification failed and production launch remains unauthorized.
+  every human review role. The corrected standalone live path now has an authenticated
+  accepted example with one quorum-tolerated invalid critic, but formal fixed-slot
+  qualification remains incomplete and production launch remains unauthorized.
 - Durable fact promoted to `PROJECT_MEMORY.md`: schema-1 remains separated by default;
   schema-2 explicitly accepts the absence of independent human review.
 - Decision promoted to ADR/documentation: `docs/adr/0005-single-operator-review-authorization.md`.

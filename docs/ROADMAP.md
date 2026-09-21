@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
+| G2 — live path demonstrated; qualification open | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence; formal three-slot qualification and launch decision remain |
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -29,6 +29,18 @@ qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**G2 live-path evidence, 2026-09-21 — standalone pass; formal qualification
+open:** a freshly approved standalone campaign at `b3357aa` carried one frozen
+deadline-composition brief through three native strict-schema Luna/low critics with
+threshold two and one conditional judge. One critic was retained as
+`invalid_evidence`; two valid empty critiques preserved quorum without retry, and the
+judge returned `accept`. The signed observation and complete standalone bundle replay
+successfully, all 24,032 micro-USD settled locally, and all four workers were removed.
+This closes the missing successful end-to-end V-007 example. It does not populate the
+three precommitted slots required by the production-qualification rubric, authorize a
+launch, or alter any terminal historical campaign. See
+[the immutable retest record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md).
 
 **Session-shape adoption, 2026-09-14 — G0 and the recorded G1 lifecycle
 implemented; sealed G1 readings pending:** implement

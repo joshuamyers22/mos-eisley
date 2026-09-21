@@ -53,6 +53,11 @@
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed
   conformance, while complete profile and failure-boundary conformance remains open.
+  The private owning-library review path also has one successful bounded standalone
+  Luna/low campaign at `b3357aa`: two valid critics preserved threshold-two quorum
+  when one critic produced `invalid_evidence`, the judge returned `accept`, and the
+  signed observation replayed from complete retained evidence. This is live-path
+  evidence, not the three-slot production qualification or a public live-review CLI.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or
@@ -92,9 +97,9 @@
   order offline; failed/missing assignments retain unknown timing.
   The original one-prompt and critic workflows expose no MCP tools. See
   docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
-- Non-goals for this phase: live adversarial review, general machine tools,
-  sandboxing, test execution, repository config, GitHub writes, author agents,
-  advanced TUI features and model pricing.
+- Non-goals for this phase: public or automatically activated live adversarial
+  review, general machine tools, sandboxing, test execution, repository config,
+  GitHub writes, author agents, advanced TUI features and model pricing.
 - Runtime: Python 3.12+, uv, macOS/Linux; non-root container for operational use.
 - Inputs: user-selected JSON files, bounded before parsing. At most eight critics,
   fifty findings per critic; request budgets and 10-second call deadlines enforced.

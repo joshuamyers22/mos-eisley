@@ -56,6 +56,7 @@
 | 4 | Reopened after exact live review | Three valid live critics reached a signed observation, while adversarial review exposed Q-008/Q-009 and audit exposed Q-010 | No new blocking finding after correction; one unrelated fixture race reproduced cleanly | Harden all object shapes, permit only quorum-tolerated critic errors in observation, and retain a complete verified standalone replay bundle | focused schema/lifecycle, 164 review tests, clean `make check`, and rebuilt container gate pass |
 | 5 | Reopened by fresh retest preflight | The launch preview sealed an 8,000-byte visible-text limit, but campaign/standalone reconstruction silently used the reviewer's 4,000-byte default | Blocking exact-replay mismatch caught before credential access, reservation, container creation, or provider dispatch | Pass the configured limit into every campaign reviewer reconstruction and make fixtures bind their real preview limit | 29 focused tests and the complete repository gate pass: 2,477 source tests, four skips, 89% coverage, and 1,853 installed-wheel tests |
 | 6 | Reopened after the fresh live campaign timed out | All three critics completed token counting, then their independently started generations were cancelled together when one shared 60-second broker clock expired | Blocking deadline-composition defect: a single operation ceiling was incorrectly used for a two-operation lifecycle | Keep the one-use claim and each provider operation capped at 60 seconds; give the enclosing broker/worker lifecycle a derived two-operation window bounded by controller, authorization, and a 300-second absolute ceiling | 146 focused lifecycle tests, 376 broad review tests, 2,481 source tests with four skips, 89% coverage, export/build checks, and 1,855 installed-wheel tests pass offline |
+| 7 | Fresh standalone deadline retest | Exact `b3357aa` production image, new guidance/ledger/authority, three live strict-schema critics, threshold two, judge and standalone replay | One critic's 151-byte quote was absent from its declared source unit and was retained as `invalid_evidence`; no blocking code finding, because two valid empty critiques preserved quorum and the judge returned `accept` without retry | Preserve the invalid slot, signed four-exchange observation, terminal accounting and cleanup; record positive V-007 evidence without promoting it to formal three-slot qualification | Result `00904170…`, signed observation `ad040926…`, replay bundle `ebf31e12…`, 24,032 micro-USD settled, zero unresolved entries, and four workers removed |
 
 ## Finding disposition
 
@@ -67,14 +68,17 @@
 | V-004 | observation construction rejects any critic error | a quorum-tolerated failure cannot complete the promised lifecycle | blocking | rely on verified controller quorum/result; reject infrastructure verdicts, not tolerated critic errors | one-invalid-of-three signed/authenticated observation test | Joshua Myers |
 | V-005 | standalone harness retained observation inputs piecemeal | ephemeral-key loss leaves historical authentication unreplayable | high | add one bounded, verified, exclusive evidence bundle containing all serialized replay inputs | decode, replay, tamper, permission, and placement tests | Joshua Myers |
 | V-006 | campaign reconstruction omitted `max_text_output_bytes` | a valid live result could fail post-result retention because replay projected a different request | blocking | reconstruct critic and judge requests with the exact launch limit and reject configuration substitution | changed-limit regression plus campaign/runtime-evidence suites | Joshua Myers |
-| V-007 | one 60-second broker deadline covered worker setup, two Keychain reads, token counting, generation, and cleanup | successful counts consumed most of the only clock and cancelled every generation together, making a conforming review unable to complete | blocking | separate the maximum-60-second claim window and per-operation ceilings from a bounded count-plus-generation lifecycle; preserve one use, no retry, controller/authorization expiry, and conservative spending | delayed claimed-exchange regression, derived controller deadline, per-operation observation bounds, async cleanup lease, focused and full offline gates | Joshua Myers |
+| V-007 | one 60-second broker deadline covered worker setup, two Keychain reads, token counting, generation, and cleanup | successful counts consumed most of the only clock and cancelled every generation together, making a conforming review unable to complete | blocking | separate the maximum-60-second claim window and per-operation ceilings from a bounded count-plus-generation lifecycle; preserve one use, no retry, controller/authorization expiry, and conservative spending | delayed claimed-exchange regression, derived controller deadline, per-operation observation bounds, async cleanup lease, focused/full offline gates, and accepted live standalone replay at `b3357aa` | Joshua Myers |
 
 ## Exit
 
-- Stop reason: V-007 is corrected, committed, and verified in the rebuilt production
-  image. Preparing another live campaign requires a later explicit request.
-- Rubric result and blocking findings: pass with no open offline blocking finding.
-  The live retest remains separately authorized work.
+- Stop reason: passed. V-007 is corrected, committed, verified in the rebuilt
+  production image and exercised by a separately authorized live standalone campaign
+  that completed through judge, signed observation and retained replay.
+- Rubric result and blocking findings: pass with no open finding in this correction
+  scope. One live critic produced `invalid_evidence`; the intended threshold-two
+  controller preserved quorum without repair or retry, and the judge accepted the
+  two valid empty critiques.
 - Full quality-gate command and result: for V-007, unrestricted `make check` passed
   Ruff, formatting, Pyright, 2,481 source tests with four skips, 89% coverage,
   export verification, and sdist/wheel builds. Its first installed-wheel smoke pass
@@ -93,10 +97,17 @@
   campaign-runner, and launch smoke suites. Final inspection confirms Linux/arm64,
   configured and effective UID/GID `10001:10001`, Mos Eisley `0.1.0`, OpenAI SDK
   `3.11.0`, and no remaining container derived from the image.
-- Remaining uncertainty, owners, and dates: a later live result is still required;
-  offline schema conformance cannot guarantee model quality or provider availability.
+- Fresh live evidence: the standalone `b3357aa` campaign retained result
+  `00904170…`, signed observation `ad040926…` and replay bundle `ebf31e12…`; the
+  replay authenticated every exchange/lifecycle, its ledger has zero unresolved
+  entries, and all four workers were removed. See
+  `LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md`.
+- Remaining uncertainty, owners, and dates: this one standalone attempt cannot
+  substitute for the qualification protocol's three precommitted slots and does not
+  establish provider independence, invoice reconciliation or production-launch
+  readiness. Joshua Myers owns any later qualification decision.
 - Human/domain approval, if required: user directed this implementation.
 - Durable facts promoted to tests, ADRs, docs, or `PROJECT_MEMORY.md`: recursive
   schema and full-lifecycle regressions, accepted ADR-0007, standalone-evidence
-  documentation, exact output-limit reconstruction regression, qualification
-  history, and project memory.
+  documentation, exact output-limit reconstruction regression, immutable accepted
+  live-retest record, qualification history, roadmap and project memory.
