@@ -100,13 +100,16 @@ checks this independently with the same budget check used by the agent loop,
 also before consuming an attempt. Its rejection reports that limit and keeps the
 message queued. Raising the saved context limit cannot raise the provider limit.
 
-Without a saved author compaction, selection preserves every earlier completed
-exchange, the current prompt and unanswered steering ancestry. A validated
-compaction replaces only its older author prefix with exact retained user text and
-an explicitly untrusted assistant derivative. No automatic truncation or compaction
-occurs. Historical memory and review artifacts do not enter author selection;
-reviews remain isolated and ineligible for compaction. See
-[the author-compaction contract](AUTHOR_COMPACTION.md).
+Without an explicit author compaction, selection preserves every earlier completed
+exchange, the current prompt and
+unanswered steering ancestry. It uses only message text/status/links; historical
+memory and review artifacts do not enter that selection. Active memory contributes
+through the system instructions; a completed review contributes its existing text
+summary. No automatic truncation or compaction occurs. An explicit validated
+author compaction may replace a settled prefix in model-visible context while
+retaining and reconstructing its originals as described in
+[G1 author compaction](G1_AUTHOR_COMPACTION.md). Explicit review execution
+continues to use its isolated packet and existing review limits.
 
 Both admission checks happen before persisting `running` or consuming an attempt.
 Rejection reports required bytes and the saved limit, leaves the message queued,
@@ -132,21 +135,18 @@ It uses the same text-selection function as dispatch: completed exchanges and
 required unanswered steering ancestry are retained in their original order.
 The report maps each user/assistant turn to its source message positions and
 explains omissions (after the target, or no completed answer/required steering link).
-For a compacted author target, selection policy 2 additionally reports the
-compaction digest, compacted boundary and positions replaced by the validated
-derivative. The preview never creates a compaction.
+Selection policy 1 reports those raw-history rules. After explicit author
+compaction, policy 2 separately reports the compacted prefix and digest; it does
+not describe those positions as silently omitted.
 
-The `conversation.context` NDJSON event now uses `schema_version: 3`, session and
-revision, `selection` with `policy_version: 1`, `message_index`, `turn_sources` and
-`omitted`, plus `context_sha256`, `context_bytes`, `context_max_bytes`,
+The ordinary `conversation.context` NDJSON event uses `schema_version: 4`, session
+and revision, a versioned `selection` with `message_index`, `turn_sources`
+and `omitted`, plus `context_sha256`, `context_bytes`, `context_max_bytes`,
 `within_context_budget`, `memory_selected` and `active_work`. Context counts/hash
 cover the exact canonical system-and-turns JSON, including selected saved memory.
 The new `request` object describes the complete model request: `provider`, `model`,
 `effort`, `sha256`, `bytes`, `max_bytes`, `within_budget`, `output_reserve_bytes` and
-`headroom_bytes`. Its `pressure` object adds the exact non-overlapping serialized
-request categories, context/request capacity and available/overflow bytes, local
-token estimate, checkpoint/session growth, cumulative metrics and advisory state.
-Preview and dispatch share the same request builder and budget
+`headroom_bytes`. Preview and dispatch share the same request builder and budget
 resolution. The request fingerprint includes its envelope, model/effort, tool
 definitions and output ceiling. The recorded route currently reserves 12,000 output
 bytes and 4,200 headroom bytes from a 96,000-byte cap, leaving 79,800 usable input
@@ -157,10 +157,9 @@ ordinary transcript still displays its own messages.
 Both budgets remain inspectable when exceeded. A context may fit its saved budget
 while the complete request exceeds the independently resolved request budget;
 the report shows each result separately. These are local canonical JSON byte
-limits, not provider token counts or native HTTP payload sizes. Preview schema 3
-replaces the ephemeral schema-2 output; selection policy stays at version 1 and
-saved session formats/hashes are unchanged. Provider-reported token totals remain
-separate partial totals with explicit unavailable-request counts.
+limits, not provider token counts or native HTTP payload sizes. Preview schema 4
+replaces the earlier outputs; selection policy stays independently versioned and
+older saved sessions and admission schemas remain readable.
 Fitting either or both byte limits is not dispatch admission: current memory,
 complete request bounds and recording availability are checked when work runs.
 An active request may finish
@@ -170,40 +169,29 @@ instead of skipping ahead to later chat. Compose/paste/literal input keeps its
 existing behavior. Inspecting an already open session does not make normal cold
 resume bounded or skip its integrity checks.
 
-`/status` emits the same pressure projection without requiring queued chat. When a
-chat is queued it includes the identical upcoming request measurement; otherwise it
-reports the checkpoint or session-start baseline, post-boundary admitted growth and
-provider-known/unknown totals without reconstructing historical prompts. Its
-versioned default policy advises at 35% of usable model input or 25 substantial
-completed non-inspection tool calls. Trusted launch options may select 30–40% and
-20–30 calls. Inspection/status polling is not a model or tool call and never enters
-those counters. Thresholds request assessment only. They never stop work, compact,
-seek approval, dispatch a child, start a tool, or grant authority; hard byte admission
-remains independent and authoritative.
+Compacted previews additionally report source/model-visible byte counts,
+retained-original status and the reconstructing compaction ID. All new previews
+include the advisory pressure snapshot described in
+[G1_CONTEXT_PRESSURE.md](G1_CONTEXT_PRESSURE.md).
 
-Threshold crossings, clears and materially changed pressured requests may emit a
-content-free `conversation.context_pressure` event. An in-process monitor suppresses
-duplicates and caps emission at 16 events per terminal run. Events are renderer
-metadata, not conversation entries, and are not saved into the transcript. Author
-pressure may recommend considering validated compaction for ongoing work or offering
-checkpoint-based fresh continuation after a terminal milestone, but this increment
-does neither automatically. Critic/judge context remains isolated and cannot compact
-or inherit an author checkpoint. See [the pressure contract](CONTEXT_PRESSURE.md).
-
-The TUI toggles reports with `/context` or `/status`, returns from history browsing,
-and marks them stale after a saved revision changes. Re-run the command for current
+The TUI toggles the report with `/context`, returns from history browsing, and
+marks it stale after a saved revision changes. Re-run the command for current
 selection metadata. The preview is ephemeral. Admitted chat attempts separately
-retain the durable metadata described below. A successful `/compact FILE` clears
-stale reports and leaves queued work paused. The broader long-session capacity gate
-remains planned.
+retain the durable metadata described below. Long-session capacity remains a
+separate gate.
 
 ## Saved request admissions
 
-New chat attempts save a version-1 `request_admission` object on their message in
+New chat attempts save a versioned `request_admission` object on their message in
 the same atomic transition that marks it `running` and consumes its recorded
-exchange. This happens after context, request, memory and recording admission and
-before calling the model client. If this save fails, the client is not called.
-Completion, failure, cancellation and crash recovery retain the same record.
+exchange. Schema 1 remains readable; schema 2 adds scoped profile/classification,
+schema 3 adds checkpoint continuation, schema 4 adds author compaction, and schema 5
+adds the exact advisory pressure snapshot and optional bounded event. Schema 6 binds
+a continued work unit's privately acquired profile to its checkpoint and task-bundle
+digests. This
+happens after context, request, memory and recording admission and before calling
+the model client. If this save fails, the client is not called. Completion,
+failure, cancellation and crash recovery retain the same record.
 
 The object includes the source revision, message count at admission, zero-based
 recorded exchange index, versioned selection with source positions and omissions,
@@ -212,7 +200,10 @@ complete `request` metadata used by `/context`. Both byte budgets must fit.
 The record contains no message, answer, memory or review evidence text. Subsequent
 queue submissions, memory refreshes and limit changes do not rewrite it. Positions
 refer to the messages present at admission; later submissions are outside that
-record's message count.
+record's message count. Schema-4 records separately bind the compaction digest,
+revision, covered prefix, lineage and before/after sizes; they do not copy the
+summary or retained user text. Schema-6 records selected profile identities and
+acquisition provenance but do not copy retained instruction text.
 
 This records admitted inputs, **not proof of transmission or provider receipt**.
 A crash immediately after saving can leave an admission for a request that was
@@ -231,7 +222,7 @@ no historical metadata is invented. Commands never echo invalid selector text.
 
 JSON mode emits `conversation.context_admission` with inspection `schema_version: 1`,
 `session_id`, current `revision`, `message_index`, current `status`, the original
-`admission` object and formatted `text`. This leaves preview schema 3 unchanged.
+`admission` object and formatted `text`. This leaves preview schema 4 unchanged.
 The TUI toggles the view when the same command is repeated, returns from history
 browsing, and marks the displayed status/revision stale when the session changes.
 Re-run `/context N` to refresh it; the admission itself remains historical.
@@ -398,11 +389,10 @@ Implement these stages under the storage and ownership contract in
    per-launch UTF-8 byte budget, with recoverable admission before saving a new
    submission and no blocking of existing work on a tighter resume. Artifact
    hydration and retention quotas remain separate work.
-5. Extend the implemented visible, versioned author compaction with held-out quality
-   evaluation. It already retains current user instructions and steering ancestry,
-   preserves exact private source evidence, records selection/omissions and refuses
-   both hard-limit overflow and critic/judge use. A disk quota increase never
-   authorizes sending more content to a provider.
+5. Add visible, versioned context compaction that retains user instructions,
+   decisions, unresolved work and required steering ancestry. Preserve original
+   evidence in storage and record what was selected or omitted from each request.
+   A disk quota increase never authorizes sending more content to a provider.
 6. Extend the implemented single-session JSON-to-SQLite import to bulk and
    cross-root migration with owner preservation, dry-run sizing, interruption
    recovery and verifiable counts/digests. Do not silently rewrite
