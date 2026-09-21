@@ -56,6 +56,8 @@ from mos_eisley.run.review_guidance import (
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
+MAX_REVIEW_AUTHORIZATION_SECONDS = 30 * 60
+
 
 class ReviewAuthorization(BrokerAuthorization):
     schema_version: Literal[1] = 1
@@ -161,7 +163,8 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(minutes=10), policy.valid_until
+                datetime.now(UTC) + timedelta(seconds=MAX_REVIEW_AUTHORIZATION_SECONDS),
+                policy.valid_until,
             ),
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )

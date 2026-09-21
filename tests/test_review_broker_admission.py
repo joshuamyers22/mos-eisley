@@ -279,6 +279,23 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
                 self.issue()
         self.assertEqual(self.ledger.snapshot().entries, 0)
 
+    def test_approval_window_is_thirty_minutes_and_pricing_bounded(self) -> None:
+        now = datetime.now(UTC)
+        with patch("mos_eisley.run.review_broker.datetime") as clock:
+            clock.now.return_value = now
+            prepared = self.prepare()
+            pricing_bounded = self.prepare(
+                self.policy.model_copy(
+                    update={"valid_until": now + timedelta(minutes=5)}
+                )
+            )
+        self.assertEqual(prepared.authorization.expires_at, now + timedelta(minutes=30))
+        self.assertEqual(
+            pricing_bounded.authorization.expires_at,
+            now + timedelta(minutes=5),
+        )
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+
     def test_policy_must_still_be_current_at_issue(self) -> None:
         future = self.policy.valid_until + timedelta(seconds=1)
         with patch("mos_eisley.providers.openai_spend.datetime") as clock:

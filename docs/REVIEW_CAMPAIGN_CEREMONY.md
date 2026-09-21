@@ -35,6 +35,14 @@ Each ledger must fund the sum of all campaign allowances assigned to it, includi
 the full deferred judge allowances; expected cheap outcomes cannot reduce funding.
 Missing ledgers are never created by these commands.
 
+Every prepared call has a maximum thirty-minute pre-dispatch freshness window,
+clipped by pricing expiry. Because all three fixed slots are committed before
+sealing, the campaign inherits the earliest of those absolute expiries. The larger
+window accommodates manual seal, phase-approval and observation gates; it does not
+increase the 60-second provider-operation limit, derived exchange bound, 300-second
+absolute exchange cap, 360-second controller cap or separately signed phase-authority
+lifetime. An expired sealed campaign remains terminal and cannot be refreshed.
+
 ## Seal and independently retain
 
 After reviewing the exact bundle, copy its canonical `bundle_sha256` from the preview:
