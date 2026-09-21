@@ -17,7 +17,7 @@ continuation, compaction or pressure behavior.
 | Order | Next deliverable | Gate |
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
-| G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
+| G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
@@ -30,15 +30,27 @@ remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 
-**Session-shape adoption, 2026-09-13 — G0 implemented; G1 planned:** implement
+**Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
 through the existing controller and private store. G0 freezes work-unit and
 checkpoint schemas, measurement definitions, offline guidance/tool-profile
-diagnostics and private replay. G1 applies scoped tool views and schema selection at
-admission, separates reusable memory from temporary task state, and connects
-milestone closure to explicit fresh-context continuation and advisory pressure
-signals. Preserve task-wide budgets, outstanding steering, correction counters and
-uncertain effects across handoffs. Advancing an already-authorized work unit
+diagnostics and private replay. Six G1 slices now apply scoped tool views
+and schema selection at request admission, separate reusable memory from temporary
+task state, atomically close durable task boundaries into private checkpoints, and
+claim/revalidate a bounded checkpoint continuation in a fresh conversation, and
+reconstruct visible author compaction from retained originals. Advisory pressure
+now reports exact category bytes, capacity, boundary growth, executed-tool patterns
+and honest token availability without taking automatic action. Continued work units
+now own exact private profile material, reconstructed and revalidated from the same
+checkpoint archive before request admission;
+see the [scoped-admission](G1_SCOPED_ADMISSION.md) and
+[checkpoint-closure](G1_CHECKPOINT_CLOSURE.md) and
+[fresh-context continuation](G1_FRESH_CONTEXT_CONTINUATION.md) and
+[author-compaction](G1_AUTHOR_COMPACTION.md) and
+[context-pressure](G1_CONTEXT_PRESSURE.md) and
+[work-unit profile acquisition](G1_WORK_UNIT_PROFILE_ACQUISITION.md) notes. Preserve task-wide
+budgets, outstanding steering, correction counters and uncertain effects across
+handoffs. Advancing an already-authorized work unit
 requires no new user confirmation. These controls do not enable a deferred tool or
 execution capability.
 
@@ -47,9 +59,9 @@ checkpoint, continues in fresh context, detects changed repository/test state an
 finishes with required evidence and obligations intact. G3 compares this workflow
 with the existing selection policy; smaller cumulative context or cost counts as
 an improvement only after independent quality gates pass. Numeric guide heuristics
-remain configurable evaluation candidates. Current `/context` byte previews and
-saved admissions do not establish that compaction or checkpoint continuation has
-shipped. The SQLite storage-resume checkpoint is a different metadata structure.
+remain configurable evaluation candidates. Current `/context` schema-4 previews and
+schema-6 saved admissions expose exact reconstructed and acquired derivatives.
+The SQLite storage-resume checkpoint is a different metadata structure.
 
 **Platform release direction, 2026-09-11:** version 0.1.0 adds a tested WSL2
 deployment using the Linux backend; version 0.1.1 delivers full native Windows
@@ -87,6 +99,16 @@ routes share release artifacts and §28's update flow. This is a finished-produc
 packaging requirement, separate from G2; distribution names/endpoints and clean
 installed-package checks must pass before advertising commands. See
 [plan §29](mos-eisley-plan.md#29-codex-style-installation-and-first-launch).
+
+**Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
+after native Windows parity, guided updates and supported installation journeys are
+qualified, add named workspace/worktree-bound terminal panes that continue running
+while hidden or while another chat is visible. Use PTYs on macOS/Linux/WSL2 and
+ConPTY on native Windows, with exact process-tree supervision, bounded private
+scrollback, safe reattachment, chat attachments and strict separation between user
+input and model authority. This is post-Windows product work, not part of the
+initial TUI or G2 live-review gate. See
+[plan §30](mos-eisley-plan.md#30-post-windows-embedded-terminal-emulator).
 
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
@@ -372,8 +394,9 @@ loading and telemetry adapters remain planned.
    complete-request fit; `/context N` inspects retained admission. These are local
    byte checks, not provider-native token estimates. The preview remains capped at
    16 messages/attempts; cold verification reads history and accepted saves still
-   hash logical history. Visible compaction, task-checkpoint continuation, bounded
-   text/record transitions and the long-session gate remain open, as do live review
+   hash logical history. Visible author compaction and task-checkpoint continuation
+   are now implemented; bounded text/record transitions and the long-session gate
+   remain open, as do live review
    and mid-request interruption. See [plan §17.7](mos-eisley-plan.md#177-long-session-storage-and-independent-budgets),
    [operator controls](CONVERSATION_STORAGE.md), and the
    [preserved implementation history](SESSION_STORAGE_IMPLEMENTATION_HISTORY.md).
@@ -653,6 +676,11 @@ loading and telemetry adapters remain planned.
     plan §28, with packaged upgrade/recovery evidence; they are not optional polish.
     Codex-style installation and first-launch setup are required under plan §29,
     with clean-machine verification for every advertised distribution method.
+11. **Post-Windows terminal emulator:** after §§27–29 qualify native Windows,
+    updates and installation, deliver §30's named embedded terminals, background
+    process supervision, hidden-pane/session switching, safe reattachment and
+    bounded output attachments. User terminal input grants no model authority;
+    model-mediated input remains a separate capability gate.
 
 ## Remote MCP connections
 

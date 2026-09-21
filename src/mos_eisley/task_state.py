@@ -337,6 +337,9 @@ class WorkUnitRecord(Contract):
     ] = ()
     origin_direction_sha256: Digest
     policy_sha256: Digest
+    task_profile_id: Identifier | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     authorization_refs: Annotated[tuple[Digest, ...], Field(max_length=16)] = ()
     required_inputs: Annotated[tuple[InputReference, ...], Field(max_length=64)] = ()
     evidence_requirements: Annotated[
@@ -821,6 +824,30 @@ class MilestoneCheckpoint(Contract):
         return sha256_digest(canonical_bytes(self))
 
 
+class TaskCheckpointHead(Contract):
+    """Text-free identity of the current privately archived task checkpoint."""
+
+    schema_version: Literal[1] = 1
+    scope: OwnerProjectScope
+    checkpoint_id: Identifier
+    checkpoint_revision: PositiveRevision
+    checkpoint_sha256: Digest
+    bundle_revision: PositiveRevision
+    bundle_sha256: Digest
+    closure_reason: Literal[
+        "completed_milestone",
+        "material_objective_change",
+        "deliberate_handoff",
+    ]
+    grants_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def matching_revisions(self) -> Self:
+        if self.checkpoint_revision != self.bundle_revision:
+            raise ValueError("checkpoint and task-state bundle revisions must match")
+        return self
+
+
 class ContinuationSelection(Contract):
     schema_version: Literal[1] = 1
     scope: OwnerProjectScope
@@ -833,6 +860,71 @@ class ContinuationSelection(Contract):
     context_baseline: CumulativeContextMetrics
     ledger_baseline: ResourceLedger
     grants_authority: Literal[False] = False
+
+
+class FreshContinuationContext(Contract):
+    """Bounded material selected from an immutable checkpoint for a fresh session."""
+
+    schema_version: Literal[1] = 1
+    selection: ContinuationSelection
+    checkpoint_view: CheckpointView
+    selected_work_unit: WorkUnitRecord
+    applicable_clauses: Annotated[tuple[ClauseRecord, ...], Field(max_length=64)] = ()
+    active_decisions: Annotated[tuple[DecisionRecord, ...], Field(max_length=64)] = ()
+    verifications: Annotated[tuple[VerificationRecord, ...], Field(max_length=64)] = ()
+    untested_claims: Annotated[tuple[ShortText, ...], Field(max_length=32)] = ()
+    blockers: Annotated[tuple[ShortText, ...], Field(max_length=32)] = ()
+    lineage_sha256: Digest
+    grants_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def exact_materialization(self) -> Self:
+        if (
+            self.selected_work_unit.scope != self.selection.scope
+            or self.selected_work_unit.reference != self.selection.selected_work_unit
+            or self.selected_work_unit.required_inputs != self.selection.required_inputs
+        ):
+            raise ValueError("fresh continuation context differs from its selection")
+        if tuple(item.reference for item in self.applicable_clauses) != (
+            self.selected_work_unit.applicable_clauses
+        ):
+            raise ValueError("fresh continuation clauses differ from the work unit")
+        if any(item.scope != self.selection.scope for item in self.applicable_clauses):
+            raise ValueError("fresh continuation clause crosses its selected scope")
+        if any(
+            item.scope != self.selection.scope or item.status != "active"
+            for item in self.active_decisions
+        ):
+            raise ValueError("fresh continuation decision is not active in scope")
+        return self
+
+    @property
+    def sha256(self) -> str:
+        return sha256_digest(canonical_bytes(self))
+
+
+class TaskContinuationClaim(Contract):
+    """Text-free, session-owned receipt committed before continuation dispatch."""
+
+    schema_version: Literal[1] = 1
+    claim_id: Digest
+    session_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    selection: ContinuationSelection
+    context_sha256: Digest
+    lineage_sha256: Digest
+    status: Literal["claimed"] = "claimed"
+    grants_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def reproducible_identity(self) -> Self:
+        expected = continuation_claim_id(self.selection, self.session_id)
+        if self.claim_id != expected:
+            raise ValueError("continuation claim identity does not reproduce")
+        return self
+
+
+def continuation_claim_id(selection: ContinuationSelection, session_id: str) -> str:
+    return sha256_digest(canonical_bytes(selection) + session_id.encode("ascii"))
 
 
 def validate_continuation(

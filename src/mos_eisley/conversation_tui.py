@@ -26,6 +26,7 @@ from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
+from mos_eisley.conversation_context_preview import pressure_status
 from mos_eisley.conversation_directory import (
     DirectoryPicker,
     DirectorySelection,
@@ -407,11 +408,20 @@ class ConversationTUI:
             else f"{self.controller.pending_text_bytes}/"
             f"{self.controller.pending_limits.max_bytes} queued text bytes • "
         )
+        pressure = pressure_status(state, self.controller.context_pressure_policy)
+        pressure_text = (
+            "pressure unmeasured"
+            if pressure.latest_request is None
+            else "pressure "
+            f"{pressure.latest_request.request_usage_basis_points / 100:.1f}%"
+        )
         return (
             f" fixture/tool-reviewer-v1 • high • tools off • {phase} • "
             f"{queued} queued • {state.exchanges_consumed}/"
             f"{len(self.controller.cassette.exchanges)} attempts • "
-            f"{pending}{usage} recorded bytes "
+            f"{pending}{usage} recorded bytes • {pressure_text} • "
+            f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
+            f"{pressure.repeated_reads_since_boundary} repeated reads "
         )
 
     def refresh(self) -> None:
@@ -574,7 +584,11 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
-        if event["type"] in {"conversation.context", "conversation.context_admission"}:
+        if event["type"] in {
+            "conversation.context",
+            "conversation.context_admission",
+            "conversation.status",
+        }:
             if self.history:
                 self.history.close()
             revision = event["revision"]
@@ -586,6 +600,8 @@ class ConversationTUI:
                 if type(position) is not int or not 0 <= position <= 15:
                     raise ValueError("invalid admission message position")
                 command = f"/context {position}"
+            elif event["type"] == "conversation.status":
+                command = "/status"
             selected = (revision, str(event["text"]))
             self.context_preview = (
                 None if self.context_preview == selected else selected

@@ -34,6 +34,7 @@ from mos_eisley.conversation_composer import ConversationComposer
 from mos_eisley.conversation_context import ContextBudgetError
 from mos_eisley.conversation_context_preview import (
     ContextPreviewUnavailable,
+    pressure_status,
     preview_context,
 )
 from mos_eisley.conversation_directory import (
@@ -945,6 +946,7 @@ async def terminal(
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
+    seen_pressure: set[str] = set()
     project_location = project_location or ProjectLocation.inspect(
         Path(controller.state.workspace)
     )
@@ -1146,6 +1148,27 @@ async def terminal(
                 if entry.review_result is not None:
                     event["review_result"] = entry.review_result.model_dump(mode="json")
                 emit(event)
+            admission = entry.request_admission
+            if (
+                admission is not None
+                and admission.pressure_advisory is not None
+                and admission.pressure_advisory.event_id not in seen_pressure
+            ):
+                advisory = admission.pressure_advisory
+                seen_pressure.add(advisory.event_id)
+                emit(
+                    {
+                        "type": "conversation.pressure",
+                        "session_id": controller.state.session_id,
+                        "revision": controller.state.revision,
+                        **advisory.model_dump(mode="json"),
+                        "text": (
+                            "Context-pressure advisory: "
+                            + ", ".join(advisory.reasons)
+                            + f"; {advisory.recommendation}. Advisory only."
+                        ),
+                    }
+                )
 
     render()
     enabled = False  # Resume displays pending input; only explicit input starts work.
@@ -1349,7 +1372,9 @@ async def terminal(
                     pass
                 elif line == "/context":
                     try:
-                        preview = preview_context(controller.state)
+                        preview = preview_context(
+                            controller.state, controller.context_pressure_policy
+                        )
                     except ContextPreviewUnavailable as error:
                         emit({"type": "conversation.unavailable", "text": str(error)})
                     else:
@@ -1360,6 +1385,17 @@ async def terminal(
                                 "text": preview.describe(),
                             }
                         )
+                elif line == "/status":
+                    status = pressure_status(
+                        controller.state, controller.context_pressure_policy
+                    )
+                    emit(
+                        {
+                            "type": "conversation.status",
+                            **status.model_dump(mode="json"),
+                            "text": status.describe(),
+                        }
+                    )
                 elif line.split(maxsplit=1)[:1] == ["/context"]:
                     try:
                         inspection = inspect_admission(
@@ -1435,6 +1471,7 @@ async def terminal(
                                     "/steer TEXT, /review, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
+                                    "/status, "
                                     "/stop, /continue, /quit"
                                 ),
                             }

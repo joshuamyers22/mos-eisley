@@ -28,6 +28,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from mos_eisley.conversation import ConversationState, SessionID
 from mos_eisley.conversation_inputs import ActiveInputLimits, InputField
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
+from mos_eisley.conversation_pressure import ConversationPressureActivity
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
@@ -290,6 +291,10 @@ def _runtime_record_body(part: PackedPart) -> dict[str, object]:
     if body.get("request_admission") is not None:
         body["request_admission"] = RequestAdmission.model_validate_json(
             _json(body["request_admission"])
+        )
+    if body.get("pressure_activity") is not None:
+        body["pressure_activity"] = ConversationPressureActivity.model_validate_json(
+            _json(body["pressure_activity"])
         )
     return body
 

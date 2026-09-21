@@ -144,7 +144,7 @@ class ContextPreviewTests(TestCase):
         chat = controller()
         chat.submit("question")
         preview = preview_context(chat.state)
-        self.assertEqual(preview.schema_version, 2)
+        self.assertEqual(preview.schema_version, 4)
         self.assertEqual(preview.selection.policy_version, 1)
         self.assertEqual(
             ContextPreview.model_validate_json(preview.model_dump_json()), preview
@@ -472,7 +472,7 @@ class ContextPreviewCLITests(TestCase):
                     event for event in events if event["type"] == "conversation.context"
                 )
                 self.assertEqual(preview["selection"]["message_index"], 0)
-                self.assertEqual(preview["schema_version"], 2)
+                self.assertEqual(preview["schema_version"], 4)
                 self.assertTrue(preview["request"]["within_budget"])
                 self.assertEqual(preview["request"]["max_bytes"], 79800)
                 with store_type(

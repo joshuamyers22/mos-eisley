@@ -5,6 +5,10 @@ from typing import Annotated, Generic, Literal, Self
 from pydantic import Field, model_validator
 from typing_extensions import TypeVar
 
+from mos_eisley.conversation_compaction import (
+    AuthorCompaction,
+    validate_author_compactions,
+)
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
@@ -14,7 +18,15 @@ from mos_eisley.conversation_limits import (
 from mos_eisley.conversation_memory import ConversationMemory
 from mos_eisley.conversation_memory_project import memory_workspace
 from mos_eisley.conversation_name import SessionName
-from mos_eisley.conversation_request_admission import RequestAdmission
+from mos_eisley.conversation_pressure import (
+    ContextPressureBoundary,
+    ContextPressurePolicy,
+    ConversationPressureActivity,
+)
+from mos_eisley.conversation_request_admission import (
+    AuthorCompactionAdmission,
+    RequestAdmission,
+)
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
@@ -33,6 +45,7 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.providers.agent_recorded import AgentCassette
+from mos_eisley.task_state import TaskCheckpointHead, TaskContinuationClaim
 
 SessionID = Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
 Status = Literal["queued", "running", "completed", "cancelled", "interrupted", "failed"]
@@ -62,6 +75,9 @@ class ConversationEntry(Contract):
     review_result: ReviewResult | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    pressure_activity: ConversationPressureActivity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @property
     def is_review(self) -> bool:
@@ -77,6 +93,10 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.pressure_activity is not None and (
+            self.status != "completed" or self.is_review
+        ):
+            raise ValueError("pressure activity requires completed author work")
         if self.request_admission is not None and (
             self.status == "queued" or self.is_review
         ):
@@ -143,6 +163,9 @@ class ArchivedConversationEntry(Contract):
     source_sha256: Digest
     review_brief_id: Identifier | None = None
     review_result: ReviewResult | None = Field(default=None, exclude=True)
+    pressure_activity: ConversationPressureActivity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @property
     def memory_context(self) -> None:
@@ -162,6 +185,10 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.pressure_activity is not None and (
+            self.status != "completed" or self.is_review
+        ):
+            raise ValueError("pressure activity requires completed author work")
         if self.request_admission is not None and (
             self.status == "queued" or self.is_review
         ):
@@ -215,6 +242,7 @@ class ArchivedConversationEntry(Contract):
                 "usage",
                 "steering_for",
                 "request_admission",
+                "pressure_activity",
             },
         )
 
@@ -259,6 +287,21 @@ class ConversationState(Contract, Generic[EntryT]):
     context_max_bytes: ContextByteLimit | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    task_checkpoint: TaskCheckpointHead | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    task_continuation: TaskContinuationClaim | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    author_compactions: Annotated[tuple[AuthorCompaction, ...], Field(max_length=3)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
+    context_pressure_policy: ContextPressurePolicy | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    context_pressure_boundary: ContextPressureBoundary | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @property
     def effective_memory_workspace(self) -> str:
@@ -277,6 +320,46 @@ class ConversationState(Contract, Generic[EntryT]):
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
         selected_memory_workspace = self.effective_memory_workspace
+        validate_author_compactions(
+            self.author_compactions,
+            self.entries,
+            owner_uid=self.owner_uid,
+            workspace=self.workspace,
+            state_revision=self.revision,
+        )
+        if self.context_pressure_boundary is not None:
+            boundary = self.context_pressure_boundary
+            if (
+                boundary.conversation_revision > self.revision
+                or boundary.next_message_position > len(self.entries)
+                or boundary.compaction_count > len(self.author_compactions)
+                or (boundary.kind == "compaction" and boundary.compaction_count == 0)
+            ):
+                raise ValueError("context-pressure boundary is not reconstructable")
+        if self.task_checkpoint is not None and (
+            self.task_checkpoint.scope.owner_uid != self.owner_uid
+            or self.task_checkpoint.scope.workspace_sha256
+            != digest(self.workspace.encode("utf-8"))
+        ):
+            raise ValueError("task checkpoint does not match the conversation scope")
+        if self.task_continuation is not None:
+            claim = self.task_continuation
+            if (
+                self.task_checkpoint is None
+                or claim.session_id != self.session_id
+                or claim.selection.scope.owner_uid != self.owner_uid
+                or claim.selection.scope.workspace_sha256
+                != digest(self.workspace.encode("utf-8"))
+                or claim.selection.scope != self.task_checkpoint.scope
+                or claim.selection.checkpoint_id != self.task_checkpoint.checkpoint_id
+                or claim.selection.checkpoint_revision
+                != self.task_checkpoint.checkpoint_revision
+                or claim.selection.checkpoint_sha256
+                != self.task_checkpoint.checkpoint_sha256
+            ):
+                raise ValueError(
+                    "task continuation does not match its conversation checkpoint"
+                )
         if self.memory_disabled and self.memory is not None:
             raise ValueError("disabled memory must not contain active context")
         if self.retained_cassette is not None and (
@@ -301,6 +384,51 @@ class ConversationState(Contract, Generic[EntryT]):
                 ):
                     raise ValueError(
                         "request admission does not match its saved attempt"
+                    )
+                if admission.task_profile is not None and (
+                    admission.task_profile.scope.owner_uid != self.owner_uid
+                    or admission.task_profile.scope.workspace_sha256
+                    != digest(self.workspace.encode("utf-8"))
+                ):
+                    raise ValueError(
+                        "request task profile does not match the conversation scope"
+                    )
+                if (
+                    admission.task_continuation is not None
+                    and self.task_continuation is not None
+                    and admission.task_continuation.claim_id
+                    != self.task_continuation.claim_id
+                ):
+                    raise ValueError(
+                        "request continuation does not match the conversation claim"
+                    )
+                if admission.author_compaction is not None:
+                    compactions = {
+                        item.compaction_id: item for item in self.author_compactions
+                    }
+                    compacted = compactions.get(
+                        admission.author_compaction.compaction_id
+                    )
+                    if compacted is None or admission.author_compaction != (
+                        AuthorCompactionAdmission(
+                            compaction_id=compacted.compaction_id,
+                            revision=compacted.revision,
+                            compacted_through=compacted.compacted_through,
+                            source_revision=compacted.source_revision,
+                            before_bytes=compacted.before_bytes,
+                            after_bytes=compacted.after_bytes,
+                            prior_compaction_sha256=(compacted.prior_compaction_sha256),
+                        )
+                    ):
+                        raise ValueError(
+                            "request compaction does not match retained lineage"
+                        )
+                if admission.pressure is not None and (
+                    self.context_pressure_policy is None
+                    or admission.pressure.policy != self.context_pressure_policy
+                ):
+                    raise ValueError(
+                        "request pressure does not match the saved session policy"
                     )
                 admitted_exchanges.add(admission.exchange_index)
             if (

@@ -1,12 +1,13 @@
 """Text-only conversation context selection and independent byte admission."""
 
 from collections.abc import Sequence
-from typing import Annotated, Literal, NamedTuple, Protocol
+from typing import Annotated, Literal, NamedTuple, Protocol, Self
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, model_validator
 
+from mos_eisley.conversation_compaction import AuthorCompaction
 from mos_eisley.conversation_limits import ContextByteLimit
-from mos_eisley.core.models import Contract, canonical_bytes
+from mos_eisley.core.models import Contract, Digest, canonical_bytes
 from mos_eisley.core.protocol import TextBlock, Turn
 
 
@@ -43,12 +44,33 @@ class ContextOmission(Contract):
 
 
 class ContextSelection(Contract):
-    policy_version: Literal[1] = 1
+    policy_version: Literal[1, 2] = 1
     message_index: Position
     turn_sources: Annotated[
         tuple[ContextTurnSource, ...], Field(min_length=1, max_length=31)
     ]
     omitted: Annotated[tuple[ContextOmission, ...], Field(max_length=15)]
+    compaction_id: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    compacted_positions: Annotated[tuple[Position, ...], Field(max_length=16)] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
+
+    @model_validator(mode="after")
+    def consistent_compaction(self) -> Self:
+        compacted = self.compacted_positions
+        if self.policy_version == 1:
+            if self.compaction_id is not None or compacted:
+                raise ValueError("selection policy 1 cannot contain compaction")
+        elif (
+            self.compaction_id is None
+            or not compacted
+            or compacted != tuple(range(compacted[-1] + 1))
+            or compacted[-1] >= self.message_index
+        ):
+            raise ValueError("selection policy 2 requires an exact earlier prefix")
+        return self
 
 
 class ContextProjection(NamedTuple):
@@ -59,6 +81,14 @@ class ContextProjection(NamedTuple):
 def describe_selection(selection: ContextSelection) -> list[str]:
     """Describe source positions without accessing message or artifact content."""
     lines: list[str] = []
+    if selection.compaction_id is not None:
+        positions = ", ".join(
+            str(position) for position in selection.compacted_positions
+        )
+        lines.append(
+            f"Author compaction {selection.compaction_id} reconstructs message(s) "
+            f"{positions} from retained originals."
+        )
     for turn, source in enumerate(selection.turn_sources):
         positions = ", ".join(str(position) for position in source.positions)
         lines.append(f"Turn {turn}: {source.role} from message(s) {positions}.")
@@ -89,7 +119,11 @@ def context_turns(entries: Sequence[ContextMessage], index: int) -> tuple[Turn, 
     return project_context(entries, index).turns
 
 
-def project_context(entries: Sequence[ContextMessage], index: int) -> ContextProjection:
+def project_context(
+    entries: Sequence[ContextMessage],
+    index: int,
+    compaction: AuthorCompaction | None = None,
+) -> ContextProjection:
     """Preserve all completed exchanges and unanswered steering intent.
 
     This interface needs only text and links, so callers need not hydrate memory
@@ -98,6 +132,9 @@ def project_context(entries: Sequence[ContextMessage], index: int) -> ContextPro
     """
     if not 0 <= index < len(entries) <= 16:
         raise ValueError("invalid conversation context position or message count")
+    compacted_through = -1 if compaction is None else compaction.compacted_through
+    if compacted_through >= index:
+        raise ValueError("author compaction cannot cover the selected message")
     for position, entry in enumerate(entries[: index + 1]):
         if entry.steering_for is not None and not 0 <= entry.steering_for < position:
             raise ValueError("context steering must refer to an earlier message")
@@ -107,12 +144,16 @@ def project_context(entries: Sequence[ContextMessage], index: int) -> ContextPro
         while (target := entries[position].steering_for) is not None and entries[
             target
         ].status != "completed":
+            if target <= compacted_through:
+                break
             positions.append(target)
             position = target
         return tuple(reversed(positions))
 
     sources: list[ContextTurnSource] = []
-    for position, entry in enumerate(entries[:index]):
+    for position, entry in enumerate(
+        entries[compacted_through + 1 : index], start=compacted_through + 1
+    ):
         if entry.status == "completed" and entry.answer is not None:
             sources.extend(
                 (
@@ -122,7 +163,9 @@ def project_context(entries: Sequence[ContextMessage], index: int) -> ContextPro
             )
     sources.append(ContextTurnSource(role="user", positions=user_positions(index)))
     selected = {position for source in sources for position in source.positions}
+    compacted = set(range(compacted_through + 1))
     selection = ContextSelection(
+        policy_version=2 if compaction is not None else 1,
         message_index=index,
         turn_sources=tuple(sources),
         omitted=tuple(
@@ -133,8 +176,10 @@ def project_context(entries: Sequence[ContextMessage], index: int) -> ContextPro
                 else "no_completed_answer_or_required_link",
             )
             for position in range(len(entries))
-            if position not in selected
+            if position not in selected and position not in compacted
         ),
+        compaction_id=None if compaction is None else compaction.compaction_id,
+        compacted_positions=tuple(sorted(compacted)),
     )
     turns: list[Turn] = []
     for source in sources:

@@ -23,6 +23,13 @@ class InstructionProfileEntry(Contract):
     classification: Literal["stable_rule", "temporary_state", "unknown"]
 
 
+class TaskInstructionContent(Contract):
+    """Exact private bytes selected by one task-profile instruction entry."""
+
+    rule_id: Identifier
+    text: Annotated[str, Field(min_length=1, max_length=32_000)]
+
+
 class ToolProfileEntry(Contract):
     tool_id: Identifier
     schema_sha256: Digest
@@ -118,6 +125,67 @@ class TaskProfileManifest(Contract):
     @property
     def sha256(self) -> str:
         return digest(canonical_bytes(self))
+
+
+class WorkUnitOwnedTaskProfile(Contract):
+    """A work-unit profile plus its exact selected private instruction bytes."""
+
+    schema_version: Literal[1] = 1
+    manifest: TaskProfileManifest
+    instructions: Annotated[
+        tuple[TaskInstructionContent, ...], Field(max_length=128)
+    ] = ()
+
+    @model_validator(mode="after")
+    def exact_instruction_materialization(self) -> Self:
+        selected = tuple(item for item in self.manifest.instructions if item.selected)
+        if tuple(item.rule_id for item in selected) != tuple(
+            item.rule_id for item in self.instructions
+        ):
+            raise ValueError(
+                "instruction content must match selected profile IDs and order"
+            )
+        for entry, content in zip(selected, self.instructions, strict=True):
+            payload = content.text.encode("utf-8")
+            if len(payload) != entry.bytes or digest(payload) != entry.content_sha256:
+                raise ValueError(
+                    f"instruction content does not match profile entry {entry.rule_id}"
+                )
+        return self
+
+
+class WorkUnitProfileAcquisition(Contract):
+    """Text-free provenance for a profile selected by a checkpoint work unit."""
+
+    schema_version: Literal[1] = 1
+    checkpoint_id: Identifier
+    checkpoint_revision: Annotated[int, Field(ge=1)]
+    checkpoint_sha256: Digest
+    bundle_revision: Annotated[int, Field(ge=1)]
+    bundle_sha256: Digest
+    work_unit: WorkUnitReference
+    profile_id: Identifier
+    profile_sha256: Digest
+    grants_authority: Literal[False] = False
+
+
+class AcquiredWorkUnitProfile(Contract):
+    """Runtime-only material and the private archive identity that supplied it."""
+
+    profile: WorkUnitOwnedTaskProfile
+    acquisition: WorkUnitProfileAcquisition
+
+    @model_validator(mode="after")
+    def exact_source(self) -> Self:
+        manifest = self.profile.manifest
+        source = self.acquisition
+        if (
+            source.work_unit != manifest.work_unit
+            or source.profile_id != manifest.profile_id
+            or source.profile_sha256 != manifest.sha256
+        ):
+            raise ValueError("acquired profile differs from its work-unit source")
+        return self
 
 
 class ProfileDiagnostic(Contract):

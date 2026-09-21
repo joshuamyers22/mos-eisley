@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from mos_eisley.conversation_context import Position, describe_selection
+from mos_eisley.conversation_pressure import describe_pressure
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.conversation_state import RuntimeConversationState, SessionID, Status
 from mos_eisley.core.models import Contract
@@ -25,25 +26,91 @@ class AdmissionInspection(Contract):
     def describe(self) -> str:
         saved = self.admission
         request = saved.request
-        return "\n".join(
-            [
-                f"Saved request admission • message {self.message_index} "
-                f"• status {self.status}",
-                f"Viewing revision {self.revision}; admitted from revision "
-                f"{saved.source_revision} with {saved.message_count} message(s).",
-                f"Recorded exchange: {saved.exchange_index}; "
-                f"admission schema: {saved.schema_version}; "
-                f"selection policy: {saved.selection.policy_version}.",
-                f"Context at admission: {saved.context_bytes}/"
-                f"{saved.context_max_bytes} canonical bytes.",
-                f"Model request at admission: {request.bytes}/"
-                f"{request.max_bytes} canonical bytes.",
-                f"Route: {request.provider}/{request.model}; effort {request.effort}.",
-                f"Reserved: {request.output_reserve_bytes} output bytes; "
-                f"{request.headroom_bytes} headroom bytes.",
-                "Saved memory selected at admission."
-                if saved.memory_selected
-                else "No saved memory selected at admission.",
+        lines = [
+            f"Saved request admission • message {self.message_index} "
+            f"• status {self.status}",
+            f"Viewing revision {self.revision}; admitted from revision "
+            f"{saved.source_revision} with {saved.message_count} message(s).",
+            f"Recorded exchange: {saved.exchange_index}; "
+            f"admission schema: {saved.schema_version}; "
+            f"selection policy: {saved.selection.policy_version}.",
+            f"Context at admission: {saved.context_bytes}/"
+            f"{saved.context_max_bytes} canonical bytes.",
+            f"Model request at admission: {request.bytes}/"
+            f"{request.max_bytes} canonical bytes.",
+            f"Route: {request.provider}/{request.model}; effort {request.effort}.",
+            f"Reserved: {request.output_reserve_bytes} output bytes; "
+            f"{request.headroom_bytes} headroom bytes.",
+            "Saved memory selected at admission."
+            if saved.memory_selected
+            else "No saved memory selected at admission.",
+        ]
+        if saved.task_profile is not None:
+            profile = saved.task_profile
+            lines.extend(
+                (
+                    f"Task profile: {profile.profile_id}; work unit "
+                    f"{profile.work_unit.work_unit_id} revision "
+                    f"{profile.work_unit.revision}.",
+                    f"Selected task inputs: {len(profile.selected_instruction_ids)} "
+                    f"instruction(s), {len(profile.selected_tool_ids)} tool(s); "
+                    f"{len(profile.warning_codes)} visible warning type(s).",
+                    f"Task profile SHA-256: {profile.profile_sha256}",
+                )
+            )
+            if profile.acquisition is not None:
+                acquisition = profile.acquisition
+                lines.extend(
+                    (
+                        "Profile acquisition: work-unit-owned checkpoint "
+                        f"{acquisition.checkpoint_id} revision "
+                        f"{acquisition.checkpoint_revision}.",
+                        f"Task bundle SHA-256: {acquisition.bundle_sha256}",
+                    )
+                )
+        if saved.task_continuation is not None:
+            continuation = saved.task_continuation
+            lines.extend(
+                (
+                    f"Continuation claim: {continuation.claim_id}; checkpoint "
+                    f"{continuation.checkpoint_id} revision "
+                    f"{continuation.checkpoint_revision}.",
+                    f"Selected continuation work unit: "
+                    f"{continuation.selected_work_unit.work_unit_id} revision "
+                    f"{continuation.selected_work_unit.revision}.",
+                    f"Fresh-context SHA-256: {continuation.context_sha256}",
+                )
+            )
+        if saved.author_compaction is not None:
+            compaction = saved.author_compaction
+            lines.extend(
+                (
+                    f"Author compaction: {compaction.compaction_id}; revision "
+                    f"{compaction.revision}; messages 0-"
+                    f"{compaction.compacted_through} reconstructed.",
+                    f"Compaction view: {compaction.before_bytes} source bytes → "
+                    f"{compaction.after_bytes} model-visible bytes; grants no "
+                    "authority.",
+                )
+            )
+        if saved.pressure is not None:
+            lines.extend(describe_pressure(saved.pressure, saved.pressure_advisory))
+        classification = saved.context_classification
+        if classification is not None:
+            lines.append(
+                "Context classes: "
+                f"{len(classification.reusable_memory)} reusable memory source(s), "
+                f"{len(classification.task_instruction_ids)} task instruction(s), "
+                f"{len(classification.temporary_task_state_ids)} temporary-state "
+                "item(s); "
+                + (
+                    f"checkpoint claim {classification.continuation_claim_id} selected."
+                    if classification.checkpoint_selected
+                    else "no checkpoint selected."
+                )
+            )
+        lines.extend(
+            (
                 f"Context SHA-256: {saved.context_sha256}",
                 f"Request SHA-256: {request.sha256}",
                 *describe_selection(saved.selection),
@@ -51,8 +118,9 @@ class AdmissionInspection(Contract):
                 "are outside this record.",
                 "Saved admission is not proof of transmission or provider receipt. "
                 "Read-only inspection; no work started.",
-            ]
+            )
         )
+        return "\n".join(lines)
 
 
 def inspect_admission(

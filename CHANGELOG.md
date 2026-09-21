@@ -4,6 +4,34 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Complete G1 work-unit-owned profile acquisition with schema-2 private task bundles,
+  exact retained instruction material, work-unit/policy binding, checkpoint-store
+  reconstruction, selected trusted tool schemas, legacy fail-closed replay and
+  text-free schema-6 request provenance.
+
+- Add G1 advisory context-pressure snapshots to `/context`, `/status`, the TUI and
+  schema-5 request admission, with exact byte categories/capacity, boundary growth,
+  substantial-result and repeated-read counts, explicitly distinct token estimates,
+  and bounded metadata events that grant no authority or automatic action.
+
+- Add visible G1 author compaction with exact retained user instructions and
+  steering, source-bound advisory material, explicit omission accounting,
+  three-revision lineage, reconstruction from private originals, context preview
+  visibility and schema-4 request admission.
+
+- Add explicit G1 fresh-context continuation with exact next-work selection,
+  private atomic session claims, bounded checkpoint materialization, pre-dispatch
+  workspace/test revalidation, preserved lineage and ledgers, and text-free
+  schema-3 admission provenance.
+
+- Add private, scope-bound G1 checkpoint closure with explicit boundary reasons,
+  revision/hash compare-and-swap, immutable replay archives, atomic current-head
+  publication and a text-free conversation receipt that is never ambient memory.
+
+- Connect scoped task-profile selection to conversation request admission, keeping
+  reusable memory distinct from temporary task state and exposing only selected,
+  schema-bound tools through an injected dispatcher.
+
 - Bind owned review probes to independently pinned campaign slots, rechecking seals,
   profiles and policy at approval and provider use and capping calls by campaign expiry.
 
