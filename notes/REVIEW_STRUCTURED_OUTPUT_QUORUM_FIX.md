@@ -1,6 +1,6 @@
 # Work Note: structured review output and quorum resilience
 
-- Status: closed
+- Status: closed after post-live correction
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-20
 - Last updated (UTC): 2026-09-20
@@ -43,28 +43,35 @@
 | 2026-09-20 | correction | Strict OpenAI schemas require nullable properties to be present. Schema-2 instructions now require `source_unit: null` for spec/constraints citations instead of omission; schema 1 still excludes the field entirely. | exact recursive schema and prompt tests | complete offline gates |
 | 2026-09-20 | verification | A deterministic three-critic run with one invalid response and two valid responses reaches the judge and returns `accept` without retry. | controller regression; 19 controller and 372 broad review tests pass | finish complete package/container gates |
 | 2026-09-20 | verification | The unrestricted complete gate and rebuilt offline container gate pass. The sandbox-only complete run failed solely because 31 localhost fixtures could not bind sockets. | 2,472 source tests, four skips, 89% coverage, 1,851 installed-wheel tests, all container smoke tests | close offline work and require an exact committed revision before live preparation |
+| 2026-09-20 | live review | The retest at `fe8659b` completed three strict-schema critics, judge, and in-process observation signing, but returned `reject`. It exposed conditional object hardening and missing one-invalid-of-three observation coverage; audit also found incomplete standalone replay retention. | `docs/LIVE_REVIEW_STRUCTURED_OUTPUT_QUORUM_RETEST_2026-09-20.md`; Q-008–Q-010 | reopen the offline correction at `57fe5cd`; preserve all live artifacts unchanged |
+| 2026-09-20 | design | The lifecycle gap is semantic, not test-only: `make_review_probe_observation` rejects any critic error even when controller quorum legitimately reached the judge. A future harness also needs one verified, exclusive file containing configuration, policies, phase signatures, observation, result pin, ledger path, and lifecycle paths. | observation/acceptance source trace; Python, verification-loop, threat-model, and adversarial-review guides | allow quorum-tolerated critic errors, add full-path fault proof, and add a bounded standalone evidence bundle |
+| 2026-09-20 | implementation | Hardened every object node, distinguished omitted `properties` from explicit malformed values, allowed only controller-verified quorum-tolerated critic errors past observation construction, and added a no-dispatch standalone replay bundle that verifies before exclusive private retention. | source, ADR-0007, model/probe/standalone evidence docs | run focused, complete package, container, and adversarial gates |
+| 2026-09-20 | verification | The deterministic one-invalid-of-three path retains the failed slot, reaches the judge, signs/authenticates the four-exchange observation, writes a mode-0600 bundle, decodes and replays it from disk, and rejects tamper, duplicate, oversize, overwrite, public-parent, and runtime-directory cases. | focused test and 164-test review suite | complete repository gates |
+| 2026-09-20 | verification | Clean `make check` passed Ruff, formatting, Pyright, 2,476 source tests with four skips, 89% coverage, export/build checks, and 1,852 installed-wheel tests. `make container` rebuilt image `sha256:2cf85409…` and passed every offline smoke suite. An earlier unrestricted run had one transient missing runtime-start fixture; its exact test and the complete rerun passed. | complete gate output and exact reproduction | close Q-008–Q-010 offline; preserve the historical live reject |
 
 ## Handoff
 
-- Current state: implementation and all offline gates are complete. No credential or
-  provider was accessed.
-- Next smallest safe action: commit the exact revision before preparing a newly sealed
-  three-critic live retest.
-- Blocker and required authority/input: a paid rerun will require a committed exact
-  revision and separate sealed financial/dispatch approvals.
-- Checks already run: Ruff, formatting, Pyright, 52 focused contract/adapter tests,
-  19 controller tests, 372 broad review tests, 2,472 complete source tests with four
-  skips and 89% coverage, 1,851 installed-wheel tests, and all container smoke tests.
+- Current state: the live retest is immutable and rejected; Q-008–Q-010 are corrected
+  and verified offline for current/future runs. No credential or provider access is
+  authorized.
+- Next smallest safe action: review and commit this offline correction. Any later live
+  work requires wholly fresh planning and authority.
+- Blocker and required authority/input: none for offline work; any paid rerun would
+  require wholly fresh authority and is outside this correction.
+- Checks already run: focused schema and lifecycle tests, 164 broad review tests,
+  Ruff, formatting, Pyright, 2,476 complete source tests with four skips and 89%
+  coverage, 1,852 installed-wheel tests, and all container smoke tests.
 
 ## Close and promote
 
-- Outcome and verification: provider-native strict output is capability gated, strict
-  local decoding remains intact, and deterministic two-of-three quorum survives one
-  malformed critic without retry; all offline gates pass.
-- Durable fact promoted to `PROJECT_MEMORY.md`: the structured-output boundary and
-  future three-critic/two-threshold retest profile.
-- Decision promoted to ADR/documentation: accepted ADR-0007 and
-  `docs/MODEL_REVIEWER.md`.
+- Outcome and verification: provider-native strict output is capability gated, every
+  object schema fails closed, and deterministic two-of-three quorum survives one
+  malformed critic through signed observation and retained offline replay without
+  retry; all offline gates pass.
+- Durable fact promoted to `PROJECT_MEMORY.md`: the structured-output boundary,
+  full-lifecycle quorum behavior, and future standalone retention contract.
+- Decision promoted to ADR/documentation: accepted ADR-0007,
+  `docs/MODEL_REVIEWER.md`, and `docs/STANDALONE_REVIEW_EVIDENCE.md`.
 - Regression test, issue, or improvement-plan link: reviewer/provider/protocol and
   controller regressions plus the verification record.
 - Temporary artifacts removed: package smoke environments were automatically removed;

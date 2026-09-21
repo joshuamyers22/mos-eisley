@@ -39,6 +39,10 @@ verdict artifacts. Those artifacts do not authorize another run.
 The probe also retains private [runtime records](REVIEW_RUNTIME_EVIDENCE.md) and
 exposes `lifecycle_paths` in critic/judge order. A collector checks their approved
 request, returned-response and worker-cleanup bindings for independent inspection.
+For a one-off probe outside a sealed three-attempt campaign, the
+[standalone evidence bundle](STANDALONE_REVIEW_EVIDENCE.md) retains the exact
+configuration, policies, phase signatures, signed observation, result pin, ledger
+path, and lifecycle paths needed to replay those checks later.
 
 ## Dispatch checks
 
@@ -80,6 +84,11 @@ An [independent observer format](REVIEW_CONFORMANCE_OBSERVATION.md) now authenti
 one successful probe's provenance. Independent runtime evidence collection,
 review-specific repeated-probe acceptance and authorized live runs remain required.
 An authorization signature is permission, not proof of a call.
+
+An observed run may contain a failed critic when the exact policy's quorum was met
+by the remaining critics and the judge completed successfully. The failed slot is
+retained as failure evidence. The observer never converts it into a successful
+critic and does not permit a retry.
 
 `review-launch-preview` continues to report live launch unavailable. No credentialed
 probe was run as part of this implementation; all provider responses in validation

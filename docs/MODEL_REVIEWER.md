@@ -54,6 +54,12 @@ no repair/retry loop, and cancellation propagates to the client. A caller-provid
 client must also disable transport retries to preserve the one-exchange spending
 contract.
 
+The recursive normalizer treats an object schema with no `properties` member as
+an explicit empty object (`properties: {}`, `required: []`, and
+`additionalProperties: false`). An object whose `properties` member is present but
+is not an object is rejected before a provider request can be prepared. This rule
+applies at every nested object node and does not mutate the source schema.
+
 The review pipeline still validates exact quoted evidence, critic/provider quorum,
 finding deduplication and judge IDs, then computes the verdict deterministically.
 Schema-2 diff evidence must identify one supplied source unit. Validation recomputes
@@ -80,6 +86,12 @@ admitted critic calls and retain the threshold at two. This tolerates one failed
 invalid critic without retrying it. The extra call must be included in the exact
 transfer and aggregate spending approvals; redundancy does not create authority or
 provider diversity and can still suffer correlated failures.
+
+When one critic fails but the remaining critics meet the sealed quorum, the failure
+remains in `ReviewResult.critics`. It does not by itself invalidate a completed
+judge verdict or its post-result observation. An `infrastructure_error` verdict,
+insufficient quorum, invalid judge evidence, or any signature/runtime mismatch
+still prevents observation authentication.
 
 Rollback removes this library adapter and its tests/docs. Existing recorded
 packet schemas, run artifacts, terminal commands and provider commands are unchanged.

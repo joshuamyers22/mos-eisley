@@ -16,8 +16,14 @@ def strict_json_schema(value: JsonValue) -> JsonValue:
         for key, item in value.items()
         if key not in ("default", "title")
     }
-    properties = result.get("properties")
-    if result.get("type") == "object" and isinstance(properties, dict):
+    if result.get("type") == "object":
+        if "properties" not in result:
+            properties = {}
+            result["properties"] = properties
+        else:
+            properties = result["properties"]
+        if not isinstance(properties, dict):
+            raise ValueError("object schema properties must be an object")
         result["required"] = list(properties)
         result["additionalProperties"] = False
     return result

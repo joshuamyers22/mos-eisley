@@ -42,8 +42,8 @@
 | Unit tests | focused protocol/provider/reviewer/conformance set | pass | 52 tests |
 | Integration tests | controller set and broad review discovery | pass | 19 and 372 tests |
 | Coverage | `make check` | pass | 89% aggregate |
-| Build/package | `make check` | pass | export, sdist, wheel, and 1,851 installed-wheel tests |
-| Container | `make container` | pass | rebuilt image and all offline smoke tests |
+| Build/package | `make check` | pass | export, sdist, wheel, and 1,852 installed-wheel tests |
+| Container | `make container` | pass | rebuilt image `sha256:2cf85409…` and all offline smoke tests |
 | Architecture contracts | capable/incapable and legacy-canonical regressions | pass | optional boundary only |
 | Dependency/security audit | not run | not applicable to this dependency-free change | dependency surface unchanged |
 
@@ -116,3 +116,24 @@ live host -> review application -> canonical contracts
 - Metrics before and after: prompt-only/two-of-two historical path; strict native
   schema plus deterministic two-of-three fault tolerance after the change
 - Next review trigger: schema/provider API change or authorized live retest outcome
+
+## Post-live correction review
+
+- Trigger: the exact live retest at `fe8659b` returned `reject` and upheld the
+  conditional object-normalization and incomplete lifecycle-regression findings;
+  the evidence audit separately found incomplete standalone replay retention.
+- Q-008 disposition: fixed. Missing object `properties` become an explicit empty
+  strict object; `null`, arrays, scalars, and booleans reject at every nested object.
+- Q-009 disposition: fixed. One invalid critic remains an error while two valid
+  critics reach the judge, signed observation, authentication, and retained replay
+  with no retry.
+- Q-010 disposition: fixed for future harnesses. One bounded contract retains the
+  configuration, both policies, start/judge previews, both phase signatures, signed
+  observation, result pin, ledger path, and ordered lifecycle paths. It authenticates
+  before an exclusive mode-0600 write and rejects duplicate keys, oversize input,
+  tampering, unsafe permissions, overwrites, and placement inside runtime evidence.
+- Historical boundary: none of these changes alter the live `reject` or reconstruct
+  the inputs its harness omitted.
+- New blocking findings: none in the corrected scope.
+- Release recommendation: suitable as an offline-corrected candidate only; no live,
+  retry, qualification, launch, or routing authority is granted.

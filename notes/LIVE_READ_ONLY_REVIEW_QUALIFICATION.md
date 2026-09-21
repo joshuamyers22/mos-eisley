@@ -67,6 +67,7 @@
 | 2026-09-20 | standalone observation-fix retest | A freshly authorized one-attempt retest at `e34c8c8` sent two schema-2 critic requests with 34 citation units each. One critic returned a valid empty critique; the other duplicated `impact` and failed strict response parsing, so quorum failed before the judge and observation paths. Both critic containers were removed; 7,867 micro-USD settled and the unused 20,916-micro-USD judge reservation remains held. | `docs/LIVE_REVIEW_CITATION_OBSERVATION_RETEST_2026-09-20.md`; manifest `2045b5f9…`; ledger `55049fbc…` | Treat the run as inconclusive for both fixes and consumed without retry; no signed observation, qualification or launch authority exists. |
 | 2026-09-20 | offline correction | Capable critic and judge requests now carry provider-native strict JSON Schema while the duplicate-aware local decoder remains unchanged. A deterministic three-critic/two-threshold replay reaches an `accept` judge result when one critic is malformed, without repair or retry. | `docs/REVIEW_STRUCTURED_OUTPUT_QUORUM_FIX_VERIFICATION.md`; ADR-0007; complete package and container gates | Require a committed exact revision and fresh authority before any live retest. |
 | 2026-09-20 | standalone structured-output/quorum retest | A freshly authorized attempt at `fe8659b` completed all three strict-schema critics, reached the separately authorized judge, and produced a signed four-exchange observation with zero retries. The judge returned `reject`, upholding a generic strict-schema-normalizer gap and missing deterministic observation coverage in the new quorum regression. The standalone harness did not retain the policies and phase signatures needed for later `authenticate_review_probe` replay. | `docs/LIVE_REVIEW_STRUCTURED_OUTPUT_QUORUM_RETEST_2026-09-20.md`; result `29f1faae…`; signed observation `11ae0b03…`; ledger `37e40766…` | Preserve the successful in-process runtime/observation evidence and its replay limitation; fix and verify the upheld findings offline. No retry or qualification authority follows. |
+| 2026-09-20 | offline structured-output/quorum correction | Missing object properties now normalize to an explicit empty strict object, malformed property maps reject recursively, and a quorum-tolerated critic failure can proceed through judge and signed observation without hiding the failed slot. A new bounded standalone bundle verifies before exclusive mode-0600 retention and replays authentication from its retained configuration, policies, phase signatures, observation, result pin, ledger path, and lifecycle paths. | direct schema tests; full-path one-invalid-of-three regression; `docs/STANDALONE_REVIEW_EVIDENCE.md` | Q-008–Q-010 are closed for current code while preserving the historical `reject` and missing historical replay inputs. No live authority follows. |
 
 ## Handoff
 
@@ -80,13 +81,14 @@
   standalone retest of the observation fix failed critic quorum on a duplicate-key
   model answer before reaching the judge. A third standalone retest proved native
   strict responses, three-critic quorum, judge dispatch, and signed observation, but
-  its review verdict rejected two code/test gaps. None of these runs revives
-  qualification.
+  its review verdict rejected two code/test gaps. Those gaps and the separately
+  identified harness-retention gap are corrected offline for future runs, but the
+  historical verdict and omitted evidence cannot be rewritten. None of these runs
+  revives qualification.
 - Next smallest safe action: stop the live qualification. The response-budget and
-  citation-fidelity, observation, structured-output, and quorum-resilience contracts
-  have live runtime evidence, but the latest review's two upheld findings remain to be
-  corrected and verified. This work note grants no new provider run or campaign
-  replacement.
+  citation-fidelity, observation, structured-output, quorum-resilience, and future
+  standalone replay-retention contracts are corrected in current code. This work
+  note grants no new provider run or campaign replacement.
 - Required operational inputs: none for this closed qualification. Any future live
   qualification would require new owner direction and a newly reviewed plan; it cannot
   reuse these seals, ledgers, policies, reservations or process keys. Single-operator

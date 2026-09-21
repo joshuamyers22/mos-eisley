@@ -283,9 +283,7 @@ def make_review_probe_observation(
     result = verify_retained_review_result(
         critics.envelope, reviewer, ledger, judge.authorization, expected_result_sha256
     )
-    if result.result.verdict.decision == "infrastructure_error" or any(
-        item.error is not None for item in result.result.critics
-    ):
+    if result.result.verdict.decision == "infrastructure_error":
         raise ValueError("review observation requires successful critics and judge")
     return ReviewProbeObservation(
         schema_version=2 if authority_policy.operator_mode == "single_operator" else 1,

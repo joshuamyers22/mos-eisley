@@ -30,6 +30,11 @@ review paths. Preserve schema-1 citation compatibility by removing `source_unit`
 before normalization; schema 2 includes it. Requests with no response constraint
 retain their existing canonical representation and provider payload.
 
+Every object node is normalized even when its generated schema omits `properties`:
+the omission becomes an explicit empty property map. A present non-object
+`properties` value is rejected. This keeps the shared helper fail-closed instead of
+silently emitting a partially strict object schema.
+
 This adds schema bytes to capable canonical requests and therefore to admission
 budgets and request identities. It reduces but cannot eliminate provider failures,
 does not establish review quality, and grants no dispatch, spending, qualification,
@@ -42,6 +47,7 @@ a retry; correlated same-provider failures remain possible.
 Acceptance requires exact canonical/provider projection tests, recursive strictness
 checks, capable/incapable model behavior, schema-1/schema-2 and judge coverage,
 unchanged duplicate-key rejection, a deterministic one-invalid-of-three quorum
-test, and the complete package/container gates. Reconsider if OpenAI changes its
+test that continues through signed observation authentication and retained replay,
+and the complete package/container gates. Reconsider if OpenAI changes its
 supported JSON Schema subset, if registry capability becomes provider-route-specific,
 or if live evidence shows native constraints do not materially improve validity.
