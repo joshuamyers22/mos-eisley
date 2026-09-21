@@ -49,6 +49,9 @@ class RequestBoundBroker:
         exchange_timeout_seconds: float | None = None,
         audit: BrokerAudit | None = None,
     ) -> None:
+        # Bound the complete construction-to-response exchange, including request
+        # encoding and audit validation performed below.
+        started = time.monotonic()
         if (
             not math.isfinite(lifetime_seconds)
             or not 0 < lifetime_seconds <= MAX_BROKER_CLAIM_SECONDS
@@ -91,7 +94,6 @@ class RequestBoundBroker:
         self._authorization_sha256 = (
             audit.authorization_sha256 if audit is not None else None
         )
-        started = time.monotonic()
         self._claim_expires = started + lifetime_seconds
         self._exchange_expires = started + exchange_timeout_seconds
         self._lock = threading.Lock()

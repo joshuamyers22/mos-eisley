@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import Contract, canonical_bytes
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
 from mos_eisley.run.provider_broker import RequestBoundBroker
@@ -118,6 +118,31 @@ class BrokerTests(IsolatedAsyncioTestCase):
                 await broker.redeem(canonical_bytes(broker.claim())),
                 self.fake.response,
             )
+
+    def test_exchange_clock_starts_before_request_encoding(self) -> None:
+        events: list[str] = []
+
+        def start_clock() -> float:
+            events.append("clock")
+            return 100.0
+
+        def encode(value: Contract) -> bytes:
+            events.append("encode")
+            return canonical_bytes(value)
+
+        with (
+            patch(
+                "mos_eisley.run.provider_broker.time.monotonic",
+                side_effect=start_clock,
+            ),
+            patch(
+                "mos_eisley.run.provider_broker.canonical_bytes",
+                side_effect=encode,
+            ),
+        ):
+            RequestBoundBroker(request(), self.transport)
+
+        self.assertEqual(events[:2], ["clock", "encode"])
 
     @staticmethod
     async def slow(*_: object) -> None:
