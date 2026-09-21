@@ -144,21 +144,11 @@ remains future work.
   ancestry, omitted positions and context-byte usage without starting work. It
   also reports the complete model request's byte count, independent input limit,
   output reserve and headroom, so a context that fits can still show a request
-  budget rejection before dispatch. It also includes categorized pressure usage,
-  available capacity, checkpoint/session growth, provider-token unknowns and bounded
-  advisory-only threshold metadata.
+  budget rejection before dispatch.
   The report contains metadata and a context hash rather than message/memory text.
   It uses saved memory and the current history; active work can change the selection.
   A queued review retains its isolated packet and is not treated as a chat target.
   See [context previews](CONVERSATION_STORAGE.md#context-selection-preview).
-- `/status` reports the same pressure policy and cumulative counters even when no
-  chat is queued. With queued author work, its exact upcoming request measurement is
-  identical to `/context`. Status inspection is read-only and excluded from tool-call
-  counters. See [context pressure](CONTEXT_PRESSURE.md).
-- `/compact FILE` validates and atomically saves one explicit author-compaction
-  draft while work is stopped. It preserves the newest completed user instruction
-  verbatim, retains exact private reconstruction source and pauses queued work.
-  See [validated author compaction](AUTHOR_COMPACTION.md).
 - `/context N` inspects message N's saved request admission, using the zero-based
   number shown in the transcript. It shows the original context/request hashes,
   budgets, selected positions and omissions without starting work. Later memory,
@@ -333,9 +323,8 @@ See [saved request admissions](CONVERSATION_STORAGE.md#saved-request-admissions)
 Storage is user-selected and retention is manual through `session-delete`. The
 JSON file contains the current transcript; `.lock` files are synchronization
 metadata and must not be removed while a session is open. An abnormal process
-exit can leave a private temporary file with transcript content. General version
-history and remote adapters remain future work; SQLite indexing and explicit
-validated author compaction are implemented.
+exit can leave a private temporary file with transcript content. Version history,
+compaction, SQLite indexing and remote adapters remain future work.
 
 ## Scope and verification
 
