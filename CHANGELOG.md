@@ -32,6 +32,22 @@ Notable changes are recorded here using semantic versioning.
   reusable memory distinct from temporary task state and exposing only selected,
   schema-bound tools through an injected dispatcher.
 
+- Require a separate signed decision for an exact library-owned review launch,
+  with fresh campaign verification, policy/guidance checks, deadline caps and
+  revocation checks at credential and provider use.
+
+- Check a freshly prepared launch against current three-slot campaign evidence and
+  exact role/quorum/runtime scope, without granting live launch or dispatch authority.
+
+- Assemble campaign evidence one fixed slot at a time from pinned completions,
+  previews and separately signed observations, freshly verifying the entire prefix.
+
+- Preview unsigned review observations from pinned campaign completions and selected
+  runtime evidence, with explicit independent-attestation requirements and no key use.
+
+- Sequence three bound review probes with independent observer handoff and fresh
+  evidence verification, stopping on missing evidence, failure, timeout or cancellation.
+
 - Bind owned review probes to independently pinned campaign slots, rechecking seals,
   profiles and policy at approval and provider use and capping calls by campaign expiry.
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Literal, Protocol
 
 from mos_eisley.core.models import Contract, Identifier, canonical_bytes
 from mos_eisley.run.review_approval import ApprovalPreview, ReviewApprovalUI
@@ -20,8 +20,12 @@ from mos_eisley.run.review_conformance_authorization import (
 from mos_eisley.run.review_controller import ControllerCriticPreview, ControllerStart
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
-if TYPE_CHECKING:
-    from mos_eisley.run.review_campaign_dispatch import ReviewCampaignAdmission
+
+class ReviewDispatchAdmission(Protocol):
+    @property
+    def expires_at(self) -> datetime: ...
+
+    def check(self, preview: ApprovalPreview) -> None: ...
 
 
 class ReviewConformanceRuntime(Contract):
@@ -53,7 +57,7 @@ class SignedReviewApprovalUI:
             Awaitable[SignedReviewConformanceAuthorization | None],
         ],
         now: Callable[[], datetime] = _now,
-        campaign: ReviewCampaignAdmission | None = None,
+        campaign: ReviewDispatchAdmission | None = None,
     ):
         self._critics = ControllerCriticPreview.model_validate_json(
             canonical_bytes(critics)
@@ -70,6 +74,10 @@ class SignedReviewApprovalUI:
             Literal["critics", "judge"],
             tuple[ApprovalPreview, SignedReviewConformanceAuthorization],
         ] = {}
+
+    @property
+    def admission_deadline(self) -> datetime | None:
+        return None if self._campaign is None else self._campaign.expires_at
 
     @property
     def authorizations(self) -> tuple[SignedReviewConformanceAuthorization, ...]:

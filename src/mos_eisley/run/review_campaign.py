@@ -52,7 +52,8 @@ class _NoDispatch:
         raise ValueError("campaign ceremony cannot dispatch provider requests")
 
 
-def _reviewer(configuration: ReviewLaunchConfiguration) -> ModelReviewer:
+def campaign_reviewer(configuration: ReviewLaunchConfiguration) -> ModelReviewer:
+    """Reconstruct sealed review projections through a dispatch-refusing client."""
     return ModelReviewer(
         _NoDispatch(),
         configuration.registry,
@@ -84,7 +85,7 @@ class CampaignAttempt(Contract):
             or len(config.critics) != len(preview.requests)
         ):
             raise ValueError("campaign configuration differs from its preview")
-        reviewer = _reviewer(config)
+        reviewer = campaign_reviewer(config)
         for selected, request, call in zip(
             config.critics, preview.requests, preview.envelope.critics, strict=True
         ):
@@ -158,7 +159,7 @@ class ReviewCampaignBundle(Contract):
                 if isinstance(block, TextBlock)
             )
             brief = CriticRequest.model_validate_json(text).brief
-            judge = _reviewer(attempt.configuration).judge_request(
+            judge = campaign_reviewer(attempt.configuration).judge_request(
                 JudgeRequest(brief=brief, findings=())
             )
             if review_role_profile(judge) != self.policy.judge:
@@ -311,6 +312,25 @@ def read_campaign_seal(
     return bundle, seal
 
 
+def write_campaign_export(
+    directory: Path, expected_seal_sha256: str, output: Path, raw: bytes
+) -> None:
+    """Exclusive private export outside the sealed campaign and its run evidence."""
+    if len(raw) > CAMPAIGN_BYTES:
+        raise ValueError("campaign export exceeds its byte limit")
+    bundle, _ = read_campaign_seal(directory, expected_seal_sha256)
+    protected = (
+        directory,
+        *(
+            Path(attempt.preview.envelope.artifact_directory)
+            for attempt in bundle.attempts
+        ),
+    )
+    if any(output.resolve().is_relative_to(path.resolve()) for path in protected):
+        raise ValueError("campaign export must be outside campaign and run directories")
+    private_write(output, raw)
+
+
 class CampaignAttemptSubmission(Contract):
     start: ControllerStart
     judge: ControllerJudgePreview
@@ -387,7 +407,7 @@ def review_campaign_evidence(
                 lifecycle_directories=tuple(
                     Path(path) for path in supplied.lifecycle_directories
                 ),
-                reviewer=_reviewer(committed.configuration),
+                reviewer=campaign_reviewer(committed.configuration),
                 ledger=SpendLedger(Path(committed.ledger_path)),
             )
         )
