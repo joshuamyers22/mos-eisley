@@ -1,6 +1,6 @@
 # Work Note: structured review output and quorum resilience
 
-- Status: offline correction verified; awaiting immutable commit
+- Status: immutable correction and production image verified; live work unauthorized
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-20
 - Last updated (UTC): 2026-09-21
@@ -54,23 +54,25 @@
 | 2026-09-20 | diagnosis | `ReviewPolicy` permits a bounded window up to 300 seconds, but the review controller, broker claim, worker exchange, and observation builder collapsed the whole count-plus-generation lifecycle into one 60-second interval. The live transport already enforces a separate 60-second maximum for each provider operation. | controller/broker/duplex/probe/runtime-evidence source trace and exact live timestamps | separate authority presentation, role lifecycle, and provider-operation deadlines without adding retry authority |
 | 2026-09-20 | implementation | The bearer claim remains maximum 60 seconds and one use. A separate maximum-300-second exchange clock now begins at broker construction; review roles derive at most two operation windows from policy and remaining controller time. Count and generation each retain their own maximum-60-second live and observation limit, while the async container guardian remains independently bounded at exchange plus five seconds. | source and focused broker/controller/observation/isolation/watchdog regressions | run static checks, broad review tests, then the complete offline gate |
 | 2026-09-21 | verification | V-007 passes 146 focused lifecycle tests, 376 broad review tests, Ruff, formatting, Pyright, 2,481 source tests with four skips and 89% coverage, export/build checks, and a clean focused rerun of all 1,855 installed-wheel tests. The first composite smoke stage ended non-cleanly after the source pass; the fully captured focused rerun contains no failures. | unrestricted component-gate output | leave the verified correction uncommitted until explicitly requested |
+| 2026-09-21 | production verification | From clean immutable revision `b3357aa`, `make container` rebuilt `mos-eisley:local` as `sha256:2adb3c8c39040fc01fc25d3800963c21dc08708bd9e3395ac248695533e92b6e` and passed every offline container smoke. A separate network-disabled, read-only inspection confirmed Linux/arm64, UID/GID `10001:10001`, Mos Eisley `0.1.0`, OpenAI SDK `3.11.0`, and an empty post-test ancestor inventory. | agentic verification loop and container lifecycle guide; Docker build/smoke/inspection output | require separate user direction before preparing any new live campaign artifacts |
 
 ## Handoff
 
 - Current state: every prior live campaign remains immutable and terminal. The latest
   campaign failed at the conflated broker deadline after successful counts. The
-  deadline correction is implemented offline; no credential or provider access is
-  authorized by this work.
-- Next smallest safe action: review and, only after a later explicit commit request,
-  create an immutable revision. Any rebuild or live campaign remains separate work
-  and authority.
+  correction is committed at `b3357aa`, and its production image is rebuilt and
+  verified. No credential or provider access is authorized by this work.
+- Next smallest safe action: only after separate user direction, prepare wholly fresh
+  live-campaign ledgers, bundle, seal, and approval artifacts bound to `b3357aa` and
+  image `sha256:2adb3c8c…`. Live dispatch still requires its own exact authorization.
 - Blocker and required authority/input: none for offline work; any paid rerun would
   require wholly fresh authority and is outside this correction.
 - Checks already run: prior schema, quorum, output-limit, complete repository, and
   container gates remain recorded above. For V-007, 146 focused lifecycle tests,
   376 broad review tests, Ruff, formatting, Pyright, 2,481 complete source tests with
   four skips and 89% coverage, export/build checks, and 1,855 installed-wheel tests
-  pass.
+  pass. From `b3357aa`, `make container` and the separate immutable-image inspection
+  also pass with no remaining image-derived container.
 
 ## Close and promote
 

@@ -16,6 +16,10 @@
 - Commit/revision and starting worktree state: `6213cce43b0f8538756991a2e581e9332a601de4`; clean
 - Reopened revision and state: `57fe5cd`; clean after committing the immutable live
   retest record
+- V-007 immutable revision and production-image state: `b3357aa`; clean before the
+  rebuild and selected `docs/AGENTIC_VERIFICATION_GUIDE.md` plus
+  `templates/AGENTIC_VERIFICATION_LOOP.md` under the pinned production-template
+  survey
 
 ## Rubric
 
@@ -67,9 +71,8 @@
 
 ## Exit
 
-- Stop reason: V-007 is corrected and the offline component gates pass. Leave the
-  worktree uncommitted; rebuilding or preparing another live campaign requires a
-  later explicit request.
+- Stop reason: V-007 is corrected, committed, and verified in the rebuilt production
+  image. Preparing another live campaign requires a later explicit request.
 - Rubric result and blocking findings: pass with no open offline blocking finding.
   The live retest remains separately authorized work.
 - Full quality-gate command and result: for V-007, unrestricted `make check` passed
@@ -83,10 +86,13 @@
   one-invalid-of-three replay reaches the judge, signed/authenticated observation,
   exclusive disk retention, and fresh offline verification without retry. Tamper,
   duplicate, oversize, unsafe-permission, overwrite, and placement cases fail closed.
-  Before iteration 5, `make container` rebuilt image
-  `sha256:2cf85409f8ee96d148a3209e2d1bb238d11137f06e2002856f784518a9401b51`
-  and passed every offline smoke test. That image predates V-006 and is not eligible
-  for the next live attempt; rebuild after committing the correction.
+  From clean revision `b3357aa`, unrestricted `make container` rebuilt image
+  `sha256:2adb3c8c39040fc01fc25d3800963c21dc08708bd9e3395ac248695533e92b6e`
+  and passed the network-disabled, read-only CLI smoke plus containment, crash
+  cleanup, controller, approval, conformance, probe, runtime-evidence, campaign,
+  campaign-runner, and launch smoke suites. Final inspection confirms Linux/arm64,
+  configured and effective UID/GID `10001:10001`, Mos Eisley `0.1.0`, OpenAI SDK
+  `3.11.0`, and no remaining container derived from the image.
 - Remaining uncertainty, owners, and dates: a later live result is still required;
   offline schema conformance cannot guarantee model quality or provider availability.
 - Human/domain approval, if required: user directed this implementation.
