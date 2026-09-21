@@ -23,6 +23,7 @@ FailureKind = Literal[
     "provider_error", "timeout", "invalid_output", "budget_exceeded", "unavailable"
 ]
 Rate = Annotated[float, Field(ge=0.0, le=1.0)]
+MAX_CASES = 5_000
 MAX_ASSIGNMENTS = 50_000
 
 
@@ -55,7 +56,7 @@ class EvalCase(Contract):
 class EvaluationDataset(Contract):
     schema_version: Literal[2] = 2
     id: Identifier
-    cases: Annotated[tuple[EvalCase, ...], Field(min_length=2, max_length=5000)]
+    cases: Annotated[tuple[EvalCase, ...], Field(min_length=2, max_length=MAX_CASES)]
 
     @model_validator(mode="after")
     def valid_dataset(self) -> Self:

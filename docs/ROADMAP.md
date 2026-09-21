@@ -19,7 +19,7 @@ continuation, compaction or pressure behavior.
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — live path demonstrated; qualification open | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence; formal three-slot qualification and launch decision remain |
-| G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
+| G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
@@ -29,6 +29,32 @@ qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
+offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,
+comparison strata, repetitions, route-specific worst-case costs and case/assignment/
+spend ceilings. It computes the least expensive best-case clean/defective evidence
+under the existing group-mean Hoeffding/Bonferroni design before packet construction
+or provider spend. It reproduces §26.3's result that the example's clean half alone
+needs 1,732 groups per profile/split, 13,856 cases and 249,408 assignments, while the
+complete clean-plus-defective lower bound needs 27,712 cases and 498,816 assignments.
+The content-addressed report denies execution, promotion and routing authority. A
+passing lower bound is not an approved study: real signed labels, a production policy
+seal, protected holdout custody and the matched session-policy outcome report remain
+open. See [evaluation](EVALUATION.md) and the
+[G3 verification record](G3_FEASIBILITY_VERIFICATION.md).
+
+**G3 study-design boundary, 2026-09-21 — implemented, empirical inputs open:**
+metadata-only Ed25519 label claims now require two distinct enrolled grader keys and
+exact agreement before eligibility. Disagreements and unknown selection or label-
+observation probabilities remain explicit exclusions. The context policy fixes the
+existing baseline, the full bounded-context candidate, every single-component
+ablation, all eight required outcomes, complete cost scope and baseline retention on
+inconclusive results. Neither command accepts a dataset or session path, and every
+artifact denies execution and promotion authority. No real signed G3 catalog, trust
+policy or reviewed arm/resource identities are present in the repository; the current
+production eligible-label count is therefore zero, not a fixture-derived claim. See
+[G3 context-study policy](G3_CONTEXT_STUDY.md).
 
 **G2 live-path evidence, 2026-09-21 — standalone pass; formal qualification
 open:** a freshly approved standalone campaign at `b3357aa` carried one frozen

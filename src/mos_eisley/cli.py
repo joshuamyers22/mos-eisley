@@ -52,6 +52,13 @@ from mos_eisley.evaluation.authentication import (
     SignedAdjudication,
     authenticate_adjudication,
 )
+from mos_eisley.evaluation.context_study import (
+    BaselineAblationPolicy,
+    EligibleLabelInventory,
+    IndependentLabelCatalog,
+    inventory_independent_labels,
+    seal_baseline_ablation_policy,
+)
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -59,6 +66,10 @@ from mos_eisley.evaluation.execution import (
     RawResultSet,
     make_execution_batch,
     run_recorded_evaluation,
+)
+from mos_eisley.evaluation.feasibility import (
+    EvaluationStudyBudget,
+    assess_evaluation_feasibility,
 )
 from mos_eisley.evaluation.lineage import (
     DualGradedObservationSet,
@@ -789,6 +800,30 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Acknowledge access to private OpenAI organization billing metadata",
     )
+    eval_feasibility = subcommands.add_parser(
+        "eval-feasibility",
+        help="Calculate fixed-matrix case, assignment and spend feasibility",
+    )
+    eval_feasibility.add_argument("--candidates", type=Path, required=True)
+    eval_feasibility.add_argument("--gate", type=Path, required=True)
+    eval_feasibility.add_argument("--study-budget", type=Path, required=True)
+    eval_feasibility.add_argument("--output", type=Path, required=True)
+    eval_labels = subcommands.add_parser(
+        "eval-inventory-labels",
+        help="Verify independent label receipts and emit metadata-only eligibility",
+    )
+    eval_labels.add_argument("--catalog", type=Path, required=True)
+    eval_labels.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_labels.add_argument("--output", type=Path, required=True)
+    eval_context_policy = subcommands.add_parser(
+        "eval-seal-context-policy",
+        help="Seal matched baseline, candidate, and component-ablation arms",
+    )
+    eval_context_policy.add_argument("--policy", type=Path, required=True)
+    eval_context_policy.add_argument("--catalog", type=Path, required=True)
+    eval_context_policy.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_context_policy.add_argument("--label-inventory", type=Path, required=True)
+    eval_context_policy.add_argument("--output", type=Path, required=True)
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -7103,8 +7138,96 @@ def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _evaluation_feasibility_command(args: argparse.Namespace) -> int:
+    candidates = CandidateGrid.model_validate_json(
+        read_bounded(cast(Path, args.candidates))
+    )
+    gate = EvaluationGate.model_validate_json(read_bounded(cast(Path, args.gate)))
+    study_budget = EvaluationStudyBudget.model_validate_json(
+        read_bounded(cast(Path, args.study_budget))
+    )
+    report = assess_evaluation_feasibility(candidates, gate, study_budget)
+    output = cast(Path, args.output)
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.feasibility.assessed",
+                "path": str(output),
+                "report_sha256": report.report_sha256,
+                "minimum_resource_feasible": report.minimum_resource_feasible,
+                "issues": report.issues,
+                "study_execution_authorized": report.study_execution_authorized,
+            }
+        )
+    )
+    return 0 if report.minimum_resource_feasible else 1
+
+
+def _inventory_independent_labels_command(args: argparse.Namespace) -> int:
+    catalog = IndependentLabelCatalog.model_validate_json(
+        read_bounded(cast(Path, args.catalog))
+    )
+    policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy))
+    )
+    inventory = inventory_independent_labels(catalog, policy)
+    output = cast(Path, args.output)
+    _write_contract(output, inventory)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.labels.inventoried",
+                "path": str(output),
+                "inventory_sha256": inventory.inventory_sha256,
+                "eligible": len(inventory.eligible),
+                "excluded": len(inventory.excluded),
+                "holdout_sessions_inspected": inventory.holdout_sessions_inspected,
+                "study_execution_authorized": inventory.study_execution_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _seal_context_policy_command(args: argparse.Namespace) -> int:
+    policy = BaselineAblationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.policy))
+    )
+    catalog = IndependentLabelCatalog.model_validate_json(
+        read_bounded(cast(Path, args.catalog))
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy))
+    )
+    inventory = EligibleLabelInventory.model_validate_json(
+        read_bounded(cast(Path, args.label_inventory))
+    )
+    sealed = seal_baseline_ablation_policy(policy, catalog, grading_policy, inventory)
+    output = cast(Path, args.output)
+    _write_contract(output, sealed)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.context_policy.sealed",
+                "path": str(output),
+                "sealed_policy_sha256": sealed.sealed_policy_sha256,
+                "eligible_label_count": sealed.eligible_label_count,
+                "available_arm_ids": sealed.available_arm_ids,
+                "unavailable_arm_ids": sealed.unavailable_arm_ids,
+                "holdout_sessions_inspected": sealed.holdout_sessions_inspected,
+                "study_execution_authorized": sealed.study_execution_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
+        "eval-feasibility": _evaluation_feasibility_command,
+        "eval-inventory-labels": _inventory_independent_labels_command,
+        "eval-seal-context-policy": _seal_context_policy_command,
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
         "eval-convert-openai-conformance": _convert_openai_conformance_command,

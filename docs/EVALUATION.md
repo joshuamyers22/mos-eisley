@@ -17,6 +17,71 @@ References:
 
 ## Artifact flow
 
+Before creating a paid fixed matrix, run the G3 feasibility preflight against the
+exact candidate grid and quality gate. The separately authored study-budget artifact
+names every comparison stratum, the repetition count, one worst-case micro-USD cost
+and reviewed cost-basis digest for every candidate in grid order, an explicit ceiling
+for non-assignment study costs, and ceilings no larger than the current 5,000-case and
+50,000-assignment hard limits.
+
+```sh
+uv run --frozen mos eval-feasibility \
+  --candidates eval/candidates.json \
+  --gate eval/gate.json \
+  --study-budget eval/study-budget.json \
+  --output .mos-eisley/eval/feasibility.json
+```
+
+The budget has this strict shape; `route_cost_ceilings` must follow candidate-grid
+order exactly:
+
+```json
+{
+  "schema_version": 1,
+  "candidate_grid_sha256": "<SHA-256 of canonical candidate-grid JSON>",
+  "comparison_strata": ["profile-a", "profile-b"],
+  "repetitions": 3,
+  "route_cost_ceilings": [
+    {
+      "candidate_id": "<candidate ID from the grid>",
+      "cost_basis_sha256": "<reviewed pricing/request-budget basis digest>",
+      "max_cost_microusd": 25000
+    }
+  ],
+  "dataset_case_ceiling": 5000,
+  "assignment_ceiling": 50000,
+  "non_assignment_cost_ceiling_microusd": 1000000,
+  "spend_ceiling_microusd": 5000000
+}
+```
+
+The report applies the existing equal-group Hoeffding/Bonferroni formula to the full
+`routes × strata × three metrics × two splits` family. It calculates the minimum
+best-case clean and defective groups needed for flawless observed rates, then counts
+every case, repetition, route assignment and route-specific worst-case cost. Clean
+and defective cases may share an independence-group identity in this lower-bound
+calculation; they remain separate cases and assignments. Completion reuses those
+groups where possible. The total adds the declared non-assignment ceiling; cost-basis
+digests identify but do not independently validate the operator's pricing inputs.
+Thus a passing report shows only that the resource lower
+bound fits—not that representative cases, valid labels or independent groups exist.
+
+Exit 0 means that lower bound fits all three declared resource ceilings. Exit 1
+retains a valid report identifying an unattainable exact confidence target or an
+exceeded case, assignment or spend ceiling. Exit 2 means input/artifact validation
+failed. The output binds the candidate grid, quality gate and study budget by digest
+and explicitly grants no study execution, provider request, promotion or routing
+authority. It does not read a dataset or inspect holdout outcomes.
+
+For the G3 matched context-policy study, independently signed label eligibility and
+the baseline/ablation family are separate pre-study artifacts. The label inventory
+accepts only opaque metadata signed by two distinct enrolled grader keys; it retains
+disagreements and unknown selection/missing-label probabilities as exclusions. The
+policy fixes the existing-selection baseline, the full bounded-context candidate,
+one leave-one-component-out arm for every component, the complete outcome family,
+whole-task cost scope and the rule that inconclusive results retain the baseline.
+See [G3 context-study policy and label eligibility](G3_CONTEXT_STUDY.md).
+
 `eval-plan` reads four operator-authored inputs: a labeled dataset containing both
 calibration and holdout cases, a candidate grid, pre-registered quality gates and a
 randomization seed. It expands the full case × route × repetition matrix in a
