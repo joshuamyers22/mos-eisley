@@ -9,6 +9,7 @@ from typing import Annotated
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID, Status
+from mos_eisley.conversation_pressure import ConversationPressureActivity
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
@@ -33,6 +34,9 @@ class TranscriptText(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = None
+    pressure_activity: ConversationPressureActivity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class TranscriptArtifact(Contract):
