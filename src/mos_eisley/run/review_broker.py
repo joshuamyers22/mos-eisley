@@ -43,6 +43,8 @@ from mos_eisley.run.broker_audit import (
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.provider_broker import (
+    MAX_BROKER_CLAIM_SECONDS,
+    MAX_BROKER_EXCHANGE_SECONDS,
     MAX_REQUEST_BYTES,
     ApprovedRequest,
     RequestBoundBroker,
@@ -238,9 +240,9 @@ class PreparedReviewCall:
     def check_current(self, timeout: float) -> None:
         if self._guidance is not None:
             self._guidance.check()
-        if not math.isfinite(timeout) or not 0 < timeout <= 60:
+        if not math.isfinite(timeout) or not 0 < timeout <= MAX_BROKER_EXCHANGE_SECONDS:
             raise ValueError(
-                "review broker timeout must be between zero and 60 seconds"
+                "review broker exchange timeout must be between zero and 300 seconds"
             )
         self._policy.check_current()
         if datetime.now(UTC) >= self._authorization.expires_at:
@@ -285,7 +287,8 @@ class PreparedReviewCall:
         broker = RequestBoundBroker(
             request_payload(self.model_request),
             controller,
-            lifetime_seconds=min(timeout, remaining),
+            lifetime_seconds=min(MAX_BROKER_CLAIM_SECONDS, timeout, remaining),
+            exchange_timeout_seconds=min(timeout, remaining),
             audit=audit,
         )
         return BrokeredOpenAIClient(

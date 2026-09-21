@@ -2,9 +2,10 @@
 
 ## Scope and ownership
 
-- System/version: Mos Eisley review model bridge through `57fe5cd` plus this change
+- System/version: Mos Eisley review model bridge through `e87ffa7` plus this change
 - Owner and reviewers: Joshua Myers
-- Date and review trigger: 2026-09-20; revisit on response-schema or provider change
+- Date and review trigger: 2026-09-21; revisit on response-schema, deadline, or
+  provider change
 - In scope / out of scope: canonical response-format contract, OpenAI projection,
   reviewer schema selection, and redundant quorum behavior / live dispatch,
   credential handling, provider quality, and launch qualification are out of scope
@@ -17,6 +18,7 @@
 | Critic/judge response | untrusted provider output | strict validation before quorum/verdict | Joshua Myers |
 | Spend and dispatch authority | financial/privileged | never implied by schema or offline tests | Joshua Myers |
 | Standalone replay bundle | private integrity evidence | complete authentication inputs, bounded private exclusive retention | Joshua Myers |
+| Review deadlines and cleanup lease | privileged availability boundary | one-use authority stays short while two operations and cleanup remain finitely bounded | Joshua Myers |
 
 - Actors and capabilities: local operator; untrusted model/provider response; broker
   and spending controls; malicious review content embedded as data.
@@ -39,6 +41,7 @@
 | Standalone host loses replay inputs with its ephemeral key | policies or phase signatures remain process-local | signed observation cannot be historically authenticated | verify and exclusively retain one bounded bundle before host exit | disk-only decode/authentication and tamper tests | trusted same-user storage remains required |
 | Retained response limit is omitted during reconstruction | replay uses a default different from the live launch | post-result evidence fails despite an otherwise valid run, or a substituted projection is trusted | construct every dispatch-refusing reviewer with the retained launch limit and compare exact critic/judge projections | changed-limit campaign regression and full-path standalone test | future request-shaping fields require the same explicit binding |
 | Malformed object schema bypasses strict normalization | object has absent or non-object `properties` | misleading strict claim or provider rejection | normalize missing properties to an empty object and reject malformed types recursively | direct schema fault tests | provider-supported JSON Schema subset can still evolve |
+| Token counting consumes generation's deadline | one role performs count and generation under one 60-second clock | all generations cancel after valid counts; holds become uncertain and quorum is unavailable | retain a maximum-60-second claim window and separate maximum-60-second operation intervals inside a derived broker lifecycle; cap the outer exchange and cleanup lease at 300/305 seconds and controller/authorization expiry | delayed claimed-exchange test, observation-duration test, async broker/watchdog bounds, exact failed-campaign timing | a slow provider can still exhaust its individual operation or phase authorization and fail closed |
 
 ## Decisions
 

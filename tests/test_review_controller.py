@@ -23,6 +23,7 @@ from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvel
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerTerminal,
+    review_exchange_timeout,
 )
 from mos_eisley.run.review_verdict import verify_retained_review_result
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -146,15 +147,22 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.phase, "prepared")
         self.assertFalse(self.directory.exists())
 
-    def test_quorum_and_call_deadlines_are_checked_before_any_spend(self):
+    def test_quorum_is_checked_before_any_spend(self):
         for policy in (
             ReviewPolicy(),
             ReviewPolicy(min_critics=3, min_providers=1),
-            self.policy.model_copy(update={"timeout_seconds": 61.0}),
         ):
             with self.subTest(policy=policy), self.assertRaises(ValueError):
                 self.make_controller(policy)
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_policy_timeout_above_sixty_is_a_bounded_exchange_window(self):
+        controller = self.make_controller(
+            self.policy.model_copy(update={"timeout_seconds": 61.0})
+        )
+        self.assertEqual(controller.authorization.policy.timeout_seconds, 61.0)
+        self.assertEqual(review_exchange_timeout(61.0, 200.0), 120.0)
+        self.assertEqual(review_exchange_timeout(61.0, 45.0), 45.0)
 
     def test_request_budget_rejection_happens_before_any_spend(self):
         request = self.base.request.model_copy(

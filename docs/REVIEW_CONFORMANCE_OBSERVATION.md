@@ -37,7 +37,9 @@ prove remote execution automatically.
 
 The builder checks the exact policy, preview and authorization bindings; every
 exchange must fit entirely inside its historical phase authorization and controller
-deadline, with a maximum 60-second call interval. Critic calls may overlap. Judge
+deadline. Token counting and generation each have a separate maximum 60-second
+operation interval; their combined interval may therefore exceed 60 seconds. Critic
+calls may overlap. Judge
 counting must follow completion of every critic generation. Observation time must
 follow all exchanges and fall inside the selected observation-policy window.
 

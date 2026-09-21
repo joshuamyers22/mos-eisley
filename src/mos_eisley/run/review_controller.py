@@ -46,6 +46,13 @@ Phase = Literal[
 ]
 
 
+def review_exchange_timeout(
+    policy_timeout_seconds: float, remaining_seconds: float
+) -> float:
+    """Derive one count-plus-generation lifecycle from per-operation policy."""
+    return min(min(policy_timeout_seconds, 60.0) * 2, remaining_seconds)
+
+
 class ControllerAuthorization(Contract):
     schema_version: Literal[1] = 1
     mode: Literal["brokered_review_controller"] = "brokered_review_controller"
@@ -153,10 +160,6 @@ class BrokeredReviewController:
         selected = ReviewPolicy.model_validate_json(
             canonical_bytes(policy if policy is not None else ReviewPolicy())
         )
-        if selected.timeout_seconds > 60:
-            raise ValueError(
-                "Brokered review calls require deadlines at most 60 seconds."
-            )
         roster: list[CriticSpec] = []
         for call in envelope.critics:
             critic = call.critic_spec
@@ -223,6 +226,12 @@ class BrokeredReviewController:
         if remaining <= 0:
             raise TimeoutError("Review controller deadline expired.")
         return remaining
+
+    def _exchange_timeout(self) -> float:
+        """Bound count and generation separately inside one broker lifecycle."""
+        return review_exchange_timeout(
+            self.authorization.policy.timeout_seconds, self._remaining()
+        )
 
     def _terminal(
         self,
@@ -293,10 +302,7 @@ class BrokeredReviewController:
                             index,
                             transport=transport,
                             container=containers[index],
-                            timeout=min(
-                                self.authorization.policy.timeout_seconds,
-                                self._remaining(),
-                            ),
+                            timeout=self._exchange_timeout(),
                         ),
                         self._envelope.critics[index].model_request,
                     )
@@ -358,9 +364,7 @@ class BrokeredReviewController:
                     approved_evidence_sha256=self._judge.approval_sha256,
                     transport=transport,
                     container=container,
-                    timeout=min(
-                        self.authorization.policy.timeout_seconds, self._remaining()
-                    ),
+                    timeout=self._exchange_timeout(),
                 )
                 await _complete_all(((client, self._judge.model_request),))
                 for call in self._envelope.critics:

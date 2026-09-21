@@ -32,9 +32,12 @@ still discards the response. Cleanup failures never return success.
 A cancelled provider exchange can still incur charges. Existing spending behavior
 retains an uncertain reservation after dispatch; the broker grant remains consumed.
 Cancellation does not authorize replay, retry or release of an uncertain charge.
-Setup and cleanup retain their existing operation bounds; the 1–60 second argument
-covers the cooperative private exchange and informs the guardian lease. It is not
-a whole-lifecycle deadline. Awaited cleanup can delay cancellation, and trusted
+Setup and cleanup retain their existing operation bounds; the 1–300 second argument
+covers the cooperative private exchange and informs the guardian lease. Review
+callers keep bearer-claim and individual provider-operation limits at 60 seconds;
+the larger outer bound exists so one count and one generation can share a worker
+lifecycle without sharing one operation clock. It is not a whole-lifecycle deadline.
+Awaited cleanup can delay cancellation, and trusted
 host handlers must cooperate with cancellation. This does not claim a hard deadline
 against hostile host code or an unresponsive Docker daemon.
 

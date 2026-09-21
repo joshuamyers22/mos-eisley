@@ -3,7 +3,7 @@
 - Status: offline correction verified; awaiting immutable commit
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-20
-- Last updated (UTC): 2026-09-20
+- Last updated (UTC): 2026-09-21
 - Review or delete by: close after offline verification and promote durable facts
 - Related issue/incident/ADR: live citation-observation retest quorum failure; ADR-0007
 
@@ -50,22 +50,27 @@
 | 2026-09-20 | verification | Clean `make check` passed Ruff, formatting, Pyright, 2,476 source tests with four skips, 89% coverage, export/build checks, and 1,852 installed-wheel tests. `make container` rebuilt image `sha256:2cf85409…` and passed every offline smoke suite. An earlier unrestricted run had one transient missing runtime-start fixture; its exact test and the complete rerun passed. | complete gate output and exact reproduction | close Q-008–Q-010 offline; preserve the historical live reject |
 | 2026-09-20 | pre-live correction | Fresh retest preflight found that `campaign_reviewer` omitted the retained 8,000-byte visible-text limit and reconstructed requests with the 4,000-byte default. No credential, reservation, container, or provider request occurred. The reconstruction now passes the exact launch limit, fixtures declare their actual preview limit, and configuration substitution has a direct regression. | 29 focused campaign/runtime-evidence tests | run the complete gate before creating a new immutable retest revision |
 | 2026-09-20 | verification | The post-correction unrestricted `make check` passed Ruff, formatting, Pyright, 2,477 source tests with four skips, 89% coverage, export verification, sdist/wheel builds, and 1,853 installed-wheel tests. The sandbox-only attempt was stopped after localhost fixtures confirmed socket binding was denied. | complete gate output | review and commit the correction, then rebuild the production image from the immutable revision |
+| 2026-09-20 | live failure | In the fresh campaign, all three critics successfully counted 18,609–18,623 input tokens, then all three generations were cancelled at the same broker deadline. No judge ran; the controller failed; all containers were removed; three critic reservations are uncertain and the judge allowance remains held. | immutable campaign-7 runtime records, broker outcomes, controller terminal, cleanup receipts, and ledger | preserve the terminal campaign; diagnose and correct only offline |
+| 2026-09-20 | diagnosis | `ReviewPolicy` permits a bounded window up to 300 seconds, but the review controller, broker claim, worker exchange, and observation builder collapsed the whole count-plus-generation lifecycle into one 60-second interval. The live transport already enforces a separate 60-second maximum for each provider operation. | controller/broker/duplex/probe/runtime-evidence source trace and exact live timestamps | separate authority presentation, role lifecycle, and provider-operation deadlines without adding retry authority |
+| 2026-09-20 | implementation | The bearer claim remains maximum 60 seconds and one use. A separate maximum-300-second exchange clock now begins at broker construction; review roles derive at most two operation windows from policy and remaining controller time. Count and generation each retain their own maximum-60-second live and observation limit, while the async container guardian remains independently bounded at exchange plus five seconds. | source and focused broker/controller/observation/isolation/watchdog regressions | run static checks, broad review tests, then the complete offline gate |
+| 2026-09-21 | verification | V-007 passes 146 focused lifecycle tests, 376 broad review tests, Ruff, formatting, Pyright, 2,481 source tests with four skips and 89% coverage, export/build checks, and a clean focused rerun of all 1,855 installed-wheel tests. The first composite smoke stage ended non-cleanly after the source pass; the fully captured focused rerun contains no failures. | unrestricted component-gate output | leave the verified correction uncommitted until explicitly requested |
 
 ## Handoff
 
-- Current state: the live retest is immutable and rejected; the fresh retest preflight
-  exposed and corrected an exact reconstruction gap before any live effect. No
-  credential or provider access is authorized. The complete repository gate passes.
-- Next smallest safe action: review and commit this offline correction, then rebuild
-  the production image and create wholly fresh live inputs. Any later live work
-  requires wholly fresh planning and authority.
+- Current state: every prior live campaign remains immutable and terminal. The latest
+  campaign failed at the conflated broker deadline after successful counts. The
+  deadline correction is implemented offline; no credential or provider access is
+  authorized by this work.
+- Next smallest safe action: review and, only after a later explicit commit request,
+  create an immutable revision. Any rebuild or live campaign remains separate work
+  and authority.
 - Blocker and required authority/input: none for offline work; any paid rerun would
   require wholly fresh authority and is outside this correction.
-- Checks already run: focused schema and lifecycle tests, 164 broad review tests,
-  Ruff, formatting, Pyright, 2,476 complete source tests with four skips and 89%
-  coverage, 1,852 installed-wheel tests, and all container smoke tests for the prior
-  iteration; after V-006, 29 focused tests plus 2,477 complete source tests with four
-  skips, 89% coverage, export/build checks, and 1,853 installed-wheel tests pass.
+- Checks already run: prior schema, quorum, output-limit, complete repository, and
+  container gates remain recorded above. For V-007, 146 focused lifecycle tests,
+  376 broad review tests, Ruff, formatting, Pyright, 2,481 complete source tests with
+  four skips and 89% coverage, export/build checks, and 1,855 installed-wheel tests
+  pass.
 
 ## Close and promote
 

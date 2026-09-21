@@ -214,7 +214,7 @@ class BrokeredModelTests(IsolatedAsyncioTestCase):
                 BrokeredOpenAIClient(request, self.broker, self.container)
 
     def test_invalid_timeout_rejected(self) -> None:
-        for timeout in (0, 61, float("nan"), float("inf")):
+        for timeout in (0, 301, float("nan"), float("inf")):
             with self.subTest(timeout=timeout), self.assertRaises(ValueError):
                 BrokeredOpenAIClient(
                     self.request, self.broker, self.container, timeout=timeout

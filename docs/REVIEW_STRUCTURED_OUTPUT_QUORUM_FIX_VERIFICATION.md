@@ -51,6 +51,7 @@
 | 3 | Three independently prepared critics with threshold two | One deliberately malformed critic plus two valid critics | No blocking finding; one invalid response is tolerated without retry | Keep strict decoding and prove redundancy at the controller boundary | 19 controller tests and 372 broad review tests pass |
 | 4 | Reopened after exact live review | Three valid live critics reached a signed observation, while adversarial review exposed Q-008/Q-009 and audit exposed Q-010 | No new blocking finding after correction; one unrelated fixture race reproduced cleanly | Harden all object shapes, permit only quorum-tolerated critic errors in observation, and retain a complete verified standalone replay bundle | focused schema/lifecycle, 164 review tests, clean `make check`, and rebuilt container gate pass |
 | 5 | Reopened by fresh retest preflight | The launch preview sealed an 8,000-byte visible-text limit, but campaign/standalone reconstruction silently used the reviewer's 4,000-byte default | Blocking exact-replay mismatch caught before credential access, reservation, container creation, or provider dispatch | Pass the configured limit into every campaign reviewer reconstruction and make fixtures bind their real preview limit | 29 focused tests and the complete repository gate pass: 2,477 source tests, four skips, 89% coverage, and 1,853 installed-wheel tests |
+| 6 | Reopened after the fresh live campaign timed out | All three critics completed token counting, then their independently started generations were cancelled together when one shared 60-second broker clock expired | Blocking deadline-composition defect: a single operation ceiling was incorrectly used for a two-operation lifecycle | Keep the one-use claim and each provider operation capped at 60 seconds; give the enclosing broker/worker lifecycle a derived two-operation window bounded by controller, authorization, and a 300-second absolute ceiling | 146 focused lifecycle tests, 376 broad review tests, 2,481 source tests with four skips, 89% coverage, export/build checks, and 1,855 installed-wheel tests pass offline |
 
 ## Finding disposition
 
@@ -62,20 +63,22 @@
 | V-004 | observation construction rejects any critic error | a quorum-tolerated failure cannot complete the promised lifecycle | blocking | rely on verified controller quorum/result; reject infrastructure verdicts, not tolerated critic errors | one-invalid-of-three signed/authenticated observation test | Joshua Myers |
 | V-005 | standalone harness retained observation inputs piecemeal | ephemeral-key loss leaves historical authentication unreplayable | high | add one bounded, verified, exclusive evidence bundle containing all serialized replay inputs | decode, replay, tamper, permission, and placement tests | Joshua Myers |
 | V-006 | campaign reconstruction omitted `max_text_output_bytes` | a valid live result could fail post-result retention because replay projected a different request | blocking | reconstruct critic and judge requests with the exact launch limit and reject configuration substitution | changed-limit regression plus campaign/runtime-evidence suites | Joshua Myers |
+| V-007 | one 60-second broker deadline covered worker setup, two Keychain reads, token counting, generation, and cleanup | successful counts consumed most of the only clock and cancelled every generation together, making a conforming review unable to complete | blocking | separate the maximum-60-second claim window and per-operation ceilings from a bounded count-plus-generation lifecycle; preserve one use, no retry, controller/authorization expiry, and conservative spending | delayed claimed-exchange regression, derived controller deadline, per-operation observation bounds, async cleanup lease, focused and full offline gates | Joshua Myers |
 
 ## Exit
 
-- Stop reason: complete offline implementation and clean repository/package gate;
-  commit and rebuild the production image from that immutable revision before live
-  preparation.
+- Stop reason: V-007 is corrected and the offline component gates pass. Leave the
+  worktree uncommitted; rebuilding or preparing another live campaign requires a
+  later explicit request.
 - Rubric result and blocking findings: pass with no open offline blocking finding.
   The live retest remains separately authorized work.
-- Full quality-gate command and result: after the output-limit correction,
-  unrestricted `make check` passed Ruff, formatting, Pyright, 2,477 source tests
-  with four skips, 89% coverage, export verification, sdist/wheel builds, and 1,853
-  installed-wheel tests. The preceding sandboxed run was stopped after localhost
-  fixtures demonstrated that socket binding was denied; the unrestricted rerun
-  passed those fixtures and the complete gate.
+- Full quality-gate command and result: for V-007, unrestricted `make check` passed
+  Ruff, formatting, Pyright, 2,481 source tests with four skips, 89% coverage,
+  export verification, and sdist/wheel builds. Its first installed-wheel smoke pass
+  ended non-cleanly after the otherwise-passing source run; an immediately focused,
+  fully captured unrestricted `make smoke` rerun passed all 1,855 installed-wheel
+  tests. An earlier sandboxed `make check` attempt failed because localhost socket
+  binding and Docker test access were denied; those fixtures passed unrestricted.
 - Production-like replay/fault/rollback evidence, if applicable: deterministic
   one-invalid-of-three replay reaches the judge, signed/authenticated observation,
   exclusive disk retention, and fresh offline verification without retry. Tamper,

@@ -21,8 +21,10 @@ system instructions, review data and limits. The hash is a content confirmation,
 not an authentication credential: trusted application code must obtain approval
 through its user/admin policy boundary and must not automatically echo the preview
 hash or accept approval from a model. Approval expires after at most ten minutes or
-when pricing expires, whichever comes first. Each issued broker expires after at
-most the requested timeout (up to 60 seconds) and before the approval expiry.
+when pricing expires, whichever comes first. Each issued broker keeps a maximum
+60-second claim-presentation window. Its separately bounded count-plus-generation
+exchange may run for the requested lifecycle timeout, never more than 300 seconds
+or beyond the approval expiry.
 
 Review admission requires spending policy schema 2 with a conservative cache-write
 rate. The full input-token ceiling and exact output-token cap are reserved at the

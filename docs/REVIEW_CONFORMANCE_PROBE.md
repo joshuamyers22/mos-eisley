@@ -67,6 +67,8 @@ The existing envelope reservation and broker claims prevent reissuing the same
 approved run through a new probe object. Each operation is bounded by the earliest
 signed expiry, controller deadline and 60-second maximum. The controller also
 preserves its shared monotonic deadline and awaits worker cleanup on cancellation.
+The enclosing one-use broker lifecycle receives a derived window for both operations;
+the bearer claim itself remains limited to 60 seconds and cannot be refreshed.
 
 The probe uses the existing `EphemeralOpenAITransport`: short-lived SDK clients,
 `https://api.openai.com/v1`, zero automatic retries, bounded HTTP responses, disabled

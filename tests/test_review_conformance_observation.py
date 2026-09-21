@@ -212,6 +212,31 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             self.make_observation()
 
+    def test_each_provider_operation_has_its_own_sixty_second_limit(self):
+        start = self.start.started_at
+        combined = ReviewObservedExchange(
+            model_request_sha256="a" * 64,
+            count_started_at=start,
+            count_finished_at=start + timedelta(seconds=40),
+            generation_started_at=start + timedelta(seconds=41),
+            generation_finished_at=start + timedelta(seconds=81),
+            transport_evidence_sha256="b" * 64,
+            cleanup_evidence_sha256="c" * 64,
+        )
+        self.assertEqual(
+            (combined.generation_finished_at - combined.count_started_at).seconds,
+            81,
+        )
+        with self.assertRaisesRegex(ValueError, "operation exceeded 60 seconds"):
+            ReviewObservedExchange.model_validate(
+                {
+                    **combined.model_dump(),
+                    "count_finished_at": start + timedelta(seconds=61),
+                    "generation_started_at": start + timedelta(seconds=61),
+                    "generation_finished_at": start + timedelta(seconds=62),
+                }
+            )
+
     def test_missing_or_reordered_exchanges_are_rejected(self):
         original = self.exchanges
         for exchanges in (original[:1], tuple(reversed(original))):

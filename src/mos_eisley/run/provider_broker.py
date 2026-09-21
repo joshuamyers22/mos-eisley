@@ -18,6 +18,8 @@ from mos_eisley.run.broker_audit import BrokerAudit
 from mos_eisley.run.broker_wire import BrokerReply
 
 MAX_REQUEST_BYTES = 1_048_576
+MAX_BROKER_CLAIM_SECONDS = 60
+MAX_BROKER_EXCHANGE_SECONDS = 300
 
 
 class ApprovedRequest(Contract):
@@ -44,10 +46,28 @@ class RequestBoundBroker:
         transport: SpendControlledOpenAITransport,
         *,
         lifetime_seconds: float = 30,
+        exchange_timeout_seconds: float | None = None,
         audit: BrokerAudit | None = None,
     ) -> None:
-        if not math.isfinite(lifetime_seconds) or not 0 < lifetime_seconds <= 60:
+        if (
+            not math.isfinite(lifetime_seconds)
+            or not 0 < lifetime_seconds <= MAX_BROKER_CLAIM_SECONDS
+        ):
             raise ValueError("broker lifetime must be between zero and 60 seconds")
+        exchange_timeout_seconds = (
+            lifetime_seconds
+            if exchange_timeout_seconds is None
+            else exchange_timeout_seconds
+        )
+        if (
+            not math.isfinite(exchange_timeout_seconds)
+            or not 0 < exchange_timeout_seconds <= MAX_BROKER_EXCHANGE_SECONDS
+            or lifetime_seconds > exchange_timeout_seconds
+        ):
+            raise ValueError(
+                "broker exchange timeout must include the claim lifetime and be "
+                "at most 300 seconds"
+            )
         if transport.ledger is None:
             raise ValueError("broker requires shared spending admission")
         encoded = canonical_bytes(ApprovedRequest(payload=payload))
@@ -71,7 +91,9 @@ class RequestBoundBroker:
         self._authorization_sha256 = (
             audit.authorization_sha256 if audit is not None else None
         )
-        self._expires = time.monotonic() + lifetime_seconds
+        started = time.monotonic()
+        self._claim_expires = started + lifetime_seconds
+        self._exchange_expires = started + exchange_timeout_seconds
         self._lock = threading.Lock()
         self._used = False
 
@@ -97,10 +119,11 @@ class RequestBoundBroker:
         except ValueError:
             raise ProviderError("broker grant rejected") from None
         with self._lock:
-            remaining = self._expires - time.monotonic()
+            current = time.monotonic()
+            claim_remaining = self._claim_expires - current
             if (
                 self._used
-                or remaining <= 0
+                or claim_remaining <= 0
                 or not secrets.compare_digest(claim.capability, self._capability)
                 or claim.request_sha256 != self._request_sha256
                 or claim.authorization_sha256 != self._authorization_sha256
@@ -108,6 +131,9 @@ class RequestBoundBroker:
                 raise ProviderError("broker grant rejected")
             # Consume before any await, token counting, reservation, or dispatch.
             self._used = True
+        exchange_remaining = self._exchange_expires - time.monotonic()
+        if exchange_remaining <= 0:
+            raise ProviderError("broker grant rejected")
         if self._audit is not None:
             self._audit.admit()
         started = time.monotonic()
@@ -116,7 +142,7 @@ class RequestBoundBroker:
             return min(86_400_000, math.ceil((time.monotonic() - started) * 1000))
 
         try:
-            async with asyncio.timeout(remaining):
+            async with asyncio.timeout(exchange_remaining):
                 response = await self._transport.create_response(
                     ApprovedRequest.model_validate_json(self._request).payload
                 )

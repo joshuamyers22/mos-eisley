@@ -105,6 +105,12 @@ class ReviewObservedExchange(Contract):
             <= self.generation_finished_at
         ):
             raise ValueError("review observation exchange times are out of order")
+        if (self.count_finished_at - self.count_started_at).total_seconds() > 60 or (
+            self.generation_finished_at - self.generation_started_at
+        ).total_seconds() > 60:
+            raise ValueError(
+                "review observation provider operation exceeded 60 seconds"
+            )
         return self
 
 
@@ -246,8 +252,10 @@ def make_review_probe_observation(
             <= exchange.generation_finished_at
             < start.expires_at
             or exchange.generation_finished_at > observed_at
+            or (exchange.count_finished_at - exchange.count_started_at).total_seconds()
+            > 60
             or (
-                exchange.generation_finished_at - exchange.count_started_at
+                exchange.generation_finished_at - exchange.generation_started_at
             ).total_seconds()
             > 60
         ):

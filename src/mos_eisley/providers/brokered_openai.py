@@ -23,6 +23,7 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.model_evidence import ModelCompletion, save_completion
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.provider_broker import (
+    MAX_BROKER_EXCHANGE_SECONDS,
     MAX_REQUEST_BYTES,
     ApprovedRequest,
     RequestBoundBroker,
@@ -47,7 +48,7 @@ class BrokeredOpenAIClient:
         response_directory: Path | None = None,
         admission_check: Callable[[], None] | None = None,
     ) -> None:
-        if not math.isfinite(timeout) or not 0 < timeout <= 60:
+        if not math.isfinite(timeout) or not 0 < timeout <= MAX_BROKER_EXCHANGE_SECONDS:
             raise ValueError("invalid brokered model timeout")
         if canonical_fingerprint(request).bytes > MAX_REQUEST_BYTES:
             raise ValueError("canonical broker request exceeds byte limit")

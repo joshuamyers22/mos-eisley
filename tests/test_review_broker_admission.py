@@ -487,7 +487,7 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             verify_review_broker_audit(self.directory, self.prepared.authorization)
 
     def test_invalid_timeout_does_not_reserve(self) -> None:
-        for timeout in (0, 61, float("nan"), float("inf")):
+        for timeout in (0, 301, float("nan"), float("inf")):
             with self.subTest(timeout=timeout), self.assertRaises(ValueError):
                 self.prepared.issue(
                     approved_transfer_sha256=self.prepared.approval_sha256,

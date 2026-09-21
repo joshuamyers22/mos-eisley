@@ -27,9 +27,13 @@ decoder and verdict rules as the lower-level verifier. A completed workflow may
 contain an `infrastructure_error`; completion never means code acceptance.
 
 One monotonic deadline covers critics, the judge approval pause and judge execution,
-and cannot outlive the envelope's absolute expiry. Per-call deadlines remain bounded
-by the review policy and the broker's 60-second maximum. These deadlines initiate
-cancellation; bounded broker/container cleanup is still awaited afterward. Repeated
+and cannot outlive the envelope's absolute expiry. The policy timeout applies to
+each provider operation, capped at 60 seconds by the live transport. A brokered role
+gets a derived lifecycle window of at most twice that operation limit so token
+counting cannot consume generation's entire allowance; it remains inside the shared
+controller deadline. The one-use claim must still be presented within 60 seconds.
+These deadlines initiate cancellation; bounded broker/container cleanup is still
+awaited afterward. Repeated
 caller cancellation cannot detach the controller's children. Cancel an active
 coroutine and await it; `cancel()` stops only a prepared or awaiting-approval
 controller. Every cancellation preserves existing holds and uncertain spending.

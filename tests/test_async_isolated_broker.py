@@ -175,7 +175,7 @@ class AsyncBrokerTests(IsolatedAsyncioTestCase):
             (b"x" * 1025, 1),
             (b"x\ny", 1),
             (b"x", 0),
-            (b"x", 61),
+            (b"x", 301),
             (b"x", float("nan")),
         ):
             with self.subTest(timeout=timeout), self.assertRaises(ValueError):

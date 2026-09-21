@@ -99,6 +99,26 @@ class BrokerTests(IsolatedAsyncioTestCase):
         with self.assertRaises(ProviderError):
             await broker.redeem(canonical_bytes(broker.claim()))
 
+    async def test_short_claim_window_does_not_truncate_claimed_exchange(self) -> None:
+        broker = RequestBoundBroker(
+            request(),
+            self.transport,
+            lifetime_seconds=0.02,
+            exchange_timeout_seconds=1,
+        )
+
+        async def delayed_response(*_: object):
+            await asyncio.sleep(0.05)
+            return self.fake.response
+
+        with patch.object(
+            self.transport, "create_response", side_effect=delayed_response
+        ):
+            self.assertEqual(
+                await broker.redeem(canonical_bytes(broker.claim())),
+                self.fake.response,
+            )
+
     @staticmethod
     async def slow(*_: object) -> None:
         await asyncio.sleep(1)
@@ -107,6 +127,20 @@ class BrokerTests(IsolatedAsyncioTestCase):
         for lifetime in (0, -1, 61, float("nan"), float("inf")):
             with self.assertRaises(ValueError):
                 RequestBoundBroker(request(), self.transport, lifetime_seconds=lifetime)
+        for exchange_timeout in (0, 301, float("nan"), float("inf")):
+            with self.assertRaises(ValueError):
+                RequestBoundBroker(
+                    request(),
+                    self.transport,
+                    exchange_timeout_seconds=exchange_timeout,
+                )
+        with self.assertRaises(ValueError):
+            RequestBoundBroker(
+                request(),
+                self.transport,
+                lifetime_seconds=2,
+                exchange_timeout_seconds=1,
+            )
         with self.assertRaises(ValueError):
             RequestBoundBroker({"input": "x" * 1_048_576}, self.transport)
         with self.assertRaises(ValueError):
