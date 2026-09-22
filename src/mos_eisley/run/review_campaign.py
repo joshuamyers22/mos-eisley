@@ -84,6 +84,10 @@ class CampaignAttempt(Contract):
             or config.judge_model != config.judge_spending.model
             or config.max_total_microusd != preview.envelope.max_total_microusd
             or len(config.critics) != len(preview.requests)
+            or any(
+                call.preparation_scope != config.preparation_scope
+                for call in preview.envelope.critics
+            )
         ):
             raise ValueError("campaign configuration differs from its preview")
         reviewer = campaign_reviewer(config)

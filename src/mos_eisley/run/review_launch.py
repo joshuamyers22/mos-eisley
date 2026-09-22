@@ -24,7 +24,11 @@ from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.review.citations import citation_bound_request
-from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvelope
+from mos_eisley.run.review_broker import (
+    PreparedReviewCall,
+    PreparedReviewEnvelope,
+    ReviewPreparationScope,
+)
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
@@ -62,6 +66,9 @@ class ReviewLaunchConfiguration(Contract):
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
 
 
 class ReviewLaunchPreview(Contract):
@@ -171,6 +178,7 @@ def prepare_review_launch_preview(
             ledger,
             critic=item.critic,
             guidance=admission,
+            preparation_scope=configuration.preparation_scope,
         )
         for item in configuration.critics
     )

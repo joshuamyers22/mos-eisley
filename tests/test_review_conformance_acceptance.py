@@ -43,6 +43,7 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                 fixture.call = fixture.prepare()
                 fixture.review = fixture.envelope()
                 fixture.base.fake.directory = fixture.critic_directory()
+        self.configure_attempts()
         self.probes = [fixture.probe() for fixture in self.fixtures]
         self.observation_policies = [
             ReviewObservationPolicy(
@@ -93,6 +94,9 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
             ),
         )
         self.before_attempts(self.observation_policies)
+
+    def configure_attempts(self) -> None:
+        """Allow campaign fixtures to select stricter pre-dispatch scope."""
 
     async def execute_attempts(self) -> None:
         self.evidence: list[ReviewAttemptEvidence] = []

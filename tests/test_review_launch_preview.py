@@ -80,6 +80,7 @@ class ReviewLaunchTests(GuidedBrokerFixture):
 
     def test_exact_guided_preview_preserves_ledger_and_creates_no_run(self):
         before = self.base.ledger.path.read_bytes()
+        self.assertNotIn(b'"preparation_scope"', canonical_bytes(self.configuration))
         result = self.launch()
         self.assertEqual(result.preview.envelope.total_reserved_microusd, 650)
         self.assertEqual(result.guidance_sha256, self.guided.prepared.sha256)

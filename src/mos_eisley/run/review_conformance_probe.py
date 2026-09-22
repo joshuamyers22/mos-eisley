@@ -234,6 +234,19 @@ class BrokeredReviewConformanceProbe:
             raise ValueError(
                 "select either a campaign probe or a separately admitted launch"
             )
+        preparation_scopes = {
+            call.authorization.preparation_scope for call in envelope.critics
+        }
+        if len(preparation_scopes) != 1:
+            raise ValueError("review probe requires one preparation scope")
+        preparation_scope = next(iter(preparation_scopes))
+        self._extended_preparation_unbound = (
+            preparation_scope == "formal_campaign" and campaign is None
+        )
+        if campaign is not None and preparation_scope != "formal_campaign":
+            raise ValueError(
+                "sealed campaign dispatch requires formal campaign preparation"
+            )
         if len(critic_containers) != len(envelope.critics) or len(
             {id(container) for container in critic_containers}
         ) != len(critic_containers):
@@ -385,6 +398,10 @@ class BrokeredReviewConformanceProbe:
         )
 
     async def run(self) -> RetainedReviewResult | None:
+        if self._extended_preparation_unbound:
+            raise ValueError(
+                "extended review preparation requires a sealed campaign binding"
+            )
         return await self._flow.run(
             critic_transports=self._critics,
             critic_containers=self._containers[:-1],

@@ -279,17 +279,35 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
                 self.issue()
         self.assertEqual(self.ledger.snapshot().entries, 0)
 
-    def test_approval_window_is_thirty_minutes_and_pricing_bounded(self) -> None:
+    def test_approval_window_is_scope_specific_and_pricing_bounded(self) -> None:
         now = datetime.now(UTC)
         with patch("mos_eisley.run.review_broker.datetime") as clock:
             clock.now.return_value = now
             prepared = self.prepare()
+            campaign = PreparedReviewCall(
+                self.reviewer,
+                self.request,
+                self.policy,
+                self.ledger,
+                critic=self.critic,
+                preparation_scope="formal_campaign",
+            )
             pricing_bounded = self.prepare(
                 self.policy.model_copy(
                     update={"valid_until": now + timedelta(minutes=5)}
                 )
             )
-        self.assertEqual(prepared.authorization.expires_at, now + timedelta(minutes=30))
+        self.assertEqual(prepared.authorization.expires_at, now + timedelta(minutes=10))
+        self.assertEqual(prepared.authorization.preparation_scope, "standard")
+        self.assertNotIn(
+            b'"preparation_scope"', canonical_bytes(prepared.authorization)
+        )
+        self.assertEqual(campaign.authorization.expires_at, now + timedelta(minutes=30))
+        self.assertEqual(campaign.authorization.preparation_scope, "formal_campaign")
+        self.assertIn(
+            b'"preparation_scope":"formal_campaign"',
+            canonical_bytes(campaign.authorization),
+        )
         self.assertEqual(
             pricing_bounded.authorization.expires_at,
             now + timedelta(minutes=5),

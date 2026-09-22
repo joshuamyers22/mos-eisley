@@ -53,11 +53,17 @@
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed
   conformance, while complete profile and failure-boundary conformance remains open.
-  The private owning-library review path also has one successful bounded standalone
+  The private owning-library review path has one successful bounded standalone
   Luna/low campaign at `b3357aa`: two valid critics preserved threshold-two quorum
   when one critic produced `invalid_evidence`, the judge returned `accept`, and the
-  signed observation replayed from complete retained evidence. This is live-path
-  evidence, not the three-slot production qualification or a public live-review CLI.
+  signed observation replayed from complete retained evidence. A later exact
+  `0010970a` production image completed a wholly fresh formal three-slot campaign;
+  all slots qualified operationally and reconstructed with complete local settlement
+  and cleanup. Its `reject`/`revise`/`reject` content verdicts identified an overbroad
+  preparation window and ambiguous revision wording. Both are corrected offline by
+  retaining 10 minutes for ordinary calls and requiring a sealed `formal_campaign`
+  scope for 30 minutes. The old exact-commit campaign does not authorize launch of
+  the corrected artifact, and no public live-review CLI is enabled.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or

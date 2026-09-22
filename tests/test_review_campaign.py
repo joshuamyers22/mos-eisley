@@ -23,12 +23,19 @@ from mos_eisley.run.review_campaign import (
     review_campaign_evidence,
     seal_review_campaign,
 )
+from mos_eisley.run.review_campaign_dispatch import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_observation import ReviewObservationPolicy
 from mos_eisley.run.review_launch import LaunchCritic, ReviewLaunchConfiguration
 from mos_eisley.run.store import private_write
 
 
 class CampaignCeremonyFixture(ReviewAcceptanceFixture):
+    def configure_attempts(self) -> None:
+        for fixture in self.fixtures:
+            fixture.call = fixture.prepare(preparation_scope="formal_campaign")
+            fixture.review = fixture.envelope()
+            fixture.base.fake.directory = fixture.critic_directory()
+
     def before_attempts(
         self, observation_policies: list[ReviewObservationPolicy]
     ) -> None:
@@ -56,6 +63,7 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
                         policy=self.policy.review_policy,
                         total_seconds=self.policy.total_seconds,
                         max_total_microusd=650,
+                        preparation_scope="formal_campaign",
                     ),
                     preview=fixture.preview,
                     authority_policy=fixture.policy,
@@ -105,6 +113,16 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
         )
         for fixture in self.fixtures:
             fixture.key_loader.assert_not_called()
+        self.probes = [
+            fixture.probe(
+                campaign=ReviewCampaignBinding(
+                    campaign_directory=str(self.sealed_directory),
+                    expected_seal_sha256=self.seal_sha,
+                    attempt_index=index,
+                )
+            )
+            for index, fixture in enumerate(self.fixtures)
+        ]
 
     def submission(self) -> CampaignEvidenceSubmission:
         return CampaignEvidenceSubmission(

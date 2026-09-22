@@ -20,10 +20,15 @@ covers external token counting and generation for the exact request, including i
 system instructions, review data and limits. The hash is a content confirmation,
 not an authentication credential: trusted application code must obtain approval
 through its user/admin policy boundary and must not automatically echo the preview
-hash or accept approval from a model. Approval expires after at most thirty minutes
-or when pricing expires, whichever comes first. This pre-dispatch freshness window
-allows a manually gated, precommitted three-slot campaign to complete its ceremony;
-it is not a provider-operation or execution deadline. Each issued broker keeps a
+hash or accept approval from a model. Ordinary calls expire after at most ten minutes
+or when pricing expires, whichever comes first. A call prepared with the explicit
+`formal_campaign` scope may instead receive at most thirty minutes. That scope is
+part of the authorization and launch configuration, all calls in an envelope must
+agree on it, and the owned probe refuses to execute it without an exact sealed-campaign
+binding. Conversely, a campaign-bound probe refuses an ordinary-scope envelope.
+The longer pre-dispatch window therefore exists only for a manually gated,
+precommitted three-slot campaign; it is not a provider-operation or execution
+deadline. Each issued broker keeps a
 maximum 60-second claim-presentation window. Its separately bounded
 count-plus-generation exchange may run for the requested lifecycle timeout, never
 more than 300 seconds or beyond the approval expiry.

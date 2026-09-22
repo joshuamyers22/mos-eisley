@@ -38,18 +38,22 @@
 | 2026-09-21 | observation | The sandboxed source suite could not bind loopback sockets in 31 MCP HTTP/OAuth/schema cases; all other cases completed without assertion failures. | 2,498 discovered; 2,463 passed, 4 skipped, 31 environment errors | Rerun the affected modules with loopback access. |
 | 2026-09-21 | attempt | The affected MCP modules passed with loopback access, and the remaining export, build, coverage and installed-wheel gates passed. | 68 MCP tests passed with 4 skips; 88% coverage; 1,856 wheel tests passed | Audit constants and diff. |
 | 2026-09-21 | observation | Constant and diff audit found the 1,800-second change only at prepared authorization; runtime and spending bounds remain unchanged. | `rg`, `git diff --check` | Close the offline correction. |
+| 2026-09-21 | observation | The exact `0010970a` production image completed all three fixed live slots, but the retained content verdicts independently found that the 1,800-second freshness cap applied to ordinary calls and that the verification record described the base revision ambiguously. | `docs/LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md`; retained result hashes | Reopen once offline; make the extended window campaign-specific and reconcile provenance. |
+| 2026-09-21 | decision | Preserve the 600-second ordinary default and introduce an authorization/configuration `formal_campaign` scope capped at 1,800 seconds. A formal-scope probe cannot run without an exact sealed campaign, and a campaign-bound probe rejects standard scope. | Broker, launch, campaign and probe source | Add regression coverage across positive and negative boundaries. |
+| 2026-09-21 | attempt | Scope-specific expiry, unbound-formal denial, sealed formal dispatch, three-slot sequencing and evidence reconstruction all pass without credentials or provider access. Standard-scope defaults are omitted from canonical bytes so historical artifacts remain stable; formal scope remains explicit. | 107 focused `unittest` cases | Run and account for the complete repository gate. |
+| 2026-09-21 | observation | The correction's sandboxed `make check` reached 2,416 source tests: 2,381 passed, 4 skipped and only 31 loopback-bind setups were denied. The three affected MCP modules passed all 48 tests with loopback access. | Source test output; bounded loopback rerun | Finish packaging checks and close offline. |
 
 ## Handoff
 
-- Current state: offline implementation and verification complete; no live campaign has been prepared or dispatched from this worktree.
-- Next smallest safe action: commit this slice, rebuild the production image from that commit, then prepare a wholly fresh campaign and approval artifacts.
+- Current state: the post-campaign offline correction is implemented and focused verification passes; no live call was made from this worktree.
+- Next smallest safe action: commit this slice. Do not reuse the terminal `0010970a` campaign as launch evidence for the corrected commit.
 - Blocker and required authority/input: none for offline implementation and tests.
-- Checks already run: 107 focused tests; Ruff lint and format; Pyright; 2,498-test source discovery with 31 sandbox-only socket errors; all 68 affected MCP tests outside the socket sandbox; coverage report; export verification; sdist/wheel build; 1,856 installed-wheel smoke tests; constant audit; `git diff --check`.
+- Checks already run: 107 focused tests; Ruff lint and format; Pyright; 2,416-test source discovery with 31 sandbox-only socket errors; all 48 tests in the three affected MCP modules with loopback access; 88% coverage; export verification; sdist/wheel build; 1,774 installed-wheel smoke tests; constant audit; `git diff --check`.
 
 ## Close and promote
 
-- Outcome and verification: prepared review authorization freshness is capped at 30 minutes and still clipped by pricing expiry; equivalent full quality gates pass when localhost-dependent tests are run with loopback access.
-- Durable fact promoted to `PROJECT_MEMORY.md`: none; current memory has unrelated user edits and will not be overwritten.
-- Decision promoted to ADR/documentation: `docs/REVIEW_BROKER_ADMISSION.md` and `docs/REVIEW_CAMPAIGN_CEREMONY.md` distinguish preparation freshness from runtime authority.
-- Regression test, issue, or improvement-plan link: `tests/test_review_broker_admission.py`.
+- Outcome and verification: ordinary freshness is again capped at 10 minutes; the 30-minute cap is explicit, pricing-clipped and executable only through a matching sealed formal campaign. Focused broker/probe/campaign coverage passes; the final full-gate result is recorded in the verification document.
+- Durable fact promoted to `PROJECT_MEMORY.md`: updated `delivery.next.live-review` with the accepted formal campaign, its content verdicts, and the no-launch limitation.
+- Decision promoted to ADR/documentation: `docs/REVIEW_BROKER_ADMISSION.md`, `docs/REVIEW_CAMPAIGN_CEREMONY.md`, and `docs/REVIEW_LAUNCH_PREVIEW.md` define the scoped preparation boundary.
+- Regression test, issue, or improvement-plan link: `tests/test_review_broker_admission.py`, `tests/test_review_conformance_probe.py`, and formal campaign/dispatch suites.
 - Temporary artifacts removed: isolated smoke environments were automatically removed; normal ignored build artifacts remain under `dist/`.

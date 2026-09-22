@@ -29,6 +29,7 @@ from mos_eisley.providers.openai_live import EphemeralOpenAITransport
 from mos_eisley.providers.openai_responses import request_payload
 from mos_eisley.providers.openai_spend import count_payload
 from mos_eisley.review.citations import citation_bound_request
+from mos_eisley.run.review_campaign_dispatch import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
@@ -53,7 +54,12 @@ class ReviewProbeFixture(ReviewConformanceFixture):
             )
         )
 
-    def probe(self, user: ScriptedUser | None = None) -> BrokeredReviewConformanceProbe:
+    def probe(
+        self,
+        user: ScriptedUser | None = None,
+        *,
+        campaign: ReviewCampaignBinding | None = None,
+    ) -> BrokeredReviewConformanceProbe:
         probe = BrokeredReviewConformanceProbe(
             self.review,
             self.base.reviewer,
@@ -64,6 +70,7 @@ class ReviewProbeFixture(ReviewConformanceFixture):
             authority_policy=lambda: self.policy,
             load_authorization=self.load_certificate,
             load_api_key=self.key_loader,
+            campaign=campaign,
         )
         self.controller = probe.controller
         self.preview = self.controller.preview
@@ -74,6 +81,17 @@ class ReviewProbeFixture(ReviewConformanceFixture):
 
 
 class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
+    async def test_extended_preparation_requires_a_sealed_campaign_binding(
+        self,
+    ) -> None:
+        self.call = self.prepare(preparation_scope="formal_campaign")
+        self.review = self.envelope()
+        probe = self.probe()
+        with self.assertRaisesRegex(ValueError, "sealed campaign binding"):
+            await probe.run()
+        self.key_loader.assert_not_called()
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
     async def test_positive_source_unit_reaches_retained_judge_result(self):
         brief = Brief(
             spec="Drop review authority.",

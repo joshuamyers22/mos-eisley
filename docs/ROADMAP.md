@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — live path demonstrated; qualification open | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence; formal three-slot qualification and launch decision remain |
+| G2 — formal live campaign demonstrated; launch open | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence plus one accepted three-slot campaign exist; corrected-artifact evidence and a launch decision remain |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -56,17 +56,26 @@ policy or reviewed arm/resource identities are present in the repository; the cu
 production eligible-label count is therefore zero, not a fixture-derived claim. See
 [G3 context-study policy](G3_CONTEXT_STUDY.md).
 
-**G2 live-path evidence, 2026-09-21 — standalone pass; formal qualification
-open:** a freshly approved standalone campaign at `b3357aa` carried one frozen
+**G2 live-path evidence, 2026-09-21 — standalone and formal campaign passes;
+launch open:** a freshly approved standalone campaign at `b3357aa` carried one frozen
 deadline-composition brief through three native strict-schema Luna/low critics with
 threshold two and one conditional judge. One critic was retained as
 `invalid_evidence`; two valid empty critiques preserved quorum without retry, and the
 judge returned `accept`. The signed observation and complete standalone bundle replay
 successfully, all 24,032 micro-USD settled locally, and all four workers were removed.
-This closes the missing successful end-to-end V-007 example. It does not populate the
-three precommitted slots required by the production-qualification rubric, authorize a
-launch, or alter any terminal historical campaign. See
-[the immutable retest record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md).
+This closes the missing successful end-to-end V-007 example.
+
+A later wholly fresh campaign bound to commit `0010970a` and production image
+`sha256:25fd33683fbe4418c3f290e55e61b8ee623b224821ecc02e689f2944dacd9504`
+completed all three precommitted slots with authenticated observations, accepted
+campaign reconstruction, 30,995 micro-USD in settled local charges and complete
+worker cleanup. Its review verdicts were `reject`, `revise`, `reject` and identified
+an overbroad 30-minute preparation window plus ambiguous revision wording. Those
+findings were accepted and corrected offline by restoring the 10-minute ordinary
+default and requiring a sealed `formal_campaign` scope for 30 minutes. The accepted
+campaign remains evidence for its exact old commit/image and is not launch authority
+for the corrected artifact. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
+and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)

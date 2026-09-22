@@ -20,6 +20,7 @@ from mos_eisley.run.model_evidence import ModelCompletion
 from mos_eisley.run.review_broker import (
     PreparedReviewCall,
     PreparedReviewEnvelope,
+    ReviewPreparationScope,
     verify_review_broker_audit,
 )
 from mos_eisley.run.review_evidence import (
@@ -49,7 +50,9 @@ class GuidedBrokerFixture(TestCase):
         )
         self.call = self.prepare()
 
-    def prepare(self) -> PreparedReviewCall:
+    def prepare(
+        self, *, preparation_scope: ReviewPreparationScope = "standard"
+    ) -> PreparedReviewCall:
         return PreparedReviewCall(
             self.base.reviewer,
             self.base.request,
@@ -57,6 +60,7 @@ class GuidedBrokerFixture(TestCase):
             self.base.ledger,
             critic=self.base.critic,
             guidance=self.admission,
+            preparation_scope=preparation_scope,
         )
 
     def invalidate(self) -> None:

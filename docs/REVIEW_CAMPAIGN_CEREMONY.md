@@ -35,10 +35,14 @@ Each ledger must fund the sum of all campaign allowances assigned to it, includi
 the full deferred judge allowances; expected cheap outcomes cannot reduce funding.
 Missing ledgers are never created by these commands.
 
-Every prepared call has a maximum thirty-minute pre-dispatch freshness window,
-clipped by pricing expiry. Because all three fixed slots are committed before
-sealing, the campaign inherits the earliest of those absolute expiries. The larger
-window accommodates manual seal, phase-approval and observation gates; it does not
+Calls use the ordinary ten-minute pre-dispatch freshness window unless their launch
+configuration explicitly selects `formal_campaign`. That scope is capped at thirty
+minutes and clipped by pricing expiry. All critic calls and the deferred judge
+transfer inherit the same scope. A formal-scope probe cannot execute without its
+exact sealed-campaign binding, and a campaign-bound probe rejects ordinary scope.
+Because all three fixed slots are committed before sealing, the campaign inherits
+the earliest of those absolute expiries. The larger formal window accommodates
+manual seal, phase-approval and observation gates; it does not
 increase the 60-second provider-operation limit, derived exchange bound, 300-second
 absolute exchange cap, 360-second controller cap or separately signed phase-authority
 lifetime. An expired sealed campaign remains terminal and cannot be refreshed.

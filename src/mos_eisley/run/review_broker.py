@@ -56,7 +56,9 @@ from mos_eisley.run.review_guidance import (
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
-MAX_REVIEW_AUTHORIZATION_SECONDS = 30 * 60
+STANDARD_REVIEW_AUTHORIZATION_SECONDS = 10 * 60
+FORMAL_CAMPAIGN_AUTHORIZATION_SECONDS = 30 * 60
+ReviewPreparationScope = Literal["standard", "formal_campaign"]
 
 
 class ReviewAuthorization(BrokerAuthorization):
@@ -71,6 +73,9 @@ class ReviewAuthorization(BrokerAuthorization):
     reserved_microusd: Money
     ledger_policy_sha256: Digest
     expires_at: datetime
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
     guidance_sha256: Digest | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -101,6 +106,7 @@ class PreparedReviewCall:
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
+        preparation_scope: ReviewPreparationScope = "standard",
     ) -> None:
         if guidance is not None:
             guidance.check_brief(request.brief)
@@ -163,9 +169,17 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(seconds=MAX_REVIEW_AUTHORIZATION_SECONDS),
+                datetime.now(UTC)
+                + timedelta(
+                    seconds=(
+                        FORMAL_CAMPAIGN_AUTHORIZATION_SECONDS
+                        if preparation_scope == "formal_campaign"
+                        else STANDARD_REVIEW_AUTHORIZATION_SECONDS
+                    )
+                ),
                 policy.valid_until,
             ),
+            preparation_scope=preparation_scope,
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
         self._request = frozen
@@ -359,9 +373,12 @@ class ReviewSpendingEnvelope(Contract):
             or call.ledger_policy_sha256 != self.ledger_policy_sha256
             or call.ledger_id != first.ledger_id
             or call.guidance_sha256 != first.guidance_sha256
+            or call.preparation_scope != first.preparation_scope
             for call in self.critics
         ):
-            raise ValueError("review envelope mixes role, brief or spending scopes")
+            raise ValueError(
+                "review envelope mixes role, brief, spending or preparation scopes"
+            )
         ids = [call.ledger_entry_id for call in self.critics] + [
             self.judge.ledger_entry_id
         ]
@@ -559,6 +576,7 @@ class PreparedJudgeTransfer:
             envelope.ledger,
             reserved_allowance=envelope.envelope.judge,
             guidance=envelope.critics[0].guidance,
+            preparation_scope=envelope.envelope.critics[0].preparation_scope,
         )
         self._authorization = JudgeTransferAuthorization(
             envelope_sha256=envelope.approval_sha256,
