@@ -74,7 +74,10 @@ an overbroad 30-minute preparation window plus ambiguous revision wording. Those
 findings were accepted and corrected offline by restoring the 10-minute ordinary
 default and requiring a sealed `formal_campaign` scope for 30 minutes. The accepted
 campaign remains evidence for its exact old commit/image and is not launch authority
-for the corrected artifact. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
+for the corrected artifact. Exact correction commit `6d079ca` is now rebuilt and
+verified as Linux/arm64 image
+`sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929`;
+a wholly fresh formal campaign and separate launch decision remain open. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement

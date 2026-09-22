@@ -3,7 +3,7 @@
 - Status: closed
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-21
-- Last updated (UTC): 2026-09-21
+- Last updated (UTC): 2026-09-22
 - Review or delete by: G2 qualification closure
 - Related incident: fresh `bac7dd2` formal campaign slot 3 deadline failure
 
@@ -19,6 +19,8 @@
 - `docs/AGENTIC_VERIFICATION_GUIDE.md`
 - `templates/AGENTIC_VERIFICATION_LOOP.md`
 - `templates/THREAT_MODEL.md`
+- `docs/PRODUCTION_REPOSITORY_STANDARD.md`
+- `Dockerfile`, `.dockerignore`, `Makefile`, and container smoke tools
 - `docs/REVIEW_BROKER_ADMISSION.md`
 - `docs/REVIEW_CAMPAIGN_CEREMONY.md`
 - `docs/REVIEW_CAMPAIGN_RUNNER.md`
@@ -42,13 +44,14 @@
 | 2026-09-21 | decision | Preserve the 600-second ordinary default and introduce an authorization/configuration `formal_campaign` scope capped at 1,800 seconds. A formal-scope probe cannot run without an exact sealed campaign, and a campaign-bound probe rejects standard scope. | Broker, launch, campaign and probe source | Add regression coverage across positive and negative boundaries. |
 | 2026-09-21 | attempt | Scope-specific expiry, unbound-formal denial, sealed formal dispatch, three-slot sequencing and evidence reconstruction all pass without credentials or provider access. Standard-scope defaults are omitted from canonical bytes so historical artifacts remain stable; formal scope remains explicit. | 107 focused `unittest` cases | Run and account for the complete repository gate. |
 | 2026-09-21 | observation | The correction's sandboxed `make check` reached 2,416 source tests: 2,381 passed, 4 skipped and only 31 loopback-bind setups were denied. The three affected MCP modules passed all 48 tests with loopback access. | Source test output; bounded loopback rerun | Finish packaging checks and close offline. |
+| 2026-09-22 | production verification | From clean exact commit `6d079cadf2a57da54acf445b6c364ad7aad50bd4`, `make container` rebuilt `mos-eisley:local` as immutable Linux/arm64 image `sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929` and passed every offline smoke. Separate network-disabled, read-only inspection confirmed UID/GID `10001:10001`, Python 3.12.14, Mos Eisley 0.1.0, OpenAI SDK 3.11.0, 600/1,800-second preparation constants, exact matching hashes for the four corrected source modules, no tests/build tools, and an empty post-test ancestor inventory. | Agentic verification loop; Docker build, smoke and inspection output | Require separate authority before preparing any fresh campaign artifacts. |
 
 ## Handoff
 
-- Current state: the post-campaign offline correction is implemented and focused verification passes; no live call was made from this worktree.
-- Next smallest safe action: commit this slice. Do not reuse the terminal `0010970a` campaign as launch evidence for the corrected commit.
+- Current state: the post-campaign correction is committed at `6d079ca`; its immutable production image is rebuilt and fully verified. No live call was made.
+- Next smallest safe action: after separate user direction, prepare a wholly fresh formal campaign and approval artifacts bound to exact commit `6d079ca` and image `sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929`. Do not reuse the terminal `0010970a` campaign.
 - Blocker and required authority/input: none for offline implementation and tests.
-- Checks already run: 107 focused tests; Ruff lint and format; Pyright; 2,416-test source discovery with 31 sandbox-only socket errors; all 48 tests in the three affected MCP modules with loopback access; 88% coverage; export verification; sdist/wheel build; 1,774 installed-wheel smoke tests; constant audit; `git diff --check`.
+- Checks already run: 107 focused tests; Ruff lint and format; Pyright; 2,416-test source discovery with 31 sandbox-only socket errors; all 48 tests in the three affected MCP modules with loopback access; 88% coverage; export verification; sdist/wheel build; 1,774 installed-wheel smoke tests; constant audit; `git diff --check`; corrected-image `make container` and immutable-image inspection.
 
 ## Close and promote
 
