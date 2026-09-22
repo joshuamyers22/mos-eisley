@@ -505,6 +505,10 @@ class PreparedReviewEnvelope:
         private_write(directory / "envelope.json", canonical_bytes(self.envelope))
         return ReservedReviewEnvelope(self)
 
+    def retire_unused_judge_allowance(self) -> bool:
+        """Retire only the spend-only source allowance, never a judge request."""
+        return self._ledger.retire_unused(self.envelope.judge.ledger_entry)
+
 
 class ReservedReviewEnvelope:
     """Trusted host handle; fixed child paths make every critic issuance exclusive."""

@@ -111,14 +111,20 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(state.identified_charged_microusd, 365)
         self.assertNotIn("SECRET", state.model_dump_json())
 
-    async def test_cancelled_pause_retains_judge_hold(self):
+    async def test_cancelled_pause_records_retired_unused_judge_allowance(self):
         await self.critics()
         self.controller.cancel()
         state = self.inspect()
         self.assertEqual(state.recorded_phase, "cancelled")
-        self.assertEqual(state.identified_charged_microusd, 365)
+        self.assertEqual(state.identified_charged_microusd, 40)
+        self.assertTrue(state.spending_inventory_complete)
+        assert state.judge_allowance is not None
+        self.assertEqual(
+            (state.judge_allowance.status, state.judge_allowance.charged_microusd),
+            ("settled", 0),
+        )
 
-    async def test_pre_dispatch_failure_reports_partial_audit_and_held_spend(self):
+    async def test_pre_dispatch_failure_retires_only_unused_judge_allowance(self):
         with (
             patch.object(
                 self.envelope.critics[0],
@@ -131,7 +137,9 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         state = self.inspect()
         self.assertEqual(state.recorded_phase, "failed")
         self.assertEqual([c.audit for c in state.critics], ["absent", "absent"])
-        self.assertEqual(state.identified_charged_microusd, 975)
+        self.assertEqual(state.identified_charged_microusd, 650)
+        self.assertEqual(state.ledger_charged_microusd, 650)
+        self.assertTrue(state.spending_inventory_complete)
 
     async def test_missing_completion_is_not_inferred_from_settled_spending(self):
         await self.critics()

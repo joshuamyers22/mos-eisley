@@ -208,11 +208,11 @@ class CampaignRunnerTests(CampaignRunnerFixture):
             ).total_seconds(),
             60.0,
         )
-        self.assertEqual(
+        self.assertLess(
             judge_authorization.valid_until,
             judge_authorization.scope.expires_at,
         )
-        self.assertLess(
+        self.assertEqual(
             (
                 judge_authorization.valid_until - judge_authorization.issued_at
             ).total_seconds(),

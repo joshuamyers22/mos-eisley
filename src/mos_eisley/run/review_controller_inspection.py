@@ -168,7 +168,10 @@ def inspect_review_controller(
         or expected.expires_at.tzinfo is None
         or not expected.started_at < expected.expires_at <= envelope.expires_at
         or (expected.expires_at - expected.started_at).total_seconds()
-        > expected.authorization.total_seconds
+        > (
+            expected.authorization.total_seconds
+            + expected.authorization.judge_approval_seconds
+        )
     ):
         raise ValueError("controller deadline mismatch")
     controller_sha256 = digest(canonical_bytes(expected.authorization))
@@ -232,6 +235,7 @@ def inspect_review_controller(
     result = _optional(directory / "review-result.json", MAX_WIRE_BYTES)
     result_sha256 = None if result is None else digest(result)
     terminal_raw = _optional(directory / "controller-terminal.json", 4096)
+    terminal = None
     if terminal_raw is not None:
         terminal = ControllerTerminal.model_validate_json(terminal_raw)
         if (
@@ -250,10 +254,20 @@ def inspect_review_controller(
     entries = [call.ledger for call in critics] + [allowance]
     if judge is not None:
         entries.append(judge.ledger)
-    # A crash can retire the allowance before persisting the target transfer.
-    # Its target cannot be inferred from unrelated ledger entries.
+    # A schema-2 terminal says this controller performed the unused-source
+    # retirement. Without that marker, a zero source and missing transfer record
+    # can mean the target exists but lost its attribution record.
+    snapshot = ledger.snapshot()
+    identified = sum(entry.charged_microusd for entry in entries if entry is not None)
+    retired_without_transfer = (
+        judge is None
+        and allowance is not None
+        and allowance.status == "settled"
+        and allowance.charged_microusd == 0
+    )
     complete = all(entry is not None for entry in entries) and not (
-        judge is None and allowance is not None and allowance.status != "held"
+        retired_without_transfer
+        and (terminal is None or not terminal.unused_judge_allowance_retired)
     )
     return ControllerInventory(
         controller_sha256=controller_sha256,
@@ -262,10 +276,8 @@ def inspect_review_controller(
         critics=critics,
         judge_allowance=allowance,
         judge=judge,
-        identified_charged_microusd=sum(
-            entry.charged_microusd for entry in entries if entry is not None
-        ),
-        ledger_charged_microusd=ledger.snapshot().charged_microusd,
+        identified_charged_microusd=identified,
+        ledger_charged_microusd=snapshot.charged_microusd,
         spending_inventory_complete=complete,
         result_present=result is not None,
         result_sha256=result_sha256,

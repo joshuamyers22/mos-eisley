@@ -290,7 +290,7 @@ class ReviewConformanceTests(ReviewConformanceFixture, IsolatedAsyncioTestCase):
             await self.run_flow(self.admission_ui(user))
         self.assertEqual(len(user.previews), 1)
         self.assertEqual(self.judge.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 345)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 20)
 
     async def test_local_decline_does_not_become_approval_from_a_valid_signature(self):
         user = ScriptedUser(("decline",))

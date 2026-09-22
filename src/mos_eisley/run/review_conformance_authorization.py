@@ -211,7 +211,10 @@ def review_conformance_scope(
             or start.expires_at.tzinfo is None
             or not start.started_at < start.expires_at <= envelope.expires_at
             or (start.expires_at - start.started_at).total_seconds()
-            > critics.authorization.total_seconds
+            > (
+                critics.authorization.total_seconds
+                + critics.authorization.judge_approval_seconds
+            )
             or judge.controller_sha256 != critics.sha256
             or judge.evidence.envelope_sha256 != critics.authorization.envelope_sha256
             or judge.evidence.policy != critics.authorization.policy

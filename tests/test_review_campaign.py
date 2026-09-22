@@ -164,7 +164,9 @@ class CampaignCeremonyTests(CampaignCeremonyFixture):
                 ),
             }
         )
-        with self.assertRaisesRegex(ValueError, "configuration differs"):
+        with self.assertRaisesRegex(
+            ValueError, "configuration differs|approved envelope"
+        ):
             CampaignAttempt(
                 configuration=attempt.configuration,
                 preview=changed_preview,

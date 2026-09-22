@@ -203,12 +203,13 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
             self.assertIsNone(await self.probe(ScriptedUser(())).run())
         self.key_loader.assert_not_called()
 
-    async def test_judge_decline_keeps_allowance_without_judge_credentials(self):
+    async def test_judge_decline_retires_allowance_without_judge_credentials(self):
         probe = self.probe(ScriptedUser(("approve", "decline")))
         self.assertIsNone(await probe.run())
         self.assertEqual(self.key_loader.call_count, 2)
         self.assertEqual(self.judge.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 345)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 20)
+        self.assertEqual(self.base.ledger.snapshot().unresolved_entries, 0)
 
     async def test_policy_revocation_after_count_blocks_generation(self):
         async def revoke(_payload: dict[str, JsonValue]) -> int:
@@ -222,7 +223,7 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
             await self.probe().run()
         self.assertEqual(self.key_loader.call_count, 1)
         self.assertEqual(self.base.fake.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)
 
     async def test_image_change_after_count_blocks_generation(self):
         async def changed(_payload: dict[str, JsonValue]) -> int:
@@ -276,7 +277,7 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await self.probe().run()
         self.sdk.assert_not_called()
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)
 
     async def test_provider_failure_consumes_attempt_and_preserves_spending(self):
         probe = self.probe()
@@ -286,7 +287,7 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         ):
             await probe.run()
         self.assertEqual(self.key_loader.call_count, 2)
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)
         with self.assertRaises(ValueError):
             await probe.run()
         self.assertEqual(self.key_loader.call_count, 2)
@@ -407,4 +408,4 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
                 await task
         self.assertEqual(probe.controller.phase, "cancelled")
         self.assertEqual(self.key_loader.call_count, 1)
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)

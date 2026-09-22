@@ -36,7 +36,10 @@ holds remain charged. Cancellation or ambiguous outcomes retain the affected ful
 allowance. A pricing violation blocks later provider operations even for another
 already-issued pre-reserved critic: the controller checks the shared blocked state
 before token counting and again before generation. These checks cannot recall
-operations already in flight. No retry, refund, top-up or automatic release is added.
+operations already in flight. No retry, refund or top-up is added. The owning review
+controller has one narrow terminal cleanup: it atomically settles the exact
+still-held, non-dispatch judge source allowance at zero if no transfer occurred.
+This cannot release a critic or transferred judge-request reservation.
 
 Tests exercise concurrent process admission, late-insert rollback, abrupt process
 exit after commit, exact capacity/slot boundaries, duplicate approval and critic

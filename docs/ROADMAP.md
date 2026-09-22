@@ -78,9 +78,14 @@ judge scope inheritance. Exact commit `9300de46bc67bcbfeccdee061599130cceae8d17`
 binds and rechecks that scope and hardens the formal-campaign test window. It is now
 rebuilt and verified as Linux/arm64 image
 `sha256:c7f634464887b534de8ee6b803c52c3fe65afb665b0314db2e9385c77e16b990`.
-Every earlier campaign remains evidence only for its exact old artifact and is not
-launch authority for this image; a wholly fresh formal campaign and separate launch
-decision remain open. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
+Its fresh campaign stopped in slot 1 before judge dispatch because critic execution
+and the manual judge ceremony shared one controller wall clock. The offline
+correction now binds a fixed formal-only judge-approval grace, preserves the active
+execution remainder and settles an exact unused judge allowance on graceful terminal
+exit. It still requires a commit and verified production image. Every earlier
+campaign remains evidence only for its exact old artifact and is not launch
+authority; a wholly fresh formal campaign and separate launch decision remain open.
+See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement

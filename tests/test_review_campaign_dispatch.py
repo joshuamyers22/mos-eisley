@@ -175,7 +175,7 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.fixture.sdk.assert_not_called()
         self.assertEqual(self.fixture.key_loader.call_count, 1)
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
         self.assertTrue((self.fixture.lifecycles[0] / "result.json").is_file())
 
     async def test_changed_seal_after_count_prevents_generation(self):
@@ -211,7 +211,7 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.assertEqual(self.fixture.key_loader.call_count, 2)
         self.assertEqual(self.fixture.judge.calls, [])
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
 
     async def test_changed_seal_during_judge_approval_blocks_judge_credentials(self):
         async def approve(preview: ApprovalPreview) -> str:
@@ -226,7 +226,7 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.assertEqual(self.fixture.key_loader.call_count, 2)
         self.assertEqual(self.fixture.judge.calls, [])
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 345)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 20)
 
     async def test_current_authority_cannot_rotate_away_from_sealed_policy(self):
         probe = self.bound_probe()

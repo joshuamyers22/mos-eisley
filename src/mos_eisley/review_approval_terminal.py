@@ -42,9 +42,14 @@ class TerminalReviewApproval:
                 f"minimum providers: {policy.min_providers}."
             )
             self._write(
-                "Review time limit after approval: "
+                "Active review execution budget after approval: "
                 f"{preview.authorization.total_seconds:g} seconds."
             )
+            if preview.authorization.judge_approval_seconds > 0:
+                self._write(
+                    "Formal judge approval window: "
+                    f"{preview.authorization.judge_approval_seconds:g} seconds."
+                )
         else:
             self._write("Review judge request")
             self._write(
@@ -54,8 +59,9 @@ class TerminalReviewApproval:
             findings = len(preview.evidence.judge_request.findings)
             self._write(f"Findings to adjudicate: {findings}.")
             self._write(
-                "Uses the judge allowance already reserved. "
-                "The review deadline continues while you decide."
+                "Uses the judge allowance already reserved. Approval remains "
+                "bounded by the signed controller window; formal-campaign "
+                "approval time does not consume the remaining execution budget."
             )
         self._write(f"Approval: {preview.sha256}")
         while True:

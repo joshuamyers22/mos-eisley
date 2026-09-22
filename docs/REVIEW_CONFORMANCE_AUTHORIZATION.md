@@ -54,9 +54,11 @@ The adapter does not create signatures automatically.
 Each phase loads and verifies its signature before asking for local approval, then
 rereads policy, runtime, scope and time after the prompt. Missing authorization or
 local decline stops that phase. A changed policy, runtime or expired signature fails
-closed. Existing controller guidance checks, shared deadlines, one-use reservations
-and cancellation cleanup still apply. Declining or failing judge approval preserves
-the existing allowance; it does not release money or retry the request.
+closed. Existing controller guidance checks, bounded standard/formal timing,
+one-use reservations and cancellation cleanup still apply. Declining or failing
+judge approval terminally settles only the exact unused spend-only source allowance
+at zero; it does not release critic or transferred request exposure and does not
+retry the request.
 
 The adapter's `authorizations` tuple contains signatures whose local approval hash
 matched. It is not a dispatch log or evidence that a provider call occurred.
@@ -73,8 +75,8 @@ assessment; single-operator mode records self-attestation and does not claim
 independence. Trusted runtime callback values are bindings to check against
 execution, not runtime attestation by themselves.
 
-The signed statement explicitly grants no automatic retry, automatic budget release
-or live review activation, and always reports `conformance_proven: false`.
+The signed statement explicitly grants no automatic retry, provider-request budget
+release or live review activation, and always reports `conformance_proven: false`.
 [Launch preview](REVIEW_LAUNCH_PREVIEW.md) therefore still reports live launch
 unavailable. This authorization adapter adds no paid CLI or credential access;
 the separately constructed owned probe is the paid-capable library boundary.

@@ -134,6 +134,26 @@ class LedgerTests(TestCase):
                 ledger.reserve(reserved)
             self.assertEqual(ledger.snapshot().charged_microusd, 10)
 
+    def test_unused_allowance_retirement_is_exact_and_idempotent(self) -> None:
+        with TemporaryDirectory() as directory:
+            ledger = SpendLedger.create(Path(directory) / "spend.sqlite", 100)
+            allowance = entry(1, 50)
+            ledger.reserve(allowance)
+            for changed in (
+                allowance.model_copy(update={"entry_id": "b" * 64}),
+                allowance.model_copy(update={"reservation_sha256": "b" * 64}),
+                allowance.model_copy(update={"reserved_microusd": 49}),
+            ):
+                with self.assertRaises(ValueError):
+                    ledger.retire_unused(changed)
+                self.assertEqual(ledger.snapshot().charged_microusd, 50)
+            self.assertTrue(ledger.retire_unused(allowance))
+            self.assertFalse(ledger.retire_unused(allowance))
+            status = ledger.entry_status(allowance.entry_id)
+            assert status is not None
+            self.assertEqual((status.status, status.charged_microusd), ("settled", 0))
+            self.assertEqual(ledger.snapshot().unresolved_entries, 0)
+
     def test_missing_corrupt_existing_or_changed_ledger_fails_closed(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "spend.sqlite"

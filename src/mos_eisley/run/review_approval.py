@@ -77,7 +77,11 @@ class BrokeredReviewApprovalFlow:
             start = controller.start
             assert start is not None
             remaining = min(
-                deadline - asyncio.get_running_loop().time(),
+                (
+                    controller.authorization.judge_approval_seconds
+                    if controller.authorization.judge_approval_seconds > 0
+                    else deadline - asyncio.get_running_loop().time()
+                ),
                 (start.expires_at - datetime.now(UTC)).total_seconds(),
             )
             if remaining <= 0:
