@@ -129,10 +129,26 @@
   See `docs/PROJECT_REVIEW_2026-09-08.md` and plan §26 for findings, dependencies,
   sample-size feasibility, and remaining runtime gates. The G0 offline record,
   cumulative-measurement, profile-diagnostic and private-replay contracts are now
-  implemented with deterministic negative fixtures. The bounded recorded G1 runtime
-  lifecycle and its composite acceptance demonstration are implemented; the sealed
-  independent plan-reading experiment and later gates remain planned. See
-  `docs/G1_ADMISSION_SLICE.md` and `docs/ROADMAP.md`.
+  implemented with deterministic negative fixtures. G1 now connects scoped profiles,
+  context classification and selected tool views to conversation request admission
+  without granting ambient authority. Continued work units own exact private profile
+  material that is reconstructed and rechecked from the checkpoint archive, and
+  durable task boundaries close
+  through a private revision-checked checkpoint store with a text-free conversation
+  receipt. Explicit fresh-context continuation now claims one exact next action for
+  one fresh session and rechecks workspace/test freshness before dispatch while
+  preserving lineage and cumulative ledgers. Visible author compaction now binds
+  untrusted summaries and source-backed material to retained originals, preserves
+  exact user instructions/steering, and records every compacted position in
+  schema-4 admission. Advisory context pressure now freezes exact category bytes,
+  capacity, boundary growth and executed-tool diagnostics in schema-5/6 admission,
+  with explicitly unavailable provider-token counts and no automatic action. Later
+  gates remain planned; see
+  `docs/G0_MILESTONE_REVIEW.md`,
+  `docs/G1_SCOPED_ADMISSION.md`, `docs/G1_CHECKPOINT_CLOSURE.md` and
+  `docs/G1_FRESH_CONTEXT_CONTINUATION.md`, `docs/G1_AUTHOR_COMPACTION.md` and
+  `docs/G1_CONTEXT_PRESSURE.md` and
+  `docs/G1_WORK_UNIT_PROFILE_ACQUISITION.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
