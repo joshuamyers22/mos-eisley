@@ -237,6 +237,7 @@ class BrokeredReviewConformanceProbe:
         preparation_scopes = {
             call.authorization.preparation_scope for call in envelope.critics
         }
+        preparation_scopes.add(envelope.envelope.judge.preparation_scope)
         if len(preparation_scopes) != 1:
             raise ValueError("review probe requires one preparation scope")
         preparation_scope = next(iter(preparation_scopes))

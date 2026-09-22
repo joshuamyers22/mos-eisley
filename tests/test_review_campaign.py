@@ -144,6 +144,35 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
 
 
 class CampaignCeremonyTests(CampaignCeremonyFixture):
+    def test_campaign_rejects_planned_judge_scope_substitution(self):
+        attempt = self.bundle.attempts[0]
+        envelope = attempt.preview.envelope
+        changed_envelope = envelope.model_copy(
+            update={
+                "judge": envelope.judge.model_copy(
+                    update={"preparation_scope": "standard"}
+                )
+            }
+        )
+        changed_preview = attempt.preview.model_copy(
+            update={
+                "envelope": changed_envelope,
+                "authorization": attempt.preview.authorization.model_copy(
+                    update={
+                        "envelope_sha256": digest(canonical_bytes(changed_envelope))
+                    }
+                ),
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "configuration differs"):
+            CampaignAttempt(
+                configuration=attempt.configuration,
+                preview=changed_preview,
+                authority_policy=attempt.authority_policy,
+                observation_policy=attempt.observation_policy,
+                ledger_path=attempt.ledger_path,
+            )
+
     def test_cli_seals_before_attempts_and_freshly_reviews_completed_evidence(self):
         self.assertEqual(self.preview_output["attempts"], 3)
         self.assertEqual(self.preview_output["total_planned_microusd"], 1950)

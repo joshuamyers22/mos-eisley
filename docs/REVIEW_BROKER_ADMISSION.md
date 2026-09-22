@@ -24,8 +24,11 @@ hash or accept approval from a model. Ordinary calls expire after at most ten mi
 or when pricing expires, whichever comes first. A call prepared with the explicit
 `formal_campaign` scope may instead receive at most thirty minutes. That scope is
 part of the authorization and launch configuration, all calls in an envelope must
-agree on it, and the owned probe refuses to execute it without an exact sealed-campaign
-binding. Conversely, a campaign-bound probe refuses an ordinary-scope envelope.
+agree on it, and the deferred judge allowance commits the same scope before any
+reservation. Campaign admission, probe admission, judge construction and retained
+judge-transfer verification each reject a critic/judge scope mismatch. The owned
+probe refuses to execute formal scope without an exact sealed-campaign binding.
+Conversely, a campaign-bound probe refuses an ordinary-scope envelope.
 The longer pre-dispatch window therefore exists only for a manually gated,
 precommitted three-slot campaign; it is not a provider-operation or execution
 deadline. Each issued broker keeps a

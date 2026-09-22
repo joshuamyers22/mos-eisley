@@ -81,6 +81,22 @@ class ReviewProbeFixture(ReviewConformanceFixture):
 
 
 class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
+    def test_planned_judge_scope_must_match_critic_scope_before_admission(
+        self,
+    ) -> None:
+        envelope = self.review.envelope
+        self.review._envelope = envelope.model_copy(  # pyright: ignore[reportPrivateUsage]
+            update={
+                "judge": envelope.judge.model_copy(
+                    update={"preparation_scope": "formal_campaign"}
+                )
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "one preparation scope"):
+            self.probe()
+        self.key_loader.assert_not_called()
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
     async def test_extended_preparation_requires_a_sealed_campaign_binding(
         self,
     ) -> None:

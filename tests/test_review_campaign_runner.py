@@ -77,7 +77,15 @@ class CampaignRunnerFixture(CampaignCeremonyFixture):
         async def load(scope: ReviewConformanceScope):
             fixture = self.fixtures[index]
             fixture.timestamp = datetime.now(UTC)
-            return fixture.certificate(scope)
+            # Formal campaign tests exercise the campaign's extended dispatch
+            # window. Use the authority policy's full per-phase allowance so a
+            # loaded suite cannot turn host scheduling delay into missing
+            # lifecycle evidence. Expiry-specific tests retain the fixture's
+            # deliberately short default certificate.
+            return fixture.certificate(
+                scope,
+                lifetime_seconds=fixture.policy.max_authorization_seconds,
+            )
 
         return load
 
@@ -191,6 +199,25 @@ class CampaignRunnerTests(CampaignRunnerFixture):
         self.assertEqual(runner.phase, "incomplete")
         self.assertIsNotNone(runner.last_completion)
         self.assertEqual(runner.submission.attempts, (None, None, None))
+        critic_authorization, judge_authorization = (
+            signed.authorization for signed in self.probes[0].approval_ui.authorizations
+        )
+        self.assertEqual(
+            (
+                critic_authorization.valid_until - critic_authorization.issued_at
+            ).total_seconds(),
+            60.0,
+        )
+        self.assertEqual(
+            judge_authorization.valid_until,
+            judge_authorization.scope.expires_at,
+        )
+        self.assertLess(
+            (
+                judge_authorization.valid_until - judge_authorization.issued_at
+            ).total_seconds(),
+            60.0,
+        )
         self.assert_future_unused(1)
 
     async def test_local_decline_stops_campaign_without_observer_or_credentials(self):

@@ -1,6 +1,6 @@
 # Work Note: review campaign preparation window
 
-- Status: closed
+- Status: closed offline; judge-scope and installed-wheel harness hardening verified
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-21
 - Last updated (UTC): 2026-09-22
@@ -45,13 +45,19 @@
 | 2026-09-21 | attempt | Scope-specific expiry, unbound-formal denial, sealed formal dispatch, three-slot sequencing and evidence reconstruction all pass without credentials or provider access. Standard-scope defaults are omitted from canonical bytes so historical artifacts remain stable; formal scope remains explicit. | 107 focused `unittest` cases | Run and account for the complete repository gate. |
 | 2026-09-21 | observation | The correction's sandboxed `make check` reached 2,416 source tests: 2,381 passed, 4 skipped and only 31 loopback-bind setups were denied. The three affected MCP modules passed all 48 tests with loopback access. | Source test output; bounded loopback rerun | Finish packaging checks and close offline. |
 | 2026-09-22 | production verification | From clean exact commit `6d079cadf2a57da54acf445b6c364ad7aad50bd4`, `make container` rebuilt `mos-eisley:local` as immutable Linux/arm64 image `sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929` and passed every offline smoke. Separate network-disabled, read-only inspection confirmed UID/GID `10001:10001`, Python 3.12.14, Mos Eisley 0.1.0, OpenAI SDK 3.11.0, 600/1,800-second preparation constants, exact matching hashes for the four corrected source modules, no tests/build tools, and an empty post-test ancestor inventory. | Agentic verification loop; Docker build, smoke and inspection output | Require separate authority before preparing any fresh campaign artifacts. |
+| 2026-09-22 | live finding | Fresh campaign slot 1 returned retained rejection `aa2bcdc27a785934b6dbfeea70572f8f4cf1904be058326de6fad00c312a0d4e`; the campaign was cancelled before slot 2 and retained as incomplete. | Private sealed campaign evidence | Harden the implicit deferred-judge scope inheritance offline. |
+| 2026-09-22 | implementation | The judge allowance now commits the critic preparation scope before reservation; envelope, campaign, probe and retained-transfer validation reject mismatches. | Source plus four tamper-focused regressions | Run focused and full repository gates; no further live call. |
+| 2026-09-22 | verification | Ruff, format and Pyright passed; the authoritative source suite passed all 2,419 tests with 4 skips and 89% coverage; export and wheel build passed. The installed-wheel run reached 1,777 tests before one observer-handoff setup lacked a lifecycle path. | Full local gate output | Diagnose the isolated installed-wheel failure without a live call. |
+| 2026-09-22 | observation | Formal campaign fixtures issued 20-second synthetic phase certificates. Under a loaded installed-wheel run, expiry before broker handler entry can correctly fail closed yet leave no lifecycle path for observer handoff. | Fixture certificate helper, dispatch checks and handoff invariant | Use the existing bounded policy maximum only for formal campaign fixtures. |
+| 2026-09-22 | implementation | The certificate helper retains its 20-second default for expiry tests, while formal campaign loaders request the authority policy's 60-second maximum. Exact scope expiry still clips the judge fixture to its remaining controller window; a runner regression asserts both layers. | Campaign-runner and conformance-admission fixtures | Rerun focused admission/handoff suites, static checks and installed-wheel smoke. |
+| 2026-09-22 | verification | Focused campaign-runner/observer and admission/expiry regressions pass; Ruff, format and Pyright remain clean; the installed wheel passed all 1,777 tests in 989.228 seconds under the accumulated load that previously exposed W-005. | Local gate output | Close the offline slice; require commit and image rebuild before another live campaign. |
 
 ## Handoff
 
-- Current state: the post-campaign correction is committed at `6d079ca`; its immutable production image is rebuilt and fully verified. No live call was made.
-- Next smallest safe action: after separate user direction, prepare a wholly fresh formal campaign and approval artifacts bound to exact commit `6d079ca` and image `sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929`. Do not reuse the terminal `0010970a` campaign.
+- Current state: the fresh `6d079ca` campaign is terminal and incomplete; judge-scope and formal-campaign harness hardening are verified in the main worktree and no further live call was made after slot 1.
+- Next smallest safe action: commit the verified correction, then rebuild and verify the production image before preparing any wholly fresh campaign.
 - Blocker and required authority/input: none for offline implementation and tests.
-- Checks already run: 107 focused tests; Ruff lint and format; Pyright; 2,416-test source discovery with 31 sandbox-only socket errors; all 48 tests in the three affected MCP modules with loopback access; 88% coverage; export verification; sdist/wheel build; 1,774 installed-wheel smoke tests; constant audit; `git diff --check`; corrected-image `make container` and immutable-image inspection.
+- Checks already run: 162 focused review tests; 26 post-hardening campaign-runner/observer tests; 20 admission/expiry tests; Ruff lint and format; Pyright; authoritative 2,419-test source suite with 4 skips and 89% coverage; export verification; sdist/wheel build; all 1,777 post-hardening installed-wheel tests in 989.228 seconds; constant audit; corrected-image `make container` and immutable-image inspection.
 
 ## Close and promote
 

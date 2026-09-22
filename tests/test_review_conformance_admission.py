@@ -80,13 +80,21 @@ class ReviewConformanceFixture(GuidedBrokerFixture):
         )
         self.scope = review_conformance_scope(self.preview, **self.runtime.model_dump())
 
-    def certificate(self, scope: ReviewConformanceScope | None = None):
+    def certificate(
+        self,
+        scope: ReviewConformanceScope | None = None,
+        *,
+        lifetime_seconds: int = 20,
+    ):
         selected = self.scope if scope is None else scope
         authorization = make_review_conformance_authorization(
             selected,
             self.policy,
             self.timestamp,
-            min(self.timestamp + timedelta(seconds=20), selected.expires_at),
+            min(
+                self.timestamp + timedelta(seconds=lifetime_seconds),
+                selected.expires_at,
+            ),
         )
         return sign_review_conformance_authorization(
             authorization, self.policy.authorities[0].signer_id, self.key

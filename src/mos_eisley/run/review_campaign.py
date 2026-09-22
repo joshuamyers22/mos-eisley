@@ -82,6 +82,7 @@ class CampaignAttempt(Contract):
             or config.total_seconds != preview.authorization.total_seconds
             or config.judge_spending != preview.envelope.judge.spend_policy
             or config.judge_model != config.judge_spending.model
+            or config.preparation_scope != preview.envelope.judge.preparation_scope
             or config.max_total_microusd != preview.envelope.max_total_microusd
             or len(config.critics) != len(preview.requests)
             or any(

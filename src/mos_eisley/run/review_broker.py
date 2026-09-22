@@ -325,6 +325,9 @@ class DeferredJudgeAllowance(Contract):
     spend_policy: SpendPolicy
     ledger_entry_id: Digest
     reserved_microusd: Money
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
     transfer_authorized: Literal[False] = False
 
     @model_validator(mode="after")
@@ -367,7 +370,7 @@ class ReviewSpendingEnvelope(Contract):
     @model_validator(mode="after")
     def coherent_envelope(self) -> Self:
         first = self.critics[0]
-        if any(
+        if self.judge.preparation_scope != first.preparation_scope or any(
             call.role != "critic"
             or call.brief_sha256 != self.judge.brief_sha256
             or call.ledger_policy_sha256 != self.ledger_policy_sha256
@@ -433,6 +436,7 @@ class PreparedReviewEnvelope:
             reserved_microusd=judge_policy.reservation_cost(
                 judge_policy.max_input_tokens, judge_policy.max_output_tokens
             ),
+            preparation_scope=critics[0].authorization.preparation_scope,
         )
         self._envelope = ReviewSpendingEnvelope(
             critics=tuple(call.authorization for call in critics),
@@ -576,7 +580,7 @@ class PreparedJudgeTransfer:
             envelope.ledger,
             reserved_allowance=envelope.envelope.judge,
             guidance=envelope.critics[0].guidance,
-            preparation_scope=envelope.envelope.critics[0].preparation_scope,
+            preparation_scope=envelope.envelope.judge.preparation_scope,
         )
         self._authorization = JudgeTransferAuthorization(
             envelope_sha256=envelope.approval_sha256,
@@ -670,8 +674,12 @@ def verify_judge_transfer(
         digest(raw_envelope) != expected.envelope_sha256
         or ledger.policy.ledger_id != expected.call.ledger_id
         or expected.call.guidance_sha256 != envelope.critics[0].guidance_sha256
+        or expected.call.preparation_scope != envelope.judge.preparation_scope
+        or expected.call.preparation_scope != envelope.critics[0].preparation_scope
     ):
-        raise ValueError("judge transfer envelope or ledger mismatch")
+        raise ValueError(
+            "judge transfer envelope, ledger or preparation scope mismatch"
+        )
     source = ledger.entry_status(expected.allowance.entry_id)
     target = ledger.entry_status(expected.call.ledger_entry_id)
     if (
