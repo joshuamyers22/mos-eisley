@@ -72,12 +72,15 @@ campaign reconstruction, 30,995 micro-USD in settled local charges and complete
 worker cleanup. Its review verdicts were `reject`, `revise`, `reject` and identified
 an overbroad 30-minute preparation window plus ambiguous revision wording. Those
 findings were accepted and corrected offline by restoring the 10-minute ordinary
-default and requiring a sealed `formal_campaign` scope for 30 minutes. The accepted
-campaign remains evidence for its exact old commit/image and is not launch authority
-for the corrected artifact. Exact correction commit `6d079ca` is now rebuilt and
-verified as Linux/arm64 image
-`sha256:6672c404f33d595e1a6ce53cebafdf24af5867313882e30fc420a074082c7929`;
-a wholly fresh formal campaign and separate launch decision remain open. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
+default and requiring a sealed `formal_campaign` scope for 30 minutes. A fresh
+`6d079ca` campaign then stopped terminally after slot 1 identified implicit deferred-
+judge scope inheritance. Exact commit `9300de46bc67bcbfeccdee061599130cceae8d17`
+binds and rechecks that scope and hardens the formal-campaign test window. It is now
+rebuilt and verified as Linux/arm64 image
+`sha256:c7f634464887b534de8ee6b803c52c3fe65afb665b0314db2e9385c77e16b990`.
+Every earlier campaign remains evidence only for its exact old artifact and is not
+launch authority for this image; a wholly fresh formal campaign and separate launch
+decision remain open. See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement

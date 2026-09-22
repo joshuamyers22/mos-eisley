@@ -1,6 +1,6 @@
 # Work Note: review campaign preparation window
 
-- Status: closed offline; judge-scope and installed-wheel harness hardening verified
+- Status: corrected production image verified; live work unauthorized
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-21
 - Last updated (UTC): 2026-09-22
@@ -51,13 +51,14 @@
 | 2026-09-22 | observation | Formal campaign fixtures issued 20-second synthetic phase certificates. Under a loaded installed-wheel run, expiry before broker handler entry can correctly fail closed yet leave no lifecycle path for observer handoff. | Fixture certificate helper, dispatch checks and handoff invariant | Use the existing bounded policy maximum only for formal campaign fixtures. |
 | 2026-09-22 | implementation | The certificate helper retains its 20-second default for expiry tests, while formal campaign loaders request the authority policy's 60-second maximum. Exact scope expiry still clips the judge fixture to its remaining controller window; a runner regression asserts both layers. | Campaign-runner and conformance-admission fixtures | Rerun focused admission/handoff suites, static checks and installed-wheel smoke. |
 | 2026-09-22 | verification | Focused campaign-runner/observer and admission/expiry regressions pass; Ruff, format and Pyright remain clean; the installed wheel passed all 1,777 tests in 989.228 seconds under the accumulated load that previously exposed W-005. | Local gate output | Close the offline slice; require commit and image rebuild before another live campaign. |
+| 2026-09-22 | production verification | From clean exact commit `9300de46bc67bcbfeccdee061599130cceae8d17`, `make container` rebuilt `mos-eisley:local` as immutable Linux/arm64 image `sha256:c7f634464887b534de8ee6b803c52c3fe65afb665b0314db2e9385c77e16b990` and passed every offline smoke. Separate network-disabled, read-only inspection confirmed UID/GID `10001:10001`, Python 3.12.14, Mos Eisley 0.1.0, OpenAI SDK 3.11.0, 600/1,800-second preparation constants, exact matching hashes for all three corrected source modules, no Git/compiler/pytest/tests/source tree, no declared volumes or ports, and an empty post-test ancestor inventory. | Agentic verification loop; Docker build, smoke, metadata and installed-source inspection | Require separate authority before preparing a wholly fresh campaign. |
 
 ## Handoff
 
-- Current state: the fresh `6d079ca` campaign is terminal and incomplete; judge-scope and formal-campaign harness hardening are verified in the main worktree and no further live call was made after slot 1.
-- Next smallest safe action: commit the verified correction, then rebuild and verify the production image before preparing any wholly fresh campaign.
+- Current state: the fresh `6d079ca` campaign is terminal and incomplete; exact correction commit `9300de46bc67bcbfeccdee061599130cceae8d17` and image `sha256:c7f634464887b534de8ee6b803c52c3fe65afb665b0314db2e9385c77e16b990` are verified. No further live call was made after slot 1.
+- Next smallest safe action: after separate user direction, prepare a wholly fresh formal campaign and approval artifacts bound to exact commit `9300de46bc67bcbfeccdee061599130cceae8d17` and the verified image. Do not reuse the terminal `6d079ca` campaign.
 - Blocker and required authority/input: none for offline implementation and tests.
-- Checks already run: 162 focused review tests; 26 post-hardening campaign-runner/observer tests; 20 admission/expiry tests; Ruff lint and format; Pyright; authoritative 2,419-test source suite with 4 skips and 89% coverage; export verification; sdist/wheel build; all 1,777 post-hardening installed-wheel tests in 989.228 seconds; constant audit; corrected-image `make container` and immutable-image inspection.
+- Checks already run: 162 focused review tests; 26 post-hardening campaign-runner/observer tests; 20 admission/expiry tests; Ruff lint and format; Pyright; authoritative 2,419-test source suite with 4 skips and 89% coverage; export verification; sdist/wheel build; all 1,777 post-hardening installed-wheel tests in 989.228 seconds; constant audit; exact-`9300de4` `make container` and immutable-image inspection.
 
 ## Close and promote
 
