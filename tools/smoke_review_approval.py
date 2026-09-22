@@ -47,7 +47,7 @@ def main() -> int:
         for name in (
             "test_two_separate_approvals_return_and_display_verified_result",
             "test_repeated_flow_cancellation_awaits_both_critic_cleanups",
-            "test_declining_judge_preserves_allowance_and_does_not_dispatch",
+            "test_declining_judge_retires_allowance_and_does_not_dispatch",
         )
     )
     result = unittest.TextTestRunner(verbosity=2).run(suite)
