@@ -1,9 +1,9 @@
 # Work Note: repeated cleanup-scope claim reassessment
 
-- Status: closed; repeated claim rejected as unreachable
+- Status: closed and formally accepted; repeated claim rejected as unreachable
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-23T11:44:06Z
-- Last updated (UTC): 2026-09-23T11:51:07Z
+- Last updated (UTC): 2026-09-23T14:10:47Z
 - Review or delete by: G2 corrected-artifact qualification closure
 - Related records: `docs/REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md` and `docs/REVIEW_CLEANUP_SCOPE_CLAIM_THREAT_MODEL.md`
 
@@ -34,13 +34,14 @@
 ## Handoff
 
 - Current state: source-level reassessment is complete. The alleged schema-2/non-formal controller is unreachable through supported APIs; no confirmed code defect remains from the repeated claim.
-- Next smallest safe action: accountable human review of this disposition. If accepted, decide separately whether to add a readability-only redundant check or proceed to the remaining G2 launch decision; either choice needs its own scoped authorization and verification.
-- Blocker and required authority/input: human disposition before G2 qualification or another live campaign.
+- Next smallest safe action: rebuild and verify a production image from the exact accepted-reassessment commit, then prepare a wholly fresh campaign with its own financial, seal and phase approvals.
+- Authority/input: Joshua Myers formally accepted the disposition and directed a fresh campaign on 2026-09-23. That direction does not itself approve a financial ceiling, credential access or provider dispatch.
 - Checks already run: all source construction-site trace, executable public-API probe, and five focused controller/inspection regressions.
 
 ## Close and promote
 
 - Outcome: CS-001 rejected as a correlated reachability misunderstanding; the lower-level offline/formal-controller and trusted-process mutation boundaries remain explicit residuals.
+- Accountable disposition: Joshua Myers accepted the reassessment without a reviewer-legibility code change and requested a wholly fresh campaign.
 - Durable fact promoted to `PROJECT_MEMORY.md`: corrected campaign outcome and offline claim disposition.
 - Decision promoted to documentation: verification record, threat model and roadmap.
 - Regression link: existing controller substitution, standard/formal cleanup and inspection tests; no new test was needed because they already encode the counterexample denial.

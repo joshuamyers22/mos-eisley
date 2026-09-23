@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — corrected formal campaign complete; disposition and launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; the repeated correlated rejection has an offline source disposition, while accountable acceptance and a launch decision remain |
+| G2 — corrected formal campaign complete; fresh corroboration requested; launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; the repeated correlated rejection has an accepted offline source disposition, while a newly directed exact-artifact campaign and launch decision remain |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -102,9 +102,11 @@ schema-2 controller could have non-formal preparation scope and retire the allow
 Offline source reassessment rejected that counterexample as unreachable through the
 supported controller or production-live APIs: authorization schema is derived from
 the immutable envelope scope, preview validation enforces the equivalence, and live
-conformance refuses unbound formal execution. The retained verdicts remain unchanged;
-accountable disposition and the separate launch decision remain open. Every campaign
-remains evidence only for its exact artifact and is not launch authority.
+conformance refuses unbound formal execution. Joshua Myers formally accepted that
+disposition on 2026-09-23 and directed a wholly fresh campaign without a readability-only
+code change. The retained verdicts remain unchanged, and the new direction grants no
+financial, credential, dispatch or launch authority without its exact separate ceremony.
+Every campaign remains evidence only for its exact artifact and is not launch authority.
 See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md), plus
 [the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md).

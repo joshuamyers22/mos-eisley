@@ -3,7 +3,7 @@
 ## Scope and ownership
 
 - System/version: brokered review controller at `24704aa6fc4aadba2dcec79b8f83bae44f01a02d`.
-- Owner and reviewer: Joshua Myers; accountable disposition remains required.
+- Owner and reviewer: Joshua Myers; accountable disposition accepted 2026-09-23.
 - Date and trigger: 2026-09-23; one claim repeated by all critics and judges across a three-slot single-provider campaign.
 - In scope: supported controller construction, formal/standard scope binding, terminal cleanup, live conformance and offline inspection. Out of scope: arbitrary trusted-process code execution, historical evidence rewriting, provider behavior, retry and launch activation.
 
@@ -36,4 +36,4 @@
 - Reject the repeated schema-2/non-formal claim as unreachable through supported controller and production-live APIs.
 - Do not change runtime code merely to make a correlated reviewer withdraw an unsupported finding.
 - Retain the explicit residual that arbitrary trusted-process mutation is outside containment and that lower-level formal controllers exist for offline/tests; production live conformance remains seal-gated.
-- Require human disposition before using this reassessment to advance G2 or authorizing another live campaign.
+- Joshua Myers accepted the disposition and directed a wholly fresh campaign; retain separate exact-artifact financial, sealing and phase approvals before provider dispatch.
