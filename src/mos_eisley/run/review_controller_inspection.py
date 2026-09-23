@@ -238,6 +238,11 @@ def inspect_review_controller(
     terminal = None
     if terminal_raw is not None:
         terminal = ControllerTerminal.model_validate_json(terminal_raw)
+        if terminal.unused_judge_allowance_retired and (
+            expected.authorization.schema_version != 2
+            or envelope.judge.preparation_scope != "formal_campaign"
+        ):
+            raise ValueError("controller terminal cleanup scope mismatch")
         if (
             terminal.controller_sha256 != controller_sha256
             or (

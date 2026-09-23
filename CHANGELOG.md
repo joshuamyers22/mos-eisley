@@ -6,7 +6,8 @@ Notable changes are recorded here using semantic versioning.
 
 - Give formal review campaigns a separately hash-bound 600-second judge-approval
   grace while preserving their active execution budget, and atomically settle an
-  exact unused deferred judge allowance on graceful terminal exit without releasing
+  exact unused deferred judge allowance on formal graceful terminal exit without
+  changing standard schema-1 spending or terminal behavior and without releasing
   critic, transferred or uncertain request exposure.
 
 - Add versioned, content-bound review citation units for unified diffs. New
@@ -100,8 +101,8 @@ Notable changes are recorded here using semantic versioning.
   no-dispatch CLI that preserves the credentialed review-conformance launch gate.
 
 - Connect exact critic and judge approval prompts to the brokered review controller,
-  with cancellable terminal input, bounded standard/formal timing and exact unused
-  judge-allowance cleanup on decline.
+  with cancellable terminal input, bounded standard/formal timing and formal-only
+  exact unused judge-allowance cleanup on decline.
 
 - Inspect saved brokered controller records and held or uncertain spending through
   a read-only CLI, preserving incomplete crash attribution without retry authority.

@@ -240,7 +240,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
             await probe.run()
         self.assertEqual(self.fixture.key_loader.call_count, 1)
         self.fixture.sdk.assert_not_called()
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
 
     async def test_revocation_during_count_blocks_generation(self):
         probe = self.probe()
@@ -261,7 +261,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
             await probe.run()
         self.assertEqual(self.fixture.key_loader.call_count, 1)
         self.assertEqual(self.fixture.sdk.call_count, 1)
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
 
     async def test_changed_guidance_before_run_blocks_without_spending(self):
         probe = self.probe()
@@ -339,7 +339,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
             await probe.run()
         self.assertEqual(self.fixture.key_loader.call_count, 2)
         self.assertEqual(self.fixture.judge.calls, [])
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 20)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 345)
 
     async def test_changed_worker_image_blocks_before_credentials(self):
         probe = self.probe()
@@ -411,7 +411,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
         self.assertEqual(self.fixture.sdk.call_count, 1)
         self.assertEqual(probe.launch_decision, original)
         self.assertNotEqual(self.signed, original)
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
         self.assertEqual(self.fixture.judge.calls, [])
 
     async def test_changed_retained_decision_stops_generation(self):
@@ -454,7 +454,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
                 await task
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
         self.assertTrue(self.fixture.lifecycles)
         self.assertTrue(
             all((path / "result.json").is_file() for path in self.fixture.lifecycles)

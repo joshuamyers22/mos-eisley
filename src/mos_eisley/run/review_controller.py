@@ -283,7 +283,9 @@ class BrokeredReviewController:
         self._phase = phase
         if not self._owns_run:
             return
-        retired = self._envelope.retire_unused_judge_allowance()
+        retired = False
+        if self.authorization.schema_version == 2:
+            retired = self._envelope.retire_unused_judge_allowance()
         private_write(
             self._directory / "controller-terminal.json",
             canonical_bytes(

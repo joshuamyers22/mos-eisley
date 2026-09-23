@@ -13,7 +13,7 @@ from test_review_controller import ControllerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.models import canonical_bytes
-from mos_eisley.run.review_controller import ControllerStart
+from mos_eisley.run.review_controller import ControllerStart, ControllerTerminal
 from mos_eisley.run.review_controller_inspection import inspect_review_controller
 from mos_eisley.run.spend_ledger import SpendLedger
 
@@ -75,6 +75,7 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertFalse(state.verdict_verified)
         self.assertNotIn("Fixture", state.model_dump_json())
         self.assertNotIn("accept", state.model_dump_json())
+        self.assertFalse(self.envelope.retire_unused_judge_allowance())
 
     async def test_crash_after_transfer_before_record_exposes_unknown_attribution(self):
         preview = await self.critics()
@@ -111,20 +112,20 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(state.identified_charged_microusd, 365)
         self.assertNotIn("SECRET", state.model_dump_json())
 
-    async def test_cancelled_pause_records_retired_unused_judge_allowance(self):
+    async def test_standard_cancelled_pause_retains_judge_allowance(self):
         await self.critics()
         self.controller.cancel()
         state = self.inspect()
         self.assertEqual(state.recorded_phase, "cancelled")
-        self.assertEqual(state.identified_charged_microusd, 40)
+        self.assertEqual(state.identified_charged_microusd, 365)
         self.assertTrue(state.spending_inventory_complete)
         assert state.judge_allowance is not None
         self.assertEqual(
             (state.judge_allowance.status, state.judge_allowance.charged_microusd),
-            ("settled", 0),
+            ("held", 325),
         )
 
-    async def test_pre_dispatch_failure_retires_only_unused_judge_allowance(self):
+    async def test_pre_dispatch_failure_reports_partial_audit_and_held_spend(self):
         with (
             patch.object(
                 self.envelope.critics[0],
@@ -137,9 +138,55 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         state = self.inspect()
         self.assertEqual(state.recorded_phase, "failed")
         self.assertEqual([c.audit for c in state.critics], ["absent", "absent"])
-        self.assertEqual(state.identified_charged_microusd, 650)
-        self.assertEqual(state.ledger_charged_microusd, 650)
+        self.assertEqual(state.identified_charged_microusd, 975)
+        self.assertEqual(state.ledger_charged_microusd, 975)
         self.assertTrue(state.spending_inventory_complete)
+
+    async def test_formal_cleanup_marker_completes_exact_allowance_inventory(self):
+        directory, _envelope, controller, transports = self.make_formal_controller()
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=self.containers,
+        )
+        controller.cancel()
+        expected = controller.start
+        assert expected is not None
+        state = inspect_review_controller(
+            directory,
+            expected,
+            self.base.ledger,
+            expected_judge_preview_sha256=preview.sha256,
+        )
+        self.assertEqual(state.recorded_phase, "cancelled")
+        self.assertTrue(state.spending_inventory_complete)
+        assert state.judge_allowance is not None
+        self.assertEqual(
+            (state.judge_allowance.status, state.judge_allowance.charged_microusd),
+            ("settled", 0),
+        )
+        self.assertEqual(
+            state.ledger_charged_microusd,
+            40,
+        )
+
+    async def test_standard_start_rejects_formal_cleanup_marker(self):
+        await self.critics()
+        self.assertTrue(
+            self.base.ledger.retire_unused(self.envelope.envelope.judge.ledger_entry)
+        )
+        (self.directory / "controller-terminal.json").write_bytes(
+            canonical_bytes(
+                ControllerTerminal(
+                    schema_version=2,
+                    controller_sha256=self.controller.approval_sha256,
+                    phase="cancelled",
+                    unused_judge_allowance_retired=True,
+                )
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "cleanup scope"):
+            self.inspect()
 
     async def test_missing_completion_is_not_inferred_from_settled_spending(self):
         await self.critics()

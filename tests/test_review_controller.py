@@ -83,6 +83,39 @@ class ControllerFixture(TestCase):
             total_seconds=30,
         )
 
+    def make_formal_controller(self):
+        directory = self.base.root / "formal-review"
+        calls = tuple(
+            PreparedReviewCall(
+                self.base.reviewer,
+                self.base.request,
+                self.base.policy,
+                self.base.ledger,
+                critic=self.base.critic.model_copy(update={"id": name}),
+                preparation_scope="formal_campaign",
+            )
+            for name in ("formal-one", "formal-two")
+        )
+        envelope = PreparedReviewEnvelope(
+            calls,
+            self.base.policy,
+            self.base.ledger,
+            max_total_microusd=975,
+            directory=directory,
+        )
+        controller = BrokeredReviewController(
+            envelope, self.base.reviewer, self.policy, total_seconds=30
+        )
+        transports = tuple(
+            FakeTransport(directory / call.authorization.ledger_entry_id)
+            for call in calls
+        )
+        for transport in transports:
+            transport.response = broker_fixture.output(
+                canonical_bytes(Critique()).decode()
+            )
+        return directory, envelope, controller, transports
+
     async def critics(self):
         return await self.controller.run_critics(
             approved_controller_sha256=self.controller.approval_sha256,
@@ -149,7 +182,11 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(result.result.verdict.decision, "accept")
         self.assertEqual(self.controller.phase, "finished")
         self.assertEqual(self.base.ledger.snapshot().charged_microusd, 60)
-        self.assertEqual(self.terminal().result_sha256, digest(canonical_bytes(result)))
+        terminal = self.terminal()
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        self.assertEqual(terminal.result_sha256, digest(canonical_bytes(result)))
+        self.assertFalse(self.envelope.retire_unused_judge_allowance())
         self.assertEqual(
             verify_retained_review_result(
                 self.envelope.envelope,
@@ -340,36 +377,7 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertFalse((self.directory / "judge-transfer.json").exists())
 
     async def test_formal_judge_pause_preserves_remaining_execution_budget(self):
-        directory = self.base.root / "formal-review"
-        calls = tuple(
-            PreparedReviewCall(
-                self.base.reviewer,
-                self.base.request,
-                self.base.policy,
-                self.base.ledger,
-                critic=self.base.critic.model_copy(update={"id": name}),
-                preparation_scope="formal_campaign",
-            )
-            for name in ("formal-one", "formal-two")
-        )
-        envelope = PreparedReviewEnvelope(
-            calls,
-            self.base.policy,
-            self.base.ledger,
-            max_total_microusd=975,
-            directory=directory,
-        )
-        controller = BrokeredReviewController(
-            envelope, self.base.reviewer, self.policy, total_seconds=30
-        )
-        transports = tuple(
-            FakeTransport(directory / call.authorization.ledger_entry_id)
-            for call in calls
-        )
-        for transport in transports:
-            transport.response = broker_fixture.output(
-                canonical_bytes(Critique()).decode()
-            )
+        directory, _envelope, controller, transports = self.make_formal_controller()
         preview = await controller.run_critics(
             approved_controller_sha256=controller.approval_sha256,
             transports=transports,
@@ -396,25 +404,54 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(result.result.verdict.decision, "accept")
         self.assertEqual(controller.phase, "finished")
 
-    async def test_idle_cancel_retires_judge_allowance_and_denies_continuation(self):
-        preview = await self.critics()
+    async def test_formal_idle_cancel_retires_unused_judge_allowance(self):
+        _directory, envelope, controller, transports = self.make_formal_controller()
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=self.containers,
+        )
         before = self.base.ledger.snapshot()
-        self.controller.cancel()
-        self.assertEqual(self.terminal().phase, "cancelled")
-        self.assertTrue(self.terminal().unused_judge_allowance_retired)
-        with self.assertRaises(ValueError):
-            await self.finish(preview.sha256)
+        controller.cancel()
+        terminal = ControllerTerminal.model_validate_json(
+            (
+                Path(envelope.envelope.artifact_directory) / "controller-terminal.json"
+            ).read_bytes()
+        )
+        self.assertEqual(terminal.schema_version, 2)
+        self.assertTrue(terminal.unused_judge_allowance_retired)
         after = self.base.ledger.snapshot()
         self.assertEqual(
             after.charged_microusd,
-            before.charged_microusd - self.envelope.envelope.judge.reserved_microusd,
+            before.charged_microusd - envelope.envelope.judge.reserved_microusd,
         )
-        self.assertEqual(after.unresolved_entries, 0)
+        with self.assertRaises(ValueError):
+            await controller.run_judge(
+                approved_preview_sha256=preview.sha256,
+                transport=self.judge,
+                container=self.base.container,
+            )
+
+    async def test_standard_idle_cancel_preserves_allowance_and_schema_one(self):
+        preview = await self.critics()
+        before = self.base.ledger.snapshot()
+        self.controller.cancel()
+        terminal = self.terminal()
+        self.assertEqual(terminal.phase, "cancelled")
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        with self.assertRaises(ValueError):
+            await self.finish(preview.sha256)
+        after = self.base.ledger.snapshot()
+        self.assertEqual(after, before)
         allowance = self.base.ledger.entry_status(
             self.envelope.envelope.judge.ledger_entry_id
         )
         assert allowance is not None
-        self.assertEqual((allowance.status, allowance.charged_microusd), ("settled", 0))
+        self.assertEqual(
+            (allowance.status, allowance.charged_microusd),
+            ("held", self.envelope.envelope.judge.reserved_microusd),
+        )
 
     def test_cancel_before_start_has_no_persistent_effects(self):
         self.controller.cancel()
@@ -490,7 +527,7 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(counts, [2, 2])
         self.assertEqual(self.controller.phase, "cancelled")
         self.assertEqual(self.terminal().phase, "cancelled")
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 975)
 
     async def test_terminal_storage_failure_does_not_repeat_paid_work(self):
         preview = await self.critics()

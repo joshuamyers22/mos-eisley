@@ -82,9 +82,20 @@ Its fresh campaign stopped in slot 1 before judge dispatch because critic execut
 and the manual judge ceremony shared one controller wall clock. The offline
 correction now binds a fixed formal-only judge-approval grace, preserves the active
 execution remainder and settles an exact unused judge allowance on graceful terminal
-exit. It still requires a commit and verified production image. Every earlier
-campaign remains evidence only for its exact old artifact and is not launch
-authority; a wholly fresh formal campaign and separate launch decision remain open.
+exit. Commit `2ed7f11b19cc7cf470c722207a40219f87f88b97` and image
+`sha256:d95f18387072025dbc80a8e815f9dcf9b6a4a64ec0176bfdad8c8e141850f46a`
+then completed a wholly fresh three-slot campaign with accepted evidence, 82,475
+micro-USD in settled local charges and all 12 workers removed, but all three code
+verdicts rejected. Offline reassessment found two genuine defects among 13 correlated
+upheld claims: standard schema-1 paths incorrectly received formal cleanup, and
+inspection did not require formal scope for the cleanup marker. Claims that transfer
+breaks terminal recording, the approved grace violates the wall contract, or
+unrelated ledger rows satisfy cleanup were rejected against executable behavior.
+The correction now restores standard hold/schema-1 behavior and requires an exact
+formal schema-2 start/envelope for cleanup attribution. It still requires a clean
+commit and verified production image. Every earlier campaign remains evidence only
+for its exact old artifact and is not launch authority; a wholly fresh formal
+campaign and separate launch decision remain open.
 See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
 

@@ -569,7 +569,7 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
             await self.probe().run()
         count.assert_not_called()
         self.assertEqual(self.base.fake.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
 
     async def test_failure_record_omits_provider_error_details(self):
         with (
@@ -613,7 +613,7 @@ class RuntimeEvidenceTests(RuntimeEvidenceFixture, IsolatedAsyncioTestCase):
             (self.lifecycles[0] / "result.json").read_bytes()
         )
         self.assertEqual(cleanup.state, "removed")
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
 
     async def test_rewritten_runtime_start_breaks_end_binding(self):
         probe = self.probe()

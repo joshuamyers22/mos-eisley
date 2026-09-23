@@ -1,6 +1,6 @@
 # Work Note: formal judge approval and unused allowance cleanup
 
-- Status: closed offline; commit/image/live qualification open
+- Status: superseded by post-campaign reassessment
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-22
 - Last updated (UTC): 2026-09-22
@@ -35,7 +35,7 @@
 
 ## Handoff
 
-- Current state: the offline correction and complete repository gate pass; no live call was made. The worktree is intentionally uncommitted pending separate user direction.
+- Current state: the original offline correction passed its gate, but the later `2ed7f11` campaign exposed an overbroad standard-path cleanup defect. Follow `REVIEW_JUDGE_APPROVAL_REASSESSMENT.md`; no additional live call is authorized.
 - Next smallest safe action: complete the offline gates, commit separately if requested, then rebuild the production image before preparing another campaign.
 - Blocker and required authority/input: none for offline work; fresh live work requires a new explicit authorization.
 - Checks already run: red regressions; 211 review compatibility tests; 86 corrective controller/campaign/acceptance/ledger tests; Ruff, format and Pyright; 2,422 source tests with 4 skips and 89% coverage; export/build verification; 1,779 installed-wheel tests.

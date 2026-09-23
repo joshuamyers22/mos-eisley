@@ -94,14 +94,13 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertFalse(self.directory.exists())
         self.assertTrue(all(not t.calls for t in self.transports))
 
-    async def test_declining_judge_retires_allowance_and_does_not_dispatch(self):
+    async def test_declining_judge_preserves_allowance_and_does_not_dispatch(self):
         user = ScriptedUser(("approve", "decline"))
         self.assertIsNone(
             await self.run_flow(BrokeredReviewApprovalFlow(self.controller, user))
         )
         self.assertEqual(self.terminal().phase, "cancelled")
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 40)
-        self.assertEqual(self.base.ledger.snapshot().unresolved_entries, 0)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 365)
         self.assertEqual(self.judge.calls, [])
         self.assertEqual(user.results, [])
 
@@ -112,11 +111,11 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
         self.assertEqual(self.controller.phase, "cancelled")
 
-    async def test_wrong_judge_approval_retires_unused_allowance(self):
+    async def test_wrong_judge_approval_preserves_spending_and_does_not_dispatch(self):
         user = ScriptedUser(("approve", "wrong"))
         with self.assertRaisesRegex(ValueError, "exact judge approval"):
             await self.run_flow(BrokeredReviewApprovalFlow(self.controller, user))
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 40)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 365)
         self.assertEqual(self.terminal().phase, "cancelled")
         self.assertEqual(self.judge.calls, [])
 
@@ -159,7 +158,7 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
             await self.run_flow(BrokeredReviewApprovalFlow(self.controller, user))
         self.assertEqual(self.controller.phase, "cancelled")
         self.assertEqual(self.judge.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 40)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 365)
 
     async def test_result_display_failure_cannot_replay_completed_judge(self):
         user = ScriptedUser(("approve", "approve"))
@@ -281,7 +280,7 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
                     await task
         self.assertEqual(counts, [2, 2])
         self.assertEqual(self.terminal().phase, "cancelled")
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 650)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 975)
         self.assertEqual(user.results, [])
 
     async def test_changed_evidence_during_judge_prompt_blocks_dispatch(self):
@@ -299,7 +298,7 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
             await self.run_flow(BrokeredReviewApprovalFlow(self.controller, user))
         self.assertEqual(self.controller.phase, "failed")
         self.assertEqual(self.judge.calls, [])
-        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 40)
+        self.assertEqual(self.base.ledger.snapshot().charged_microusd, 365)
 
     async def test_terminal_flow_displays_infrastructure_error_without_acceptance(self):
         import test_review_broker_admission as broker_fixture
