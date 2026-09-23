@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — formal live campaign demonstrated; launch open | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence plus one accepted three-slot campaign exist; corrected-artifact evidence and a launch decision remain |
+| G2 — corrected formal campaign complete; disposition and launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; the repeated correlated rejection has an offline source disposition, while accountable acceptance and a launch decision remain |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -92,12 +92,22 @@ inspection did not require formal scope for the cleanup marker. Claims that tran
 breaks terminal recording, the approved grace violates the wall contract, or
 unrelated ledger rows satisfy cleanup were rejected against executable behavior.
 The correction now restores standard hold/schema-1 behavior and requires an exact
-formal schema-2 start/envelope for cleanup attribution. It still requires a clean
-commit and verified production image. Every earlier campaign remains evidence only
-for its exact old artifact and is not launch authority; a wholly fresh formal
-campaign and separate launch decision remain open.
+formal schema-2 start/envelope for cleanup attribution. Commit
+`24704aa6fc4aadba2dcec79b8f83bae44f01a02d` and production image
+`sha256:57f1d71b1ca14d5bf077262fae86b258ea4bbb07a2fba20c52ba3e07a3281200`
+then completed a wholly fresh three-slot campaign with accepted authenticated evidence,
+71,309 micro-USD in settled charges, all 12 workers removed and zero retries. All
+three code verdicts rejected on nine correlated versions of one claim: that a
+schema-2 controller could have non-formal preparation scope and retire the allowance.
+Offline source reassessment rejected that counterexample as unreachable through the
+supported controller or production-live APIs: authorization schema is derived from
+the immutable envelope scope, preview validation enforces the equivalence, and live
+conformance refuses unbound formal execution. The retained verdicts remain unchanged;
+accountable disposition and the separate launch decision remain open. Every campaign
+remains evidence only for its exact artifact and is not launch authority.
 See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
-and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md).
+and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md), plus
+[the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
