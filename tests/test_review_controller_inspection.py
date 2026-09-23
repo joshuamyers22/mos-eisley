@@ -143,7 +143,7 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertTrue(state.spending_inventory_complete)
 
     async def test_formal_cleanup_marker_completes_exact_allowance_inventory(self):
-        directory, _envelope, controller, transports = self.make_formal_controller()
+        directory, envelope, controller, transports = self.make_formal_controller()
         preview = await controller.run_critics(
             approved_controller_sha256=controller.approval_sha256,
             transports=transports,
@@ -152,6 +152,19 @@ class ControllerInspectionTests(ControllerFixture, IsolatedAsyncioTestCase):
         controller.cancel()
         expected = controller.start
         assert expected is not None
+        self.assertTrue(
+            self.base.ledger.retire_unused(envelope.envelope.judge.ledger_entry)
+        )
+        (directory / "controller-terminal.json").write_bytes(
+            canonical_bytes(
+                ControllerTerminal(
+                    schema_version=2,
+                    controller_sha256=controller.approval_sha256,
+                    phase="cancelled",
+                    unused_judge_allowance_retired=True,
+                )
+            )
+        )
         state = inspect_review_controller(
             directory,
             expected,

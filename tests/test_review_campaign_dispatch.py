@@ -9,7 +9,9 @@ from test_review_approval_flow import ScriptedUser
 from test_review_campaign import CampaignCeremonyFixture
 
 from mos_eisley.core.models import JudgeRequest, canonical_bytes, digest
+from mos_eisley.core.ports import ProviderError
 from mos_eisley.run.review_approval import ApprovalPreview
+from mos_eisley.run.review_broker import JudgeTransferAuthorization
 from mos_eisley.run.review_campaign import (
     review_campaign_evidence,
     seal_review_campaign,
@@ -17,7 +19,8 @@ from mos_eisley.run.review_campaign import (
 from mos_eisley.run.review_campaign_dispatch import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_authorization import ReviewConformanceScope
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
-from mos_eisley.run.review_controller import ControllerJudgePreview
+from mos_eisley.run.review_controller import ControllerJudgePreview, ControllerTerminal
+from mos_eisley.run.spend_ledger import LedgerEntry
 
 
 class CampaignDispatchTests(CampaignCeremonyFixture):
@@ -78,6 +81,106 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
         with self.assertRaises(ValueError):
             await probe.run()
         self.assertEqual(self.fixture.key_loader.call_count, 4)
+
+    async def test_bound_formal_decline_retires_exact_unused_allowance_once(self):
+        self.user = ScriptedUser(("approve", "decline"))
+        probe = self.bound_probe()
+        self.assertIsNone(await probe.run())
+        terminal = ControllerTerminal.model_validate_json(
+            (self.fixture.directory / "controller-terminal.json").read_bytes()
+        )
+        self.assertEqual(terminal.schema_version, 2)
+        self.assertTrue(terminal.unused_judge_allowance_retired)
+        source = self.fixture.base.ledger.entry_status(
+            self.fixture.review.envelope.judge.ledger_entry_id
+        )
+        assert source is not None
+        self.assertEqual((source.status, source.charged_microusd), ("settled", 0))
+        before = self.fixture.base.ledger.snapshot()
+        self.assertFalse(self.fixture.review.retire_unused_judge_allowance())
+        self.assertEqual(self.fixture.base.ledger.snapshot(), before)
+
+    async def test_post_transfer_cleanup_preserves_all_other_entries(self):
+        probe = self.bound_probe()
+        unrelated = LedgerEntry(
+            entry_id=digest(b"campaign-unrelated-entry"),
+            reservation_sha256=digest(b"campaign-unrelated-reservation"),
+            reserved_microusd=10,
+        )
+        self.fixture.base.ledger.reserve(unrelated)
+        result = await probe.run()
+        assert result is not None
+        transfer = JudgeTransferAuthorization.model_validate_json(
+            (self.fixture.directory / "judge-transfer.json").read_bytes()
+        )
+        destination = LedgerEntry(
+            entry_id=transfer.call.ledger_entry_id,
+            reservation_sha256=transfer.call.reservation_sha256,
+            reserved_microusd=transfer.call.reserved_microusd,
+        )
+        entries = (
+            self.fixture.review.envelope.judge.ledger_entry,
+            self.fixture.call.ledger_entry,
+            destination,
+            unrelated,
+        )
+        before = {
+            item.entry_id: self.fixture.base.ledger.entry_status(item.entry_id)
+            for item in entries
+        }
+        terminal = ControllerTerminal.model_validate_json(
+            (self.fixture.directory / "controller-terminal.json").read_bytes()
+        )
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        self.assertFalse(self.fixture.review.retire_unused_judge_allowance())
+        self.assertFalse(self.fixture.review.retire_unused_judge_allowance())
+        self.assertEqual(
+            {
+                item.entry_id: self.fixture.base.ledger.entry_status(item.entry_id)
+                for item in entries
+            },
+            before,
+        )
+        destination_status = before[transfer.call.ledger_entry_id]
+        assert destination_status is not None
+        self.assertEqual(destination_status.status, "settled")
+
+    async def test_uncertain_judge_cleanup_preserves_conservative_exposure(self):
+        probe = self.bound_probe()
+        self.fixture.judge.error = ProviderError("synthetic uncertain receipt")
+        result = await probe.run()
+        assert result is not None
+        transfer = JudgeTransferAuthorization.model_validate_json(
+            (self.fixture.directory / "judge-transfer.json").read_bytes()
+        )
+        destination_entry = LedgerEntry(
+            entry_id=transfer.call.ledger_entry_id,
+            reservation_sha256=transfer.call.reservation_sha256,
+            reserved_microusd=transfer.call.reserved_microusd,
+        )
+        entries = (
+            self.fixture.review.envelope.judge.ledger_entry,
+            self.fixture.call.ledger_entry,
+            destination_entry,
+        )
+        before = {
+            item.entry_id: self.fixture.base.ledger.entry_status(item.entry_id)
+            for item in entries
+        }
+        destination = before[transfer.call.ledger_entry_id]
+        assert destination is not None
+        self.assertEqual(
+            (destination.status, destination.charged_microusd),
+            ("uncertain", transfer.call.reserved_microusd),
+        )
+        self.assertFalse(self.fixture.review.retire_unused_judge_allowance())
+        self.assertEqual(
+            {
+                item.entry_id: self.fixture.base.ledger.entry_status(item.entry_id)
+                for item in entries
+            },
+            before,
+        )
 
     async def test_three_bound_probes_freshly_pass_campaign_evidence_review(self):
         for index, fixture in enumerate(self.fixtures):
@@ -175,7 +278,11 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.fixture.sdk.assert_not_called()
         self.assertEqual(self.fixture.key_loader.call_count, 1)
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
+        terminal = ControllerTerminal.model_validate_json(
+            (self.fixture.directory / "controller-terminal.json").read_bytes()
+        )
+        self.assertFalse(terminal.unused_judge_allowance_retired)
         self.assertTrue((self.fixture.lifecycles[0] / "result.json").is_file())
 
     async def test_changed_seal_after_count_prevents_generation(self):
@@ -193,6 +300,7 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
         self.assertEqual(self.fixture.key_loader.call_count, 1)
         self.assertEqual(self.fixture.base.fake.calls, [])
         self.assertEqual(self.fixture.judge.calls, [])
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
 
     async def test_changed_seal_after_generation_prevents_judge(self):
         original = self.fixture.base.fake.create_response
@@ -211,7 +319,11 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.assertEqual(self.fixture.key_loader.call_count, 2)
         self.assertEqual(self.fixture.judge.calls, [])
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 325)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 650)
+        terminal = ControllerTerminal.model_validate_json(
+            (self.fixture.directory / "controller-terminal.json").read_bytes()
+        )
+        self.assertFalse(terminal.unused_judge_allowance_retired)
 
     async def test_changed_seal_during_judge_approval_blocks_judge_credentials(self):
         async def approve(preview: ApprovalPreview) -> str:
@@ -226,7 +338,7 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
             await self.bound_probe().run()
         self.assertEqual(self.fixture.key_loader.call_count, 2)
         self.assertEqual(self.fixture.judge.calls, [])
-        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 20)
+        self.assertEqual(self.fixture.base.ledger.snapshot().charged_microusd, 345)
 
     async def test_current_authority_cannot_rotate_away_from_sealed_policy(self):
         probe = self.bound_probe()

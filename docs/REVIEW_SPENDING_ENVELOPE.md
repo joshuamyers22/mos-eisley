@@ -39,7 +39,11 @@ before token counting and again before generation. These checks cannot recall
 operations already in flight. No retry, refund or top-up is added. The owning review
 controller has one narrow terminal cleanup: it atomically settles the exact
 still-held, non-dispatch judge source allowance at zero if no transfer occurred.
-This cannot release a critic or transferred judge-request reservation.
+Formal cleanup additionally requires an exact sealed campaign binding and a start
+inside its committed window. An exact source already settled, transferred, uncertain
+or violated is a no-op; missing or mismatched identity still fails closed. This
+cannot release a critic, destination, unrelated entry or transferred judge-request
+reservation.
 
 Tests exercise concurrent process admission, late-insert rollback, abrupt process
 exit after commit, exact capacity/slot boundaries, duplicate approval and critic

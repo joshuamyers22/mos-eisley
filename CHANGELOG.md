@@ -5,10 +5,11 @@ Notable changes are recorded here using semantic versioning.
 ## Unreleased
 
 - Give formal review campaigns a separately hash-bound 600-second judge-approval
-  grace while preserving their active execution budget, and atomically settle an
-  exact unused deferred judge allowance on formal graceful terminal exit without
-  changing standard schema-1 spending or terminal behavior and without releasing
-  critic, transferred or uncertain request exposure.
+  grace while preserving their active execution budget. Terminal cleanup now
+  revalidates the exact immutable sealed slot before settling an unused deferred
+  judge allowance, leaves unbound formal holds intact, and treats transferred,
+  settled, uncertain or violated exact sources as conservative idempotent no-ops
+  without changing standard schema-1 behavior or unrelated ledger entries.
 
 - Add versioned, content-bound review citation units for unified diffs. New
   production critic requests bind exact raw/before/after hunk views while rejecting

@@ -404,7 +404,7 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(result.result.verdict.decision, "accept")
         self.assertEqual(controller.phase, "finished")
 
-    async def test_formal_idle_cancel_retires_unused_judge_allowance(self):
+    async def test_unbound_formal_idle_cancel_preserves_judge_allowance(self):
         _directory, envelope, controller, transports = self.make_formal_controller()
         preview = await controller.run_critics(
             approved_controller_sha256=controller.approval_sha256,
@@ -418,12 +418,17 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
                 Path(envelope.envelope.artifact_directory) / "controller-terminal.json"
             ).read_bytes()
         )
-        self.assertEqual(terminal.schema_version, 2)
-        self.assertTrue(terminal.unused_judge_allowance_retired)
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
         after = self.base.ledger.snapshot()
+        self.assertEqual(after, before)
+        allowance = self.base.ledger.entry_status(
+            envelope.envelope.judge.ledger_entry_id
+        )
+        assert allowance is not None
         self.assertEqual(
-            after.charged_microusd,
-            before.charged_microusd - envelope.envelope.judge.reserved_microusd,
+            (allowance.status, allowance.charged_microusd),
+            ("held", envelope.envelope.judge.reserved_microusd),
         )
         with self.assertRaises(ValueError):
             await controller.run_judge(

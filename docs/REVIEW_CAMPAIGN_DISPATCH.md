@@ -33,6 +33,10 @@ The host must still obtain separate independent signatures and local approvals f
 critics and judge. A seal cannot supply either approval. The host owns and awaits
 `probe.run()`, including cancellation cleanup, and independently retains start,
 judge preview, signatures, result hash and lifecycle paths for subsequent observation.
+The immutable binding is also carried into the owned controller. Its terminal cleanup
+rereads the exact seal and slot before retiring an unused judge allowance; an unbound,
+changed or mismatched binding, or a start outside the committed window, leaves that
+allowance held.
 
 ## Rechecks and failure behavior
 
@@ -48,6 +52,9 @@ authority-policy and preview expiry. An expired or changed seal, changed runtime
 rotated authority policy, substituted ledger or changed judge configuration blocks
 further dispatch. A late failure preserves held or uncertain spending and awaits
 owned cleanup. A cancelled, declined or consumed probe has no automatic retry.
+Cleanup of an exact source that has already been settled, transferred, marked
+uncertain or marked violated is an idempotent no-op; it cannot alter the destination,
+critic or unrelated ledger entries.
 
 This is a host admission restriction, not an independent attestation that it ran.
 Existing evidence verification still reconstructs the actual records and requires

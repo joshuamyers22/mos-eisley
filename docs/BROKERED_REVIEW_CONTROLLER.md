@@ -43,8 +43,12 @@ awaited afterward. Repeated
 caller cancellation cannot detach the controller's children. Cancel an active
 coroutine and await it; `cancel()` stops only a prepared or awaiting-approval
 controller. A graceful terminal transition retires only the exact, still-held,
-spend-only judge source allowance at zero when it was never transferred. Critic
-holds, uncertain spending and a transferred judge request remain conservative.
+spend-only judge source allowance at zero when it was never transferred and the
+controller is bound to an exact sealed campaign slot whose start occurred inside
+the committed window. The seal, slot, controller preview, ledger path and ledger
+policy are reread at terminal time.
+An unbound formal controller or changed binding preserves the hold. Critic holds,
+uncertain spending and a transferred judge request remain conservative.
 
 The private `controller-start.json`, `controller-judge-preview.json` and
 `controller-terminal.json` records supplement existing envelope, audit, response and

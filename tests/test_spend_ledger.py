@@ -154,6 +154,39 @@ class LedgerTests(TestCase):
             self.assertEqual((status.status, status.charged_microusd), ("settled", 0))
             self.assertEqual(ledger.snapshot().unresolved_entries, 0)
 
+    def test_unused_retirement_preserves_transferred_and_uncertain_exposure(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            ledger = SpendLedger.create(Path(directory) / "spend.sqlite", 200)
+            transferred = entry(1, 50)
+            destination = entry(2, 50)
+            uncertain = entry(3, 40)
+            unrelated = entry(4, 30)
+            ledger.reserve_many((transferred, uncertain, unrelated))
+            ledger.transfer_held(transferred, destination)
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=uncertain.entry_id,
+                    reservation_sha256=uncertain.reservation_sha256,
+                    status="uncertain",
+                    charged_microusd=uncertain.reserved_microusd,
+                )
+            )
+            before = {
+                item.entry_id: ledger.entry_status(item.entry_id)
+                for item in (transferred, destination, uncertain, unrelated)
+            }
+            self.assertFalse(ledger.retire_unused(transferred))
+            self.assertFalse(ledger.retire_unused(uncertain))
+            self.assertEqual(
+                {
+                    item.entry_id: ledger.entry_status(item.entry_id)
+                    for item in (transferred, destination, uncertain, unrelated)
+                },
+                before,
+            )
+
     def test_missing_corrupt_existing_or_changed_ledger_fails_closed(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "spend.sqlite"

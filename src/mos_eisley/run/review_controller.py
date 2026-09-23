@@ -27,6 +27,7 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.review_broker import PreparedReviewEnvelope, ReviewSpendingEnvelope
+from mos_eisley.run.review_campaign_binding import ReviewCampaignBinding
 from mos_eisley.run.review_evidence import (
     EvidenceJudgeAuthorization,
     PreparedEvidenceJudgeTransfer,
@@ -187,6 +188,7 @@ class BrokeredReviewController:
         policy: ReviewPolicy | None = None,
         *,
         total_seconds: float = 120,
+        campaign: ReviewCampaignBinding | None = None,
     ) -> None:
         selected = ReviewPolicy.model_validate_json(
             canonical_bytes(policy if policy is not None else ReviewPolicy())
@@ -220,6 +222,11 @@ class BrokeredReviewController:
             ),
         )
         self._envelope = envelope
+        self._campaign_binding = (
+            None
+            if campaign is None
+            else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
         self._reviewer = reviewer
         self._directory = Path(envelope.envelope.artifact_directory)
         self._phase: Phase = "prepared"
@@ -256,6 +263,51 @@ class BrokeredReviewController:
         """Trusted start binding for independent retention by the owning host."""
         return self._start
 
+    @property
+    def campaign_binding(self) -> ReviewCampaignBinding | None:
+        """Frozen sealed-slot selection; absent controllers cannot retire allowance."""
+        return self._campaign_binding
+
+    def _cleanup_admitted(self) -> bool:
+        """Recheck the exact seal and slot before granting cleanup authority."""
+        binding = self._campaign_binding
+        if binding is None:
+            return False
+        try:
+            # Local import avoids a module cycle: campaign contracts contain
+            # controller previews, while cleanup validates a completed commitment.
+            from mos_eisley.run.review_campaign import read_campaign_seal
+
+            bundle, seal = read_campaign_seal(
+                Path(binding.campaign_directory), binding.expected_seal_sha256
+            )
+            attempt = bundle.attempts[binding.attempt_index]
+            valid_until = min(
+                bundle.policy.valid_until,
+                attempt.observation_policy.valid_until,
+                attempt.authority_policy.valid_until,
+                attempt.preview.envelope.expires_at,
+            )
+            if (
+                canonical_bytes(attempt.preview) != canonical_bytes(self.preview)
+                or attempt.preview.envelope.judge.preparation_scope != "formal_campaign"
+                or Path(attempt.ledger_path).resolve()
+                != self._envelope.ledger.path.resolve()
+                or any(
+                    call.ledger_path != self._envelope.ledger.path.resolve()
+                    for call in self._envelope.critics
+                )
+                or digest(canonical_bytes(self._envelope.ledger.policy))
+                != attempt.preview.envelope.ledger_policy_sha256
+            ):
+                return False
+            return (
+                self._start is not None
+                and seal.sealed_at <= self._start.started_at < valid_until
+            )
+        except (IndexError, OSError, ValueError):
+            return False
+
     def cancel(self) -> None:
         """Stop an idle controller; active callers cancel and await their coroutine."""
         if self._phase not in {"prepared", "awaiting_judge"}:
@@ -284,7 +336,7 @@ class BrokeredReviewController:
         if not self._owns_run:
             return
         retired = False
-        if self.authorization.schema_version == 2:
+        if self.authorization.schema_version == 2 and self._cleanup_admitted():
             retired = self._envelope.retire_unused_judge_allowance()
         private_write(
             self._directory / "controller-terminal.json",

@@ -1,5 +1,15 @@
 # Agentic Verification Loop: repeated cleanup-scope claim reassessment
 
+> **Superseded on 2026-09-23.** This document preserves the earlier disposition at
+> `24704aa6`, but a later formal campaign supplied the missing counterexample: a
+> supported lower-level formal controller could retire its allowance without owning
+> sealed-slot evidence. That residual was promoted to a blocking defect and corrected
+> by carrying an immutable campaign binding into the controller and revalidating it at
+> terminal cleanup. See
+> [the correction verification](REVIEW_CLEANUP_SCOPE_FIX_VERIFICATION.md) and
+> [updated threat model](REVIEW_CLEANUP_SCOPE_FIX_THREAT_MODEL.md). The historical
+> campaign evidence and verdicts below are unchanged.
+
 ## Objective and authority
 
 - Requirement: reassess the one cleanup-scope claim repeated and upheld across the fresh three-slot campaign at commit `24704aa6fc4aadba2dcec79b8f83bae44f01a02d`.
@@ -94,7 +104,7 @@ uv run --frozen python -m unittest -v \
 | ID | Location and evidence | Consequence if true | Severity | Disposition and rationale | Acceptance check | Owner |
 |---|---|---|---|---|---|---|
 | CS-001 | `BrokeredReviewController._terminal`; nine repeated live findings | Non-formal cleanup could understate a held allowance | blocking if reachable | **Rejected.** Schema 2 is derived from the immutable formal envelope; no supported constructor, setter, deserializer or production composition path injects it into a standard controller. | Construction trace, public-API probe and five focused regressions | Joshua Myers |
-| CS-002 | Lower-level formal controller can exist in offline/tests without a campaign seal | A library caller could use the process-local formal controller outside live conformance | material residual | **Accepted as an existing trust-boundary fact, not the claimed defect.** Production live conformance refuses unbound formal execution; changing the controller to own campaign admission would be a separate architecture decision. | `BrokeredReviewConformanceProbe.run` unbound-formal rejection | Joshua Myers |
+| CS-002 | Lower-level formal controller can exist in offline/tests without a campaign seal | A library caller could use the process-local formal controller outside live conformance | material residual | **Historical disposition superseded.** A later campaign established that terminal ledger cleanup itself required sealed-slot authority; the separate architecture decision was made and implemented. | Unbound formal preservation and sealed-bound retirement regressions in the correction verification | Joshua Myers |
 | CS-003 | A privileged same-process caller can mutate private state | Trusted code can bypass local invariants | high under host compromise | **Out of scope by design.** Such a caller can already invoke ledger/provider primitives directly; a duplicate terminal comparison is not containment. | Threat-model boundary and existing late credential/conformance gates | Joshua Myers |
 
 ## Exit

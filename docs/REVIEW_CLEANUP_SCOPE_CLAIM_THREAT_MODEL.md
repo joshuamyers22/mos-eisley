@@ -1,5 +1,11 @@
 # Threat Model: cleanup-scope construction invariant
 
+> **Superseded on 2026-09-23.** This threat model records the boundary assessment at
+> `24704aa6`. Later evidence showed that treating unbound lower-level formal cleanup
+> as an acceptable residual was too broad. Terminal retirement now requires and
+> revalidates an exact immutable sealed-slot binding. The current model is
+> [sealed formal cleanup and conservative accounting](REVIEW_CLEANUP_SCOPE_FIX_THREAT_MODEL.md).
+
 ## Scope and ownership
 
 - System/version: brokered review controller at `24704aa6fc4aadba2dcec79b8f83bae44f01a02d`.

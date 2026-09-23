@@ -311,8 +311,9 @@ class SpendLedger:
         The caller must independently establish that the entry grants capacity only
         and cannot represent an attempted provider request. A completed zero-cost
         retirement returns true only for the transaction that changed the entry.
-        An already retired source returns false so callers can distinguish their
-        cleanup from a prior atomic transfer without inspecting a target entry.
+        An exact non-held source returns false so cleanup is idempotent and cannot
+        release a transferred, settled, uncertain or violated exposure. Missing or
+        mismatched identity remains an error.
         """
         entry = LedgerEntry.model_validate_json(canonical_bytes(entry))
         with self._transaction() as connection:
@@ -322,7 +323,9 @@ class SpendLedger:
                 (entry.entry_id,),
             ).fetchone()
             expected = (entry.reservation_sha256, entry.reserved_microusd)
-            if row == (*expected, 0, "settled"):
+            if row is None or row[:2] != expected:
+                raise ValueError("retirement does not match an exact unused allowance")
+            if row[3] != "held":
                 return False
             if row != (*expected, entry.reserved_microusd, "held"):
                 raise ValueError("retirement does not match an exact unused allowance")

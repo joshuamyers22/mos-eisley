@@ -257,13 +257,17 @@ class BrokeredReviewConformanceProbe:
             raise ValueError("review conformance probe requires current guidance")
         self._containers = (*critic_containers, judge_container)
         self._runtime()  # Validate immutable image agreement before any prompt.
-        self.controller = BrokeredReviewController(
-            envelope, reviewer, policy, total_seconds=total_seconds
-        )
         self._campaign_binding = (
             None
             if campaign is None
             else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
+        self.controller = BrokeredReviewController(
+            envelope,
+            reviewer,
+            policy,
+            total_seconds=total_seconds,
+            campaign=self._campaign_binding,
         )
         campaign_admission = (
             None
