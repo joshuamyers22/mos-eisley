@@ -275,6 +275,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   reads, compactions, and explicitly unavailable provider-token counts in `/context`
   and `/status`; bounded threshold events never stop, compact, delegate, request
   approval, or grant authority.
+- The first [G4 blind reviewer-test-package](docs/G4_REVIEWER_TEST_PACKAGE.md)
+  boundary freezes complete reviewer test/fixture/oracle bytes, derivation-reference
+  identities and collection expectations into a canonical inert artifact. It rejects
+  unsafe aliases, vacuous collection commitments and direct undeclared skip/xfail
+  markers while explicitly denying execution, binding, mutation and acceptance.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

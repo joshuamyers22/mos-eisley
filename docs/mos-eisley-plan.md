@@ -4145,6 +4145,15 @@ provider extensions retain their separate release gates and do not substitute fo
 this sequence. The revised designs are approved planning inputs, not evidence that
 G0–G7 have shipped.
 
+**Implementation status, 2026-09-24:** G4's first inert L2 slice now freezes a
+complete blind reviewer-test package and its derivation-reference identities into a
+canonical artifact with literal downstream-authority denials. It rejects traversal,
+symlinks, hard-link/inode aliases, special files, unselected declared tests, vacuous
+execution expectations and mismatched direct skip/xfail declarations. This is not an
+execution, binding, authenticated-independence or creator-approval gate. The separate
+allowlisted adapter, isolated broker, observed-count and known-good/known-bad controls,
+correction loop, VCS/E2 gates and final independent review remain required.
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

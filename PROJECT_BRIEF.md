@@ -161,6 +161,14 @@
   `docs/G1_FRESH_CONTEXT_CONTINUATION.md`, `docs/G1_AUTHOR_COMPACTION.md` and
   `docs/G1_CONTEXT_PRESSURE.md` and
   `docs/G1_WORK_UNIT_PROFILE_ACQUISITION.md`.
+- G4 offline boundary, 2026-09-24: a canonical blind reviewer-test package now binds
+  exact plan/interface/rubric/creator reference identities, complete declared test
+  bytes and collection expectations while denying execution, implementation binding,
+  repository/VCS mutation, credentials, network, provider use, correction and
+  acceptance. Unsafe filesystem inputs, unselected tests, vacuous counts and direct
+  undeclared skip/xfail markers fail closed. This does not authenticate independence
+  or approval and does not satisfy the later binding, containment, execution,
+  correction or final-review gates. See `docs/G4_REVIEWER_TEST_PACKAGE.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

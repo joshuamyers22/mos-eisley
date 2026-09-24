@@ -24,6 +24,7 @@ from mos_eisley import (
     review_launch_conformance_cli,
     review_observer_cli,
     review_submission_cli,
+    reviewer_test_package_cli,
 )
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
@@ -744,6 +745,19 @@ def parser() -> argparse.ArgumentParser:
             help="Verify and append a separately signed campaign observation",
         )
     )
+    for name, help_text in (
+        (
+            "g4-freeze-reviewer-test-package",
+            "Freeze a blind reviewer-test package without execution authority",
+        ),
+        (
+            "g4-verify-reviewer-test-package",
+            "Replay-verify a frozen reviewer-test package without extracting it",
+        ),
+    ):
+        reviewer_test_package_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -8019,6 +8033,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "review-campaign-observation-preview",
             "review-campaign-evidence-append",
             "review-launch-conformance-check",
+            "g4-freeze-reviewer-test-package",
+            "g4-verify-reviewer-test-package",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8031,6 +8047,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "review-campaign-evidence-append": review_submission_cli.run_command,
                 "review-launch-conformance-check": (
                     review_launch_conformance_cli.run_command
+                ),
+                "g4-freeze-reviewer-test-package": (
+                    reviewer_test_package_cli.run_command
+                ),
+                "g4-verify-reviewer-test-package": (
+                    reviewer_test_package_cli.run_command
                 ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):

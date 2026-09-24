@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
+| G4 — immutable blind package freezer implemented; binding/execution open | Independently derive and freeze reviewer tests, then add separately reviewed binding, containment and bounded correction | Execution/VCS/E2 gates, authenticated creator approval, isolated known-good/known-bad controls, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -29,6 +29,20 @@ qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**G4 first offline slice, 2026-09-24 — immutable blind package freezer
+implemented:** the `g4-freeze-reviewer-test-package` boundary binds exact plan,
+interface, rubric and creator-approval reference identities to every declared test,
+fixture, input, expected value, parameter, oracle and collection setting. It embeds
+the package bytes in a canonical content-addressed artifact, rejects unsafe filesystem
+aliases, unselected tests, vacuous execution counts and undeclared skip/xfail markers,
+and grants no execution, implementation-binding, write, VCS, credential, network,
+provider, correction or acceptance authority. Replay verification does not extract
+or execute the package. Static marker checks and self-described blindness are not
+semantic or independence proofs; authenticated derivation, the allowlisted binding
+adapter, isolated execution/count receipts, known-good/known-bad controls and bounded
+correction remain open. See [the package contract](G4_REVIEWER_TEST_PACKAGE.md) and
+[verification record](G4_REVIEWER_TEST_PACKAGE_VERIFICATION.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,
