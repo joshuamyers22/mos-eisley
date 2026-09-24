@@ -169,6 +169,14 @@
   undeclared skip/xfail markers fail closed. This does not authenticate independence
   or approval and does not satisfy the later binding, containment, execution,
   correction or final-review gates. See `docs/G4_REVIEWER_TEST_PACKAGE.md`.
+- G4 offline binding boundary, 2026-09-24: a separate immutable record now binds that
+  canonical reviewer package before and after implementation inspection to every
+  regular file under reviewed source roots, exact dependency/build declarations and
+  a non-executable direct-symbol adapter. Direct implementation imports, undeclared
+  files/resources, filesystem aliases and adapter mutation/substitution powers fail
+  closed. This does not execute tests, attest Git or dependency completeness, prove
+  dynamic Python behavior, or grant correction/acceptance authority. See
+  `docs/G4_IMPLEMENTATION_BINDING.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

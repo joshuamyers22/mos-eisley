@@ -280,6 +280,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   identities and collection expectations into a canonical inert artifact. It rejects
   unsafe aliases, vacuous collection commitments and direct undeclared skip/xfail
   markers while explicitly denying execution, binding, mutation and acceptance.
+- The separate [G4 implementation binding](docs/G4_IMPLEMENTATION_BINDING.md) records
+  the frozen package before and after inspection, every regular source-root file,
+  exact dependency/build inputs and an allowlisted direct-symbol adapter. It rejects
+  stale/hidden resources and executable adapter behavior while granting no test,
+  write, VCS, network, credential, correction or acceptance authority.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

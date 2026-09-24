@@ -8,9 +8,11 @@ and collection-config file plus the complete collection contract.
 This boundary is deliberately inert. It does not execute tests, inspect or bind an
 implementation, write a repository, use Git, access credentials or the network,
 dispatch a provider, authorize correction, or accept a result. Each of those fields
-is literally `false` in the manifest or frozen package. Later G4 slices must provide
-the separately reviewed binding adapter, isolated execution broker, observed count
-checks, known-good/known-bad controls, correction bounds and final review.
+is literally `false` in the manifest or frozen package. The separately reviewed
+[allowlisted implementation binding](G4_IMPLEMENTATION_BINDING.md) is now implemented
+as another inert artifact. Later G4 slices must still provide the isolated execution
+broker, observed count checks, known-good/known-bad controls, correction bounds and
+final review.
 
 ## Manifest contract
 
@@ -82,4 +84,3 @@ Likewise, literal `implementation_inspected=false` and the absence of implementa
 inputs make the intended blind handoff explicit, but a self-description cannot prove
 a reviewer's mental independence. The derivation ceremony and its authenticated
 evidence remain a separate G4 responsibility.
-

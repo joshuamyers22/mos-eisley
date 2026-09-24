@@ -24,6 +24,7 @@ from mos_eisley import (
     review_launch_conformance_cli,
     review_observer_cli,
     review_submission_cli,
+    reviewer_implementation_binding_cli,
     reviewer_test_package_cli,
 )
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
@@ -756,6 +757,19 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_test_package_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-bind-reviewer-implementation",
+            "Bind a frozen reviewer package to an allowlisted implementation surface",
+        ),
+        (
+            "g4-verify-reviewer-implementation-binding",
+            "Verify an immutable implementation binding against current inputs",
+        ),
+    ):
+        reviewer_implementation_binding_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8035,6 +8049,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "review-launch-conformance-check",
             "g4-freeze-reviewer-test-package",
             "g4-verify-reviewer-test-package",
+            "g4-bind-reviewer-implementation",
+            "g4-verify-reviewer-implementation-binding",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8053,6 +8069,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "g4-verify-reviewer-test-package": (
                     reviewer_test_package_cli.run_command
+                ),
+                "g4-bind-reviewer-implementation": (
+                    reviewer_implementation_binding_cli.run_command
+                ),
+                "g4-verify-reviewer-implementation-binding": (
+                    reviewer_implementation_binding_cli.run_command
                 ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
