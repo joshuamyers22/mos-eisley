@@ -38,6 +38,16 @@ Use this routing table:
 - Security, governance, financial logic, and release approval require accountable
   review beyond an agent's own assessment.
 
+## Branch naming
+
+- Use a concise branch name that describes its current work, such as
+  `feat/<capability>`, `fix/<defect>`, or `docs/<topic>`. Do not keep an
+  origin-task name after the branch grows into a different workstream.
+- Before renaming a published branch, check open pull requests, protections,
+  automation references, and other worktrees. Preserve its commits and update
+  the local upstream; do not rename unrelated or worktree-owned branches as part
+  of a single-branch task.
+
 ## Notes and memory
 
 - Keep disposable output outside Git. A tracked work note records concise facts,
