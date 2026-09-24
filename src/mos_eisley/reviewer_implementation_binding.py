@@ -560,9 +560,10 @@ def _verify_reviewer_import_surface(
         raise ValueError("reviewer imports must exactly match adapter exports")
 
 
-def _snapshot_implementation(
+def snapshot_implementation_files(
     manifest: ImplementationBindingManifest, implementation_root: Path
 ) -> dict[str, bytes]:
+    """Read and verify the complete declared implementation input set."""
     root_fd = os.open(implementation_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         discovered: list[str] = []
@@ -626,7 +627,7 @@ def create_implementation_binding_record(
             "frozen reviewer-test package differs from the binding manifest"
         )
 
-    payloads = _snapshot_implementation(manifest, implementation_root)
+    payloads = snapshot_implementation_files(manifest, implementation_root)
     _verify_reviewer_import_surface(package, manifest)
     for export in manifest.adapter.exports:
         if export.target_symbol not in _direct_definitions(

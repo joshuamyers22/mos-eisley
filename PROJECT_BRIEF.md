@@ -177,6 +177,16 @@
   closed. This does not execute tests, attest Git or dependency completeness, prove
   dynamic Python behavior, or grant correction/acceptance authority. See
   `docs/G4_IMPLEMENTATION_BINDING.md`.
+- G4 isolated execution/count boundary, 2026-09-24: a self-contained canonical job
+  now carries the exact frozen package and bound implementation source/resources into
+  the immutable-image, no-mount offline container. A clean isolated child generates
+  only the declarative direct-import adapter, enforces frozen collection counts, and
+  returns ordered test-ID digests and classified outcomes. Private immutable receipts
+  and paired known-good/known-bad records reject stale inputs, wrong-code shadowing,
+  count drift and error-only bad controls. This grants no candidate, correction,
+  acceptance, repository/VCS, network, credential or provider authority; VCS/E2,
+  authenticated custody, correction and final review remain open. See
+  `docs/G4_ISOLATED_TEST_EXECUTION.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

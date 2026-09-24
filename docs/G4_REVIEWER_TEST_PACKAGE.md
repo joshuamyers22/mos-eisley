@@ -10,9 +10,10 @@ implementation, write a repository, use Git, access credentials or the network,
 dispatch a provider, authorize correction, or accept a result. Each of those fields
 is literally `false` in the manifest or frozen package. The separately reviewed
 [allowlisted implementation binding](G4_IMPLEMENTATION_BINDING.md) is now implemented
-as another inert artifact. Later G4 slices must still provide the isolated execution
-broker, observed count checks, known-good/known-bad controls, correction bounds and
-final review.
+as another inert artifact, and the separate
+[isolated execution/count boundary](G4_ISOLATED_TEST_EXECUTION.md) now consumes both
+artifacts and validates known controls. Later G4 slices must still provide trusted
+VCS/E2 evidence, authenticated custody, correction bounds and final review.
 
 ## Manifest contract
 
@@ -76,9 +77,9 @@ The emitted hashes are evidence identifiers, not execution or acceptance tokens.
 The freezer inventories common syntactic `unittest` and `pytest` skip/xfail forms as
 a defense-in-depth check. Because arbitrary Python can construct equivalent behavior
 dynamically, static inspection cannot prove the absence or semantics of every skip,
-wrapper or oracle. Exact package bytes remain frozen, and the later isolated runner
-must compare observed collected/executed/skipped counts with this contract and fail
-closed on any difference.
+wrapper or oracle. Exact package bytes remain frozen, and the isolated runner compares
+observed collected/executed/skipped counts with this contract and fails closed on any
+difference.
 
 Likewise, literal `implementation_inspected=false` and the absence of implementation
 inputs make the intended blind handoff explicit, but a self-description cannot prove

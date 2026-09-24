@@ -6,7 +6,9 @@ It produces an immutable, content-addressed binding record without importing sou
 executing tests, invoking Git, writing the implementation, or granting downstream
 authority.
 
-This is a binding-validation boundary, not the test runner. `binding_validated=true`
+This is a binding-validation boundary, not itself the test runner. The separate
+[isolated execution/count boundary](G4_ISOLATED_TEST_EXECUTION.md) now consumes the
+record without enlarging its authority. `binding_validated=true`
 means the identities and declarative surface agree. The record keeps
 `implementation_binding_authorized=false` because possession of a prior record does
 not authorize creating a replacement binding. Test execution, repository/VCS writes,
@@ -62,8 +64,8 @@ interception to `false`. A later trusted isolated runner may materialize only th
 direct imports. It must not accept an executable replacement adapter.
 
 AST inspection proves the common syntactic surface, not arbitrary Python semantics.
-Dynamic imports, runtime mutation and the behavioral aptness of a target require the
-later isolated known-good/known-bad controls. They are not execution authority here.
+The isolated known-good/known-bad controls now exercise the exact adapter and bound
+material, but they are not a general semantic proof or execution authority here.
 
 ## Create and replay-verify
 

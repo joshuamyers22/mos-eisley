@@ -285,6 +285,12 @@ and critic/judge workflows retain their existing tool-free boundaries.
   exact dependency/build inputs and an allowlisted direct-symbol adapter. It rejects
   stale/hidden resources and executable adapter behavior while granting no test,
   write, VCS, network, credential, correction or acceptance authority.
+- [G4 isolated reviewer-test execution](docs/G4_ISOLATED_TEST_EXECUTION.md) now sends
+  only that exact package and bound source/resource material to the immutable-image,
+  no-mount offline container. Canonical receipts retain exact runtime counts and
+  ordered test-ID digests; paired known-good/known-bad validation rejects wrong-code,
+  count-drift and error-only failures while granting no candidate or downstream
+  authority.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

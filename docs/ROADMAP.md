@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — immutable package freezer and allowlisted binding implemented; execution open | Independently derive and freeze reviewer tests, bind an exact implementation tree, then add containment and bounded correction | Execution/VCS/E2 gates, authenticated creator approval, isolated count and known-good/known-bad controls, final tests and independent review |
+| G4 — package, binding and isolated count/control slices implemented | Independently derive and freeze reviewer tests, bind an exact implementation tree, then add containment and bounded correction | Trusted VCS/E2 and authenticated custody gates, candidate/correction dispatch, final whole-suite tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -55,6 +55,22 @@ dependency completeness, dynamic Python behavior or acceptance. The isolated run
 observed counts, known controls and trusted VCS/E2 gate remain open. See
 [the binding contract](G4_IMPLEMENTATION_BINDING.md) and
 [verification record](G4_IMPLEMENTATION_BINDING_VERIFICATION.md).
+
+**G4 third offline slice, 2026-09-24 — isolated execution, exact counts and known
+controls implemented:** one canonical request now binds a frozen reviewer package,
+immutable implementation binding, exact container image, role and deadline. The
+product path sends only bound source/resource bytes over stdin to the existing
+no-mount, no-network container and has no host fallback. A clean isolated child
+generates the direct-import adapter, records exact counts and ordered test-ID digests,
+and detects changed material. Private receipts revalidate current inputs after the
+run. Paired controls require distinct implementation trees, identical package/
+adapter/image/collection identities, a successful known-good and an assertion-only
+known-bad failure. Candidate execution, repository/VCS writes, correction and
+acceptance remain false. Trusted VCS/E2, authenticated custody, candidate dispatch,
+bounded correction and final review remain open. See
+[the execution contract](G4_ISOLATED_TEST_EXECUTION.md),
+[verification record](G4_ISOLATED_TEST_EXECUTION_VERIFICATION.md) and
+[threat model](G4_ISOLATED_TEST_EXECUTION_THREAT_MODEL.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

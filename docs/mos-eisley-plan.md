@@ -4154,10 +4154,16 @@ execution, authenticated-independence or creator-approval gate. A second inert s
 now binds that canonical package before and after inspection to a complete declared
 source-root file inventory, exact dependency/build identities and a non-executable
 direct-symbol allowlist. It rejects stale files, omitted resources, unsafe filesystem
-aliases, direct static implementation imports and executable adapter powers. Neither
-slice attests Git/dependency completeness or dynamic Python semantics. The isolated
-broker, observed-count and known-good/known-bad controls, correction loop, VCS/E2 gates
-and final independent review remain required.
+aliases, direct static implementation imports and executable adapter powers. A third
+inert slice now sends the exact frozen package and bound source/resource material
+through the immutable-image, no-mount offline container, retains exact observed
+counts and ordered test-ID digests, and validates paired successful known-good and
+assertion-only known-bad controls over distinct trees. It has no host fallback and
+grants no candidate or downstream authority. These slices still do not attest Git/
+dependency completeness or arbitrary dynamic Python semantics. Authenticated
+custody, candidate dispatch, correction, trusted VCS/E2 gates, final whole-suite
+execution and independent review remain required. See
+[the isolated execution contract](G4_ISOLATED_TEST_EXECUTION.md).
 
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and

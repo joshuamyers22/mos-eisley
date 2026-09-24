@@ -25,6 +25,7 @@ from mos_eisley import (
     review_observer_cli,
     review_submission_cli,
     reviewer_implementation_binding_cli,
+    reviewer_test_execution_cli,
     reviewer_test_package_cli,
 )
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
@@ -770,6 +771,27 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_implementation_binding_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-run-reviewer-tests-isolated",
+            "Run bound reviewer tests in one immutable offline container",
+        ),
+        (
+            "g4-verify-reviewer-test-execution",
+            "Verify an execution receipt against current bound inputs",
+        ),
+        (
+            "g4-validate-reviewer-test-controls",
+            "Validate paired known-good and known-bad execution receipts",
+        ),
+        (
+            "g4-verify-reviewer-test-controls",
+            "Replay-verify an immutable known-control validation record",
+        ),
+    ):
+        reviewer_test_execution_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8051,6 +8073,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-verify-reviewer-test-package",
             "g4-bind-reviewer-implementation",
             "g4-verify-reviewer-implementation-binding",
+            "g4-run-reviewer-tests-isolated",
+            "g4-verify-reviewer-test-execution",
+            "g4-validate-reviewer-test-controls",
+            "g4-verify-reviewer-test-controls",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8075,6 +8101,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "g4-verify-reviewer-implementation-binding": (
                     reviewer_implementation_binding_cli.run_command
+                ),
+                "g4-run-reviewer-tests-isolated": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-verify-reviewer-test-execution": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-validate-reviewer-test-controls": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-verify-reviewer-test-controls": (
+                    reviewer_test_execution_cli.run_command
                 ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
