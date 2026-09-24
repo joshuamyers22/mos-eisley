@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import io
 import subprocess
 import sys
@@ -45,6 +47,23 @@ from mos_eisley.reviewer_correction import (
     decode_correction_artifact,
     sign_correction_cycle_approval,
     sign_correction_triage,
+)
+from mos_eisley.reviewer_correction_dispatch import (
+    G4CorrectionChildDispatchApproval,
+    G4CorrectionChildDispatchReceipt,
+    G4CorrectionChildJob,
+    G4CorrectionChildOffer,
+    G4CorrectionChildProposal,
+    G4CorrectionChildSourceFile,
+    G4CorrectionChildUsage,
+    SignedG4CorrectionChildDispatchApproval,
+    SignedG4CorrectionChildProposal,
+    creator_test_bundle_sha256,
+    dispatch_correction_child,
+    sign_correction_child_dispatch_approval,
+    sign_correction_child_proposal,
+    validate_correction_child_job,
+    verify_correction_child_dispatch_receipt,
 )
 from mos_eisley.reviewer_implementation_binding import (
     ImmutableImplementationBindingRecord,
@@ -761,3 +780,297 @@ class CorrectionCycleTests(unittest.TestCase):
                 (root / "admission.json").read_bytes(), G4CorrectionCycleAdmission
             )
             self.assertEqual(admission.approval.approval.cycle, 1)
+
+    def test_contained_child_dispatch_spends_once_and_never_writes_host(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture = G4ProvenanceFixture(root)
+            provenance = fixture.record()
+            candidate_store = root / "candidate"
+            candidate_store.mkdir(mode=0o700)
+            correction_store = root / "correction"
+            correction_store.mkdir(mode=0o700)
+            child_store = root / "child"
+            child_store.mkdir(mode=0o700)
+            first = self._dispatch(
+                fixture, provenance, candidate_store, "first", 4, failed=True
+            )
+            replay = self._dispatch(
+                fixture, provenance, candidate_store, "replay", 6, failed=True
+            )
+            policy, triage, grant = self._decision(
+                fixture, first, replay, Ed25519PrivateKey.generate()
+            )
+            admission = admit_correction_cycle(
+                first=first,
+                reproduction=replay,
+                triage=triage,
+                approval=grant,
+                review_policy=policy,
+                provenance=provenance,
+                controls=fixture.controls,
+                binding=fixture.binding,
+                package=fixture.package,
+                reviewer_package_path=fixture.package_path,
+                repository_root=fixture.repository,
+                implementation_root=fixture.repository,
+                git_executable=fixture.git,
+                dispatch_store=candidate_store,
+                correction_store=correction_store,
+                now=NOW + timedelta(minutes=12),
+            )
+            brief = "Correct the reproduced addition defect."
+            criteria = "Preserve creator tests and change only the owned source file."
+            creator_test_content = (
+                fixture.repository / "tests/test_creator.py"
+            ).read_bytes()
+            creator_test_view = (
+                G4CorrectionChildSourceFile(
+                    path="tests/test_creator.py",
+                    content_base64=base64.b64encode(creator_test_content).decode(),
+                    content_sha256=digest(creator_test_content),
+                ),
+            )
+            order = sign_correction_child_dispatch_approval(
+                G4CorrectionChildDispatchApproval(
+                    dispatch_id="correction-child-one",
+                    admission_sha256=admission.admission_sha256,
+                    source_revision=fixture.source_revision,
+                    container_image_id=IMAGE,
+                    child_signer_id="child",
+                    brief_sha256=digest(brief.encode()),
+                    acceptance_criteria_sha256=digest(criteria.encode()),
+                    creator_test_suite_sha256=fixture.creator_tests,
+                    creator_test_bundle_sha256=creator_test_bundle_sha256(
+                        creator_test_view
+                    ),
+                    owned_paths=("src/demo/__init__.py",),
+                    issued_at=NOW + timedelta(minutes=12),
+                    expires_at=NOW + timedelta(minutes=25),
+                ),
+                "creator",
+                fixture.creator_key,
+            )
+
+            class Generator:
+                async def generate(
+                    self, offer: G4CorrectionChildOffer
+                ) -> SignedG4CorrectionChildProposal:
+                    replacement = (
+                        b"def add(left, right):\n    return left + right  # corrected\n"
+                    )
+                    return sign_correction_child_proposal(
+                        G4CorrectionChildProposal(
+                            offer_sha256=offer.offer_sha256,
+                            replacements=(
+                                G4CorrectionChildSourceFile(
+                                    path="src/demo/__init__.py",
+                                    content_base64=base64.b64encode(
+                                        replacement
+                                    ).decode(),
+                                    content_sha256=digest(replacement),
+                                ),
+                            ),
+                            usage=G4CorrectionChildUsage(
+                                input_tokens=20,
+                                output_tokens=30,
+                                tool_calls=1,
+                                seconds=1,
+                                microusd=3,
+                            ),
+                            unresolved_issue_count=0,
+                        ),
+                        "child",
+                        fixture.child_key,
+                    )
+
+            def execute(
+                _args: tuple[str, ...], payload: bytes, timeout: float
+            ) -> bytes:
+                job = G4CorrectionChildJob.model_validate_json(payload)
+                self.assertEqual(job.offer.brief, brief)
+                self.assertEqual(job.offer.creator_test_files, creator_test_view)
+                self.assertGreater(timeout, 0)
+                return subprocess.run(
+                    [sys.executable, "-m", "mos_eisley.run.reviewer_correction_child"],
+                    input=payload,
+                    capture_output=True,
+                    timeout=10,
+                    check=True,
+                ).stdout
+
+            container = OfflineContainer(
+                Path("/usr/bin/docker"), IMAGE, root / "lifecycle"
+            )
+
+            def run_dispatch(
+                dispatch_order: SignedG4CorrectionChildDispatchApproval = order,
+                plan: str = "approved plan",
+            ) -> G4CorrectionChildDispatchReceipt:
+                return asyncio.run(
+                    dispatch_correction_child(
+                        admission=admission,
+                        approval=dispatch_order,
+                        first=first,
+                        provenance=provenance,
+                        controls=fixture.controls,
+                        binding=fixture.binding,
+                        package=fixture.package,
+                        reviewer_package_path=fixture.package_path,
+                        repository_root=fixture.repository,
+                        implementation_root=fixture.repository,
+                        git_executable=fixture.git,
+                        candidate_dispatch_store=candidate_store,
+                        correction_store=correction_store,
+                        child_dispatch_store=child_store,
+                        approved_plan=plan,
+                        brief=brief,
+                        acceptance_criteria=criteria,
+                        generator=Generator(),
+                        container=container,
+                        now=NOW + timedelta(minutes=13),
+                    )
+                )
+
+            before = fixture._text("rev-parse", "HEAD")
+            with self.assertRaisesRegex(ValueError, "approved cycle"):
+                run_dispatch(plan="unapproved plan")
+            self.assertEqual(tuple(child_store.iterdir()), ())
+            mismatched_tests = sign_correction_child_dispatch_approval(
+                order.approval.model_copy(
+                    update={"creator_test_bundle_sha256": digest(b"wrong test view")}
+                ),
+                "creator",
+                fixture.creator_key,
+            )
+            with self.assertRaisesRegex(ValueError, "test view differs"):
+                run_dispatch(mismatched_tests)
+            self.assertEqual(tuple(child_store.iterdir()), ())
+            with patch.object(container, "execute", side_effect=execute):
+                receipt = run_dispatch()
+            verify_correction_child_dispatch_receipt(
+                receipt,
+                admission=admission,
+                provenance=provenance,
+                correction_store=correction_store,
+                child_dispatch_store=child_store,
+            )
+            self.assertEqual(receipt.execution.changed_paths, ("src/demo/__init__.py",))
+            self.assertFalse(receipt.repository_write_authorized)
+            self.assertEqual(fixture._text("rev-parse", "HEAD"), before)
+            self.assertEqual(fixture._text("status", "--porcelain"), "")
+            tampered = receipt.model_copy(
+                update={
+                    "signed_proposal": receipt.signed_proposal.model_copy(
+                        update={"signature": order.signature}
+                    )
+                }
+            )
+            with self.assertRaises(ValueError):
+                verify_correction_child_dispatch_receipt(
+                    tampered,
+                    admission=admission,
+                    provenance=provenance,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                )
+            with self.assertRaises(FileExistsError):
+                run_dispatch()
+
+
+class CorrectionChildJobTests(unittest.TestCase):
+    def test_scope_noop_budget_and_encoding_are_rejected(self) -> None:
+        source = b"original\n"
+        changed = b"corrected\n"
+        original = G4CorrectionChildSourceFile(
+            path="src/demo.py",
+            content_base64=base64.b64encode(source).decode(),
+            content_sha256=digest(source),
+        )
+        offer = G4CorrectionChildOffer(
+            dispatch_approval_sha256=digest(b"approval"),
+            correction_admission_sha256=digest(b"admission"),
+            source_revision="a" * 40,
+            approved_plan="Approved plan",
+            brief="Fix the defect",
+            acceptance_criteria="Preserve tests",
+            source_files=(original,),
+            creator_test_files=(
+                G4CorrectionChildSourceFile(
+                    path="tests/test_creator.py",
+                    content_base64=base64.b64encode(b"assert True\n").decode(),
+                    content_sha256=digest(b"assert True\n"),
+                ),
+            ),
+            max_input_tokens=100,
+            max_output_tokens=100,
+            max_tool_calls=2,
+            max_seconds=10,
+            max_microusd=10,
+        )
+        usage = G4CorrectionChildUsage(
+            input_tokens=5,
+            output_tokens=5,
+            tool_calls=1,
+            seconds=1,
+            microusd=1,
+        )
+        replacement = G4CorrectionChildSourceFile(
+            path="src/demo.py",
+            content_base64=base64.b64encode(changed).decode(),
+            content_sha256=digest(changed),
+        )
+        child_key = Ed25519PrivateKey.generate()
+
+        def job(
+            replacement_file: G4CorrectionChildSourceFile,
+            actual_usage: G4CorrectionChildUsage = usage,
+        ) -> G4CorrectionChildJob:
+            proposal = G4CorrectionChildProposal(
+                offer_sha256=offer.offer_sha256,
+                replacements=(replacement_file,),
+                usage=actual_usage,
+                unresolved_issue_count=0,
+            )
+            return G4CorrectionChildJob(
+                offer=offer,
+                signed_proposal=sign_correction_child_proposal(
+                    proposal, "child", child_key
+                ),
+            )
+
+        self.assertEqual(
+            validate_correction_child_job(job(replacement)).changed_paths,
+            ("src/demo.py",),
+        )
+        noncanonical = subprocess.run(
+            [sys.executable, "-m", "mos_eisley.run.reviewer_correction_child"],
+            input=canonical_bytes(job(replacement)) + b"\n",
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        self.assertEqual(noncanonical.returncode, 2)
+        self.assertEqual(noncanonical.stdout, b"")
+        with self.assertRaisesRegex(ValueError, "no valid owned-path change"):
+            validate_correction_child_job(job(original))
+        with self.assertRaisesRegex(ValueError, "no valid owned-path change"):
+            validate_correction_child_job(
+                job(replacement.model_copy(update={"path": "tests/test_creator.py"}))
+            )
+        with self.assertRaisesRegex(ValueError, "allowance"):
+            validate_correction_child_job(
+                job(replacement, usage.model_copy(update={"microusd": 11}))
+            )
+        with self.assertRaises(ValueError):
+            G4CorrectionChildSourceFile(
+                path="../escape.py",
+                content_base64=base64.b64encode(source).decode(),
+                content_sha256=digest(source),
+            )
+        with self.assertRaises(ValueError):
+            G4CorrectionChildSourceFile(
+                path="src/demo.py",
+                content_base64="*",
+                content_sha256=digest(b""),
+            )

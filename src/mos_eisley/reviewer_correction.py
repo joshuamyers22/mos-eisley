@@ -567,6 +567,13 @@ def _verify_claim(store: Path, admission: G4CorrectionCycleAdmission) -> None:
         os.close(fd)
 
 
+def verify_correction_cycle_claim(
+    store: Path, admission: G4CorrectionCycleAdmission
+) -> None:
+    """Replay a persisted, private one-use correction-cycle claim."""
+    _verify_claim(store, admission)
+
+
 def _write_completion(store: Path, completion: G4CorrectionCycleCompletion) -> None:
     fd = open_private_dispatch_store(store)
     try:

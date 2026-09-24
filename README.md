@@ -308,6 +308,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   cycles under one conservative task allowance and verifies a renewed full
   custody/Git/candidate chain without granting child dispatch, writes or final
   acceptance. Production correction and final whole-suite/review gates remain open.
+- The offline [G4 correction-child dispatch boundary](docs/G4_CORRECTION_CHILD_DISPATCH.md)
+  adds a separate creator-signed, one-use task/cycle grant for an enrolled child's
+  scoped proposal. The immutable offline container validates the signed replacement
+  set and the host replays Git, but no host patch, live provider call, measured
+  spend or final acceptance is authorized.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

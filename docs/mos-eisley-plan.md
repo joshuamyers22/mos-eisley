@@ -4192,6 +4192,13 @@ This does not dispatch a coding child, prove critic quorum or actual spend, run 
 final whole suite, or grant independent acceptance. See
 [the bounded correction contract](G4_BOUNDED_CORRECTION.md).
 
+A seventh offline slice adds a separate creator-signed, one-use dispatch for a
+child-signed correction proposal over existing approved owned files. The no-mount,
+no-network image validates the proposal, while the host retains and replays the
+source and result without writing into Git. This is not production provider
+dispatch, measured spend, actual code integration or final acceptance. See
+[the correction-child dispatch contract](G4_CORRECTION_CHILD_DISPATCH.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

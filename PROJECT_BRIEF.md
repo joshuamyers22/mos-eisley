@@ -214,6 +214,13 @@
   evidence gating only: child/provider dispatch, writes, measured aggregate
   spend, final whole-suite and independent acceptance remain open. See
   `docs/G4_BOUNDED_CORRECTION.md`.
+- G4 offline correction-child dispatch boundary, 2026-09-24: a separate
+  creator-signed order and task/cycle-unique claim gate one child-signed proposal
+  over existing owned source files. The host and immutable offline container
+  validate the exact offer, replacements and reported allowance, then replay Git.
+  No live provider, measured spend, host repository/VCS write, completed
+  correction or final acceptance is authorized. See
+  `docs/G4_CORRECTION_CHILD_DISPATCH.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
