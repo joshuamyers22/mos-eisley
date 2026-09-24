@@ -2,10 +2,12 @@
 
 ## Objective and authority
 
+- Record status: **closed — G2 qualification complete; production launch remains a
+  separate optional admission decision**
 - Requirement, issue, or project-brief link: `docs/ROADMAP.md` G2,
   `docs/REVIEW_CAMPAIGN_CEREMONY.md`, and `docs/REVIEW_LAUNCH_ADMISSION.md`
-- User journey or operational outcome: qualify and admit one exact
-  bounded critic/judge review without turning fixtures, local signatures, or prior
+- User journey or operational outcome: qualify one exact bounded critic/judge path
+  without turning fixtures, local signatures, qualification evidence, or prior
   calibration evidence into broader provider or routing authority.
 - Invariants and non-goals: three precommitted fixed attempts; phase/local approvals;
   one consistent Joshua Myers signer with explicit self-review risk acceptance; exact current
@@ -22,30 +24,30 @@
 
 | Dimension | Weight or blocking severity | Decision evidence | Pass threshold |
 |---|---|---|---|
-| Exact qualified review profile | Blocking | Fresh campaign review and launch-conformance reconstruction | All three slots qualify and launch role/quorum/runtime scope matches exactly |
+| Exact qualified review profile | Blocking | Fresh campaign review and retained-evidence reconstruction | All three slots qualify against one exact role/quorum/runtime profile |
 | Correctness and failure handling | Blocking | Fixed-slot failures, timeout/cancellation cleanup, no-retry receipts, ledger and crash inspection | Missing/failed/uncertain evidence stops later work and never becomes success |
 | Security/privacy/data integrity | Blocking | Single enrolled key/custody record, explicit self-review acknowledgement, signed decisions, private permissions, exact hashes, secret/data review | Credential and prompt access occurs only after all current gates; no key/bearer/raw error is retained |
-| Financial authority | Blocking | Dedicated ledgers, conservative full allowances, exact settlement/uncertain state, separate launch ledger | No unreserved call, double reservation, automatic release, or campaign-ledger reuse |
+| Financial authority | Blocking | Dedicated campaign ledgers, conservative full allowances and exact settlement/uncertain state | No unreserved call, double reservation, automatic release, or campaign-ledger reuse; any later launch uses a separate ledger outside G2 |
 | Maintainability/operability | High | Current policies, immutable SDK/image, bounded deadlines, recovery and cleanup evidence | Every operation is inspectable and revocable before the next provider boundary |
 
 ## Budget and stopping rules
 
-- Maximum iterations: three fixed conformance attempts plus one exact launch decision;
-  failed or missing fixed slots are not replaced within a campaign. After the two
-  failed campaigns and a successful replacement-key authentication check, Joshua
-  Myers granted one single-use exception for one final, wholly new campaign. This is
-  not general retry authority: neither prior seal or ledger may be reused, and failure
-  of the final campaign ends the qualification.
-- Elapsed-time or review window: bounded by the sealed campaign, phase, observation,
-  and launch-policy expiries
+- Maximum iterations: every sealed campaign contains three fixed attempts; a failed
+  or missing slot is never replaced inside that campaign. Historical replacement
+  campaigns required separate explicit authority, new ledgers, new commitments and
+  new seals. The accepted `3b32f14` campaign ends G2 qualification and grants no
+  further qualification attempt.
+- Elapsed-time or review window: the accepted campaign was bounded by its sealed
+  `2026-09-24T00:56:11.506726Z` through `2026-09-24T01:26:11.506726Z`
+  policy window plus narrower phase and observation expiries; that window is expired
 - Compute/cost ceiling, if material: owner-approved aggregate maximum USD 5.00
   (`5,000,000` micro-USD) across qualification and launch; the exact reviewed bundle
   and separate launch envelope must fit within it
-- Pass rule: all blocking rubric rows pass through fresh reconstruction and the
-  consistent schema-2 Joshua Myers signature; production launch remains unavailable
-  without the final decision
-- Diminishing-return rule: the fixed campaign ends after its three slots; no additional
-  attempts are authorized to improve the narrative
+- Pass rule: all blocking G2 rubric rows pass through fresh reconstruction and the
+  consistent schema-2 Joshua Myers signature; production launch is not part of this
+  pass and remains unavailable without a separate current decision
+- Diminishing-return rule: the accepted fixed campaign ends after its three slots;
+  no additional qualification attempt is needed or authorized to improve the record
 - Escalation/domain-input trigger: evidence is ambiguous, a ledger is nonempty/blocked,
   policy expires, runtime differs,
   or remote receipt/invoice state is uncertain
@@ -89,11 +91,11 @@
 | Q-003 | The owner requires Joshua Myers to hold every human role | No independent human can detect Joshua's mistaken or malicious self-approval | Accepted high risk | ADR-0005 explicitly changes the contract; schema 2 requires one shared signer and a signed self-review-risk assertion, while schema 1 remains separated | Positive full-path test, mixed-mode rejection, and no independence assertion in schema-2 decision | Joshua Myers |
 | Q-004 | Final campaign critic responses canonicalized to 8,221 and 8,617 bytes while each sealed request allowed only 4,000 response bytes | Valid provider responses could not become verified critic evidence, so the sealed campaign could not reach quorum | Blocking historical campaign finding; code defect corrected offline | Accepted as the immutable terminal final-campaign failure. The corrected contract independently seals 8,000 text bytes and a 64,000-byte envelope, but cannot change or revive dispatched evidence. | Exact retained-shape replay and synthetic boundaries pass; no new live campaign is authorized | Josh Myers |
 | Q-005 | Final-campaign evidence used an exact multiline postimage quote that is not an exact substring of raw unified-diff syntax | Supported evidence would still fail local validation after the response-budget correction | Blocking historical campaign finding; code defect corrected offline | Accepted as part of the immutable terminal campaign outcome. Schema 2 binds exact quotes to deterministic raw/before/after hunk units; schema 1 and retained artifacts are unchanged. | Retained-shape and adversarial citation regressions plus full offline/container gates pass; no new live campaign is authorized | Joshua Myers |
-| Q-006 | The standalone citation retest retained an `accept` result but failed while constructing its post-result observer exchange, after its ephemeral phase signatures had ceased to be recoverable | No signed observation exists, so the retest cannot receive qualification credit despite a complete controller result | High historical evidence gap; code defect corrected offline | Accept as terminal for this one-attempt retest. Current code maps all critic exchanges to the critic-phase authorization and the judge to the judge-phase authorization, but it cannot recreate a lost signature or historical attestation. | Two-critic and malformed-shape regressions pass; historical signed observation remains absent | Joshua Myers |
-| Q-007 | The observation-fix retest used two critics for threshold two and one provider answer duplicated `impact` | One malformed response prevented quorum before the judge and observation paths | High historical resilience gap; corrected offline | Preserve strict duplicate rejection. Capable models now receive native strict JSON Schema, and any future exact retest should separately admit three critics for threshold two without retry. | Capability/schema projection tests and one-invalid-of-three controller regression pass; live proof remains absent | Joshua Myers |
+| Q-006 | The standalone citation retest retained an `accept` result but failed while constructing its post-result observer exchange, after its ephemeral phase signatures had ceased to be recoverable | No signed observation exists, so the retest cannot receive qualification credit despite a complete controller result | Closed for current qualification; historical evidence remains incomplete | Preserve the one-attempt retest as terminal. Current code maps critic and judge exchanges correctly, and the accepted campaign supplies authenticated observations, but neither fact can recreate a lost historical signature. | Two-critic and malformed-shape regressions plus the accepted campaign observations pass; historical signed observation remains absent | Joshua Myers |
+| Q-007 | The observation-fix retest used two critics for threshold two and one provider answer duplicated `impact` | One malformed response prevented quorum before the judge and observation paths | Closed for current qualification; historical resilience gap retained | Preserve strict duplicate rejection. Later campaigns use three critics with threshold two and no retry. | Capability/schema projection and one-invalid-of-three regressions pass; accepted campaign slot 2 exercises the live tolerance path | Joshua Myers |
 | Q-008 | The generic strict-schema normalizer only hardened object nodes whose `properties` member was already a dictionary | An arbitrary object-shaped schema could escape recursive normalization or fail later at the provider boundary | Blocking live finding; corrected offline | Missing properties now become an explicit empty strict object; present non-object values reject recursively without weakening local decoding | Direct nested schema regressions plus package/container gates | Joshua Myers |
 | Q-009 | The original three-critic fault regression stopped after the judge and did not construct and authenticate a signed post-result observation | The complete claimed lifecycle lacked deterministic one-invalid-of-three observation coverage | High live finding; corrected offline | A failed critic remains visible but no longer invalidates an otherwise verified quorum/judge result; the regression now signs, authenticates, tampers, and replays the observation | Focused full-lifecycle regression plus package/container gates | Joshua Myers |
-| Q-010 | The standalone retest retained the signed observation but not the authority policy, observation policy, or signed phase authorizations required for later `authenticate_review_probe` replay | The historical in-process construction/signing success cannot become independently replayable authentication evidence | High historical evidence gap; future harness corrected offline | Preserve the historical limitation; a new bounded bundle verifies before exclusive mode-0600 retention and contains every serialized authentication input plus exact external-artifact paths | Disk-only decode/authentication, duplicate/size/tamper/permission/placement regressions, and container gate | Joshua Myers |
+| Q-010 | The standalone retest retained the signed observation but not the authority policy, observation policy, or signed phase authorizations required for later `authenticate_review_probe` replay | The historical in-process construction/signing success cannot become independently replayable authentication evidence | Closed for current qualification; historical evidence remains incomplete | Preserve the historical limitation. The accepted campaign bundle verifies before exclusive mode-0600 retention and contains every serialized authentication input plus exact external-artifact paths. | Disk-only decode/authentication, duplicate/size/tamper/permission/placement regressions, container gate and accepted campaign reconstruction | Joshua Myers |
 | Q-011 | The accepted `b3357aa` retest was one standalone attempt rather than a sealed three-slot submission | The standalone evidence could not close formal qualification | **Closed:** the wholly fresh `3b32f14` campaign supplied three distinct qualifying slots and accepted reconstruction | Preserve the historical standalone result separately; use the new campaign only for its exact qualification claim | Evidence `fde095a1…`; result `0a276558…`; three authenticated observations | Joshua Myers |
 
 ## Exit
@@ -122,10 +124,7 @@
   not reconciled, provider authorship is not claimed, and default provider retention
   remains an accepted risk rather than a ZDR claim. The campaign window is expired;
   no replacement qualification campaign is needed or authorized by this record.
-  The accepted `3b32f14` campaign settled 32,226 micro-USD with zero unresolved
-  entries under image
-  `sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`
-  and OpenAI SDK `3.11.0`. Historical unresolved accounting remains unchanged.
+  Historical failed-campaign accounting remains immutable and campaign-scoped.
 - Human/domain approval, if required: Joshua Myers explicitly approved single-operator
   governance and the USD 5.00 aggregate ceiling on 2026-09-19
 - Durable facts promoted to tests, ADRs, docs, or `PROJECT_MEMORY.md`: G2
@@ -134,20 +133,16 @@
 
 ## Diagnostic resource accounting (optional)
 
-- Iterations and elapsed time: one source-survey pass, two contract-review passes,
-  one host/adversarial-review pass, three sealed formal campaigns, one no-network
-  Keychain diagnostic, one bounded replacement-key authentication check, and five
-  separately authorized standalone attempts including the V-007 timeout precursor
-  and accepted deadline retest
-- Aggregate tokens/cost, when policy permits: the final campaign used 29,313 input
-  tokens, including 29,307 cache-write tokens, and 2,161 output tokens. Its two critic
-  charges settled locally at 9,922 micro-USD; 146,412 micro-USD remains conservatively
-  unresolved across the original campaigns. The accepted standalone retest used
-  84,439 input, 84,427 cache-write and 2,434 output tokens and settled 24,032
-  micro-USD with zero unresolved entries. None of these figures is an invoice
-  reconciliation.
+- Iterations and elapsed time: iterations 1–22 preserve the material survey,
+  implementation, failure, correction, retest and exact qualification sequence. The
+  final accepted campaign ran inside its 30-minute sealed window; this record does not
+  collapse separately authorized historical campaigns into one retry count.
+- Aggregate tokens/cost, when policy permits: the accepted campaign settled 32,226
+  micro-USD across 15 terminal local ledger entries with zero unresolved entries.
+  Earlier rows preserve their campaign-specific accounting. No local figure is an
+  invoice reconciliation or provider-authorship proof.
 - Accepted versus rejected findings: Q-011 is closed; Q-001 remains only as a launch
   gate. Q-004 through Q-010 retain their historical dispositions; Q-003
   single-operator governance risk and the documented memory-zeroization limitation
   remain accepted.
-- Escaped defects or regressions discovered later: unknown
+- Escaped defects or regressions discovered later: none known at G2 closure

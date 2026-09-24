@@ -3,7 +3,7 @@
 - Status: closed
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-24T00:56:11Z
-- Last updated (UTC): 2026-09-24T01:55:00Z
+- Last updated (UTC): 2026-09-24T01:54:47Z
 - Review or delete by: G2 closure or the next separately authorized launch review
 - Related record: `docs/LIVE_REVIEW_CLEANUP_BOUNDARY_QUALIFICATION_2026-09-24.md`
 
@@ -62,5 +62,7 @@
   production launch remains separately gated.
 - Decision promoted to documentation: the current campaign closes historical Q-011
   but grants no launch, retry, routing, provider-authorship or billing authority.
+- Regression evidence: `tests/test_review_campaign_dispatch.py`, the retained
+  campaign reconstruction, and the isolated MCP verification recorded above.
 - Temporary artifacts removed: none; private campaign and inert partial evidence are
   intentionally retained for audit.

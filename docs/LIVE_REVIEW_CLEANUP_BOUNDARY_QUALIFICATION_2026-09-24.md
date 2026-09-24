@@ -2,6 +2,7 @@
 
 ## Objective and authority
 
+- Record status: **closed — G2 qualification passed**
 - Requirement: reassess G2 after a wholly fresh formal three-slot production
   qualification of the terminal cleanup boundary correction at exact source commit
   `3b32f1426ce067696307c3ea4a96ef61ea583411`.
@@ -128,8 +129,25 @@ future target call. This work will not reuse the campaign for dispatch. No furth
 live qualification call is required or authorized by this reassessment.
 
 - Stop reason: passed the G2 qualification rubric.
-- Remaining blocking item: separately authorized production launch admission, only
-  if and when the owner chooses to launch a target review.
+- Rubric result and blocking findings: every G2 blocking row passed; CQ-002 remains an
+  explicitly accepted single-operator risk, while CQ-003 and CQ-004 delimit claims
+  outside G2 rather than leave G2 incomplete.
+- Full quality-gate result: Ruff and Pyright passed. The restricted 2,431-test source
+  run encountered only 31 MCP localhost-bind errors and four skips; the complete
+  68-test MCP family then passed with four skips when localhost permission was
+  available. No source or production-image byte changed during documentation closure.
+- Production-like evidence: three fixed slots qualified, including one transparent
+  one-invalid-of-three tolerance case; fresh reconstruction accepted all three signed
+  observations, all 15 ledger entries are terminal, and all 12 workers are removed.
+- Remaining uncertainty: local evidence is not provider-authorship or invoice proof;
+  default provider retention remains an accepted risk rather than a ZDR claim.
+- Human/domain approval: Joshua Myers approved single-operator governance and the
+  USD 5.00 aggregate ceiling; no independent human review is claimed.
+- Durable facts promoted: G2 closure, the exact source/image/evidence/result hashes,
+  the single-operator risk and the separate launch boundary are recorded in
+  `PROJECT_MEMORY.md`, `docs/ROADMAP.md`, the qualification threat model and this file.
+- Separate optional post-G2 gate: production launch admission, only if and when the
+  owner chooses to launch a target review.
 - Next non-live project work: proceed to G3's open real-label, trust-policy,
   holdout-custody and independent statistical-review inputs, or prepare an offline
   launch proposal without dispatch authority.
