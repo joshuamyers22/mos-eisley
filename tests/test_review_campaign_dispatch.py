@@ -13,6 +13,7 @@ from mos_eisley.core.ports import ProviderError
 from mos_eisley.run.review_approval import ApprovalPreview
 from mos_eisley.run.review_broker import JudgeTransferAuthorization
 from mos_eisley.run.review_campaign import (
+    read_campaign_seal,
     review_campaign_evidence,
     seal_review_campaign,
 )
@@ -99,6 +100,53 @@ class CampaignDispatchTests(CampaignCeremonyFixture):
         before = self.fixture.base.ledger.snapshot()
         self.assertFalse(self.fixture.review.retire_unused_judge_allowance())
         self.assertEqual(self.fixture.base.ledger.snapshot(), before)
+
+    async def assert_out_of_window_start_preserves_allowance(
+        self, started_at: datetime
+    ) -> None:
+        probe = self.bound_probe()
+
+        async def approve(preview: ApprovalPreview) -> str | None:
+            if isinstance(preview, ControllerJudgePreview):
+                start = probe.controller.start
+                assert start is not None
+                probe.controller._start = start.model_copy(  # pyright: ignore[reportPrivateUsage]
+                    update={"started_at": started_at}
+                )
+                return None
+            return preview.sha256
+
+        with patch.object(self.user, "approve", side_effect=approve):
+            self.assertIsNone(await probe.run())
+        terminal = ControllerTerminal.model_validate_json(
+            (self.fixture.directory / "controller-terminal.json").read_bytes()
+        )
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        allowance = self.fixture.review.envelope.judge.ledger_entry
+        source = self.fixture.base.ledger.entry_status(allowance.entry_id)
+        assert source is not None
+        self.assertEqual(
+            (source.status, source.charged_microusd),
+            ("held", allowance.reserved_microusd),
+        )
+        self.assertEqual(self.fixture.judge.calls, [])
+
+    async def test_terminal_cleanup_preserves_allowance_for_preseal_start(self):
+        _, seal = read_campaign_seal(self.sealed_directory, self.seal_sha)
+        await self.assert_out_of_window_start_preserves_allowance(
+            seal.sealed_at - timedelta(microseconds=1)
+        )
+
+    async def test_terminal_cleanup_preserves_allowance_at_earliest_expiry(self):
+        attempt = self.bundle.attempts[0]
+        valid_until = min(
+            self.bundle.policy.valid_until,
+            attempt.observation_policy.valid_until,
+            attempt.authority_policy.valid_until,
+            attempt.preview.envelope.expires_at,
+        )
+        await self.assert_out_of_window_start_preserves_allowance(valid_until)
 
     async def test_post_transfer_cleanup_preserves_all_other_entries(self):
         probe = self.bound_probe()

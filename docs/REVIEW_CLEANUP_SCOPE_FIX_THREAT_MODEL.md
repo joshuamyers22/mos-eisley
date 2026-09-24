@@ -1,5 +1,11 @@
 # Threat Model: sealed formal cleanup and conservative accounting
 
+> **Post-campaign reassessment, 2026-09-23:** the binding is an inherited frozen,
+> scalar contract and the independently pinned seal digest is the campaign identity.
+> Existing post-start seal-tamper tests reach terminal cleanup. Direct tests now cover
+> the terminal start-window lower and upper boundaries; see
+> [the binding-claims reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md).
+
 ## Scope and ownership
 
 - System/version: brokered review controller after `98869cc`.
@@ -49,4 +55,5 @@
   fails closed.
 - Required verification: direct unbound formal cancellation, sealed cancellation,
   transfer, uncertain receipt, repeated cleanup, unrelated-entry isolation,
+  post-start seal tampering, terminal start-window lower/upper boundaries,
   inspection, campaign dispatch, launch compatibility and the full repository gate.

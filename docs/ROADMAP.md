@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — corrected formal campaign complete; fresh corroboration requested; launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; the repeated correlated rejection has an accepted offline source disposition, while a newly directed exact-artifact campaign and launch decision remain |
+| G2 — corrected formal campaign executed; offline finding disposition complete; launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; two latest claims are source-level misunderstandings, and the one genuine terminal-window test gap now has direct lower/upper boundary regressions |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -106,10 +106,23 @@ conformance refuses unbound formal execution. Joshua Myers formally accepted tha
 disposition on 2026-09-23 and directed a wholly fresh campaign without a readability-only
 code change. The retained verdicts remain unchanged, and the new direction grants no
 financial, credential, dispatch or launch authority without its exact separate ceremony.
+That later campaign at `326dafe` completed all three authenticated slots, settled
+63,461 micro-USD, retained zero unresolved entries and removed all 12 workers, but its
+`revise`/`reject`/`reject` verdicts did not qualify the subject. Offline source
+reassessment rejected the mutable-binding claim (the binding inherits the frozen
+scalar base contract), rejected a separate campaign-ID requirement (the independent
+seal digest is the content-addressed identity), and identified existing post-start
+seal-tamper terminal coverage. It accepted one narrower evidence gap: no focused
+terminal cleanup regression directly asserts denial for a start before sealing or at/
+after the earliest committed expiry. Direct regressions now close that gap: both
+boundaries preserve the exact held allowance, record no retirement and make no judge
+call. Repository gates are complete; commit and exact-image rebuild precede any new campaign
+ceremony; no retry or live authority follows from the operational acceptance.
 Every campaign remains evidence only for its exact artifact and is not launch authority.
 See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md), plus
-[the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md).
+[the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md) and
+[the latest binding-claims reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)

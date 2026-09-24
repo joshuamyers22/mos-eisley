@@ -1,5 +1,12 @@
 # Agentic Verification Loop: sealed cleanup admission and conservative no-ops
 
+> **Post-campaign reassessment, 2026-09-23:** the correction remains source-sound,
+> and the latest mutable-binding and separate campaign-ID findings were rejected.
+> Existing regressions also cover post-start seal changes reaching terminal cleanup.
+> The narrower evidence gap is now closed by direct terminal cleanup tests for starts
+> before sealing and exactly at the earliest committed expiry. See
+> [the reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md).
+
 ## Objective and authority
 
 - Requirement: correct the two findings upheld by the formal campaign at source
