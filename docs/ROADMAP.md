@@ -18,7 +18,7 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — corrected formal campaign executed; offline finding disposition complete; launch open | Finish live read-only critic/judge integration | Credentialed conformance and accepted three-slot evidence exist; two latest claims are source-level misunderstandings, and the one genuine terminal-window test gap now has direct lower/upper boundary regressions |
+| G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
@@ -56,8 +56,8 @@ policy or reviewed arm/resource identities are present in the repository; the cu
 production eligible-label count is therefore zero, not a fixture-derived claim. See
 [G3 context-study policy](G3_CONTEXT_STUDY.md).
 
-**G2 live-path evidence, 2026-09-21 — standalone and formal campaign passes;
-launch open:** a freshly approved standalone campaign at `b3357aa` carried one frozen
+**G2 live-path evidence, updated 2026-09-24 — qualification complete; production
+launch separately gated:** a freshly approved standalone campaign at `b3357aa` carried one frozen
 deadline-composition brief through three native strict-schema Luna/low critics with
 threshold two and one conditional judge. One critic was retained as
 `invalid_evidence`; two valid empty critiques preserved quorum without retry, and the
@@ -118,11 +118,24 @@ after the earliest committed expiry. Direct regressions now close that gap: both
 boundaries preserve the exact held allowance, record no retirement and make no judge
 call. Repository gates are complete; commit and exact-image rebuild precede any new campaign
 ceremony; no retry or live authority follows from the operational acceptance.
+The boundary-test correction was committed as `3b32f1426ce067696307c3ea4a96ef61ea583411`
+and rebuilt as production image
+`sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`.
+A wholly fresh campaign bound to those exact artifacts then completed all three fixed
+slots with `accept` verdicts and no findings or required changes. Slot 2 retained one
+`invalid_evidence` critic while its two valid critics preserved the precommitted
+quorum without retry. Fresh reconstruction accepted all three signed observations;
+32,226 micro-USD settled locally, every ledger is unblocked with zero unresolved
+entries, and all 12 workers were removed. This satisfies plan §26.4's G2 live
+read-only qualification exit. It does not create a production launch decision, and
+this work does not reuse the time-bounded campaign as dispatch authority; any target
+live call still requires a separate current launch ceremony and ledger.
 Every campaign remains evidence only for its exact artifact and is not launch authority.
 See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
 and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md), plus
 [the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md) and
-[the latest binding-claims reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md).
+[the binding-claims reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md), and
+[the accepted corrected qualification](LIVE_REVIEW_CLEANUP_BOUNDARY_QUALIFICATION_2026-09-24.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
@@ -380,8 +393,8 @@ loading and telemetry adapters remain planned.
    decision in the owning library flow, freshly checking campaign evidence, policy and
    guidance at approvals and credential/provider use. Schema 1 preserves separated
    human roles; explicit schema-2 single-operator mode permits one shared signer while
-   recording that no independent human review occurred. A live campaign and production
-   decision remain outstanding;
+   recording that no independent human review occurred. An exact three-slot live
+   qualification campaign now passes; a production decision remains outstanding;
    there is no public live-launch CLI or automatic activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,

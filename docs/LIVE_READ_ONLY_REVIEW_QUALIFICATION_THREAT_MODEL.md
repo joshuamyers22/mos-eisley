@@ -2,11 +2,13 @@
 
 ## Scope and ownership
 
-- System/version: Mos Eisley at GitHub `main`
-  `fa0faafb6f29421e46429001be3932b614f392f0`
+- System/version: qualified source
+  `3b32f1426ce067696307c3ea4a96ef61ea583411` and production image
+  `sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`
 - Owner and reviewer: Joshua Myers, explicitly approved as the single operator for
   custody, phase authorization, observation and launch review under ADR-0005
-- Date and review trigger: 2026-09-19; repeat on guidance, provider, SDK/image,
+- Date and review trigger: reassessed 2026-09-24 after accepted three-slot
+  qualification; repeat on guidance, provider, SDK/image,
   ledger, policy, signing authority, evidence schema, or launch-flow changes
 - In scope / out of scope: exact three-attempt critic/judge conformance campaign and
   one exact launch-admission decision. Authoring, machine writes, scoring, routing,
@@ -46,6 +48,7 @@
 | Keychain adapter leaks or eagerly caches the provider credential | Diagnostic, representation, construction, or retained host state contains the secret | Credential disclosure or access before approval | Native backend is selected directly; construction performs no lookup; every load is late, bounded, owner-checked and uncached; failures are fixed and redacted | Adapter unit tests and an existing-probe integration test that scans retained files | The API key necessarily exists briefly in trusted host/SDK memory and the OS keychain may prompt interactively |
 | Ephemeral signing key is persisted or silently replaced | Serialization, restart, or multiple host instances | Unaccountable or mixed-key campaign evidence | Generate once inside one owning process, expose only the public enrollment record, provide no private-key serialization, reject use after close, and require the same host for phase, observation and launch signatures | Cross-signature identity tests and mixed-mode/mixed-key rejection | Python and cryptography do not guarantee physical memory zeroization; process compromise remains trusted risk |
 | Duplicate dispatch or automatic retry | Race, crash, timeout, or operator repeats a slot | Duplicate transfer/charge and invalid sample | One-use owned objects, consumed grants, fixed paths/slots, no resume/retry, missing slot stays missing | Concurrency/cancellation and campaign-order tests | Remote receipt can be uncertain after process/network failure |
+| One critic emits invalid evidence | Malformed or unsupported provider finding | Quorum could be overstated or a valid slot unnecessarily discarded | Strict local evidence validation, explicit error retention, precommitted threshold-two quorum, conditional judge, no retry | Qualified slot 2 retained one `invalid_evidence` critic while two valid critics and the judge completed | Correlated critics and one-operator assessment do not provide independent human assurance |
 | Ledger reuse, double reservation, or optimistic release | Wrong path/policy or partial failure | Spend exceeds approved ceiling | Dedicated empty campaign ledgers, separate launch ledger, atomic holds, exact settlement, uncertain retention | Ledger reconstruction and mutation tests | Account-wide invoice finality remains outside local evidence |
 | Joshua signs host assertions without meaningful assessment | Convenience, fatigue or compromised host | Local artifacts are authenticated but misleading | Exact reconstruction, fixed slots, explicit self-review label and retained evidence; stop on ambiguity | Observer policy and signed exact observation | Human process quality has no independent backstop in this mode |
 | Malformed/oversized provider data or raw error retention | Provider/proxy is hostile or fails strangely | Memory pressure, secret/private-data leakage, false success | Bounded transport, strict schemas, allowlisted failures, content hashes, private modes | Existing response, audit and secret-canary tests | Some SDK internals may buffer before local rejection |
@@ -59,6 +62,11 @@
   remote provider receipt and invoice finality, and host-wide compromise. Joshua must
   reassess before every production qualification/launch window and before raising the
   USD 5.00 ceiling.
+- Qualification result: the exact `3b32f14` campaign is accepted with three
+  qualifying slots, 32,226 micro-USD settled, zero unresolved ledger entries and all
+  12 workers removed. Its time window is finite and its literal denial fields remain
+  false for launch, provider dispatch, retry, provider authorship and billing
+  reconciliation. Any target call requires a current launch decision and separate ledger.
 - Required tests and monitoring: existing conformance, campaign, launch-admission,
   revocation, cancellation, ledger, response, and Docker cleanup suites; focused reruns
   for changed boundaries; final `make check`; accountable live self-observation.

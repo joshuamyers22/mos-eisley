@@ -1,11 +1,13 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: live-provider preview.** Recorded review remains the default;
-an explicit one-prompt OpenAI command is available. Paid commands remain tool-free;
-an explicit MCP adapter supplies data tools to the canonical agent port. This
-version does not yet run the adversarial critic/judge workflow live. It can
-plan and score offline model/effort evaluations, but automatic routing is disabled.
+**Current maturity: qualified private live-review library; public launch gated.**
+Recorded review remains the default; an explicit one-prompt OpenAI command is
+available. Paid commands remain tool-free; an explicit MCP adapter supplies data
+tools to the canonical agent port. The private owning-library critic/judge path has
+completed its exact three-slot G2 qualification, but there is no public live-review
+command or automatic activation. The project can plan and score offline model/effort
+evaluations, while automatic routing remains disabled.
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)

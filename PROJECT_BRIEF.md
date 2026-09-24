@@ -51,19 +51,25 @@
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
-  one independently authorized Luna/low assignment has passed credentialed
-  conformance, while complete profile and failure-boundary conformance remains open.
+  the private owning-library Luna/low critic/judge profile has completed its exact
+  three-slot G2 qualification, while public launch and automatic activation remain
+  separately gated.
   The private owning-library review path has one successful bounded standalone
   Luna/low campaign at `b3357aa`: two valid critics preserved threshold-two quorum
   when one critic produced `invalid_evidence`, the judge returned `accept`, and the
   signed observation replayed from complete retained evidence. A later exact
-  `0010970a` production image completed a wholly fresh formal three-slot campaign;
+  `0010970a` production image completed an earlier formal three-slot campaign;
   all slots qualified operationally and reconstructed with complete local settlement
   and cleanup. Its `reject`/`revise`/`reject` content verdicts identified an overbroad
   preparation window and ambiguous revision wording. Both are corrected offline by
   retaining 10 minutes for ordinary calls and requiring a sealed `formal_campaign`
   scope for 30 minutes. The old exact-commit campaign does not authorize launch of
-  the corrected artifact, and no public live-review CLI is enabled.
+  the corrected artifact. The later corrected commit `3b32f14` and production image
+  `sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`
+  completed a wholly fresh sealed campaign with three qualifying `accept` verdicts,
+  32,226 micro-USD settled, zero unresolved entries, complete worker cleanup and
+  accepted independent reconstruction. This closes G2 qualification but creates no
+  launch decision; no public live-review CLI is enabled.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or
