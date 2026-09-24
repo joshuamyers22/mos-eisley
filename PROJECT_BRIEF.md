@@ -221,6 +221,13 @@
   No live provider, measured spend, host repository/VCS write, completed
   correction or final acceptance is authorized. See
   `docs/G4_CORRECTION_CHILD_DISPATCH.md`.
+- G4 offline correction integration boundary, 2026-09-24: a separate
+  creator-signed one-use grant permits the trusted broker to commit exact
+  child-signed replacement bytes only in a new private detached worktree.
+  The original checkout and branch remain unchanged, while parent, paths,
+  blobs, patch and source provenance are replayed. Provider dispatch,
+  measured spend, final suites, independent review and acceptance remain open.
+  See `docs/G4_CORRECTION_INTEGRATION.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

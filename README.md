@@ -313,6 +313,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   scoped proposal. The immutable offline container validates the signed replacement
   set and the host replays Git, but no host patch, live provider call, measured
   spend or final acceptance is authorized.
+- The offline [G4 correction integration boundary](docs/G4_CORRECTION_INTEGRATION.md)
+  separately authorizes one exact proposal to become a local commit in a new
+  private detached worktree. It replays the prior chain, restricts checkout and
+  changed paths, verifies bytes and Git provenance, and leaves the original
+  checkout unchanged. This is not provider dispatch, final testing or acceptance.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

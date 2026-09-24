@@ -4199,6 +4199,15 @@ source and result without writing into Git. This is not production provider
 dispatch, measured spend, actual code integration or final acceptance. See
 [the correction-child dispatch contract](G4_CORRECTION_CHILD_DISPATCH.md).
 
+An eighth offline slice adds a separate creator-signed, one-use integration
+grant. It replays the original custody, candidate, correction and signed proposal
+chain before a trusted Git broker writes only approved existing files in a new
+private detached worktree. The exact local commit, parent, changed bytes, binary
+patch, original checkout and source provenance are checked; an enrolled VCS
+signer may attest the replayable record. No provider, measured-spend, final-suite,
+merge/push or acceptance authority follows. See
+[the correction integration contract](G4_CORRECTION_INTEGRATION.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,
