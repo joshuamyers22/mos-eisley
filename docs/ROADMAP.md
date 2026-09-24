@@ -672,7 +672,12 @@ loading and telemetry adapters remain planned.
    Target clean, efficient code and cost-effective whole-task execution, counting
    planning, review, handoffs, integration, and rework. Delegated writes also require
    E2 bounded-subagent gates (plan §§7.7, 14.2.1, 15.7).
-8. **Publisher:** authenticated isolated credential process, dry run, idempotency.
+8. **Publisher — planned; stock GHP rejected 2026-09-23:** authenticated isolated
+   credential process, dry run, idempotency. The pinned GHP candidate failed the
+   mandatory-scope, exact-route, fail-closed-audit and vulnerability gates; see
+   [ADR 0005](adr/0005-ghp-github-publication-boundary.md) and the
+   [qualification record](GHP_QUALIFICATION.md). Re-design around a direct
+   short-lived GitHub App token or requalify a materially changed exact revision.
 9. **Extensions after the quality/security gates:** a non-authorizing, prompt-only
    skills foundation is implemented with exact recorded-run provenance. Persona
    promotion remains gated on paired quality evaluation. Policy preflight,

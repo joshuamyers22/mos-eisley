@@ -105,6 +105,9 @@ in the live command.
 | Matching billing evidence is treated as invoice finality or permission to refund/retry | Every billing artifact fixes exact request attribution, invoice finality, ledger mutation, automatic release, retry, quality, promotion, and routing activation to false | Later credits, taxes, adjustments, disputes, and manual financial handling remain external |
 | Skill metadata requests tools or executes code | `allowed-tools`, toolbundles, scripts, executable bits, symlinks, and special files fail closed | Prompt text can still influence model behavior; skills currently have no machine capabilities |
 | A skill package exhausts parsing or context | YAML indirection is rejected; file/count/depth/package/body caps are enforced; discovery output omits bodies | Byte counts are not provider token counts; quality and cost need paired evaluation |
+| A GitHub proxy token silently receives installation-wide authority | Stock GHP was rejected after reproducing optional repository/permission scopes and explicit open-scoped tokens; no proxy or token was deployed | A replacement publisher still needs repository, permission, route and expiry enforcement below caller-controlled code |
+| A category-scoped token invokes a different GitHub write | Stock GHP forwards unrecognized REST routes and cannot express the publisher's exact method/path set or disable GraphQL by configuration | GitHub App permissions alone are broader than one review/check operation; a replacement must default-deny routes independently |
+| A GitHub write succeeds while its audit event is lost | Stock GHP audit has no acknowledged result and is emitted after forwarding, so the candidate was rejected | A replacement requires a durable intent before send and conservative reconciliation after ambiguous outcomes |
 
 Timeouts use cooperative asyncio cancellation; adapters must not block the event
 loop. There is no untrusted plugin loading. Disk errors propagate; partially
@@ -117,4 +120,7 @@ intended model/effort and failure matrix, design an explicitly authorized conver
 from validated broker artifacts into live evaluation provenance, then connect the
 live adapter to critic/judge policy without weakening quorum failure behavior.
 Before executing code: a tested OS boundary including host reads/sockets, process
-resources and cleanup. Before publishing: authenticated IPC and stale-head checks.
+resources and cleanup. Before publishing: authenticated IPC, stale-head checks,
+one-use replay protection, an exact REST route allowlist and a durable audit
+transaction. Stock GHP commit `338498fc3e60` does not meet those gates; see
+`docs/adr/0005-ghp-github-publication-boundary.md`.

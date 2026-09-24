@@ -6,6 +6,9 @@ an explicit one-prompt OpenAI command is available. Paid commands remain tool-fr
 an explicit MCP adapter supplies data tools to the canonical agent port. This
 version does not yet run the adversarial critic/judge workflow live. It can
 plan and score offline model/effort evaluations, but automatic routing is disabled.
+The planned GitHub publisher also remains disabled: the pinned stock-GHP candidate
+failed qualification and was rejected in
+[ADR 0005](docs/adr/0005-ghp-github-publication-boundary.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)

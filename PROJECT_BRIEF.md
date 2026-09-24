@@ -116,6 +116,13 @@
   oversized files, symlinks/FIFOs, corrupted runs, malformed tool pairing, reused
   call IDs, adapter/tool timeouts, iteration/tool exhaustion and cancellation.
 - Owner: Josh Myers. Production rollout and quality calibration remain future work.
+- GitHub publisher qualification, 2026-09-23: stock `goodtune/ghp` commit
+  `338498fc3e60e7c04f428371e20fb6d5ce82c451` is rejected for this boundary.
+  Open-scoped token issuance, unknown-route forwarding, best-effort post-write
+  audit and reachable dependency/toolchain vulnerabilities fail the G0/G1 gates.
+  No GitHub-write capability, App, credential or deployment was created. A direct
+  short-lived GitHub App publisher remains a future design candidate; see ADR 0005
+  and `docs/GHP_QUALIFICATION.md`.
 - Reviewed extension direction, 2026-09-08: immutable plan clauses and sealed fresh
   readings, independent test derivation with full-package/binding controls, bounded
   correction and independently measured whole-task damage/cost. Fixed routes and
@@ -147,4 +154,5 @@
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
-  `docs/adr/0004-empirical-difficulty-routing.md`.
+  `docs/adr/0004-empirical-difficulty-routing.md`. ADR 0005 records the rejected
+  stock-GHP publisher design and its reconsideration gate.
