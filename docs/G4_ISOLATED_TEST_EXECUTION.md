@@ -109,8 +109,8 @@ uv run --frozen mos g4-verify-reviewer-test-controls \
 
 Docker, the exact image and the host kernel remain trusted. Arbitrary Python inside a
 run can alter process state, so byte/count evidence is not a semantic proof. The
-source revision remains a claim until the trusted VCS/E2 gate connects it to the
-tree, and this slice does not prove that dependency declarations correspond to the
-image. Authenticated reviewer/creator custody, candidate dispatch approval, bounded
-correction, final whole-suite execution and independent critic/judge review remain
-later G4 work.
+separate authenticated-provenance slice now connects the source revision and tree to
+trusted read-only Git, authenticated reviewer/creator custody and bounded E2 lineage.
+It still does not prove that dependency declarations correspond to the image.
+Candidate dispatch approval, bounded correction, final whole-suite execution and
+independent critic/judge review remain later G4 work.

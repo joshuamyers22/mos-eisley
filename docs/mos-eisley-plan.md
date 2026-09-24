@@ -4159,11 +4159,16 @@ inert slice now sends the exact frozen package and bound source/resource materia
 through the immutable-image, no-mount offline container, retains exact observed
 counts and ordered test-ID digests, and validates paired successful known-good and
 assertion-only known-bad controls over distinct trees. It has no host fallback and
-grants no candidate or downstream authority. These slices still do not attest Git/
-dependency completeness or arbitrary dynamic Python semantics. Authenticated
-custody, candidate dispatch, correction, trusted VCS/E2 gates, final whole-suite
+grants no candidate or downstream authority. A fourth inert slice authenticates the
+creator approval, reviewer custody, bounded child assignment/result and fixed-argv
+read-only Git reconstruction with domain-separated signatures. It verifies exact
+base/child/final ancestry, patch and owned paths, complete bound Git blobs, a clean
+worktree and the prior known controls. These slices still do not prove physical
+identity/key custody, external time, dependency/image correspondence or arbitrary
+dynamic Python semantics. Candidate dispatch, bounded correction, final whole-suite
 execution and independent review remain required. See
-[the isolated execution contract](G4_ISOLATED_TEST_EXECUTION.md).
+[the isolated execution contract](G4_ISOLATED_TEST_EXECUTION.md) and
+[the authenticated provenance contract](G4_AUTHENTICATED_PROVENANCE.md).
 
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and

@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — package, binding and isolated count/control slices implemented | Independently derive and freeze reviewer tests, bind an exact implementation tree, then add containment and bounded correction | Trusted VCS/E2 and authenticated custody gates, candidate/correction dispatch, final whole-suite tests and independent review |
+| G4 — package, binding, isolated count/control and authenticated provenance slices implemented | Independently derive and freeze reviewer tests, bind an exact implementation tree, authenticate custody/E2 and trusted read-only Git provenance, then add bounded correction | Candidate/correction dispatch, final whole-suite tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -71,6 +71,20 @@ bounded correction and final review remain open. See
 [the execution contract](G4_ISOLATED_TEST_EXECUTION.md),
 [verification record](G4_ISOLATED_TEST_EXECUTION_VERIFICATION.md) and
 [threat model](G4_ISOLATED_TEST_EXECUTION_THREAT_MODEL.md).
+
+**G4 fourth offline slice, 2026-09-24 — authenticated custody and trusted VCS/E2
+provenance implemented:** domain-separated Ed25519 artifacts bind the exact creator
+approval, blind reviewer-package custody, bounded child assignment/result and
+read-only Git claim. Schema 1 separates human keys; ADR-0005 schema 2 records one
+shared human operator without claiming independence, while the child key remains
+distinct. The fixed-argv Git broker reconstructs exact base/child/final ancestry,
+full-index binary patch, owned changed paths, complete bound blobs and clean
+worktree, then rechecks `HEAD`. The final canonical record also binds the existing
+known-good/known-bad controls. Physical identity/key custody, trusted external time,
+candidate/correction dispatch, final whole-suite execution and independent review
+remain open. See [the authenticated provenance contract](G4_AUTHENTICATED_PROVENANCE.md),
+[verification record](G4_AUTHENTICATED_PROVENANCE_VERIFICATION.md) and
+[threat model](G4_AUTHENTICATED_PROVENANCE_THREAT_MODEL.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

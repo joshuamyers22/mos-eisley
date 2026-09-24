@@ -187,6 +187,15 @@
   acceptance, repository/VCS, network, credential or provider authority; VCS/E2,
   authenticated custody, correction and final review remain open. See
   `docs/G4_ISOLATED_TEST_EXECUTION.md`.
+- G4 authenticated provenance boundary, 2026-09-24: domain-separated Ed25519
+  artifacts now bind creator approval, blind reviewer custody, a bounded and
+  path-disjoint child assignment/result, trusted read-only Git reconstruction and
+  the prior known-control record. Exact base/child/final ancestry, binary patch,
+  complete bound-tree Git blobs and current clean worktree are replayed under a
+  fixed minimal Git environment. Single-operator mode explicitly denies independent
+  human review and still requires a distinct child key. This grants no child or
+  candidate dispatch, repository/VCS write, provider, correction or acceptance
+  authority. See `docs/G4_AUTHENTICATED_PROVENANCE.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

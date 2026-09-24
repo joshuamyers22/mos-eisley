@@ -291,6 +291,12 @@ and critic/judge workflows retain their existing tool-free boundaries.
   ordered test-ID digests; paired known-good/known-bad validation rejects wrong-code,
   count-drift and error-only failures while granting no candidate or downstream
   authority.
+- [G4 authenticated custody and trusted VCS/E2 provenance](docs/G4_AUTHENTICATED_PROVENANCE.md)
+  now verifies domain-separated creator, reviewer, child and VCS signatures, exact
+  base/child/final Git ancestry, the child patch and owned paths, every bound Git
+  blob, a clean worktree and the prior known-control record. Its Git broker is
+  fixed-argv and read-only, and every dispatch, write, correction and acceptance
+  authority remains false.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

@@ -25,6 +25,7 @@ from mos_eisley import (
     review_observer_cli,
     review_submission_cli,
     reviewer_implementation_binding_cli,
+    reviewer_provenance_cli,
     reviewer_test_execution_cli,
     reviewer_test_package_cli,
 )
@@ -792,6 +793,23 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_test_execution_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-record-reviewer-git-provenance",
+            "Reconstruct exact binding and child lineage through read-only Git",
+        ),
+        (
+            "g4-assemble-reviewer-provenance",
+            "Assemble authenticated custody, VCS, E2 and control evidence",
+        ),
+        (
+            "g4-verify-reviewer-provenance",
+            "Replay authenticated custody and current read-only Git provenance",
+        ),
+    ):
+        reviewer_provenance_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8077,6 +8095,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-verify-reviewer-test-execution",
             "g4-validate-reviewer-test-controls",
             "g4-verify-reviewer-test-controls",
+            "g4-record-reviewer-git-provenance",
+            "g4-assemble-reviewer-provenance",
+            "g4-verify-reviewer-provenance",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8114,6 +8135,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "g4-verify-reviewer-test-controls": (
                     reviewer_test_execution_cli.run_command
                 ),
+                "g4-record-reviewer-git-provenance": (
+                    reviewer_provenance_cli.run_command
+                ),
+                "g4-assemble-reviewer-provenance": (
+                    reviewer_provenance_cli.run_command
+                ),
+                "g4-verify-reviewer-provenance": (reviewer_provenance_cli.run_command),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

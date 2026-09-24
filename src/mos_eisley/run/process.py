@@ -5,6 +5,8 @@ import selectors
 import subprocess
 import tempfile
 import time
+from collections.abc import Mapping
+from pathlib import Path
 
 MAX_WIRE_BYTES = 16_000_000
 
@@ -31,6 +33,9 @@ def bounded_process(
     payload: bytes = b"",
     timeout: float = 30,
     limit: int = MAX_WIRE_BYTES,
+    *,
+    environment: Mapping[str, str] | None = None,
+    cwd: Path | None = None,
 ) -> bytes:
     """Drain both pipes; terminate the client on limits or cancellation."""
     if len(payload) > MAX_WIRE_BYTES:
@@ -44,7 +49,10 @@ def bounded_process(
                 stdin=source,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env=docker_environment(),
+                env=dict(environment)
+                if environment is not None
+                else docker_environment(),
+                cwd=cwd,
             ) as process,
             selectors.DefaultSelector() as selector,
         ):
