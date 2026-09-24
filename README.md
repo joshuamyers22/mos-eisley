@@ -297,6 +297,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   blob, a clean worktree and the prior known-control record. Its Git broker is
   fixed-argv and read-only, and every dispatch, write, correction and acceptance
   authority remains false.
+- [G4 candidate execution admission and dispatch](docs/G4_CANDIDATE_EXECUTION.md)
+  now requires a separate exact creator signature, current Git/control replay and
+  one-use private claim before the immutable offline container runs candidate
+  reviewer tests. It retains passing or failing count evidence without authorizing
+  child implementation, correction, repository/VCS writes or final acceptance.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

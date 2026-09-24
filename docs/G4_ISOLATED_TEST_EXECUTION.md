@@ -112,5 +112,7 @@ run can alter process state, so byte/count evidence is not a semantic proof. The
 separate authenticated-provenance slice now connects the source revision and tree to
 trusted read-only Git, authenticated reviewer/creator custody and bounded E2 lineage.
 It still does not prove that dependency declarations correspond to the image.
-Candidate dispatch approval, bounded correction, final whole-suite execution and
-independent critic/judge review remain later G4 work.
+The separate [candidate admission and dispatch slice](G4_CANDIDATE_EXECUTION.md)
+now requires exact approval and one-use offline execution; the generic isolated
+runner rejects candidate requests. Bounded correction, final whole-suite execution
+and independent critic/judge review remain later G4 work.

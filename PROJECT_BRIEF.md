@@ -196,6 +196,15 @@
   human review and still requires a distinct child key. This grants no child or
   candidate dispatch, repository/VCS write, provider, correction or acceptance
   authority. See `docs/G4_AUTHENTICATED_PROVENANCE.md`.
+- G4 candidate execution boundary, 2026-09-24: a separate domain-signed creator
+  approval binds one candidate request to authenticated custody, controls, exact
+  source revision and immutable image. Preflight and dispatch replay current
+  read-only Git; dispatch exclusively spends the approval in a private controller
+  store, runs the existing no-mount offline container and retains exact result
+  counts after post-run revalidation. The generic isolated runner rejects
+  candidate requests. A failed or passing candidate receipt grants no child
+  implementation, correction, repository/VCS write, provider or acceptance
+  authority. See `docs/G4_CANDIDATE_EXECUTION.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

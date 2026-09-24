@@ -116,5 +116,7 @@ The record proves an authenticated, internally consistent evidence chain under i
 stated trust assumptions. The signed claim that the creator-test inventory is
 complete and that the child subtask is meaningful still requires accountable human
 review. Dependency declarations are not proof that the execution image contains the
-same dependencies. Candidate dispatch, bounded correction, final whole-suite
-execution and independent critic/judge acceptance remain separate G4 gates.
+same dependencies. The subsequent [candidate admission and dispatch
+slice](G4_CANDIDATE_EXECUTION.md) adds separate exact approval and a one-use
+offline test run; bounded correction, final whole-suite execution and independent
+critic/judge acceptance remain separate G4 gates.

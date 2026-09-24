@@ -239,11 +239,19 @@ class G4ProvenanceFixture:
         self.run_git("commit", "-q", "-m", message)
 
     def _package(self) -> FrozenReviewerTestPackage:
+        init_source = b"# reviewer test package\n"
         source = (
             b"from mos_eisley_reviewer_adapter import add\n"
             b"import unittest\n\n"
             b"class TestAdd(unittest.TestCase):\n"
             b"    def test_add(self): self.assertEqual(add(2, 3), 5)\n"
+        )
+        init_declaration = TestFileDeclaration(
+            path="tests/__init__.py",
+            kind="fixture",
+            media_type="text/x-python",
+            content_sha256=digest(init_source),
+            bytes=len(init_source),
         )
         declaration = TestFileDeclaration(
             path="tests/test_add.py",
@@ -280,11 +288,15 @@ class G4ProvenanceFixture:
                 expected_collected_tests=1,
                 expected_executed_tests=1,
             ),
-            files=(declaration,),
+            files=(init_declaration, declaration),
         )
         payload = ReviewerTestPackagePayload(
             manifest=manifest,
             files=(
+                FrozenTestFile(
+                    declaration=init_declaration,
+                    content_base64=base64.b64encode(init_source).decode("ascii"),
+                ),
                 FrozenTestFile(
                     declaration=declaration,
                     content_base64=base64.b64encode(source).decode("ascii"),

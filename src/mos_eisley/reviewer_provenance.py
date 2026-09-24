@@ -619,7 +619,7 @@ def _enrolled(
     }[role]
 
 
-def _verify_signature(
+def verify_provenance_signature(
     payload: Contract,
     signature: G4ArtifactSignature,
     policy: G4ProvenanceTrustPolicy,
@@ -685,20 +685,20 @@ def verify_custody_chain(
         <= result.result.issued_at
     ):
         raise ValueError("G4 provenance artifact chronology is inconsistent")
-    _verify_signature(
+    verify_provenance_signature(
         creator.approval, creator.signature, policy, "creator", _CREATOR_DOMAIN
     )
-    _verify_signature(
+    verify_provenance_signature(
         reviewer.custody, reviewer.signature, policy, "reviewer", _REVIEWER_DOMAIN
     )
-    _verify_signature(
+    verify_provenance_signature(
         assignment.assignment,
         assignment.signature,
         policy,
         "creator",
         _ASSIGNMENT_DOMAIN,
     )
-    child = _verify_signature(
+    child = verify_provenance_signature(
         result.result, result.signature, policy, "child", _RESULT_DOMAIN
     )
     manifest = package.payload.manifest
@@ -1050,7 +1050,9 @@ def verify_signed_git_provenance(
     signed: SignedTrustedGitProvenance,
     policy: G4ProvenanceTrustPolicy,
 ) -> None:
-    _verify_signature(signed.provenance, signed.signature, policy, "vcs", _GIT_DOMAIN)
+    verify_provenance_signature(
+        signed.provenance, signed.signature, policy, "vcs", _GIT_DOMAIN
+    )
 
 
 def assemble_authenticated_provenance(

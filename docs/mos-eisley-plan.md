@@ -4170,6 +4170,16 @@ execution and independent review remain required. See
 [the isolated execution contract](G4_ISOLATED_TEST_EXECUTION.md) and
 [the authenticated provenance contract](G4_AUTHENTICATED_PROVENANCE.md).
 
+A fifth offline slice now adds a separate exact creator-signed candidate-test
+approval, current Git and known-control admission, one-use private dispatch claim,
+and isolated candidate execution with post-run source revalidation. The generic
+isolated runner cannot start a candidate without this gate. Candidate test success
+is evidence only; it grants no coding-child dispatch, correction, final whole-suite
+or independent-review acceptance, repository/VCS write, credential, network or
+provider authority. Physical key custody, external time and dependency/image
+correspondence remain trusted or unproven. See
+[candidate execution admission and dispatch](G4_CANDIDATE_EXECUTION.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

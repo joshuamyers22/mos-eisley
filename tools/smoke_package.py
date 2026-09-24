@@ -285,6 +285,11 @@ def main() -> int:
             "test_analysis_raw.py",
             "test_analysis_schedule.py",
             "test_task_state_g0.py",
+            "test_reviewer_test_package.py",
+            "test_reviewer_implementation_binding.py",
+            "test_reviewer_test_execution.py",
+            "test_reviewer_provenance.py",
+            "test_reviewer_candidate_execution.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(

@@ -24,6 +24,7 @@ from mos_eisley import (
     review_launch_conformance_cli,
     review_observer_cli,
     review_submission_cli,
+    reviewer_candidate_execution_cli,
     reviewer_implementation_binding_cli,
     reviewer_provenance_cli,
     reviewer_test_execution_cli,
@@ -810,6 +811,23 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_provenance_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-check-candidate-execution",
+            "Admit one separately approved offline candidate test request",
+        ),
+        (
+            "g4-dispatch-candidate-execution",
+            "Spend one candidate approval and run in the immutable container",
+        ),
+        (
+            "g4-verify-candidate-execution",
+            "Replay-verify one candidate dispatch receipt against current Git",
+        ),
+    ):
+        reviewer_candidate_execution_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8098,6 +8116,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-record-reviewer-git-provenance",
             "g4-assemble-reviewer-provenance",
             "g4-verify-reviewer-provenance",
+            "g4-check-candidate-execution",
+            "g4-dispatch-candidate-execution",
+            "g4-verify-candidate-execution",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8142,6 +8163,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     reviewer_provenance_cli.run_command
                 ),
                 "g4-verify-reviewer-provenance": (reviewer_provenance_cli.run_command),
+                "g4-check-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
+                "g4-dispatch-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
+                "g4-verify-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

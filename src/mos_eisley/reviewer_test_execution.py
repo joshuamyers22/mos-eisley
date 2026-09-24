@@ -426,7 +426,22 @@ def run_isolated_reviewer_tests(
     implementation_root: Path,
     container: OfflineContainer,
 ) -> ImmutableReviewerTestExecutionReceipt:
-    """Execute only through the supplied immutable no-mount container."""
+    """Execute known controls; candidates require the separate G4 admission gate."""
+    if request.role == "candidate":
+        raise ValueError("candidate execution requires authenticated G4 admission")
+    return execute_isolated_reviewer_tests_in_trusted_host(
+        request, binding, reviewer_package_path, implementation_root, container
+    )
+
+
+def execute_isolated_reviewer_tests_in_trusted_host(
+    request: ReviewerTestExecutionRequest,
+    binding: ImmutableImplementationBindingRecord,
+    reviewer_package_path: Path,
+    implementation_root: Path,
+    container: OfflineContainer,
+) -> ImmutableReviewerTestExecutionReceipt:
+    """Execute one exact request only through the immutable no-mount container."""
     if container.image_id != request.container_image_id:
         raise ValueError("container image differs from the execution request")
     job = build_isolated_reviewer_test_job(

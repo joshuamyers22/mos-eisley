@@ -477,7 +477,7 @@ class ReviewerTestExecutionTests(unittest.TestCase):
                 name="good",
                 implementation=b"def add(left, right):\n    return left + right\n",
             )
-            request = self._request(binding, "candidate", "candidate-run")
+            request = self._request(binding, "known_good", "input-drift-control")
             receipt = self._receipt(request, binding, package_path, implementation_root)
             verify_execution_receipt(
                 receipt,
