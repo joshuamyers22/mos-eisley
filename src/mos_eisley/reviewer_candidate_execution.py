@@ -308,7 +308,7 @@ def admit_candidate_execution(
 
 def _consume_once(root: Path, admission: G4CandidateAdmissionRecord) -> None:
     """Exclusively spend an approval in one trusted, private controller-owned store."""
-    directory_fd = _open_dispatch_store(root)
+    directory_fd = open_private_dispatch_store(root)
     try:
         name = f"{admission.approval.artifact_sha256}.claim"
         fd = os.open(
@@ -326,7 +326,8 @@ def _consume_once(root: Path, admission: G4CandidateAdmissionRecord) -> None:
         os.close(directory_fd)
 
 
-def _open_dispatch_store(root: Path) -> int:
+def open_private_dispatch_store(root: Path) -> int:
+    """Open an existing owner-private controller store without following links."""
     info = root.lstat()
     if (
         not stat.S_ISDIR(info.st_mode)
@@ -343,7 +344,7 @@ def _open_dispatch_store(root: Path) -> int:
 
 
 def _verify_dispatch_claim(root: Path, admission: G4CandidateAdmissionRecord) -> None:
-    directory_fd = _open_dispatch_store(root)
+    directory_fd = open_private_dispatch_store(root)
     try:
         name = f"{admission.approval.artifact_sha256}.claim"
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)

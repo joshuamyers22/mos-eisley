@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — package, binding, isolated count/control, authenticated provenance and candidate execution slices implemented | Continue with bounded correction under the same exact custody and containment gates | Correction dispatch, final whole-suite tests and independent review |
+| G4 — package, binding, isolated count/control, authenticated provenance, candidate execution and offline bounded-correction evidence slices implemented | Finish separately gated correction dispatch and final whole-suite testing/review | Production child dispatch, final whole-suite tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -99,6 +99,22 @@ whole-suite testing or independent review, and no production use is approved. Se
 [the candidate execution contract](G4_CANDIDATE_EXECUTION.md),
 [verification record](G4_CANDIDATE_EXECUTION_VERIFICATION.md) and
 [threat model](G4_CANDIDATE_EXECUTION_THREAT_MODEL.md).
+
+**G4 sixth offline slice, 2026-09-24 — bounded correction evidence gate
+implemented:** schema-2 isolated observations retain exact failed-test IDs. Two
+separately approved candidate receipts must reproduce matching assertion failures
+on one unchanged source/package/image. An enrolled judge signs a full-ID triage,
+and the creator signs one exact path/budget/deadline-bounded cycle. An exclusive
+private claim and stored completion carry at most two cycles and conservative
+aggregate allowances across resume. Completion requires a renewed full custody,
+Git and candidate chain with unchanged approved plan/creator-test digests, reviewer test bytes,
+adapter and static dependencies. It grants no coding-child or provider dispatch,
+repository/VCS write, final-review bypass or acceptance. Critic-quorum evidence
+is only hash-bound here, not authenticated; actual correction execution, measured
+spend and final independent review remain open. The clean installed-wheel smoke
+passed 1,832 tests, but that does not grant production authority. See
+[the correction contract](G4_BOUNDED_CORRECTION.md) and
+[verification record](G4_BOUNDED_CORRECTION_VERIFICATION.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

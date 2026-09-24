@@ -141,7 +141,7 @@ class IsolatedReviewerTestJob(Contract):
 class IsolatedReviewerTestObservation(Contract):
     """Bounded worker observation; the host binds it to current inputs."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     kind: Literal["isolated_reviewer_test_observation"] = (
         "isolated_reviewer_test_observation"
     )
@@ -151,6 +151,7 @@ class IsolatedReviewerTestObservation(Contract):
     executed_tests: Count
     skipped_tests: Count
     failures: Count
+    failed_test_ids: Annotated[tuple[str, ...], Field(max_length=10_000)] = ()
     errors: Count
     expected_failures: Count
     unexpected_successes: Count
@@ -162,6 +163,17 @@ class IsolatedReviewerTestObservation(Contract):
 
     @model_validator(mode="after")
     def coherent_observation(self) -> Self:
+        if self.schema_version == 1 and self.failed_test_ids:
+            raise ValueError("legacy observation cannot claim failure identities")
+        if self.schema_version == 2 and (
+            len(self.failed_test_ids) != self.failures
+            or len(set(self.failed_test_ids)) != len(self.failed_test_ids)
+            or any(
+                not item or len(item.encode("utf-8")) > 1024
+                for item in self.failed_test_ids
+            )
+        ):
+            raise ValueError("failure identities differ from observed failures")
         if self.executed_tests + self.skipped_tests != self.started_tests:
             raise ValueError(
                 "executed and skipped observations must equal started tests"

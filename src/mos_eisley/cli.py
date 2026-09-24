@@ -25,6 +25,7 @@ from mos_eisley import (
     review_observer_cli,
     review_submission_cli,
     reviewer_candidate_execution_cli,
+    reviewer_correction_cli,
     reviewer_implementation_binding_cli,
     reviewer_provenance_cli,
     reviewer_test_execution_cli,
@@ -828,6 +829,16 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_candidate_execution_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-admit-correction-cycle",
+            "Claim one evidence-gated offline correction cycle",
+        ),
+        ("g4-complete-correction-cycle", "Verify a renewed G4 chain after correction"),
+    ):
+        reviewer_correction_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8119,6 +8130,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-check-candidate-execution",
             "g4-dispatch-candidate-execution",
             "g4-verify-candidate-execution",
+            "g4-admit-correction-cycle",
+            "g4-complete-correction-cycle",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8172,6 +8185,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "g4-verify-candidate-execution": (
                     reviewer_candidate_execution_cli.run_command
                 ),
+                "g4-admit-correction-cycle": (reviewer_correction_cli.run_command),
+                "g4-complete-correction-cycle": (reviewer_correction_cli.run_command),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

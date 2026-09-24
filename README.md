@@ -302,6 +302,12 @@ and critic/judge workflows retain their existing tool-free boundaries.
   one-use private claim before the immutable offline container runs candidate
   reviewer tests. It retains passing or failing count evidence without authorizing
   child implementation, correction, repository/VCS writes or final acceptance.
+- The offline [G4 bounded correction evidence gate](docs/G4_BOUNDED_CORRECTION.md)
+  requires two matching assertion-failure receipts, a signed judge disposition,
+  a separately signed creator cycle and an exclusive private claim. It caps two
+  cycles under one conservative task allowance and verifies a renewed full
+  custody/Git/candidate chain without granting child dispatch, writes or final
+  acceptance. Production correction and final whole-suite/review gates remain open.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

@@ -4180,6 +4180,18 @@ provider authority. Physical key custody, external time and dependency/image
 correspondence remain trusted or unproven. See
 [candidate execution admission and dispatch](G4_CANDIDATE_EXECUTION.md).
 
+A sixth offline slice records the bounded correction evidence transition: two
+separately approved candidate runs must reproduce the same assertion-failure
+identities on one unchanged tree, a judge must sign a complete disposition and
+the creator must sign a task-budgeted cycle. Private one-use claims cap the task
+at two cycles. A corrected result needs a renewed authenticated custody/Git chain
+and candidate receipt with unchanged approved plan/creator-test digests, frozen
+reviewer test bytes, adapter and static dependencies. Creator-test Git blobs
+remain for the final whole-suite gate.
+This does not dispatch a coding child, prove critic quorum or actual spend, run the
+final whole suite, or grant independent acceptance. See
+[the bounded correction contract](G4_BOUNDED_CORRECTION.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

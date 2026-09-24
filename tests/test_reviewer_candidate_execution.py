@@ -282,7 +282,11 @@ class CandidateExecutionTests(unittest.TestCase):
             )
             observation = self._observation(fixture, request)
             failed = observation.model_copy(
-                update={"failures": 1, "suite_successful": False}
+                update={
+                    "failures": 1,
+                    "failed_test_ids": ("test_reviewer.Case.test_add",),
+                    "suite_successful": False,
+                }
             )
             with patch.object(
                 container, "execute", return_value=canonical_bytes(failed)

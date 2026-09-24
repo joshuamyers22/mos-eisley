@@ -309,6 +309,8 @@ class ReviewerTestExecutionTests(unittest.TestCase):
             )
             self.assertTrue(good_receipt.observation.suite_successful)
             self.assertEqual(bad_receipt.observation.failures, 1)
+            self.assertEqual(bad_receipt.observation.schema_version, 2)
+            self.assertEqual(len(bad_receipt.observation.failed_test_ids), 1)
             self.assertEqual(bad_receipt.observation.errors, 0)
             control = validate_known_controls(good_receipt, bad_receipt)
             self.assertTrue(control.controls_validated)

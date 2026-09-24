@@ -272,8 +272,13 @@ def _run(job: dict[str, object], job_sha256: str) -> dict[str, object]:
         if len(skipped) != len(result.skipped_ids):
             raise ValueError("reviewer-test execution reported duplicate skips")
         executed_ids = [item for item in result.started_ids if item not in skipped]
+        failed_ids = [test.id() for test, _traceback in result.failures]
+        if len(set(failed_ids)) != len(failed_ids):
+            raise ValueError("reviewer-test failures have duplicate identities")
+        if any(item not in executed_ids for item in failed_ids):
+            raise ValueError("reviewer-test failure was not executed")
         observation: dict[str, object] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "kind": "isolated_reviewer_test_observation",
             "job_sha256": job_sha256,
             "collected_tests": len(collected_ids),
@@ -281,6 +286,7 @@ def _run(job: dict[str, object], job_sha256: str) -> dict[str, object]:
             "executed_tests": result.testsRun - len(result.skipped),
             "skipped_tests": len(result.skipped),
             "failures": len(result.failures),
+            "failed_test_ids": failed_ids,
             "errors": len(result.errors),
             "expected_failures": len(result.expectedFailures),
             "unexpected_successes": len(result.unexpectedSuccesses),

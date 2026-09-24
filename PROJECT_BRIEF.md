@@ -205,6 +205,15 @@
   candidate requests. A failed or passing candidate receipt grants no child
   implementation, correction, repository/VCS write, provider or acceptance
   authority. See `docs/G4_CANDIDATE_EXECUTION.md`.
+- G4 offline bounded-correction boundary, 2026-09-24: two separately authorized
+  candidate runs must reproduce the same assertion-failure identities before a
+  signed full-ID judge triage and creator cycle approval can claim one of at most
+  two task-budgeted correction cycles. A corrected candidate needs renewed
+  custody, Git and test evidence with unchanged approved plan/creator-test
+  digests and frozen reviewer-test bytes. This is
+  evidence gating only: child/provider dispatch, writes, measured aggregate
+  spend, final whole-suite and independent acceptance remain open. See
+  `docs/G4_BOUNDED_CORRECTION.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
