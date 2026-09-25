@@ -2,8 +2,9 @@
 
 Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
-signed single-operator triage, zero-spend cycle-1 admission and one contained
-agent-authored offline correction-child dispatch replay-verified**.
+signed single-operator triage, zero-spend cycle-1 admission, one contained
+agent-authored offline correction-child dispatch and separately authorized
+isolated Git integration replay-verified**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -18,9 +19,9 @@ cap** (10,000,000 micro-USD) and a **2026-09-26T23:59:00-04:00** deadline
 Joshua then personally reviewed the interface, rubric and reviewer-test draft,
 accepted single-operator self-review risk, and attested he had not seen the seed
 implementation or child telemetry before that review or the package freeze.
-The subsequent signatures, corrected package freeze, paired controls and
-separately authorized offline dispatch are recorded below; none grants provider
-spend or acceptance.
+The subsequent signatures, corrected package freeze, paired controls, offline
+dispatch and isolated integration are recorded below; none grants provider
+spend, final-test admission or acceptance.
 
 ## Exact controller and isolated target
 
@@ -257,9 +258,10 @@ or acceptance authority follows from admission.
 - The separate creator-signed cycle-1 approval and one-use admission above
   verify. Their claim is spent; do not retry admission or change stores.
   One contained offline correction-child dispatch has now run under its separate
-  signed grant. Write integration and final review still require separate
-  grants. Provider use is impossible under this zero-spend cycle; it would
-  require a fresh authorized chain.
+  signed grant, followed by separately authorized isolated Git integration.
+  Final suites and review still require separate grants. Provider use is
+  impossible under this zero-spend cycle; it would require a fresh authorized
+  chain.
 - Joshua signed separate offline correction-child dispatch grant SHA-256
   `da0f4a2e8d3893dcbf1a06befec74de92baf1464cac063e9529584fad1ad8ada`.
   It binds the exact admission, current revision, pinned image, one owned source
@@ -267,7 +269,7 @@ or acceptance authority follows from admission.
   Read-only offer preview SHA-256 `418e0181579f75f70f83048ec214c3221075b1bf553e4cd44778d47988c35a2d`
   replayed against current Git. One child-dispatch claim was later consumed,
   producing a signed, deterministic agent-authored proposal and contained
-  worker receipt. No provider was called or host file changed. The grant expires
+  worker receipt. No provider was called or original-checkout file changed. The grant expires
   with the cycle approval at 2026-09-26 19:30:42 UTC, but its claim is spent.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
@@ -287,11 +289,27 @@ The pinned no-network/no-mount worker accepted a replacement of only
 micro-USD. The claim and enrolled child signature replay-verified, and the
 target remains clean at `6f2551d`. This tests containment with an expressly
 agent-authored deterministic offline proposal; it does not qualify a real
-provider child, integrate the code or establish final correctness.
+provider child or establish final correctness.
+
+Joshua then signed a separate creator integration grant, SHA-256
+`90a794b7e2cde4864d5a78d348af0f96e7b2c3b0777931182541f3c38da12482`,
+binding the exact dispatch receipt, source revision and only
+`src/quote_lab/price.py`. After read-only preflight, one private task/cycle
+integration claim was consumed and the broker created detached commit
+`0cc84190f443732424f327cc5f543325f3627dd1`, a direct child of
+`6f2551df8256b6744f010d0b7e31655541ca2163`. Its one-file patch adds the
+plan's half-up term. The original target branch remained clean and unmoved.
+The canonical integration record SHA-256 is
+`54d8a7053c6b2a32f00c42c6c85cc8cadc7f5b48ba61f3616e7f09394fdc3234`.
+Joshua separately signed the VCS attestation, artifact SHA-256
+`f50a4cea8f3611a2dc287be8bce63a152480298df889e275262e8caca38a4728`.
+Independent replay verified both enrolled signatures, the claim, parent,
+worktree, paths, blobs, patch and unchanged original checkout. The integrated
+commit is an isolated proposal result, not a final test pass or acceptance.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
-and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next execution
-boundary is separately authorized isolated write/integration of the proposed
-replacement, followed by renewed bindings, creator/reviewer whole suites and
-independent review. The dispatch claim is spent; do not retry or switch stores.
-Separate authorization is required before any provider send.
+and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
+is renewed binding/provenance for the integrated revision and separately
+authorized creator/reviewer whole suites, followed by independent review.
+The correction-child and integration claims are spent; do not retry or switch
+stores. Separate authorization is required before any provider send.
