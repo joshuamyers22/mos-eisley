@@ -322,6 +322,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   now binds an exact creator-signed provider grant to one tool-free isolated call
   and conservative shared-ledger settlement. It was implemented and tested offline;
   no live call or final acceptance follows from its availability.
+- The [G4 final whole-suite gate](docs/G4_FINAL_WHOLE_SUITES.md) separately
+  authorizes exact creator/reviewer test packages on a passing authenticated
+  candidate, runs them in isolated containers and retains count/Git replay evidence.
+  Its offline implementation does not establish a production passing result or
+  independent acceptance.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

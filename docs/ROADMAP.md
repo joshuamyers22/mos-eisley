@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, isolated Git integration and separately gated production coding-child broker implemented | Finish final creator/reviewer whole-suite execution and independent-review gates; any live child exercise needs separate approval | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, final whole-suite tests and independent review |
+| G4 — offline foundations, Git integration, coding-child broker and final whole-suite gate implemented | Finish independent-review gate; real child and final-suite exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -154,6 +154,19 @@ having code present. Actual separately approved live exercise, renewed correctio
 evidence, whole-suite execution, critic quorum and independent acceptance remain
 open. See [the broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md) and
 [verification record](G4_PRODUCTION_CODING_CHILD_BROKER_VERIFICATION.md).
+
+**G4 tenth slice, 2026-09-24 — final creator/reviewer whole-suite gate implemented
+offline:** a separate creator signature binds a passing authenticated candidate,
+the complete protected creator-test Git bytes and frozen reviewer package, two
+exact requests, code revision and immutable image. One private claim precedes
+separate isolated whole-suite runs; exact counts, ordered reviewer-test identities
+and post-run Git replay determine a non-accepting result. The creator path accepts
+direct implementation imports without weakening the reviewer adapter boundary.
+Only fixture runs used a fake Docker transport; no production candidate or live
+provider call ran. Actual passing final suites, renewed correction evidence,
+critic quorum, independent review and any applicable G3 quality gate remain open.
+See [the final-suite contract](G4_FINAL_WHOLE_SUITES.md) and
+[verification record](G4_FINAL_WHOLE_SUITES_VERIFICATION.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

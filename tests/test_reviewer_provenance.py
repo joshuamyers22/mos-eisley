@@ -85,7 +85,13 @@ class G4ProvenanceFixture:
         )
         self.write("pyproject.toml", "[project]\nname='demo'\n")
         self.write("uv.lock", "version = 1\n")
-        self.write("tests/test_creator.py", "def test_creator():\n    assert True\n")
+        self.write(
+            "tests/test_creator.py",
+            "import unittest\nfrom demo import add\n\n"
+            "class TestCreator(unittest.TestCase):\n"
+            "    def test_add(self):\n"
+            "        self.assertEqual(add(2, 3), 5)\n",
+        )
         self.write("README.md", "base\n")
         self.commit("base")
         self.base_revision = self._text("rev-parse", "HEAD")

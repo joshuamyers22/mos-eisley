@@ -4218,6 +4218,16 @@ and tested offline without a provider call. It does not itself authorize live
 dispatch or complete the renewed correction, final whole-suite or independent
 review gates. See [the production broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md).
 
+A tenth offline slice adds a separately creator-signed final whole-suite gate.
+It binds a passing authenticated candidate and final Git revision to complete
+protected creator-test bytes, the frozen reviewer package, two exact execution
+requests and one immutable image. A private one-use claim precedes separate
+isolated creator and reviewer runs; count and test-ID evidence and post-run Git
+replay produce a non-accepting result. Fixture tests used fake Docker transport,
+not a production candidate or live provider. Real passing suites, renewed
+correction evidence, critic quorum and independent implementation review remain
+open. See [the final whole-suite contract](G4_FINAL_WHOLE_SUITES.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

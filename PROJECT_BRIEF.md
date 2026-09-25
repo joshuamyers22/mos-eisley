@@ -238,6 +238,14 @@
   No live call occurred during implementation; code presence itself grants no
   provider call, final suite, independent review or acceptance. See
   `docs/G4_PRODUCTION_CODING_CHILD_BROKER.md`.
+- G4 final whole-suite gate, 2026-09-24: a separate creator-signed approval
+  binds a passing authenticated candidate, complete protected creator-test Git
+  bytes, frozen reviewer package, two exact offline requests, final revision and
+  image. Separate isolated runs retain counts and test identities; a private
+  one-use claim and post-run Git replay prevent silent retry or substitution.
+  This was implemented and fixture-tested offline, not run on a production
+  candidate. Independent review, critic quorum, correction completion and
+  acceptance remain open. See `docs/G4_FINAL_WHOLE_SUITES.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

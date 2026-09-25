@@ -178,7 +178,12 @@ def _decode_file(item: dict[str, object]) -> tuple[str, bytes, str, int]:
 
 def _run(job: dict[str, object], job_sha256: str) -> dict[str, object]:
     binding = _mapping(job["binding"], "invalid implementation binding")
-    package = _mapping(job["reviewer_package"], "invalid reviewer package")
+    package_key = (
+        "creator_package"
+        if job.get("kind") == "isolated_creator_test_job"
+        else "reviewer_package"
+    )
+    package = _mapping(job[package_key], "invalid test package")
     implementation_files = _sequence(
         job["implementation_files"], "invalid implementation material"
     )
@@ -305,8 +310,11 @@ def main() -> int:
         raise ValueError("isolated reviewer-test job exceeds the wire limit")
     decoded = cast(object, json.loads(payload))
     job = _mapping(decoded, "invalid isolated reviewer-test job")
-    if job.get("kind") != "isolated_reviewer_test_job":
-        raise ValueError("invalid isolated reviewer-test job")
+    if job.get("kind") not in {
+        "isolated_reviewer_test_job",
+        "isolated_creator_test_job",
+    }:
+        raise ValueError("invalid isolated test job")
     observation = _run(job, _digest(payload))
     sys.stdout.buffer.write(_canonical(observation))
     return 0
