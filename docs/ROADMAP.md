@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and one replay-verified failing candidate receipt; a second independently approved run remains. Real child, final-suite and critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator signed triage verifies against the disclosed non-independent offline critic artifact. A separate creator correction-cycle approval and admission remain. Real child, final-suite and independent critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -199,10 +199,17 @@ result. Joshua signed the exact read-only Git claim; the assembled offline
 record replay-verified against the current clean target and paired controls.
 This does not qualify a real initial-child run. Joshua separately signed the
 first exact one-use candidate grant. Its no-network dispatch consumed the
-claim and produced replay-verified receipt `6d08b811…`: 5/5 tests ran, with
-two assertion failures, zero errors and `candidate_tests_passed=false`. No
-second independently approved candidate, real child/provider call, two-family
-critic result or final-suite run exists. The
+claim and produced replay-verified receipt `6d08b811…`. A separate exact
+grant and distinct claim produced second receipt `43c2e9d8…`; both replayed
+against the same clean bound source and each ran 5/5 tests with the same two
+assertion failures and zero errors. The correction-gate pair validator accepted
+the matching failure IDs. Offline source-level review found one omitted half-up
+term in the bound source and classified both IDs as implementation defects
+against the signed plan. Joshua's single-operator signed triage `aa87ff09…`
+covers both reproduced IDs and binds the disclosed agent-authored,
+non-independent critic review. Its signature verifies against the enrolled key,
+but it grants no correction dispatch or acceptance authority. No real
+child/provider call, two-family critic result or final-suite run exists. The
 [preparation packet](G4_QUALIFICATION_PREPARATION_2026-09-25.md) fixes the
 identities and the ordered preflight; it grants no live or release authority.
 

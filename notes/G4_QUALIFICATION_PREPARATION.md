@@ -1,6 +1,6 @@
 # Work Note: first G4 qualification preparation
 
-- Status: first one-use failing candidate receipt replay-verified; second independent admission and correction qualification open
+- Status: two failed receipts and signed single-operator triage verified; separate correction-cycle approval and qualification open
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-25
 - Last updated (UTC): 2026-09-25
@@ -16,7 +16,8 @@
   single-operator human roles disclose self-review and use a child-distinct key;
   one-use claims and ledger before any call; no seeded
   initial child presented as a real provider child; G3 remains separate.
-- Non-goals: actual child/critic/judge call, execution grants, spending, final G4 pass.
+- Non-goals: actual child/critic/judge call, correction dispatch, provider
+  spending, final G4 pass.
 - Risk: high. Offline resource ceiling: zero provider micro-USD and no credential
   access; one exact image build, local source-level checks, offline
   input/custody signing and paired no-network container controls. Stop at a
@@ -62,31 +63,36 @@
 | 2026-09-25 | observation | Binding `97eee7ad…` replay-verified; read-only Git reconstructed exact ancestry, owned patch, committed blobs and clean source in unsigned claim `d59411ec…`. Strict CLI needed a separate canonical copy of the unchanged policy; original preserved. | Private binding/Git claim and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Obtain Joshua's separate VCS signature, then assemble/replay. |
 | 2026-09-25 | observation | Joshua locally signed the exact Git claim; signed artifact `ad35ad0b…` verified against the enrolled VCS key. Assembled record `cb4dc4fb…` replay-verified against the clean target, v2 package, final binding and paired controls. All downstream authority remains false. | Private signed artifact, record and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate candidate-test admission. |
 | 2026-09-25 | observation | Joshua signed exact one-use candidate approval. Admission `d2bb3486…` passed, and the no-network dispatch consumed one claim. Receipt `6d08b811…` replay-verified against the clean target: 5/5 tests, two expected assertion failures, zero errors, `candidate_tests_passed=false`. No correction or acceptance authority. | Private admission, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate signed grant for the second independent candidate. |
+| 2026-09-25 | observation | Joshua signed distinct candidate-2 grant. Admission `bec6ecad…` passed; one no-network dispatch consumed a second claim in the same store. Receipt `43c2e9d8…` replay-verified against the clean target: 5/5 tests, the same two assertion failures and zero errors. The correction-gate pair validator accepted independent identities and matching failure IDs. This is reproduction, not defect adjudication or correction approval. | Private request, admission, claims, receipts and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Adjudicate both failed IDs with exact plan and implementation evidence. |
+| 2026-09-25 | observation | Creator-signed plan `90dfdbea…` requires `(numerator + 5_000)//10_000`; bound source `496e2a33…` omits the increment at line 20. Frozen test expectations match the plan: tie inputs require 2/3 but source returns 1/2; discounted 707-cent subtotal requires 601 but source returns 600. Both failed IDs are source-level `implementation_defect` findings sharing one root cause, not evidence of a discount-order defect. No correction review policy, critic artifact or signed judge triage exists. | Owner-only `SOURCE_ADJUDICATION.md` and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Obtain accountable review and formal critic-bound judge triage before a correction grant. |
+| 2026-09-25 | observation | A same-agent adversarial pass checked oracle, plan, order, source, flake and unreached-second-assertion alternatives. Owner-only critic artifact `4f6962f9…` is expressly non-independent; proposed canonical single-operator judge policy `55d29e01…` enrolls Joshua's existing public key and denies dispatch/acceptance. The local signer replayed both receipts and current Git and reached exact triage payload in a deliberate refusal without accessing Joshua's key. My direct source probe had created two ignored bytecode files; they were moved recoverably out of the source root before the signer preflight passed. No signed triage exists. | Private critic, policy, signer and `PREPARATION.md` | Joshua reviews exact inputs and signs locally if accepted. |
+| 2026-09-25 | observation | Joshua locally signed triage artifact `aa87ff09…`. Canonical decode, Ed25519 verification against the enrolled judge key, both exact receipt hashes and failure IDs, critic/source evidence hashes, policy window and disabled dispatch/acceptance flags all passed. This is disclosed single-operator review with an agent-authored, non-independent critic pass; it is not a creator correction-cycle approval. | Owner-only signed triage and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate creator-signed bounded correction-cycle approval and one-use admission. |
 
 ## Handoff
 
 - Current state: signed creator/reviewer custody, distinct fixture bindings,
-  paired control receipts, seeded assignment/result/VCS provenance and the
-  first failing candidate receipt replay. The first claim is spent. No real
+  paired control receipts, seeded assignment/result/VCS provenance and two
+  matching failed candidate receipts replay. Both failed IDs trace to one
+  missing half-up increment in the bound source. Both claims are spent. No real
   child dispatch, provider call or final G4 evidence.
-- Next smallest safe action: obtain a distinct exact human-signed grant for a
-  second independently admitted candidate run in the same claim store; no
+- Next smallest safe action: prepare a separate creator-signed bounded
+  correction-cycle approval and one-use admission against this triage; no
   provider send without separate authorization.
-- Blocker and required authority/input for later live stages: second candidate
-  grant, second provider family, live spending/dispatch approval,
+- Blocker and required authority/input for later live stages: correction approval,
+  second provider family, live spending/dispatch approval,
   shared ledger and applicable G3 gate.
 - Checks already run: controller image start/source hash; clean target Git;
   local draft good/bad creator/reviewer test sensitivity; canonical creator and
   v2 custody, seeded assignment/result signatures verified; package, bindings,
-  controls, authenticated Git/current-source and candidate receipt replay
+  controls, authenticated Git/current-source and both candidate receipt replays
   passed; product source `make check` passed on `752c350` before this docs-only
   preparation.
 
 ## Close and promote
 
 - Outcome: offline input/custody, paired controls, seeded VCS/E2 provenance and
-  first failing candidate checkpoint complete; not correction qualification or
-  launch authority.
+  two independent failed-candidate reproductions, source-level assessment and
+  signed triage complete; not correction qualification or launch authority.
 - Durable fact promoted to `PROJECT_MEMORY.md`: none; project memory is not an
   index of ephemeral exercise status.
 - Temporary artifacts removed: generated Python bytecode caches from target

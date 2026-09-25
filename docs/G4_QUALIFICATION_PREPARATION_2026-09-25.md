@@ -1,8 +1,9 @@
 # G4 first qualification: offline preparation packet
 
-Status: **offline seeded custody and authenticated VCS/E2 provenance verified;
-first one-use candidate receipt replay-verified with two assertion failures;
-no real child dispatch or correction authority**.
+Status: **offline seeded provenance and two independent failed-candidate
+receipts replay-verified; both failures traced to one missing half-up term;
+signed single-operator triage verified; real child dispatch and correction
+authority remain open**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -169,14 +170,17 @@ provider call, correction integration or acceptance is claimed.
    assignment/result and distinct base → child → source lineage, Joshua's VCS
    signature, assembled record and current Git replay verify. This cannot
    qualify a real initial coding-child dispatch.
-4. **Exercise correction — first candidate complete:** with fresh exact creator
-   grants and the same persistent private claim store, run two independently
-   admitted failing candidate tests. The first receipt verified with 5/5 tests,
-   two assertion failures and zero errors. Obtain a separate signed grant for
-   the second run; adjudicate their identical assertion IDs; admit one bounded
-   correction cycle; issue separate dispatch and production-broker grants.
+4. **Exercise correction — two candidate reproductions complete:** two fresh
+   exact creator grants and the same persistent private claim store yielded
+   independently admitted failed candidate receipts. Each ran 5/5 tests with
+   the same two assertion failures and zero errors; the correction-gate pair
+   check accepted their distinct identities and matching observations.
+   Source-level assessment traces both to one rounding defect. Joshua's signed
+   single-operator triage now covers both IDs; a separately approved bounded
+   correction cycle and dispatch/production-broker grant remain open.
    Reserve the full shared-ledger allowance before any provider call. No
    automatic retry after an uncertain send or consumed claim.
+
 5. **Integrate and verify:** require a valid child-signed scoped proposal and a
    separate integration grant. Replay new custody/Git/candidate evidence, run
    the full protected creator and frozen reviewer suites in the pinned image,
@@ -190,19 +194,50 @@ uncorroborated role custody, a failed/changed known control, non-assertion
 candidate error, missing critic family, unresolved spend, failed cleanup, any
 blocking finding, or an exhausted grant. Retain evidence; do not relabel failure
 as acceptance. No live call, provider credential, budget reservation, production
-host source write or final acceptance was created. One candidate claim was
-consumed; it must not be reset or bypassed. The
+host source write or final acceptance was created. Two candidate claims were
+consumed; neither may be reset or bypassed. The
 disposable fixture target alone received the two disclosed commits above.
+
+## Source-level failure adjudication
+
+The signed creator approval names plan SHA-256 `90dfdbea…`, whose lines 12–14
+require `(numerator + 5_000) // 10_000`. The frozen reviewer file SHA-256 is
+`fd6edf4f…`; the bound source file SHA-256 is `496e2a33…` at revision
+`6f2551d`. Source line 20 instead returns `numerator // 10_000`.
+
+| Reproduced failed ID | Approved-plan value | Bound-source value | Source-level disposition |
+|---|---:|---:|---|
+| `test_half_cent_ties_round_up` | 2 and 3 for the two tie cases | 1 and 2 | Implementation defect: half-up increment omitted. |
+| `test_discount_applies_to_whole_subtotal` | 601 for 707 cents discounted 15% | 600 | Same rounding defect; source does discount the whole subtotal. |
+
+Both frozen assertions match the approved formula. The two receipts reproduced
+exactly these IDs with 5/5 execution and zero errors; the known-good/known-bad
+controls further support sensitivity. This is **one shared root cause**, not a
+separate discount-order defect. The owner-only `SOURCE_ADJUDICATION.md` retains
+full identities and arithmetic. The second tie assertion was not reached by
+the failed reviewer method; its source result was checked separately offline.
+The owner-only source assessment is bound into Joshua's signed judge triage,
+artifact SHA-256 `aa87ff091b33aabb32ab6714bb7fc3af7bfd418daf5a85da4ea726b88ad166bf`.
+Its signature verifies against the enrolled key and it names both independently
+reproduced receipt hashes, the exact review policy and the critic artifact.
+The policy discloses single-operator review; the critic pass is agent-authored,
+not provider-backed or independent human review. The signed triage explicitly
+denies correction dispatch and acceptance authority. It is not a correction
+cycle approval.
 
 ## Current authorization gaps
 
 - Creator/reviewer custody, seeded assignment/result, Joshua-signed Git claim
   and assembled provenance record verify. No real initial-child result exists.
 - Immutable fixture bindings and containerized paired-control receipts exist.
-  The first candidate receipt `6d08b811…` replay-verified against claim
-  `d2bb3486…`, the exact current Git tree and inputs: 5/5 tests ran, two
-  expected assertion failures, zero errors; `candidate_tests_passed=false`.
-  No second independently granted candidate or final-suite receipt exists.
+  The first candidate receipt `6d08b811…` and separately approved second
+  receipt `43c2e9d8…` replay-verified against distinct claims in the same store
+  and the exact current Git tree and inputs. Each ran 5/5 tests with failures
+  `test_discount_applies_to_whole_subtotal` and `test_half_cent_ties_round_up`,
+  zero errors or skips, and `candidate_tests_passed=false`. The exact pair
+  validator accepted matching failure and collection identities. The source-
+  level finding and signed triage are recorded above; the final-suite receipt
+  remains absent.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -215,7 +250,8 @@ disposable fixture target alone received the two disclosed commits above.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a second independently approved candidate-test admission and dispatch in
-the same private one-use claim store, then source-level adjudication of the
-two observations. Separate authorization is required before any provider send;
-these seeded and candidate records give none.
+is a separate creator-signed, bounded correction-cycle approval and one-use
+admission against the signed triage, shared task budget and deadline. This
+triage alone cannot dispatch a correction child or authorize integration.
+Separate authorization is required before any provider send; these seeded and
+candidate records give none.
