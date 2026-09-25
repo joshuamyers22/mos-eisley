@@ -334,9 +334,9 @@ and critic/judge workflows retain their existing tool-free boundaries.
   release approval follows from this implementation alone.
 - The [first G4 qualification preparation packet](docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md)
   pins the corrected controller image and a clean isolated target base. Draft
-  plan/tests and local good/bad sensitivity checks stop short of signed G4
-  approval and reviewer custody; no production G4 child, frozen test package or
-  independent verdict exists yet.
+  plan/tests and local good/bad sensitivity checks now have a signed creator
+  approval, frozen reviewer package and signed single-operator custody. No
+  production G4 child, authenticated controls or independent verdict exists yet.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.
