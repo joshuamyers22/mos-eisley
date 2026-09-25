@@ -473,6 +473,11 @@ def assess_independent_review(
         results.append(item.result)
     if not critic_quorum_met(tuple(results), grant.review_policy):
         raise ValueError("G4 independent critic quorum was not met")
+    judge_request = JudgeRequest(
+        brief=subject.brief, findings=judge_findings(tuple(results))
+    )
+    if len(canonical_bytes(judge_request)) > grant.review_policy.max_request_bytes:
+        raise ValueError("G4 judge request exceeds its approved byte budget")
     decision = judge.assessment
     _verify_external_signature(decision, judge.signature, grant.judge, _JUDGE_DOMAIN)
     if (
@@ -485,10 +490,7 @@ def assess_independent_review(
         < grant.expires_at
     ):
         raise ValueError("G4 judge assessment differs from the exact critic evidence")
-    verdict = judge_verdict(
-        JudgeRequest(brief=subject.brief, findings=judge_findings(tuple(results))),
-        decision.decision,
-    )
+    verdict = judge_verdict(judge_request, decision.decision)
     return G4IndependentReviewRecord(
         subject=subject,
         authority=authority,

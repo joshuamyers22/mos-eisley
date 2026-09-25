@@ -18,9 +18,12 @@ coding-child keys. The complete roster must return signed assessments. At least
 the policy quorum must be completed and citation-valid before the judge decision
 is considered. Each critic signs the exact subject and authority; the judge signs
 the ordered hashes of **all** critic artifacts. Deterministic adjudication uses
-the existing shared `judge_verdict` rules. Missing quorum, wrong role/key, stale
-subject, unsupported citation, unknown finding ID, forged signature or altered
-judge input fails closed. Upheld blockers yield `reject`; non-blocking material
+the existing shared `judge_verdict` rules. Both the reconstructed critic requests
+and the reconstructed judge request must fit the signed policy's
+`max_request_bytes`; an oversized judge request fails before adjudication.
+Missing quorum, wrong role/key, stale subject, unsupported citation, unknown
+finding ID, forged signature or altered judge input fails closed. Upheld
+blockers yield `reject`; non-blocking material
 findings yield `revise`. A replayed record is positive only for `accept`.
 
 `mos g4-assemble-independent-review` consumes the external signed authority,

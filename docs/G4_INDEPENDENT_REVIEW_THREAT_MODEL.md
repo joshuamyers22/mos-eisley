@@ -33,7 +33,7 @@ independence from different key labels.
 | Fabricate code evidence | False finding | Exact diff citation catalog and quote validation | Quote presence does not prove the claim |
 | Replay an old positive decision | Stale acceptance | Current final-suite/Git/plan reconstruction and exact subject comparison | Same-UID compromise may alter local trust inputs |
 | Embed credentials or exfiltrate data | Confidentiality loss | No network, key, provider or tool access in this gate; private mode-0600 output | External signers/providers require separate data policy |
-| Oversized/malformed input or dependency failure | Denial of service | Bounded regular-file reads, canonical JSON, bounded Git output and no fallback | Review of >256 KB diff needs a separately designed protocol |
+| Oversized/malformed input or dependency failure | Denial of service or a positive verdict outside the approved request budget | Bounded regular-file reads, canonical JSON, bounded Git output, exact critic/judge request-size checks and no fallback | Review of >256 KB diff needs a separately designed protocol |
 | Treat attestation as release | Unsafe deployment | `acceptance_authorized=false` and `independent_human_review_proven=false` | Operators must preserve downstream gates |
 
 ## Decisions

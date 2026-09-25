@@ -37,3 +37,27 @@ are a trust-policy assertion, not reconstruction of G2 raw broker evidence.
 The owner must review the code and arrange actual external reviewer/provider
 evidence before any production G4 decision. The agent's fixture reviews are not
 independent acceptance.
+
+## Judge-request budget correction, 2026-09-25
+
+- Trigger: offline adversarial source review found that `assess_independent_review`
+  bounded each critic request but omitted the shared pipeline's judge-request
+  `max_request_bytes` check. A signed record could therefore pass despite a
+  judge request outside its creator-signed review policy.
+- Correction: reconstruct the deduplicated `JudgeRequest` once, reject it when
+  its canonical bytes exceed the signed limit, and pass that same request to
+  `judge_verdict`. The public record schema and authority scope did not change.
+- Regression: a case with valid creator, critic and judge signatures, valid
+  citations and a critic request within the limit failed before correction
+  (`ValueError` not raised), then passed after correction by rejecting its
+  oversized judge request. The normal accepting case remains covered.
+- Verification: focused regression passed; Ruff, formatting and Pyright passed.
+  The first sandboxed `make check` ran 2,514 source tests with four skips but
+  failed 31 localhost `socket.bind` fixtures with `Operation not permitted`;
+  it was not a pass. The permissioned `make check` exited zero, including source
+  tests, locked export, wheel build and 1,868 installed-wheel smoke tests.
+  Branch-inclusive coverage is 88%; `git diff --check` passed.
+- Authority: this correction made no live G4 call and grants no provider,
+  repository-write or release authority. The user reports accountable approval
+  secured; no external approval artifact was supplied to or verified by this
+  offline correction.

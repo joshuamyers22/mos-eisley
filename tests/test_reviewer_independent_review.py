@@ -26,6 +26,7 @@ from mos_eisley.core.models import (
     Evidence,
     Finding,
     JudgeDecision,
+    JudgeRequest,
     ReviewPolicy,
     canonical_bytes,
 )
@@ -259,6 +260,88 @@ class G4IndependentReviewTests(unittest.TestCase):
                     signed["authority"],
                     critics,
                     forged_judge,
+                )
+
+    def test_oversized_judge_request_fails_even_with_valid_signatures(self) -> None:
+        with TemporaryDirectory() as directory:
+            common, signed = self._case(Path(directory))
+            subject = signed["subject"]
+            grant = signed["authority"].authority
+            critic_request_bytes = max(
+                len(
+                    canonical_bytes(
+                        citation_bound_request(subject.brief, item.critic.persona)
+                    )
+                )
+                for item in grant.critics
+            )
+            limit = max(1024, critic_request_bytes)
+            finding = Finding(
+                location="src/demo/__init__.py",
+                category="correctness",
+                impact="low",
+                claim="Oversized judge-request fixture. " + "x" * 3000,
+                evidence=Evidence(
+                    source="spec",
+                    quote="approved plan",
+                    explanation="The approved plan contains this exact quote.",
+                ),
+            )
+            self.assertGreater(
+                len(
+                    canonical_bytes(
+                        JudgeRequest(brief=subject.brief, findings=(finding,))
+                    )
+                ),
+                limit,
+            )
+            authority = sign_review_authority(
+                grant.model_copy(
+                    update={
+                        "review_policy": ReviewPolicy(
+                            min_critics=2,
+                            min_providers=2,
+                            max_request_bytes=limit,
+                        )
+                    }
+                ),
+                "creator",
+                signed["creator_key"],
+            )
+            critics = tuple(
+                sign_critic_assessment(
+                    item.assessment.model_copy(
+                        update={
+                            "authority_sha256": authority.artifact_sha256,
+                            "result": CriticResult(
+                                critic=item.assessment.result.critic,
+                                status="completed",
+                                critique=Critique(
+                                    findings=(finding,) if index == 0 else ()
+                                ),
+                            ),
+                        }
+                    ),
+                    item.signature.signer_id,
+                    signed["critic_keys"][index],
+                )
+                for index, item in enumerate(signed["critics"])
+            )
+            judge = sign_judge_assessment(
+                signed["judge"].assessment.model_copy(
+                    update={
+                        "authority_sha256": authority.artifact_sha256,
+                        "critic_artifact_sha256s": tuple(
+                            item.artifact_sha256 for item in critics
+                        ),
+                    }
+                ),
+                "judge",
+                signed["judge_key"],
+            )
+            with self.assertRaisesRegex(ValueError, "judge request exceeds"):
+                assess_independent_review(
+                    subject, common["provenance"], authority, critics, judge
                 )
 
     def test_upheld_blocker_is_nonpassing_and_tied_to_exact_diff(self) -> None:

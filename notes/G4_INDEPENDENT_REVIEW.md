@@ -53,3 +53,12 @@ Selected pinned guidance: `docs/PYTHON_ENGINEERING_GUIDE.md`,
 - Regression evidence: `tests/test_reviewer_independent_review.py` and installed
   wheel smoke allowlist.
 - Temporary artifacts: disposable test directories removed by their fixtures.
+
+## Follow-up, 2026-09-25
+
+An offline code review identified an omitted judge-request byte-budget check.
+The bounded correction and signed-artifact regression are recorded in
+`docs/G4_INDEPENDENT_REVIEW_VERIFICATION.md`. The permissioned `make check`
+passed, including 1,868 installed-wheel tests; no live G4 run occurred.
+The user reports accountable approval secured, but no approval artifact was
+provided for verification. Production review evidence remains separate.
