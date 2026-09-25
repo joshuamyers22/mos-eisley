@@ -38,7 +38,7 @@ general repository writer. No provider call or measured-spend claim is made.
 ## Remaining gates
 
 The new commit is **not** a correction-cycle completion or accepted result.
-Production coding-child broker authorization and measured spend, refreshed
+An actual separately approved production coding-child call and measured spend, refreshed
 binding/custody/Git/candidate evidence for the new revision, authenticated critic
 quorum, final creator and reviewer whole-suite execution, and independent
 implementation review remain separate. See the [roadmap](ROADMAP.md),

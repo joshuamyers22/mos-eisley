@@ -60,6 +60,7 @@ from mos_eisley.reviewer_correction_dispatch import (
     SignedG4CorrectionChildProposal,
     creator_test_bundle_sha256,
     dispatch_correction_child,
+    preview_correction_child_offer,
     sign_correction_child_dispatch_approval,
     sign_correction_child_proposal,
     validate_correction_child_job,
@@ -947,7 +948,29 @@ class CorrectionCycleTests(unittest.TestCase):
                 run_dispatch(mismatched_tests)
             self.assertEqual(tuple(child_store.iterdir()), ())
             with patch.object(container, "execute", side_effect=execute):
+                preview = preview_correction_child_offer(
+                    admission=admission,
+                    approval=order,
+                    first=first,
+                    provenance=provenance,
+                    controls=fixture.controls,
+                    binding=fixture.binding,
+                    package=fixture.package,
+                    reviewer_package_path=fixture.package_path,
+                    repository_root=fixture.repository,
+                    implementation_root=fixture.repository,
+                    git_executable=fixture.git,
+                    candidate_dispatch_store=candidate_store,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                    approved_plan="approved plan",
+                    brief=brief,
+                    acceptance_criteria=criteria,
+                    container=container,
+                    now=NOW + timedelta(minutes=13),
+                )
                 receipt = run_dispatch()
+            self.assertEqual(receipt.offer, preview)
             verify_correction_child_dispatch_receipt(
                 receipt,
                 admission=admission,

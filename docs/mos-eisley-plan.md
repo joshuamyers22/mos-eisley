@@ -4208,6 +4208,16 @@ signer may attest the replayable record. No provider, measured-spend, final-suit
 merge/push or acceptance authority follows. See
 [the correction integration contract](G4_CORRECTION_INTEGRATION.md).
 
+A ninth slice adds a separately creator-signed exact-offer production coding-child
+broker. Its provider request is stateless and tool-free; a conservative shared
+ledger reservation precedes one isolated broker exchange. Provider-reported usage
+is settled or retained as uncertain exposure, and only a valid scoped proposal is
+signed by the enrolled child. Private request, response, audit and spending bytes
+replay against the prior correction-child dispatch receipt. This was implemented
+and tested offline without a provider call. It does not itself authorize live
+dispatch or complete the renewed correction, final whole-suite or independent
+review gates. See [the production broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,

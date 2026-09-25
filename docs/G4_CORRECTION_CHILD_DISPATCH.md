@@ -35,18 +35,19 @@ the owned-file replacement set. **It never applies the replacements to the host.
 
 The container's signature check is not the trust anchor: the host verifies both
 creator and child signatures against the enrolled policy. The offline proposal
-source is a trusted injected integration point, not a production model adapter.
-It must not use a provider under this grant. Its usage fields are a signed claim,
-not independently measured spend; the local deadline bounds cooperative async
-generation and the container run, but the callback's own infrastructure remains
-trusted. The product exposes no CLI or live/provider route for this boundary.
+source is a trusted injected integration point. It must not use a provider under
+this grant alone. A distinct [production coding-child broker](G4_PRODUCTION_CODING_CHILD_BROKER.md)
+can compose its own signed provider/spend grant with this dispatch; its separate
+receipt binds measured usage to the child proposal. Without that receipt, the
+proposal usage fields remain only a signed claim. The local deadline bounds
+cooperative async generation and the container run, but the callback's own
+infrastructure remains trusted. The product exposes no CLI or automatic live route.
 
 ## Remaining gates
 
 This receipt is not a Git patch, correction-cycle completion, or acceptance.
-Actual coding-child model/broker authorization and measured spending, an isolated
-write/integration broker, authenticated critic quorum, a fresh custody/Git/candidate
-chain, final creator and reviewer whole-suite execution, and independent
+An actual separately approved provider call, authenticated critic quorum, a fresh
+custody/Git/candidate chain, final creator and reviewer whole-suite execution, and independent
 implementation review remain separate. Neither a signed proposal nor a matching
 container result proves that the proposed code is correct. See the
 [threat model](G4_CORRECTION_CHILD_DISPATCH_THREAT_MODEL.md),

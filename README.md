@@ -318,6 +318,10 @@ and critic/judge workflows retain their existing tool-free boundaries.
   private detached worktree. It replays the prior chain, restricts checkout and
   changed paths, verifies bytes and Git provenance, and leaves the original
   checkout unchanged. This is not provider dispatch, final testing or acceptance.
+- The separately gated [G4 production coding-child broker](docs/G4_PRODUCTION_CODING_CHILD_BROKER.md)
+  now binds an exact creator-signed provider grant to one tool-free isolated call
+  and conservative shared-ledger settlement. It was implemented and tested offline;
+  no live call or final acceptance follows from its availability.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

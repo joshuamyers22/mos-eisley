@@ -1,8 +1,9 @@
 """One-use, no-host-write dispatch boundary for an approved G4 correction child.
 
 This module deliberately has no provider adapter. A trusted caller supplies a
-bounded proposal generator; the child receives only the explicit offer and its
-proposed replacements are checked in the immutable offline container.
+bounded proposal generator; a live generator additionally needs the separate
+production coding-child grant and measured-spend broker. The child receives only
+the explicit offer and its proposed replacements are checked in containment.
 """
 
 from __future__ import annotations
@@ -327,7 +328,7 @@ class G4CorrectionChildDispatchReceipt(Contract):
 
 
 class CorrectionChildGenerator(Protocol):
-    """Trusted offline proposal source; this grant permits no live provider call."""
+    """Trusted source; this dispatch grant alone permits no live provider call."""
 
     async def generate(
         self, offer: G4CorrectionChildOffer
@@ -485,7 +486,7 @@ def _verify_claimed_dispatch(
         os.close(fd)
 
 
-async def dispatch_correction_child(
+def preview_correction_child_offer(
     *,
     admission: G4CorrectionCycleAdmission,
     approval: SignedG4CorrectionChildDispatchApproval,
@@ -504,13 +505,13 @@ async def dispatch_correction_child(
     approved_plan: str,
     brief: str,
     acceptance_criteria: str,
-    generator: CorrectionChildGenerator,
     container: OfflineContainer,
     now: datetime | None = None,
-) -> G4CorrectionChildDispatchReceipt:
-    """Spend one separate creator grant and validate one proposal in containment.
+) -> G4CorrectionChildOffer:
+    """Replay source/approval and return exact bytes for a separate provider grant.
 
-    The returned receipt is evidence only. It never applies a patch to the host.
+    This read-only preview consumes neither the child-dispatch claim nor a ledger
+    entry. Dispatch repeats the entire preflight before spending either one.
     """
     current = _utc(now if now is not None else datetime.now(UTC))
     root = repository_root.resolve()
@@ -600,6 +601,61 @@ async def dispatch_correction_child(
         max_seconds=grant.max_seconds,
         max_microusd=grant.max_microusd,
     )
+    return offer
+
+
+async def dispatch_correction_child(
+    *,
+    admission: G4CorrectionCycleAdmission,
+    approval: SignedG4CorrectionChildDispatchApproval,
+    first: G4CandidateDispatchReceipt,
+    provenance: AuthenticatedG4ProvenanceRecord,
+    controls: KnownControlValidationRecord,
+    binding: ImmutableImplementationBindingRecord,
+    package: FrozenReviewerTestPackage,
+    reviewer_package_path: Path,
+    repository_root: Path,
+    implementation_root: Path,
+    git_executable: Path,
+    candidate_dispatch_store: Path,
+    correction_store: Path,
+    child_dispatch_store: Path,
+    approved_plan: str,
+    brief: str,
+    acceptance_criteria: str,
+    generator: CorrectionChildGenerator,
+    container: OfflineContainer,
+    now: datetime | None = None,
+) -> G4CorrectionChildDispatchReceipt:
+    """Spend one separate creator grant and validate one proposal in containment.
+
+    The returned receipt is evidence only. It never applies a patch to the host.
+    """
+    current = _utc(now if now is not None else datetime.now(UTC))
+    offer = preview_correction_child_offer(
+        admission=admission,
+        approval=approval,
+        first=first,
+        provenance=provenance,
+        controls=controls,
+        binding=binding,
+        package=package,
+        reviewer_package_path=reviewer_package_path,
+        repository_root=repository_root,
+        implementation_root=implementation_root,
+        git_executable=git_executable,
+        candidate_dispatch_store=candidate_dispatch_store,
+        correction_store=correction_store,
+        child_dispatch_store=child_dispatch_store,
+        approved_plan=approved_plan,
+        brief=brief,
+        acceptance_criteria=acceptance_criteria,
+        container=container,
+        now=current,
+    )
+    grant = admission.approval.approval
+    order = approval.approval
+    source = provenance.git_provenance.provenance
     # A consumed claim is never retried automatically after a crash or model error.
     _claim(child_dispatch_store, approval, admission)
     duration = min(

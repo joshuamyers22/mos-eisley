@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — package, binding, isolated count/control, authenticated provenance, candidate execution, bounded-correction, child-proposal dispatch and isolated Git integration slices implemented | Finish separately gated production coding broker and final whole-suite testing/review | Measured-spend provider child, renewed correction chain, final whole-suite tests and independent review |
+| G4 — offline foundations, isolated Git integration and separately gated production coding-child broker implemented | Finish final creator/reviewer whole-suite execution and independent-review gates; any live child exercise needs separate approval | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, final whole-suite tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -138,9 +138,22 @@ outside the repository, overwrites only existing owned files, and makes one
 local commit. It checks the exact parent, paths, bytes, patch, clean worktree
 and unchanged original checkout; an enrolled VCS signer may attest the replayable
 record. It does not call a provider, merge/push, run final suites or approve the
-code. Production broker, renewed chain, final whole-suite and independent review
-remain open. See [the integration contract](G4_CORRECTION_INTEGRATION.md) and
+code. At that slice, the production broker, renewed chain, final whole-suite and
+independent review were still open. See [the integration contract](G4_CORRECTION_INTEGRATION.md) and
 [verification record](G4_CORRECTION_INTEGRATION_VERIFICATION.md).
+
+**G4 ninth slice, 2026-09-24 — separately authorized production coding-child
+broker implemented offline:** a new creator signature binds the exact frozen
+offer, OpenAI request/model/effort, policy, ledger, child and immutable image.
+The shared ledger reserves conservatively before one isolated, tool-free provider
+attempt, then checks provider usage and settles or retains exposure. Only a valid
+bounded proposal is signed by the enrolled child runtime; private response/audit
+records replay against the existing correction dispatch receipt. No live call was
+made to implement this slice, and no provider dispatch is authorized merely by
+having code present. Actual separately approved live exercise, renewed correction
+evidence, whole-suite execution, critic quorum and independent acceptance remain
+open. See [the broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md) and
+[verification record](G4_PRODUCTION_CODING_CHILD_BROKER_VERIFICATION.md).
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

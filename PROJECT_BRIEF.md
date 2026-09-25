@@ -228,6 +228,16 @@
   blobs, patch and source provenance are replayed. Provider dispatch,
   measured spend, final suites, independent review and acceptance remain open.
   See `docs/G4_CORRECTION_INTEGRATION.md`.
+- G4 production coding-child broker, 2026-09-24: a distinct creator-signed
+  provider grant binds the frozen correction offer, request/model/effort,
+  provenance policy, child key, immutable image and shared ledger. The host
+  reserves a conservative one-call envelope, runs a tool-free stateless request
+  through the existing isolated broker, settles provider-reported usage, and
+  signs only a valid bounded proposal with the enrolled child key. The private
+  audit/response/spend record replays against the offline dispatch receipt.
+  No live call occurred during implementation; code presence itself grants no
+  provider call, final suite, independent review or acceptance. See
+  `docs/G4_PRODUCTION_CODING_CHILD_BROKER.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed
