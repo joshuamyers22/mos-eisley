@@ -2,8 +2,8 @@
 
 Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
-signed single-operator triage, zero-spend cycle-1 admission and separate offline
-dispatch grant verified; no correction child dispatched**.
+signed single-operator triage, zero-spend cycle-1 admission and one contained
+agent-authored offline correction-child dispatch replay-verified**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -18,8 +18,9 @@ cap** (10,000,000 micro-USD) and a **2026-09-26T23:59:00-04:00** deadline
 Joshua then personally reviewed the interface, rubric and reviewer-test draft,
 accepted single-operator self-review risk, and attested he had not seen the seed
 implementation or child telemetry before that review or the package freeze.
-The subsequent signatures, corrected package freeze and paired controls are
-recorded below; none grants a child dispatch, provider spend, or acceptance.
+The subsequent signatures, corrected package freeze, paired controls and
+separately authorized offline dispatch are recorded below; none grants provider
+spend or acceptance.
 
 ## Exact controller and isolated target
 
@@ -255,17 +256,19 @@ or acceptance authority follows from admission.
   remains absent.
 - The separate creator-signed cycle-1 approval and one-use admission above
   verify. Their claim is spent; do not retry admission or change stores.
-  Child dispatch has its own signed grant but has not run; write integration
-  and final review still require separate grants. Provider use is impossible
-  under this zero-spend cycle; it would require a fresh authorized chain.
+  One contained offline correction-child dispatch has now run under its separate
+  signed grant. Write integration and final review still require separate
+  grants. Provider use is impossible under this zero-spend cycle; it would
+  require a fresh authorized chain.
 - Joshua signed separate offline correction-child dispatch grant SHA-256
   `da0f4a2e8d3893dcbf1a06befec74de92baf1464cac063e9529584fad1ad8ada`.
   It binds the exact admission, current revision, pinned image, one owned source
   file, reviewed brief/criteria and protected creator-test byte-view digest.
   Read-only offer preview SHA-256 `418e0181579f75f70f83048ec214c3221075b1bf553e4cd44778d47988c35a2d`
-  replayed against current Git. No child-dispatch claim was consumed, proposal
-  generated, provider called, or host file changed. The grant expires with the
-  cycle approval at 2026-09-26 19:30:42 UTC.
+  replayed against current Git. One child-dispatch claim was later consumed,
+  producing a signed, deterministic agent-authored proposal and contained
+  worker receipt. No provider was called or host file changed. The grant expires
+  with the cycle approval at 2026-09-26 19:30:42 UTC, but its claim is spent.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -276,11 +279,19 @@ or acceptance authority follows from admission.
   later separately approved real initial-child exercise is
   required before a whole creator-led-loop claim.
 
+The one-use offline dispatch receipt is canonical SHA-256
+`d3c30c126bd32a9f11c3ba05340bd10038b74a1282b340799842c10319833446`,
+with signed proposal artifact `31a7aa29528db38156ad98ab104d2014ec82dab373dc5728d4ff478203b971bd`.
+The pinned no-network/no-mount worker accepted a replacement of only
+`src/quote_lab/price.py`; the proposal reports zero provider tokens, calls and
+micro-USD. The claim and enrolled child signature replay-verified, and the
+target remains clean at `6f2551d`. This tests containment with an expressly
+agent-authored deterministic offline proposal; it does not qualify a real
+provider child, integrate the code or establish final correctness.
+
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next execution
-boundary is one contained offline correction-child dispatch under the signed
-grant. That one-use claim has not been consumed; a crash or invalid proposal
-would consume it and require inspection rather than retry. The resulting
-proposal would still need a separate integration grant and renewed evidence.
-Separate authorization is required before any provider send; these seeded and
-candidate records give none.
+boundary is separately authorized isolated write/integration of the proposed
+replacement, followed by renewed bindings, creator/reviewer whole suites and
+independent review. The dispatch claim is spent; do not retry or switch stores.
+Separate authorization is required before any provider send.

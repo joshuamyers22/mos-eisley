@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage, zero-spend cycle-1 admission and separate offline correction-child dispatch grant verify. The offer previews against current Git, but no child has run or dispatch claim been consumed. Provider use is impossible under this cycle and needs a fresh authorized chain. Real child, final-suite and independent critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch consumed its claim and produced a replay-verified, agent-authored deterministic proposal without provider spend or host write. Integration, final suites and independent review remain open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -220,6 +220,14 @@ Joshua then signed exact offline correction-child dispatch grant `da0f4a2e…`.
 The pinned controller's read-only offer preview `418e0181…` checked the
 protected creator-test byte view and current Git. No dispatch claim, child
 proposal, provider use or host write followed from signing alone.
+Under a later explicit request, one contained offline dispatch consumed its
+one-use claim. Receipt `d3c30c12…` and child-signed proposal `31a7aa29…`
+replay-verified against the grant, admission and current clean Git. The
+proposal was a disclosed deterministic, agent-authored fixture, not a provider
+child. It changed only the in-memory owned source bytes to add the half-up
+term; the no-network worker accepted the scoped proposal and removed its
+container. No provider call, host repository write, integration, final-suite
+pass or acceptance occurred. The claim cannot be reused.
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,
