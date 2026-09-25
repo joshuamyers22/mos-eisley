@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed creator/reviewer custody, v2 frozen package, paired controls and signed *seeded* child assignment/result; exact Git claim awaits Joshua's VCS signature and final replay. Real child, final-suite and critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and one replay-verified failing candidate receipt; a second independently approved run remains. Real child, final-suite and critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -195,10 +195,14 @@ controls have replay-verified: five good passes versus two known-bad assertion
 failures. Joshua then signed a zero-spend seeded assignment; a disclosed
 assistant-authored partial child fixture and separate host handoff form three
 distinct target commits, and the task-scoped fixture key signed the seeded
-result. The exact read-only Git claim is recorded but awaits Joshua's VCS
-signature and full replay. This does not qualify a real initial-child run. No
-candidate receipt, child/provider call, two-family critic result or final-suite
-run exists. The
+result. Joshua signed the exact read-only Git claim; the assembled offline
+record replay-verified against the current clean target and paired controls.
+This does not qualify a real initial-child run. Joshua separately signed the
+first exact one-use candidate grant. Its no-network dispatch consumed the
+claim and produced replay-verified receipt `6d08b811…`: 5/5 tests ran, with
+two assertion failures, zero errors and `candidate_tests_passed=false`. No
+second independently approved candidate, real child/provider call, two-family
+critic result or final-suite run exists. The
 [preparation packet](G4_QUALIFICATION_PREPARATION_2026-09-25.md) fixes the
 identities and the ordered preflight; it grants no live or release authority.
 

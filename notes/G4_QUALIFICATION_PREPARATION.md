@@ -1,6 +1,6 @@
 # Work Note: first G4 qualification preparation
 
-- Status: seeded E2/Git claim recorded; VCS signature and full replay pending; candidate qualification open
+- Status: first one-use failing candidate receipt replay-verified; second independent admission and correction qualification open
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-25
 - Last updated (UTC): 2026-09-25
@@ -60,29 +60,32 @@
 | 2026-09-25 | observation | Joshua signed exact seeded assignment `63cbd8e5…`; verified canonical signature, scope, creator-test inventory, v2 custody/package and zero provider spend. | Private assignment and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Create disclosed fixture lineage. |
 | 2026-09-25 | action | Disposable target branch has base `699f345` → assistant-authored partial child `89dc94d` → host README handoff `6f2551d`. Local creator test ran 5/5 with one expected half-up assertion failure; no candidate receipt. Task-scoped key signed result `dd4e16e2…`; custody chain verified. | Target Git and private result | Bind source and reconstruct Git. |
 | 2026-09-25 | observation | Binding `97eee7ad…` replay-verified; read-only Git reconstructed exact ancestry, owned patch, committed blobs and clean source in unsigned claim `d59411ec…`. Strict CLI needed a separate canonical copy of the unchanged policy; original preserved. | Private binding/Git claim and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Obtain Joshua's separate VCS signature, then assemble/replay. |
+| 2026-09-25 | observation | Joshua locally signed the exact Git claim; signed artifact `ad35ad0b…` verified against the enrolled VCS key. Assembled record `cb4dc4fb…` replay-verified against the clean target, v2 package, final binding and paired controls. All downstream authority remains false. | Private signed artifact, record and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate candidate-test admission. |
+| 2026-09-25 | observation | Joshua signed exact one-use candidate approval. Admission `d2bb3486…` passed, and the no-network dispatch consumed one claim. Receipt `6d08b811…` replay-verified against the clean target: 5/5 tests, two expected assertion failures, zero errors, `candidate_tests_passed=false`. No correction or acceptance authority. | Private admission, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate signed grant for the second independent candidate. |
 
 ## Handoff
 
 - Current state: signed creator/reviewer custody, distinct fixture bindings,
-  paired control receipts and seeded assignment/result verify. The read-only
-  Git claim exists but has no Joshua-controlled VCS signature yet. No real
-  child dispatch, candidate execution grant, provider call or final G4 evidence.
-- Next smallest safe action: have Joshua sign the exact VCS claim locally,
-  then assemble and replay authenticated provenance; no candidate dispatch or
+  paired control receipts, seeded assignment/result/VCS provenance and the
+  first failing candidate receipt replay. The first claim is spent. No real
+  child dispatch, provider call or final G4 evidence.
+- Next smallest safe action: obtain a distinct exact human-signed grant for a
+  second independently admitted candidate run in the same claim store; no
   provider send without separate authorization.
-- Blocker and required authority/input for later live stages: signed VCS
-  provenance, second provider family, live spending/dispatch approval,
+- Blocker and required authority/input for later live stages: second candidate
+  grant, second provider family, live spending/dispatch approval,
   shared ledger and applicable G3 gate.
 - Checks already run: controller image start/source hash; clean target Git;
   local draft good/bad creator/reviewer test sensitivity; canonical creator and
   v2 custody, seeded assignment/result signatures verified; package, bindings,
-  controls and read-only Git claim replay passed; product source
-  `make check` passed on `752c350` before this docs-only preparation.
+  controls, authenticated Git/current-source and candidate receipt replay
+  passed; product source `make check` passed on `752c350` before this docs-only
+  preparation.
 
 ## Close and promote
 
-- Outcome: offline input/custody, paired controls and seeded child/Git claim
-  checkpoint complete pending VCS signature; not candidate qualification or
+- Outcome: offline input/custody, paired controls, seeded VCS/E2 provenance and
+  first failing candidate checkpoint complete; not correction qualification or
   launch authority.
 - Durable fact promoted to `PROJECT_MEMORY.md`: none; project memory is not an
   index of ephemeral exercise status.

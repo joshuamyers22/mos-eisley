@@ -1,8 +1,8 @@
 # G4 first qualification: offline preparation packet
 
-Status: **signed creator/reviewer custody, v2 package, paired controls and
-seeded assignment/result verified; Git claim recorded, VCS signature pending;
-no real child dispatch readiness**.
+Status: **offline seeded custody and authenticated VCS/E2 provenance verified;
+first one-use candidate receipt replay-verified with two assertion failures;
+no real child dispatch or correction authority**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -83,8 +83,8 @@ both Git repositories in an owner-only directory; the human private key and
 passphrase were never supplied to the assistant. The child key is unencrypted,
 mode 0600, for later trusted-host signing. Signatures prove enrolled-key control
 over exact bytes under local host/key custody assumptions, not physical identity
-or independent judgment. The later seeded assignment/result are described
-below; full authenticated provenance still needs a separate VCS signature.
+or independent judgment. The later seeded assignment/result and completed
+offline provenance are described below.
 
 ## Immutable binding and paired-control checkpoint
 
@@ -142,9 +142,18 @@ commits, exact owned patch, committed bound blobs and clean source tree. Its
 unsigned claim SHA-256 is
 `d59411ecaebe81a50e8f4fecae001716918cb3f0b712fe74efde96a0dcdcc5ad`.
 The strict recorder needed a separate canonical encoding of the *same* trust
-policy; the earlier pretty file was preserved. Joshua's separate VCS signature
-and final assembly/replay are pending. No candidate receipt, provider call,
-correction integration or acceptance is claimed.
+policy; the earlier pretty file was preserved. Joshua signed the exact Git
+claim separately; signed artifact SHA-256
+`ad35ad0bc7b0fc20eec63c201e5e205fa3b4081dfc6671b6f294b23808c0a903`
+verified against his enrolled VCS key and matched the unsigned claim. The
+assembled, mode-0600 authenticated record SHA-256
+`cb4dc4fbff681372ceb877d88db122e857de5366b5dd131695cd8d9a51d00ec3`
+replayed against the current clean target, v2 package, final-source binding
+and paired controls. Its custody/VCS/E2 fields are true; candidate, child,
+provider, write, correction and acceptance authority fields remain false.
+That provenance checkpoint itself supplied no real initial child or candidate
+receipt. The separately approved first candidate test is recorded below; no
+provider call, correction integration or acceptance is claimed.
 
 ## Ordered qualification path and stop rules
 
@@ -156,16 +165,18 @@ correction integration or acceptance is claimed.
 2. **Bind and control — complete:** distinct implementation trees, immutable
    bindings and assertion-only paired controls replay-verify in the pinned
    image. No candidate dispatch was authorized.
-3. **Authenticate seeded provenance — VCS signature pending:** signed seeded
-   assignment/result and distinct base → child → source lineage verify. Joshua
-   must sign the exact read-only Git claim, then assemble and replay the full
-   record. This cannot qualify a real initial coding-child dispatch.
-4. **Exercise correction:** only with fresh exact creator grants and a persistent
-   private claim store, run two independently admitted failing candidate tests;
-   adjudicate their identical assertion IDs; admit one bounded correction cycle;
-   issue separate dispatch and production-broker grants. Reserve the full
-   shared-ledger allowance before any provider call. No automatic retry after
-   an uncertain send or consumed claim.
+3. **Authenticate seeded provenance — complete:** signed seeded
+   assignment/result and distinct base → child → source lineage, Joshua's VCS
+   signature, assembled record and current Git replay verify. This cannot
+   qualify a real initial coding-child dispatch.
+4. **Exercise correction — first candidate complete:** with fresh exact creator
+   grants and the same persistent private claim store, run two independently
+   admitted failing candidate tests. The first receipt verified with 5/5 tests,
+   two assertion failures and zero errors. Obtain a separate signed grant for
+   the second run; adjudicate their identical assertion IDs; admit one bounded
+   correction cycle; issue separate dispatch and production-broker grants.
+   Reserve the full shared-ledger allowance before any provider call. No
+   automatic retry after an uncertain send or consumed claim.
 5. **Integrate and verify:** require a valid child-signed scoped proposal and a
    separate integration grant. Replay new custody/Git/candidate evidence, run
    the full protected creator and frozen reviewer suites in the pinned image,
@@ -178,18 +189,20 @@ Stop on a stale hash or Git tree, source outside the allowlist, missing or
 uncorroborated role custody, a failed/changed known control, non-assertion
 candidate error, missing critic family, unresolved spend, failed cleanup, any
 blocking finding, or an exhausted grant. Retain evidence; do not relabel failure
-as acceptance. No live call, provider credential, budget reservation, candidate
-claim, production host source write or final acceptance was created. The
+as acceptance. No live call, provider credential, budget reservation, production
+host source write or final acceptance was created. One candidate claim was
+consumed; it must not be reset or bypassed. The
 disposable fixture target alone received the two disclosed commits above.
 
 ## Current authorization gaps
 
-- Creator/reviewer custody, seeded assignment/result and read-only Git claim
-  exist and verify, but Joshua's VCS signature and assembled provenance record
-  remain pending. No real initial-child result exists.
-- Immutable fixture bindings and containerized paired-control receipts exist,
-  but no assembled authenticated provenance, candidate receipt or final-suite
-  receipt exists. Their validity depends on the exact later Git trees.
+- Creator/reviewer custody, seeded assignment/result, Joshua-signed Git claim
+  and assembled provenance record verify. No real initial-child result exists.
+- Immutable fixture bindings and containerized paired-control receipts exist.
+  The first candidate receipt `6d08b811…` replay-verified against claim
+  `d2bb3486…`, the exact current Git tree and inputs: 5/5 tests ran, two
+  expected assertion failures, zero errors; `candidate_tests_passed=false`.
+  No second independently granted candidate or final-suite receipt exists.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -202,5 +215,7 @@ disposable fixture target alone received the two disclosed commits above.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is Joshua's exact VCS signature followed by final provenance assembly/replay,
-with separate authorization before any provider send.
+is a second independently approved candidate-test admission and dispatch in
+the same private one-use claim store, then source-level adjudication of the
+two observations. Separate authorization is required before any provider send;
+these seeded and candidate records give none.
