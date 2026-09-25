@@ -1,6 +1,6 @@
 # Work Note: first G4 qualification preparation
 
-- Status: two failed receipts, signed single-operator triage and zero-spend cycle-1 admission verified; dispatch and qualification open
+- Status: two failed receipts, signed triage, zero-spend cycle-1 admission and offline dispatch grant verified; child execution and qualification open
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-25
 - Last updated (UTC): 2026-09-25
@@ -68,17 +68,19 @@
 | 2026-09-25 | observation | A same-agent adversarial pass checked oracle, plan, order, source, flake and unreached-second-assertion alternatives. Owner-only critic artifact `4f6962f9…` is expressly non-independent; proposed canonical single-operator judge policy `55d29e01…` enrolls Joshua's existing public key and denies dispatch/acceptance. The local signer replayed both receipts and current Git and reached exact triage payload in a deliberate refusal without accessing Joshua's key. My direct source probe had created two ignored bytecode files; they were moved recoverably out of the source root before the signer preflight passed. No signed triage exists. | Private critic, policy, signer and `PREPARATION.md` | Joshua reviews exact inputs and signs locally if accepted. |
 | 2026-09-25 | observation | Joshua locally signed triage artifact `aa87ff09…`. Canonical decode, Ed25519 verification against the enrolled judge key, both exact receipt hashes and failure IDs, critic/source evidence hashes, policy window and disabled dispatch/acceptance flags all passed. This is disclosed single-operator review with an agent-authored, non-independent critic pass; it is not a creator correction-cycle approval. | Owner-only signed triage and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate creator-signed bounded correction-cycle approval and one-use admission. |
 | 2026-09-25 | observation | Owner-only cycle signer preflight replayed exact receipts/current Git and checked the protected plan/tests, signed triage, source/critic evidence, scope, zero-spend child allowance, $10 task ceiling and deadline without key access or claim consumption. Joshua then signed approval `07e21f2c…`; enrolled creator signature and exact links verified. One pinned controller admission wrote `ad4fb9e9…` and exactly one matching private claim, both replay-verified. No dispatch, provider, write or acceptance authority. | Private signed approval, admission, claim and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Consider a separately authorized exact correction-child dispatch; this cycle permits no provider spend. |
+| 2026-09-25 | observation | Joshua signed separate offline correction-child dispatch grant `da0f4a2e…` binding admission `ad4fb9e9…`, current source, image `462ab0f7…`, only `src/quote_lab/price.py`, reviewed brief/criteria and creator-test byte view `2f0a5781…`. Canonical creator signature and read-only offer preview `418e0181…` verified against current Git; the image remains present as linux/arm64. No dispatch claim, child proposal, provider call or host write exists. | Owner-only signed grant, brief/criteria and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | If instructed, execute one contained zero-spend offline dispatch; do not assume signing itself invoked a child. |
 
 ## Handoff
 
 - Current state: signed creator/reviewer custody, distinct fixture bindings,
   paired control receipts, seeded assignment/result/VCS provenance and two
-  matching failed candidate receipts replay, signed triage and one zero-spend
-  correction-cycle admission. Both failed IDs trace to one missing half-up
-  increment in the bound source. Both candidate claims and the cycle claim are
+  matching failed candidate receipts replay, signed triage, one zero-spend
+  correction-cycle admission and a separate offline child-dispatch grant.
+  Both failed IDs trace to one missing half-up increment in the bound source.
+  Both candidate claims and the cycle claim are
   spent. No real child dispatch, provider call or final G4 evidence.
-- Next smallest safe action: consider a separately signed exact correction-child
-  dispatch grant against this admitted offline cycle; no
+- Next smallest safe action: execute one contained offline correction-child
+  dispatch under the signed grant if instructed; no
   provider send without separate authorization.
 - Blocker and required authority/input for later live stages: correction-child
   dispatch; a fresh nonzero-spend chain, second provider family, live

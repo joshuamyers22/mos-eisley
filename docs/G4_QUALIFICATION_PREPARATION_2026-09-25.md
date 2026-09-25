@@ -2,8 +2,8 @@
 
 Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
-signed single-operator triage verified; real child dispatch and correction
-authority remain open; zero-spend correction cycle 1 admitted**.
+signed single-operator triage, zero-spend cycle-1 admission and separate offline
+dispatch grant verified; no correction child dispatched**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -255,9 +255,17 @@ or acceptance authority follows from admission.
   remains absent.
 - The separate creator-signed cycle-1 approval and one-use admission above
   verify. Their claim is spent; do not retry admission or change stores.
-  Correction-child dispatch, write integration and final review require their
-  own grants. Provider use is impossible under this zero-spend cycle; it would
-  require a fresh, separately authorized chain.
+  Child dispatch has its own signed grant but has not run; write integration
+  and final review still require separate grants. Provider use is impossible
+  under this zero-spend cycle; it would require a fresh authorized chain.
+- Joshua signed separate offline correction-child dispatch grant SHA-256
+  `da0f4a2e8d3893dcbf1a06befec74de92baf1464cac063e9529584fad1ad8ada`.
+  It binds the exact admission, current revision, pinned image, one owned source
+  file, reviewed brief/criteria and protected creator-test byte-view digest.
+  Read-only offer preview SHA-256 `418e0181579f75f70f83048ec214c3221075b1bf553e4cd44778d47988c35a2d`
+  replayed against current Git. No child-dispatch claim was consumed, proposal
+  generated, provider called, or host file changed. The grant expires with the
+  cycle approval at 2026-09-26 19:30:42 UTC.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -269,9 +277,10 @@ or acceptance authority follows from admission.
   required before a whole creator-led-loop claim.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
-and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a separate exact correction-child dispatch decision, subject to the admitted
-zero-spend cycle and existing child scope. Neither the triage nor cycle admission
-can dispatch a child or authorize integration by itself.
+and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next execution
+boundary is one contained offline correction-child dispatch under the signed
+grant. That one-use claim has not been consumed; a crash or invalid proposal
+would consume it and require inspection rather than retry. The resulting
+proposal would still need a separate integration grant and renewed evidence.
 Separate authorization is required before any provider send; these seeded and
 candidate records give none.
