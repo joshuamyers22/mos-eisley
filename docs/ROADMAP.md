@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration and VCS attestation now replay-verify; the original branch is untouched. Renewed binding/provenance, final suites and independent review remain open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding and authenticated provenance replay-verify for the corrected detached revision; the original branch is untouched. A new passing candidate receipt, final suites and independent review remain open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -236,6 +236,16 @@ unmoved. Canonical record `54d8a705…` and Joshua-signed VCS attestation
 `f50a4cea…` replay-verified against the complete upstream chain, exact patch,
 worktree and Git blobs. No provider call, final-suite pass, independent review,
 branch merge/push or acceptance follows. The integration claim cannot be reused.
+For detached correction revision `0cc8419`, the pinned binder replay-verified
+new binding `964f53fe…` against the unchanged frozen package and the corrected
+source bytes. Trusted read-only Git claim `e291e6b4…` reconstructed complete
+blobs and retained the disclosed seeded-child ancestry. Joshua signed the
+renewed VCS claim `fb0ed525…`; authenticated provenance `7f6bee4c…` assembled
+and replayed against current clean Git. It matches the signed integration
+record's commit and tree. This is not a real provider-child result, a passing
+candidate test, a final-suite result or acceptance. The next separately
+approved execution is a corrected-revision candidate test; prior failed
+receipts cannot be transplanted to the new binding.
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

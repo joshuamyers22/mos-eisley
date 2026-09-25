@@ -3,8 +3,8 @@
 Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
 signed single-operator triage, zero-spend cycle-1 admission, one contained
-agent-authored offline correction-child dispatch and separately authorized
-isolated Git integration replay-verified**.
+agent-authored offline correction-child dispatch, separately authorized
+isolated Git integration and renewed authenticated provenance replay-verified**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -269,8 +269,13 @@ or acceptance authority follows from admission.
   Read-only offer preview SHA-256 `418e0181579f75f70f83048ec214c3221075b1bf553e4cd44778d47988c35a2d`
   replayed against current Git. One child-dispatch claim was later consumed,
   producing a signed, deterministic agent-authored proposal and contained
-  worker receipt. No provider was called or original-checkout file changed. The grant expires
-  with the cycle approval at 2026-09-26 19:30:42 UTC, but its claim is spent.
+  worker receipt. No provider was called or original-checkout file changed.
+  The grant expires with the cycle approval at 2026-09-26 19:30:42 UTC, but
+  its claim is spent.
+- The corrected detached revision has a fresh binding and signed, replayed
+  VCS/E2 provenance. No candidate receipt for that revision exists yet; the
+  earlier two failed receipts belong to `6f2551d` and cannot be reused for a
+  final-suite admission.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -307,9 +312,27 @@ Independent replay verified both enrolled signatures, the claim, parent,
 worktree, paths, blobs, patch and unchanged original checkout. The integrated
 commit is an isolated proposal result, not a final test pass or acceptance.
 
+The pinned controller renewed and replay-verified the immutable implementation
+binding for the clean detached `0cc8419` tree: manifest SHA-256
+`cd8be4309ae13d42a5f302d9ad4fd64ff591ac4152cfc035f5a239aafd15fb14`,
+binding SHA-256
+`964f53fe967ef0b98be34b81d65635612daf1f008cfe7760d34b6313c35ed2b2`.
+The frozen reviewer package and direct-symbol adapter are unchanged; only the
+source revision and corrected `price.py` declaration changed. Read-only Git
+reconstruction produced unsigned claim `e291e6b4…`; Joshua signed it as VCS
+artifact SHA-256
+`fb0ed5258c679a63b566a8194bde8555d3e7dfb423087c739f451e69cbb7436e`.
+The assembled authenticated provenance SHA-256
+`7f6bee4ca25ed84f521f0e2f38f0a19c15c0082d4164085bb59be64269421cfd`
+replay-verified against current clean Git. A separate cross-check matched its
+source commit and tree to the signed integration record. This retains the
+disclosed *seeded* initial-child ancestry; it does not establish a real
+provider child or authorize tests, another correction, or acceptance.
+
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is renewed binding/provenance for the integrated revision and separately
-authorized creator/reviewer whole suites, followed by independent review.
+is a separately approved candidate-test admission for the corrected revision.
+A passing candidate receipt would be prerequisite to separately authorized
+creator/reviewer whole suites, followed by independent review.
 The correction-child and integration claims are spent; do not retry or switch
 stores. Separate authorization is required before any provider send.
