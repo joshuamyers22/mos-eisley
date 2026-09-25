@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | Obtain accountable review of the new gate; real child, final-suite and critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | Owner approved corrected gate code at `752c350`; first isolated qualification packet and chat-level draft approval recorded, with signed approval and custody still open; real child, final-suite and critic/judge exercises need separate approvals | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -178,6 +178,18 @@ does not grant acceptance or any live call. External accountable review, actual
 provider/child/final-suite exercises, renewed correction evidence and applicable
 G3 quality gates remain open. See [the independent-review contract](G4_INDEPENDENT_REVIEW.md)
 and [verification record](G4_INDEPENDENT_REVIEW_VERIFICATION.md).
+
+**G4 first qualification preparation, 2026-09-25:** the owner approved the
+corrected gate-code commit `752c350` in conversation. A separate local
+`linux/arm64` image was built and checked from that clean source, and an isolated
+target base with draft plan, protected creator tests, blind reviewer-test draft
+and source-level known-good/known-bad checks was prepared. The owner approved
+the exact draft plan and creator tests in chat with a $10 cap and a
+2026-09-26 23:59 Eastern deadline. No task-plan or reviewer-custody signature,
+frozen package, authenticated control/candidate
+receipt, child/provider call, two-family critic result or final-suite run exists.
+The [preparation packet](G4_QUALIFICATION_PREPARATION_2026-09-25.md) fixes the
+identities and the ordered preflight; it grants no live or release authority.
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,
