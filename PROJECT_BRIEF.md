@@ -246,6 +246,13 @@
   This was implemented and fixture-tested offline, not run on a production
   candidate. Independent review, critic quorum, correction completion and
   acceptance remain open. See `docs/G4_FINAL_WHOLE_SUITES.md`.
+- G4 offline independent-review gate, 2026-09-24: a creator-signed exact-subject
+  roster requires distinct external critic/judge keys, two provider-family
+  critic quorum, source citations and a signed judge decision. Replay checks the
+  creator-approved plan bytes, complete base-to-source Git diff and passing
+  final-suite receipt. The gate was fixture-tested only; real provider/human
+  independence, production review and final acceptance remain open. See
+  `docs/G4_INDEPENDENT_REVIEW.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

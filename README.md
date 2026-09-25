@@ -327,6 +327,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   candidate, runs them in isolated containers and retains count/Git replay evidence.
   Its offline implementation does not establish a production passing result or
   independent acceptance.
+- The offline [G4 independent-review gate](docs/G4_INDEPENDENT_REVIEW.md) replays
+  the approved plan, full Git diff and passing final-suite receipt before checking
+  distinct signed critic/judge assessments, two-family quorum, citations and the
+  deterministic verdict. No live review, proof of provider/human independence or
+  release approval follows from this implementation alone.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.

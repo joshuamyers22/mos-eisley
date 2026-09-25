@@ -52,6 +52,8 @@ from mos_eisley.run.isolation import OfflineContainer
 
 
 class FinalWholeSuiteTests(unittest.TestCase):
+    fixture: G4ProvenanceFixture
+
     def _creator_package(
         self, fixture: G4ProvenanceFixture
     ) -> FrozenReviewerTestPackage:
@@ -123,6 +125,7 @@ class FinalWholeSuiteTests(unittest.TestCase):
         fixture, candidate_approval, candidate_request, candidate_inputs = helper._case(
             root
         )
+        self.fixture = fixture
         admission = helper._admit(
             candidate_approval, candidate_request, candidate_inputs
         )

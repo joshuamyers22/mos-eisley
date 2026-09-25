@@ -4228,6 +4228,16 @@ not a production candidate or live provider. Real passing suites, renewed
 correction evidence, critic quorum and independent implementation review remain
 open. See [the final whole-suite contract](G4_FINAL_WHOLE_SUITES.md).
 
+An eleventh offline slice binds a signed independent-review roster to the exact
+post-suite implementation subject: approved plan bytes, complete trusted Git
+base-to-source patch and the passing final whole-suite receipt. Distinct external
+critic/judge keys, two-family critic quorum, citation validation, signed complete
+critic lineage and deterministic judge verdict produce a replayable non-release
+record. Enrolled provider-family labels and signed review claims do not establish
+actual provider operation or independent human review. No production reviewer
+or coding-child call was made; accountable acceptance and the applicable G3 gate
+remain separate. See [the independent-review contract](G4_INDEPENDENT_REVIEW.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,
