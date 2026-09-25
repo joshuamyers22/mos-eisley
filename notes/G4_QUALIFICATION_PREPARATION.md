@@ -1,6 +1,6 @@
 # Work Note: first G4 qualification preparation
 
-- Status: offline input/custody checkpoint complete; execution qualification open
+- Status: seeded E2/Git claim recorded; VCS signature and full replay pending; candidate qualification open
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-25
 - Last updated (UTC): 2026-09-25
@@ -18,8 +18,9 @@
   initial child presented as a real provider child; G3 remains separate.
 - Non-goals: actual child/critic/judge call, execution grants, spending, final G4 pass.
 - Risk: high. Offline resource ceiling: zero provider micro-USD and no credential
-  access; one exact image build, local source-level draft controls and offline
-  input/custody signing. Stop at a failed identity, signature or package check.
+  access; one exact image build, local source-level checks, offline
+  input/custody signing and paired no-network container controls. Stop at a
+  failed identity, signature, package or receipt check.
 - Selected pinned guidance: `docs/AGENTIC_VERIFICATION_GUIDE.md`,
   `templates/AGENTIC_VERIFICATION_LOOP.md`, `templates/THREAT_MODEL.md` and
   `templates/WORK_NOTE.md`. The template provenance is in `AGENTS.md`.
@@ -52,27 +53,37 @@
 | 2026-09-25 | observation | Joshua signed creator approval locally; canonical artifact `419e2e0b…` and Ed25519 signature, policy, hashes and base revision verified. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Freeze package. |
 | 2026-09-25 | observation | Pinned offline freezer emitted package `dad5e14a…`, payload `3f2bd652…`, one test file, five expected executions, no markers or downstream authority; replay passed. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Owner signs custody. |
 | 2026-09-25 | observation | Joshua signed reviewer custody locally; canonical artifact `c5d9b2a7…` and Ed25519 signature, UTC chronology, creator/package links and self-review disclosures verified. Package replay passed again. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Bind source and run known controls. |
+| 2026-09-25 | attempt | V1 known-good request was first rejected as noncanonical; after correction its no-network worker exited without a receipt. Local diagnostic reproduced a non-importable `unittest` start directory under the v1 collection settings. Lifecycle evidence retained; v1 is not qualifying evidence. | Private handoff and lifecycle record | Correct package collection setting and require new custody. |
+| 2026-09-25 | action | V2 package changed only collection top-level directory, keeping reviewer test bytes and creator references. Distinct clean good/bad fixture commits and v2 bindings replay-verified. Joshua signed v2 custody; signature and exact package links verified. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Run paired controls. |
+| 2026-09-25 | observation | Pinned no-network image ran 5/5 good tests with zero failures and 5/5 bad tests with two assertion failures, zero errors. Both exact receipts and paired record `ad304e15…` replay-verified; no candidate/provider execution or spend. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Authenticate child assignment/result and VCS/E2 provenance. |
+| 2026-09-25 | decision | Joshua selected an explicitly seeded offline initial-child result. It cannot qualify real initial-child dispatch. | User direction | Prepare a zero-spend assignment for owner signature. |
+| 2026-09-25 | observation | Joshua signed exact seeded assignment `63cbd8e5…`; verified canonical signature, scope, creator-test inventory, v2 custody/package and zero provider spend. | Private assignment and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Create disclosed fixture lineage. |
+| 2026-09-25 | action | Disposable target branch has base `699f345` → assistant-authored partial child `89dc94d` → host README handoff `6f2551d`. Local creator test ran 5/5 with one expected half-up assertion failure; no candidate receipt. Task-scoped key signed result `dd4e16e2…`; custody chain verified. | Target Git and private result | Bind source and reconstruct Git. |
+| 2026-09-25 | observation | Binding `97eee7ad…` replay-verified; read-only Git reconstructed exact ancestry, owned patch, committed blobs and clean source in unsigned claim `d59411ec…`. Strict CLI needed a separate canonical copy of the unchanged policy; original preserved. | Private binding/Git claim and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Obtain Joshua's separate VCS signature, then assemble/replay. |
 
 ## Handoff
 
-- Current state: exact signed creator approval, frozen reviewer package and
-  signed single-operator custody verify. There is no execution grant, provider
-  call, authenticated control receipt or final G4 evidence.
-- Next smallest safe action: prepare immutable implementation binding for
-  declared known-good/known-bad trees and run the paired isolated offline
-  controls in the pinned image; no candidate dispatch yet.
-- Blocker and required authority/input for later live stages: assignment/result
-  and VCS provenance, second provider family, live spending/dispatch approval,
+- Current state: signed creator/reviewer custody, distinct fixture bindings,
+  paired control receipts and seeded assignment/result verify. The read-only
+  Git claim exists but has no Joshua-controlled VCS signature yet. No real
+  child dispatch, candidate execution grant, provider call or final G4 evidence.
+- Next smallest safe action: have Joshua sign the exact VCS claim locally,
+  then assemble and replay authenticated provenance; no candidate dispatch or
+  provider send without separate authorization.
+- Blocker and required authority/input for later live stages: signed VCS
+  provenance, second provider family, live spending/dispatch approval,
   shared ledger and applicable G3 gate.
 - Checks already run: controller image start/source hash; clean target Git;
   local draft good/bad creator/reviewer test sensitivity; canonical creator and
-  custody signatures verified; package freezer/replay passed; product source
+  v2 custody, seeded assignment/result signatures verified; package, bindings,
+  controls and read-only Git claim replay passed; product source
   `make check` passed on `752c350` before this docs-only preparation.
 
 ## Close and promote
 
-- Outcome: complete offline input/custody checkpoint, not execution
-  qualification or launch authority.
+- Outcome: offline input/custody, paired controls and seeded child/Git claim
+  checkpoint complete pending VCS signature; not candidate qualification or
+  launch authority.
 - Durable fact promoted to `PROJECT_MEMORY.md`: none; project memory is not an
   index of ephemeral exercise status.
 - Temporary artifacts removed: generated Python bytecode caches from target
