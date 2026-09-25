@@ -3,7 +3,7 @@
 Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
 signed single-operator triage verified; real child dispatch and correction
-authority remain open**.
+authority remain open; zero-spend correction cycle 1 admitted**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -176,8 +176,9 @@ provider call, correction integration or acceptance is claimed.
    the same two assertion failures and zero errors; the correction-gate pair
    check accepted their distinct identities and matching observations.
    Source-level assessment traces both to one rounding defect. Joshua's signed
-   single-operator triage now covers both IDs; a separately approved bounded
-   correction cycle and dispatch/production-broker grant remain open.
+   single-operator triage now covers both IDs. Joshua separately signed bounded
+   cycle 1, and its one-use claim was admitted; dispatch/production-broker
+   grants remain open.
    Reserve the full shared-ledger allowance before any provider call. No
    automatic retry after an uncertain send or consumed claim.
 
@@ -225,6 +226,20 @@ not provider-backed or independent human review. The signed triage explicitly
 denies correction dispatch and acceptance authority. It is not a correction
 cycle approval.
 
+Joshua separately signed cycle-1 creator approval SHA-256
+`07e21f2c3e27011ffc5f41a5a65b09a750edafd6a3e60069db0b976d73f14492`.
+It binds the exact triage, current source revision, plan/test/package claims,
+one owned source path and existing child identity. The grant reserves 30,000
+input tokens, 8,000 output tokens, 20 tool calls and 3,600 seconds on top of
+the initial assignment's identical allowance, under the $10 task-wide ceiling
+and 2026-09-26 23:59 Eastern deadline. Its own provider allowance is **zero**,
+as required by the initial assignment. It expires 2026-09-26 19:30:42 UTC.
+The pinned controller admitted it once in the private claim store; canonical
+admission SHA-256
+`ad4fb9e908bc4f05cabf217440c3e72f56ff366e74c66f95823705e8c710582c`
+and exactly one owner-only claim replay-verify. No dispatch, provider, Git write
+or acceptance authority follows from admission.
+
 ## Current authorization gaps
 
 - Creator/reviewer custody, seeded assignment/result, Joshua-signed Git claim
@@ -238,6 +253,11 @@ cycle approval.
   validator accepted matching failure and collection identities. The source-
   level finding and signed triage are recorded above; the final-suite receipt
   remains absent.
+- The separate creator-signed cycle-1 approval and one-use admission above
+  verify. Their claim is spent; do not retry admission or change stores.
+  Correction-child dispatch, write integration and final review require their
+  own grants. Provider use is impossible under this zero-spend cycle; it would
+  require a fresh, separately authorized chain.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -250,8 +270,8 @@ cycle approval.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a separate creator-signed, bounded correction-cycle approval and one-use
-admission against the signed triage, shared task budget and deadline. This
-triage alone cannot dispatch a correction child or authorize integration.
+is a separate exact correction-child dispatch decision, subject to the admitted
+zero-spend cycle and existing child scope. Neither the triage nor cycle admission
+can dispatch a child or authorize integration by itself.
 Separate authorization is required before any provider send; these seeded and
 candidate records give none.
