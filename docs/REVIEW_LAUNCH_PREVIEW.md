@@ -61,7 +61,7 @@ The command rejects duplicate JSON keys, oversized configuration, mismatched mod
 spending policies, unsupported providers, reasoning-effort substitution, invalid
 judge output budgets, expired pricing, unavailable ledger capacity and existing
 output paths. It never creates a missing ledger. The existing default two-provider
-quorum remains unchanged. OpenAI-only configurations require an explicitly selected
+quorum remains unchanged. One-provider configurations require an explicitly selected
 one-provider policy; that selection is not made automatically.
 
 Success prints one `review.launch.preview` object, with canonical configuration,

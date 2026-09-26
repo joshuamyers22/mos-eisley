@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 dependencies = [
+    "anthropic>=0.75,<1",
     "anyio>=4.15,<5",
     "certifi>=2026.7.22",
     "cryptography>=50,<51",

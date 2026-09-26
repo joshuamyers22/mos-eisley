@@ -19,14 +19,17 @@ from mos_eisley.core.models import (
 )
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest
-from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import CountedTransport
 from mos_eisley.review.pipeline import validate_roster
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import MAX_WIRE_BYTES
-from mos_eisley.run.review_broker import PreparedReviewEnvelope, ReviewSpendingEnvelope
+from mos_eisley.run.review_broker import (
+    BrokeredReviewClient,
+    PreparedReviewEnvelope,
+    ReviewSpendingEnvelope,
+)
 from mos_eisley.run.review_evidence import (
     EvidenceJudgeAuthorization,
     PreparedEvidenceJudgeTransfer,
@@ -108,12 +111,12 @@ class ControllerTerminal(Contract):
     result_sha256: Digest | None = None
 
 
-async def _complete(client: BrokeredOpenAIClient, request: ModelRequest) -> None:
+async def _complete(client: BrokeredReviewClient, request: ModelRequest) -> None:
     await client.complete(request)
 
 
 async def _complete_all(
-    jobs: tuple[tuple[BrokeredOpenAIClient, ModelRequest], ...],
+    jobs: tuple[tuple[BrokeredReviewClient, ModelRequest], ...],
 ) -> None:
     tasks = [asyncio.create_task(_complete(*job)) for job in jobs]
     group = asyncio.gather(*tasks, return_exceptions=True)
