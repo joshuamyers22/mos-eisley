@@ -105,10 +105,20 @@ settled $0.115386 and $0.131696. In slot 2, Sonnet exhausted the 2,000-token
 output limit in adaptive thinking and returned only two visible text characters.
 The critic response could not satisfy the strict JSON contract, so the controller
 failed before judge dispatch. Its critic settled $0.065500. The unused $0.215000
-judge allowance remains held; it has not been released or counted as settled
-usage. Total settled campaign charges are $0.312582, with conservative exposure
-of $0.527582 including the held allowance. The private failure closeout records
-metadata and exact artifact hashes without copying prompts or responses.
+judge allowance was held pending manual release; it was never counted as settled
+usage. At failure, total settled campaign charges were $0.312582, with
+conservative exposure of $0.527582 including the held allowance. The private
+failure closeout records metadata and exact artifact hashes without copying
+prompts or responses.
+
+After the operator explicitly approved a manual release, the slot 2 judge hold
+was settled at $0. The controller terminal confirmed failure before judge
+dispatch, and neither a judge preview nor judge run directory existed. The
+ledger now has zero unresolved entries and $0.065500 settled for slot 2. The
+private release receipt has SHA-256
+`d0a6dd71ed1250dd3a2de2098b76f944cab915851b7654a6b41a532e0cafd0e4`.
+The three-slot campaign total remains $0.312582 in settled usage; this is still
+not invoice reconciliation.
 
 `review-campaign-review` returned `incomplete` with two qualifying attempts
 under evidence SHA-256
