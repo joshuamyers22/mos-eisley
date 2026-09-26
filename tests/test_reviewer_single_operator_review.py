@@ -56,6 +56,7 @@ class G4SingleOperatorReviewTests(unittest.TestCase):
         subject = previous["subject"]
         provenance = common["provenance"]
         owner_key = previous["creator_key"]
+        common["creator_key"] = owner_key
         specs = (
             CriticSpec(
                 id="anthropic-critic",
