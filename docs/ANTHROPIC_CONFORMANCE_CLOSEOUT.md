@@ -142,4 +142,26 @@ The next corrective route sends Anthropic's `output_config.format` JSON schema
 for the critic and judge, keeps Sonnet 5 thinking disabled and Opus 5.5 adaptive,
 and asks the critic for at most one concise finding. With a 24,000-token input
 limit and 1,000-token output limit, its prepared three-slot reservation is
-$0.630000. This correction has offline tests but no live result.
+$0.630000.
+
+That route was sealed under SHA-256
+`98c1c1f63958ef6eee7e7ce02ff220a07bb94a326b86ae644e392daf8a1a4379`
+for source commit `9b94fca`. Slots 0 and 1 completed Sonnet critic and Opus
+judge exchanges, received signed observer records, and passed fresh campaign
+evidence review. Their ledgers settled $0.125380 and $0.125842. In slot 2,
+Sonnet returned a complete JSON response, but a required finding evidence
+explanation was empty. Local contract validation failed before judge preview or
+dispatch. The critic settled $0.050784. With the operator's explicit approval,
+the unused $0.140000 judge allowance was settled at $0; its private release
+receipt has SHA-256
+`1d44b058f768f4991b18cd34de57b2dfb5408d4981a7e4e2f7625763e7dc6b1d`.
+The slot 2 ledger has no unresolved entries. This seal has two qualifying
+attempts and cannot be retried for a third.
+
+Across the signed attempts, identified settled usage is $0.659390. This is
+recorded provider usage, not invoice reconciliation. No signed campaign has
+passed the three-slot gate. The response schema has since been tightened with
+nonempty string patterns for the required review fields, including the failed
+explanation field. The change has local tests but no live conformance result;
+a fresh seal and separately approved spending are required for another
+three-slot attempt.

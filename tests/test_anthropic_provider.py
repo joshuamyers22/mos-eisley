@@ -104,6 +104,23 @@ class AnthropicTranslationTests(TestCase):
         critic_format = critic_config["format"]
         assert isinstance(critic_format, dict)
         self.assertEqual(critic_format["type"], "json_schema")
+        schema = critic_format["schema"]
+        assert isinstance(schema, dict)
+        properties = schema["properties"]
+        assert isinstance(properties, dict)
+        findings = properties["findings"]
+        assert isinstance(findings, dict)
+        item = findings["items"]
+        assert isinstance(item, dict)
+        fields = item["properties"]
+        assert isinstance(fields, dict)
+        evidence = fields["evidence"]
+        assert isinstance(evidence, dict)
+        evidence_fields = evidence["properties"]
+        assert isinstance(evidence_fields, dict)
+        explanation = evidence_fields["explanation"]
+        assert isinstance(explanation, dict)
+        self.assertEqual(explanation["pattern"], "^.+$")
         judge = critic.model_copy(
             update={
                 "model": "claude-opus-5-5",

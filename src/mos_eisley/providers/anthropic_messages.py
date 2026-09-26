@@ -220,8 +220,8 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "kind": {"type": "string", "const": "citation"},
                 "source": {"type": "string", "enum": ["spec", "diff", "constraints"]},
-                "quote": {"type": "string"},
-                "explanation": {"type": "string"},
+                "quote": {"type": "string", "pattern": "^.+$"},
+                "explanation": {"type": "string", "pattern": "^.+$"},
             },
             "required": ["kind", "source", "quote", "explanation"],
             "additionalProperties": False,
@@ -229,7 +229,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
         finding: dict[str, JsonValue] = {
             "type": "object",
             "properties": {
-                "location": {"type": "string"},
+                "location": {"type": "string", "pattern": "^.+$"},
                 "category": {
                     "type": "string",
                     "enum": [
@@ -244,9 +244,14 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
                     "type": "string",
                     "enum": ["blocker", "high", "medium", "low"],
                 },
-                "claim": {"type": "string"},
+                "claim": {"type": "string", "pattern": "^.+$"},
                 "evidence": evidence,
-                "suggested_fix": {"type": ["string", "null"]},
+                "suggested_fix": {
+                    "anyOf": [
+                        {"type": "string", "pattern": "^.+$"},
+                        {"type": "null"},
+                    ]
+                },
             },
             "required": [
                 "location",
@@ -273,7 +278,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "schema_version": {"type": "integer", "const": 1},
                 "upheld": {"type": "array", "items": {"type": "string"}},
-                "rationale": {"type": "string"},
+                "rationale": {"type": "string", "pattern": "^.+$"},
             },
             "required": ["schema_version", "upheld", "rationale"],
             "additionalProperties": False,
