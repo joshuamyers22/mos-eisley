@@ -185,11 +185,11 @@ restores the nullable `suggested_fix` schema form that succeeded earlier while
 retaining nonempty patterns on required fields. That change is an unproven
 compatibility correction until another live result is obtained.
 
-That correction was tested in a separate sealed campaign,
+That correction was attempted in a separate sealed campaign,
 `5434311f8d71db8aa2752c544d6c369b09ae1949b1ed388a17c2c12b8738e452`.
-Its first critic request was accepted by Anthropic, so the earlier 400 response
-did not recur. Sonnet returned 1,000 output tokens and stopped at the configured
-limit. The strict review contract could not accept the truncated critic result;
+Its first critic request was accepted by Anthropic. Sonnet returned 1,000 output
+tokens and stopped at the configured limit. The strict review contract could
+not accept the truncated critic result;
 the controller failed before judge preview or dispatch. The critic settled
 $0.050758 in the local ledger. With the operator's explicit approval, the
 unused $0.140000 judge allowance was settled at $0; its private release receipt
@@ -199,5 +199,29 @@ The slot ledger has no unresolved entries. Identified settled usage across the
 signed attempts is now $0.710148, plus the earlier $0.070000 uncertain critic
 reservation, for $0.780148 in conservative exposure. The next offline
 configuration raises the output limit to 3,000 tokens while retaining a
-single-finding prompt and a per-campaign reservation bound. That configuration
-has no live result yet.
+single-finding prompt and a per-campaign reservation bound.
+
+The 3,000-token configuration was sealed under SHA-256
+`76f601c2b50b3276b89b35be7f038debca40f868c8947437946ba2d527be00b8`.
+Its first critic request again stopped at the output limit, with 3,000 tokens
+and a $0.070754 local settlement. The controller failed before judge preview or
+dispatch. With explicit operator approval, the unused $0.180000 judge allowance
+was settled at $0; its private release receipt has SHA-256
+`0d571580d88ee8ad054cac3706af44b439285a30ce20d1989bf25ecdf199ae00`.
+The slot ledger has no unresolved entries. Identified settled usage across
+signed attempts is $0.780902, plus the earlier $0.070000 uncertain critic
+reservation, for $0.850902 in conservative exposure.
+
+An offline inspection then found that the pinned isolated worker image
+`sha256:347fc7e99c253ebcb5eb53e890f3410cf39c1364fcaa0b8e0c9df85bcf46dc80`
+did not contain `review_json_format`, despite the host source passing its tests.
+The Dockerfile copies and installs `src` into a no-mount worker image; the
+worker therefore ran older Anthropic translation code and did not send the
+host's structured-output schema. This explains why increasing the output limit
+did not constrain the critic response. A new image was built from the current
+source as
+`sha256:419dd600b3d708987982deb4a631280c44bb1b28ccd920f03ddfa8d6b9e1e809`.
+An offline check inside that image verified the Anthropic SDK version, the
+`structured_output` model field, and translation to `output_config.format` with
+the required `schema_version` property. That image has not yet produced a live
+signed campaign result.
