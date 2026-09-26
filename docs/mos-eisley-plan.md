@@ -28,6 +28,11 @@ history is now linked from §§17.7 and 25. Future updates keep current contract
 open gates here, implementation status in the roadmap, and execution history in
 the linked records.
 
+**Version 2 scope, 2026-09-25:** §31 records the accepted additions from the
+[Claude Code feature survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
+They are post-v1 product requirements and do not change the v1 release gates or
+claim current availability.
+
 ---
 
 **Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded
@@ -4588,3 +4593,68 @@ identity; denied filesystem/network/credential access; cross-user and cross-term
 isolation; attachment integrity and omissions; and continued chat, steering, diff
 navigation and cancellation while terminals run. Platform mocks may supplement but
 cannot replace real PTY and ConPTY evidence.
+
+---
+
+## 31. Version 2 conversation and automation requirements
+
+**Scope and order.** These three requirements come from the
+[2026-09-25 feature review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
+They belong to version 2 after the applicable v1 conversation, live-review,
+bounded-read, storage and policy gates have passed. Version 2 here denotes a
+product phase, not a storage/schema version or a claim that §27's 0.1.1 release
+already includes them. Use existing controllers and ledgers; none creates a new
+approval, review, publisher or extension authority. Track implementation status
+in the roadmap, not by marking a requirement as shipped here.
+
+### 31.1 Paid-review launch preview
+
+Before a paid conversational or CLI review begins, show or emit a bounded preview
+of the exact target and revision, included and omitted files/ranges, selected
+roles/models, effective policy, remaining task spend ceiling, and whether any
+result is authorized for outward posting. Label unknown cost estimates as unknown;
+the existing admission budget remains authoritative. A request that already
+authorizes review needs no second confirmation. Revalidate target, brief, policy
+and spend at launch; if they changed, refresh the preview or fail visibly before
+dispatch. Review intent never implies publication authority.
+
+Acceptance: TUI, plain and JSON modes identify the same frozen target and omission
+set; stale target/policy, exceeded spend and changed posting intent cannot pass
+launch. A recorded review remains distinguishable from a paid live review. Preview
+generation cannot contact a provider, spend money or publish a result.
+
+### 31.2 Exact file and range attachments
+
+Add an explicit file/range picker to the conversation composer and equivalent
+plain/JSON input. Resolve each selection under the chosen workspace and read
+policy, preview its size and source revision, freeze exact bytes and a digest at
+submission, disclose any reduction, and recheck changed or stale sources before
+use. Directory expansion requires an explicit bounded selection. A typed path or
+`@` mention may open the picker, but prose alone does not load a file. Attachments
+are untrusted evidence, never policy instructions or an automatic critic brief.
+This reuses §6.6's artifact/view contract and §16.4.1's diff-line attachment path.
+
+Acceptance: cover symlinks and path races, renamed/deleted/oversized/binary files,
+revision changes, concurrent edits, rejected submission, resumed drafts and
+workspace switches. The attached bytes, digest, provenance and omissions agree
+in TUI, plain and JSON modes; no attachment broadens read scope or silently enters
+an independent critic's context.
+
+### 31.3 Complete scriptable `mos exec` contract
+
+Extend the existing non-interactive controller with bounded UTF-8 stdin as an
+explicit untrusted input attachment when selected. Reject ambiguous mixing of
+stdin and positional input and report size/encoding errors before any paid call.
+In `--json` mode, reserve stdout for schema-versioned events and one terminal
+result containing task/review status, artifact IDs, usage and omission markers;
+send diagnostics to stderr. Define stable non-zero exit codes for invalid input,
+policy denial, budget exhaustion, cancellation and incomplete/failed review. A
+zero process exit means the command completed under its declared status, not that
+a review verdict was `accept`. Document the mapping so CI checks the verdict
+field rather than assuming success from process exit alone.
+
+Acceptance: pipe and positional-input cases, output floods, interruption, partial
+events and provider failure produce one unambiguous terminal state. Plain and JSON
+paths share the interactive controller, policy, spending ledger and redaction
+rules. This v2 expansion does not retroactively change the documented scope of
+the existing `mos exec --json` command or the historical M10 milestone table.

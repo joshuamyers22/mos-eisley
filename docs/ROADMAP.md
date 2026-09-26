@@ -118,6 +118,14 @@ TUI and safe session resume are an early product workstream alongside item 3;
 advanced visual polish can follow later. This is planned work, not an availability
 claim, and preserves the existing provider, spending, quality, and containment gates.
 
+**Version 2 feature-survey additions, 2026-09-25 — planned:** the
+[Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
+adds a bounded paid-review launch preview, exact file/range attachments, and a
+complete stdin/final-status contract for `mos exec` to the post-v1 product phase in
+[plan §31](mos-eisley-plan.md#31-version-2-conversation-and-automation-requirements).
+They depend on the applicable v1 conversation, review, read and policy gates. They
+do not change v1 scope, grant new authority or advance an implementation gate.
+
 **Data ownership and storage, 2026-09-06:** keep saved conversations, replay,
 evaluation evidence, and model-selection records under one user's ownership.
 Default to private local files/SQLite, and support user-configured cloud database
