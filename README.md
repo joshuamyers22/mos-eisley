@@ -332,6 +332,10 @@ and critic/judge workflows retain their existing tool-free boundaries.
   distinct signed critic/judge assessments, two-family quorum, citations and the
   deterministic verdict. No live review, proof of provider/human independence or
   release approval follows from this implementation alone.
+- A separate [G4 single-operator review path](docs/G4_SINGLE_OPERATOR_REVIEW.md)
+  checks one owner's signed, two-provider critic/judge record against the same
+  exact subject. It always denies independent-review and acceptance claims;
+  no live provider run has occurred through this path.
 - The [first G4 qualification preparation packet](docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md)
   pins the controller image and isolated target. Signed custody, paired controls,
   seeded provenance, two failed candidate reproductions, contained offline

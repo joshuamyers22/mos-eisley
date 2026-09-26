@@ -401,11 +401,27 @@ does not supply the gate's distinct signed two-family critic assessments,
 signed judge verdict or independent-human-review proof, and grants no
 acceptance authority.
 
+On 2026-09-26 the owner specified that only one human signer will be available
+and selected preparation of a separate single-operator review path using both
+OpenAI and Anthropic as critic provider families. The current
+G4 independent-review gate requires distinct critic and judge identities and
+keys, each disjoint from the creator and existing custody roles, so it cannot
+pass under that constraint. ADR-0005's single-operator policy applies to the
+earlier live-review workflow; it does not silently change the G4 gate. Any G4
+one-human-signer result must explicitly retain
+`independent_review_evidence_passed=false`, disclose self-review risk and keep
+`acceptance_authorized=false`. The owner reported that a local non-generating
+Anthropic Models API check returned HTTP 200 for `claude-sonnet-5`. This
+verifies model availability only; no Anthropic critic call, provider
+conformance, spend grant or signed G4
+review result exists. The private preparation folder now has bounded, offline
+OpenAI and Anthropic critic requests for this exact subject.
+
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
-and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a separately approved independent review of the exact plan, full Git diff
-and passing final-suite receipt, followed by a distinct post-review creator
-decision. This
+and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The selected next
+boundary is a separately approved single-operator two-provider review of the
+exact plan, full Git diff and passing final-suite receipt. A future formal
+independent review still requires its distinct signer roster. This
 offline suite result does not establish real provider-child lineage, reviewer
 independence or the applicable G3 quality gate. All three candidate claims,
 the final-suite claim, and the correction-child and integration claims are spent;

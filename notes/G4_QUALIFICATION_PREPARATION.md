@@ -76,6 +76,7 @@
 | 2026-09-26 | observation | Joshua signed a separate corrected-revision candidate approval `36cc69a1…`. The pinned controller admitted it at `484515e0…`; one new claim in the existing store produced passing receipt `3736d1b0…`. All five frozen reviewer tests executed and passed with zero errors/skips; replay checked the claim and clean Git, and the worker was removed. No provider call, final suites or acceptance. | Private approval, admission, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate final whole-suite approval for the corrected revision. |
 | 2026-09-26 | observation | The complete protected creator test package `ad56be73…` matched signed creator bytes and base/final Git. Joshua signed separate exact offline final-suite grant `dba1f401…`; read-only preflight passed. One new final-store claim preceded isolated creator and reviewer runs. Each executed 5/5 with zero failures/errors/skips; combined receipt `a2771933…` replay-verified, both containers were removed and the corrected Git tree stayed clean. No provider call, independent review or acceptance. | Private packages, requests, grant, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate independent review of exact plan/full diff/final-suite receipt. |
 | 2026-09-26 | decision | After the exact review subject `5cb27a5c…` was described, the user reported Joshua Myers reviewed it and decided pass. No signed owner-review artifact or distinct external critic/judge artifacts were provided. This is an owner-reported decision, not a completed independent-review gate or acceptance. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md); conversation decision | Obtain separately enrolled critic/judge evidence before formal review verdict. |
+| 2026-09-26 | decision | The owner specified one human signer and two critic provider families, OpenAI and Anthropic, for a separate single-operator G4 review preparation path. The current independent gate rejects reused creator/critic/judge identities; ADR-0005 does not extend that gate. A user-run Anthropic Models API check reported HTTP 200 for `claude-sonnet-5`, while no critic call, spend grant or signed G4 review exists. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md); private bounded critic requests; conversation decision | Qualify actual Anthropic transport and obtain exact live-call authority; keep the formal independent gate open. |
 
 ## Handoff
 
@@ -92,9 +93,11 @@
   original-checkout write, formal independent review or final G4 acceptance.
   The user reports Joshua's pass decision for subject `5cb27a5c…`; no signed
   owner-review artifact was provided.
-- Next smallest safe action: enroll an external two-family critic/judge roster
-  for the exact prepared subject, then seek a
-  separate creator-signed independent-review grant. No provider send without
+- Next smallest safe action: qualify Anthropic transport under the shared
+  spending controls, then obtain exact live-call authority for the prepared
+  OpenAI and Anthropic requests. The separate single-operator evidence path
+  is available offline. The formal independent gate remains open until external
+  critic/judge signers are available. No provider send without separate
   authorization.
 - Blocker and required authority/input for later live stages: a fresh
   nonzero-spend chain, second provider family, live

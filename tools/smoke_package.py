@@ -294,6 +294,7 @@ def main() -> int:
             "test_reviewer_coding_broker.py",
             "test_reviewer_final_suites.py",
             "test_reviewer_independent_review.py",
+            "test_reviewer_single_operator_review.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(

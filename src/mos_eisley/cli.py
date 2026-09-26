@@ -30,6 +30,7 @@ from mos_eisley import (
     reviewer_implementation_binding_cli,
     reviewer_independent_review_cli,
     reviewer_provenance_cli,
+    reviewer_single_operator_review_cli,
     reviewer_test_execution_cli,
     reviewer_test_package_cli,
 )
@@ -867,6 +868,19 @@ def parser() -> argparse.ArgumentParser:
         ),
     ):
         reviewer_independent_review_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-assemble-single-operator-review",
+            "Assemble owner-attested G4 two-provider review evidence offline",
+        ),
+        (
+            "g4-verify-single-operator-review",
+            "Replay owner-attested G4 review against current evidence",
+        ),
+    ):
+        reviewer_single_operator_review_cli.add_arguments(
             subcommands.add_parser(name, help=help_text), name
         )
     conformance = subcommands.add_parser(
@@ -8164,6 +8178,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-verify-final-whole-suites",
             "g4-assemble-independent-review",
             "g4-verify-independent-review",
+            "g4-assemble-single-operator-review",
+            "g4-verify-single-operator-review",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8226,6 +8242,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "g4-verify-independent-review": (
                     reviewer_independent_review_cli.run_command
+                ),
+                "g4-assemble-single-operator-review": (
+                    reviewer_single_operator_review_cli.run_command
+                ),
+                "g4-verify-single-operator-review": (
+                    reviewer_single_operator_review_cli.run_command
                 ),
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
