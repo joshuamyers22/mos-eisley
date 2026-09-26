@@ -33,6 +33,14 @@ the linked records.
 They are post-v1 product requirements and do not change the v1 release gates or
 claim current availability.
 
+**Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
+owner-scoped live measurement, bounded live policy comparisons, and recurring
+reviewed calibration and promotion. It keeps the existing grading rubric fixed and
+adds no current production experiment or automatic learning authority. For later
+cohorts, §26.6 supersedes §26.3's single-study limit; each fresh cohort still
+consumes its own holdout once. The consequential choice is recorded in
+[ADR 0005](adr/0005-continuous-production-evaluation.md).
+
 ---
 
 **Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded
@@ -4117,9 +4125,12 @@ action schemas and cross-family difficulty transfer are separate research gates.
 Exploration is disabled initially. Offline/shadow trials need explicit study spend
 and data permissions and grant no machine authority. Later online randomization
 can select only already qualified actions above the role floor. Monitoring can
-quarantine/stop traffic; it cannot silently retrain/reactivate. Freshness deadlines,
-recent-window checks and new model/prompt/tool/template versions trigger renewed
-evaluation or eligible fallback/stop, even with no observed failures.
+quarantine/stop traffic; it cannot silently retrain/reactivate. Under §26.6, a
+later registered cohort may recalibrate using mature prior-window evidence and
+test on a fresh future holdout, with independent promotion before any policy
+change. Freshness deadlines, recent-window checks and new model/prompt/tool/template
+versions trigger renewed evaluation or eligible fallback/stop, even with no
+observed failures.
 
 ### 26.4 Delivery order and accountable gates
 
@@ -4137,7 +4148,7 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
 | G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
 | G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
-| G7 — optional research | G5/G6 as applicable; R4 | Independent benefit from transfer, budget routing or bandit methods; explicit estimator and fresh evaluation, no automatic online learning |
+| G7 — advanced adaptive methods | G5/G6 as applicable; R4 | Independent benefit from transfer, output-budget routing, bandits or within-cohort adaptation; separately reviewed sequential/statistical and activation protocol |
 
 G0/G1 can proceed while G2's live boundary is finished. Planning and labeling do not
 require machine-write authority; live evaluation does not wait for coding autonomy.
@@ -4207,6 +4218,130 @@ unbound profile. See
 Pass/fail fixtures prove controller enforcement; representative independent live
 evidence proves a quality or savings claim. Keep those statements separate in each
 milestone review and in the CLI's availability/status output.
+
+### 26.6 Continuous production study and calibration
+
+**User direction, 2026-09-25 — planned, not enabled:** study and calibrate Mos Eisley
+continually using live production tasks. Deliver three explicit levels in order:
+continuous measurement under a fixed policy; bounded live comparisons of qualified
+policies; and recurring calibration and reviewed promotion from mature production
+evidence. This amends the one-time-study delivery model in §§26.3–26.4 without
+weakening G2–G6 prerequisites. The [G5 paired study protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+remains the initial design contract. Its study-specific inputs are still unset;
+this amendment does not seal it, supply missing probabilities/labels/groups/splits,
+or establish production readiness.
+
+**One measurement rubric.** Pin the exact current independent grading rubric,
+grader/resolver qualification, outcome definitions, follow-up rules and measurement
+judge settings in a program-level manifest. Use that same rubric at all three
+levels and across cohorts; an arm may change only the registered execution policy.
+The rubric remains separate from a model judge's production verdict. Do not tune
+its wording, weights, graders' instructions or outcome mappings using live results.
+If a future rubric change is necessary, stop comparable claims, open a separately
+reviewed plan amendment and bridge study, and start a new measurement lineage;
+never silently pool old and new grades. Preserve the independently adjudicated
+damage, detection, completion, escaped-defect, latency and whole-task-cost gates in
+L5. A missing or disputed independent outcome stays unknown.
+
+| Level | Production behavior | Entry and exit evidence | Authority limit |
+|---|---|---|---|
+| 1 — continuous measurement | Observe the deployed fixed/full-review policy and run an owner-scoped ordinary-task audit with independently graded, delayed follow-up | G2 for live read-only review, G4 containment for write tasks, owner-isolated durable decision/outcome records, reviewed sampling and missingness, reproducible cohort reports | Observations may stop/quarantine a policy but cannot qualify or change one |
+| 2 — bounded live comparison | Assign eligible production tasks within a precommitted owner-scoped cohort to already-qualified complete policies; use the same rubric and control path for every arm | Level 1 health, G5 evidence for each policy that can affect a user, G6 dispatch/rollback controls, feasible sample/spend and reviewed randomization, independent outcome and safety-monitor evidence | No unqualified weaker route, omitted required review or new machine authority; a shadow arm with no user effect remains observational |
+| 3 — recurring calibration and promotion | Close a mature cohort, fit/freeze a candidate using permitted prior-window data, test it on a fresh later cohort, and independently decide whether to promote for the next bounded rollout | Levels 1–2, reviewed repeated-decision error budget, fresh holdout and drift checks, independent promotion/control signatures, current conformance and exercised rollback | No in-place self-modifying policy. Each version is immutable during its cohort; promotion is an explicit atomic G6 decision. Within-cohort adaptive action selection needs the additional G7/R4 gate |
+
+**Prospective cohort contract.** Before a production cohort receives traffic,
+its reviewed manifest must bind the owner, population and task eligibility,
+independent-group assignment rule, clean/defective ascertainment, exact
+rubric digest, policy/arm and provider versions, decision-time feature schema,
+allocation probabilities, randomization seed custody, study split and cutoff,
+follow-up window, missingness and replacement rules, exposure and spend ceilings,
+latency and quality limits, minimum useful effect, sample-size feasibility,
+scheduled analysis, safety stop rules and accountable owners. Place the exact
+manifest digest in an independently retained append-only record before assignment
+or outcome access. An absent field is unknown and blocks the relevant claim;
+historical probabilities, group membership, labels and splits are never inferred
+or repaired. Incoming group and split identities are recorded at admission under
+the frozen rules, before the task's outcome is available. The ordinary production
+audit and selected hard cases retain their separate inclusion channels and known
+probabilities. Related task revisions stay
+in one group and one cohort split; exposed examples cannot become fresh holdout.
+
+**Inference across time.** A cohort may make one fixed-horizon promotion decision
+after registered follow-up matures. Safety monitors may stop exposure at any time,
+but an early stop cannot be called a successful efficacy result. Reserve a reviewed
+family-wide error budget across candidate arms, gated outcomes and successive
+cohorts before results; record every allocation and spent decision in a durable
+owner-scoped ledger. For an unbounded cohort series, freeze a summable allocation
+schedule and a rule for exhausted or unused budget before the first decision; do
+not reclaim spent error allowance after a failed or stopped cohort. Use fresh
+independent future holdouts for later decisions,
+not repeated queries against a prior cohort. If continuous looks or adaptive
+allocation are proposed, validate a separately specified anytime-valid method,
+its support/positivity and delayed-outcome behavior before use. Existing
+fixed-matrix scoring, ordinary confidence intervals and selected-action telemetry
+cannot be relabeled as sequential or off-policy evidence. Report all assignments
+by intent to treat, including no-dispatch, failures, cancellations, unresolved
+follow-up, retained uncertain spend and abandoned work. Population claims require
+reviewed inclusion probabilities and independent groups; otherwise label the
+report descriptive. A later cohort cannot erase an earlier failure or replenish a
+spent error budget by renaming the policy.
+
+The initial G5 paired study uses separate frozen starts. A live cohort assigns one
+user-affecting whole-task policy per task or independent group; it must not replay
+writes or approvals merely to create a pair. Its causal comparison uses the
+precommitted randomized allocation and a separately reviewed estimator. A shadow
+execution may inspect an isolated copy only under the owner's study permissions,
+and its output cannot write, publish or stand in for the unobserved production
+counterfactual. Newly fitted candidates remain shadow-only until G5 qualifies
+their exact policy; only already-qualified actions can enter user-affecting Level 2
+or Level 3 comparisons. An underpowered owner-specific cohort stays inconclusive;
+evidence from different owners is not pooled to rescue it.
+
+**Operational boundary.** Use §17's one-owner storage and same-owner aggregate
+exception. No cross-user sample pooling, global model ranking, shared training set
+or centralized content telemetry; an owner's deletion/reset invalidates dependent
+calibration and promotion receipts. A production task enters a study only under
+the owner's explicit, effective data-transfer and study policy; withdrawal stops
+new study assignments and deletion invalidates dependent decisions. Trusted
+offline calibration may explicitly select mature same-owner evidence under its
+retention and access rules; an agent's fresh session and the automatic selector
+receive only §17.3's minimal allowed aggregates. Record the exact approved
+action distribution before dispatch, actual one-use grant and spend reservation,
+policy/control sequence, terminal and follow-up status, and safe evidence digests.
+Do not put prompts, transcripts, model responses, tool output, source diffs, labels
+or unrestricted reviewer prose in operational events or sampling metadata.
+Required assignment, before-send, spend and outcome links are durable before
+dependent effects; optional telemetry loss is counted and cannot be backfilled
+into valid experimental evidence. Bounded queues, disk pressure, clock skew,
+retention, backups, encryption, access, deletion and no-duplicate recovery need
+target-host tests before Level 1 production collection.
+
+**Operations and release.** Apply the production project template's evidence-led
+workflow: name the operational decision for each metric, emit versioned safe event
+and error codes, review counts/rates and missingness on a declared cadence, and
+separate observed signals from causal claims. Every rollout has an owner, support
+window, immutable artifact and policy digest, blast-radius limit, capacity and
+spend budget, independent reviewer, dashboard/alert thresholds, on-call and
+incident path, and tested stop/fallback/rollback runbook. Refuse new assignment
+when audit durability, owner isolation, randomization, current conformance,
+spending admission or control-witness freshness fails. Continue an already-sent
+task only under its original policy and conservative spending/recovery rules;
+never silently reassign it. Drift, harmful outcomes, uncertain exposure,
+missing labels, exhausted error budget or a broken monitor trigger the registered
+stop/fallback path. Reopening traffic requires new independent evidence and the
+existing signed promotion/control ceremony, not merely a quiet dashboard.
+
+**Verification and status.** Fixture and fault-injection suites must cover
+changed eligibility after assignment, zero/unknown probabilities, duplicate or
+lost events, clock/order skew, delayed labels, selective nonresponse, group/split
+leakage, concurrent cohorts, seed replay, partial reservations, stale policy and
+rubric, copied/rolled-back control state, monitor outage, emergency stop, rollback
+and owner deletion. A production-like canary must exercise cohort close,
+independent grading, one-use promotion, rollback and subsequent fresh-window
+assessment. Review a later window against the registered baseline and guardrails;
+fewer tokens, lower spend or cleaner logs alone do not show improvement. Report
+each level separately as planned, fixture-verified, live-observed or authorized.
+None is implemented by this plan amendment.
 
 ---
 

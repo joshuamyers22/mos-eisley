@@ -22,7 +22,26 @@ continuation, compaction or pressure behavior.
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
-| G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+| G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
+
+The [G5 paired whole-task preregistration protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+records the comparison and analysis rules that can be fixed before outcomes. Its
+study-specific numeric thresholds, sampling design, independent groups, labels,
+splits and feasibility calculation remain unset; no G5 study is sealed or qualified.
+
+**Continuous production study, 2026-09-25 — planned:** [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+adds three separately gated levels after the applicable provider and execution
+boundaries: (1) owner-scoped live measurement of a fixed policy, (2) bounded
+randomized production comparisons among already-qualified policies, and (3)
+recurring calibration on mature prior-window evidence with a fresh future holdout
+and independent promotion for each immutable policy version. The independent
+grading rubric stays fixed across levels and cohorts. These levels add no runtime
+authority today. Each cohort needs its own prospective manifest, feasible
+sample/spend design, durable assignment record, owner isolation, safety monitor,
+and tested stop/rollback path. Newly fitted policies stay shadow-only until G5
+qualification; within-cohort adaptive selection needs the separate G7/R4 gate.
+See [ADR 0005](adr/0005-continuous-production-evaluation.md) for the decision and
+operational consequences.
 
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
