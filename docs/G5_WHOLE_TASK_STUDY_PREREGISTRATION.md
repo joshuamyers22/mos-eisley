@@ -39,7 +39,7 @@ factorial experiment.
 
 | Family | Reference arm | Candidate arm(s) | Decision sought |
 |---|---|---|---|
-| A: Stage 0 | Deterministic checks with the otherwise identical full downstream workflow | Add two sealed independent plan readings before that same downstream workflow | Whether Stage 0 improves whole-task outcomes enough to justify its cost; overlap with later findings is descriptive only |
+| A: Stage 0 | Deterministic checks with the otherwise identical full downstream workflow | Add two sealed independent plan readings before that same downstream workflow | Whether a prespecified independently graded benefit exceeds its minimum useful effect while safety and maximum added whole-task cost pass; overlap with later findings is descriptive only |
 | B: review coverage | Frozen full roster of `N` critics plus full judge | One critic; `N` critics without judge, each with every other task rule fixed | Whether either reduced path retains detection and limits correct-work damage; experimental arms have no production acceptance authority |
 | C: judge sampling | Full judge on every eligible finding | A fully specified sampled-judge policy with mandatory adjudication triggers and a known-probability audit of the ordinary path | Whether the proposed sampling rule qualifies without weakening final required checks |
 | D: route cost | Frozen fixed eligible model/effort routes with full review | Each named cheaper reviewer or whole-task routing policy, including any bounded cascade as a complete policy | Whether a cheaper policy meets quality gates and saves whole-task cost |
@@ -59,11 +59,25 @@ Before execution, the manifest identifies the target population, task source and
 sampling frame, inclusion/exclusion rules, independent-group scale, group IDs,
 clean/defective strata, task and repository revision digests, and eligibility for
 each comparison. Related tasks, mutations, revisions and trajectories belong to
-one declared group and one data split. Missing or disputed group identity,
-sampling probability, label, or split is recorded as unknown and cannot be
-invented, repaired from outcomes, or used for a population gate. Hard-case
-oversampling is disclosed separately from the ordinary probability sample; an
-unknown inclusion probability makes population-rate claims descriptive only.
+one declared group and one data split. The manifest also chooses the sampling
+regime before assignment: independent draws from a stated group population,
+probability sampling without replacement from a fixed finite group frame, or a
+separately reviewed design. It fixes stratum allocation and the draw law or
+finite-frame inclusion probabilities as applicable, including joint inclusion
+probabilities when the variance method needs them. The approved estimator and
+interval must target the declared population under that exact regime. An
+unweighted sample mean estimates the equal-weight population-group mean only
+when the sampling design supports it;
+unequal-probability or stratified draws require predeclared design weights or a
+separately justified estimator. Review
+[Horvitz–Thompson](https://doi.org/10.1080/01621459.1952.10483446) for unequal
+inclusion and [Serfling](https://doi.org/10.1214/aos/1176342611) for a finite
+frame without replacement where applicable. Selected hard cases have a separate
+channel and cannot be silently pooled with the ordinary probability sample.
+Missing or disputed group identity, sampling probability, label, or split is recorded as
+unknown and cannot be invented, repaired from outcomes, or used for a population
+gate. An unknown inclusion probability makes population-rate claims descriptive
+only.
 
 Each eligible task is assigned to all applicable arms from independent, clean
 copies of the same frozen starting state. The manifest fixes the number of
@@ -118,35 +132,66 @@ judge agreement never replace the independent outcomes above.
 
 The primary estimand is the equal-weight mean across declared independent groups
 in the target population. Average repetitions within task, then tasks within
-group, then groups. Compute paired candidate-minus-reference differences within
-the same group; related cases and repeated attempts do not increase the group
-count. Report per-stratum estimates and the registered target-population estimate;
-no post-result change of weights or target population is permitted.
+group, then apply the manifest's predeclared population estimator to group values
+and paired candidate-minus-reference group differences. Related cases and repeated
+attempts do not increase the group count. Report per-stratum estimates and the
+registered target-population estimate; no post-result change of weights or target
+population is permitted. Paired estimators retain the within-group covariance.
 
-For bounded quality outcomes, use simultaneous one-sided distribution-free bounds
-on group means and paired differences. The manifest fixes the total error budget
-`alpha`, the complete family of candidate arms and gated metrics, and a Bonferroni
-allocation before results. For a group value in `[0, 1]`, a Hoeffding radius with
-`n` independent groups and per-bound error `a` is
-`sqrt(log(1/a)/(2*n))`. For a paired difference in `[-1, 1]`, the radius is
-`sqrt(2*log(1/a)/n)`. Clip absolute-rate bounds to `[0, 1]` and difference bounds
-to `[-1, 1]`. Use the relevant one-sided direction for each gate. This is
-conservative and depends on valid group independence, representative inclusion,
-correct labels, and complete registered follow-up; a tiny radius from repeated
-runs within one group is invalid.
+The exact fixed-horizon one-sided method is a manifest input requiring independent
+statistical review. For genuinely independent identically distributed bounded
+group draws, review a
+[group-level empirical-Bernstein bound](https://www.cs.mcgill.ca/~colt2009/papers/012.pdf)
+using the published sample-variance definition and remainder; a paired difference
+in `[-1, 1]` must be transformed to `[0, 1]` and its interval mapped back.
+Hoeffding is the
+conservative compatible fallback. Neither bound automatically covers a fixed
+finite-frame draw without replacement, unequal-probability sampling, correlated
+groups, selective labels or missing follow-up. Use a separately reviewed
+design-matched estimator and interval in those cases; do not substitute a smaller
+independent-draw radius. For reference, under an applicable independent-draw
+Hoeffding method the one-sided radii are `sqrt(log(1/a)/(2*n))` for `[0, 1]`
+and `sqrt(2*log(1/a)/n)` for `[-1, 1]`. Clip absolute-rate bounds to `[0, 1]`
+and difference bounds to `[-1, 1]`. Repetitions within one group do not narrow a
+group-level bound as if they were fresh groups.
+
+For one prespecified candidate and one **all-gates-must-pass** qualification
+claim, the manifest may use an intersection-union decision: test each required
+one-sided gate at the same prespecified claim error level `alpha`, and qualify
+only if every gate passes. This controls false qualification for that single
+conjunctive statistical claim; it does not give simultaneous coverage for the
+individual reported intervals, make descriptive p95 a population claim, or
+permit choosing a favorable endpoint. Additional candidate
+policies, alternative benefit endpoints, separately asserted metric claims and
+successive holdouts require a precommitted family-wide allocation or another
+independently reviewed multiplicity procedure. A Bonferroni allocation remains
+the conservative option for simultaneous interval claims. The
+[FDA's co-primary endpoint guidance](https://www.fda.gov/media/162416/download)
+supports this distinction between one all-required decision and multiple paths
+to success; the transfer still needs study-specific statistical review. Freeze
+the claim type, all gate directions, methods and allocations before outcomes.
 
 Each candidate must pass **all** applicable registered gates on the once-used
 holdout: an upper bound on absolute any-damage rate; upper bounds on added damage
 and escaped-defect risk; lower bounds on detection and completion relative to the
-reference and any absolute floors; a lower bound on worthwhile whole-task savings;
-and the registered p95 latency ceiling. The manifest gives the exact inequalities,
-numeric ceilings/margins/floors, cost normalization cap and treatment of uncertain
-spend, and latency cap before data collection. Cost differences require a bounded
-predeclared task spending cap for a distribution-free bound; uncertain spend counts
-at its held maximum unless independently settled. An exceeded cap is a policy
-failure, not a reason to discard the task. The p95 criterion is reported on all
-assigned tasks and is a descriptive operational gate unless the manifest freezes
-a separately reviewed population-tail method.
+reference and any absolute floors; and the registered p95 latency ceiling. Family
+A additionally requires one preselected independently graded benefit endpoint to
+exceed its minimum useful effect and an upper bound on added whole-task cost below
+its maximum. Families B–D require a lower bound on worthwhile whole-task savings.
+The manifest gives the exact inequalities, numeric benefit, cost, safety and
+latency thresholds, cost normalization cap and treatment of uncertain spend before
+data collection. Test a relative cost requirement through one prespecified paired
+group contrast, for example `0.90*reference_cost - candidate_cost > 0` for at
+least 10% savings or `candidate_cost - 1.10*reference_cost < 0` for at most 10%
+added cost. Apply the design-matched one-sided bound to that single contrast;
+do not silently divide by a random estimated reference mean or count its two
+components as separate unadjusted claims. Cost bounds require a common enforced
+task spending cap; uncertain spend counts at its held maximum unless independently
+settled. A cap breach remains recorded with the assigned task and fails the cost
+gate; its actual cost must not be clipped to make the bound appear valid. The p95
+criterion is reported on all assigned tasks and is a
+descriptive operational gate unless the manifest freezes a separately reviewed
+population-tail method.
 
 Use one fixed sample and one planned analysis. No optional stopping, unregistered
 arm deletion, threshold tuning, selective subgroup promotion, or repeated holdout
@@ -163,25 +208,34 @@ only its digest and non-sensitive design metadata. It must fix, at minimum:
 
 1. Study owner, independent evidence reviewer, grader/resolver roles, exact
    protocol revision, resource ceiling and planned dates.
-2. Target population, sampling frame and probabilities, grouping rule and reviewed
-   group IDs, eligibility, clean/defective labels and immutable split assignments.
+2. Target population, sampling regime, draw law or finite-frame inclusion
+   probabilities and any needed joint probabilities, stratum allocation and population
+   weights, grouping rule and reviewed group IDs, eligibility, clean/defective
+   labels and immutable split assignments.
 3. Exact comparison family/arms, role roster and route versions, prompts/rubrics,
    fixed measurement path, Stage-0 and sampling rules, task cap and repetitions.
 4. Seed and order-control procedure, frozen task/source digests, environment and
    provider versions, follow-up window, and missingness/replacement rules.
-5. All numeric quality, damage, savings, latency and budget thresholds, `alpha`,
-   full simultaneous comparison family, minimum independent groups per stratum,
-   and a prospective sample-size and spend calculation for every gate.
+5. All numeric quality, damage, Stage-0 benefit and maximum added cost, later-arm
+   savings, latency and budget thresholds; the exact design-matched estimator and
+   one-sided interval for each gate; `alpha`, the single-claim or simultaneous
+   claim scope and cross-candidate allocation; minimum independent groups per
+   stratum; and a prospective power, sample-size and spend calculation for every
+   gate and the joint decision.
 6. Grading and dispute rubric, access controls, holdout custodian, storage/retention
    policy, and external append-only digest/timestamp location.
 
-Before sealing, calculate the **attainable** bound for each proposed group count.
-Even with zero observed damage, the absolute damage upper radius is at least
-`sqrt(log(1/a)/(2*n))` under the chosen method. If that exceeds the damage ceiling,
-the study cannot qualify at that size. Likewise calculate the best-case paired
-non-inferiority and savings bounds, then total assignments, maximum spend and
-follow-up workload. Do not choose a universal per-bucket count or call the minimum
-group count a power calculation. If no feasible budget and sample satisfy the
+Before sealing, calculate the **attainable** bound for each proposed group count
+under the selected method and sampling regime. Under Hoeffding's independent-draw
+method, even zero observed damage has upper radius
+`sqrt(log(1/a)/(2*n))`; a zero-variance empirical-Bernstein benchmark has a
+different nonzero remainder and is not a power calculation. Calculate prospective
+joint-decision power using independently available development assumptions for
+variance, reference rates, treatment effects, cost and missing follow-up. Include
+best-case and plausible paired safety, Stage-0 benefit/added-cost or later-arm
+savings bounds, then total assignments, maximum spend and follow-up workload. Do
+not choose a universal per-bucket count or call the minimum group count a power
+calculation. If no feasible budget and sample satisfy the
 registered gates, revise the design **before** outcome access and issue a new
 manifest/digest; do not relax a gate after viewing results.
 
@@ -190,3 +244,8 @@ sampling probabilities, labels, split assignments, sample size, provider roster 
 budget. This document does not fill them. Until a reviewed complete manifest is
 externally time-attested before outcomes, the study status remains **unsealed** and
 no G5 qualification claim is permitted.
+
+A [Stage-0 decision-gate proposal](G5_STAGE0_GATE_PROPOSAL.md) records candidate
+safety and cost thresholds, the single-claim testing option and its remaining
+benefit and feasibility inputs. It is not an approved manifest or a replacement
+for the missing inputs above.

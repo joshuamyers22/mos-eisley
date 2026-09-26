@@ -4286,6 +4286,15 @@ reviewed inclusion probabilities and independent groups; otherwise label the
 report descriptive. A later cohort cannot erase an earlier failure or replenish a
 spent error budget by renaming the policy.
 
+Within a cohort, distinguish one precommitted all-gates-must-pass policy claim
+from simultaneous claims about individual outcomes; the reviewed testing rule
+must match the declared claim. Allocate error across alternative candidate
+policies and repeated cohort decisions even if a single conjunctive claim needs
+no within-claim Bonferroni division. A time-uniform method is required for any
+favorable decision based on repeated interim looks; the fixed-horizon G5 paired
+bound is not such a method. Match the estimator and interval to the prospective
+owner-specific inclusion and randomized group-allocation design.
+
 The initial G5 paired study uses separate frozen starts. A live cohort assigns one
 user-affecting whole-task policy per task or independent group; it must not replay
 writes or approvals merely to create a pair. Its causal comparison uses the
