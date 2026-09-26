@@ -186,9 +186,7 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         "model": request.model,
         "max_tokens": request.max_output_tokens,
         "messages": cast(JsonValue, messages),
-        "thinking": {
-            "type": "disabled" if request.effort == "none" else "adaptive"
-        },
+        "thinking": {"type": "disabled" if request.effort == "none" else "adaptive"},
         "service_tier": "standard_only",
         "stream": False,
     }
