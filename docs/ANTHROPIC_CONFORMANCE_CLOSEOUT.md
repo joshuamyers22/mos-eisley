@@ -116,5 +116,7 @@ under evidence SHA-256
 The consumed third slot cannot be retried under that seal. A separately funded,
 freshly sealed campaign is required for three-slot acceptance. The corrective
 route selects Sonnet 5 with thinking disabled for the critic, keeps Opus 5.5
-adaptive for the judge, and raises the output cap while preserving a bounded
-aggregate reservation. This correction has offline tests but no new live result.
+adaptive for the judge, and uses a 1,000-token response cap after observing
+both completed judges use fewer than 400 output tokens. The prepared replacement
+has a $0.675000 aggregate reservation. This correction has offline tests but no
+new live result.
