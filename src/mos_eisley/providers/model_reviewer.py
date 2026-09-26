@@ -144,7 +144,8 @@ class ModelReviewer:
                 _system(result)
                 + (
                     " Return at most one finding; keep each free-text field under "
-                    "300 characters."
+                    "300 characters. Every finding needs a nonempty exact quote "
+                    "and explanation; if either is unavailable, return no findings."
                     if model.spec.provider == "anthropic" and result is Critique
                     else ""
                 )

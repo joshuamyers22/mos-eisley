@@ -220,8 +220,8 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "kind": {"type": "string", "const": "citation"},
                 "source": {"type": "string", "enum": ["spec", "diff", "constraints"]},
-                "quote": {"type": "string", "pattern": "^.+$"},
-                "explanation": {"type": "string", "pattern": "^.+$"},
+                "quote": {"type": "string"},
+                "explanation": {"type": "string"},
             },
             "required": ["kind", "source", "quote", "explanation"],
             "additionalProperties": False,
@@ -229,7 +229,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
         finding: dict[str, JsonValue] = {
             "type": "object",
             "properties": {
-                "location": {"type": "string", "pattern": "^.+$"},
+                "location": {"type": "string"},
                 "category": {
                     "type": "string",
                     "enum": [
@@ -244,7 +244,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
                     "type": "string",
                     "enum": ["blocker", "high", "medium", "low"],
                 },
-                "claim": {"type": "string", "pattern": "^.+$"},
+                "claim": {"type": "string"},
                 "evidence": evidence,
                 "suggested_fix": {"type": ["string", "null"]},
             },
@@ -273,7 +273,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "schema_version": {"type": "integer", "const": 1},
                 "upheld": {"type": "array", "items": {"type": "string"}},
-                "rationale": {"type": "string", "pattern": "^.+$"},
+                "rationale": {"type": "string"},
             },
             "required": ["schema_version", "upheld", "rationale"],
             "additionalProperties": False,

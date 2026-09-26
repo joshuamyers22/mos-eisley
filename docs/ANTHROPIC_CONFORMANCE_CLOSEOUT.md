@@ -160,7 +160,7 @@ attempts and cannot be retried for a third.
 
 Across the signed attempts, identified settled usage is $0.659390. This is
 recorded provider usage, not invoice reconciliation. No signed campaign has
-passed the three-slot gate. The response schema has since been tightened with
+passed the three-slot gate. The response schema was then tightened with
 nonempty string patterns for the required review fields, including the failed
 explanation field. The change has local tests but no live conformance result;
 a fresh seal and separately approved spending are required for another
@@ -189,8 +189,8 @@ That correction was attempted in a separate sealed campaign,
 `5434311f8d71db8aa2752c544d6c369b09ae1949b1ed388a17c2c12b8738e452`.
 Its first critic request was accepted by Anthropic. Sonnet returned 1,000 output
 tokens and stopped at the configured limit. The strict review contract could
-not accept the truncated critic result;
-the controller failed before judge preview or dispatch. The critic settled
+not accept the truncated critic result; the controller failed before judge
+preview or dispatch. The critic settled
 $0.050758 in the local ledger. With the operator's explicit approval, the
 unused $0.140000 judge allowance was settled at $0; its private release receipt
 has SHA-256
@@ -216,12 +216,31 @@ An offline inspection then found that the pinned isolated worker image
 `sha256:347fc7e99c253ebcb5eb53e890f3410cf39c1364fcaa0b8e0c9df85bcf46dc80`
 did not contain `review_json_format`, despite the host source passing its tests.
 The Dockerfile copies and installs `src` into a no-mount worker image; the
-worker therefore ran older Anthropic translation code and did not send the
-host's structured-output schema. This explains why increasing the output limit
-did not constrain the critic response. A new image was built from the current
-source as
+worker therefore ran older code. A new image was built from the current source
+as
 `sha256:419dd600b3d708987982deb4a631280c44bb1b28ccd920f03ddfa8d6b9e1e809`.
 An offline check inside that image verified the Anthropic SDK version, the
 `structured_output` model field, and translation to `output_config.format` with
-the required `schema_version` property. That image has not yet produced a live
-signed campaign result.
+the required `schema_version` property.
+
+That image was used in a further seal,
+`6041741968611007cbe86773e0320aa8414bca80de73a18dbd9d7d731bc45b38`.
+Its first Sonnet critic again stopped at 3,000 output tokens, with a $0.070760
+local settlement. The controller failed before judge preview or dispatch. The
+operator approved settling the unused $0.180000 judge allowance at $0; its
+private release receipt has SHA-256
+`cbd8f9e7880abf095767c451106f391ad62a4300f9c68bcde4c89b6f28d5836f`.
+The slot ledger has no unresolved entries. Identified settled usage across
+signed attempts is $0.851662, plus the earlier $0.070000 uncertain critic
+reservation, for $0.921662 in conservative exposure.
+
+Further inspection showed that the host, not the offline worker, constructs
+and sends the Anthropic provider payload. The retained generation payload hash
+matches a recomputation from the model request including `output_config.format`;
+an offline SDK wire test also transmitted that field. The worker image mismatch
+was real but did not explain the repeated output-limit failures. The exact
+cause of the response-format behavior remains unresolved. The next source
+change removes regex constraints from the output schema, restoring the simpler
+schema used in the earlier successful slots, and explicitly directs Sonnet to
+return no findings if an exact quote or explanation would be empty. It has no
+live result yet.

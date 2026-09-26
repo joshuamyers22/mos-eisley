@@ -120,7 +120,7 @@ class AnthropicTranslationTests(TestCase):
         assert isinstance(evidence_fields, dict)
         explanation = evidence_fields["explanation"]
         assert isinstance(explanation, dict)
-        self.assertEqual(explanation["pattern"], "^.+$")
+        self.assertEqual(explanation, {"type": "string"})
         self.assertEqual(fields["suggested_fix"], {"type": ["string", "null"]})
         judge = critic.model_copy(
             update={
