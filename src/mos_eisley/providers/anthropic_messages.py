@@ -246,12 +246,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
                 },
                 "claim": {"type": "string", "pattern": "^.+$"},
                 "evidence": evidence,
-                "suggested_fix": {
-                    "anyOf": [
-                        {"type": "string", "pattern": "^.+$"},
-                        {"type": "null"},
-                    ]
-                },
+                "suggested_fix": {"type": ["string", "null"]},
             },
             "required": [
                 "location",

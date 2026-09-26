@@ -165,3 +165,22 @@ nonempty string patterns for the required review fields, including the failed
 explanation field. The change has local tests but no live conformance result;
 a fresh seal and separately approved spending are required for another
 three-slot attempt.
+
+A later seal,
+`72af8a223910bdd024ac3224bc3e4fde2161cb5b7733c8b9d51d974409c3a0a2`,
+was approved for a new three-slot campaign. Its first critic request reached
+the Anthropic API, which returned `invalid_request_error` without a model
+response or usage receipt. The controller failed before judge preview or
+dispatch. The $0.070000 critic reservation remains **uncertain** at its full
+amount; it is conservative local exposure, not identified settled usage or an
+Anthropic invoice charge. With the operator's explicit approval, the separate
+unused $0.140000 judge allowance was settled at $0. Its private release receipt
+has SHA-256
+`f5b3fd83a222cc1a89ed001de8dc9c02fc646de133097ff883d44f3c16907725`.
+The slot ledger has one unresolved entry: the critic uncertainty. Identified
+settled usage across signed attempts remains $0.659390; conservative exposure
+including this uncertain critic is $0.729390. The retained error category does
+not identify which request field Anthropic rejected. The next source change
+restores the nullable `suggested_fix` schema form that succeeded earlier while
+retaining nonempty patterns on required fields. That change is an unproven
+compatibility correction until another live result is obtained.
