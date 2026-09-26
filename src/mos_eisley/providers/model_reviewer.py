@@ -49,7 +49,10 @@ def _system(result: type[Critique] | type[JudgeDecision]) -> str:
     role = (
         "Review the brief using the supplied persona. Cite exact substrings from "
         "the declared brief source for every finding. Each evidence.quote must "
-        "be a short substring within one source line, preserving any diff markers."
+        "be copied character-for-character from one source line. For a diff "
+        "line, include its leading + or - marker. Never use a placeholder, "
+        "paraphrase, ellipsis, or text absent from the named source. If no exact "
+        "quote supports a claim, return no findings."
         if result is Critique
         else "Adjudicate the supplied findings against the brief. Return only "
         "supplied finding IDs in upheld; do not invent or duplicate IDs."

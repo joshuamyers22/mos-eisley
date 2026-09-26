@@ -242,5 +242,19 @@ was real but did not explain the repeated output-limit failures. The exact
 cause of the response-format behavior remains unresolved. The next source
 change removes regex constraints from the output schema, restoring the simpler
 schema used in the earlier successful slots, and explicitly directs Sonnet to
-return no findings if an exact quote or explanation would be empty. It has no
-live result yet.
+return no findings if an exact quote or explanation would be empty.
+
+That schema was used in campaign
+`76e11d0228cdc2e0722c6e372510988dd3c724dcd62b43d702854db8a0b5bf53`.
+The first Sonnet critic completed at `end_turn` with a contract-valid JSON
+result, but its 11-character evidence quote was absent from all three declared
+brief sources. The exact evidence gate rejected the result before judge preview
+or dispatch. The critic settled $0.043488 locally. With explicit operator
+approval, the unused $0.180000 judge allowance was settled at $0; its private
+release receipt has SHA-256
+`7639d9a594399216c6465598ff01266e4ba86b0cc1d5b63b2166acb4239e7703`.
+The slot ledger has no unresolved entries. Identified settled usage across
+signed attempts is $0.895150, plus the earlier $0.070000 uncertain critic
+reservation, for $0.965150 in conservative exposure. The next source change
+adds explicit character-for-character quote instructions to the critic prompt
+and quote schema description. Its effect on live grounding is unproven.

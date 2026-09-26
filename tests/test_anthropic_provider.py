@@ -121,6 +121,11 @@ class AnthropicTranslationTests(TestCase):
         explanation = evidence_fields["explanation"]
         assert isinstance(explanation, dict)
         self.assertEqual(explanation, {"type": "string"})
+        quote = evidence_fields["quote"]
+        assert isinstance(quote, dict)
+        description = quote["description"]
+        assert isinstance(description, str)
+        self.assertIn("exact contiguous substring", description)
         self.assertEqual(fields["suggested_fix"], {"type": ["string", "null"]})
         judge = critic.model_copy(
             update={

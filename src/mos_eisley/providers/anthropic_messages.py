@@ -220,7 +220,14 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "kind": {"type": "string", "const": "citation"},
                 "source": {"type": "string", "enum": ["spec", "diff", "constraints"]},
-                "quote": {"type": "string"},
+                "quote": {
+                    "type": "string",
+                    "description": (
+                        "Copy an exact contiguous substring from one line of the "
+                        "brief field named by source, including a diff marker "
+                        "when present."
+                    ),
+                },
                 "explanation": {"type": "string"},
             },
             "required": ["kind", "source", "quote", "explanation"],
