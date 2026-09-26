@@ -4,8 +4,9 @@ Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
 signed single-operator triage, zero-spend cycle-1 admission, one contained
 agent-authored offline correction-child dispatch, separately authorized
-isolated Git integration, renewed authenticated provenance and a passing
-corrected-revision candidate receipt replay-verified**.
+isolated Git integration, renewed authenticated provenance, a passing
+corrected-revision candidate receipt and separately authorized passing final
+creator/reviewer whole suites replay-verified**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -21,8 +22,8 @@ Joshua then personally reviewed the interface, rubric and reviewer-test draft,
 accepted single-operator self-review risk, and attested he had not seen the seed
 implementation or child telemetry before that review or the package freeze.
 The subsequent signatures, corrected package freeze, paired controls, offline
-dispatch, isolated integration and corrected candidate test are recorded below;
-none grants provider spend, final-test admission or acceptance.
+dispatch, isolated integration, corrected candidate and final whole-suite tests
+are recorded below; none grants provider spend or acceptance.
 
 ## Exact controller and isolated target
 
@@ -186,12 +187,13 @@ provider call, correction integration or acceptance is claimed.
    Reserve the full shared-ledger allowance before any provider call. No
    automatic retry after an uncertain send or consumed claim.
 
-5. **Integrate and verify — candidate complete, final gates open:** the
+5. **Integrate and verify — whole suites complete, review open:** the
    child-signed scoped offline proposal and separate integration grant produced
    a detached corrected revision. Renewed binding, signed Git provenance and a
-   passing candidate receipt replay-verify. A separate grant must authorize
-   the full protected creator and frozen reviewer suites in the pinned image.
-   Then obtain signed, citation-valid two-family critic quorum and judge verdict
+   passing candidate receipt replay-verify. A separate creator grant authorized
+   the full protected creator and frozen reviewer suites in the pinned image;
+   both passed and replay-verified. Next obtain a signed, citation-valid
+   two-family critic quorum and judge verdict
    over the exact approved plan and full final diff. Resolve findings and ask
    the creator for a distinct final decision. An applicable G3 quality gate is
    still required before claiming G4 complete.
@@ -280,7 +282,8 @@ or acceptance authority follows from admission.
   VCS/E2 provenance. Its separately approved candidate receipt `3736d1b0…`
   passed and replay-verified against one new claim and clean Git. The earlier
   two failed receipts belong to `6f2551d` and cannot be reused for final-suite
-  admission. No final whole-suite grant or receipt exists yet.
+  admission. The separate full-suite grant and passing receipt now exist and
+  replay-verify; independent review remains open.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -357,10 +360,39 @@ Receipt replay verified the exact claim, signed inputs and unchanged clean Git;
 the worker lifecycle ended `removed`. No provider call, original-checkout write,
 final whole-suite result, independent review or acceptance occurred.
 
+## Final creator and reviewer whole suites
+
+On 2026-09-26 UTC, the pinned controller froze the complete protected creator
+inventory, exactly `tests/test_quote.py`, into a private package SHA-256
+`ad56be737b8aefbab0caec5be20eafbd661f9280e7b62cde94a48476360deb1e`.
+Its test bytes match the original signed creator-suite digest `c270eb03…`,
+base and corrected Git blobs and clean checkout. The reviewer package remains
+`c2058daa…`. Distinct creator and reviewer requests have SHA-256
+`95210343a107eb6c7dc816d39ff6e635fdb7ea8e414d12142357a1b92dd06f7c`
+and `11bc30693e08fe4b46144fd6e00202910d4048f1335ae0958dfda1435e5cacf2`.
+Both package replays, the passing candidate receipt, source binding and current
+Git preflight passed before any final claim was spent.
+
+Joshua separately signed the exact one-use final-suite grant, canonical SHA-256
+`dba1f401035f5d85172c0fb0596a75256e18247fef3c1778d747d30400b827a5`.
+The read-only signed preflight verified it. One claim in a new private
+final-suite store was consumed before two no-mount, no-network worker runs.
+The creator and reviewer suites each collected, started and executed five
+tests, with zero failures, errors or skips. The creator executed-ID digest is
+`005b969e…`; the reviewer digest `2770a24a…` matches the passing candidate.
+Both worker lifecycles ended `removed`, and the corrected Git checkout remains
+clean. The combined receipt SHA-256
+`a277193353b714aa00f4ef16d554ebaa528e065e450e72368ae840acd4f120fe`
+replay-verified the signed grant, exact packages, claim, counts, reviewer-test
+identity and current Git. It records `final_suites_passed=true`,
+`independent_review_passed=false` and `acceptance_authorized=false`.
+
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a separately approved full protected creator and frozen reviewer whole-suite
-run on the corrected revision, followed by independent review. The passing
-candidate receipt is test evidence only. All three candidate claims and the
-correction-child and integration claims are spent; do not retry or switch
-stores. Separate authorization is required before any provider send.
+is a separately approved independent review of the exact plan, full Git diff
+and passing final-suite receipt, followed by a distinct creator decision. This
+offline suite result does not establish real provider-child lineage, reviewer
+independence or the applicable G3 quality gate. All three candidate claims,
+the final-suite claim, and the correction-child and integration claims are spent;
+do not retry or switch stores. Separate authorization is required before any
+provider send.

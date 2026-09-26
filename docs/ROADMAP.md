@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance and a separately approved passing candidate receipt replay-verify for the corrected detached revision; the original branch is untouched. Final whole suites and independent review remain open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites and independent review |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance, a passing corrected candidate and separately granted passing final creator/reviewer whole suites replay-verify; the original branch is untouched. Independent review remains open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites on a real child and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -248,8 +248,15 @@ one offline candidate run on the corrected detached revision. Its receipt
 `3736d1b0…` replay-verified against the third claim and unchanged clean Git:
 all five frozen reviewer tests executed and passed, with zero skips/errors and
 worker cleanup `removed`. This passing candidate receipt is prerequisite test
-evidence for a separately approved final whole-suite run; it is not itself
-the whole-suite result, independent review or acceptance.
+evidence for a separately approved final whole-suite run. Joshua signed that
+exact offline grant `dba1f401…`. One final-store claim preceded separate creator
+and reviewer runs in the pinned image; each executed 5/5 with zero
+failures/errors/skips. Combined receipt `a2771933…` replay-verified against
+complete protected creator Git bytes, frozen reviewer identity, current clean
+source and the claim; both containers were removed. This remains an expressly
+seeded initial-child exercise, not an actual provider-child result, independent
+review or acceptance. The next boundary is a separate review of the exact plan,
+full diff and passing final-suite receipt.
 
 **G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
 offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,

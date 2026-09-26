@@ -336,8 +336,9 @@ and critic/judge workflows retain their existing tool-free boundaries.
   pins the controller image and isolated target. Signed custody, paired controls,
   seeded provenance, two failed candidate reproductions, contained offline
   correction, isolated Git integration and a passing corrected-revision candidate
-  receipt replay-verify. Full creator/reviewer suites, independent review and a
-  real provider child remain open.
+  receipt replay-verify. Separately granted final creator and reviewer whole
+  suites each passed 5/5 in the pinned image; independent review and a real
+  provider child remain open.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.
