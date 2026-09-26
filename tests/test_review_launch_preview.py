@@ -10,8 +10,9 @@ from test_review_guidance_admission import GuidedBrokerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
-from mos_eisley.core.models import ReviewPolicy, canonical_bytes
-from mos_eisley.core.registry import openai_registry
+from mos_eisley.core.models import CriticSpec, ReviewPolicy, canonical_bytes
+from mos_eisley.core.registry import anthropic_registry, openai_registry
+from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     LaunchCritic,
@@ -19,6 +20,7 @@ from mos_eisley.run.review_launch import (
     decode_launch_configuration,
     prepare_review_launch_preview,
 )
+from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ReviewLaunchTests(GuidedBrokerFixture):
@@ -96,6 +98,46 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         )
         self.assertEqual(before, self.base.ledger.path.read_bytes())
         self.assertFalse(self.review_directory.exists())
+
+    def test_anthropic_preview_binds_provider_and_full_spending(self):
+        now = datetime.now(UTC)
+        spending = SpendPolicy(
+            schema_version=2,
+            provider="anthropic",
+            model="claude-sonnet-5",
+            pricing_source="https://platform.claude.com/docs/en/models/sonnet-5/overview",
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(minutes=5),
+            input_microusd_per_million=2_000_000,
+            cache_write_microusd_per_million=2_500_000,
+            output_microusd_per_million=10_000_000,
+            max_cost_microusd=5_000,
+            max_input_tokens=1000,
+            max_output_tokens=32,
+        )
+        critic = CriticSpec(
+            id="claude",
+            provider="anthropic",
+            model="claude-sonnet-5",
+            persona="correctness",
+        )
+        self.base.ledger = SpendLedger.create(self.base.root / "claude.sqlite", 10_000)
+        configuration = ReviewLaunchConfiguration(
+            registry=anthropic_registry(),
+            critics=(LaunchCritic(critic=critic, spending=spending),),
+            judge_provider="anthropic",
+            judge_model="claude-sonnet-5",
+            judge_spending=spending,
+            effort="high",
+            budget=BudgetPolicy(max_output_tokens=32),
+            policy=ReviewPolicy(min_critics=1, min_providers=1),
+            max_total_microusd=10_000,
+        )
+        result = self.launch(configuration)
+        self.assertEqual(result.preview.requests[0].provider, "anthropic")
+        self.assertEqual(result.preview.envelope.critics[0].provider, "anthropic")
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+        self.assertFalse(result.live_launch_available)
 
     def test_repeated_previews_do_not_consume_spend_or_reuse_attempt_hashes(self):
         first, second = self.launch(), self.launch()

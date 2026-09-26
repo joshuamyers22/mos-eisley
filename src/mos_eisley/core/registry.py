@@ -170,5 +170,45 @@ def openai_registry() -> ModelRegistry:
     )
 
 
+def anthropic_registry() -> ModelRegistry:
+    """Documented Claude API capabilities; no live conformance is implied."""
+    return ModelRegistry(
+        models=(
+            ModelSpec(
+                provider="anthropic",
+                id="claude-sonnet-5",
+                context_bytes=1_000_000,
+                max_output_bytes=256_000,
+                context_tokens=1_000_000,
+                max_output_tokens=128_000,
+                efforts=("low", "medium", "high", "xhigh", "max"),
+                default_effort="high",
+                tool_calling=True,
+                structured_output=True,
+                verification="documented",
+            ),
+            ModelSpec(
+                provider="anthropic",
+                id="claude-opus-5-5",
+                context_bytes=1_000_000,
+                max_output_bytes=256_000,
+                context_tokens=1_000_000,
+                max_output_tokens=128_000,
+                efforts=("low", "medium", "high", "xhigh", "max"),
+                default_effort="medium",
+                tool_calling=True,
+                structured_output=True,
+                verification="documented",
+            ),
+        )
+    )
+
+
 def default_registry() -> ModelRegistry:
-    return ModelRegistry(models=fixture_registry().models + openai_registry().models)
+    return ModelRegistry(
+        models=(
+            fixture_registry().models
+            + openai_registry().models
+            + anthropic_registry().models
+        )
+    )

@@ -150,11 +150,13 @@ class AgentCliTests(TestCase):
                     ("openai", "gpt-5.6-sol"),
                     ("openai", "gpt-5.6-terra"),
                     ("openai", "gpt-5.6-luna"),
+                    ("anthropic", "claude-sonnet-5"),
+                    ("anthropic", "claude-opus-5-5"),
                 ),
             )
             self.assertEqual(
                 tuple(model["verification"] for model in models[1:]),
-                ("documented",) * 4,
+                ("documented",) * 6,
             )
 
     def test_agent_replay_rejects_modified_run_without_echoing_content(self) -> None:

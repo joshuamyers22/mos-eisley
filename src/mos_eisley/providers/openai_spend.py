@@ -20,6 +20,9 @@ Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 
 class SpendPolicy(Contract):
     schema_version: Literal[1, 2] = 1
+    provider: Literal["openai", "anthropic"] = Field(
+        default="openai", exclude_if=lambda value: value == "openai"
+    )
     model: Identifier
     currency: Literal["USD"] = "USD"
     service_tier: Literal["default"] = "default"
@@ -33,7 +36,7 @@ class SpendPolicy(Contract):
     output_microusd_per_million: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
     max_cost_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
     max_input_tokens: Annotated[int, Field(gt=0, le=200_000)] = 64_000
-    max_output_tokens: Annotated[int, Field(gt=0, le=4096)] = 4096
+    max_output_tokens: Annotated[int, Field(gt=0, le=8192)] = 4096
 
     @model_validator(mode="after")
     def valid_window(self) -> Self:
@@ -148,6 +151,8 @@ def _normalized_text_request(
     payload: dict[str, JsonValue], policy: SpendPolicy
 ) -> tuple[dict[str, JsonValue], int]:
     request = copy.deepcopy(payload)
+    if policy.provider != "openai":
+        raise ProviderError("OpenAI spending controller requires an OpenAI policy")
     if request.get("model") != policy.model:
         raise ProviderError("spending policy model mismatch")
     permitted = {
