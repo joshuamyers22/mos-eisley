@@ -84,6 +84,9 @@ conformance. The older signed campaign gate retains its separate meaning.
 The same command can run a slot from a separately sealed three-attempt campaign.
 Supply `--campaign-dir`, `--expected-seal-sha256`, `--campaign-slot`,
 `--authority-policy` and `--completion-output` together with the options above.
+It restores the sealed attempt identities only after recomputing the current
+requests, guidance, policies, ledger and complete critic preview. A changed or
+expired preview stops before credential access.
 For slots 1 and 2, also supply `--previous-evidence` and
 `--expected-previous-evidence-sha256` for the accepted prefix. The command prints
 each exact signed scope and prompts for an independently signed authorization

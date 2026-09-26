@@ -43,6 +43,7 @@ from mos_eisley.run.review_conformance_authorization import (
     SignedReviewConformanceAuthorization,
 )
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
+from mos_eisley.run.review_controller import ControllerCriticPreview
 from mos_eisley.run.review_controller_inspection import inspect_review_controller
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
@@ -168,6 +169,7 @@ def run_command(args: argparse.Namespace) -> int:
         ):
             raise ValueError("previous evidence requires a signed campaign slot")
         prior_raw: bytes | None = None
+        committed_preview: ControllerCriticPreview | None = None
         if signed:
             slot = cast(int, args.campaign_slot)
             campaign_dir = cast(Path, args.campaign_dir)
@@ -175,6 +177,7 @@ def run_command(args: argparse.Namespace) -> int:
             bundle, _ = read_campaign_seal(
                 campaign_dir, cast(str, args.expected_seal_sha256)
             )
+            committed_preview = bundle.attempts[slot].preview
             protected = (
                 campaign_dir,
                 *(
@@ -297,6 +300,7 @@ def run_command(args: argparse.Namespace) -> int:
             ),
             ledger=ledger,
             review_directory=review_dir,
+            committed_preview=committed_preview,
         )
         executable = cast(Path | None, args.docker)
         if executable is None:

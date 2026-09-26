@@ -134,6 +134,7 @@ class PreparedReviewCall:
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
+        committed_authorization: ReviewAuthorization | None = None,
     ) -> None:
         if guidance is not None:
             guidance.check_brief(request.brief)
@@ -188,7 +189,7 @@ class PreparedReviewCall:
             or reservation.reserved_microusd > snapshot.available_microusd + credit
         ):
             raise ValueError("review spending envelope is unavailable")
-        self._authorization = ReviewAuthorization(
+        authorization = ReviewAuthorization(
             provider=model_request.provider,
             role=role,
             brief_sha256=request.brief.brief_id,
@@ -207,6 +208,28 @@ class PreparedReviewCall:
             ),
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
+        if committed_authorization is not None:
+            if role != "critic" or reserved_allowance is not None:
+                raise ValueError("only a critic can restore committed authorization")
+            committed = ReviewAuthorization.model_validate_json(
+                canonical_bytes(committed_authorization)
+            )
+            if (
+                datetime.now(UTC) >= committed.expires_at
+                or committed.expires_at > authorization.expires_at
+                or authorization.model_copy(
+                    update={
+                        "ledger_entry_id": committed.ledger_entry_id,
+                        "expires_at": committed.expires_at,
+                    }
+                )
+                != committed
+            ):
+                raise ValueError(
+                    "committed review authorization differs from current inputs"
+                )
+            authorization = committed
+        self._authorization = authorization
         self._request = frozen
         self._input = canonical_bytes(request)
         self._critic = None if critic is None else canonical_bytes(critic)
@@ -457,6 +480,7 @@ class PreparedReviewEnvelope:
         *,
         max_total_microusd: int,
         directory: Path,
+        committed_judge: DeferredJudgeAllowance | None = None,
     ) -> None:
         if not 1 <= len(critics) <= 8:
             raise ValueError("review envelope requires one to eight critics")
@@ -480,6 +504,18 @@ class PreparedReviewEnvelope:
                 judge_policy.max_input_tokens, judge_policy.max_output_tokens
             ),
         )
+        if committed_judge is not None:
+            committed = DeferredJudgeAllowance.model_validate_json(
+                canonical_bytes(committed_judge)
+            )
+            if (
+                judge.model_copy(update={"ledger_entry_id": committed.ledger_entry_id})
+                != committed
+            ):
+                raise ValueError(
+                    "committed judge allowance differs from current inputs"
+                )
+            judge = committed
         self._envelope = ReviewSpendingEnvelope(
             critics=tuple(call.authorization for call in critics),
             artifact_directory=str(directory.resolve()),

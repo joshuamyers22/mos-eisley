@@ -13,11 +13,13 @@ from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import CriticSpec, ReviewPolicy, canonical_bytes
 from mos_eisley.core.registry import anthropic_registry, openai_registry
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.run.review_controller import BrokeredReviewController
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     LaunchCritic,
     ReviewLaunchConfiguration,
     decode_launch_configuration,
+    prepare_review_launch_components,
     prepare_review_launch_preview,
 )
 from mos_eisley.run.spend_ledger import SpendLedger
@@ -143,6 +145,48 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         first, second = self.launch(), self.launch()
         self.assertNotEqual(first.preview.sha256, second.preview.sha256)
         self.assertEqual(first.configuration_sha256, second.configuration_sha256)
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_committed_preview_restores_exact_unused_attempt(self):
+        committed = self.launch().preview
+        envelope, reviewer, _ = prepare_review_launch_components(
+            self.configuration,
+            prepared=self.guided.prepared,
+            expected_prepared_sha256=self.guided.prepared.sha256,
+            workspace=self.guided.fixture.workspace,
+            guidance_store=self.guided.store,
+            guidance_policy_path=self.guided.fixture.policy_path,
+            expected_guidance_policy_sha256=self.guided.policy_sha,
+            ledger=self.base.ledger,
+            review_directory=self.review_directory,
+            committed_preview=committed,
+        )
+        restored = BrokeredReviewController(
+            envelope,
+            reviewer,
+            self.configuration.policy,
+            total_seconds=self.configuration.total_seconds,
+        )
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+        self.assertFalse(self.review_directory.exists())
+
+    def test_committed_preview_rejects_changed_configuration(self):
+        committed = self.launch().preview
+        changed = self.configuration.model_copy(update={"total_seconds": 121})
+        with self.assertRaisesRegex(ValueError, "committed critic preview"):
+            prepare_review_launch_components(
+                changed,
+                prepared=self.guided.prepared,
+                expected_prepared_sha256=self.guided.prepared.sha256,
+                workspace=self.guided.fixture.workspace,
+                guidance_store=self.guided.store,
+                guidance_policy_path=self.guided.fixture.policy_path,
+                expected_guidance_policy_sha256=self.guided.policy_sha,
+                ledger=self.base.ledger,
+                review_directory=self.review_directory,
+                committed_preview=committed,
+            )
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
     def test_current_guidance_change_blocks_preparation(self):
