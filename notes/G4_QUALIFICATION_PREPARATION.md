@@ -75,6 +75,7 @@
 | 2026-09-25 | observation | On the clean detached revision `0cc8419`, a renewed binding `964f53fe…` replay-verified against the unchanged blind package and corrected source bytes. Read-only Git claim `e291e6b4…` reconstructed the exact integrated tree with disclosed seeded-child ancestry. Joshua signed VCS artifact `fb0ed525…`; authenticated provenance `7f6bee4c…` assembled and replay-verified against current Git. A separate cross-check matched its source commit/tree to the signed integration record. No new candidate receipt, final-suite test or provider call. | Owner-only manifest, binding, signed VCS and assembled provenance; [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate approval for candidate-test admission on the corrected revision. |
 | 2026-09-26 | observation | Joshua signed a separate corrected-revision candidate approval `36cc69a1…`. The pinned controller admitted it at `484515e0…`; one new claim in the existing store produced passing receipt `3736d1b0…`. All five frozen reviewer tests executed and passed with zero errors/skips; replay checked the claim and clean Git, and the worker was removed. No provider call, final suites or acceptance. | Private approval, admission, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate final whole-suite approval for the corrected revision. |
 | 2026-09-26 | observation | The complete protected creator test package `ad56be73…` matched signed creator bytes and base/final Git. Joshua signed separate exact offline final-suite grant `dba1f401…`; read-only preflight passed. One new final-store claim preceded isolated creator and reviewer runs. Each executed 5/5 with zero failures/errors/skips; combined receipt `a2771933…` replay-verified, both containers were removed and the corrected Git tree stayed clean. No provider call, independent review or acceptance. | Private packages, requests, grant, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate independent review of exact plan/full diff/final-suite receipt. |
+| 2026-09-26 | decision | After the exact review subject `5cb27a5c…` was described, the user reported Joshua Myers reviewed it and decided pass. No signed owner-review artifact or distinct external critic/judge artifacts were provided. This is an owner-reported decision, not a completed independent-review gate or acceptance. | [Packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md); conversation decision | Obtain separately enrolled critic/judge evidence before formal review verdict. |
 
 ## Handoff
 
@@ -88,9 +89,11 @@
   Both failed IDs trace to one missing half-up increment in the bound source.
   All three candidate claims, the final-suite claim, cycle claim,
   child-dispatch claim and integration claim are spent. No real provider child,
-  original-checkout write, independent review or final G4 acceptance.
-- Next smallest safe action: prepare the exact plan/full Git diff/final-suite
-  review subject and an external two-family critic/judge roster, then seek a
+  original-checkout write, formal independent review or final G4 acceptance.
+  The user reports Joshua's pass decision for subject `5cb27a5c…`; no signed
+  owner-review artifact was provided.
+- Next smallest safe action: enroll an external two-family critic/judge roster
+  for the exact prepared subject, then seek a
   separate creator-signed independent-review grant. No provider send without
   authorization.
 - Blocker and required authority/input for later live stages: a fresh

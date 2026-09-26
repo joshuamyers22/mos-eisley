@@ -387,10 +387,25 @@ replay-verified the signed grant, exact packages, claim, counts, reviewer-test
 identity and current Git. It records `final_suites_passed=true`,
 `independent_review_passed=false` and `acceptance_authorized=false`.
 
+## Owner-reported review decision
+
+The read-only G4 review subject reconstructed from the approved plan, complete
+base-to-`0cc8419` Git diff and passing final-suite receipt has SHA-256
+`5cb27a5c74984a639af8ca13440000fe9220e1e7e02d74e74744a281e24e509d`.
+Its full-diff SHA-256 is
+`d73936eb108b84f572be357d3b82a8c1a6cbfb8ac640f3ea8954584f98d797ef`.
+After that subject was described in conversation, the user reported that
+Joshua Myers reviewed it and decided **pass**. This records an owner-reported
+review decision; no separate signed owner-review artifact was provided. It
+does not supply the gate's distinct signed two-family critic assessments,
+signed judge verdict or independent-human-review proof, and grants no
+acceptance authority.
+
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
 is a separately approved independent review of the exact plan, full Git diff
-and passing final-suite receipt, followed by a distinct creator decision. This
+and passing final-suite receipt, followed by a distinct post-review creator
+decision. This
 offline suite result does not establish real provider-child lineage, reviewer
 independence or the applicable G3 quality gate. All three candidate claims,
 the final-suite claim, and the correction-child and integration claims are spent;
