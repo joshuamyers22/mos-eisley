@@ -60,6 +60,9 @@ class ReviewLaunchConfiguration(Contract):
     judge_model: Identifier
     judge_spending: SpendPolicy
     effort: Effort
+    critic_effort: Effort | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     budget: BudgetPolicy
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
@@ -181,13 +184,25 @@ def prepare_review_launch_components(
         guidance_policy_path,
         expected_guidance_policy_sha256,
     )
-    for provider, model in (
-        *((item.critic.provider, item.critic.model) for item in configuration.critics),
-        (configuration.judge_provider, configuration.judge_model),
-    ):
+    roles: tuple[tuple[str, str, Effort], ...] = (
+        *(
+            (
+                item.critic.provider,
+                item.critic.model,
+                configuration.critic_effort or configuration.effort,
+            )
+            for item in configuration.critics
+        ),
+        (
+            configuration.judge_provider,
+            configuration.judge_model,
+            configuration.effort,
+        ),
+    )
+    for provider, model, effort in roles:
         if provider not in ("openai", "anthropic"):
             raise ValueError("brokered review launch provider is unsupported")
-        resolved = configuration.registry.resolve(provider, model, configuration.effort)
+        resolved = configuration.registry.resolve(provider, model, effort)
         if resolved.substituted:
             raise ValueError(
                 "review launch cannot silently substitute reasoning effort"
@@ -214,6 +229,7 @@ def prepare_review_launch_components(
         judge_provider=configuration.judge_provider,
         judge_model=configuration.judge_model,
         effort=configuration.effort,
+        critic_effort=configuration.critic_effort,
         budget=configuration.budget,
     )
     calls = tuple(

@@ -142,8 +142,10 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         raise ProviderError("Anthropic adapter received another provider")
     if request.max_output_tokens is None:
         raise ProviderError("Anthropic request requires an output token limit")
-    if request.effort not in ("low", "medium", "high", "xhigh", "max"):
+    if request.effort not in ("none", "low", "medium", "high", "xhigh", "max"):
         raise ProviderError("Anthropic model does not support this effort")
+    if request.effort == "none" and request.model != "claude-sonnet-5":
+        raise ProviderError("thinking cannot be disabled for this Anthropic model")
     messages: list[dict[str, JsonValue]] = []
     call_ids = {
         block.id: block.provider_call_id or block.id
@@ -184,11 +186,14 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         "model": request.model,
         "max_tokens": request.max_output_tokens,
         "messages": cast(JsonValue, messages),
-        "output_config": {"effort": request.effort},
-        "thinking": {"type": "adaptive"},
+        "thinking": {
+            "type": "disabled" if request.effort == "none" else "adaptive"
+        },
         "service_tier": "standard_only",
         "stream": False,
     }
+    if request.effort != "none":
+        payload["output_config"] = {"effort": request.effort}
     if request.system:
         payload["system"] = request.system
     if request.tools:

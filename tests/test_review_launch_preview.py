@@ -10,9 +10,15 @@ from test_review_guidance_admission import GuidedBrokerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
-from mos_eisley.core.models import CriticSpec, ReviewPolicy, canonical_bytes
+from mos_eisley.core.models import (
+    CriticSpec,
+    JudgeRequest,
+    ReviewPolicy,
+    canonical_bytes,
+)
 from mos_eisley.core.registry import anthropic_registry, openai_registry
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.run.review_campaign import campaign_reviewer
 from mos_eisley.run.review_controller import BrokeredReviewController
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
@@ -130,14 +136,20 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             judge_provider="anthropic",
             judge_model="claude-sonnet-5",
             judge_spending=spending,
-            effort="high",
+            effort="low",
+            critic_effort="none",
             budget=BudgetPolicy(max_output_tokens=32),
             policy=ReviewPolicy(min_critics=1, min_providers=1),
             max_total_microusd=10_000,
         )
         result = self.launch(configuration)
         self.assertEqual(result.preview.requests[0].provider, "anthropic")
+        self.assertEqual(result.preview.requests[0].effort, "none")
         self.assertEqual(result.preview.envelope.critics[0].provider, "anthropic")
+        judge_request = campaign_reviewer(configuration).judge_request(
+            JudgeRequest(brief=self.guided.prepared.brief, findings=())
+        )
+        self.assertEqual(judge_request.effort, "low")
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
         self.assertFalse(result.live_launch_available)
 

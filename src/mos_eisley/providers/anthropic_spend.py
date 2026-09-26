@@ -38,18 +38,24 @@ def _request(
         "stream",
     }:
         raise ProviderError("Anthropic request contains unpriced controls")
+    adaptive = value.get("thinking") == {"type": "adaptive"} and value.get(
+        "output_config"
+    ) in (
+        {"effort": "low"},
+        {"effort": "medium"},
+        {"effort": "high"},
+        {"effort": "xhigh"},
+        {"effort": "max"},
+    )
+    disabled = (
+        policy.model == "claude-sonnet-5"
+        and value.get("thinking") == {"type": "disabled"}
+        and "output_config" not in value
+    )
     if (
         value.get("service_tier") != "standard_only"
         or value.get("stream") is not False
-        or value.get("thinking") != {"type": "adaptive"}
-        or value.get("output_config")
-        not in (
-            {"effort": "low"},
-            {"effort": "medium"},
-            {"effort": "high"},
-            {"effort": "xhigh"},
-            {"effort": "max"},
-        )
+        or not (adaptive or disabled)
         or not isinstance(value.get("system"), str)
     ):
         raise ProviderError("Anthropic request has unsupported review controls")

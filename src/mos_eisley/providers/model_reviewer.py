@@ -75,6 +75,7 @@ class ModelReviewer:
         judge_provider: str,
         judge_model: str,
         effort: Effort | None = None,
+        critic_effort: Effort | None = None,
         budget: BudgetPolicy | None = None,
     ) -> None:
         self._client = client
@@ -82,7 +83,9 @@ class ModelReviewer:
         self._budget = BudgetPolicy.model_validate_json(
             canonical_bytes(budget if budget is not None else BudgetPolicy())
         )
-        self._effort: Effort | None = effort
+        self._critic_effort: Effort | None = (
+            critic_effort if critic_effort is not None else effort
+        )
         self._judge = self._registry.resolve(judge_provider, judge_model, effort)
 
     def critic_request(
@@ -93,7 +96,9 @@ class ModelReviewer:
         request = CriticRequest.model_validate_json(canonical_bytes(request))
         if critic.persona != request.persona:
             raise ValueError("critic persona mismatch")
-        model = self._registry.resolve(critic.provider, critic.model, self._effort)
+        model = self._registry.resolve(
+            critic.provider, critic.model, self._critic_effort
+        )
         return self._request(model, canonical_bytes(request).decode("utf-8"), Critique)
 
     def judge_request(self, request: JudgeRequest) -> ModelRequest:

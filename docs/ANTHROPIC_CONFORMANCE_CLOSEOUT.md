@@ -35,8 +35,8 @@ recorded provider usage, not invoice reconciliation.
 The completed run establishes one local credentialed Sonnet critic and Opus judge
 exchange through the broker, approval and spending path. It does not establish
 independent phase authorization, observer authentication, repeated three-slot
-conformance, remote provider authorship or live launch admission. The separately
-signed campaign remains pending enrollment and execution.
+conformance, remote provider authorship or live launch admission. A subsequent
+signed campaign is recorded below.
 
 ## Signed campaign extension
 
@@ -85,7 +85,36 @@ with `review-campaign-observation-preview`, signs an assessed observation, and
 appends it with `review-campaign-evidence-append` before the next slot. Finally,
 `review-campaign-review` freshly verifies all three signed slots and the ledgers.
 
-No live signed attempt was made during this closeout: independent authorizer and
-observer enrollment, a fresh frozen three-slot bundle, and separate campaign
-spending authorization are still needed. Earlier operator-run evidence cannot be
-retroactively signed into a precommitted tranche.
+At the time of the original closeout, no live signed attempt had been made.
+Earlier operator-run evidence cannot be retroactively signed into a precommitted
+tranche.
+
+## Signed campaign attempt
+
+A separate three-slot campaign was sealed on 2026-09-26 for source commit
+`1c9ce6b7237e326ceb14c8838c9c51c0e27128fe`, with seal SHA-256
+`4763300b542a27d61697159e41ddac618fff5cc5f0fb2c96229e1b5034aaa850`
+and a $0.967500 maximum reservation. One operator held distinct enrolled
+authorizer and observer Ed25519 keys; this establishes distinct cryptographic
+roles, not independent human custody or assessment. Each live phase also had
+an exact local approval before provider use.
+
+Slots 0 and 1 completed Sonnet critic and Opus judge exchanges, received signed
+observer records, and passed fresh campaign evidence review. Their ledgers
+settled $0.115386 and $0.131696. In slot 2, Sonnet exhausted the 2,000-token
+output limit in adaptive thinking and returned only two visible text characters.
+The critic response could not satisfy the strict JSON contract, so the controller
+failed before judge dispatch. Its critic settled $0.065500. The unused $0.215000
+judge allowance remains held; it has not been released or counted as settled
+usage. Total settled campaign charges are $0.312582, with conservative exposure
+of $0.527582 including the held allowance. The private failure closeout records
+metadata and exact artifact hashes without copying prompts or responses.
+
+`review-campaign-review` returned `incomplete` with two qualifying attempts
+under evidence SHA-256
+`9288441f74d6a1b2fd5adc692db49a5902cc8878e1ec8d032282a8757d3f0243`.
+The consumed third slot cannot be retried under that seal. A separately funded,
+freshly sealed campaign is required for three-slot acceptance. The corrective
+route selects Sonnet 5 with thinking disabled for the critic, keeps Opus 5.5
+adaptive for the judge, and raises the output cap while preserving a bounded
+aggregate reservation. This correction has offline tests but no new live result.

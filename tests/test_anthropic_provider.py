@@ -85,6 +85,14 @@ class AnthropicTranslationTests(TestCase):
         self.assertEqual(schema["required"], ["key"])
         self.assertIs(schema["additionalProperties"], False)
 
+    def test_sonnet_can_disable_thinking_without_disabling_opus(self) -> None:
+        request = _request().model_copy(update={"effort": "none"})
+        payload = request_payload(request)
+        self.assertEqual(payload["thinking"], {"type": "disabled"})
+        self.assertNotIn("output_config", payload)
+        with self.assertRaisesRegex(ProviderError, "cannot be disabled"):
+            request_payload(request.model_copy(update={"model": "claude-opus-5-5"}))
+
     def test_thinking_tool_result_round_trip_preserves_signed_native_block(
         self,
     ) -> None:
