@@ -4,7 +4,8 @@ Status: **offline seeded provenance and two independent failed-candidate
 receipts replay-verified; both failures traced to one missing half-up term;
 signed single-operator triage, zero-spend cycle-1 admission, one contained
 agent-authored offline correction-child dispatch, separately authorized
-isolated Git integration and renewed authenticated provenance replay-verified**.
+isolated Git integration, renewed authenticated provenance and a passing
+corrected-revision candidate receipt replay-verified**.
 Owner: Joshua Myers. Exercise ID: `g4-q1-quote-half-up`. This packet follows
 the [G4 roadmap](ROADMAP.md), [plan §26.2](mos-eisley-plan.md#262-review-loop-contract)
 and the existing G4 gate contracts. The owner approved the independent-review
@@ -20,8 +21,8 @@ Joshua then personally reviewed the interface, rubric and reviewer-test draft,
 accepted single-operator self-review risk, and attested he had not seen the seed
 implementation or child telemetry before that review or the package freeze.
 The subsequent signatures, corrected package freeze, paired controls, offline
-dispatch and isolated integration are recorded below; none grants provider
-spend, final-test admission or acceptance.
+dispatch, isolated integration and corrected candidate test are recorded below;
+none grants provider spend, final-test admission or acceptance.
 
 ## Exact controller and isolated target
 
@@ -179,15 +180,18 @@ provider call, correction integration or acceptance is claimed.
    check accepted their distinct identities and matching observations.
    Source-level assessment traces both to one rounding defect. Joshua's signed
    single-operator triage now covers both IDs. Joshua separately signed bounded
-   cycle 1, and its one-use claim was admitted; dispatch/production-broker
-   grants remain open.
+   cycle 1, and its one-use claim was admitted. A separate zero-spend offline
+   child-dispatch grant was later signed and consumed; no production-broker
+   grant or provider use followed.
    Reserve the full shared-ledger allowance before any provider call. No
    automatic retry after an uncertain send or consumed claim.
 
-5. **Integrate and verify:** require a valid child-signed scoped proposal and a
-   separate integration grant. Replay new custody/Git/candidate evidence, run
-   the full protected creator and frozen reviewer suites in the pinned image,
-   then obtain signed, citation-valid two-family critic quorum and judge verdict
+5. **Integrate and verify — candidate complete, final gates open:** the
+   child-signed scoped offline proposal and separate integration grant produced
+   a detached corrected revision. Renewed binding, signed Git provenance and a
+   passing candidate receipt replay-verify. A separate grant must authorize
+   the full protected creator and frozen reviewer suites in the pinned image.
+   Then obtain signed, citation-valid two-family critic quorum and judge verdict
    over the exact approved plan and full final diff. Resolve findings and ask
    the creator for a distinct final decision. An applicable G3 quality gate is
    still required before claiming G4 complete.
@@ -197,8 +201,8 @@ uncorroborated role custody, a failed/changed known control, non-assertion
 candidate error, missing critic family, unresolved spend, failed cleanup, any
 blocking finding, or an exhausted grant. Retain evidence; do not relabel failure
 as acceptance. No live call, provider credential, budget reservation, production
-host source write or final acceptance was created. Two candidate claims were
-consumed; neither may be reset or bypassed. The
+host source write or final acceptance was created. Three candidate claims were
+consumed; none may be reset or bypassed. The
 disposable fixture target alone received the two disclosed commits above.
 
 ## Source-level failure adjudication
@@ -273,9 +277,10 @@ or acceptance authority follows from admission.
   The grant expires with the cycle approval at 2026-09-26 19:30:42 UTC, but
   its claim is spent.
 - The corrected detached revision has a fresh binding and signed, replayed
-  VCS/E2 provenance. No candidate receipt for that revision exists yet; the
-  earlier two failed receipts belong to `6f2551d` and cannot be reused for a
-  final-suite admission.
+  VCS/E2 provenance. Its separately approved candidate receipt `3736d1b0…`
+  passed and replay-verified against one new claim and clean Git. The earlier
+  two failed receipts belong to `6f2551d` and cannot be reused for final-suite
+  admission. No final whole-suite grant or receipt exists yet.
 - The owner stated a $10 aggregate spend cap and a 2026-09-26 23:59 Eastern
   deadline; model, pricing policy, ledger, provider grant and
   live-call approval remain unset. The repository has an OpenAI live adapter,
@@ -327,12 +332,35 @@ The assembled authenticated provenance SHA-256
 replay-verified against current clean Git. A separate cross-check matched its
 source commit and tree to the signed integration record. This retains the
 disclosed *seeded* initial-child ancestry; it does not establish a real
-provider child or authorize tests, another correction, or acceptance.
+provider child, another correction, or acceptance.
+
+## Corrected-revision candidate test
+
+On 2026-09-26 UTC, Joshua signed one separate offline candidate approval for
+the clean detached revision `0cc8419`. Its canonical artifact SHA-256 is
+`36cc69a11a78edf73661502e1cf60779fa8d537bea71bd56c4536f0baf839f42`.
+The request SHA-256 is
+`7d598953023399212e43fab2bf997e5c2df7663abfaba202bcd8467056ebf9d7`;
+it binds the renewed source binding, same frozen reviewer package and pinned
+image, with no network, provider or write authority. Read-only preflight
+replayed signed provenance and current Git. The pinned controller admitted the
+approval at SHA-256
+`484515e02c744212185dfc816404a0ae010ca2d54ee1f0ce916e4f2d95200521`.
+
+One dispatch consumed a third claim in the same persistent private candidate
+store. The no-mount, no-network worker executed all five frozen reviewer tests
+on the corrected source: five collected, started and executed; zero failures,
+errors, skips or expected failures; matching test-ID digest `2770a24a…`.
+The canonical passing receipt SHA-256 is
+`3736d1b0c7f87e69689e7317e6e04e2b4938c128b9ee54441d26902add12a9ce`.
+Receipt replay verified the exact claim, signed inputs and unchanged clean Git;
+the worker lifecycle ended `removed`. No provider call, original-checkout write,
+final whole-suite result, independent review or acceptance occurred.
 
 See the [qualification threat model](G4_QUALIFICATION_PREPARATION_THREAT_MODEL.md)
 and [work note](../notes/G4_QUALIFICATION_PREPARATION.md). The next boundary
-is a separately approved candidate-test admission for the corrected revision.
-A passing candidate receipt would be prerequisite to separately authorized
-creator/reviewer whole suites, followed by independent review.
-The correction-child and integration claims are spent; do not retry or switch
+is a separately approved full protected creator and frozen reviewer whole-suite
+run on the corrected revision, followed by independent review. The passing
+candidate receipt is test evidence only. All three candidate claims and the
+correction-child and integration claims are spent; do not retry or switch
 stores. Separate authorization is required before any provider send.

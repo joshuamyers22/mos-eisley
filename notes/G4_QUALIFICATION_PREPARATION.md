@@ -1,9 +1,9 @@
 # Work Note: first G4 qualification preparation
 
-- Status: two failed receipts, signed triage, zero-spend cycle-1 admission, contained offline correction-child dispatch, signed isolated integration and renewed authenticated provenance verified; qualification open
+- Status: two failed receipts, signed triage, zero-spend cycle-1 admission, contained offline correction-child dispatch, signed isolated integration, renewed provenance and passing corrected candidate receipt verified; qualification open
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-25
-- Last updated (UTC): 2026-09-25
+- Last updated (UTC): 2026-09-26
 - Review or delete by: first G4 qualification decision
 - Related plan: [G4 roadmap](../docs/ROADMAP.md) and
   [qualification packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md)
@@ -73,6 +73,7 @@
 | 2026-09-25 | observation | At the owner's request, one contained offline dispatch consumed exactly one private child-dispatch claim. The deterministic agent-authored replacement was signed with the task-scoped child key and checked in the pinned no-network/no-mount worker. Canonical receipt `d3c30c12…` and signed proposal `31a7aa29…` replay-verified; one owned source path changed in memory, zero provider tokens/calls/micro-USD, no host write or acceptance. Worker lifecycle ended `removed`; target Git remains clean at `6f2551d`. This is not a real provider child or integrated correction. | Owner-only claim, receipt, lifecycle and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate integration authorization, then renewed source binding and final suites. |
 | 2026-09-25 | observation | Joshua signed one exact isolated integration grant `90a794b7…`. Its creator signature, full dispatch receipt, current clean source, protected tests and Git tree passed read-only preflight. One private integration claim was consumed before the broker wrote detached commit `0cc8419` with only the signed half-up change to `src/quote_lab/price.py`; original target HEAD/status stayed at `6f2551d` and clean. Canonical record `54d8a705…` and Joshua-signed VCS attestation `f50a4cea…` independently replay-verified against the grant, claim, parent, bytes and patch. No provider, final-suite, merge/push or acceptance. | Owner-only integration grant, claim, signed record, private worktree and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Renew binding/provenance for the integrated revision before separately approved final suites and independent review. |
 | 2026-09-25 | observation | On the clean detached revision `0cc8419`, a renewed binding `964f53fe…` replay-verified against the unchanged blind package and corrected source bytes. Read-only Git claim `e291e6b4…` reconstructed the exact integrated tree with disclosed seeded-child ancestry. Joshua signed VCS artifact `fb0ed525…`; authenticated provenance `7f6bee4c…` assembled and replay-verified against current Git. A separate cross-check matched its source commit/tree to the signed integration record. No new candidate receipt, final-suite test or provider call. | Owner-only manifest, binding, signed VCS and assembled provenance; [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek separate approval for candidate-test admission on the corrected revision. |
+| 2026-09-26 | observation | Joshua signed a separate corrected-revision candidate approval `36cc69a1…`. The pinned controller admitted it at `484515e0…`; one new claim in the existing store produced passing receipt `3736d1b0…`. All five frozen reviewer tests executed and passed with zero errors/skips; replay checked the claim and clean Git, and the worker was removed. No provider call, final suites or acceptance. | Private approval, admission, claim, receipt and [packet](../docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md) | Seek a separate final whole-suite approval for the corrected revision. |
 
 ## Handoff
 
@@ -80,31 +81,33 @@
   paired control receipts, seeded assignment/result/VCS provenance and two
   matching failed candidate receipts replay, signed triage, one zero-spend
   correction-cycle admission, one contained offline child-dispatch receipt and
-  one signed isolated integration record and renewed authenticated provenance.
+  one signed isolated integration record, renewed authenticated provenance and
+  one passing corrected-revision candidate receipt.
   Both failed IDs trace to one missing half-up increment in the bound source.
-  Both candidate claims, the cycle claim, child-dispatch claim and integration
-  claim are spent. No real provider child, original-checkout write or final G4
-  evidence.
-- Next smallest safe action: seek separate candidate-test approval/admission
-  for the integrated detached revision. A passing receipt is needed before
-  separate final-suite authorization. No provider send without authorization.
+  All three candidate claims, the cycle claim, child-dispatch claim and
+  integration claim are spent. No real provider child, original-checkout write
+  or final G4 evidence.
+- Next smallest safe action: prepare the protected creator-test package and
+  exact full-suite requests for the integrated detached revision, then seek
+  a separate creator-signed final whole-suite grant. No provider send without
+  authorization.
 - Blocker and required authority/input for later live stages: a fresh
   nonzero-spend chain, second provider family, live
   spending/dispatch approval, shared ledger and applicable G3 gate.
 - Checks already run: controller image start/source hash; clean target Git;
   local draft good/bad creator/reviewer test sensitivity; canonical creator and
   v2 custody, seeded assignment/result signatures verified; package, bindings,
-  controls, authenticated Git/current-source and both candidate receipt replays
-  passed; product source `make check` passed on `752c350` before this docs-only
-  preparation.
+  controls, authenticated Git/current-source, both failed candidate receipt
+  replays and the corrected passing receipt replay passed; product source
+  `make check` passed on `752c350` before this docs-only preparation.
 
 ## Close and promote
 
 - Outcome: offline input/custody, paired controls, seeded VCS/E2 provenance and
   two independent failed-candidate reproductions, source-level assessment and
   signed triage, one zero-spend correction admission, one contained offline
-  correction-child dispatch, signed isolated integration and renewed authenticated
-  provenance complete; not correction
+  correction-child dispatch, signed isolated integration, renewed authenticated
+  provenance and a passing corrected candidate receipt complete; not correction
   qualification or launch authority.
 - Durable fact promoted to `PROJECT_MEMORY.md`: none; project memory is not an
   index of ephemeral exercise status.

@@ -333,10 +333,11 @@ and critic/judge workflows retain their existing tool-free boundaries.
   deterministic verdict. No live review, proof of provider/human independence or
   release approval follows from this implementation alone.
 - The [first G4 qualification preparation packet](docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md)
-  pins the corrected controller image and a clean isolated target base. Draft
-  plan/tests and local good/bad sensitivity checks now have a signed creator
-  approval, frozen reviewer package and signed single-operator custody. No
-  production G4 child, authenticated controls or independent verdict exists yet.
+  pins the controller image and isolated target. Signed custody, paired controls,
+  seeded provenance, two failed candidate reproductions, contained offline
+  correction, isolated Git integration and a passing corrected-revision candidate
+  receipt replay-verify. Full creator/reviewer suites, independent review and a
+  real provider child remain open.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.
