@@ -135,7 +135,10 @@ class PreparedReviewCall:
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
         committed_authorization: ReviewAuthorization | None = None,
+        authorization_lifetime_seconds: int = 600,
     ) -> None:
+        if not 0 < authorization_lifetime_seconds <= 3600:
+            raise ValueError("review authorization lifetime must be at most one hour")
         if guidance is not None:
             guidance.check_brief(request.brief)
         if isinstance(request, CriticRequest) and critic is not None:
@@ -204,7 +207,8 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(minutes=10), policy.valid_until
+                datetime.now(UTC) + timedelta(seconds=authorization_lifetime_seconds),
+                policy.valid_until,
             ),
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )

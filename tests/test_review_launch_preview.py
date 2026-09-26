@@ -147,6 +147,49 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(first.configuration_sha256, second.configuration_sha256)
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
+    def test_bounded_longer_preview_restores_without_reserving_spend(self):
+        spending = self.base.policy.model_copy(
+            update={"valid_until": datetime.now(UTC) + timedelta(hours=2)}
+        )
+        configuration = self.configuration.model_copy(
+            update={
+                "critics": (LaunchCritic(critic=self.base.critic, spending=spending),),
+                "judge_spending": spending,
+                "critic_preview_lifetime_seconds": 3600,
+            }
+        )
+        before = datetime.now(UTC)
+        committed = self.launch(configuration).preview
+        remaining = (committed.envelope.expires_at - before).total_seconds()
+        self.assertGreater(remaining, 3590)
+        self.assertLessEqual(remaining, 3601)
+        envelope, reviewer, _ = prepare_review_launch_components(
+            configuration,
+            prepared=self.guided.prepared,
+            expected_prepared_sha256=self.guided.prepared.sha256,
+            workspace=self.guided.fixture.workspace,
+            guidance_store=self.guided.store,
+            guidance_policy_path=self.guided.fixture.policy_path,
+            expected_guidance_policy_sha256=self.guided.policy_sha,
+            ledger=self.base.ledger,
+            review_directory=self.review_directory,
+            committed_preview=committed,
+        )
+        restored = BrokeredReviewController(
+            envelope,
+            reviewer,
+            configuration.policy,
+            total_seconds=configuration.total_seconds,
+        )
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_preview_lifetime_over_one_hour_is_rejected(self):
+        raw = self.configuration.model_dump(mode="json")
+        raw["critic_preview_lifetime_seconds"] = 3601
+        with self.assertRaises(ValueError):
+            ReviewLaunchConfiguration.model_validate_json(json.dumps(raw))
+
     def test_committed_preview_restores_exact_unused_attempt(self):
         committed = self.launch().preview
         envelope, reviewer, _ = prepare_review_launch_components(

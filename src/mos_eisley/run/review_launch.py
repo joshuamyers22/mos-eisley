@@ -63,6 +63,7 @@ class ReviewLaunchConfiguration(Contract):
     budget: BudgetPolicy
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
+    critic_preview_lifetime_seconds: Annotated[int, Field(gt=0, le=3600)] = 600
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
 
 
@@ -223,6 +224,9 @@ def prepare_review_launch_components(
             ledger,
             critic=item.critic,
             guidance=admission,
+            authorization_lifetime_seconds=(
+                configuration.critic_preview_lifetime_seconds
+            ),
             committed_authorization=(
                 None
                 if committed_preview is None

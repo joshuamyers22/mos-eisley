@@ -29,6 +29,13 @@ to another path does not satisfy this binding. The owning reviewer's projected j
 profile is checked before the first critic can spend, and the actual judge preview
 is checked again before judge approval and dispatch.
 
+`ReviewLaunchConfiguration.critic_preview_lifetime_seconds` selects the maximum
+time between preview preparation and critic dispatch, from 1 to 3600 seconds. Its
+default is 600 seconds. A longer three-slot ceremony must select and seal its exact
+value before dispatch. The current pricing and guidance are still checked at each
+use, and each separately signed phase authorization remains limited to 600 seconds.
+The controller's own review deadline is separately limited to 600 seconds per slot.
+
 The host must still obtain separate independent signatures and local approvals for
 critics and judge. A seal cannot supply either approval. The host owns and awaits
 `probe.run()`, including cancellation cleanup, and independently retains start,
