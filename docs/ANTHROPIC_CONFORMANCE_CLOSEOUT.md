@@ -184,3 +184,20 @@ not identify which request field Anthropic rejected. The next source change
 restores the nullable `suggested_fix` schema form that succeeded earlier while
 retaining nonempty patterns on required fields. That change is an unproven
 compatibility correction until another live result is obtained.
+
+That correction was tested in a separate sealed campaign,
+`5434311f8d71db8aa2752c544d6c369b09ae1949b1ed388a17c2c12b8738e452`.
+Its first critic request was accepted by Anthropic, so the earlier 400 response
+did not recur. Sonnet returned 1,000 output tokens and stopped at the configured
+limit. The strict review contract could not accept the truncated critic result;
+the controller failed before judge preview or dispatch. The critic settled
+$0.050758 in the local ledger. With the operator's explicit approval, the
+unused $0.140000 judge allowance was settled at $0; its private release receipt
+has SHA-256
+`2252f5ff030479eea83e7e52e9e0eae114226d4b0908a4e877cdfcf5a6756d29`.
+The slot ledger has no unresolved entries. Identified settled usage across the
+signed attempts is now $0.710148, plus the earlier $0.070000 uncertain critic
+reservation, for $0.780148 in conservative exposure. The next offline
+configuration raises the output limit to 3,000 tokens while retaining a
+single-finding prompt and a per-campaign reservation bound. That configuration
+has no live result yet.
