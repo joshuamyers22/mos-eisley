@@ -124,9 +124,22 @@ not invoice reconciliation.
 under evidence SHA-256
 `9288441f74d6a1b2fd5adc692db49a5902cc8878e1ec8d032282a8757d3f0243`.
 The consumed third slot cannot be retried under that seal. A separately funded,
-freshly sealed campaign is required for three-slot acceptance. The corrective
-route selects Sonnet 5 with thinking disabled for the critic, keeps Opus 5.5
-adaptive for the judge, and uses a 1,000-token response cap after observing
-both completed judges use fewer than 400 output tokens. The prepared replacement
-has a $0.675000 aggregate reservation. This correction has offline tests but no
-new live result.
+freshly sealed campaign is required for three-slot acceptance.
+
+Two replacement seals were attempted. The first failed before provider dispatch
+because the local sandbox denied access to Docker. Both untouched reservations
+were manually settled at $0 after operator approval; its receipt SHA-256 is
+`20372a10dc33c570d8562b5c994c63790ceb74cf431f1996803a7736cc2fd19d`.
+The second reached Sonnet with thinking disabled, but its unconstrained visible
+reply exhausted the 1,000-token output cap in prose and failed the JSON contract.
+The critic settled $0.044802; no judge was dispatched. The unused $0.150000
+judge allowance was manually settled at $0 after operator approval, with receipt
+SHA-256 `a344bd7aa01023dde783b5267c83bd4b790c39ab4036b6d99bf9da301d7f4955`.
+Across these signed attempts, identified settled usage is $0.357384; this is
+still not invoice reconciliation or three-slot conformance.
+
+The next corrective route sends Anthropic's `output_config.format` JSON schema
+for the critic and judge, keeps Sonnet 5 thinking disabled and Opus 5.5 adaptive,
+and asks the critic for at most one concise finding. With a 24,000-token input
+limit and 1,000-token output limit, its prepared three-slot reservation is
+$0.630000. This correction has offline tests but no live result.

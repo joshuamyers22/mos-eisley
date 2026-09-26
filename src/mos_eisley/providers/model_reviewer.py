@@ -140,7 +140,15 @@ class ModelReviewer:
             provider=model.spec.provider,
             model=model.spec.id,
             effort=model.effort,
-            system=_system(result),
+            system=(
+                _system(result)
+                + (
+                    " Return at most one finding; keep each free-text field under "
+                    "300 characters."
+                    if model.spec.provider == "anthropic" and result is Critique
+                    else ""
+                )
+            ),
             turns=(
                 Turn(
                     role="user",
@@ -152,6 +160,9 @@ class ModelReviewer:
             ),
             max_output=budget.output_reserve,
             max_output_tokens=budget.max_output_tokens,
+            structured_output=("critique" if result is Critique else "judge")
+            if model.spec.provider == "anthropic"
+            else None,
         )
         if canonical_fingerprint(request).bytes > budget.usable_input:
             raise ValueError("complete review request exceeds budget")

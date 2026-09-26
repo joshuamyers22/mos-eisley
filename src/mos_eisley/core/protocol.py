@@ -185,9 +185,15 @@ class ModelRequest(Contract):
     max_output_tokens: Annotated[
         int | None, Field(gt=0, exclude_if=lambda value: value is None)
     ] = None
+    structured_output: Annotated[
+        Literal["critique", "judge"] | None,
+        Field(exclude_if=lambda value: value is None),
+    ] = None
 
     @model_validator(mode="after")
     def unique_tools(self) -> Self:
+        if self.structured_output is not None and self.provider != "anthropic":
+            raise ValueError("structured review output requires Anthropic")
         names = tuple(tool.name for tool in self.tools)
         if len(names) != len(set(names)):
             raise ValueError("tool names must be unique")

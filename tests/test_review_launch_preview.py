@@ -145,11 +145,13 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         result = self.launch(configuration)
         self.assertEqual(result.preview.requests[0].provider, "anthropic")
         self.assertEqual(result.preview.requests[0].effort, "none")
+        self.assertEqual(result.preview.requests[0].structured_output, "critique")
         self.assertEqual(result.preview.envelope.critics[0].provider, "anthropic")
         judge_request = campaign_reviewer(configuration).judge_request(
             JudgeRequest(brief=self.guided.prepared.brief, findings=())
         )
         self.assertEqual(judge_request.effort, "low")
+        self.assertEqual(judge_request.structured_output, "judge")
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
         self.assertFalse(result.live_launch_available)
 

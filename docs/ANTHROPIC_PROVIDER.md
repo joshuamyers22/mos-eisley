@@ -57,7 +57,9 @@ requests are restricted to one
 bounded, tool-free user message. They use standard service tier and nonstreaming
 Messages calls. Sonnet 5 supports an explicit `none` critic effort that sends
 `thinking: {"type": "disabled"}`; other selected efforts use adaptive thinking.
-Opus 5.5 remains adaptive because it does not support disabled thinking. A
+Both review roles send a fixed JSON schema through `output_config.format` so
+the provider constrains the response shape. Opus 5.5 remains adaptive because
+it does not support disabled thinking. A
 conservative policy prices cache writes at the documented rate even though the
 review request has no cache control. Local runtime records can be handed to an
 independent observer;

@@ -93,6 +93,31 @@ class AnthropicTranslationTests(TestCase):
         with self.assertRaisesRegex(ProviderError, "cannot be disabled"):
             request_payload(request.model_copy(update={"model": "claude-opus-5-5"}))
 
+    def test_review_roles_project_structured_json_formats(self) -> None:
+        critic = _request().model_copy(
+            update={"effort": "none", "structured_output": "critique", "tools": ()}
+        )
+        critic_payload = request_payload(critic)
+        critic_config = critic_payload["output_config"]
+        assert isinstance(critic_config, dict)
+        self.assertNotIn("effort", critic_config)
+        critic_format = critic_config["format"]
+        assert isinstance(critic_format, dict)
+        self.assertEqual(critic_format["type"], "json_schema")
+        judge = critic.model_copy(
+            update={
+                "model": "claude-opus-5-5",
+                "effort": "low",
+                "structured_output": "judge",
+            }
+        )
+        judge_config = request_payload(judge)["output_config"]
+        assert isinstance(judge_config, dict)
+        self.assertEqual(judge_config["effort"], "low")
+        judge_format = judge_config["format"]
+        assert isinstance(judge_format, dict)
+        self.assertEqual(judge_format["type"], "json_schema")
+
     def test_thinking_tool_result_round_trip_preserves_signed_native_block(
         self,
     ) -> None:
