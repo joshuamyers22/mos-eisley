@@ -1,5 +1,16 @@
 # Anthropic conformance closeout, 2026-09-26
 
+The separate signed three-slot campaign is now **accepted**. A fresh
+`review-campaign-review` verified seal
+`44e5e602c9d207b3e8eb971717435848591fa20dccdd8b30f915e9e52b350e9b`
+against final evidence SHA-256
+`11f8d6f3f21c2c2115d5a368499053ba6db944f07e4161fb5ee40a299da270b3`:
+three qualifying Sonnet critic and Opus judge slots, each with distinct phase
+authorizations, exact local approvals and a signed observer record. The three
+dedicated ledgers settled $0.404718 locally, with no unresolved entries. This
+acceptance does not claim independent human custody, Anthropic invoice
+reconciliation, remote provider authorship proof or live launch activation.
+
 The operator-approved Anthropic route completed one credentialed review of the
 frozen integration patch. GPT-6 was the operator-declared author, Claude Sonnet 5
 was the critic, and Claude Opus 5.5 was the judge. The author declaration binds
@@ -158,9 +169,9 @@ receipt has SHA-256
 The slot 2 ledger has no unresolved entries. This seal has two qualifying
 attempts and cannot be retried for a third.
 
-Across the signed attempts, identified settled usage is $0.659390. This is
-recorded provider usage, not invoice reconciliation. No signed campaign has
-passed the three-slot gate. The response schema was then tightened with
+Across the signed attempts at that point, identified settled usage was
+$0.659390. This was recorded provider usage, not invoice reconciliation. No
+signed campaign had yet passed the three-slot gate. The response schema was then tightened with
 nonempty string patterns for the required review fields, including the failed
 explanation field. The change has local tests but no live conformance result;
 a fresh seal and separately approved spending are required for another
@@ -256,5 +267,45 @@ release receipt has SHA-256
 The slot ledger has no unresolved entries. Identified settled usage across
 signed attempts is $0.895150, plus the earlier $0.070000 uncertain critic
 reservation, for $0.965150 in conservative exposure. The next source change
-adds explicit character-for-character quote instructions to the critic prompt
-and quote schema description. Its effect on live grounding is unproven.
+added explicit character-for-character quote instructions to the critic prompt
+and quote schema description. Its effect was unproven before the next campaign.
+
+That source change was committed as `5ab48a8` and used in campaign
+`cb16ac1d365c06ec9bf6bf8f1ecc2ac80e40c9583189fc4539355fef03f3818a`.
+Slots 0 and 1 completed the Sonnet critic, Opus judge and signed observer route,
+settling $0.129516 and $0.123930. Their evidence passed as a two-slot prefix.
+In slot 2, Anthropic's token count returned 24,006 against the sealed 24,000
+input-token limit. The controller stopped before generation or judge preview.
+The $0.090000 critic entry remains a blocked violation and is counted as
+uncertain exposure, rather than settled usage. After explicit operator approval,
+the unused $0.180000 judge hold was settled at $0. The settlement succeeded,
+but receipt writing initially failed; a separate checked record of the applied
+release has SHA-256
+`c212525a5881f3d3e04738ffcd225c4d3b0ff68d77abe75b7c3960d12a1a5130`.
+The consumed third slot cannot qualify this seal. At that point, signed-attempt
+settled usage was $1.148596 and uncertain exposure was $0.160000, including the
+earlier $0.070000 critic entry.
+
+A fresh campaign raised the sealed input ceiling to 32,000 tokens and retained
+source commit `5ab48a8` with pinned worker image
+`sha256:46476bf5aca2cef4139f5e653f39ff3abc83e809402b8afde9b15d588a5a3e9c`.
+It was separately approved under seal
+`44e5e602c9d207b3e8eb971717435848591fa20dccdd8b30f915e9e52b350e9b`
+with a $0.990000 maximum three-slot reservation. All three slots completed
+credentialed Sonnet and Opus exchanges, exact authorizer signatures and local
+approvals, and separately signed observer attestations. Their ledgers settled
+$0.129356, $0.125018 and $0.150344, respectively; each has zero unresolved
+entries. The final evidence SHA-256 is
+`11f8d6f3f21c2c2115d5a368499053ba6db944f07e4161fb5ee40a299da270b3`.
+Fresh `review-campaign-review` returned `accepted` with three qualifying
+attempts. It reported `provider_authorship_proven: false`,
+`billing_reconciled: false` and `live_review_activation_authorized: false`.
+
+Identified settled usage across all signed attempts is $1.553314. The two
+earlier uncertain critic entries total $0.160000, giving $1.713314 in
+conservative signed-attempt exposure. Including the original $0.826404
+operator review closeout, identified settled local usage is $2.379718 and
+conservative exposure is $2.539718, below the operator's $5 ceiling. These are
+local ledger figures, not Anthropic invoice reconciliation. One human held the
+separate authorizer and observer keys; the signed roles are cryptographically
+distinct but do not establish independent human custody.
