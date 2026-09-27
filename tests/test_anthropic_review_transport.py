@@ -114,6 +114,41 @@ class AnthropicReviewTransportTests(unittest.IsolatedAsyncioTestCase):
                 )
         self.assertEqual(urls, [ANTHROPIC_MESSAGES_URL])
 
+    async def test_rejection_records_bounded_private_diagnostic(self) -> None:
+        def respond(_request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
+                400,
+                json={
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": "Invalid field",
+                    }
+                },
+            )
+
+        with TemporaryDirectory() as root:
+            diagnostic = Path(root) / "provider-error.json"
+            async with httpx2.AsyncClient(
+                transport=httpx2.MockTransport(respond)
+            ) as client:
+                transport = AnthropicReviewHTTPTransport(
+                    "fixture-key", client, diagnostic
+                )
+                with self.assertRaisesRegex(ProviderError, "HTTP 400"):
+                    await transport.create_response(
+                        normalized_payload(_payload(), _policy())
+                    )
+            self.assertEqual(
+                json.loads(diagnostic.read_bytes()),
+                {
+                    "http_status": 400,
+                    "stage": "response",
+                    "type": "invalid_request_error",
+                    "message": "Invalid field",
+                },
+            )
+            self.assertEqual(diagnostic.stat().st_mode & 0o777, 0o600)
+
     async def test_oversize_body_is_rejected(self) -> None:
         def respond(_request: httpx2.Request) -> httpx2.Response:
             return httpx2.Response(
