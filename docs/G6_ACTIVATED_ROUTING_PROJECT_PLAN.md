@@ -78,10 +78,22 @@ change existing preflight denial fields to make a test pass; dispatch authority
 belongs to a separately reviewed trusted broker boundary.
 
 The [G6-04 witnessed control and budget design](G6_04_WITNESSED_CONTROL_BUDGET_SPEC.md)
-is ready for offline implementation review. It specifies atomic claim and
-three-scope admission, external checkpoint ordering, bootstrap and rollback
-recovery, and a deterministic fault matrix. Its implementation and live witness
-decisions remain open.
+now has an offline synthetic implementation and fault suite. It exercises atomic
+claim and task/session/cohort admission, checkpoint ordering, signed bootstrap,
+rollback detection, stop races and budget exhaustion. Independent review and
+live witness decisions remain open.
+
+The [G6-05 operations and exact-candidate qualification plan](G6_05_OPERATIONS_EXACT_CANDIDATE_QUALIFICATION_PLAN.md)
+has an offline packet validator and synthetic denial tests for evidence coverage,
+route freshness, digest binding, drill ceilings and signed review roles. Its
+qualification gate remains open until G5, independent custody, real witness,
+route observations, target-host drills and security review pass.
+
+The [G6-06 bounded rollout and assessment plan](G6_06_BOUNDED_ROLLOUT_ASSESSMENT_PLAN.md)
+is ready for offline review. It fixes the release packet, named-cohort sequence,
+monitor/stop/fallback requirements, closeout and later-window assessment rubric,
+and synthetic rehearsal matrix. Actual rollout and assessment remain blocked by
+G6-05 and a separate owner/operator release.
 
 ## Verification and stop rule
 

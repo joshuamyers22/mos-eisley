@@ -17,9 +17,20 @@ from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import ModelRequest, ToolDefinition
+from mos_eisley.evaluation.routing_protocol import ObservablePromptFeatures
 from mos_eisley.run.exact_route import ExactRouteRequirements, ExactRouteSelection
-from mos_eisley.run.routing_preflight import RoutingRuntimePreflight
+from mos_eisley.run.routing_preflight import (
+    RoutingRuntimePreflight,
+    RoutingRuntimeSources,
+    verify_routing_runtime_sources,
+)
 from mos_eisley.run.store import private_write
+from mos_eisley.run.witnessed_admission import (
+    SyntheticWitnessedAdmission,
+    WitnessedAdmissionReceipt,
+    WitnessedAttempt,
+    verify_admission_receipt,
+)
 
 Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 _ATTEMPT_DOMAIN = b"mos-eisley/g6-offline-attempt/v1\0"
@@ -564,6 +575,32 @@ class OfflineTransactionStore:
             max_attempts=max_attempts,
             max_wait_seconds=max_wait_seconds,
         )
+        return cls._create_with_policy(path, policy)
+
+    @classmethod
+    def create_witnessed(
+        cls,
+        path: Path,
+        *,
+        admission: SyntheticWitnessedAdmission,
+        max_attempts: int = 10_000,
+        max_wait_seconds: int = 30,
+    ) -> Self:
+        policy = OfflineTransactionStorePolicy(
+            store_id=digest(uuid4().bytes),
+            owner_id=admission.budget_policy.owner_id,
+            cohort_id=admission.budget_policy.cohort_id,
+            witness_id=admission.enrollment.witness_id,
+            budget_id=admission.budget_policy.policy_sha256,
+            max_attempts=max_attempts,
+            max_wait_seconds=max_wait_seconds,
+        )
+        return cls._create_with_policy(path, policy)
+
+    @classmethod
+    def _create_with_policy(
+        cls, path: Path, policy: OfflineTransactionStorePolicy
+    ) -> Self:
         _create_policy(path, policy)
         with closing(_connect(path)) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -1028,4 +1065,319 @@ async def execute_offline_routing_transaction(
         response.charged_microusd,
         now,
         response_sha256,
+    )
+
+
+def inspect_offline_witnessed_transaction(
+    envelope: OfflineRoutingEnvelope,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+) -> OfflineRoutingStatus:
+    """Read the checkpointed attempt and local intent without recovery effects."""
+    _check_witnessed_store_links(envelope, admission, store)
+    row = admission.inspect_attempt(
+        owner_id=envelope.owner_id,
+        cohort_id=envelope.cohort_id,
+        attempt_key=envelope.attempt_key,
+    )
+    record = store.get(envelope.attempt_key)
+    if row is not None and (
+        row.attempt.envelope_sha256 != envelope.envelope_sha256
+        or row.attempt.request_sha256 != envelope.request_sha256
+    ):
+        raise ValueError("witnessed attempt conflicts with offline envelope")
+    if record is not None:
+        intent, outcome = record
+        if (
+            row is None
+            or intent.claim_id != row.claim_id
+            or intent.envelope_sha256 != envelope.envelope_sha256
+            or intent.budget_id != admission.budget_policy.policy_sha256
+        ):
+            raise ValueError("witnessed intent provenance is inconsistent")
+        if outcome is not None and (
+            row.status != ("held" if outcome.status == "abandoned" else outcome.status)
+            or row.charged_microusd != outcome.charged_microusd
+        ):
+            raise ValueError("witnessed outcome and budget disagree")
+    else:
+        outcome = None
+    return OfflineRoutingStatus(
+        attempt_key=envelope.attempt_key,
+        phase=(
+            "finished"
+            if outcome is not None
+            else "intent"
+            if record is not None
+            else "claimed"
+            if row is not None
+            else "absent"
+        ),
+        budget_status="absent" if row is None else row.status,
+        witness_claimed=row is not None,
+        intent_committed=record is not None,
+        outcome=None if outcome is None else outcome.status,
+        may_have_transferred=record is not None,
+    )
+
+
+def _check_witnessed_store_links(
+    envelope: OfflineRoutingEnvelope,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+) -> None:
+    if (
+        store.policy.owner_id != envelope.owner_id
+        or store.policy.cohort_id != envelope.cohort_id
+        or admission.budget_policy.owner_id != envelope.owner_id
+        or admission.budget_policy.cohort_id != envelope.cohort_id
+        or store.policy.witness_id != admission.enrollment.witness_id
+        or store.policy.budget_id != admission.budget_policy.policy_sha256
+    ):
+        raise ValueError("offline witnessed transaction store provenance mismatch")
+
+
+def _finish_witnessed(
+    *,
+    envelope: OfflineRoutingEnvelope,
+    intent: OfflineSendIntent,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    receipt: WitnessedAdmissionReceipt,
+    status: Literal["settled", "uncertain", "violation"],
+    charged_microusd: int,
+    now: datetime,
+    response_sha256: str | None = None,
+) -> OfflineOutcome:
+    admission.settle_exact(
+        receipt=receipt, charged_microusd=charged_microusd, status=status, now=now
+    )
+    outcome = OfflineOutcome(
+        attempt_key=envelope.attempt_key,
+        intent_sha256=intent.intent_sha256,
+        status=status,
+        charged_microusd=charged_microusd,
+        response_sha256=response_sha256,
+        completed_at=now,
+    )
+    store.finish(outcome, writer=_WRITER)
+    return outcome
+
+
+async def execute_offline_witnessed_routing_transaction(
+    *,
+    envelope: OfflineRoutingEnvelope,
+    selection: ExactRouteSelection,
+    preflight: RoutingRuntimePreflight,
+    requirements: ExactRouteRequirements,
+    profile: OfflineExecutionProfile,
+    request: ModelRequest,
+    features: ObservablePromptFeatures,
+    sources: RoutingRuntimeSources,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    transport: InertRoutingTransport,
+    monitor: SyntheticRoutingMonitor,
+    now: datetime,
+    fault: Callable[[str], None] | None = None,
+) -> OfflineOutcome:
+    """Use one checkpointed control/budget claim before an inert one-use send."""
+    _utc(now)
+    _check_witnessed_store_links(envelope, admission, store)
+    if (
+        type(transport) is not InertRoutingTransport
+        or type(monitor) is not SyntheticRoutingMonitor
+    ):
+        raise ValueError("offline witnessed routing requires inert fixtures")
+    _validate_request(
+        envelope, selection, preflight, requirements, profile, request, transport, now
+    )
+    verify_routing_runtime_sources(sources, preflight, now)
+    decisions = [
+        item
+        for item in sources.candidate_policy.decisions
+        if item.profile_id == selection.profile_id
+    ]
+    if (
+        sources.sealed_study.protocol.feature_partition.profile(features).profile_id
+        != selection.profile_id
+        or features.role != requirements.role
+        or features.output_contract != requirements.output_contract
+        or features.tool_requirements != requirements.tool_requirements
+        or sources.candidate_policy.candidate_policy_sha256
+        != selection.candidate_policy_sha256
+        or sources.plan.plan_sha256 != sources.candidate_policy.plan_sha256
+        or len(decisions) != 1
+        or decisions[0].role != selection.role
+        or decisions[0].action != "calibrated_route"
+        or decisions[0].selected_route != selection.route
+        or decisions[0].selected_candidate_id != selection.candidate_id
+        or selection.source != "calibrated_route"
+        or not any(route == selection.route for route in sources.plan.routes)
+        or profile.profile_sha256 != admission.budget_policy.execution_profile_sha256
+    ):
+        raise ValueError("offline witnessed route is not source-bound")
+    local = sources.control_anchor.snapshot(sources.activation_authorities).latest
+    witnessed = admission.read_current()
+    if (
+        local is None
+        or local != witnessed.control
+        or local.signed_control != sources.signed_control
+        or local.anchor_entry_sha256 != preflight.anchored_control_entry_sha256
+        or envelope.control_digest != local.anchor_entry_sha256
+        or envelope.control_sequence != local.signed_control.control.sequence
+    ):
+        raise ValueError("offline witnessed latest control mismatch")
+    monitor.check()
+    attempt = WitnessedAttempt(
+        attempt_key=envelope.attempt_key,
+        owner_id=envelope.owner_id,
+        cohort_id=envelope.cohort_id,
+        task_id=envelope.task_id,
+        session_id=envelope.session_id,
+        stage_id=envelope.stage_id,
+        attempt_id=envelope.attempt_id,
+        envelope_sha256=envelope.envelope_sha256,
+        request_sha256=envelope.request_sha256,
+        selection_sha256=envelope.selection_sha256,
+        profile_sha256=envelope.profile_sha256,
+        candidate_id=selection.candidate_id,
+        candidate_policy_sha256=selection.candidate_policy_sha256,
+        promotion_receipt_sha256=preflight.promotion_receipt_sha256,
+        preflight_sha256=preflight.preflight_sha256,
+        control_sequence=envelope.control_sequence,
+        control_anchor_entry_sha256=envelope.control_digest,
+        maximum_microusd=envelope.maximum_microusd,
+        budget_policy_sha256=admission.budget_policy.policy_sha256,
+    )
+
+    def cut(name: str) -> None:
+        if fault is not None:
+            fault(name)
+
+    cut("before_admission")
+    receipt = admission.claim_with_budget(
+        attempt=attempt,
+        expected_control=local,
+        current_preflight=preflight,
+        now=now,
+        fault=fault,
+    )
+    verify_admission_receipt(receipt, admission.enrollment, attempt, now)
+    claimed = admission.inspect_attempt(
+        owner_id=envelope.owner_id,
+        cohort_id=envelope.cohort_id,
+        attempt_key=envelope.attempt_key,
+    )
+    if (
+        claimed is None
+        or claimed.claim_id != receipt.claim_id
+        or claimed.admitted_generation != receipt.generation
+        or claimed.status != "held"
+    ):
+        raise ValueError("offline witnessed receipt has no current claim")
+    cut("after_admission")
+    intent = OfflineSendIntent(
+        attempt_key=envelope.attempt_key,
+        owner_id=envelope.owner_id,
+        cohort_id=envelope.cohort_id,
+        envelope_sha256=envelope.envelope_sha256,
+        request_sha256=envelope.request_sha256,
+        selection_sha256=envelope.selection_sha256,
+        profile_sha256=envelope.profile_sha256,
+        claim_id=receipt.claim_id,
+        budget_id=admission.budget_policy.policy_sha256,
+        control_sequence=envelope.control_sequence,
+        control_digest=envelope.control_digest,
+        recorded_at=now,
+    )
+    store.record_before_send(intent, writer=_WRITER)
+    cut("after_intent")
+    try:
+        current = admission.read_current()
+        local_now = sources.control_anchor.snapshot(
+            sources.activation_authorities
+        ).latest
+        monitor.check()
+        ready = (
+            current.control == local
+            and local_now == local
+            and not current.control.signed_control.control.emergency_stop
+        )
+    except Exception:
+        ready = False
+    if not ready:
+        outcome = OfflineOutcome(
+            attempt_key=envelope.attempt_key,
+            intent_sha256=intent.intent_sha256,
+            status="abandoned",
+            charged_microusd=envelope.maximum_microusd,
+            completed_at=now,
+        )
+        store.finish(outcome, writer=_WRITER)
+        return outcome
+    cut("after_final_check")
+    try:
+        async with asyncio.timeout(store.policy.max_wait_seconds):
+            response = InertRoutingResponse.model_validate(
+                await transport.send(request)
+            )
+    except asyncio.CancelledError:
+        _finish_witnessed(
+            envelope=envelope,
+            intent=intent,
+            admission=admission,
+            store=store,
+            receipt=receipt,
+            status="uncertain",
+            charged_microusd=envelope.maximum_microusd,
+            now=now,
+        )
+        raise
+    except Exception:
+        return _finish_witnessed(
+            envelope=envelope,
+            intent=intent,
+            admission=admission,
+            store=store,
+            receipt=receipt,
+            status="uncertain",
+            charged_microusd=envelope.maximum_microusd,
+            now=now,
+        )
+    response_sha256 = digest(canonical_bytes(response))
+    if (
+        response.provider != request.provider
+        or response.model != request.model
+        or response.service_tier != "default"
+        or response.input_tokens > profile.max_input_tokens
+        or response.output_tokens > profile.max_output_tokens
+        or response.charged_microusd
+        != (
+            response.input_tokens * profile.input_microusd_per_token
+            + response.output_tokens * profile.output_microusd_per_token
+        )
+        or response.charged_microusd > envelope.maximum_microusd
+    ):
+        return _finish_witnessed(
+            envelope=envelope,
+            intent=intent,
+            admission=admission,
+            store=store,
+            receipt=receipt,
+            status="violation",
+            charged_microusd=envelope.maximum_microusd,
+            now=now,
+            response_sha256=response_sha256,
+        )
+    return _finish_witnessed(
+        envelope=envelope,
+        intent=intent,
+        admission=admission,
+        store=store,
+        receipt=receipt,
+        status="settled",
+        charged_microusd=response.charged_microusd,
+        now=now,
+        response_sha256=response_sha256,
     )

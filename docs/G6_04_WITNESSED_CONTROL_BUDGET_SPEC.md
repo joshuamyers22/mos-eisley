@@ -1,10 +1,13 @@
 # G6-04 witnessed control and budget admission: offline implementation design
 
-Status: **implementation-ready offline design; implementation and independent
-gate open**, 2026-09-26. This is the G6-04 design handoff in the
-[G6 plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It specifies a synthetic
-implementation and fault suite, not a live witness deployment or routing
-authorization. [G6-01](G6_01_ROUTING_OPERATIONAL_CONTRACT_DRAFT.md) still needs
+Status: **offline implementation and synthetic fault suite added; independent
+gate open**, 2026-09-26. This is the G6-04 design and implementation handoff in
+the [G6 plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). The
+[synthetic admission service](../src/mos_eisley/run/witnessed_admission.py),
+[broker integration](../src/mos_eisley/run/routing_transaction.py), and
+[fault tests](../tests/test_witnessed_admission.py) implement this offline
+contract. They are not a live witness deployment or routing authorization.
+[G6-01](G6_01_ROUTING_OPERATIONAL_CONTRACT_DRAFT.md) still needs
 operating approval; [G6-03](G6_03_ONE_USE_BROKER_TRANSACTION_SPEC.md) has an
 inert-provider transaction but uses local synthetic witness and budget stores.
 The [current preflight](ROUTING_RUNTIME_PREFLIGHT.md) and signed activation
@@ -209,12 +212,15 @@ witness/checkpoint pair disagrees.
 
 ## Review exit and remaining live gate
 
-The offline design is ready to implement when the owner and independent
-reviewer freeze the enrollment and scope-policy schemas, checkpoint durability
-contract, attempt/session identity source, exact failpoint oracles and fixture
-ceiling. G6-04 offline completion then requires implementation, the above
-synthetic suite and call-graph review confirming no live transport or credential
-path. The live gate also needs named independent operators and real custody,
+The offline implementation uses signed synthetic enrollment and scope policy,
+separate local SQLite witness and checkpoint stores, process-level crash cuts,
+and an inert broker transport. The local checkpoint exercises rollback and
+compare-and-swap failure behavior; it does not establish independent custody
+or resistance to restoring all fixture files together. Independent review must
+freeze the enrollment and scope-policy schemas, checkpoint durability contract,
+attempt/session identity source, exact failpoint oracles and fixture ceiling,
+and inspect the call graph for any live transport or credential path. The live
+gate also needs named independent operators and real custody,
 an approved monotonic checkpoint deployment, stop-latency/fencing decision,
 current G5 qualification and activation chain, target-host rollback/outage
 drills, and an independent security review. Until then this document grants
