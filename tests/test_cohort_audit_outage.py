@@ -35,7 +35,7 @@ class CohortAuditOutageTests(TestCase):
         for changes in ({"audit": None}, {"alerts": None}):
             with (
                 self.subTest(changes=changes),
-                self.assertRaisesRegex(ValueError, "requires audit and alert"),
+                self.assertRaisesRegex(ValueError, "requires audit, alert"),
             ):
                 self.fixture.execute(**changes)
             self.assert_no_claim_or_send()

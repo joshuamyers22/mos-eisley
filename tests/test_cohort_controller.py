@@ -23,6 +23,7 @@ from mos_eisley.run.routing_transaction import (
     SyntheticExactRouteProbe,
     SyntheticRequiredAlertChannel,
     SyntheticRouteObservation,
+    capture_synthetic_cohort_recovery_anchor,
 )
 from mos_eisley.run.witnessed_admission import (
     CohortManifest,
@@ -127,6 +128,9 @@ class CohortControllerTests(TestCase):
             signed_release=self.shadow,
             now=self.now,
         )
+        self.recovery_anchor = capture_synthetic_cohort_recovery_anchor(
+            self.base.admission, self.base.store, self.audit
+        )
 
     def release(
         self, phase: str, sequence: int, manifest: CohortManifest | None = None
@@ -195,6 +199,7 @@ class CohortControllerTests(TestCase):
             "route_probe": self.route_probe,
             "audit": self.audit,
             "alerts": self.alerts,
+            "recovery_anchor": self.recovery_anchor,
         }
         values.update(changes)
         return self.base.execute(**values)

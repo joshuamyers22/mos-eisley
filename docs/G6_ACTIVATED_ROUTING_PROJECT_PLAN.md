@@ -99,6 +99,9 @@ rehearsal checks route disappearance before claim, after claim and after the
 final check, plus exact fallback freshness without reusing a consumed attempt.
 The C04 fixture adds a separate hash-only before-send audit journal, required
 alert-health checks and read-only recovery joins under injected outages.
+The C08 fixture compares those stores and the witness against an explicitly
+supplied high-water snapshot, then denies another inert send after coordinated
+rollback while retaining conservative exposure.
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.

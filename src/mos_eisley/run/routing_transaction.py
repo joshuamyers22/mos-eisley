@@ -27,6 +27,7 @@ from mos_eisley.run.routing_preflight import (
 )
 from mos_eisley.run.store import private_write
 from mos_eisley.run.witnessed_admission import (
+    Checkpoint,
     SyntheticWitnessedAdmission,
     WitnessedAdmissionReceipt,
     WitnessedAttempt,
@@ -919,6 +920,173 @@ def inspect_offline_cohort_audit(
     )
 
 
+class FrozenCohortRecoveryAnchor(Contract):
+    """Synthetic high water supplied outside the stores being inspected."""
+
+    schema_version: Literal[1] = 1
+    owner_id: Identifier
+    cohort_id: Identifier
+    witness_id: Digest
+    checkpoint: Checkpoint
+    assignment_task_ids: tuple[Identifier, ...]
+    claim_ids: tuple[Digest, ...]
+    intent_sha256s: tuple[Digest, ...]
+    audit_event_sha256s: tuple[Digest, ...]
+    retained_exposure_microusd: Money
+
+    @model_validator(mode="after")
+    def canonical_indexes(self) -> Self:
+        for values in (
+            self.assignment_task_ids,
+            self.claim_ids,
+            self.intent_sha256s,
+            self.audit_event_sha256s,
+        ):
+            if values != tuple(sorted(set(values))):
+                raise ValueError("synthetic recovery anchor indexes are not canonical")
+        return self
+
+
+class SyntheticCohortRecoveryInventory(Contract):
+    status: Literal["consistent", "blocked"]
+    reasons: tuple[str, ...]
+    anchored_assignment_count: Annotated[int, Field(ge=0)]
+    anchored_claim_count: Annotated[int, Field(ge=0)]
+    anchored_intent_count: Annotated[int, Field(ge=0)]
+    anchored_audit_count: Annotated[int, Field(ge=0)]
+    observed_witness_generation: Annotated[int, Field(ge=0)] | None
+    conservative_exposure_microusd: Money
+    admission_authorized: Literal[False] = False
+
+
+def capture_synthetic_cohort_recovery_anchor(
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+) -> FrozenCohortRecoveryAnchor:
+    """Make a fixture snapshot; caller must retain it outside rollback scope."""
+    inventory = inspect_offline_cohort_audit(admission, store, audit)
+    if not inventory.complete:
+        raise ValueError("synthetic recovery anchor cannot capture an audit gap")
+    state = admission.read_current()
+    cohort = state.cohort
+    assert cohort is not None
+    checkpoint = admission.checkpoint.read_current()
+    intents = store.list_intents()
+    events = audit.read_current()
+    if (
+        checkpoint.generation != state.generation
+        or checkpoint.state_sha256 != state.state_sha256
+        or admission.read_current() != state
+        or store.list_intents() != intents
+        or audit.read_current() != events
+        or inventory.retained_exposure_microusd
+        != sum(
+            item.charged_microusd for item in state.attempts if item.status != "settled"
+        )
+    ):
+        raise ValueError("synthetic recovery anchor source changed during capture")
+    return FrozenCohortRecoveryAnchor(
+        owner_id=cohort.manifest.owner_id,
+        cohort_id=cohort.manifest.cohort_id,
+        witness_id=admission.enrollment.witness_id,
+        checkpoint=checkpoint,
+        assignment_task_ids=tuple(sorted(item.task_id for item in cohort.assignments)),
+        claim_ids=tuple(sorted(item.claim_id for item in state.attempts)),
+        intent_sha256s=tuple(sorted(item.intent_sha256 for item in intents)),
+        audit_event_sha256s=tuple(
+            sorted(digest(canonical_bytes(item)) for item in events)
+        ),
+        retained_exposure_microusd=inventory.retained_exposure_microusd,
+    )
+
+
+def inspect_offline_cohort_recovery(
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+    *,
+    anchor: FrozenCohortRecoveryAnchor,
+) -> SyntheticCohortRecoveryInventory:
+    """Read-only C08 comparison; never reconstruct missing records or refund."""
+    reasons: set[str] = set()
+    observed_generation: int | None = None
+    current_exposure = 0
+    if (
+        anchor.owner_id != admission.enrollment.owner_id
+        or anchor.cohort_id != admission.enrollment.cohort_id
+        or anchor.witness_id != admission.enrollment.witness_id
+        or anchor.checkpoint.epoch_id != admission.enrollment.epoch_id
+    ):
+        reasons.add("anchor_scope_mismatch")
+    try:
+        checkpoint = admission.checkpoint.read_current()
+        observed_generation = checkpoint.generation
+        if (
+            checkpoint.checkpoint_id != anchor.checkpoint.checkpoint_id
+            or checkpoint.epoch_id != anchor.checkpoint.epoch_id
+        ):
+            reasons.add("checkpoint_identity_mismatch")
+        if checkpoint.generation < anchor.checkpoint.generation:
+            reasons.add("checkpoint_rollback")
+        if (
+            checkpoint.generation == anchor.checkpoint.generation
+            and checkpoint.checkpoint_sha256 != anchor.checkpoint.checkpoint_sha256
+        ):
+            reasons.add("checkpoint_fork")
+    except Exception:
+        reasons.add("checkpoint_unreadable")
+    try:
+        state = admission.read_current()
+        cohort = state.cohort
+        if cohort is None:
+            reasons.add("cohort_missing")
+        else:
+            if not set(anchor.assignment_task_ids) <= {
+                item.task_id for item in cohort.assignments
+            }:
+                reasons.add("assignment_rollback")
+            if not set(anchor.claim_ids) <= {item.claim_id for item in state.attempts}:
+                reasons.add("claim_rollback")
+        current_exposure = sum(
+            item.charged_microusd for item in state.attempts if item.status != "settled"
+        )
+    except Exception:
+        reasons.add("witness_unreadable")
+    try:
+        intents = store.list_intents()
+        if not set(anchor.intent_sha256s) <= {item.intent_sha256 for item in intents}:
+            reasons.add("intent_rollback")
+    except Exception:
+        reasons.add("intent_store_unreadable")
+    try:
+        events = audit.read_current()
+        if not set(anchor.audit_event_sha256s) <= {
+            digest(canonical_bytes(item)) for item in events
+        }:
+            reasons.add("audit_rollback")
+    except Exception:
+        reasons.add("audit_store_unreadable")
+    if not {"witness_unreadable", "cohort_missing"} & reasons:
+        try:
+            if not inspect_offline_cohort_audit(admission, store, audit).complete:
+                reasons.add("audit_join_incomplete")
+        except Exception:
+            reasons.add("audit_join_invalid")
+    return SyntheticCohortRecoveryInventory(
+        status="blocked" if reasons else "consistent",
+        reasons=tuple(sorted(reasons)),
+        anchored_assignment_count=len(anchor.assignment_task_ids),
+        anchored_claim_count=len(anchor.claim_ids),
+        anchored_intent_count=len(anchor.intent_sha256s),
+        anchored_audit_count=len(anchor.audit_event_sha256s),
+        observed_witness_generation=observed_generation,
+        conservative_exposure_microusd=max(
+            anchor.retained_exposure_microusd, current_exposure
+        ),
+    )
+
+
 class InertRoutingResponse(Contract):
     provider: Identifier
     model: Identifier
@@ -1448,6 +1616,7 @@ async def execute_offline_witnessed_routing_transaction(
     route_probe: SyntheticExactRouteProbe | None = None,
     audit: SyntheticCohortAuditSink | None = None,
     alerts: SyntheticRequiredAlertChannel | None = None,
+    recovery_anchor: FrozenCohortRecoveryAnchor | None = None,
     fault: Callable[[str], None] | None = None,
 ) -> OfflineOutcome:
     """Use one checkpointed control/budget claim before an inert one-use send."""
@@ -1505,14 +1674,23 @@ async def execute_offline_witnessed_routing_transaction(
     if witnessed.cohort is not None and (
         type(audit) is not SyntheticCohortAuditSink
         or type(alerts) is not SyntheticRequiredAlertChannel
+        or type(recovery_anchor) is not FrozenCohortRecoveryAnchor
     ):
-        raise ValueError("offline cohort requires audit and alert fixtures")
+        raise ValueError("offline cohort requires audit, alert and recovery fixtures")
     if route_probe is not None:
         route_probe.check(selection, now)
     if audit is not None:
         audit.check()
         if not inspect_offline_cohort_audit(admission, store, audit).complete:
             raise ValueError("synthetic cohort audit has a missing required link")
+        if (
+            recovery_anchor is not None
+            and inspect_offline_cohort_recovery(
+                admission, store, audit, anchor=recovery_anchor
+            ).status
+            != "consistent"
+        ):
+            raise ValueError("synthetic cohort recovery high water disagrees")
     if alerts is not None:
         alerts.check()
     monitor.check()
@@ -1547,6 +1725,14 @@ async def execute_offline_witnessed_routing_transaction(
         route_probe.check(selection, now)
     if audit is not None:
         audit.check()
+        if (
+            recovery_anchor is not None
+            and inspect_offline_cohort_recovery(
+                admission, store, audit, anchor=recovery_anchor
+            ).status
+            != "consistent"
+        ):
+            raise ValueError("synthetic cohort recovery high water disagrees")
     if alerts is not None:
         alerts.check()
     receipt = admission.claim_with_budget(
@@ -1618,6 +1804,14 @@ async def execute_offline_witnessed_routing_transaction(
             audit.check()
             if not inspect_offline_cohort_audit(admission, store, audit).complete:
                 raise ValueError("synthetic cohort audit has a missing required link")
+            if (
+                recovery_anchor is not None
+                and inspect_offline_cohort_recovery(
+                    admission, store, audit, anchor=recovery_anchor
+                ).status
+                != "consistent"
+            ):
+                raise ValueError("synthetic cohort recovery high water disagrees")
         if alerts is not None:
             alerts.check()
         ready = (

@@ -150,6 +150,22 @@ policy. A fallback send would require fresh complete policy, preflight and
 witness admission. The synthetic probe does not authenticate a real catalog,
 conformance source, provider outage or target-host observation timing.
 
+### C08 offline combined rollback rehearsal
+
+The [synthetic recovery inventory](../src/mos_eisley/run/routing_transaction.py)
+compares the current witness checkpoint, assignment roster, claim IDs, local
+intent digests and audit event digests with an explicitly supplied frozen
+high-water snapshot. The cohort transaction checks that snapshot before claim
+and at its final read. The [C08 tests](../tests/test_cohort_combined_rollback.py)
+restore older witness, checkpoint, intent and audit files separately and in
+combinations, including a coordinated restore that leaves the local intent and
+audit stores mutually consistent. Read-only inspection reports the mismatch,
+preserves the anchored roster/claim counts and full possible uncertain
+exposure, and another inert send is denied without repair or refund. The
+fixture capture helper does not provide independent custody: a real operator
+must retain the high-water record outside every rollback domain and verify its
+lineage before any recovery decision.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |
