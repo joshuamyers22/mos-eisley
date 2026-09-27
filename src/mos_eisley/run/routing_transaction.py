@@ -1304,6 +1304,21 @@ async def execute_offline_witnessed_routing_transaction(
             and local_now == local
             and not current.control.signed_control.control.emergency_stop
         )
+        if current.cohort is not None:
+            release = current.cohort.signed_release.release
+            ready = ready and (
+                release.phase == "bounded_live"
+                and release.issued_at <= now < release.valid_until
+                and current.cohort.manifest.valid_from
+                <= now
+                < current.cohort.manifest.valid_until
+                and any(
+                    item.task_id == envelope.task_id
+                    and item.session_id == envelope.session_id
+                    and item.release_sha256 == release.release_sha256
+                    for item in current.cohort.assignments
+                )
+            )
     except Exception:
         ready = False
     if not ready:

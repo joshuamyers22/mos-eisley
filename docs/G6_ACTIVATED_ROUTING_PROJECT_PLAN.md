@@ -90,10 +90,12 @@ qualification gate remains open until G5, independent custody, real witness,
 route observations, target-host drills and security review pass.
 
 The [G6-06 bounded rollout and assessment plan](G6_06_BOUNDED_ROLLOUT_ASSESSMENT_PLAN.md)
-is ready for offline review. It fixes the release packet, named-cohort sequence,
-monitor/stop/fallback requirements, closeout and later-window assessment rubric,
-and synthetic rehearsal matrix. Actual rollout and assessment remain blocked by
-G6-05 and a separate owner/operator release.
+has an offline cohort controller fixture with signed release phases, a durable
+one-use assignment roster, witnessed assignment and concurrency caps, and
+synthetic race, crash, rollback, stop and close tests. It also fixes the live
+monitor/stop/fallback requirements and later-window assessment rubric. Actual
+rollout and assessment remain blocked by G6-05 and a separate owner/operator
+release.
 
 ## Verification and stop rule
 

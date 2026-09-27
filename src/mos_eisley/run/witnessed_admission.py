@@ -39,6 +39,11 @@ _BUDGET_DOMAIN = b"mos-eisley/g6-synthetic-budget-policy/v1\0"
 _RECEIPT_DOMAIN = b"mos-eisley/g6-synthetic-admission-receipt/v1\0"
 _CLAIM_DOMAIN = b"mos-eisley/g6-synthetic-witness-claim/v1\0"
 _ATTEMPT_DOMAIN = b"mos-eisley/g6-offline-attempt/v1\0"
+_COHORT_RELEASE_DOMAIN = b"mos-eisley/g6-synthetic-cohort-release/v1\0"
+
+
+class _AssignmentAlreadyExists(ValueError):
+    pass
 
 
 def _utc(value: datetime) -> datetime:
@@ -135,6 +140,155 @@ class SyntheticAdmissionTrust(Contract):
 class TaskSessionBinding(Contract):
     task_id: Identifier
     session_id: Identifier
+
+
+class SyntheticCohortTrust(Contract):
+    schema_version: Literal[1] = 1
+    owner_signer_id: Identifier
+    owner_public_key_hex: Digest
+    operator_signer_id: Identifier
+    operator_public_key_hex: Digest
+    g6_05_go_sha256: Digest
+
+    @model_validator(mode="after")
+    def separated_signers(self) -> Self:
+        if (
+            self.owner_signer_id == self.operator_signer_id
+            or self.owner_public_key_hex == self.operator_public_key_hex
+        ):
+            raise ValueError("synthetic cohort release signers must differ")
+        return self
+
+
+class CohortManifest(Contract):
+    schema_version: Literal[1] = 1
+    owner_id: Identifier
+    cohort_id: Identifier
+    witness_epoch_id: Digest
+    witness_enrollment_sha256: Digest
+    budget_policy_sha256: Digest
+    candidate_policy_sha256: Digest
+    promotion_receipt_sha256: Digest
+    broker_build_sha256: Digest
+    target_host_id: Identifier
+    tasks: Annotated[
+        tuple[TaskSessionBinding, ...], Field(min_length=1, max_length=256)
+    ]
+    stages: Annotated[tuple[Identifier, ...], Field(min_length=1, max_length=64)]
+    max_assignments: Annotated[int, Field(gt=0, le=256)]
+    max_concurrent: Annotated[int, Field(gt=0, le=256)]
+    valid_from: datetime
+    valid_until: datetime
+
+    @field_validator("valid_from", "valid_until")
+    @classmethod
+    def utc_time(cls, value: datetime) -> datetime:
+        return _utc(value)
+
+    @model_validator(mode="after")
+    def canonical_scope(self) -> Self:
+        ids = tuple(item.task_id for item in self.tasks)
+        if (
+            self.valid_until <= self.valid_from
+            or ids != tuple(sorted(set(ids)))
+            or self.stages != tuple(sorted(set(self.stages)))
+            or self.max_assignments > len(self.tasks)
+            or self.max_concurrent > self.max_assignments
+        ):
+            raise ValueError("synthetic cohort manifest is inconsistent")
+        return self
+
+    @property
+    def manifest_sha256(self) -> str:
+        return digest(canonical_bytes(self))
+
+
+class CohortRelease(Contract):
+    schema_version: Literal[1] = 1
+    manifest_sha256: Digest
+    g6_05_go_sha256: Digest
+    witness_epoch_id: Digest
+    broker_build_sha256: Digest
+    target_host_id: Identifier
+    sequence: Annotated[int, Field(ge=0)]
+    phase: Literal["shadow_only", "bounded_live", "closed"]
+    issued_at: datetime
+    valid_until: datetime
+
+    @field_validator("issued_at", "valid_until")
+    @classmethod
+    def utc_time(cls, value: datetime) -> datetime:
+        return _utc(value)
+
+    @model_validator(mode="after")
+    def valid_window(self) -> Self:
+        if self.valid_until <= self.issued_at:
+            raise ValueError("synthetic cohort release window is invalid")
+        return self
+
+    @property
+    def release_sha256(self) -> str:
+        return digest(canonical_bytes(self))
+
+
+class SignedCohortRelease(Contract):
+    release: CohortRelease
+    owner_signer_id: Identifier
+    owner_signature_base64: str
+    operator_signer_id: Identifier
+    operator_signature_base64: str
+
+
+def sign_synthetic_cohort_release(
+    release: CohortRelease,
+    *,
+    owner_signer_id: str,
+    owner_private_key: bytes,
+    operator_signer_id: str,
+    operator_private_key: bytes,
+) -> SignedCohortRelease:
+    return SignedCohortRelease(
+        release=release,
+        owner_signer_id=owner_signer_id,
+        owner_signature_base64=_sign(
+            owner_private_key, _COHORT_RELEASE_DOMAIN, release
+        ),
+        operator_signer_id=operator_signer_id,
+        operator_signature_base64=_sign(
+            operator_private_key, _COHORT_RELEASE_DOMAIN, release
+        ),
+    )
+
+
+def verify_synthetic_cohort_release(
+    signed: SignedCohortRelease,
+    trust: SyntheticCohortTrust,
+    manifest: CohortManifest,
+) -> None:
+    release = signed.release
+    if (
+        signed.owner_signer_id != trust.owner_signer_id
+        or signed.operator_signer_id != trust.operator_signer_id
+        or release.g6_05_go_sha256 != trust.g6_05_go_sha256
+        or release.manifest_sha256 != manifest.manifest_sha256
+        or release.witness_epoch_id != manifest.witness_epoch_id
+        or release.broker_build_sha256 != manifest.broker_build_sha256
+        or release.target_host_id != manifest.target_host_id
+        or release.valid_until > manifest.valid_until
+    ):
+        raise ValueError("synthetic cohort release binding is invalid")
+    _verify(
+        trust.owner_public_key_hex,
+        signed.owner_signature_base64,
+        _COHORT_RELEASE_DOMAIN,
+        release,
+    )
+    _verify(
+        trust.operator_public_key_hex,
+        signed.operator_signature_base64,
+        _COHORT_RELEASE_DOMAIN,
+        release,
+    )
 
 
 class CohortBudgetPolicy(Contract):
@@ -396,11 +550,54 @@ class WitnessedAttemptRecord(Contract):
     charged_microusd: Money
 
 
+class WitnessedAssignment(Contract):
+    owner_id: Identifier
+    cohort_id: Identifier
+    task_id: Identifier
+    session_id: Identifier
+    stage_id: Identifier
+    candidate_policy_sha256: Digest
+    release_sha256: Digest
+    assigned_generation: Annotated[int, Field(ge=1)]
+    assigned_at: datetime
+
+    @field_validator("assigned_at")
+    @classmethod
+    def utc_time(cls, value: datetime) -> datetime:
+        return _utc(value)
+
+
+class WitnessedCohortState(Contract):
+    trust: SyntheticCohortTrust
+    manifest: CohortManifest
+    signed_release: SignedCohortRelease
+    assignments: tuple[WitnessedAssignment, ...]
+
+    @model_validator(mode="after")
+    def authenticated_release(self) -> Self:
+        verify_synthetic_cohort_release(self.signed_release, self.trust, self.manifest)
+        ids = tuple(item.task_id for item in self.assignments)
+        if ids != tuple(sorted(set(ids))) or len(ids) > self.manifest.max_assignments:
+            raise ValueError("synthetic cohort assignment roster is invalid")
+        if any(
+            item.owner_id != self.manifest.owner_id
+            or item.cohort_id != self.manifest.cohort_id
+            or item.candidate_policy_sha256 != self.manifest.candidate_policy_sha256
+            or TaskSessionBinding(task_id=item.task_id, session_id=item.session_id)
+            not in self.manifest.tasks
+            or item.stage_id not in self.manifest.stages
+            for item in self.assignments
+        ):
+            raise ValueError("synthetic cohort assignment provenance is invalid")
+        return self
+
+
 class WitnessedState(Contract):
     epoch_id: Digest
     generation: Annotated[int, Field(ge=0)]
     control: AnchoredRoutingControl
     attempts: tuple[WitnessedAttemptRecord, ...]
+    cohort: WitnessedCohortState | None = None
 
     @property
     def state_sha256(self) -> str:
@@ -592,6 +789,14 @@ class SyntheticWitnessedAdmission:
                 "CREATE TABLE attempts (attempt_key TEXT PRIMARY KEY, "
                 "claim_id TEXT NOT NULL UNIQUE, record_json BLOB NOT NULL) STRICT"
             )
+            connection.execute(
+                "CREATE TABLE cohort (singleton INTEGER PRIMARY KEY "
+                "CHECK(singleton=1), cohort_json BLOB NOT NULL) STRICT"
+            )
+            connection.execute(
+                "CREATE TABLE assignments (task_id TEXT PRIMARY KEY, "
+                "record_json BLOB NOT NULL) STRICT"
+            )
         checkpoint = SyntheticCheckpointStore.create(checkpoint_path, first_checkpoint)
         return cls(
             path,
@@ -708,11 +913,37 @@ class SyntheticWitnessedAdmission:
             ):
                 raise ValueError("synthetic witness attempt row is invalid")
             attempts.append(record)
+        cohort_rows = connection.execute("SELECT cohort_json FROM cohort").fetchall()
+        assignment_rows = connection.execute(
+            "SELECT task_id, record_json FROM assignments ORDER BY task_id"
+        ).fetchall()
+        if len(cohort_rows) > 1 or (not cohort_rows and assignment_rows):
+            raise ValueError("synthetic cohort journal is invalid")
+        cohort: WitnessedCohortState | None = None
+        if cohort_rows:
+            stored = WitnessedCohortState.model_validate_json(cohort_rows[0][0])
+            assignments: list[WitnessedAssignment] = []
+            for task_id, raw in assignment_rows:
+                assignment = WitnessedAssignment.model_validate_json(raw)
+                if raw != canonical_bytes(assignment) or assignment.task_id != task_id:
+                    raise ValueError("synthetic cohort assignment row is invalid")
+                assignments.append(assignment)
+            cohort = WitnessedCohortState(
+                trust=stored.trust,
+                manifest=stored.manifest,
+                signed_release=stored.signed_release,
+                assignments=tuple(assignments),
+            )
+            if cohort_rows[0][0] != canonical_bytes(
+                stored.model_copy(update={"assignments": ()})
+            ):
+                raise ValueError("synthetic cohort journal is noncanonical")
         state = WitnessedState(
             epoch_id=enrollment.epoch_id,
             generation=meta[0][0],
             control=control,
             attempts=tuple(attempts),
+            cohort=cohort,
         )
         if verify and state.state_sha256 != meta[0][1]:
             raise ValueError("synthetic witness state digest disagrees with journal")
@@ -776,6 +1007,204 @@ class SyntheticWitnessedAdmission:
                 fault("after_checkpoint")
             return result, updated
 
+    def enroll_cohort(
+        self,
+        *,
+        manifest: CohortManifest,
+        trust: SyntheticCohortTrust,
+        signed_release: SignedCohortRelease,
+        now: datetime,
+        fault: Callable[[str], None] | None = None,
+    ) -> WitnessedCohortState:
+        """Enroll one synthetic shadow lineage in the existing checkpointed journal."""
+        _utc(now)
+        verify_synthetic_cohort_release(signed_release, trust, manifest)
+        if (
+            manifest.owner_id != self.enrollment.owner_id
+            or manifest.cohort_id != self.enrollment.cohort_id
+            or manifest.witness_epoch_id != self.enrollment.epoch_id
+            or manifest.witness_enrollment_sha256 != self.enrollment.enrollment_sha256
+            or manifest.budget_policy_sha256 != self.budget_policy.policy_sha256
+            or any(item not in self.budget_policy.tasks for item in manifest.tasks)
+            or manifest.max_assignments > self.budget_policy.max_tasks
+            or signed_release.release.sequence != 0
+            or signed_release.release.phase != "shadow_only"
+            or not manifest.valid_from <= now < manifest.valid_until
+            or not signed_release.release.issued_at
+            <= now
+            < signed_release.release.valid_until
+        ):
+            raise ValueError("synthetic cohort enrollment is invalid")
+
+        def enroll(connection: sqlite3.Connection, state: WitnessedState) -> None:
+            if (
+                state.cohort is not None
+                or state.attempts
+                or state.control.signed_control.control.emergency_stop
+            ):
+                raise ValueError("synthetic cohort cannot be re-enrolled")
+            entry = WitnessedCohortState(
+                trust=trust,
+                manifest=manifest,
+                signed_release=signed_release,
+                assignments=(),
+            )
+            connection.execute(
+                "INSERT INTO cohort VALUES (1, ?)", (canonical_bytes(entry),)
+            )
+
+        _, updated = self._commit(enroll, fault)
+        assert updated.cohort is not None
+        return updated.cohort
+
+    def advance_cohort_release(
+        self,
+        *,
+        signed_release: SignedCohortRelease,
+        now: datetime,
+        fault: Callable[[str], None] | None = None,
+    ) -> WitnessedCohortState:
+        _utc(now)
+
+        def advance(connection: sqlite3.Connection, state: WitnessedState) -> None:
+            cohort = state.cohort
+            if cohort is None:
+                raise ValueError("synthetic cohort is not enrolled")
+            verify_synthetic_cohort_release(
+                signed_release, cohort.trust, cohort.manifest
+            )
+            prior = cohort.signed_release.release
+            current = signed_release.release
+            if (
+                prior.phase == "closed"
+                or current.sequence != prior.sequence + 1
+                or current.issued_at <= prior.issued_at
+                or current.issued_at > now
+                or not now < current.valid_until
+                or not cohort.manifest.valid_from <= now < cohort.manifest.valid_until
+                or (prior.phase == "bounded_live" and current.phase == "shadow_only")
+                or (
+                    current.phase == "bounded_live"
+                    and state.control.signed_control.control.emergency_stop
+                )
+            ):
+                raise ValueError("synthetic cohort release did not advance safely")
+            changed = cohort.model_copy(
+                update={"signed_release": signed_release, "assignments": ()}
+            )
+            connection.execute(
+                "UPDATE cohort SET cohort_json=? WHERE singleton=1",
+                (canonical_bytes(changed),),
+            )
+
+        _, updated = self._commit(advance, fault)
+        assert updated.cohort is not None
+        return updated.cohort
+
+    def assign_cohort_task(
+        self,
+        *,
+        owner_id: str,
+        cohort_id: str,
+        task_id: str,
+        session_id: str,
+        stage_id: str,
+        candidate_policy_sha256: str,
+        expected_release_sha256: str,
+        now: datetime,
+        fault: Callable[[str], None] | None = None,
+    ) -> WitnessedAssignment:
+        _utc(now)
+
+        def existing(state: WitnessedState) -> WitnessedAssignment | None:
+            cohort = state.cohort
+            if cohort is None:
+                return None
+            found = next(
+                (item for item in cohort.assignments if item.task_id == task_id),
+                None,
+            )
+            if found is None:
+                return None
+            if (
+                found.owner_id != owner_id
+                or found.cohort_id != cohort_id
+                or found.session_id != session_id
+                or found.stage_id != stage_id
+                or found.candidate_policy_sha256 != candidate_policy_sha256
+                or found.release_sha256 != expected_release_sha256
+            ):
+                raise ValueError("synthetic cohort duplicate assignment conflicts")
+            return found
+
+        prior = existing(self.read_current())
+        if prior is not None:
+            return prior
+
+        def assign(
+            connection: sqlite3.Connection, state: WitnessedState
+        ) -> WitnessedAssignment:
+            cohort = state.cohort
+            control = state.control.signed_control.control
+            if cohort is None:
+                raise ValueError("synthetic cohort is not enrolled")
+            if any(item.task_id == task_id for item in cohort.assignments):
+                raise _AssignmentAlreadyExists("synthetic assignment raced")
+            release = cohort.signed_release.release
+            manifest = cohort.manifest
+            if (
+                release.phase != "bounded_live"
+                or release.release_sha256 != expected_release_sha256
+                or not release.issued_at <= now < release.valid_until
+                or not manifest.valid_from <= now < manifest.valid_until
+                or not control.issued_at <= now < control.valid_until
+                or control.emergency_stop
+                or candidate_policy_sha256 in control.revoked_candidate_policy_sha256
+                or owner_id != manifest.owner_id
+                or cohort_id != manifest.cohort_id
+                or candidate_policy_sha256 != manifest.candidate_policy_sha256
+                or TaskSessionBinding(task_id=task_id, session_id=session_id)
+                not in manifest.tasks
+                or stage_id not in manifest.stages
+                or len(cohort.assignments) >= manifest.max_assignments
+            ):
+                raise ValueError("synthetic cohort assignment is ineligible")
+            record = WitnessedAssignment(
+                owner_id=owner_id,
+                cohort_id=cohort_id,
+                task_id=task_id,
+                session_id=session_id,
+                stage_id=stage_id,
+                candidate_policy_sha256=candidate_policy_sha256,
+                release_sha256=expected_release_sha256,
+                assigned_generation=state.generation + 1,
+                assigned_at=now,
+            )
+            connection.execute(
+                "INSERT INTO assignments VALUES (?, ?)",
+                (task_id, canonical_bytes(record)),
+            )
+            return record
+
+        try:
+            record, _ = self._commit(assign, fault)
+        except _AssignmentAlreadyExists:
+            raced = existing(self.read_current())
+            if raced is None:
+                raise
+            return raced
+        return record
+
+    def inspect_cohort(
+        self, *, owner_id: str, cohort_id: str
+    ) -> WitnessedCohortState | None:
+        if (
+            owner_id != self.enrollment.owner_id
+            or cohort_id != self.enrollment.cohort_id
+        ):
+            raise ValueError("synthetic cohort inspection scope denied")
+        return self.read_current().cohort
+
     def claim_with_budget(
         self,
         *,
@@ -822,6 +1251,40 @@ class SyntheticWitnessedAdmission:
             connection: sqlite3.Connection, state: WitnessedState
         ) -> WitnessedAttemptRecord:
             control = state.control.signed_control.control
+            cohort = state.cohort
+            if cohort is not None:
+                release = cohort.signed_release.release
+                manifest = cohort.manifest
+                assignment = next(
+                    (
+                        item
+                        for item in cohort.assignments
+                        if item.task_id == attempt.task_id
+                    ),
+                    None,
+                )
+                if (
+                    release.phase != "bounded_live"
+                    or not release.issued_at <= now < release.valid_until
+                    or not manifest.valid_from <= now < manifest.valid_until
+                    or attempt.candidate_policy_sha256
+                    != manifest.candidate_policy_sha256
+                    or attempt.promotion_receipt_sha256
+                    != manifest.promotion_receipt_sha256
+                    or attempt.owner_id != manifest.owner_id
+                    or attempt.cohort_id != manifest.cohort_id
+                    or attempt.stage_id not in manifest.stages
+                    or assignment is None
+                    or assignment.session_id != attempt.session_id
+                    or assignment.stage_id != attempt.stage_id
+                    or assignment.release_sha256 != release.release_sha256
+                    or any(
+                        row.attempt.task_id == attempt.task_id for row in state.attempts
+                    )
+                    or sum(row.status != "settled" for row in state.attempts)
+                    >= manifest.max_concurrent
+                ):
+                    raise ValueError("synthetic cohort claim has no active slot")
             if (
                 state.control != expected_control
                 or attempt.control_sequence != control.sequence
@@ -881,6 +1344,12 @@ class SyntheticWitnessedAdmission:
             expected_control.signed_control.control.valid_until,
             current_preflight.valid_until,
         )
+        if updated.cohort is not None:
+            valid_until = min(
+                valid_until,
+                updated.cohort.manifest.valid_until,
+                updated.cohort.signed_release.release.valid_until,
+            )
         unsigned = _UnsignedReceipt(
             witness_id=self.enrollment.witness_id,
             epoch_id=self.enrollment.epoch_id,

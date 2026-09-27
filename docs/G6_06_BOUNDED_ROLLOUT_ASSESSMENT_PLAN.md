@@ -1,7 +1,7 @@
 # G6-06 bounded rollout and assessment plan
 
-Status: **implementation-ready offline rollout design; live release and cohort
-assessment open**, 2026-09-26. This is the G6-06 handoff in the
+Status: **offline cohort controller fixture and synthetic fault tests complete;
+live release and cohort assessment open**, 2026-09-26. This is the G6-06 handoff in the
 [G6 project plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It defines the first
 owner-scoped production cohort and its stop, close and assessment procedure; it
 does not authorize a provider send or report a cohort outcome. The
@@ -105,6 +105,20 @@ disposition that excludes a possible in-flight send. An uncertain state keeps
 the slot until independently reviewed reconciliation proves it can close; its
 full possible spend remains held. No new assignment follows release expiry,
 stop or cohort close.
+
+### Offline controller fixture
+
+The [synthetic cohort controller](../src/mos_eisley/run/cohort_controller.py)
+uses the [checkpointed witness](../src/mos_eisley/run/witnessed_admission.py)
+for shadow enrollment, separately signed bounded-live and closed releases,
+one-use task assignments, atomic assignment and concurrency caps, and
+assignment-bound claims. The [synthetic tests](../tests/test_cohort_controller.py)
+cover stale and invalid releases, shadow denial, duplicate and competing
+assignments, settled and uncertain claims, stop, close, checkpoint rollback,
+and process kills at assignment commit boundaries. The G6-05 go digest in this
+fixture is a binding value only: the fixture does not validate a real G6-05
+decision, qualify a route, grant provider credentials, or implement the live
+monitoring and later-window assessment gates below.
 
 ## Operating sequence
 
