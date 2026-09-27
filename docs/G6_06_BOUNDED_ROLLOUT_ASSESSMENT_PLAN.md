@@ -238,6 +238,30 @@ credential isolation or an R0 acceptance decision. The fallback resolver
 fixture has a separate synthetic policy lineage, so this run does not prove a
 live fallback send path.
 
+### R1 offline shadow-only rehearsal
+
+The [read-only shadow evaluator](../src/mos_eisley/run/cohort_shadow.py) requires
+an enrolled `shadow_only` release, exact owner/task/session/stage membership,
+the frozen candidate policy and current witnessed control. It calls the pure
+exact-route resolver, checks the required monitor and one synthetic route
+observation, and returns bounded decision metadata with literal false
+assignment, claim and dispatch authority. A batch writer creates one private
+metadata-only file; it records no request, prompt or model response.
+
+The [R1 tests](../tests/test_cohort_r1_shadow.py) cover every eligible synthetic
+task binding, calibrated selection, an independently frozen policy fallback,
+unavailable, changed and stale route observations, policy substitution, expired
+preflight and release, monitor loss,
+stale control, stop and out-of-scope tasks. They confirm that shadow decisions
+leave the witnessed assignment roster, claims, intents, audit rows and inert
+transport empty. An unavailable selected route does not trigger an automatic
+fallback; the fallback test enrolls a separate synthetic policy lineage.
+
+This is an offline decision rehearsal. It does not observe the served route,
+authenticate live catalog or monitor sources, verify real signer independence,
+qualify a policy, or begin an actual shadow rollout. R0 acceptance and the live
+operational gates remain open.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |

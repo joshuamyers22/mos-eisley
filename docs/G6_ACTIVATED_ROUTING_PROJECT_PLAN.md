@@ -115,6 +115,10 @@ An R0 offline runner now executes the fixed G6-02 through G6-06 synthetic
 suites, an integrated inert cohort path, signed stop and separate exact fallback
 selection, and writes a bounded source-digest and suite-count index. Its local
 pass does not close target-build or independent-review gates.
+An R1 offline shadow fixture now resolves exact decisions under a witnessed
+shadow-only release and records bounded metadata while leaving assignments,
+claims, audit, intents and inert transport untouched. It does not begin an
+actual shadow rollout.
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.
