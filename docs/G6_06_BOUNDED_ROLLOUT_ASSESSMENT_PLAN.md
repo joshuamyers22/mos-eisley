@@ -1,6 +1,6 @@
 # G6-06 bounded rollout and assessment plan
 
-Status: **offline cohort controller fixture and synthetic fault tests complete;
+Status: **offline cohort controller and closeout packet fixtures complete;
 live release and cohort assessment open**, 2026-09-26. This is the G6-06 handoff in the
 [G6 project plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It defines the first
 owner-scoped production cohort and its stop, close and assessment procedure; it
@@ -224,6 +224,20 @@ required record or unexplained discrepancy is a release blocker. A synthetic
 pass does not replace real witness, credential, target-host or operator evidence.
 
 ## Closeout and assessment decision
+
+The [offline closeout validator](../src/mos_eisley/run/cohort_closeout.py)
+checks a metadata-only packet against an independently supplied frozen cutoff,
+follow-up deadline and assessment protocol digest, plus one witnessed state and
+checkpoint. It compares the packet's original task roster, claims, intent links,
+local disposition metadata, retained exposure, follow-up statuses and required
+evidence references. The [synthetic tests](../tests/test_cohort_closeout.py)
+exercise no-dispatch and post-cutoff assignments, missing or replacement
+follow-up, changed registration/release, missing or duplicate settlement links,
+charge mismatch, retained held exposure and checkpoint mismatch. `reviewable`
+means structurally ready for
+independent source review; the validator cannot authenticate source custody,
+read protected labels or outcomes, grade quality, establish a comparison, or
+issue a positive assessment or dispatch decision.
 
 At the registered cutoff, produce a bounded owner-scoped report with the
 manifest/release digests, complete assignment and attempt counts, exact route

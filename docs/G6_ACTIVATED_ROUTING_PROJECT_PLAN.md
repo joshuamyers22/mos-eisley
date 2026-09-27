@@ -92,10 +92,12 @@ route observations, target-host drills and security review pass.
 The [G6-06 bounded rollout and assessment plan](G6_06_BOUNDED_ROLLOUT_ASSESSMENT_PLAN.md)
 has an offline cohort controller fixture with signed release phases, a durable
 one-use assignment roster, witnessed assignment and concurrency caps, and
-synthetic race, crash, rollback, stop and close tests. It also fixes the live
-monitor/stop/fallback requirements and later-window assessment rubric. Actual
-rollout and assessment remain blocked by G6-05 and a separate owner/operator
-release.
+synthetic race, crash, rollback, stop and close tests. A metadata-only closeout
+packet validator checks the original roster, claim/intent joins, retained
+exposure, follow-up completeness and frozen assessment bindings. The plan also
+fixes the live monitor/stop/fallback requirements and later-window assessment
+rubric. Actual rollout and assessment remain blocked by G6-05 and a separate
+owner/operator release.
 
 ## Verification and stop rule
 
