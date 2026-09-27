@@ -102,7 +102,7 @@ class CohortCloseoutTests(TestCase):
     def test_complete_synthetic_packet_is_only_reviewable(self) -> None:
         self.fixture.live()
         self.fixture.assign()
-        self.assertEqual(self.fixture.base.execute().status, "settled")
+        self.assertEqual(self.fixture.execute().status, "settled")
         self.close()
         protocol, packet = self.packet()
         result = self.validate(protocol, packet)
@@ -176,7 +176,7 @@ class CohortCloseoutTests(TestCase):
     def test_claim_and_settlement_links_cannot_be_omitted_or_rewritten(self) -> None:
         self.fixture.live()
         self.fixture.assign()
-        self.fixture.base.execute()
+        self.fixture.execute()
         self.close()
         protocol, packet = self.packet()
         omitted = packet.model_copy(update={"attempt_links": ()})

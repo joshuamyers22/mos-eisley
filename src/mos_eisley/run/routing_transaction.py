@@ -17,6 +17,7 @@ from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import ModelRequest, ToolDefinition
+from mos_eisley.evaluation.models import RouteCandidate
 from mos_eisley.evaluation.routing_protocol import ObservablePromptFeatures
 from mos_eisley.run.exact_route import ExactRouteRequirements, ExactRouteSelection
 from mos_eisley.run.routing_preflight import (
@@ -760,6 +761,41 @@ class SyntheticRoutingMonitor:
             raise ValueError("synthetic routing monitor unavailable")
 
 
+class SyntheticRouteObservation(Contract):
+    """One inert exact-route availability observation, without live authority."""
+
+    route: RouteCandidate
+    observed_at: datetime
+    valid_until: datetime
+    available: bool
+
+    @model_validator(mode="after")
+    def valid_window(self) -> Self:
+        _utc(self.observed_at)
+        _utc(self.valid_until)
+        if self.valid_until <= self.observed_at:
+            raise ValueError("synthetic route observation window is invalid")
+        return self
+
+
+class SyntheticExactRouteProbe:
+    """Mutable fixture read before claim and before inert transport entry."""
+
+    def __init__(self, current: SyntheticRouteObservation):
+        self.current = current
+        self.reads = 0
+
+    def check(self, selection: ExactRouteSelection, now: datetime) -> None:
+        self.reads += 1
+        current = self.current
+        if (
+            current.route != selection.route
+            or not current.available
+            or not current.observed_at <= now < current.valid_until
+        ):
+            raise ValueError("synthetic exact route is unavailable or stale")
+
+
 class OfflineRoutingStatus(Contract):
     attempt_key: Digest
     phase: Literal["absent", "reserved", "claimed", "intent", "finished"]
@@ -1179,6 +1215,7 @@ async def execute_offline_witnessed_routing_transaction(
     transport: InertRoutingTransport,
     monitor: SyntheticRoutingMonitor,
     now: datetime,
+    route_probe: SyntheticExactRouteProbe | None = None,
     fault: Callable[[str], None] | None = None,
 ) -> OfflineOutcome:
     """Use one checkpointed control/budget claim before an inert one-use send."""
@@ -1228,6 +1265,13 @@ async def execute_offline_witnessed_routing_transaction(
         or envelope.control_sequence != local.signed_control.control.sequence
     ):
         raise ValueError("offline witnessed latest control mismatch")
+    if (
+        witnessed.cohort is not None
+        and type(route_probe) is not SyntheticExactRouteProbe
+    ):
+        raise ValueError("offline cohort requires an exact-route observation probe")
+    if route_probe is not None:
+        route_probe.check(selection, now)
     monitor.check()
     attempt = WitnessedAttempt(
         attempt_key=envelope.attempt_key,
@@ -1256,6 +1300,8 @@ async def execute_offline_witnessed_routing_transaction(
             fault(name)
 
     cut("before_admission")
+    if route_probe is not None:
+        route_probe.check(selection, now)
     receipt = admission.claim_with_budget(
         attempt=attempt,
         expected_control=local,
@@ -1299,6 +1345,8 @@ async def execute_offline_witnessed_routing_transaction(
             sources.activation_authorities
         ).latest
         monitor.check()
+        if route_probe is not None:
+            route_probe.check(selection, now)
         ready = (
             current.control == local
             and local_now == local

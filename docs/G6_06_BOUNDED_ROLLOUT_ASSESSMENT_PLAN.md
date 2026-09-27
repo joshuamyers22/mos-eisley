@@ -120,6 +120,22 @@ fixture is a binding value only: the fixture does not validate a real G6-05
 decision, qualify a route, grant provider credentials, or implement the live
 monitoring and later-window assessment gates below.
 
+### C05 offline route-change rehearsal
+
+The [inert witnessed transaction](../src/mos_eisley/run/routing_transaction.py)
+requires a synthetic exact-route observation probe for an enrolled cohort. It
+checks the selected route and observation window before claim and again after
+intent, immediately before inert transport entry. The
+[C05 tests](../tests/test_cohort_route_change.py) remove or stale the route
+before claim, after claim and after the final check. Pre-claim loss leaves no
+claim; post-claim loss abandons without transport and retains full exposure;
+post-final-check loss may leave one in-flight entry under the approved bound.
+The tests also show that a frozen fallback is only a new, exact resolver
+selection: it cannot be plugged into a consumed attempt or a different frozen
+policy. A fallback send would require fresh complete policy, preflight and
+witness admission. The synthetic probe does not authenticate a real catalog,
+conformance source, provider outage or target-host observation timing.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |

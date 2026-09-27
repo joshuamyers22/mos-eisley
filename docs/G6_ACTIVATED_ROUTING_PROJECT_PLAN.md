@@ -94,10 +94,12 @@ has an offline cohort controller fixture with signed release phases, a durable
 one-use assignment roster, witnessed assignment and concurrency caps, and
 synthetic race, crash, rollback, stop and close tests. A metadata-only closeout
 packet validator checks the original roster, claim/intent joins, retained
-exposure, follow-up completeness and frozen assessment bindings. The plan also
-fixes the live monitor/stop/fallback requirements and later-window assessment
-rubric. Actual rollout and assessment remain blocked by G6-05 and a separate
-owner/operator release.
+exposure, follow-up completeness and frozen assessment bindings. The C05 inert
+rehearsal checks route disappearance before claim, after claim and after the
+final check, plus exact fallback freshness without reusing a consumed attempt.
+The plan fixes the live monitor/stop/fallback requirements and later-window
+assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
+separate owner/operator release.
 
 ## Verification and stop rule
 

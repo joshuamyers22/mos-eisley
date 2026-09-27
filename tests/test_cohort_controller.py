@@ -17,6 +17,11 @@ from mos_eisley.core.models import digest
 from mos_eisley.evaluation.routing_activation import RoutingActivationAuthorityPolicy
 from mos_eisley.run.activation_control import RoutingControlAnchorPolicy
 from mos_eisley.run.cohort_controller import OfflineCohortController
+from mos_eisley.run.routing_transaction import (
+    OfflineOutcome,
+    SyntheticExactRouteProbe,
+    SyntheticRouteObservation,
+)
 from mos_eisley.run.witnessed_admission import (
     CohortManifest,
     CohortRelease,
@@ -101,6 +106,14 @@ class CohortControllerTests(TestCase):
             valid_until=self.now + timedelta(minutes=5),
         )
         self.controller = OfflineCohortController(self.base.admission)
+        self.route_probe = SyntheticExactRouteProbe(
+            SyntheticRouteObservation(
+                route=self.base.selection.route,
+                observed_at=self.now - timedelta(seconds=1),
+                valid_until=self.now + timedelta(minutes=1),
+                available=True,
+            )
+        )
         self.shadow = self.release("shadow_only", 0)
         self.controller.enroll_shadow(
             manifest=self.manifest,
@@ -170,6 +183,9 @@ class CohortControllerTests(TestCase):
             current_preflight=self.base.preflight,
             now=self.now,
         )
+
+    def execute(self, **changes: object) -> OfflineOutcome:
+        return self.base.execute(route_probe=self.route_probe, **changes)
 
     def bundle(
         self, admission: SyntheticWitnessedAdmission, task_id: str, session_id: str
@@ -249,14 +265,14 @@ class CohortControllerTests(TestCase):
     def test_assignment_is_one_use_and_broker_remains_inert(self) -> None:
         live = self.live()
         with self.assertRaisesRegex(ValueError, "no active slot"):
-            self.base.execute()
+            self.execute()
         first = self.assign(release=live)
         generation = self.base.admission.read_current().generation
         self.assertEqual(self.assign(release=live), first)
         self.assertEqual(self.base.admission.read_current().generation, generation)
         with self.assertRaisesRegex(ValueError, "conflicts"):
             self.assign(release=live, session_id="session-b")
-        outcome = self.base.execute()
+        outcome = self.execute()
         self.assertEqual(outcome.status, "settled")
         self.assertEqual(len(self.base.transport.entries), 1)
         cohort = self.controller.inspect(owner_id="owner-a", cohort_id="cohort-a")
@@ -367,7 +383,7 @@ class CohortControllerTests(TestCase):
                     now=self.now + timedelta(seconds=1),
                 )
 
-        outcome = self.base.execute(fault=close_after_intent)
+        outcome = self.execute(fault=close_after_intent)
         self.assertEqual(outcome.status, "abandoned")
         self.assertEqual(self.base.transport.entries, [])
         cohort = self.controller.inspect(owner_id="owner-a", cohort_id="cohort-a")
