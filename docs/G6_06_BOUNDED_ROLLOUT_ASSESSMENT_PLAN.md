@@ -288,6 +288,29 @@ metadata supplied to this offline validator; it cannot authenticate real
 external G6-05, reviewer, on-call or target-host evidence. A `reviewable`
 result is a packet for independent review, not an R2 release or live admission.
 
+### R3 offline per-attempt rehearsal
+
+The [R3 integration fixture](../tests/test_cohort_r3_attempt.py) starts with a
+`reviewable` R2 packet and confirms that it has no release or dispatch authority.
+It separately applies the synthetic owner/operator-signed `bounded_live`
+release, records one witnessed task/session assignment, and runs one exact
+source-bound attempt through the existing inert transaction. The test joins
+the assignment, witnessed claim and checkpoint, hash-only intent, required
+before-send audit event and one inert transport entry. A repeated attempt
+cannot enter transport again.
+
+The denial cases cover an unassigned attempt, expired preflight, changed
+policy selection, unavailable route, alert or monitor, a cut after claim, a
+cut after intent, stop after audit, changed route after the final read, and
+uncertain transport. They inspect the remaining claim, full exposure, audit
+join and entry count. A missing audit blocks the next attempt; uncertain
+exposure holds the single concurrent slot. A route change after the final
+read may leave one possible inert entry under the frozen race contract.
+Run `uv run --frozen python -m unittest tests.test_cohort_r3_attempt` from the
+repository root. This fixture has no provider credential or paid send. It
+does not implement the future live R3 broker boundary or supply real R2
+approval, route observations, witness custody or target-host evidence.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |

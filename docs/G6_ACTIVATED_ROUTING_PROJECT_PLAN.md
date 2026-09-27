@@ -125,6 +125,11 @@ and witness state, required paths and conservative budget headroom. Synthetic
 denial tests leave the shadow release and all dispatch state untouched. Its
 `reviewable` result grants no release or dispatch authority.
 
+An R3 offline per-attempt fixture now connects a reviewable R2 packet to a
+separately applied synthetic release, witnessed assignment, exact-route claim,
+durable intent, audit and one inert transport entry. Boundary faults retain
+full possible exposure or deny before send. This does not implement live R3.
+
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.
