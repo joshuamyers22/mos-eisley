@@ -42,6 +42,12 @@ and tested stop/rollback path. Newly fitted policies stay shadow-only until G5
 qualification; within-cohort adaptive selection needs the separate G7/R4 gate.
 See [ADR 0009](adr/0009-continuous-production-evaluation.md) for the decision and
 operational consequences.
+Joshua's 2026-09-27 [real-outcome criterion](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+requires mature, verified outcomes of actual owner-authorized tasks for any
+production effectiveness, harm or savings decision. Fixture, oracle and benchmark
+results stay in preproduction calibration or diagnostics; no production outcome
+cohort is present. The fixed-policy measurement, bounded live comparison and
+recurring promotion levels remain planned and separately gated.
 
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
@@ -55,6 +61,7 @@ The [single-human objective-oracle direction](adr/0010-g3-single-human-oracle-st
 is approved for planning. No source, oracle, revised verifier, signed labels,
 cohort or study spend is approved by that decision. Its possible claim is limited
 to the audited oracle-verifiable frame.
+That study cannot stand in for the real-task production outcome criterion.
 The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
 and identified answer leakage, related cases and oracle limitations; no study
 cases or labels have been admitted from it.

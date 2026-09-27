@@ -14,6 +14,10 @@ study needs a reviewed source, protocol and verifier/schema amendment before any
 case can be called eligible under the new design. Its claim is limited to the
 audited oracle-verifiable frame and cannot be reported as the original broad G3
 ordinary-task qualification.
+Production acceptance and optimization use [observed real-task outcomes](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+after the applicable product launch gates. An oracle benchmark can calibrate a
+preproduction measurement path but cannot establish production completion,
+harm or savings.
 
 Joshua authorized a [source-level audit of NIST Juliet C/C++ 1.3](G3_JULIET_SOURCE_AUDIT.md).
 Its checksum is verified, but its case annotations and known limitations do not

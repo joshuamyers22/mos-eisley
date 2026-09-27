@@ -15,6 +15,10 @@ that the other 32,078 published tasks have valid G3 labels, distinct independent
 groups, a leakage-safe task view, usable sampling probabilities, or the proposed
 study's cost and harm coverage. No case was enrolled, labeled, signed, split, or
 registered by this assessment.
+Under the later [production outcome acceptance contract](PRODUCTION_OUTCOME_ACCEPTANCE.md),
+even a fully validated public case source would remain preproduction evidence.
+Running such a case in a production environment would not turn its test result
+into a real owner's task outcome or authorize a production improvement claim.
 
 NIST Juliet C/C++ 1.3 remains a [conditional flaw-detection candidate](G3_JULIET_SOURCE_AUDIT.md),
 not a G3 source. A follow-up local check compiled one public CWE190 `_01` file

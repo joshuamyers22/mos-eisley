@@ -24,6 +24,12 @@ one user-affecting policy; it is not replayed under multiple policies to manufac
 a pair. Each later cohort has its own fresh holdout, once-used decision and
 family-wide error-budget allocation. This document does not authorize those
 cohorts or amend its still-unset initial-study inputs.
+The later production acceptance criterion is the
+[real-outcome contract](PRODUCTION_OUTCOME_ACCEPTANCE.md): observed, verified
+completion, escaped defects, correct-work damage, harmful actions, actual
+whole-task spend and latency on real owner-authorized work. The initial paired
+frozen-start result does not supply a production outcome, even when it passes
+its own independent grading gates.
 
 ## Decisions and comparisons
 

@@ -56,6 +56,14 @@ cohorts, §26.6 supersedes §26.3's single-study limit; each fresh cohort still
 consumes its own holdout once. The consequential choice is recorded in
 [ADR 0009](adr/0009-continuous-production-evaluation.md).
 
+**Real production outcomes, 2026-09-27:** after the product reaches its
+applicable launch gates, production testing and optimization decisions use
+observed outcomes of real owner-authorized tasks under the
+[production outcome acceptance contract](PRODUCTION_OUTCOME_ACCEPTANCE.md).
+Offline oracle/benchmark successes and operational proxies remain development
+and diagnostic evidence; they do not count as production completion, safety or
+savings. No production cohort or numerical acceptance threshold is sealed.
+
 ---
 
 **Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded
@@ -2927,6 +2935,11 @@ free. Keep exposed development regression fixtures separate from protected holdo
 
 ### 18.2 Metrics
 
+These evaluation-harness metrics characterize offline cases and preproduction
+policy candidates. After the applicable product launch gates, production
+effectiveness and optimization decisions use the real-task outcomes and
+prospective cohort rules in §26.6.
+
 | Metric | Why |
 |---|---|
 | Detection rate on mutants | does it find real bugs |
@@ -4167,6 +4180,12 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
 | G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
 | G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
+
+G3 and G5 offline evidence can qualify only their declared preproduction tasks
+and policies. A production effectiveness, harm or savings claim additionally
+requires the real-task outcome contract in §26.6; an oracle-backed case cannot
+be counted as a production task merely because its tests were run in a live
+environment.
 | G7 — advanced adaptive methods | G5/G6 as applicable; R4 | Independent benefit from transfer, output-budget routing, bandits or within-cohort adaptation; separately reviewed sequential/statistical and activation protocol |
 
 G0/G1 can proceed while G2's live boundary is finished. Planning and labeling do not
@@ -4342,6 +4361,15 @@ weakening G2–G6 prerequisites. The [G5 paired study protocol](G5_WHOLE_TASK_ST
 remains the initial design contract. Its study-specific inputs are still unset;
 this amendment does not seal it, supply missing probabilities/labels/groups/splits,
 or establish production readiness.
+
+**Outcome criterion, 2026-09-27:** every production acceptance or promotion
+decision is based on the [real-outcome contract](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+for actual owner-authorized tasks after the applicable product launch gates.
+Observed verified completion, escaped defects, correct-work damage, harmful
+actions, whole-task cost and latency are the decision outcomes. A passing test,
+synthetic or public benchmark oracle, model-judge verdict, token count or
+estimated cost is supporting evidence or a diagnostic, not a production outcome.
+No such task or outcome is supplied by this plan amendment.
 
 **One measurement rubric.** Pin the exact current independent grading rubric,
 grader/resolver qualification, outcome definitions, follow-up rules and measurement

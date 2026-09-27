@@ -23,6 +23,16 @@ of sampling assignments, numerical thresholds or runtime authority.
 
 ## Decision
 
+Joshua's 2026-09-27 clarification makes observed outcomes of real,
+owner-authorized tasks the acceptance criteria for production testing and
+optimization. The exact [outcome contract](../PRODUCTION_OUTCOME_ACCEPTANCE.md)
+defines verified completion, escaped defects, correct-work damage, harmful
+actions, whole-task cost, latency, missing follow-up and source evidence.
+Benchmarks, automated test passes, model-judge scores and cost estimates may
+support diagnostics but cannot substitute for those outcomes in a production
+promotion decision. This clarifies the existing three-level plan; it grants no
+live study authority or numerical threshold.
+
 1. Use the **same pinned independent grading rubric** for passive production
    measurement, bounded live comparisons and recurring calibration. Production
    model-judge verdicts remain proxy observations. A rubric change needs a new
@@ -61,6 +71,9 @@ of sampling assignments, numerical thresholds or runtime authority.
 - Underpowered owner-specific traffic, unknown inclusion, inadequate label
   follow-up, or an infeasible spend/sample design yields an inconclusive result.
   Full review and fixed eligible routes remain available.
+- The narrow objective-oracle study under ADR-0010 can support its source-bound
+  preproduction claim only. It supplies no real production outcome or shortcut
+  around the prospective live-cohort gates.
 - The initial [G5 preregistration protocol](../G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
   remains unsealed until its study-specific inputs are supplied. This ADR neither
   fills those inputs nor activates any production experiment.

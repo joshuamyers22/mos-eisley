@@ -36,6 +36,11 @@ cases as ordinary tasks or silently omit the ordinary-audit requirement. The
 study's possible claim is performance on its defined oracle-verifiable frame;
 it does not satisfy the original broad G3 ordinary-task qualification or any G5/G6
 promotion gate by itself.
+Joshua's later [real production outcome direction](../PRODUCTION_OUTCOME_ACCEPTANCE.md)
+also limits this oracle study to preproduction calibration or its explicitly
+source-bound claim. A public case replay, even if executed on production
+infrastructure, is not an observed outcome of a real owner task and cannot enter
+a production completion, harm or savings denominator.
 
 NIST's [Juliet C/C++ 1.3 suite](https://samate.nist.gov/SARD/test-suites/112)
 was subsequently authorized for a [source audit](../G3_JULIET_SOURCE_AUDIT.md),
