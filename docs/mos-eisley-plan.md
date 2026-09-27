@@ -42,6 +42,11 @@ objective oracles. [ADR-0010](adr/0010-g3-single-human-oracle-study.md) records
 the claim and single-operator limits. The source, method, amended verifier,
 signed labels, empirical cohort and spend remain open. The §26.4 broad G3 exit
 gate remains open; the narrow study cannot silently replace ordinary-task evidence.
+The [oracle case-source qualification](G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
+reproduced one public SWE-rebench V2 fail-before/pass-after test oracle under
+controlled execution, but found no audited eligible frame, leakage-safe task
+projection or defensible independent groups. It therefore does not qualify a
+prospective G3 source or change those open gates.
 
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring

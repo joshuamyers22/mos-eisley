@@ -46,6 +46,12 @@ narrow flaw-detection subset. No case is labeled or assigned to a holdout by thi
 ADR. The prior candidate's 400 groups per class and exact-binomial gates cannot
 be carried over without a qualified source and appropriate sampling model.
 
+A later [case-source assessment](../G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
+reproduced one SWE-rebench V2 Go task's fail-before/pass-after test result in a
+pinned, network-disabled image. The full source was not admitted: a complete
+eligible inventory, safe task projection, oracle controls and reviewed grouping
+remain open. The assessment did not amend this decision or enroll a case.
+
 The proposed harm margins, $200,000 planning ceiling, and six arm names in the
 owner review package remain proposals. This decision grants no spending, provider
 execution, signed-label issuance, empirical registration, qualification, or live

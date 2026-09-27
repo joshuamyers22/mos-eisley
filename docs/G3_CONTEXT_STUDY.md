@@ -18,6 +18,11 @@ ordinary-task qualification.
 Joshua authorized a [source-level audit of NIST Juliet C/C++ 1.3](G3_JULIET_SOURCE_AUDIT.md).
 Its checksum is verified, but its case annotations and known limitations do not
 yet supply an objective oracle or independent groups for a confirmatory cohort.
+The subsequent [oracle case-source qualification](G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
+replayed one SWE-rebench V2 repository task with a discriminating test oracle.
+The full release remains unqualified for G3: its eligible inventory, leakage-safe
+task view, rights and dependence groups have not been audited. The replay did
+not create signed labels or a cohort.
 
 ## Statistical-method review assignment
 
