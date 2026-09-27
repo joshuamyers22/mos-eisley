@@ -30,5 +30,14 @@
   control. Focused Anthropic tests passed 16/16. Permissioned `make check`
   passed on 2026-09-27, including Ruff, Pyright, source tests, export, build,
   and 1,889 installed-wheel tests.
-- Remaining external evidence: a fresh separately signed call grant and a
-  credentialed JSON critique. The formal independent-review gate remains open.
+- Credentialed qualification, 2026-09-27: Joshua Myers signed a fresh exact
+  grant for the corrected request. Sonnet 5 returned one JSON text block with
+  `end_turn`; citation validation issued a completed full-subject critic
+  observation with six findings. Observation SHA-256:
+  `d670b2d20a8b413094c99a9376ed2f0a6c4cb03bdfbe5be9cb868887c50e63d8`.
+  Its response and audit hashes match the private files. The second ledger
+  entry settled at 27,488 micro-USD; both Anthropic calls total 76,176
+  micro-USD. The shared ledger is unblocked, with no unresolved entries.
+  Raw critique and provider response remain in the private claim directory.
+- Result: Anthropic critic transport qualified for this frozen G4 request. The
+  formal independent-review gate and G4 acceptance remain open.

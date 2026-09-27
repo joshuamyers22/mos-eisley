@@ -31,4 +31,6 @@
 - Verification: see `docs/G4_ANTHROPIC_REVIEW_TRANSPORT_VERIFICATION.md`.
   The first signed call reached Anthropic and settled at 48,688 micro-USD, but
   its 4,096-token response contained only thinking and no critique. Its claim
-  was consumed. A corrected call requires a fresh exact grant and claim.
+  was consumed. The separately signed corrected call returned a completed
+  six-finding critic observation and settled at 27,488 micro-USD. The formal
+  independent-review gate remains open.
