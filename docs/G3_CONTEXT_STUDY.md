@@ -3,6 +3,17 @@
 Status: offline sealing and metadata-only inventory boundary implemented. No real
 study label catalog has been supplied, and no study execution is authorized.
 
+## Statistical-method review assignment
+
+Joshua Myers may perform the G3 statistical-method review under
+[ADR-0008](adr/0008-g3-owner-statistical-review.md) despite being the study owner.
+The resulting record must identify that owner overlap, the exact protocol and
+scorer, method authorship, outcome-access boundary, reproduced feasibility and
+inference checks, findings and signed disposition. This is owner-conducted review;
+it is not independent human judgment from the study owner. The designation alone
+is not a completed review or a study seal. Two distinct label graders, holdout
+custody, and all other G3 and later promotion requirements remain separate.
+
 ## Frozen comparison design
 
 `BaselineAblationPolicy` pre-registers one available baseline that preserves the

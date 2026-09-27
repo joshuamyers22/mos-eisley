@@ -28,6 +28,14 @@ history is now linked from §§17.7 and 25. Future updates keep current contract
 open gates here, implementation status in the roadmap, and execution history in
 the linked records.
 
+**G3 statistical-review assignment, 2026-09-26:** Joshua Myers may perform the
+G3 statistical-method review while also acting as study owner. This is an explicit
+owner-conducted exception to the earlier separate-person statistical-review
+requirement, with the overlap and absence of independent human judgment disclosed
+in the review. It does not complete the review, alter independent label grading,
+or waive holdout, feasibility, provider, G5/G6 promotion or release gates. See
+[ADR-0008](adr/0008-g3-owner-statistical-review.md).
+
 ---
 
 **Delivery workflow, user direction 2026-09-11:** stack related jobs into a bounded

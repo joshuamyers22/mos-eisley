@@ -27,6 +27,11 @@ continuation, compaction or pressure behavior.
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
+The G3 statistical-method reviewer is now Joshua Myers under the disclosed
+owner-conducted exception in [ADR-0008](adr/0008-g3-owner-statistical-review.md).
+His actual review remains pending; independent label grading and all other G3
+gates remain required.
+
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 
