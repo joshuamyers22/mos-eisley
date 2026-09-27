@@ -116,6 +116,11 @@ def citation_units(brief: Brief) -> tuple[CitationUnit, ...]:
     return tuple(unit.descriptor for unit in _diff_units(brief.diff))
 
 
+def citation_unit_texts(brief: Brief) -> tuple[tuple[str, str], ...]:
+    """Return exact source text beside each diff-unit ID for bounded projections."""
+    return tuple((unit.descriptor.id, unit.text) for unit in _diff_units(brief.diff))
+
+
 def citation_bound_request(brief: Brief, persona: str) -> CriticRequest:
     """Construct the current citation contract without changing legacy defaults."""
     return CriticRequest(
