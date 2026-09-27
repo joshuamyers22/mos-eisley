@@ -262,6 +262,32 @@ authenticate live catalog or monitor sources, verify real signer independence,
 qualify a policy, or begin an actual shadow rollout. R0 acceptance and the live
 operational gates remain open.
 
+### R2 offline entry-gate and denial rehearsal
+
+The [R2 entry validator](../src/mos_eisley/run/cohort_entry.py) inspects one
+proposed `bounded_live` transition against an independently supplied frozen
+entry anchor. The anchor binds the manifest, G6-05 go decision and packet,
+accepted R0/R1 review evidence, on-call evidence, full request amount, route
+age limit and expiry. The validator verifies the proposed owner/operator-signed
+release and the preceding witnessed `shadow_only` release, exact policy,
+candidate, build, host, epoch, control and preflight bindings, current route,
+monitor, required alert and audit paths, and a consistent recovery inventory.
+It denies an already populated assignment or claim roster and requires a full
+request to fit the task, session and conservative cohort headroom, including
+retained recovery exposure. Its result is only `reviewable` or `blocked`, with
+explicit reasons and literal false release and dispatch authority. It never
+advances the witnessed release, assigns a task, claims a budget or sends.
+
+The [R2 tests](../tests/test_cohort_r2_entry.py) rehearse missing or substituted
+go/review/on-call references, invalid signatures or phase transitions, changed
+route and preflight evidence, required path outages, exhausted or retained
+budget, expired evidence, stop and recovery mismatch. They assert that the
+shadow release, assignment and claim roster, intents, audit rows and inert
+transport remain unchanged. The references and readiness signals are synthetic
+metadata supplied to this offline validator; it cannot authenticate real
+external G6-05, reviewer, on-call or target-host evidence. A `reviewable`
+result is a packet for independent review, not an R2 release or live admission.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |

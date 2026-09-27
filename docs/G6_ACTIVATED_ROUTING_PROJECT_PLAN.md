@@ -119,6 +119,12 @@ An R1 offline shadow fixture now resolves exact decisions under a witnessed
 shadow-only release and records bounded metadata while leaving assignments,
 claims, audit, intents and inert transport untouched. It does not begin an
 actual shadow rollout.
+An R2 offline entry validator now checks one proposed bounded-live release
+against independently frozen G6-05, R0/R1 and on-call references, exact route
+and witness state, required paths and conservative budget headroom. Synthetic
+denial tests leave the shadow release and all dispatch state untouched. Its
+`reviewable` result grants no release or dispatch authority.
+
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.
