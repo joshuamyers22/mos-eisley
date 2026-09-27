@@ -18,11 +18,23 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
+| G2 — default two-provider profile qualified | Retain exact live review qualifications; qualify other profiles separately | Owner operated credentialed conformance, broker/spending/quorum and cancellation evidence for each exact qualified profile |
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+
+**Anthropic G2 status, 2026-09-27:** the
+[owner operated G2 contract and closeout](G2_OWNER_OPERATED_CONTRACT.md) record
+three accepted, signed live campaign slots and one separately signed, admitted
+Sonnet 5 critic / Opus 5.5 judge launch. The final launch settled at $0.050520
+with no unresolved entries. Earlier failed campaign and launch attempts remain
+retained and conservatively counted under Joshua Myers's $1 total cap. This
+qualifies only the focused, explicit one-provider profile. A separate mixed
+Terra/Sonnet/Opus campaign and live launch qualified the default two-provider
+quorum for its exact focused profile, with a $0.349244 new total charge and no
+unresolved entries. The earlier
+[operator route](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) remains separate evidence.
 
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
@@ -158,7 +170,15 @@ loading and telemetry adapters remain planned.
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
    registry, deterministic effort resolution, byte budgets and boundary journal.
-3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
+3. **Implemented — live read-only review:** The explicit one-provider Anthropic
+   Sonnet 5 / Opus 5.5 profile passed its owner-signed three-slot campaign and
+   separately admitted live launch on 2026-09-27; see the
+   [G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-g2-scope-2026-09-27).
+   The default two-provider quorum also passed a separate owner-signed
+   Terra/Sonnet/Opus three-slot campaign and admitted live launch; see the
+   [mixed G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-default-two-provider-scope-2026-09-27).
+   The earlier work below is
+   retained as an implementation history. OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
    and contract tests. Shared local cross-process spending admission is implemented.

@@ -2,6 +2,7 @@
 
 import io
 import json
+from argparse import Namespace
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
@@ -12,6 +13,8 @@ from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.registry import openai_registry
+from mos_eisley.operator_review_cli import verify_campaign_prefix_ledgers
+from mos_eisley.review_live_cli import check_owner_total_cap
 from mos_eisley.run.review_campaign import (
     CampaignAttempt,
     CampaignAttemptSubmission,
@@ -25,6 +28,7 @@ from mos_eisley.run.review_campaign import (
 )
 from mos_eisley.run.review_conformance_observation import ReviewObservationPolicy
 from mos_eisley.run.review_launch import LaunchCritic, ReviewLaunchConfiguration
+from mos_eisley.run.spend_ledger import LedgerEntry
 from mos_eisley.run.store import private_write
 
 
@@ -118,7 +122,39 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
         )
 
 
+class CampaignPrefixAdmissionTests(CampaignCeremonyFixture):
+    async def asyncSetUp(self) -> None:
+        self.prepare_attempts()
+
+    def test_operator_campaign_rejects_unexplained_spending_before_first_slot(self):
+        empty = CampaignEvidenceSubmission(
+            seal_sha256=self.seal_sha, attempts=(None, None, None)
+        )
+        verify_campaign_prefix_ledgers(self.bundle, empty, 0)
+        self.fixtures[1].base.ledger.reserve(
+            LedgerEntry(
+                entry_id="a" * 64,
+                reservation_sha256="b" * 64,
+                reserved_microusd=1,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "unexplained prior exposure"):
+            verify_campaign_prefix_ledgers(self.bundle, empty, 0)
+
+
 class CampaignCeremonyTests(CampaignCeremonyFixture):
+    def test_owner_total_cap_includes_all_campaign_charges_and_launch_allowance(self):
+        selected = Namespace(
+            campaign_dir=self.sealed_directory,
+            expected_seal_sha256=self.seal_sha,
+        )
+        charged = sum(
+            fixture.base.ledger.snapshot().charged_microusd for fixture in self.fixtures
+        )
+        check_owner_total_cap(selected, 650, charged + 650)
+        with self.assertRaisesRegex(ValueError, "campaign plus launch"):
+            check_owner_total_cap(selected, 651, charged + 650)
+
     def test_cli_seals_before_attempts_and_freshly_reviews_completed_evidence(self):
         self.assertEqual(self.preview_output["attempts"], 3)
         self.assertEqual(self.preview_output["total_planned_microusd"], 1950)

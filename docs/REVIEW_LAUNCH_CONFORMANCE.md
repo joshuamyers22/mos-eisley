@@ -3,7 +3,7 @@
 `review-launch-conformance-check` compares a freshly prepared guided launch with
 independently pinned campaign evidence. It verifies every supplied campaign slot
 again and requires the exact critic identities and role profiles, judge profile,
-review quorum, whole-review duration, installed OpenAI SDK version and selected
+review quorum, whole-review duration, installed provider SDK version and selected
 immutable worker image. A successful check supports a separate launch review.
 It does not enable live launch, access keys, create reservations or dispatch calls.
 

@@ -53,6 +53,12 @@
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
   one independently authorized Luna/low assignment has passed credentialed
   conformance, while complete profile and failure-boundary conformance remains open.
+  The canonical Anthropic Messages adapter now has offline text/tool/thinking
+  translation tests and credentialed, budgeted Sonnet 5 and Opus 5.5 probes.
+  The signed brokered route and operator-controlled three-model route pass
+  synthetic critic/judge tests. One operator-approved credentialed Sonnet 5 critic /
+  Opus 5.5 judge review completed on 2026-09-26 within a $1 cumulative cap; see
+  `docs/ANTHROPIC_PROVIDER.md`.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or

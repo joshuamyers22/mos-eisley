@@ -1,5 +1,10 @@
 # Authenticated review probe observations
 
+**G2 amendment, 2026-09-26:** [owner operated custody](G2_OWNER_OPERATED_CONTRACT.md)
+allows Joshua Myers to inspect and sign an observation using a separately enrolled
+observer key. References below to an independent observer now mean a separate
+signed role and evidence inspection, not a second human.
+
 One completed [review probe](REVIEW_CONFORMANCE_PROBE.md) can now be described by an
 independent observer, signed with Ed25519 and authenticated against the complete
 retained review chain. Authentication confirms the enrolled observer's signature
