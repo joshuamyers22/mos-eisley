@@ -29,3 +29,8 @@ private artifact SHA-256 is
 The verifier replayed the exact evidence and confirmed the isolated correction
 path accepted while full G4, merge, release, activation, and new provider calls
 remain unauthorized. A disposable foreign key was rejected by the same verifier.
+
+The local signer passed Ruff lint/format and Python compilation checks. The
+repository `make check` passed lint and Pyright, then its broad test run was
+stopped after the exact acceptance had been verified; no full-suite result is
+claimed for this documentation-only branch.
