@@ -120,6 +120,36 @@ class _FakeTransport:
 
 
 class ProductionCodingChildBrokerTests(unittest.TestCase):
+    def test_unpadded_file_with_placeholder_digest_is_revalidated(self) -> None:
+        content = b"def quote_cents():\n    return 1\n"
+        output = json.dumps(
+            {
+                "replacements": [
+                    {
+                        "path": "src/demo.py",
+                        "content_base64": base64.b64encode(content)
+                        .decode()
+                        .rstrip("="),
+                        "content_sha256": "0" * 64,
+                    }
+                ],
+                "unresolved_issue_count": 0,
+            }
+        )
+        parsed = _parse_model_proposal(output)
+        self.assertEqual(parsed.replacements[0].content, content)
+        self.assertEqual(parsed.replacements[0].content_sha256, digest(content))
+
+    def test_model_file_rejects_invalid_base64_before_signing(self) -> None:
+        output = json.dumps(
+            {
+                "replacements": [{"path": "src/demo.py", "content_base64": "YWJj$"}],
+                "unresolved_issue_count": 0,
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "base64"):
+            _parse_model_proposal(output)
+
     def test_duplicate_model_keys_are_not_interpreted_last_wins(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON keys"):
             _parse_model_proposal(
