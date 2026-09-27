@@ -108,6 +108,9 @@ outcome write fails after one inert send.
 The C08 fixture compares those stores and the witness against an explicitly
 supplied high-water snapshot, then denies another inert send after coordinated
 rollback while retaining conservative exposure.
+The C09 fixture denies policy and rubric changes to the frozen cohort, early
+assessment claims and favorable-subset packets without reading protected
+outcomes or sampling assignments.
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.

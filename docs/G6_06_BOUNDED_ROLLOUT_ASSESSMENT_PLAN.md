@@ -195,6 +195,24 @@ fixture capture helper does not provide independent custody: a real operator
 must retain the high-water record outside every rollback domain and verify its
 lineage before any recovery decision.
 
+### C09 offline assessment-freeze rehearsal
+
+The [C09 tests](../tests/test_cohort_assessment_freeze.py) attempt a new policy
+for an already assigned cohort, a release bound to a changed manifest, and a
+changed rubric at closeout. The witnessed roster and release remain frozen;
+the packet validator rejects changed protocol bindings. A synthetic early
+follow-up reference leaves closeout provisional before the registered deadline,
+and a future-dated packet is blocked. Omitting the no-dispatch task from a
+two-task cohort fails the original-roster and follow-up joins even when the
+other task has an inert settled result. A structurally reviewable packet still
+has no assessment authority, and its contract rejects an asserted positive
+authority flag.
+
+This rehearsal neither reads protected outcomes nor sampling assignments. It
+cannot authenticate a rubric or comparison registration, verify holdout
+non-reuse, grade outcomes, or establish a policy benefit. Those decisions need
+independently retained prospective sources and the applicable audited workflow.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |
