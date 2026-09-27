@@ -71,12 +71,11 @@ is ready for owner, operations and independent security review; the exit gate is
 still open. The [G6-02 exact-route resolver specification](G6_02_EXACT_ROUTE_RESOLVER_SPEC.md)
 now has an offline implementation and synthetic tests; its independent gate
 review follows G6-01 approval.
-The [G6-03 one-use broker transaction design](G6_03_ONE_USE_BROKER_TRANSACTION_SPEC.md)
-now specifies the proposed store and witness interfaces, durable ordering,
-control-race rule and synthetic fault oracles. Its implementation and independent
-gate review remain open. Do not change existing preflight denial fields to make
-a test pass; dispatch authority belongs to a separately reviewed trusted broker
-boundary.
+The [G6-03 one-use broker transaction](G6_03_ONE_USE_BROKER_TRANSACTION_SPEC.md)
+now has an offline implementation, inert transport, synthetic witness/budget
+fixtures and fault tests. Its independent gate review remains open. Do not
+change existing preflight denial fields to make a test pass; dispatch authority
+belongs to a separately reviewed trusted broker boundary.
 
 ## Verification and stop rule
 

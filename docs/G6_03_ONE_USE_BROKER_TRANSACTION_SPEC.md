@@ -1,7 +1,7 @@
 # G6-03 one-use broker transaction: implementation design and synthetic faults
 
-Status: **implementation-ready design for offline review; implementation and gate open**,
-2026-09-26. This specifies the inert-provider G6-03 slice of the
+Status: **offline implementation and synthetic fault suite added; independent gate open**,
+2026-09-26. This specifies and records the inert-provider G6-03 slice of the
 [G6 plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It does not authorize a live
 dispatch. [G6-01](G6_01_ROUTING_OPERATIONAL_CONTRACT_DRAFT.md) still needs owner,
 operations and independent security approval; [G6-02](G6_02_EXACT_ROUTE_RESOLVER_SPEC.md)
@@ -16,6 +16,18 @@ an inert transport. The transaction must prove at most one **local transport
 invocation** for one attempt. It cannot prove exactly one provider arrival or
 billing event. Live witness operation, cumulative budget enforcement, key
 custody and target-host drills belong to G6-04/G6-05.
+
+The [offline transaction module](../src/mos_eisley/run/routing_transaction.py)
+and [synthetic fault tests](../tests/test_routing_transaction.py) implement this
+slice. The executable entry point is `execute_offline_routing_transaction`;
+`inspect_offline_routing_transaction` is read-only. Its exact concrete
+`InertRoutingTransport` cannot contact a provider, and its profile accepts only
+the empty inert provider-option set and synthetic fixture capability evidence.
+`SyntheticRoutingWitness`, `SyntheticRoutingBudget` and
+`SyntheticRoutingMonitor` are local test fixtures. They do not establish real
+attestation, independent persistence, monitor operations or production budget
+enforcement. The live broker API and actual provider-option mapping must be
+reviewed and implemented in later gates.
 
 Before implementation is accepted, record a named implementing owner and
 independent reviewer, an acceptance protocol using the test matrix below, and
@@ -175,11 +187,11 @@ tool output or outcomes into a sampling artifact. Treat sampling receipts as
 metadata only and do not infer probabilities, independence groups, labels or
 splits. A transaction record is not evaluation eligibility evidence by itself.
 
-The G6-03 **design** is ready for implementation review when the owner and
-independent reviewer can sign off the exact attempt identity, request envelope,
-witness/store API, ordering and each fault oracle above, plus a concrete resource
-ceiling. The **implementation gate** remains open until the offline module and
-synthetic tests pass, security review confirms the broker-only call graph and
-there is no live send path. G6-04 must then resolve external witness bootstrap,
+The G6-03 offline implementation is available for independent review against
+the exact attempt identity, request envelope, witness/store API, ordering and
+fault oracles above. The **milestone gate** remains open until a named owner and
+reviewer approve its acceptance protocol and resource ceiling, confirm the
+broker-only call graph and accept the synthetic test evidence. G6-04 must then
+resolve external witness bootstrap,
 anti-rollback cumulative budget admission, signed stop semantics and target-host
 drills before any production authority is considered.
