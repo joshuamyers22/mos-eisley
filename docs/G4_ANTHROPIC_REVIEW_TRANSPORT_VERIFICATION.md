@@ -17,7 +17,18 @@
   affected permissioned `make smoke` passed 1,888 installed-wheel tests.
   The initial sandboxed attempt hit the existing localhost TLS fixture
   restriction and was not counted as a code failure.
-- Stop reason: offline transport and exact grant code passed the project checks;
-  owner signature and credentialed Messages operation remain external steps.
-- Remaining external evidence: owner signature and credentialed Messages response.
-  Neither is inferred from the Models API status.
+- Live evidence, 2026-09-26: Joshua Myers signed the review authority and a
+  separate one-use Anthropic grant. The credentialed Messages call reached
+  `claude-sonnet-5`, and the shared ledger settled 48,688 micro-USD. The
+  response stopped at `max_tokens` with a thinking block and no text. No
+  critic observation was issued, so this call does not qualify a completed
+  review. The grant and claim are consumed. Private response content stays in
+  the claim directory; this note records only response metadata.
+- Correction: Sonnet 5 enables adaptive thinking by default. The exact request
+  now explicitly disables thinking so the 4,096-token output bound is usable
+  for the JSON critique. Normalization rejects missing or altered thinking
+  control. Focused Anthropic tests passed 16/16. Permissioned `make check`
+  passed on 2026-09-27, including Ruff, Pyright, source tests, export, build,
+  and 1,889 installed-wheel tests.
+- Remaining external evidence: a fresh separately signed call grant and a
+  credentialed JSON critique. The formal independent-review gate remains open.

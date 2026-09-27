@@ -36,6 +36,7 @@ def _payload() -> dict[str, JsonValue]:
     return {
         "model": "claude-sonnet-5",
         "max_tokens": 4096,
+        "thinking": {"type": "disabled"},
         "service_tier": "standard_only",
         "inference_geo": "global",
         "system": "Review the exact supplied JSON.",
@@ -90,7 +91,9 @@ class AnthropicReviewTransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("max_tokens", seen[0][1])
         self.assertNotIn("service_tier", seen[0][1])
         self.assertNotIn("inference_geo", seen[0][1])
+        self.assertEqual(seen[0][1]["thinking"], {"type": "disabled"})
         self.assertEqual(seen[1][1]["max_tokens"], 4096)
+        self.assertEqual(seen[1][1]["thinking"], {"type": "disabled"})
         self.assertEqual(seen[1][1]["service_tier"], "standard_only")
         self.assertEqual(seen[1][1]["inference_geo"], "global")
 
@@ -131,6 +134,22 @@ class AnthropicReviewTransportTests(unittest.IsolatedAsyncioTestCase):
         payload["tools"] = [{"name": "browser"}]
         with self.assertRaises(ProviderError):
             normalized_payload(payload, _policy())
+
+    async def test_thinking_must_be_explicitly_disabled(self) -> None:
+        cases: tuple[JsonValue | None, ...] = (
+            None,
+            {"type": "adaptive"},
+            {"type": "enabled"},
+        )
+        for value in cases:
+            with self.subTest(value=value):
+                payload = _payload()
+                if value is None:
+                    del payload["thinking"]
+                else:
+                    payload["thinking"] = value
+                with self.assertRaises(ProviderError):
+                    normalized_payload(payload, _policy())
 
     async def test_priority_or_regional_price_change_is_rejected(self) -> None:
         for field, value in (("service_tier", "auto"), ("inference_geo", "us")):

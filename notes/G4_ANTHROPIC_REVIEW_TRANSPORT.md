@@ -12,7 +12,7 @@
   its credential access, network transfer and provider dispatch. Both preserve
   `independent_review_evidence_passed=false` and `acceptance_authorized=false`.
 - Fixed route: Anthropic Messages and token-count endpoints, `claude-sonnet-5`,
-  JSON schema text output, standard-only service tier, global inference, no
+  JSON schema text output, thinking explicitly disabled, standard-only service tier, global inference, no
   tools, redirects or retries. A local key prompt is required only in the
   private runner; the key is never part of grant artifacts.
 - Cost envelope: 16,000 input tokens and 4,096 output tokens, with every input
@@ -28,6 +28,7 @@
 - Acceptance evidence: focused HTTP/ledger/signature/replay tests, type/lint,
   and `make check`. The owner must inspect and sign exact canonical payloads
   before a live call. The formal independent-review gate remains open.
-- Verification: 2,534 source tests and 1,888 installed-wheel tests passed; see
-  `docs/G4_ANTHROPIC_REVIEW_TRANSPORT_VERIFICATION.md`. The shared ledger has
-  zero entries and no grant has been signed as of this preparation record.
+- Verification: see `docs/G4_ANTHROPIC_REVIEW_TRANSPORT_VERIFICATION.md`.
+  The first signed call reached Anthropic and settled at 48,688 micro-USD, but
+  its 4,096-token response contained only thinking and no critique. Its claim
+  was consumed. A corrected call requires a fresh exact grant and claim.

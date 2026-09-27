@@ -91,6 +91,7 @@ def critic_payload(
     payload: dict[str, JsonValue] = {
         "model": model,
         "max_tokens": max_tokens,
+        "thinking": {"type": "disabled"},
         "service_tier": "standard_only",
         "inference_geo": "global",
         "system": (
@@ -120,6 +121,7 @@ def normalized_payload(
         != {
             "model",
             "max_tokens",
+            "thinking",
             "service_tier",
             "inference_geo",
             "system",
@@ -127,6 +129,7 @@ def normalized_payload(
             "output_config",
         }
         or frozen.get("model") != policy.model
+        or frozen.get("thinking") != {"type": "disabled"}
         or frozen.get("service_tier") != "standard_only"
         or frozen.get("inference_geo") != "global"
         or type(frozen.get("max_tokens")) is not int
