@@ -111,6 +111,11 @@ external witness deployment is established by those modules.
 
 ## Target-host qualification matrix
 
+The [inert target-host drill package](G6_05_INERT_TARGET_HOST_DRILL_PACKAGE.md)
+now supplies a frozen O01–O10 fault index, metadata validator, run protocol and
+synthetic denial tests. It prepares the actual target-host exercise but does
+not execute it or close Q5/Q6.
+
 Use the packet's frozen route, ceilings, clock and failpoint oracles. Run each
 case on the named host and witness topology with an inert endpoint, isolated
 synthetic identities and zero paid sends. Record before/after witness generation,

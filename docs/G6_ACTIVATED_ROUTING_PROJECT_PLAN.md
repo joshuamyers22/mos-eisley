@@ -71,6 +71,12 @@ is ready for owner, operations and independent security review; the exit gate is
 still open. The [G6-02 exact-route resolver specification](G6_02_EXACT_ROUTE_RESOLVER_SPEC.md)
 now has an offline implementation and synthetic tests; its independent gate
 review follows G6-01 approval.
+The [G6-01 technical gate review](G6_01_TECHNICAL_GATE_REVIEW.md) records the
+source assessment and blocking decisions; it does not supply independent
+security signoff or close the gate.
+The [G6-02 technical gate review](G6_02_TECHNICAL_GATE_REVIEW.md) records the
+resolver source assessment, R1–R11 evidence trace and open contract/test items;
+its independent gate remains open behind G6-01.
 The [G6-03 one-use broker transaction](G6_03_ONE_USE_BROKER_TRANSACTION_SPEC.md)
 now has an offline implementation, inert transport, synthetic witness/budget
 fixtures and fault tests. Its independent gate review remains open. Do not
@@ -83,11 +89,19 @@ claim and task/session/cohort admission, checkpoint ordering, signed bootstrap,
 rollback detection, stop races and budget exhaustion. Independent review and
 live witness decisions remain open.
 
+The [G6-01 through G6-04 independent-review packet](G6_01_TO_G6_04_INDEPENDENT_REVIEW_PACKET.md)
+indexes the offline contracts, source hashes, focused test result, review
+questions and open decisions. It prepares sequential gate reviews but records
+no approval or production authority.
+
 The [G6-05 operations and exact-candidate qualification plan](G6_05_OPERATIONS_EXACT_CANDIDATE_QUALIFICATION_PLAN.md)
 has an offline packet validator and synthetic denial tests for evidence coverage,
 route freshness, digest binding, drill ceilings and signed review roles. Its
 qualification gate remains open until G5, independent custody, real witness,
 route observations, target-host drills and security review pass.
+An [inert target-host drill package](G6_05_INERT_TARGET_HOST_DRILL_PACKAGE.md)
+now freezes O01–O10 fault points and validates a bounded evidence index; no
+target-host run or independent acceptance is claimed.
 
 The [G6-06 bounded rollout and assessment plan](G6_06_BOUNDED_ROLLOUT_ASSESSMENT_PLAN.md)
 has an offline cohort controller fixture with signed release phases, a durable
