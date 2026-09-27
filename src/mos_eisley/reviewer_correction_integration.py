@@ -37,6 +37,7 @@ from mos_eisley.reviewer_implementation_binding import (
 from mos_eisley.reviewer_provenance import (
     AuthenticatedG4ProvenanceRecord,
     G4ArtifactSignature,
+    G4ProvenanceTrustPolicy,
     RelativePath,
     SourceRevision,
     _git,
@@ -51,6 +52,8 @@ from mos_eisley.reviewer_test_package import FrozenReviewerTestPackage
 
 _APPROVAL_DOMAIN = b"mos-eisley/g4-correction-integration-approval/v1\x00"
 _RECORD_DOMAIN = b"mos-eisley/g4-correction-integration-record/v1\x00"
+_CARRY_FORWARD_APPROVAL_DOMAIN = b"mos-eisley/g4-correction-integration-approval/v2\x00"
+_CARRY_FORWARD_RECORD_DOMAIN = b"mos-eisley/g4-correction-integration-record/v2\x00"
 MAX_TREE_FILES = 2048
 MAX_TREE_BYTES = 32_000_000
 MAX_PATCH_BYTES = 8_000_000
@@ -65,7 +68,7 @@ def _utc(value: datetime) -> datetime:
 class G4CorrectionIntegrationApproval(Contract):
     """Separate creator authority for one exact worktree-only Git integration."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     kind: Literal["g4_correction_integration_approval"] = (
         "g4_correction_integration_approval"
     )
@@ -76,6 +79,12 @@ class G4CorrectionIntegrationApproval(Contract):
     repository_id: Identifier
     source_revision: SourceRevision
     owned_paths: Annotated[tuple[RelativePath, ...], Field(min_length=1, max_length=64)]
+    renewed_policy_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    integration_store_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     issued_at: datetime
     expires_at: datetime
     isolated_worktree_write_authorized: Literal[True] = True
@@ -99,6 +108,17 @@ class G4CorrectionIntegrationApproval(Contract):
             sorted(set(self.owned_paths))
         ):
             raise ValueError("correction integration paths must be sorted and unique")
+        if self.schema_version == 1 and (
+            self.renewed_policy_sha256 is not None
+            or self.integration_store_sha256 is not None
+        ):
+            raise ValueError("v1 integration cannot carry renewed authority")
+        if self.schema_version == 2 and (
+            self.renewed_policy_sha256 is None or self.integration_store_sha256 is None
+        ):
+            raise ValueError(
+                "post-deadline integration requires exact renewed authority"
+            )
         return self
 
 
@@ -122,14 +142,21 @@ def sign_correction_integration_approval(
             signer_id=signer_id,
             public_key_sha256=digest(key.public_key().public_bytes_raw()),
             signature_base64=base64.b64encode(
-                key.sign(_APPROVAL_DOMAIN + canonical_bytes(approval))
+                key.sign(
+                    (
+                        _CARRY_FORWARD_APPROVAL_DOMAIN
+                        if approval.schema_version == 2
+                        else _APPROVAL_DOMAIN
+                    )
+                    + canonical_bytes(approval)
+                )
             ).decode("ascii"),
         ),
     )
 
 
 class G4CorrectionIntegrationRecord(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     kind: Literal["g4_correction_integration_record"] = (
         "g4_correction_integration_record"
     )
@@ -164,6 +191,7 @@ class G4CorrectionIntegrationRecord(Contract):
             or self.approval.approval.source_revision != self.source_revision
             or self.source_revision == self.integrated_revision
             or self.changed_paths != self.approval.approval.owned_paths
+            or self.schema_version != self.approval.approval.schema_version
             or len(canonical_bytes(self)) > 16_384
         ):
             raise ValueError("correction integration record links are invalid")
@@ -191,7 +219,14 @@ def sign_correction_integration_record(
             signer_id=signer_id,
             public_key_sha256=digest(key.public_key().public_bytes_raw()),
             signature_base64=base64.b64encode(
-                key.sign(_RECORD_DOMAIN + canonical_bytes(record))
+                key.sign(
+                    (
+                        _CARRY_FORWARD_RECORD_DOMAIN
+                        if record.approval.approval.schema_version == 2
+                        else _RECORD_DOMAIN
+                    )
+                    + canonical_bytes(record)
+                )
             ).decode("ascii"),
         ),
     )
@@ -335,6 +370,7 @@ def _check_original_inputs(
     child_dispatch_store: Path,
     integration_store: Path,
     now: datetime,
+    renewed_policy: G4ProvenanceTrustPolicy | None = None,
 ) -> tuple[Path, Path, str]:
     root = repository_root.resolve(strict=True)
     store_fd = open_private_dispatch_store(integration_store)
@@ -373,6 +409,34 @@ def _check_original_inputs(
     source = provenance.git_provenance.provenance
     grant = admission.approval.approval
     order = approval.approval
+    if order.schema_version == 2:
+        if (
+            renewed_policy is None
+            or order.renewed_policy_sha256 != renewed_policy.policy_sha256
+            or order.integration_store_sha256 != digest(str(store).encode("utf-8"))
+            or renewed_policy.creators != provenance.policy.creators
+            or renewed_policy.reviewers != provenance.policy.reviewers
+            or renewed_policy.vcs_brokers != provenance.policy.vcs_brokers
+            or renewed_policy.children != provenance.policy.children
+            or renewed_policy.operator_mode != provenance.policy.operator_mode
+            or not grant.task_budget.deadline < order.issued_at
+            or not renewed_policy.valid_from <= order.issued_at <= now
+            or not now < order.expires_at <= renewed_policy.valid_until
+        ):
+            raise ValueError(
+                "post-deadline integration renewal differs from signed inputs"
+            )
+        signing_policy = renewed_policy
+        approval_domain = _CARRY_FORWARD_APPROVAL_DOMAIN
+    else:
+        if (
+            renewed_policy is not None
+            or order.expires_at > grant.expires_at
+            or now >= grant.task_budget.deadline
+        ):
+            raise ValueError("correction integration exceeds signed cycle deadline")
+        signing_policy = provenance.policy
+        approval_domain = _APPROVAL_DOMAIN
     if (
         admission.candidate_receipt_sha256 != first.receipt_sha256
         or order.policy_sha256 != provenance.policy.policy_sha256
@@ -383,12 +447,10 @@ def _check_original_inputs(
         or order.owned_paths != receipt.execution.changed_paths
         or not set(order.owned_paths) <= set(grant.owned_paths)
         or not receipt.dispatched_at <= order.issued_at <= now < order.expires_at
-        or order.expires_at > grant.expires_at
-        or now >= grant.task_budget.deadline
     ):
         raise ValueError("correction integration differs from signed cycle or proposal")
     verify_provenance_signature(
-        order, approval.signature, provenance.policy, "creator", _APPROVAL_DOMAIN
+        order, approval.signature, signing_policy, "creator", approval_domain
     )
     replayed = record_trusted_git_provenance(
         repository_id=source.repository_id,
@@ -522,6 +584,7 @@ def integrate_correction_child(
     child_dispatch_store: Path,
     integration_store: Path,
     now: datetime | None = None,
+    renewed_policy: G4ProvenanceTrustPolicy | None = None,
 ) -> G4CorrectionIntegrationRecord:
     """Consume one grant and commit exactly the proposal in a new private worktree."""
     current = _utc(now if now is not None else datetime.now(UTC))
@@ -543,6 +606,7 @@ def integrate_correction_child(
         child_dispatch_store=child_dispatch_store,
         integration_store=integration_store,
         now=current,
+        renewed_policy=renewed_policy,
     )
     worktree = store / name
     if worktree.exists() or worktree.is_symlink():
@@ -635,6 +699,7 @@ def integrate_correction_child(
     if replayed != provenance.git_provenance.provenance:
         raise ValueError("original source changed during correction integration")
     return G4CorrectionIntegrationRecord(
+        schema_version=approval.approval.schema_version,
         approval=approval,
         child_dispatch_receipt_sha256=digest(canonical_bytes(receipt)),
         source_revision=source,
@@ -666,18 +731,31 @@ def verify_correction_integration_record(
     correction_store: Path,
     child_dispatch_store: Path,
     integration_store: Path,
+    renewed_policy: G4ProvenanceTrustPolicy | None = None,
 ) -> None:
     """Replay the signed VCS record and exact Git bytes without granting acceptance."""
     record = signed.record
+    if record.approval.approval.schema_version == 2:
+        if renewed_policy is None:
+            raise ValueError("post-deadline integration needs renewed trust policy")
+        signing_policy = renewed_policy
+        approval_domain = _CARRY_FORWARD_APPROVAL_DOMAIN
+        record_domain = _CARRY_FORWARD_RECORD_DOMAIN
+    else:
+        if renewed_policy is not None:
+            raise ValueError("v1 integration cannot use renewed trust policy")
+        signing_policy = provenance.policy
+        approval_domain = _APPROVAL_DOMAIN
+        record_domain = _RECORD_DOMAIN
     verify_provenance_signature(
         record.approval.approval,
         record.approval.signature,
-        provenance.policy,
+        signing_policy,
         "creator",
-        _APPROVAL_DOMAIN,
+        approval_domain,
     )
     verify_provenance_signature(
-        record, signed.signature, provenance.policy, "vcs", _RECORD_DOMAIN
+        record, signed.signature, signing_policy, "vcs", record_domain
     )
     if (
         record.approval.approval.policy_sha256 != provenance.policy.policy_sha256
@@ -709,6 +787,7 @@ def verify_correction_integration_record(
         child_dispatch_store=child_dispatch_store,
         integration_store=integration_store,
         now=record.integrated_at,
+        renewed_policy=renewed_policy,
     )
     if record.worktree_name != expected_name:
         raise ValueError("correction integration worktree name differs from task")

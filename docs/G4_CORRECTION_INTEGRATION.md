@@ -35,6 +35,24 @@ The private store and same-UID host are trusted; this is not a hostile-host
 sandbox. Checkout runs trusted Git over a pinned, restricted tree and is not a
 general repository writer. No provider call or measured-spend claim is made.
 
+## Post-deadline carry-forward authority
+
+A completed, replay-verified child proposal can be integrated after its original
+task deadline only under a **new** schema-2 integration approval. The expired
+task, cycle, child dispatch and provider grant retain their historical dates and
+cannot authorize any new call or write. The new creator signature uses a separate
+domain and binds the exact old admission and dispatch receipt, source revision,
+owned paths, a renewed trust policy with the identical enrolled role keys, one
+owner-private integration store, and a current bounded window. The renewed policy
+changes only its identifier and validity window; the signature authenticates its
+hash. The private one-use claim and all existing checkout, byte, Git and provenance
+checks still precede the isolated commit. The VCS record uses its own v2
+signature domain and replays against the renewed policy after the window ends.
+
+This is a fresh offline write decision, not an extension or backdating of the old
+task. It gives no provider, original-checkout, final-test or acceptance authority.
+See the [carry-forward threat model](G4_POSTDEADLINE_INTEGRATION_THREAT_MODEL.md).
+
 ## Remaining gates
 
 The new commit is **not** a correction-cycle completion or accepted result.
