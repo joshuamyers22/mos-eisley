@@ -3,6 +3,22 @@
 Status: offline sealing and metadata-only inventory boundary implemented. No real
 study label catalog has been supplied, and no study execution is authorized.
 
+## Approved narrow study direction
+
+[ADR-0010](adr/0010-g3-single-human-oracle-study.md) records Joshua Myers's
+approval to design a separate prospective objective-oracle study with him as the
+only human. This is a planning direction, not a label or policy seal. The current
+catalog still requires two distinct enrolled grader identities/keys, and its seal
+still requires random ordinary-task audits in both splits. An objective-oracle
+study needs a reviewed source, protocol and verifier/schema amendment before any
+case can be called eligible under the new design. Its claim is limited to the
+audited oracle-verifiable frame and cannot be reported as the original broad G3
+ordinary-task qualification.
+
+Joshua authorized a [source-level audit of NIST Juliet C/C++ 1.3](G3_JULIET_SOURCE_AUDIT.md).
+Its checksum is verified, but its case annotations and known limitations do not
+yet supply an objective oracle or independent groups for a confirmatory cohort.
+
 ## Statistical-method review assignment
 
 Joshua Myers may perform the G3 statistical-method review under

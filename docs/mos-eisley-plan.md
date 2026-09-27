@@ -36,6 +36,13 @@ in the review. It does not complete the review, alter independent label grading,
 or waive holdout, feasibility, provider, G5/G6 promotion or release gates. See
 [ADR-0008](adr/0008-g3-owner-statistical-review.md).
 
+**G3 single-human oracle direction, 2026-09-27:** Joshua approved planning a
+separate prospective G3 study limited to tasks with independently reproducible
+objective oracles. [ADR-0010](adr/0010-g3-single-human-oracle-study.md) records
+the claim and single-operator limits. The source, method, amended verifier,
+signed labels, empirical cohort and spend remain open. The §26.4 broad G3 exit
+gate remains open; the narrow study cannot silently replace ordinary-task evidence.
+
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring
 reviewed calibration and promotion. It keeps the existing grading rubric fixed and

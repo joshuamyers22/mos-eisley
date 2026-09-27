@@ -19,7 +19,7 @@ continuation, compaction or pressure behavior.
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
-| G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
+| G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable utility study, including matched session-policy comparisons after G1; a separate narrow objective-oracle study is approved for planning under ADR-0010 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims; broad ordinary-task qualification remains open |
 | G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance, a passing corrected candidate and separately granted passing final creator/reviewer whole suites replay-verify; the original branch is untouched. Independent review remains open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites on a real child and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
@@ -50,6 +50,14 @@ The G3 statistical-method reviewer is now Joshua Myers under the disclosed
 owner-conducted exception in [ADR-0008](adr/0008-g3-owner-statistical-review.md).
 His actual review remains pending; independent label grading and all other G3
 gates remain required.
+
+The [single-human objective-oracle direction](adr/0010-g3-single-human-oracle-study.md)
+is approved for planning. No source, oracle, revised verifier, signed labels,
+cohort or study spend is approved by that decision. Its possible claim is limited
+to the audited oracle-verifiable frame.
+The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
+and identified answer leakage, related cases and oracle limitations; no study
+cases or labels have been admitted from it.
 
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
