@@ -1,7 +1,7 @@
 # G6-06 bounded rollout and assessment plan
 
-Status: **offline cohort controller and closeout packet fixtures complete;
-live release and cohort assessment open**, 2026-09-26. This is the G6-06 handoff in the
+Status: **offline phase rehearsals through R6 complete; live release and
+cohort assessment open**, 2026-09-27. This is the G6-06 handoff in the
 [G6 project plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It defines the first
 owner-scoped production cohort and its stop, close and assessment procedure; it
 does not authorize a provider send or report a cohort outcome. The
@@ -370,6 +370,33 @@ the repository root. The R4 snapshot and follow-up references are synthetic
 metadata; this fixture neither authenticates real custody nor reads protected
 outcomes or sampling assignments. It does not close an actual cohort or issue
 an assessment decision.
+
+### R6 offline assessment handoff rehearsal
+
+The [R6 packet validator](../src/mos_eisley/run/cohort_assessment_handoff.py)
+binds one mature, `reviewable` R5 result and closeout packet to an independently
+frozen assessment anchor. The packet carries the original roster digest,
+complete assignment and claim counts, an independently anchored inert-entry
+index, no-dispatch and possible-transfer counts, full follow-up coverage,
+settled and conservatively retained cost, incident status, and digests of
+restricted quality, damage, completion, latency, cost, missingness and review
+evidence. A claim alone never counts as a send; an unconfirmed intent remains
+a possible transfer. The reviewer, accepted review status, claim type and
+proposed disposition must match the frozen anchor. A comparative claim also
+needs an explicit baseline and design registration dated before cohort start;
+missing probabilities, groups, splits or labels are never reconstructed.
+
+The [R6 tests](../tests/test_cohort_r6_assessment_handoff.py) cover the full
+two-task denominator with one no-dispatch assignment, early and incomplete
+follow-up, favorable subsets, missing transport references, understated cost,
+changed evidence or reviewer, severe incident disposition, unregistered or
+late comparison, and substituted R5, protocol or decision references. Run
+`uv run --frozen python -m unittest tests.test_cohort_r6_assessment_handoff`
+from the repository root. `reviewable` means only that synthetic metadata is
+structurally ready for independent source review. The validator does not
+open protected outcome or sampling stores, authenticate the references or
+prospective registration, grade quality, establish a causal comparison, issue
+an assessment decision, authorize a new cohort or permit dispatch.
 
 ## Operating sequence
 

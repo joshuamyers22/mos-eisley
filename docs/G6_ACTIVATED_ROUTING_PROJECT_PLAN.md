@@ -139,6 +139,11 @@ high-water snapshot to a separately signed close and original-roster follow-up
 packet. It blocks post-trigger assignment, substituted close evidence and
 unreconciled retained exposure; pending or late synthetic follow-up grants no
 assessment authority.
+An R6 offline assessment packet validator now binds a mature R5 handoff to the
+original denominator, independently anchored inert-entry index, conservative
+cost and follow-up counts, incident status, reviewed evidence references and
+explicit comparison registration. Its synthetic `reviewable` status grants no
+assessment, comparative, promotion, next-cohort or dispatch authority.
 
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
