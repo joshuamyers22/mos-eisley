@@ -20,7 +20,7 @@ continuation, compaction or pressure behavior.
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
 | G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance, a passing corrected candidate and separately granted passing final creator/reviewer whole suites replay-verify; the original branch is untouched. Independent review remains open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites on a real child and independent review |
+| G4 — isolated correction path accepted; full workflow open | Commit `f54e815` has a real signed correction child, isolated Git integration, passing final whole suites, an accepted OpenAI/Anthropic single-operator review under the signed one-human formal exception, reconciled spend, a signed G3 applicability decision, and Joshua's separate scoped creator acceptance. The original branch remains untouched | Qualify a real initial-child path under its own authority and evidence before claiming the entire creator-led G4 workflow; merge, release and activation remain separately gated |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
@@ -30,8 +30,11 @@ protected creator and frozen reviewer whole suites, an accepted OpenAI/Anthropic
 single-operator review, the signed ADR-0008 formal-review exception, and settled
 review spend. Joshua signed the exact ADR-0009 applicability decision: the G3
 empirical comparison is outside this one-task correction-quality claim. This is
-not a G3 study pass, full initial-child qualification, or G4 acceptance. A
-distinct creator acceptance decision remains open for the narrow claim.
+not a G3 study pass or full initial-child qualification. Joshua separately
+signed and replay-verified acceptance of only the isolated correction-path
+qualification (`931bd68d04c3…`). The entire G4 workflow remains open pending
+a separately qualified real initial-child path; this acceptance gives no merge,
+release, activation, provider-call or spending authority.
 
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not

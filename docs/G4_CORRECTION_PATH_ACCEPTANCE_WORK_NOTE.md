@@ -1,6 +1,6 @@
 # Work Note: final G4 correction-path decision
 
-- Status: preparing exact local signature
+- Status: signed and replay-verified
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-27
 - Selected guidance: `templates/WORK_NOTE.md`, `templates/THREAT_MODEL.md`, `docs/AGENTIC_VERIFICATION_GUIDE.md`
@@ -20,3 +20,12 @@ ADR-0008 exception, settled spend and signed ADR-0009 quality-scope decision.
 - Changed source, document, receipt, signature or owner key fails closed.
 
 The private signed artifact and provider responses remain outside Git.
+
+## Completion
+
+Joshua signed the separate domain-bound acceptance with his enrolled key. The
+private artifact SHA-256 is
+`931bd68d04c36a2dc2015acc4998ba1f70e88c9b54efdafd53b5321c94da11b3`.
+The verifier replayed the exact evidence and confirmed the isolated correction
+path accepted while full G4, merge, release, activation, and new provider calls
+remain unauthorized. A disposable foreign key was rejected by the same verifier.
