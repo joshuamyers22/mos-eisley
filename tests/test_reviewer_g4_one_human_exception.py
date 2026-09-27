@@ -64,6 +64,14 @@ class G4OneHumanExceptionTests(unittest.TestCase):
             verify_one_human_formal_review_exception(
                 signed, record, policy, amendment_document_sha256=digest(b"changed ADR")
             )
+        other_subject = record.subject.model_copy(update={"source_revision": "0" * 40})
+        with self.assertRaisesRegex(ValueError, "exact accepted review"):
+            verify_one_human_formal_review_exception(
+                signed,
+                record.model_copy(update={"subject": other_subject}),
+                policy,
+                amendment_document_sha256=doc_hash,
+            )
 
     def test_foreign_signature_is_rejected(self) -> None:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
