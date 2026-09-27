@@ -102,6 +102,9 @@ alert-health checks and read-only recovery joins under injected outages.
 The C06 fixture reads a witnessed stop and conservative exposure after a
 process restart, then verifies that restored dependencies and a renewed release
 cannot reopen the stopped epoch. A new epoch requires explicit bootstrap.
+The C07 fixture closes early after task failure or cancellation, retains
+unknown follow-up in the original roster, and blocks closeout when a local
+outcome write fails after one inert send.
 The C08 fixture compares those stores and the witness against an explicitly
 supplied high-water snapshot, then denies another inert send after coordinated
 rollback while retaining conservative exposure.

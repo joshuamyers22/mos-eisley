@@ -165,6 +165,20 @@ does not measure operator action, alert delivery or target-host stop latency.
 It does not validate exposure migration, independent new-epoch approval or a
 fresh G6-05/G6-06 release; these remain required before any real re-entry.
 
+### C07 offline early-close and follow-up rehearsal
+
+The [C07 tests](../tests/test_cohort_early_close_followup.py) close a witnessed
+cohort after an assigned task fails or is cancelled before claim, then reject a
+replacement assignment, another send and release renewal. They retain the
+original task in the closeout denominator: pending follow-up is provisional
+before its registered deadline, and missing follow-up blocks a mature packet.
+A separate injected local outcome-write failure leaves one inert transport
+entry, its witnessed settlement and durable intent visible, while the closeout
+packet fails its settlement link. A late synthetic follow-up changes a packet
+from blocked to structurally reviewable only after its evidence reference is
+supplied. No test authenticates that reference, establishes an actual outcome
+or grants assessment authority.
+
 ### C08 offline combined rollback rehearsal
 
 The [synthetic recovery inventory](../src/mos_eisley/run/routing_transaction.py)
