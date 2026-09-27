@@ -24,6 +24,15 @@ continuation, compaction or pressure behavior.
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
+**Exact G4 correction-path qualification, 2026-09-27:** integrated commit
+`f54e815` has a replayed real production correction-child receipt, passing
+protected creator and frozen reviewer whole suites, an accepted OpenAI/Anthropic
+single-operator review, the signed ADR-0008 formal-review exception, and settled
+review spend. Joshua signed the exact ADR-0009 applicability decision: the G3
+empirical comparison is outside this one-task correction-quality claim. This is
+not a G3 study pass, full initial-child qualification, or G4 acceptance. A
+distinct creator acceptance decision remains open for the narrow claim.
+
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
