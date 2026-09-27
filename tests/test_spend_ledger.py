@@ -21,6 +21,7 @@ from mos_eisley.cli import main
 from mos_eisley.core.models import digest
 from mos_eisley.run.spend_ledger import (
     LedgerEntry,
+    LedgerReconciliation,
     LedgerSettlement,
     Outcome,
     SpendLedger,
@@ -56,6 +57,55 @@ def compete(arguments: tuple[str, int]) -> bool:
 
 
 class LedgerTests(TestCase):
+    def test_signed_evidence_reconciliation_closes_only_exact_uncertain_hold(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            ledger = SpendLedger.create(Path(directory) / "spend.sqlite", 100)
+            uncertain = entry(1, 60)
+            held = entry(2, 20)
+            ledger.reserve_many((uncertain, held))
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=uncertain.entry_id,
+                    reservation_sha256=uncertain.reservation_sha256,
+                    status="uncertain",
+                    charged_microusd=60,
+                )
+            )
+            adjustment = LedgerReconciliation(
+                entry_id=uncertain.entry_id,
+                reservation_sha256=uncertain.reservation_sha256,
+                previous_charged_microusd=60,
+                reconciled_charged_microusd=0,
+                evidence_sha256="b" * 64,
+                authority_sha256="c" * 64,
+            )
+            self.assertIsNone(ledger.reconciliation_status(uncertain.entry_id))
+            for changed in (
+                adjustment.model_copy(update={"entry_id": held.entry_id}),
+                adjustment.model_copy(update={"reservation_sha256": "d" * 64}),
+                adjustment.model_copy(update={"previous_charged_microusd": 59}),
+                adjustment.model_copy(update={"reconciled_charged_microusd": 61}),
+            ):
+                with self.assertRaises(ValueError):
+                    ledger.reconcile_uncertain(changed)
+            self.assertEqual(ledger.snapshot().charged_microusd, 80)
+            self.assertTrue(ledger.reconcile_uncertain(adjustment))
+            self.assertFalse(ledger.reconcile_uncertain(adjustment))
+            self.assertEqual(
+                ledger.reconciliation_status(uncertain.entry_id), adjustment
+            )
+            with self.assertRaises(ValueError):
+                ledger.reconcile_uncertain(
+                    adjustment.model_copy(update={"evidence_sha256": "e" * 64})
+                )
+            status = ledger.entry_status(uncertain.entry_id)
+            assert status is not None
+            self.assertEqual(status.status, "settled")
+            self.assertEqual(ledger.snapshot().charged_microusd, 20)
+            self.assertEqual(ledger.snapshot().unresolved_entries, 1)
+
     def test_admission_and_settlement_release_only_known_savings(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "spend.sqlite"

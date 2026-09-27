@@ -57,6 +57,17 @@ class LedgerEntryStatus(Contract):
     status: Literal["held", "settled", "uncertain", "violation"]
 
 
+class LedgerReconciliation(Contract):
+    """Trusted-host instruction backed by separately verified external evidence."""
+
+    entry_id: Digest
+    reservation_sha256: Digest
+    previous_charged_microusd: Amount
+    reconciled_charged_microusd: Amount
+    evidence_sha256: Digest
+    authority_sha256: Digest
+
+
 def _connect(path: Path) -> sqlite3.Connection:
     # mode=rw is deliberate: missing ledgers must never silently reset a budget.
     connection = sqlite3.connect(
@@ -176,6 +187,105 @@ class SpendLedger:
                 charged_microusd=row[2],
                 status=row[3],
             )
+
+    def reconciliation_status(self, entry_id: str) -> LedgerReconciliation | None:
+        """Read a durable adjustment without changing historical spend receipts."""
+        with self._transaction() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                "AND name = 'reconciliations'"
+            ).fetchone()
+            if exists is None:
+                return None
+            row = connection.execute(
+                "SELECT reservation_sha256, previous_charged, reconciled_charged, "
+                "evidence_sha256, authority_sha256 FROM reconciliations "
+                "WHERE entry_id = ?",
+                (entry_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return LedgerReconciliation(
+                entry_id=entry_id,
+                reservation_sha256=row[0],
+                previous_charged_microusd=row[1],
+                reconciled_charged_microusd=row[2],
+                evidence_sha256=row[3],
+                authority_sha256=row[4],
+            )
+
+    def reconcile_uncertain(self, adjustment: LedgerReconciliation) -> bool:
+        """Close one exact uncertain hold after caller verifies signed evidence.
+
+        Returns true only for the transaction that changed the entry. An exact
+        repeat is a no-op for recovery; conflicting repeats fail closed.
+        """
+        adjustment = LedgerReconciliation.model_validate_json(
+            canonical_bytes(adjustment)
+        )
+        if (
+            adjustment.previous_charged_microusd <= 0
+            or adjustment.reconciled_charged_microusd
+            > adjustment.previous_charged_microusd
+        ):
+            raise ValueError("invalid spending reconciliation amount")
+        with self._transaction() as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS reconciliations ("
+                "entry_id TEXT PRIMARY KEY, reservation_sha256 TEXT NOT NULL, "
+                "previous_charged INTEGER NOT NULL CHECK(previous_charged > 0), "
+                "reconciled_charged INTEGER NOT NULL "
+                "CHECK(reconciled_charged >= 0 AND "
+                "reconciled_charged <= previous_charged), "
+                "evidence_sha256 TEXT NOT NULL, authority_sha256 TEXT NOT NULL) STRICT"
+            )
+            prior = connection.execute(
+                "SELECT reservation_sha256, previous_charged, reconciled_charged, "
+                "evidence_sha256, authority_sha256 FROM reconciliations "
+                "WHERE entry_id = ?",
+                (adjustment.entry_id,),
+            ).fetchone()
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status "
+                "FROM entries WHERE entry_id = ?",
+                (adjustment.entry_id,),
+            ).fetchone()
+            expected = (
+                adjustment.reservation_sha256,
+                adjustment.previous_charged_microusd,
+                adjustment.reconciled_charged_microusd,
+                adjustment.evidence_sha256,
+                adjustment.authority_sha256,
+            )
+            if prior is not None:
+                if prior != expected or row != (
+                    adjustment.reservation_sha256,
+                    adjustment.previous_charged_microusd,
+                    adjustment.reconciled_charged_microusd,
+                    "settled",
+                ):
+                    raise ValueError(
+                        "spending reconciliation differs from retained entry"
+                    )
+                return False
+            if row != (
+                adjustment.reservation_sha256,
+                adjustment.previous_charged_microusd,
+                adjustment.previous_charged_microusd,
+                "uncertain",
+            ):
+                raise ValueError(
+                    "spending reconciliation requires exact uncertain hold"
+                )
+            connection.execute(
+                "INSERT INTO reconciliations VALUES (?, ?, ?, ?, ?, ?)",
+                (adjustment.entry_id, *expected),
+            )
+            connection.execute(
+                "UPDATE entries SET charged = ?, status = 'settled' WHERE entry_id = ?",
+                (adjustment.reconciled_charged_microusd, adjustment.entry_id),
+            )
+            return True
 
     @contextmanager
     def guard_held(
