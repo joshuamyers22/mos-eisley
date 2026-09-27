@@ -92,6 +92,33 @@ def coding_child_request(
         "input": [{"role": "user", "content": canonical_bytes(offer).decode("utf-8")}],
         "tools": [],
         "reasoning": {"effort": effort},
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "g4_correction_child_proposal",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "replacements": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {"type": "string"},
+                                    "content_base64": {"type": "string"},
+                                },
+                                "required": ["path", "content_base64"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "unresolved_issue_count": {"type": "integer"},
+                    },
+                    "required": ["replacements", "unresolved_issue_count"],
+                    "additionalProperties": False,
+                },
+            }
+        },
         "max_output_tokens": output_tokens,
         "parallel_tool_calls": False,
         "store": False,

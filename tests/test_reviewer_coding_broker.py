@@ -12,6 +12,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -120,6 +121,23 @@ class _FakeTransport:
 
 
 class ProductionCodingChildBrokerTests(unittest.TestCase):
+    def test_provider_request_requires_strict_json_proposal_shape(self) -> None:
+        with TemporaryDirectory() as directory:
+            offer = self._setup(Path(directory))[1]
+            request = coding_child_request(offer, MODEL, "low", 4096)
+        text_spec = cast(dict[str, JsonValue], request["text"])
+        format_spec = cast(dict[str, JsonValue], text_spec["format"])
+        self.assertEqual(format_spec["type"], "json_schema")
+        self.assertIs(format_spec["strict"], True)
+        schema = cast(dict[str, JsonValue], format_spec["schema"])
+        properties = cast(dict[str, JsonValue], schema["properties"])
+        replacements = cast(dict[str, JsonValue], properties["replacements"])
+        items = cast(dict[str, JsonValue], replacements["items"])
+        self.assertEqual(
+            items["required"],
+            ["path", "content_base64"],
+        )
+
     def test_unpadded_file_with_placeholder_digest_is_revalidated(self) -> None:
         content = b"def quote_cents():\n    return 1\n"
         output = json.dumps(

@@ -13,3 +13,7 @@
 The provider cannot reliably compute a cryptographic digest. The child broker now decodes a bounded, unambiguous base64 value, computes the digest over the decoded bytes, and then constructs the strict source-file contract. The untrusted response remains intact in the private audit, and the enrolled child still signs only the validated proposal. Invalid base64, unsafe paths, duplicate JSON keys, unauthorized files, and empty changes remain rejected by the existing boundaries.
 
 This correction changes the broker's trust boundary. It requires accountable review and a new exact one-use provider grant. The failed attempt's claim and grant must never be reused. A subsequent valid proposal will be a separate run, not a retroactive repair of this incident.
+
+## Second one-use attempt
+
+At 23:17 Eastern, a separately signed recovery request used the normalized source-file parser. The provider returned malformed JSON with a stray quoted key near the end of an otherwise bounded response. The broker rejected it before child signing. Its distinct one-use claim remains spent and ledger entry `d5b29033b97213a447c940fbab671e0f606a2ba206145b5a867f2cec6c59f39e` settled at 2,465 micro-USD; no host write or dispatch receipt exists. The next request adds the project's supported strict JSON Schema output format. This changes the exact provider request body and requires a new signed grant and claim.
