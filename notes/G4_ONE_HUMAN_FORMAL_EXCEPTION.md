@@ -1,6 +1,6 @@
 # Work Note: Exact one-human G4 formal review exception
 
-- Status: active; pending accountable owner signature
+- Status: closed; exact owner signature and replay verified
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-27
 - Review or delete by: G4 acceptance decision
@@ -35,7 +35,15 @@ review or live-audit replay fails, the worktree changes, or any scope hash diffe
 
 ## Handoff
 
-- Current state: proposed exact-run amendment; no exception signature yet.
-- Next smallest action: finish focused verification and obtain Joshua's exact
-  local signature after reviewing the canonical amendment.
-- Blocker: enrolled owner's signature.
+- Current state: Joshua signed the exact exception; artifact SHA-256
+  `6db568e979e634b49438c34d3ecbe9c0e58b53aa5460e2ce3a83feddeedd6643`.
+  Private replay reports the amended formal implementation-review requirement
+  passed, while the original independent-review gate, independent-human claim,
+  and G4 acceptance remain false.
+- Focused verification: eight fixture tests passed; Ruff check/format and
+  Pyright passed. The private signer preflight and post-signature exact live-audit
+  replay passed. The aggregate `make check` was not completed on this branch.
+- Next smallest action: evaluate the applicable G3 quality gate, then seek a
+  separate accountable creator acceptance decision if its prerequisites pass.
+- Blocker: G3 quality evidence and creator acceptance; no human-independence
+  claim is available from this run.
