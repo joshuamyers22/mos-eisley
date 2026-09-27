@@ -44,3 +44,9 @@ correction chain, and the applicable G3 quality gate before creator acceptance
 or launch. See the [threat model](G4_INDEPENDENT_REVIEW_THREAT_MODEL.md),
 [verification record](G4_INDEPENDENT_REVIEW_VERIFICATION.md), and
 [final-suite contract](G4_FINAL_WHOLE_SUITES.md).
+
+For integrated commit `f54e815` only, the owner has proposed a separate
+[one-human formal implementation-review exception](adr/0008-g4-one-human-formal-review-exception.md).
+It cannot make this independent-review record pass; it is a distinct, explicitly
+non-independent path that requires its own exact owner signature and live-audit
+replay.

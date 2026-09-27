@@ -7,6 +7,11 @@ owner is the sole Ed25519 signer. This is a separate schema and CLI from the
 [independent-review gate](G4_INDEPENDENT_REVIEW.md). It cannot satisfy that
 gate's distinct critic/judge signer requirement.
 
+For integrated commit `f54e815` only, [ADR-0008](adr/0008-g4-one-human-formal-review-exception.md)
+proposes an exact owner-signed alternative formal implementation-review
+requirement using the replayed live evidence. The original independent-review
+gate and independent-human claim remain false.
+
 The owner signs an at-most-24-hour authority tied to the G4 provenance policy,
 the reconstructed subject, an ordered critic roster, each exact citation-bound
 request hash, the quorum policy, and an exact judge provider/model. The authority
