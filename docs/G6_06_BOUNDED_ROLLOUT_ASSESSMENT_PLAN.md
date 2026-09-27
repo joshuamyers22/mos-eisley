@@ -213,6 +213,31 @@ cannot authenticate a rubric or comparison registration, verify holdout
 non-reuse, grade outcomes, or establish a policy benefit. Those decisions need
 independently retained prospective sources and the applicable audited workflow.
 
+### R0 offline integration rehearsal
+
+The fixed [R0 runner](../tools/g6_06_r0_offline.py) executes the G6-02 exact-route,
+G6-03 one-use, G6-04 witness/budget, G6-05 promotion/activation/qualification,
+and G6-06 cohort suites without provider credentials. The
+[integrated inert tests](../tests/test_cohort_r0_integrated.py) join one frozen
+selection, witnessed assignment and claim, durable intent, before-send audit,
+single inert transport entry, checkpoint and read-only recovery. They also
+exercise a signed stop before a new claim and an exact frozen fallback
+selection in a separate resolver fixture. The
+[runner tests](../tests/test_g6_06_r0_offline.py) block empty, failing and
+skipped suites without copying failure text to the result index.
+
+Run `uv run --frozen python -m tools.g6_06_r0_offline <new-private-json-path>`
+from the repository root. The runner writes a new mode-0600 metadata-only index
+with suite counts, case-ID digests and a digest of its fixed source-file set. It
+checks that imported test and implementation modules came from those bound files.
+Its `synthetic_pass` status means only that this local fixture set passed. The
+index keeps target-build verification, independent review, G6-05 qualification,
+cohort release, dispatch and assessment authority false. It cannot establish
+the exact target-host build, independent source custody, real stop latency,
+credential isolation or an R0 acceptance decision. The fallback resolver
+fixture has a separate synthetic policy lineage, so this run does not prove a
+live fallback send path.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |

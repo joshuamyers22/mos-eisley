@@ -111,6 +111,10 @@ rollback while retaining conservative exposure.
 The C09 fixture denies policy and rubric changes to the frozen cohort, early
 assessment claims and favorable-subset packets without reading protected
 outcomes or sampling assignments.
+An R0 offline runner now executes the fixed G6-02 through G6-06 synthetic
+suites, an integrated inert cohort path, signed stop and separate exact fallback
+selection, and writes a bounded source-digest and suite-count index. Its local
+pass does not close target-build or independent-review gates.
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a
 separate owner/operator release.
