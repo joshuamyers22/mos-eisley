@@ -129,6 +129,11 @@ An R3 offline per-attempt fixture now connects a reviewable R2 packet to a
 separately applied synthetic release, witnessed assignment, exact-route claim,
 durable intent, audit and one inert transport entry. Boundary faults retain
 full possible exposure or deny before send. This does not implement live R3.
+An R4 offline surveillance inspector now checks bounded assignment, claim,
+intent, audit and inert-entry joins, conservative exposure, exact route and
+required-path health, anchored safety metadata and signed stop acknowledgment.
+Synthetic faults produce warning or hard-stop findings without granting stop,
+release or dispatch authority.
 
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a

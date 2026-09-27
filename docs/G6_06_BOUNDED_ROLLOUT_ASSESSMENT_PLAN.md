@@ -311,6 +311,37 @@ repository root. This fixture has no provider credential or paid send. It
 does not implement the future live R3 broker boundary or supply real R2
 approval, route observations, witness custody or target-host evidence.
 
+### R4 offline surveillance and hard-stop rehearsal
+
+The [read-only R4 inspector](../src/mos_eisley/run/cohort_surveillance.py)
+checks a bounded metadata packet against independently supplied manifest,
+release, selection, safety-signal and threshold anchors. It reads the synthetic
+witness/checkpoint, assignment and claim roster, intent and required audit
+metadata, high-water recovery inventory, exact route observation, preflight,
+monitor, alert channel and inert transport entry digests. Each proposed
+transport entry reference must join to one witnessed claim, earlier intent
+and audit event; a matching count alone does not establish provenance. The
+inspector calculates conservative exposure from settled charges plus retained
+unresolved exposure, counts held/uncertain claims, and returns `healthy`,
+`warning`, `hard_stop` or `stopped`
+with reasons and literal false admission, stop and dispatch authority. It does
+not read the protected outcome or sampling stores.
+
+The [R4 tests](../tests/test_cohort_r4_surveillance.py) cover a complete
+single-entry join, missing or duplicated transport references, claim and
+intent cuts, route/control drift, required-path outages, stale observations,
+anchored safety signals, retained-exposure warning and cap breach, witness
+outage, uncertain exposure, missing or late stop acknowledgment, and a
+separately signed stop.
+They show that alert loss blocks another inert attempt and signed stop blocks
+new assignment. Run
+`uv run --frozen python -m unittest tests.test_cohort_r4_surveillance` from
+the repository root. A snapshot only reports a stop condition; it does not
+issue one. Transport references and safety status are synthetic metadata,
+not independently authenticated live evidence. Real cadence, alert delivery,
+signer custody, transport provenance, safety review and operator response
+remain live acceptance gates.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |
