@@ -77,6 +77,12 @@ fixtures and fault tests. Its independent gate review remains open. Do not
 change existing preflight denial fields to make a test pass; dispatch authority
 belongs to a separately reviewed trusted broker boundary.
 
+The [G6-04 witnessed control and budget design](G6_04_WITNESSED_CONTROL_BUDGET_SPEC.md)
+is ready for offline implementation review. It specifies atomic claim and
+three-scope admission, external checkpoint ordering, bootstrap and rollback
+recovery, and a deterministic fault matrix. Its implementation and live witness
+decisions remain open.
+
 ## Verification and stop rule
 
 This is a high-impact routing and spending boundary. Set the per-task, per-session
