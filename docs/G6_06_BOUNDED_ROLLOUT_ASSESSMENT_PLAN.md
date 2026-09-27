@@ -150,6 +150,21 @@ policy. A fallback send would require fresh complete policy, preflight and
 witness admission. The synthetic probe does not authenticate a real catalog,
 conformance source, provider outage or target-host observation timing.
 
+### C06 offline stop and re-entry rehearsal
+
+The [read-only stop inventory](../src/mos_eisley/run/cohort_stop.py) requires a
+checkpointed signed stop and a consistent recovery high-water snapshot. It
+reports the frozen roster and claim counts, durable intent and audit counts,
+possible in-flight attempts and conservative exposure without reading the
+outcome store or granting re-entry. The [C06 tests](../tests/test_cohort_stop_reentry.py)
+cover stop before claim, after claim and after the final check, a separate
+process restart, invalid stop signatures, unavailable alert delivery, blocked
+same-epoch stop clearing and release renewal, and rejection of an old release
+in a proposed new epoch. The fixture records stop issue and witness times but
+does not measure operator action, alert delivery or target-host stop latency.
+It does not validate exposure migration, independent new-epoch approval or a
+fresh G6-05/G6-06 release; these remain required before any real re-entry.
+
 ### C08 offline combined rollback rehearsal
 
 The [synthetic recovery inventory](../src/mos_eisley/run/routing_transaction.py)

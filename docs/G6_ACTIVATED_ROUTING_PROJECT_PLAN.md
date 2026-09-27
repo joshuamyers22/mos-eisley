@@ -99,6 +99,9 @@ rehearsal checks route disappearance before claim, after claim and after the
 final check, plus exact fallback freshness without reusing a consumed attempt.
 The C04 fixture adds a separate hash-only before-send audit journal, required
 alert-health checks and read-only recovery joins under injected outages.
+The C06 fixture reads a witnessed stop and conservative exposure after a
+process restart, then verifies that restored dependencies and a renewed release
+cannot reopen the stopped epoch. A new epoch requires explicit bootstrap.
 The C08 fixture compares those stores and the witness against an explicitly
 supplied high-water snapshot, then denies another inert send after coordinated
 rollback while retaining conservative exposure.
