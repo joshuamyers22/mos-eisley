@@ -120,6 +120,20 @@ fixture is a binding value only: the fixture does not validate a real G6-05
 decision, qualify a route, grant provider credentials, or implement the live
 monitoring and later-window assessment gates below.
 
+### C04 offline audit and alert outage rehearsal
+
+The [inert transaction fixture](../src/mos_eisley/run/routing_transaction.py)
+requires a separate synthetic, hash-only before-send audit row and a healthy
+required-alert path for an enrolled cohort. Both paths are checked before claim
+and at the final pre-transport read. A read-only inventory joins witnessed
+assignments and claims to local intents and audit rows without opening the
+outcome table. The [C04 tests](../tests/test_cohort_audit_outage.py) cover missing
+paths, outages before and after claim, alert acknowledgment loss, missing audit
+rows, local intent rollback and recovery with full retained exposure. An outage
+after the final read retains the approved one-entry in-flight bound. The local
+SQLite audit and boolean alert fixture do not establish independent custody,
+actual alert delivery, clock quality or target-host stop latency.
+
 ### C05 offline route-change rehearsal
 
 The [inert witnessed transaction](../src/mos_eisley/run/routing_transaction.py)

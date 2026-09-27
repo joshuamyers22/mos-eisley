@@ -655,6 +655,28 @@ class OfflineTransactionStore:
                 raise ValueError("offline outcome is invalid")
             return intent, outcome
 
+    def list_intents(self) -> tuple[OfflineSendIntent, ...]:
+        """Read intent metadata without opening the local outcome table."""
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            self._check(connection)
+            rows = connection.execute(
+                "SELECT attempt_key, claim_id, intent_sha256, intent_json "
+                "FROM intents ORDER BY attempt_key"
+            ).fetchall()
+            intents: list[OfflineSendIntent] = []
+            for attempt_key, claim_id, intent_sha256, raw in rows:
+                intent = OfflineSendIntent.model_validate_json(raw)
+                if (
+                    intent.attempt_key != attempt_key
+                    or intent.claim_id != claim_id
+                    or intent.intent_sha256 != intent_sha256
+                    or raw != canonical_bytes(intent)
+                ):
+                    raise ValueError("offline send intent is invalid")
+                intents.append(intent)
+            return tuple(intents)
+
     def record_before_send(self, intent: OfflineSendIntent, *, writer: object) -> None:
         if writer is not _WRITER:
             raise ValueError("offline intent writer is unauthorized")
@@ -699,6 +721,202 @@ class OfflineTransactionStore:
                 "INSERT INTO outcomes VALUES (?, ?)",
                 (outcome.attempt_key, canonical_bytes(outcome)),
             )
+
+
+class SyntheticCohortAuditPolicy(Contract):
+    schema_version: Literal[1] = 1
+    audit_id: Digest
+    owner_id: Identifier
+    cohort_id: Identifier
+    witness_id: Digest
+    budget_policy_sha256: Digest
+
+
+class SyntheticBeforeSendAudit(Contract):
+    """Hash-only operational metadata; no prompt, transcript or outcome."""
+
+    schema_version: Literal[1] = 1
+    attempt_key: Digest
+    owner_id: Identifier
+    cohort_id: Identifier
+    task_id: Identifier
+    session_id: Identifier
+    claim_id: Digest
+    intent_sha256: Digest
+    selection_sha256: Digest
+    candidate_id: Digest
+    control_digest: Digest
+    witness_generation: Annotated[int, Field(ge=1)]
+    held_microusd: Money
+    recorded_at: datetime
+
+    @model_validator(mode="after")
+    def utc_time(self) -> Self:
+        _utc(self.recorded_at)
+        return self
+
+
+class SyntheticCohortAuditSink:
+    """Separate durable fixture for required before-send audit metadata."""
+
+    def __init__(self, path: Path):
+        self.path = path.absolute()
+        with closing(_connect(self.path)) as connection:
+            self.policy = _policy(connection, SyntheticCohortAuditPolicy)
+        self.healthy = True
+
+    @classmethod
+    def create_witnessed(
+        cls, path: Path, *, admission: SyntheticWitnessedAdmission
+    ) -> Self:
+        policy = SyntheticCohortAuditPolicy(
+            audit_id=digest(uuid4().bytes),
+            owner_id=admission.enrollment.owner_id,
+            cohort_id=admission.enrollment.cohort_id,
+            witness_id=admission.enrollment.witness_id,
+            budget_policy_sha256=admission.budget_policy.policy_sha256,
+        )
+        _create_policy(path, policy)
+        with closing(_connect(path)) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "CREATE TABLE before_send (attempt_key TEXT PRIMARY KEY, "
+                "claim_id TEXT NOT NULL UNIQUE, event_json BLOB NOT NULL) STRICT"
+            )
+        return cls(path)
+
+    def check(self) -> None:
+        if not self.healthy:
+            raise ValueError("synthetic cohort audit sink unavailable")
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _policy(connection, SyntheticCohortAuditPolicy) != self.policy:
+                raise ValueError("synthetic cohort audit identity changed")
+
+    def record_before_send(
+        self, event: SyntheticBeforeSendAudit, *, writer: object
+    ) -> None:
+        if writer is not _WRITER:
+            raise ValueError("synthetic cohort audit writer is unauthorized")
+        self.check()
+        if (
+            event.owner_id != self.policy.owner_id
+            or event.cohort_id != self.policy.cohort_id
+        ):
+            raise ValueError("synthetic cohort audit scope mismatch")
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if _policy(connection, SyntheticCohortAuditPolicy) != self.policy:
+                raise ValueError("synthetic cohort audit identity changed")
+            connection.execute(
+                "INSERT INTO before_send VALUES (?, ?, ?)",
+                (event.attempt_key, event.claim_id, canonical_bytes(event)),
+            )
+
+    def read_current(self) -> tuple[SyntheticBeforeSendAudit, ...]:
+        with closing(_connect(self.path)) as connection, connection:
+            connection.execute("BEGIN")
+            if _policy(connection, SyntheticCohortAuditPolicy) != self.policy:
+                raise ValueError("synthetic cohort audit identity changed")
+            rows = connection.execute(
+                "SELECT attempt_key, claim_id, event_json "
+                "FROM before_send ORDER BY attempt_key"
+            ).fetchall()
+            events: list[SyntheticBeforeSendAudit] = []
+            for attempt_key, claim_id, raw in rows:
+                event = SyntheticBeforeSendAudit.model_validate_json(raw)
+                if (
+                    event.attempt_key != attempt_key
+                    or event.claim_id != claim_id
+                    or raw != canonical_bytes(event)
+                ):
+                    raise ValueError("synthetic cohort audit row is invalid")
+                events.append(event)
+            return tuple(events)
+
+
+class SyntheticCohortAuditInventory(Contract):
+    assignment_count: Annotated[int, Field(ge=0)]
+    claim_count: Annotated[int, Field(ge=0)]
+    intent_count: Annotated[int, Field(ge=0)]
+    audit_count: Annotated[int, Field(ge=0)]
+    missing_audit_count: Annotated[int, Field(ge=0)]
+    unmatched_audit_count: Annotated[int, Field(ge=0)]
+    retained_exposure_microusd: Money
+    complete: bool
+
+
+def inspect_offline_cohort_audit(
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+) -> SyntheticCohortAuditInventory:
+    """Read assignment, claim, intent and audit metadata without outcome reads."""
+    state = admission.read_current()
+    cohort = state.cohort
+    if cohort is None:
+        raise ValueError("synthetic cohort audit inspection requires enrollment")
+    if (
+        store.policy.owner_id != cohort.manifest.owner_id
+        or store.policy.cohort_id != cohort.manifest.cohort_id
+        or store.policy.witness_id != admission.enrollment.witness_id
+        or store.policy.budget_id != admission.budget_policy.policy_sha256
+        or audit.policy.owner_id != cohort.manifest.owner_id
+        or audit.policy.cohort_id != cohort.manifest.cohort_id
+        or audit.policy.witness_id != admission.enrollment.witness_id
+        or audit.policy.budget_policy_sha256 != admission.budget_policy.policy_sha256
+    ):
+        raise ValueError("synthetic cohort audit source scope mismatch")
+    intents = store.list_intents()
+    events = audit.read_current()
+    assignments = {item.task_id: item for item in cohort.assignments}
+    claims = {item.attempt.attempt_key: item for item in state.attempts}
+    intent_index = {item.attempt_key: item for item in intents}
+    event_index = {item.attempt_key: item for item in events}
+    for intent in intents:
+        claim = claims.get(intent.attempt_key)
+        if (
+            claim is None
+            or claim.claim_id != intent.claim_id
+            or claim.attempt.selection_sha256 != intent.selection_sha256
+            or claim.attempt.control_anchor_entry_sha256 != intent.control_digest
+            or claim.attempt.task_id not in assignments
+        ):
+            raise ValueError("synthetic cohort intent join is invalid")
+    for event in events:
+        claim = claims.get(event.attempt_key)
+        intent = intent_index.get(event.attempt_key)
+        if claim is None or intent is None:
+            continue
+        if (
+            event.claim_id != claim.claim_id
+            or event.intent_sha256 != intent.intent_sha256
+            or event.owner_id != intent.owner_id
+            or event.cohort_id != intent.cohort_id
+            or event.task_id != claim.attempt.task_id
+            or event.session_id != claim.attempt.session_id
+            or event.selection_sha256 != claim.attempt.selection_sha256
+            or event.candidate_id != claim.attempt.candidate_id
+            or event.control_digest != claim.attempt.control_anchor_entry_sha256
+            or event.witness_generation != claim.admitted_generation
+            or event.held_microusd != claim.attempt.maximum_microusd
+            or event.recorded_at < intent.recorded_at
+        ):
+            raise ValueError("synthetic cohort audit join is invalid")
+    missing = len(set(intent_index) - set(event_index))
+    unmatched = len(set(event_index) - set(intent_index))
+    return SyntheticCohortAuditInventory(
+        assignment_count=len(assignments),
+        claim_count=len(claims),
+        intent_count=len(intents),
+        audit_count=len(events),
+        missing_audit_count=missing,
+        unmatched_audit_count=unmatched,
+        retained_exposure_microusd=sum(
+            item.charged_microusd for item in state.attempts if item.status != "settled"
+        ),
+        complete=missing == 0 and unmatched == 0,
+    )
 
 
 class InertRoutingResponse(Contract):
@@ -759,6 +977,18 @@ class SyntheticRoutingMonitor:
     def check(self) -> None:
         if not self.healthy:
             raise ValueError("synthetic routing monitor unavailable")
+
+
+class SyntheticRequiredAlertChannel:
+    """Fixture for required alert delivery and acknowledgment health."""
+
+    def __init__(self) -> None:
+        self.healthy = True
+        self.delivery_acknowledged = True
+
+    def check(self) -> None:
+        if not self.healthy or not self.delivery_acknowledged:
+            raise ValueError("synthetic required alert path unavailable")
 
 
 class SyntheticRouteObservation(Contract):
@@ -1216,6 +1446,8 @@ async def execute_offline_witnessed_routing_transaction(
     monitor: SyntheticRoutingMonitor,
     now: datetime,
     route_probe: SyntheticExactRouteProbe | None = None,
+    audit: SyntheticCohortAuditSink | None = None,
+    alerts: SyntheticRequiredAlertChannel | None = None,
     fault: Callable[[str], None] | None = None,
 ) -> OfflineOutcome:
     """Use one checkpointed control/budget claim before an inert one-use send."""
@@ -1270,8 +1502,19 @@ async def execute_offline_witnessed_routing_transaction(
         and type(route_probe) is not SyntheticExactRouteProbe
     ):
         raise ValueError("offline cohort requires an exact-route observation probe")
+    if witnessed.cohort is not None and (
+        type(audit) is not SyntheticCohortAuditSink
+        or type(alerts) is not SyntheticRequiredAlertChannel
+    ):
+        raise ValueError("offline cohort requires audit and alert fixtures")
     if route_probe is not None:
         route_probe.check(selection, now)
+    if audit is not None:
+        audit.check()
+        if not inspect_offline_cohort_audit(admission, store, audit).complete:
+            raise ValueError("synthetic cohort audit has a missing required link")
+    if alerts is not None:
+        alerts.check()
     monitor.check()
     attempt = WitnessedAttempt(
         attempt_key=envelope.attempt_key,
@@ -1302,6 +1545,10 @@ async def execute_offline_witnessed_routing_transaction(
     cut("before_admission")
     if route_probe is not None:
         route_probe.check(selection, now)
+    if audit is not None:
+        audit.check()
+    if alerts is not None:
+        alerts.check()
     receipt = admission.claim_with_budget(
         attempt=attempt,
         expected_control=local,
@@ -1340,6 +1587,26 @@ async def execute_offline_witnessed_routing_transaction(
     store.record_before_send(intent, writer=_WRITER)
     cut("after_intent")
     try:
+        if audit is not None:
+            audit.record_before_send(
+                SyntheticBeforeSendAudit(
+                    attempt_key=envelope.attempt_key,
+                    owner_id=envelope.owner_id,
+                    cohort_id=envelope.cohort_id,
+                    task_id=envelope.task_id,
+                    session_id=envelope.session_id,
+                    claim_id=receipt.claim_id,
+                    intent_sha256=intent.intent_sha256,
+                    selection_sha256=envelope.selection_sha256,
+                    candidate_id=selection.candidate_id,
+                    control_digest=envelope.control_digest,
+                    witness_generation=receipt.generation,
+                    held_microusd=envelope.maximum_microusd,
+                    recorded_at=now,
+                ),
+                writer=_WRITER,
+            )
+            cut("after_audit")
         current = admission.read_current()
         local_now = sources.control_anchor.snapshot(
             sources.activation_authorities
@@ -1347,6 +1614,12 @@ async def execute_offline_witnessed_routing_transaction(
         monitor.check()
         if route_probe is not None:
             route_probe.check(selection, now)
+        if audit is not None:
+            audit.check()
+            if not inspect_offline_cohort_audit(admission, store, audit).complete:
+                raise ValueError("synthetic cohort audit has a missing required link")
+        if alerts is not None:
+            alerts.check()
         ready = (
             current.control == local
             and local_now == local

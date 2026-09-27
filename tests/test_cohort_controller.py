@@ -19,7 +19,9 @@ from mos_eisley.run.activation_control import RoutingControlAnchorPolicy
 from mos_eisley.run.cohort_controller import OfflineCohortController
 from mos_eisley.run.routing_transaction import (
     OfflineOutcome,
+    SyntheticCohortAuditSink,
     SyntheticExactRouteProbe,
+    SyntheticRequiredAlertChannel,
     SyntheticRouteObservation,
 )
 from mos_eisley.run.witnessed_admission import (
@@ -114,6 +116,10 @@ class CohortControllerTests(TestCase):
                 available=True,
             )
         )
+        self.audit = SyntheticCohortAuditSink.create_witnessed(
+            self.base.root / "cohort-audit.sqlite", admission=self.base.admission
+        )
+        self.alerts = SyntheticRequiredAlertChannel()
         self.shadow = self.release("shadow_only", 0)
         self.controller.enroll_shadow(
             manifest=self.manifest,
@@ -185,7 +191,13 @@ class CohortControllerTests(TestCase):
         )
 
     def execute(self, **changes: object) -> OfflineOutcome:
-        return self.base.execute(route_probe=self.route_probe, **changes)
+        values: dict[str, object] = {
+            "route_probe": self.route_probe,
+            "audit": self.audit,
+            "alerts": self.alerts,
+        }
+        values.update(changes)
+        return self.base.execute(**values)
 
     def bundle(
         self, admission: SyntheticWitnessedAdmission, task_id: str, session_id: str
