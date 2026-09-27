@@ -134,6 +134,11 @@ intent, audit and inert-entry joins, conservative exposure, exact route and
 required-path health, anchored safety metadata and signed stop acknowledgment.
 Synthetic faults produce warning or hard-stop findings without granting stop,
 release or dispatch authority.
+An R5 offline handoff validator now binds an R4 trigger and pre-close
+high-water snapshot to a separately signed close and original-roster follow-up
+packet. It blocks post-trigger assignment, substituted close evidence and
+unreconciled retained exposure; pending or late synthetic follow-up grants no
+assessment authority.
 
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a

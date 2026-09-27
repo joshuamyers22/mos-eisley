@@ -342,6 +342,35 @@ not independently authenticated live evidence. Real cadence, alert delivery,
 signer custody, transport provenance, safety review and operator response
 remain live acceptance gates.
 
+### R5 offline close-and-follow-up rehearsal
+
+The [R5 handoff validator](../src/mos_eisley/run/cohort_close_handoff.py)
+binds a frozen R4 snapshot and trigger, pre-close witnessed state and recovery
+high-water anchor, separately signed `closed` release, and the existing
+metadata-only closeout packet. It requires the original assignment and claim
+roster to survive close, no assignment after the trigger, a sequential closed
+release within the frozen close latency, consistent checkpoint/audit/recovery
+sources, packet intent links that match the durable store, and complete
+follow-up indexing against the original roster. It
+compares witnessed unresolved exposure with independently retained exposure;
+a higher unreconciled high-water amount blocks a reviewable handoff. Its result
+is `blocked`, `pending_followup` or `reviewable`, with literal false close,
+re-entry, assessment and dispatch authority.
+
+The [R5 tests](../tests/test_cohort_r5_close_followup.py) join an R4 hard-stop
+finding to a separately signed stop and close, preserve a no-dispatch task in
+the denominator, deny new attempts and release renewal, keep pending and
+missing follow-up visible, reject a replacement roster, and make a late
+synthetic follow-up only structurally reviewable. They also cover a registered
+cutoff, an assignment slipping into the close delay, trigger/release
+substitution, and independently retained exposure that the base closeout
+packet cannot account for. Run
+`uv run --frozen python -m unittest tests.test_cohort_r5_close_followup` from
+the repository root. The R4 snapshot and follow-up references are synthetic
+metadata; this fixture neither authenticates real custody nor reads protected
+outcomes or sampling assignments. It does not close an actual cohort or issue
+an assessment decision.
+
 ## Operating sequence
 
 | Phase | Entry check and action | Exit evidence / stop condition |
