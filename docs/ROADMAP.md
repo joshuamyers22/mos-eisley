@@ -72,9 +72,13 @@ broader oracle validity, dependence and six-arm feasibility still deny G3
 source enrollment. The public identifier manifest grants no holdout authority.
 The [bounded candidate frame](G3_SWE_REBENCH_CANDIDATE_FRAME.md) now freezes
 four issue-only task packets from a deterministic 12-row inspection batch,
-with original-issue and base-license checks. The complete model-visible
-workspace, casewise oracle controls, dependence and feasibility remain open;
-none of the four is enrolled or production evidence.
+with original-issue and base-license checks. The subsequent
+[execution-view audit](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md) verified four
+pinned base trees and isolated workspaces. Policy-bot passed three fresh
+offline base/gold/wrong whole-suite rounds; carapace, osv-scanner and revive
+failed their declared whole-suite oracles. Rights, historical exposure,
+dependence, six-arm feasibility and owner method review remain open; none of
+the four is enrolled or production evidence.
 
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.

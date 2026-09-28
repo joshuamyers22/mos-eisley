@@ -59,6 +59,14 @@ solution/test metadata from the task packets. This is a row-projection
 milestone only: the repository workspace, broader oracle, eligible case
 inventory, dependence, cost feasibility and single-human governance are still
 open. No case or outcome was enrolled.
+The [execution-view follow-up](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md)
+authenticated all four pinned base trees, isolated task workspaces from image
+Git history and operator patches, and ran offline whole-suite controls. One
+policy-bot view passed three fresh base/gold/wrong rounds with an independent
+parser; the other three failed their declared whole-suite oracles. This is a
+bounded preproduction source result only. Rights, historical exposure,
+eligible inventory, dependence, six-arm spend/sample feasibility and the
+single-human verifier amendment remain open; no case or outcome was enrolled.
 
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring

@@ -96,14 +96,17 @@ IDs, evaluator, image metadata, original issue URL, future Git references,
 or oracle logs. The task text is untrusted source data: any commands in it
 are part of a bug report, not harness authority. A future workspace must
 remove or hide `.git` and future history, block network access and check the
-base tree for answer-bearing files before dispatch. That workspace does not
-exist in this package, so the **complete execution view is not yet cleared**.
-The issue-only row projection is frozen and audited; no model or study arm ran.
+base tree for answer-bearing files before dispatch. At the time this frame
+was frozen, the **complete execution view was not yet cleared**. The later
+[four-case execution-view audit](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md)
+created isolated base workspaces and found one bounded offline pass and three
+failed whole-suite oracles. The issue-only row projection remains frozen; no
+model or study arm ran.
 
 The [verification record](G3_SWE_REBENCH_CANDIDATE_FRAME_VERIFICATION.md)
 gives the exact rebuild command, GitHub cross-checks, hashes, negative
-checks and quality gate. The next source task is a bounded base-workspace
-inspection and independent oracle controls on these exact candidates. A
-subsequent source/method decision still requires Joshua's outcome-blind review,
+checks and quality gate. The subsequent [execution-view verification](G3_SWE_REBENCH_EXECUTION_VIEW_VERIFICATION.md)
+records the base-workspace inspection and independent oracle controls. A
+source/method decision still requires Joshua's outcome-blind review,
 defensible dependence design, six-arm sample/spend feasibility and the
 single-human verifier amendment before registration or enrollment.
