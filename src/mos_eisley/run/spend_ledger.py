@@ -287,6 +287,104 @@ class SpendLedger:
             )
             return True
 
+    def count_only_violation_status(self, entry_id: str) -> LedgerReconciliation | None:
+        """Read the separate audit for a released count-only violation."""
+        with self._transaction() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                "AND name = 'count_only_violation_reconciliations'"
+            ).fetchone()
+            if exists is None:
+                return None
+            row = connection.execute(
+                "SELECT reservation_sha256, previous_charged, "
+                "evidence_sha256, authority_sha256 "
+                "FROM count_only_violation_reconciliations WHERE entry_id = ?",
+                (entry_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return LedgerReconciliation(
+                entry_id=entry_id,
+                reservation_sha256=row[0],
+                previous_charged_microusd=row[1],
+                reconciled_charged_microusd=0,
+                evidence_sha256=row[2],
+                authority_sha256=row[3],
+            )
+
+    def reconcile_count_only_violation(self, adjustment: LedgerReconciliation) -> bool:
+        """Release one exact violation after caller verifies count-only evidence.
+
+        This trusted-host operation is deliberately narrower than a general
+        violation override: the only destination is a zero-charge settlement.
+        The original violation receipt is retained by the caller unchanged.
+        """
+        adjustment = LedgerReconciliation.model_validate_json(
+            canonical_bytes(adjustment)
+        )
+        if (
+            adjustment.previous_charged_microusd <= 0
+            or adjustment.reconciled_charged_microusd != 0
+        ):
+            raise ValueError(
+                "count-only violation requires an exact zero-charge release"
+            )
+        with self._transaction() as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS count_only_violation_reconciliations ("
+                "entry_id TEXT PRIMARY KEY, reservation_sha256 TEXT NOT NULL, "
+                "previous_charged INTEGER NOT NULL CHECK(previous_charged > 0), "
+                "evidence_sha256 TEXT NOT NULL, authority_sha256 TEXT NOT NULL) STRICT"
+            )
+            expected = (
+                adjustment.reservation_sha256,
+                adjustment.previous_charged_microusd,
+                adjustment.evidence_sha256,
+                adjustment.authority_sha256,
+            )
+            prior = connection.execute(
+                "SELECT reservation_sha256, previous_charged, "
+                "evidence_sha256, authority_sha256 "
+                "FROM count_only_violation_reconciliations WHERE entry_id = ?",
+                (adjustment.entry_id,),
+            ).fetchone()
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status "
+                "FROM entries WHERE entry_id = ?",
+                (adjustment.entry_id,),
+            ).fetchone()
+            if prior is not None:
+                if prior != expected or row != (
+                    adjustment.reservation_sha256,
+                    adjustment.previous_charged_microusd,
+                    0,
+                    "settled",
+                ):
+                    raise ValueError(
+                        "count-only reconciliation differs from retained entry"
+                    )
+                return False
+            if row != (
+                adjustment.reservation_sha256,
+                adjustment.previous_charged_microusd,
+                adjustment.previous_charged_microusd,
+                "violation",
+            ):
+                raise ValueError(
+                    "count-only reconciliation requires exact violation hold"
+                )
+            connection.execute(
+                "INSERT INTO count_only_violation_reconciliations "
+                "VALUES (?, ?, ?, ?, ?)",
+                (adjustment.entry_id, *expected),
+            )
+            connection.execute(
+                "UPDATE entries SET charged = 0, status = 'settled' WHERE entry_id = ?",
+                (adjustment.entry_id,),
+            )
+            return True
+
     @contextmanager
     def guard_held(
         self, expected: LedgerEntry
