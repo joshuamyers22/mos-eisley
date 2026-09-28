@@ -151,14 +151,12 @@ def preflight_initial_final(
     if (
         not grant.suite_id.startswith("g4-q3-real-initial-final-")
         or grant.policy_sha256 != chain.policy.policy_sha256
-        or grant.provenance_sha256
-        != digest(canonical_bytes(chain.signed_integration))
+        or grant.provenance_sha256 != digest(canonical_bytes(chain.signed_integration))
         or grant.candidate_receipt_sha256 != inputs.candidate.receipt_sha256
         or grant.source_revision != integrated
         or grant.creator_test_suite_sha256
         != chain.creator.approval.creator_test_suite_sha256
-        or grant.creator_package_sha256
-        != inputs.creator_package.frozen_package_sha256
+        or grant.creator_package_sha256 != inputs.creator_package.frozen_package_sha256
         or grant.reviewer_package_sha256 != chain.package.frozen_package_sha256
         or grant.reviewer_binding_sha256 != chain.binding.binding_record_sha256
         or grant.creator_request_sha256 != inputs.creator_request.request_sha256
@@ -244,9 +242,7 @@ def verify_initial_final_receipt(
     ):
         raise ValueError("final-suite receipt differs from frozen requests")
     preflight_initial_final(receipt.approval, inputs, now=receipt.started_at)
-    _verify_claim(
-        inputs.final_store, inputs.candidate.receipt_sha256, receipt.approval
-    )
+    _verify_claim(inputs.final_store, inputs.candidate.receipt_sha256, receipt.approval)
     chain = inputs.chain
     verify_creator_test_execution_receipt(
         receipt.creator_execution,

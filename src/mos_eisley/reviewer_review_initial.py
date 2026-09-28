@@ -88,6 +88,73 @@ class G4InitialReviewBundle:
     context: G4InitialReviewContext
 
 
+def _verified_evidence_packet(
+    final_receipt: G4FinalWholeSuiteReceipt,
+    inputs: G4InitialFinalInputs,
+    lineage: G4InitialReviewLineageRecord,
+) -> str:
+    """Expose replay-verified signed lineage to critics within Brief's bound."""
+    chain = inputs.chain
+    artifacts = (
+        ("provenance_policy", chain.policy),
+        ("signed_creator_approval", chain.creator),
+        ("signed_reviewer_custody", chain.custody),
+        ("signed_child_assignment", chain.assignment),
+        ("signed_child_dispatch_approval", chain.dispatch.approval),
+        ("signed_child_dispatch_receipt", chain.dispatch),
+        ("signed_integration_record", chain.signed_integration),
+        ("signed_candidate_approval", inputs.candidate.approval),
+        ("signed_final_suite_approval", final_receipt.approval),
+    )
+    lines = [
+        "G4 initial-child qualification evidence, version 2.",
+        "All artifacts below were checked against the exact current Git source, "
+        "frozen reviewer package, child execution, and passing offline suites "
+        "before this review subject was built. JSON is canonical; each digest "
+        "identifies the complete adjacent artifact.",
+        "Scope: this is a real initial-child path. Prior failed candidates, "
+        "adjudication, and correction triage belong to the separate correction "
+        "path and are not prerequisites for this initial-child claim. Critic and "
+        "judge observations and the creator's review decision follow this "
+        "subject; they cannot be evidence inside their own input.",
+    ]
+    for name, artifact in artifacts:
+        payload = canonical_bytes(artifact)
+        lines.append(f"[{name}] sha256={digest(payload)}")
+        lines.append(payload.decode("utf-8"))
+    summary = {
+        "initial_lineage_sha256": lineage.record_sha256,
+        "source_revision": lineage.source_revision,
+        "integrated_binding_sha256": chain.binding.binding_record_sha256,
+        "frozen_reviewer_package_sha256": chain.package.frozen_package_sha256,
+        "frozen_creator_package_sha256": inputs.creator_package.frozen_package_sha256,
+        "known_controls_validated": chain.controls.controls_validated,
+        "known_good_expectation_satisfied": (
+            chain.controls.known_good.role_expectation_satisfied
+        ),
+        "known_bad_expectation_satisfied": (
+            chain.controls.known_bad.role_expectation_satisfied
+        ),
+        "candidate_receipt_sha256": inputs.candidate.receipt_sha256,
+        "candidate_tests_passed": inputs.candidate.candidate_tests_passed,
+        "final_suite_receipt_sha256": final_receipt.receipt_sha256,
+        "creator_suite_passed": (
+            final_receipt.creator_execution.role_expectation_satisfied
+        ),
+        "reviewer_suite_passed": (
+            final_receipt.reviewer_execution.role_expectation_satisfied
+        ),
+        "final_suites_passed": final_receipt.final_suites_passed,
+        "production_child_receipt_sha256": chain.production.receipt_sha256,
+    }
+    lines.append("[verified_outcomes_and_bindings]")
+    lines.append(json.dumps(summary, separators=(",", ":"), sort_keys=True))
+    result = "\n".join(lines)
+    if len(result) > 32_000:
+        raise ValueError("verified initial review evidence exceeds brief bound")
+    return result
+
+
 def build_initial_review_subject(
     final_receipt: G4FinalWholeSuiteReceipt,
     inputs: G4InitialFinalInputs,
@@ -145,17 +212,7 @@ def build_initial_review_subject(
         base_revision=base,
         source_revision=source,
     )
-    constraints = json.dumps(
-        {
-            "creator_package_sha256": inputs.creator_package.frozen_package_sha256,
-            "final_suite_receipt_sha256": final_receipt.receipt_sha256,
-            "reviewer_package_sha256": chain.package.frozen_package_sha256,
-            "source_revision": source,
-            "initial_lineage_sha256": lineage.record_sha256,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    constraints = _verified_evidence_packet(final_receipt, inputs, lineage)
     subject = G4ReviewSubject(
         provenance_sha256=lineage.record_sha256,
         final_suite_receipt_sha256=final_receipt.receipt_sha256,
@@ -184,9 +241,7 @@ def assess_initial_single_operator_review(
     judge: G4SingleOperatorJudgeObservation,
     decision: SignedG4SingleOperatorReviewDecision,
 ) -> G4SingleOperatorReviewRecord:
-    bundle = build_initial_review_subject(
-        final_receipt, inputs, approved_plan_path
-    )
+    bundle = build_initial_review_subject(final_receipt, inputs, approved_plan_path)
     context = cast(AuthenticatedG4ProvenanceRecord, bundle.context)
     return assess_single_operator_review(
         bundle.subject, context, authority, critics, judge, decision
