@@ -22,8 +22,8 @@ included signed artifact has its canonical bytes and SHA-256 in the packet. The
 remaining verified bindings and test outcomes are summarized. The packet has an
 explicit 32,000 character ceiling and stays in a separately frozen review subject.
 No signing key, API credential, raw provider response, or protected test source is
-added. A fresh review authority, separate exact one-use provider grants, and a
-new ledger are required for any live calls. One human signer does not establish
+added. A verified exact review authority, separate one-use provider grants, and a
+bounded ledger are required for any live calls. One human signer does not establish
 independent human review or G4 acceptance.
 
 Selected guidance: `docs/PYTHON_ENGINEERING_GUIDE.md`,
@@ -38,3 +38,12 @@ two-provider review with a separately signed creator decision. A new `accept`
 verdict may close this evidence finding; a new `revise` remains open. Stop if a
 signature, source revision, packet bound, or spending authorization fails. The
 private prior review artifacts must not be overwritten or reused as authority.
+
+The first Anthropic token count on the expanded packet exceeded the previous
+16,000-token envelope before a Messages response was recorded. Its exact one-use
+grant is spent; the old ledger retains a blocked USD 0.104960 violation hold. The
+broker now permits an explicitly signed maximum of 32,000 input tokens, which has
+a USD 0.168960 maximum hold at the pinned pricing and 4,096 output tokens. A
+boundary test checks that limit and rejects 32,001 tokens. Any further call uses
+a fresh grant and ledger; the old hold remains visible until separately resolved
+with provider-side evidence.
