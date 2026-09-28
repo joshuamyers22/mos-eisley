@@ -4,6 +4,10 @@
 - Owner: Joshua Myers
 - Date: 2026-09-27
 
+Joshua's [2026-09-28 timing decision](adr/0011-defer-studies-until-production.md)
+requires Mos Eisley to be in production before any study is executed. This
+contract defines later outcome acceptance; it does not admit a prelaunch cohort.
+
 ## Scope and decision
 
 Once the product has met its applicable launch gates, the acceptance criteria for
@@ -18,9 +22,10 @@ study cohort is approved.
 Offline unit tests, NIST Juliet, SWE-rebench cases, seeded defects, passing
 repository tests, model-judge verdicts, and task-cost estimates can exercise the
 product or calibrate measurement. They do not supply a production success,
-harm, or savings observation. The prospective single-human oracle study in
-[ADR-0010](adr/0010-g3-single-human-oracle-study.md) has its own narrow source
-claim and cannot be reported as production qualification. Research on online
+harm, or savings observation. The single-human oracle proposal in
+[ADR-0010](adr/0010-g3-single-human-oracle-study.md) remains unexecuted until
+production and, if later admitted, has only a narrow source claim rather than
+production qualification. Research on online
 experiments also finds that surrogate metrics can lead to different launch
 decisions from the delayed outcome they approximate; this contract therefore
 keeps the real outcome as the decision target

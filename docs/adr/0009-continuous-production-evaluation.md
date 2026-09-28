@@ -32,6 +32,10 @@ Benchmarks, automated test passes, model-judge scores and cost estimates may
 support diagnostics but cannot substitute for those outcomes in a production
 promotion decision. This clarifies the existing three-level plan; it grants no
 live study authority or numerical threshold.
+Joshua's 2026-09-28 [timing decision](0011-defer-studies-until-production.md)
+additionally bars every study until Mos Eisley is in production. Design and
+engineering checks may proceed before launch, but no cohort or empirical study
+is admitted.
 
 1. Use the **same pinned independent grading rubric** for passive production
    measurement, bounded live comparisons and recurring calibration. Production
@@ -71,9 +75,10 @@ live study authority or numerical threshold.
 - Underpowered owner-specific traffic, unknown inclusion, inadequate label
   follow-up, or an infeasible spend/sample design yields an inconclusive result.
   Full review and fixed eligible routes remain available.
-- The narrow objective-oracle study under ADR-0010 can support its source-bound
-  preproduction claim only. It supplies no real production outcome or shortcut
-  around the prospective live-cohort gates.
+- The narrow objective-oracle proposal under ADR-0010 remains planning only
+  before launch. If separately approved after launch, it can support only its
+  source-bound claim, not a real production outcome or shortcut around the
+  prospective live-cohort gates.
 - The initial [G5 preregistration protocol](../G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
   remains unsealed until its study-specific inputs are supplied. This ADR neither
   fills those inputs nor activates any production experiment.

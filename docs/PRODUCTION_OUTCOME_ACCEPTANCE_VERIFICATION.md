@@ -1,5 +1,10 @@
 # Agentic Verification Loop: Real production outcomes
 
+Historical verification record, 2026-09-27. The later
+[ADR-0011](adr/0011-defer-studies-until-production.md) supersedes its
+preproduction study timing: no study is executed before Mos Eisley is in
+production. The outcome and proxy evidence conclusions below remain applicable.
+
 ## Objective and authority
 
 - Requirement: Joshua directs production test and optimization acceptance to use real outcomes.

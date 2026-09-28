@@ -1,6 +1,11 @@
 # G5 paired whole-task study: preregistration protocol
 
 Status: **design recorded; study not sealed or eligible to run for a G5 claim**.
+Under [ADR-0011](adr/0011-defer-studies-until-production.md), no G5 study is
+executed until Mos Eisley is in production under an explicit launch decision.
+Prelaunch protocol and fixture work are engineering preparation only; launch
+alone does not seal or authorize the study.
+
 This document fixes the analysis and failure rules that can be fixed before
 observing outcomes. The study-specific manifest described below must supply every
 open value, receive independent review, and have its exact digest placed in an

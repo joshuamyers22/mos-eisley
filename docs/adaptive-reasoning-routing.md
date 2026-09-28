@@ -61,7 +61,9 @@ selection uses only that owner's minimal aggregates allowed by §17.3: no raw
 conversations, code, embeddings, exact paths, case fingerprints, or retrieval of
 nearest historical trajectories. Explicit same-owner inspection does not grant a
 standing retrieval permission. An offline study can explicitly select same-owner
-evidence; its resulting selection artifact must still satisfy §17.3. No pooling
+evidence only after the production study-start gate in
+[ADR-0011](adr/0011-defer-studies-until-production.md); its resulting selection
+artifact must still satisfy §17.3. No pooling
 across users. Deletion/reset invalidates dependent aggregates and policies whose
 required evidence is no longer available.
 

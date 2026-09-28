@@ -19,7 +19,7 @@ continuation, compaction or pressure behavior.
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
 | G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
-| G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable utility study, including matched session-policy comparisons after G1; a separate narrow objective-oracle study is approved for planning under ADR-0010 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims; broad ordinary-task qualification remains open |
+| G3 — planning boundaries implemented; all study execution deferred until production | Prepare an affordable real-task utility study and, if useful, the narrow objective-oracle protocol; do not enroll or run either before product launch | Documented launch and actual ordinary production operation plus a separately approved, feasible preregistered sample/spend design, protected holdout and real owner-task outcomes; quality gates before savings claims; broad ordinary-task qualification remains open |
 | G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance, a passing corrected candidate and separately granted passing final creator/reviewer whole suites replay-verify; the original branch is untouched. Independent review remains open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites on a real child and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
@@ -42,6 +42,15 @@ and tested stop/rollback path. Newly fitted policies stay shadow-only until G5
 qualification; within-cohort adaptive selection needs the separate G7/R4 gate.
 See [ADR 0009](adr/0009-continuous-production-evaluation.md) for the decision and
 operational consequences.
+
+**Study timing, 2026-09-28:** Joshua directed that no studies begin or continue until
+Mos Eisley is in production. [ADR-0011](adr/0011-defer-studies-until-production.md)
+defers G3, G5, the narrow oracle proposal and all continuous production cohorts.
+Before launch, source audits, protocol drafting, fixture tests and product
+qualification remain engineering preparation only. No case enrollment, study
+assignment or outcome-bearing study run is authorized; launch alone will not
+authorize one. Capabilities dependent on G3/G5 evidence remain gated.
+
 Joshua's 2026-09-27 [real-outcome criterion](PRODUCTION_OUTCOME_ACCEPTANCE.md)
 requires mature, verified outcomes of actual owner-authorized tasks for any
 production effectiveness, harm or savings decision. Fixture, oracle and benchmark
@@ -58,9 +67,10 @@ His actual review remains pending; independent label grading and all other G3
 gates remain required.
 
 The [single-human objective-oracle direction](adr/0010-g3-single-human-oracle-study.md)
-is approved for planning. No source, oracle, revised verifier, signed labels,
-cohort or study spend is approved by that decision. Its possible claim is limited
-to the audited oracle-verifiable frame.
+is approved for planning only; execution waits for product production launch.
+No source, oracle, revised verifier, signed labels, cohort or study spend is
+approved by that decision. Its possible claim is limited to the audited
+oracle-verifiable frame.
 That study cannot stand in for the real-task production outcome criterion.
 The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
 and identified answer leakage, related cases and oracle limitations; no study

@@ -6,8 +6,11 @@ Recorded review remains the default; an explicit one-prompt OpenAI command is
 available. Paid commands remain tool-free; an explicit MCP adapter supplies data
 tools to the canonical agent port. The private owning-library critic/judge path has
 completed its exact three-slot G2 qualification, but there is no public live-review
-command or automatic activation. The project can plan and score offline model/effort
-evaluations, while automatic routing remains disabled.
+command or automatic activation. Offline model/effort evaluation planning and
+scoring tools exist, while automatic routing remains disabled. Study execution
+is deferred until Mos Eisley is launched and operating in production on real
+owner-authorized tasks; see
+[ADR-0011](docs/adr/0011-defer-studies-until-production.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)

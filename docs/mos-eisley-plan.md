@@ -68,6 +68,13 @@ bounded preproduction source result only. Rights, historical exposure,
 eligible inventory, dependence, six-arm spend/sample feasibility and the
 single-human verifier amendment remain open; no case or outcome was enrolled.
 
+**Study timing, 2026-09-28:** Joshua directed that no studies are done until Mos
+Eisley is in production. [ADR-0011](adr/0011-defer-studies-until-production.md)
+supersedes the earlier preproduction execution path for G3, G5 and the narrow
+oracle proposal. Protocol design, source audits and product tests remain
+engineering preparation; they do not enroll cases or establish study results.
+Production launch alone does not approve a cohort or waive any quality gate.
+
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring
 reviewed calibration and promotion. It keeps the existing grading rubric fixed and
@@ -4196,20 +4203,24 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 | G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry; §§6.6–6.7 artifact/view, work-unit/checkpoint schemas, cumulative input metrics and offline instruction/tool-profile diagnostics | Versioned clause/decision/outcome and task-state fixtures, truthful unknowns, old replay compatibility, owner boundaries, bounded views with disclosed loss; required-tool omission, stale state and budget-reset negative cases |
 | G1 — usable product slice | G0; recorded conversation controller; L1 reading experiment; author compaction, explicit checkpoint continuation, pressure indicators and reusable-memory/task-state separation | Conversation → frozen review → visible result → cancel/resume; milestone → checkpoint → fresh continuation detects changed tree/tests and completes with obligations/ledgers intact; duplicate handoff, blindness, stale approval, compaction reconstruction and overflow-stop tests pass |
 | G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
-| G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; G1 for session-policy comparisons; live claims require G2 | Sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading; matched and held-out context-policy completion, missed-evidence/stale-state, latency, cumulative-input and total-cost report; quality gates pass before claiming savings |
-| G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
-| G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
+| G3 — feasible utility study, deferred until production | Product production launch plus G0, L4 labels and authenticated matrix chain; G1 for session-policy comparisons; applicable G2/G4 live capability gates | Before launch, only protocol and feasibility preparation. After launch, sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading and real owner-task completion, missed-evidence/stale-state, latency, cumulative-input and total-cost outcomes; quality gates pass before claiming savings |
+| G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate for comparative claims or dependent capabilities | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
+| G5 — qualified simplification, deferred until production | Postlaunch G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired complete-workflow evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline; production claims require separate real-task outcomes under §26.6 |
 | G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
-
-G3 and G5 offline evidence can qualify only their declared preproduction tasks
-and policies. A production effectiveness, harm or savings claim additionally
-requires the real-task outcome contract in §26.6; an oracle-backed case cannot
-be counted as a production task merely because its tests were run in a live
-environment.
 | G7 — advanced adaptive methods | G5/G6 as applicable; R4 | Independent benefit from transfer, output-budget routing, bandits or within-cohort adaptation; separately reviewed sequential/statistical and activation protocol |
 
-G0/G1 can proceed while G2's live boundary is finished. Planning and labeling do not
-require machine-write authority; live evaluation does not wait for coding autonomy.
+Before production launch, G3 and G5 work is limited to protocol design and
+engineering diagnostics; no study is executed. After launch, an oracle-backed
+study may make only its declared source-bound claim. A production effectiveness,
+harm or savings claim requires the real-task outcome contract in §26.6; an
+oracle-backed case cannot be counted as a production task merely because its
+tests were run in a live environment. Capabilities that depend on G3/G5 study
+evidence remain gated until the applicable postlaunch study qualifies them.
+
+G0/G1 can proceed while G2's live boundary is finished. Protocol planning and
+engineering fixtures do not require machine-write authority; empirical study
+labeling and live evaluation wait for production launch and their separate gates.
+Coding autonomy is not a blanket prerequisite for a read-only production task.
 G4 can be developed in inert fixtures before its production gates pass. Skills and
 provider extensions retain their separate release gates and do not substitute for
 this sequence. The revised designs are approved planning inputs, not evidence that
@@ -4312,9 +4323,10 @@ Within G0, freeze the shared records and counting definitions before implementin
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,
 fresh continuation and pressure indicators under §6.7. Do not introduce a parallel
-roadmap or wait for deferred executable doctor/SecretRef subsystems. A G3 study may
-evaluate available policies incrementally; label unavailable arms and keep live
-quality/savings claims behind their applicable provider and measurement gates.
+roadmap or wait for deferred executable doctor/SecretRef subsystems. After product
+production launch and separate study admission, a G3 study may evaluate available
+policies incrementally; label unavailable arms and keep quality/savings claims
+behind their applicable provider and measurement gates.
 
 **Implementation status, 2026-09-21:** the six G1 implementation slices are complete.
 At the conversation request boundary, a scope-bound profile is revalidated
@@ -4371,6 +4383,17 @@ evidence proves a quality or savings claim. Keep those statements separate in ea
 milestone review and in the CLI's availability/status output.
 
 ### 26.6 Continuous production study and calibration
+
+**Study start boundary, 2026-09-28:** From this decision forward, no study
+begins or continues before Mos Eisley is launched and operating in production
+on real owner-authorized tasks. This includes G3, G5, the narrow objective-oracle
+proposal and all three levels below. Before launch, only protocol preparation,
+source audits, fixture tests and product qualification
+may proceed; none is a study cohort or outcome-bearing evaluation. After launch,
+each study still needs its own prospective manifest, reviewed resource and safety
+limits, applicable quality gates and separate execution authority. A launch
+decision alone is insufficient for study admission. See
+[ADR-0011](adr/0011-defer-studies-until-production.md).
 
 **User direction, 2026-09-25 — planned, not enabled:** study and calibrate Mos Eisley
 continually using live production tasks. Deliver three explicit levels in order:

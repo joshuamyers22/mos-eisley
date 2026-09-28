@@ -139,5 +139,8 @@ decisions do not alter its sampling status. Joshua must decide whether the
 single passing source can enter a prospective candidate pool and must review
 rights, historical exposure, dependence, the six-arm sample/spend design,
 the single-human verifier amendment, and externally timestamped registration
-before any label, assignment or outcome-bearing run. A single passing public
-case cannot establish that pool's feasibility or a production outcome.
+before any label, assignment or outcome-bearing run. Under
+[ADR-0011](adr/0011-defer-studies-until-production.md), those study actions also
+wait until Mos Eisley is in production; current source audits remain engineering
+preparation. A single passing public case cannot establish that pool's
+feasibility or a production outcome.

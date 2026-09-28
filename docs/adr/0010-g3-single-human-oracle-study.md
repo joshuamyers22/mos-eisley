@@ -1,6 +1,6 @@
 # ADR-0010: Narrow G3 objective-oracle study with one human
 
-- Status: accepted planning direction; source, method, and cohort not sealed
+- Status: accepted planning direction; execution deferred until production under ADR-0011
 - Date and owner: 2026-09-27, Joshua Myers
 
 ## Context and options
@@ -16,6 +16,8 @@ The owner approved a **narrow objective-oracle study** as the single-human
 planning direction. The options were to wait for independent human graders, run
 an owner-operated descriptive pilot, or prospectively design a separate study
 whose eligible cases have a reproducible external ground-truth oracle.
+Joshua's later [study-timing decision](0011-defer-studies-until-production.md)
+defers every study, including this one, until Mos Eisley is in production.
 
 ## Decision and consequences
 
@@ -37,10 +39,11 @@ study's possible claim is performance on its defined oracle-verifiable frame;
 it does not satisfy the original broad G3 ordinary-task qualification or any G5/G6
 promotion gate by itself.
 Joshua's later [real production outcome direction](../PRODUCTION_OUTCOME_ACCEPTANCE.md)
-also limits this oracle study to preproduction calibration or its explicitly
-source-bound claim. A public case replay, even if executed on production
-infrastructure, is not an observed outcome of a real owner task and cannot enter
-a production completion, harm or savings denominator.
+limits any eventual oracle study to its explicitly source-bound claim. Before
+product launch, public-case audits are engineering calibration only, not an
+executed study. A public case replay, even if executed on production
+infrastructure after launch, is not an observed outcome of a real owner task
+and cannot enter a production completion, harm or savings denominator.
 
 NIST's [Juliet C/C++ 1.3 suite](https://samate.nist.gov/SARD/test-suites/112)
 was subsequently authorized for a [source audit](../G3_JULIET_SOURCE_AUDIT.md),
@@ -64,13 +67,16 @@ controls strengthen the one-case claim only; no source was admitted.
 The proposed harm margins, $200,000 planning ceiling, and six arm names in the
 owner review package remain proposals. This decision grants no spending, provider
 execution, signed-label issuance, empirical registration, qualification, or live
-routing authority. Reversal is possible before a cohort is registered; after
-registration, a changed design needs a new prospective version and fresh holdout.
+routing authority. No cohort can be registered before production launch. Reversal
+is possible before a cohort is registered; after registration, a changed design
+needs a new prospective version and fresh holdout.
 
 ## Verification
 
-Before any empirical seal, verify a named authorized source and immutable case
-inventory or generation recipe; independently reproduce oracle results on
+Source and oracle controls may be audited before launch as engineering
+preparation. Before any empirical seal, verify the production launch record,
+a named authorized source and immutable case inventory or generation recipe;
+independently reproduce oracle results on
 predeclared controls; establish source-family grouping and known selection/label
 observation probabilities; reproduce the revised feasibility and inference
 calculation; review exact arm implementations and costs; test the new verifier's
