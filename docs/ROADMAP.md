@@ -70,6 +70,11 @@ verified all 32,079 source identifiers and repeated one public oracle with
 independent-parser and wrong-repair controls. Rights, leakage-safe task views,
 broader oracle validity, dependence and six-arm feasibility still deny G3
 source enrollment. The public identifier manifest grants no holdout authority.
+The [bounded candidate frame](G3_SWE_REBENCH_CANDIDATE_FRAME.md) now freezes
+four issue-only task packets from a deterministic 12-row inspection batch,
+with original-issue and base-license checks. The complete model-visible
+workspace, casewise oracle controls, dependence and feasibility remain open;
+none of the four is enrolled or production evidence.
 
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.

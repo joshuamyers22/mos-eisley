@@ -52,6 +52,13 @@ The [full-release follow-up](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md) pinned the
 independent-parser controls. It still found no verified eligible frame,
 leakage-safe projection, broad casewise oracle, reviewed dependence or feasible
 six-arm cost design; no source was admitted.
+The [bounded candidate follow-up](G3_SWE_REBENCH_CANDIDATE_FRAME.md) fixes a
+12-row source inspection batch and four issue-only task packets, verifies their
+original issue provenance and exact base-commit license files, and excludes
+solution/test metadata from the task packets. This is a row-projection
+milestone only: the repository workspace, broader oracle, eligible case
+inventory, dependence, cost feasibility and single-human governance are still
+open. No case or outcome was enrolled.
 
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring

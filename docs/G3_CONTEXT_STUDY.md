@@ -27,9 +27,12 @@ replayed one SWE-rebench V2 repository task with a discriminating test oracle.
 The subsequent [full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
 verified all 32,079 public source identifiers and repeated one case's oracle
 with wrong-repair and independent-parser controls. The release remains
-unqualified for G3: a verified eligible inventory, leakage-safe task view,
-per-case rights, broad oracle audit and dependence groups remain open. Neither
-audit created signed labels or a cohort.
+unqualified for G3. A later [bounded source screen](G3_SWE_REBENCH_CANDIDATE_FRAME.md)
+froze four issue-only packets from a 12-row audit batch and checked their
+original issue text and base-commit license files. That closes only the
+row-derived projection for these four candidates. Base-workspace leakage,
+complete case rights, oracle controls, eligible inventory, dependence and
+feasibility remain open. None of these audits created signed labels or a cohort.
 
 ## Statistical-method review assignment
 
