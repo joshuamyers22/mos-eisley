@@ -65,6 +65,11 @@ That study cannot stand in for the real-task production outcome criterion.
 The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
 and identified answer leakage, related cases and oracle limitations; no study
 cases or labels have been admitted from it.
+The [SWE-rebench V2 full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified all 32,079 source identifiers and repeated one public oracle with
+independent-parser and wrong-repair controls. Rights, leakage-safe task views,
+broader oracle validity, dependence and six-arm feasibility still deny G3
+source enrollment. The public identifier manifest grants no holdout authority.
 
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.

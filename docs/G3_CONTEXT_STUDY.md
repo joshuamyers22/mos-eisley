@@ -24,9 +24,12 @@ Its checksum is verified, but its case annotations and known limitations do not
 yet supply an objective oracle or independent groups for a confirmatory cohort.
 The subsequent [oracle case-source qualification](G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
 replayed one SWE-rebench V2 repository task with a discriminating test oracle.
-The full release remains unqualified for G3: its eligible inventory, leakage-safe
-task view, rights and dependence groups have not been audited. The replay did
-not create signed labels or a cohort.
+The subsequent [full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified all 32,079 public source identifiers and repeated one case's oracle
+with wrong-repair and independent-parser controls. The release remains
+unqualified for G3: a verified eligible inventory, leakage-safe task view,
+per-case rights, broad oracle audit and dependence groups remain open. Neither
+audit created signed labels or a cohort.
 
 ## Statistical-method review assignment
 

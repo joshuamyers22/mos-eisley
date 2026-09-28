@@ -4,6 +4,12 @@
 - Decision owner: Joshua Myers
 - Assessment status: evidence record for owner review; no source or cohort seal
 
+The subsequent [full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified the 32,079-row source file and a metadata-only identifier inventory,
+found unresolved rights and task-view exposure, and repeated the one-case oracle
+with an independent JSON parser and wrong-repair control. It still recommends
+**no G3 source admission**. The one-case result below is the initial screen.
+
 ## Decision
 
 **SWE-rebench V2 is a promising source candidate, but it is not qualified for the
@@ -36,7 +42,7 @@ not an approved threshold to carry forward.
 
 | Item | Pinned or observed evidence | Qualification meaning |
 |---|---|---|
-| Full SWE-rebench V2 release | Hugging Face `nebius/SWE-rebench-V2` HEAD observed as `475dd5e8703bb5fb22dd3c60b5d038b019eba1e0` on 2026-09-27. The [dataset card](https://huggingface.co/datasets/nebius/SWE-rebench-V2/blob/main/README.md) reports 32,079 tasks and a CC BY 4.0 dataset license, with per-repository license fields. Full data were not downloaded or enumerated here. | Published scale and license are candidate-level facts, not an eligible inventory or redistribution clearance for any selected repository. |
+| Full SWE-rebench V2 release | Hugging Face `nebius/SWE-rebench-V2` HEAD observed as `475dd5e8703bb5fb22dd3c60b5d038b019eba1e0` on 2026-09-27. The [dataset card](https://huggingface.co/datasets/nebius/SWE-rebench-V2/blob/main/README.md) reports 32,079 tasks and a CC BY 4.0 dataset license, with per-repository license fields. This initial screen did not download or enumerate the full file; the later [full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md) did. | Published scale and license are candidate-level facts, not an eligible inventory or redistribution clearance for any selected repository. |
 | Source method | [Paper v2](https://arxiv.org/html/2602.23866v2) reports 32,079 issue-linked executable tasks from 3,617 repositories, at least one fail-to-pass test per retained task, and three stable validation runs. It also documents test coupling, external-dependency and environment limitations. | Source claims support screening; they are not independent G3 oracle certification. Repository count is not an independence-group count. |
 | Builder | [Official builder](https://github.com/SWE-rebench/SWE-rebench-V2) commit `c71902a8cf8d2b725f63d51f199f4d3e56f68d2d`. `scripts/eval.py` applies both code and test patches before running the task's test command and parsing output. | The evaluation mechanism is inspectable; its generated parser and expected test IDs still require case-level validation. |
 | Public sample | [20-task sample](https://huggingface.co/datasets/ibragim-bad/SWE-rebench-V2-sample) commit `9a7cd16b2431fc9f0abaf4c359e21fd3fae12ae3`; Parquet file 369,984 bytes, SHA-256 `db780c904275b75730a94e2697695cd2dda66fa9a560c61bea0340f97493144f`. | A screening sample only. It is not the full eligible frame; this sample lacks the full dataset's per-row `license` field. |

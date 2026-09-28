@@ -47,6 +47,11 @@ reproduced one public SWE-rebench V2 fail-before/pass-after test oracle under
 controlled execution, but found no audited eligible frame, leakage-safe task
 projection or defensible independent groups. It therefore does not qualify a
 prospective G3 source or change those open gates.
+The [full-release follow-up](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md) pinned the
+32,079-row public file and repeated the one-case oracle with wrong-repair and
+independent-parser controls. It still found no verified eligible frame,
+leakage-safe projection, broad casewise oracle, reviewed dependence or feasible
+six-arm cost design; no source was admitted.
 
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring
