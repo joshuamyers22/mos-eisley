@@ -1,6 +1,6 @@
 # Work note: separate initial-child creator decision
 
-- Status: prepared for Joshua's local signature
+- Status: Joshua signed; exact acceptance status replay passed
 - Owner: Joshua Myers
 - Date: 2026-09-27
 - Risk: governance and scope error
@@ -25,5 +25,10 @@ two-provider review, signed ADR-0010 exception and exact spending dispositions.
 It binds the signed scope artifact and this decision document by SHA-256.
 Stop on changed source, document, owner key, policy time, signature or claim.
 
-The private signed artifact and provider responses remain outside Git. The
-separate ADR-0011 status replay passed before this decision was prepared.
+The private signed acceptance artifact has SHA-256
+`82442ed2f2b8a67d128394aea625a7f6f063b8ce0ebafa5c2b413123a587ba4f`.
+Its exact status replay passed and confirms acceptance of only the isolated
+real initial-child path at `d7237f5`. The combined creator-led G4 workflow and
+independent human review remain unproven. This decision grants no G3 study pass,
+Git merge, release, production activation, provider call or spending authority.
+The private signed artifact and provider responses remain outside Git.
