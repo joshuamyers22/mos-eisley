@@ -168,6 +168,41 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "base64"):
             _parse_model_proposal(output)
 
+    def test_model_file_normalizes_bounded_ascii_spaces_in_base64(self) -> None:
+        content = b"def quote_cents():\n    return 1\n"
+        encoded = base64.b64encode(content).decode("ascii")
+        output = json.dumps(
+            {
+                "replacements": [
+                    {
+                        "path": "src/demo.py",
+                        "content_base64": encoded[:12] + " " + encoded[12:],
+                    }
+                ],
+                "unresolved_issue_count": 0,
+            }
+        )
+        parsed = _parse_model_proposal(output)
+        self.assertEqual(parsed.replacements[0].content, content)
+        self.assertEqual(parsed.replacements[0].content_base64, encoded)
+        self.assertEqual(parsed.replacements[0].content_sha256, digest(content))
+
+    def test_model_file_rejects_unbounded_spaces_and_other_whitespace(self) -> None:
+        for encoded in ("YW" + " " * 17 + "Jj", "YW\nJj", "YW$Jj"):
+            output = json.dumps(
+                {
+                    "replacements": [
+                        {"path": "src/demo.py", "content_base64": encoded}
+                    ],
+                    "unresolved_issue_count": 0,
+                }
+            )
+            with (
+                self.subTest(encoded=repr(encoded)),
+                self.assertRaisesRegex(ValueError, "base64"),
+            ):
+                _parse_model_proposal(output)
+
     def test_duplicate_model_keys_are_not_interpreted_last_wins(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON keys"):
             _parse_model_proposal(

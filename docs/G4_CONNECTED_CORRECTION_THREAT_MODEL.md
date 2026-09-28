@@ -28,6 +28,7 @@ ledger, and host clock are in scope. No production release is in scope.
 | Change source or tests after approval | Invalid quality claim | Git/manifest/hash replay and renewed approval on change | Trusted local host and Git executable |
 | Replay a grant or exceed task budget | Duplicate charge or work | Exclusive claims, aggregate allowance and ledger | Crash may leave uncertain hold requiring disposition |
 | Expose credential or provider payload | Secret or private-data loss | Hidden local key entry, private audit, bounded model offer | Same-UID host remains trusted |
+| Normalize untrusted model encoding into a different source | Unexpected signed bytes | Permit at most 16 ASCII spaces, then require strict base64 decoding and canonical re-encoding; retain exact raw response in private audit | Provider can still return an incorrect implementation |
 | Infer full G4 from path acceptances | Unsupported milestone claim | Separate connected-run evidence and scoped creator decision | Independent human review remains unproven in one-human mode |
 
 ## Decisions and verification

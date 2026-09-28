@@ -1,6 +1,6 @@
 # Work note: connected G4 initial-to-correction run
 
-- Status: fresh assignment and dispatch signed; exact live grant pending
+- Status: first live attempt failed source decoding; fresh attempt required
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-28
 - Risk: high, because this run can spend money and write an isolated target Git tree
@@ -60,6 +60,15 @@ The signed one-use dispatch artifact is
 `11e656e68a1116a50070f41584c1fbcf4733f9f544a4075c93900f5bbf2d9742`;
 its exact offer is
 `9fd490d495ff07c1e49b41b7c095820e39786755492d7f18856ce5ea35d5468a`.
-Both signatures replayed against the clean approved base. The next action is
-Joshua's separate exact one-use live grant. No provider call, source integration,
-or test run has been made for this task.
+Both signatures replayed against the clean approved base. The separately signed
+live grant `6b8ca0864ce5…` was used once. OpenAI returned one malformed base64
+field with a single ASCII space; the broker rejected it before child signing.
+The response and audit remain private, and the ledger settled at 3,238
+micro-USD. See the [incident review](G4_CONNECTED_INITIAL_CHILD_ENCODING_INCIDENT_2026-09-28.md).
+No source integration or test run occurred. The spent grant and assignment will
+not be reused; a fresh task needs separate signatures after the parser fix.
+The saved response replays through the corrected parser without signing or
+integrating it. Focused coding-broker (12) and initial-child (4) tests passed;
+Ruff and Pyright passed. `make check` was started with dependency access but
+stopped during the broad test suite after prolonged execution, so the full
+gate is not claimed as passing. The parser change is not published or released.

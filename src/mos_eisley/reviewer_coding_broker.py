@@ -231,7 +231,12 @@ def _parse_model_proposal(output: str) -> _ModelProposal:
     raw = _RawModelProposal.model_validate_json(output)
     replacements: list[G4CorrectionChildSourceFile] = []
     for item in raw.replacements:
-        encoded = item.content_base64
+        # A model can insert a plain space while emitting a long base64 field.
+        # Keep the raw response in the audit, but sign only canonical decoded bytes.
+        raw_encoded = item.content_base64
+        if raw_encoded.count(" ") > 16:
+            raise ValueError("production child source has excessive base64 spacing")
+        encoded = raw_encoded.replace(" ", "")
         if (
             len(encoded) % 4 == 1
             or re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", encoded) is None
