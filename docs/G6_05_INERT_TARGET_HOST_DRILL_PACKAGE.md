@@ -22,8 +22,33 @@ review**. `target_host_verified`, `qualification_authorized` and
 `dispatch_authorized` remain literal false. It cannot inject faults, authenticate
 a host, inspect restricted evidence, verify a person's independence or certify
 that a source digest describes the stated observation.
-Run the fixture checks with
-`uv run --frozen python -m unittest tests.test_routing_host_drills`.
+`validate_joined_inert_host_drill_index` additionally takes the exact
+`OfflineQualificationPacket` and rejects mismatched packet, build, host,
+witness deployment or test-protocol identities; ceilings raised above the
+packet; and a protocol or review outside the packet's validity window. Its
+`packet_checked` field is true and authority fields remain false. The
+standalone index check does not establish this packet binding.
+Protocol schema version 2 also pins `request_maximum_microusd` to the packet's
+exact request maximum. Code-owned fault minimums prevent an oracle from
+lowering required claim/intent bounds or full retained exposure. Index checks
+require a checkpoint advance for acknowledged post-claim cuts and no advance
+before or after an unacknowledged witness-journal commit. O03 after-journal,
+after-checkpoint, after-receipt, after-intent and at-transport rows retain the
+full request maximum; O08 timeout, cancellation, invalid usage, invalid price
+and settlement-fault rows do too. O08 outcome-write failure may show an exact
+checkpointed settlement, so it has no unconditional full-exposure minimum.
+These checks compare reported metadata; the independent reviewer must verify
+the underlying source and actual ordering.
+The qualification validator additionally requires the exact protocol/index,
+matches Q6 to the index digest and O01–O10 to the `drill_case_sha256` of each
+case's fault observations, and compares reported drill totals. Changing the
+index changes the qualification evidence digest and requires new reviews.
+Run the fixture checks with:
+
+```sh
+uv run --frozen python -m unittest \
+  tests.test_routing_host_drills tests.test_routing_qualification
+```
 
 The actual exercise must use the named host and separately operated witness and
 checkpoint topology from a frozen G6-05 packet. Use an inert provider endpoint,
@@ -40,15 +65,18 @@ run. The protocol cannot raise them.
 1. Produce one strict `HostDrillProtocol` JSON file. Set the exact G6-05 packet
    digest, broker build digest, target host and witness deployment IDs, test
    protocol digest, operator/checker IDs, UTC window, worker/crash/admission
-   ceilings and measured stop/alert deadlines from the already approved packet.
-   `paid_provider_calls` must be zero. Include every `(case_id, fault_id)` in
+   ceilings, measured stop/alert deadlines and request maximum from the
+   already approved packet.
+   `paid_provider_calls` must be zero. The host/build/witness/test-protocol
+   identities must match the packet; no protocol ceiling or expiry may exceed
+   its packet limit or decision deadline. Include every `(case_id, fault_id)` in
    `REQUIRED_FAULTS` exactly once, in the module's declared order. For each,
    freeze an `expected_status`, expected-state artifact SHA-256, claim/intent/
    per-attempt transport-entry upper bounds and minimum retained exposure.
    `one_entry` requires exactly one observed local entry; `abandon` requires a
    consumed claim and no entry; `stop_acknowledged` requires a higher independent
-   checkpoint generation. The module pins the permitted status for every named
-   fault, including the positive send and stop-race cases.
+   checkpoint generation. The module pins each named fault's status and the
+   non-weakening claim, intent, checkpoint and full-exposure conditions.
 2. On the named host, run each fault below against inert transport. At each
    barrier, the checker reads the witness/checkpoint, broker intent, independent
    audit and alert states from a separate identity. After a kill, restart with
@@ -66,13 +94,16 @@ run. The protocol cannot raise them.
 
    ```sh
    uv run --frozen python -m mos_eisley.run.routing_host_drills \
-     protocol.json evidence.json --now 2026-09-27T12:00:00+00:00
+     protocol.json evidence.json --qualification-packet packet.json \
+     --now 2026-09-27T12:00:00+00:00
    ```
 
    Use the actual explicit UTC review time. Exit 0 means structurally
    `reviewable`; exit 1 means the index failed. Invalid JSON or a schema error
    also fails the run. The command prints only bounded assessment fields and
-   digests, never source artifact contents.
+   digests, never source artifact contents. A run without
+   `--qualification-packet` checks the index alone and cannot close the
+   G605-02 packet/protocol binding finding.
 5. The independent security reviewer and operations owner inspect the **source
    artifacts** and host topology, reproduce fault ordering, compare the source
    digests, and record pass/fail/unavailable for each O01–O10 in the G6-05

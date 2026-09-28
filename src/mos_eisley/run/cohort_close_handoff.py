@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.cohort_closeout import (
@@ -14,13 +14,21 @@ from mos_eisley.run.cohort_closeout import (
     validate_offline_cohort_closeout,
 )
 from mos_eisley.run.cohort_surveillance import (
+    FrozenR4SurveillanceAnchor,
     OfflineR4SurveillancePacket,
     OfflineR4SurveillanceResult,
+    inspect_offline_r4_surveillance,
 )
+from mos_eisley.run.exact_route import ExactRouteSelection
+from mos_eisley.run.routing_preflight import RoutingRuntimePreflight
 from mos_eisley.run.routing_transaction import (
     FrozenCohortRecoveryAnchor,
+    InertRoutingTransport,
     OfflineTransactionStore,
     SyntheticCohortAuditSink,
+    SyntheticExactRouteProbe,
+    SyntheticRequiredAlertChannel,
+    SyntheticRoutingMonitor,
     inspect_offline_cohort_recovery,
 )
 from mos_eisley.run.witnessed_admission import (
@@ -68,6 +76,131 @@ class OfflineR5CloseResult(Contract):
     reentry_authorized: Literal[False] = False
     assessment_authorized: Literal[False] = False
     dispatch_authorized: Literal[False] = False
+
+
+class OfflineR4TriggerReproduction(Contract):
+    """Read-only pre-close reproduction; a digest needs an external freeze."""
+
+    schema_version: Literal[1] = 1
+    status: Literal["blocked", "reproduced"]
+    reasons: tuple[str, ...]
+    r4_anchor_sha256: Digest
+    r4_packet_sha256: Digest
+    r4_result_sha256: Digest
+    preclose_state_sha256: Digest
+    recovery_anchor_sha256: Digest
+    reproduced_at: datetime
+    close_authorized: Literal[False] = False
+    dispatch_authorized: Literal[False] = False
+
+    @field_validator("reproduced_at")
+    @classmethod
+    def utc_time(cls, value: datetime) -> datetime:
+        return _utc(value)
+
+    @model_validator(mode="after")
+    def consistent_status(self) -> Self:
+        if (
+            (self.status == "reproduced") == bool(self.reasons)
+            or self.reasons != tuple(sorted(set(self.reasons)))
+        ):
+            raise ValueError("R4 trigger reproduction status and reasons conflict")
+        return self
+
+
+def reproduce_offline_r4_trigger(
+    *,
+    protocol: FrozenCloseoutProtocol,
+    close_anchor: FrozenR5CloseAnchor,
+    r4_anchor: FrozenR4SurveillanceAnchor,
+    expected_r4_anchor_sha256: Digest,
+    r4_packet: OfflineR4SurveillancePacket,
+    r4_result: OfflineR4SurveillanceResult,
+    preclose_state: WitnessedState,
+    selection: ExactRouteSelection,
+    preflight: RoutingRuntimePreflight,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+    recovery_anchor: FrozenCohortRecoveryAnchor,
+    route_probe: SyntheticExactRouteProbe,
+    monitor: SyntheticRoutingMonitor,
+    alerts: SyntheticRequiredAlertChannel,
+    transport: InertRoutingTransport,
+    now: datetime,
+) -> OfflineR4TriggerReproduction:
+    """Rerun R4 against current synthetic sources before applying close."""
+    _utc(now)
+    reasons: set[str] = set()
+    r4_anchor_sha256 = digest(canonical_bytes(r4_anchor))
+    r4_packet_sha256 = digest(canonical_bytes(r4_packet))
+    r4_result_sha256 = digest(canonical_bytes(r4_result))
+    recovery_anchor_sha256 = digest(canonical_bytes(recovery_anchor))
+    if r4_anchor_sha256 != expected_r4_anchor_sha256:
+        reasons.add("r4_anchor_mismatch")
+    if now >= close_anchor.valid_until:
+        reasons.add("trigger_anchor_expired")
+    if (
+        close_anchor.manifest_sha256 != protocol.manifest_sha256
+        or close_anchor.closeout_protocol_sha256 != digest(canonical_bytes(protocol))
+        or close_anchor.preclose_state_sha256 != preclose_state.state_sha256
+        or close_anchor.r4_packet_sha256 != r4_packet_sha256
+        or close_anchor.r4_result_sha256 != r4_result_sha256
+        or r4_anchor.manifest_sha256 != close_anchor.manifest_sha256
+        or r4_packet.manifest_sha256 != close_anchor.manifest_sha256
+        or r4_anchor.release_sha256 != r4_packet.release_sha256
+        or close_anchor.triggered_at != r4_packet.observed_at
+        or now != r4_packet.observed_at
+    ):
+        reasons.add("r4_trigger_binding_mismatch")
+    if close_anchor.trigger == "r4_hard_stop":
+        if r4_result.status != "hard_stop" or not r4_result.stop_required:
+            reasons.add("r4_hard_stop_missing")
+    elif close_anchor.triggered_at != protocol.cutoff_at:
+        reasons.add("cutoff_trigger_mismatch")
+    try:
+        current = admission.read_current()
+        checkpoint = admission.checkpoint.read_current()
+        if (
+            current != preclose_state
+            or checkpoint.state_sha256 != preclose_state.state_sha256
+            or checkpoint.epoch_id != preclose_state.epoch_id
+            or checkpoint.generation != preclose_state.generation
+            or recovery_anchor.checkpoint.state_sha256 != preclose_state.state_sha256
+        ):
+            reasons.add("preclose_source_changed")
+    except Exception:
+        reasons.add("preclose_source_unavailable")
+    try:
+        repeated = inspect_offline_r4_surveillance(
+            r4_packet,
+            anchor=r4_anchor,
+            selection=selection,
+            preflight=preflight,
+            admission=admission,
+            store=store,
+            audit=audit,
+            recovery_anchor=recovery_anchor,
+            route_probe=route_probe,
+            monitor=monitor,
+            alerts=alerts,
+            transport=transport,
+            now=now,
+        )
+        if repeated != r4_result:
+            reasons.add("r4_result_not_reproduced")
+    except Exception:
+        reasons.add("r4_reproduction_unavailable")
+    return OfflineR4TriggerReproduction(
+        status="blocked" if reasons else "reproduced",
+        reasons=tuple(sorted(reasons)),
+        r4_anchor_sha256=r4_anchor_sha256,
+        r4_packet_sha256=r4_packet_sha256,
+        r4_result_sha256=r4_result_sha256,
+        preclose_state_sha256=preclose_state.state_sha256,
+        recovery_anchor_sha256=recovery_anchor_sha256,
+        reproduced_at=now,
+    )
 
 
 def validate_offline_r5_close_handoff(
@@ -238,4 +371,57 @@ def validate_offline_r5_close_handoff(
         claim_count=claims,
         conservative_exposure_microusd=exposure,
         followup_unknown_count=followup_unknown,
+    )
+
+
+def validate_reproduced_offline_r5_close_handoff(
+    packet: CohortCloseoutPacket,
+    *,
+    protocol: FrozenCloseoutProtocol,
+    anchor: FrozenR5CloseAnchor,
+    r4_packet: OfflineR4SurveillancePacket,
+    r4_result: OfflineR4SurveillanceResult,
+    preclose_state: WitnessedState,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+    recovery_anchor: FrozenCohortRecoveryAnchor,
+    reproduction: OfflineR4TriggerReproduction,
+    expected_reproduction_sha256: Digest,
+    now: datetime,
+) -> OfflineR5CloseResult:
+    """Join a previously reproduced R4 trigger to the later R5 close screen."""
+    base = validate_offline_r5_close_handoff(
+        packet,
+        protocol=protocol,
+        anchor=anchor,
+        r4_packet=r4_packet,
+        r4_result=r4_result,
+        preclose_state=preclose_state,
+        admission=admission,
+        store=store,
+        audit=audit,
+        recovery_anchor=recovery_anchor,
+        now=now,
+    )
+    reasons = set(base.reasons)
+    if (
+        reproduction.status != "reproduced"
+        or digest(canonical_bytes(reproduction)) != expected_reproduction_sha256
+        or reproduction.r4_packet_sha256 != anchor.r4_packet_sha256
+        or reproduction.r4_result_sha256 != anchor.r4_result_sha256
+        or reproduction.preclose_state_sha256 != anchor.preclose_state_sha256
+        or reproduction.recovery_anchor_sha256
+        != digest(canonical_bytes(recovery_anchor))
+        or reproduction.reproduced_at != anchor.triggered_at
+    ):
+        reasons.add("r4_trigger_reproduction_invalid")
+    return OfflineR5CloseResult(
+        status="blocked" if reasons else base.status,
+        reasons=tuple(sorted(reasons)),
+        closeout_reasons=base.closeout_reasons,
+        assignment_count=base.assignment_count,
+        claim_count=base.claim_count,
+        conservative_exposure_microusd=base.conservative_exposure_microusd,
+        followup_unknown_count=base.followup_unknown_count,
     )

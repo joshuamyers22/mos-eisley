@@ -65,6 +65,12 @@ decision; the G6-01 decision field below remains open.
 The [G6-02 technical gate review](G6_02_TECHNICAL_GATE_REVIEW.md) records the
 pure resolver assessment and R1–R11 coverage gaps. It is not an enrolled
 independent G6-02 decision; that decision field also remains open.
+The [G6-03 technical gate review](G6_03_TECHNICAL_GATE_REVIEW.md) records the
+T01–T15 trace and the boundary between the original local transaction and
+later witnessed admission. It does not supply independent G6-03 acceptance.
+The [G6-04 technical gate review](G6_04_TECHNICAL_GATE_REVIEW.md) records the
+W01–W15 trace, supported synthetic admission claim, contract gaps and open
+dispositions. It does not supply independent G6-04 acceptance.
 
 ## Reproduction record and proposed limits
 

@@ -14,7 +14,11 @@ from pydantic import ValidationError
 
 from mos_eisley.core.models import digest
 from mos_eisley.run.routing_host_drills import (
+    REQUIRED_CHECKPOINT_ADVANCE_FAULTS,
+    REQUIRED_CLAIM_FAULTS,
     REQUIRED_FAULTS,
+    REQUIRED_FULL_EXPOSURE_FAULTS,
+    REQUIRED_INTENT_FAULTS,
     REQUIRED_STATUSES,
     HostDrillEvidenceIndex,
     HostDrillObservation,
@@ -46,17 +50,22 @@ class HostDrillIndexTests(TestCase):
             max_synthetic_admissions=60,
             max_stop_latency_ms=1000,
             max_alert_latency_ms=2000,
+            request_maximum_microusd=500,
             oracles=tuple(
                 HostDrillOracle(
                     case_id=case,  # type: ignore[arg-type]
                     fault_id=fault,
                     expected_status=status,  # type: ignore[arg-type]
                     expected_state_sha256=sha(f"oracle:{case}:{fault}"),
-                    max_claims=1 if status in ("one_entry", "abandon") else 0,
-                    max_intents=1 if status == "one_entry" else 0,
+                    max_claims=1
+                    if (case, fault) in REQUIRED_CLAIM_FAULTS
+                    else 0,
+                    max_intents=1
+                    if (case, fault) in REQUIRED_INTENT_FAULTS
+                    else 0,
                     max_transport_entries=1 if status == "one_entry" else 0,
                     min_retained_exposure_microusd=500
-                    if (case, fault) == ("O08", "timeout")
+                    if (case, fault) in REQUIRED_FULL_EXPOSURE_FAULTS
                     else 0,
                 )
                 for case, faults in REQUIRED_FAULTS.items()
@@ -90,11 +99,15 @@ class HostDrillIndexTests(TestCase):
                     checkpoint_generation_before=1,
                     checkpoint_generation_after=2
                     if oracle.expected_status == "stop_acknowledged"
+                    or (oracle.case_id, oracle.fault_id)
+                    in REQUIRED_CHECKPOINT_ADVANCE_FAULTS
                     else 1,
                     claim_count=1
-                    if oracle.expected_status in ("one_entry", "abandon")
+                    if (oracle.case_id, oracle.fault_id) in REQUIRED_CLAIM_FAULTS
                     else 0,
-                    intent_count=1 if oracle.expected_status == "one_entry" else 0,
+                    intent_count=1
+                    if (oracle.case_id, oracle.fault_id) in REQUIRED_INTENT_FAULTS
+                    else 0,
                     transport_entries_for_attempt=1
                     if oracle.expected_status == "one_entry"
                     else 0,
@@ -152,6 +165,67 @@ class HostDrillIndexTests(TestCase):
                 1
             ],
         )
+
+    def test_protocol_cannot_weaken_fault_specific_minimums(self) -> None:
+        cases = (
+            ("O03", "before_journal", {"max_claims": 1}),
+            ("O03", "after_receipt", {"max_claims": 0}),
+            ("O03", "after_intent", {"max_intents": 0}),
+            ("O08", "invalid_price", {"min_retained_exposure_microusd": 0}),
+        )
+        for case_id, fault_id, update in cases:
+            with self.subTest(case_id=case_id, fault_id=fault_id):
+                oracles = tuple(
+                    oracle.model_copy(update=update)
+                    if (oracle.case_id, oracle.fault_id) == (case_id, fault_id)
+                    else oracle
+                    for oracle in self.protocol.oracles
+                )
+                with self.assertRaisesRegex(ValidationError, "minimum was weakened"):
+                    HostDrillProtocol.model_validate(
+                        self.protocol.model_copy(
+                            update={"oracles": oracles}
+                        ).model_dump()
+                    )
+
+    def test_fault_state_cannot_erase_claim_intent_checkpoint_or_exposure(
+        self,
+    ) -> None:
+        cases = (
+            ("O03", "before_journal", {"claim_count": 1}),
+            ("O03", "after_journal", {"checkpoint_generation_after": 2}),
+            ("O03", "after_checkpoint", {"checkpoint_generation_after": 1}),
+            ("O03", "after_receipt", {"claim_count": 0}),
+            ("O03", "after_intent", {"intent_count": 0}),
+            ("O08", "invalid_price", {"retained_exposure_microusd": 0}),
+            ("O08", "timeout", {"retained_exposure_microusd": 0}),
+        )
+        for case_id, fault_id, update in cases:
+            with self.subTest(case_id=case_id, fault_id=fault_id):
+                observations = tuple(
+                    item.model_copy(update=update)
+                    if (item.case_id, item.fault_id) == (case_id, fault_id)
+                    else item
+                    for item in self.evidence.observations
+                )
+                evidence = self.evidence.model_copy(
+                    update={"observations": observations}
+                )
+                self.assertIn("state_invariant_failed", self.assess(evidence)[1])
+
+    def test_full_exposure_faults_all_reject_zero_retention(self) -> None:
+        for case_id, fault_id in REQUIRED_FULL_EXPOSURE_FAULTS:
+            with self.subTest(case_id=case_id, fault_id=fault_id):
+                observations = tuple(
+                    item.model_copy(update={"retained_exposure_microusd": 0})
+                    if (item.case_id, item.fault_id) == (case_id, fault_id)
+                    else item
+                    for item in self.evidence.observations
+                )
+                evidence = self.evidence.model_copy(
+                    update={"observations": observations}
+                )
+                self.assertIn("state_invariant_failed", self.assess(evidence)[1])
 
     def test_changed_build_roles_and_deadline_fail(self) -> None:
         changed = self.evidence.model_copy(

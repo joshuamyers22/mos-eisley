@@ -8,8 +8,26 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, field_validator, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
-from mos_eisley.run.cohort_close_handoff import OfflineR5CloseResult
+from mos_eisley.run.cohort_close_handoff import (
+    FrozenR5CloseAnchor,
+    OfflineR4TriggerReproduction,
+    OfflineR5CloseResult,
+    validate_reproduced_offline_r5_close_handoff,
+)
 from mos_eisley.run.cohort_closeout import CohortCloseoutPacket, FrozenCloseoutProtocol
+from mos_eisley.run.cohort_surveillance import (
+    OfflineR4SurveillancePacket,
+    OfflineR4SurveillanceResult,
+)
+from mos_eisley.run.routing_transaction import (
+    FrozenCohortRecoveryAnchor,
+    OfflineTransactionStore,
+    SyntheticCohortAuditSink,
+)
+from mos_eisley.run.witnessed_admission import (
+    SyntheticWitnessedAdmission,
+    WitnessedState,
+)
 
 Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 
@@ -51,6 +69,7 @@ class FrozenR6AssessmentAnchor(Contract):
     closeout_protocol_sha256: Digest
     closeout_packet_sha256: Digest
     r5_result_sha256: Digest
+    r5_reproduction_sha256: Digest | None = None
     roster_sha256: Digest
     dispatch_index_sha256: Digest
     evidence_references_sha256: Digest
@@ -97,6 +116,7 @@ class OfflineR6AssessmentPacket(Contract):
     closeout_protocol_sha256: Digest
     closeout_packet_sha256: Digest
     r5_result_sha256: Digest
+    r5_reproduction_sha256: Digest | None = None
     roster_sha256: Digest
     dispatch_index: R6DispatchIndex
     assignment_count: Annotated[int, Field(ge=0)]
@@ -134,6 +154,7 @@ class OfflineR6AssessmentResult(Contract):
     possible_transfer_count: Annotated[int, Field(ge=0)]
     followup_unknown_count: Annotated[int, Field(ge=0)]
     conservative_exposure_microusd: Money
+    r5_reproduction_checked: bool = False
     assessment_authorized: Literal[False] = False
     comparative_claim_authorized: Literal[False] = False
     policy_promotion_authorized: Literal[False] = False
@@ -194,6 +215,7 @@ def validate_offline_r6_assessment_handoff(
         or anchor.closeout_protocol_sha256 != digest(canonical_bytes(protocol))
         or anchor.closeout_packet_sha256 != digest(canonical_bytes(closeout_packet))
         or anchor.r5_result_sha256 != digest(canonical_bytes(r5_result))
+        or packet.r5_reproduction_sha256 != anchor.r5_reproduction_sha256
         or anchor.roster_sha256 != roster_sha256
         or anchor.dispatch_index_sha256
         != digest(canonical_bytes(packet.dispatch_index))
@@ -293,4 +315,75 @@ def validate_offline_r6_assessment_handoff(
         possible_transfer_count=possible_transfer_count,
         followup_unknown_count=max(0, followup_unknown),
         conservative_exposure_microusd=r5_result.conservative_exposure_microusd,
+    )
+
+
+def validate_reproduced_offline_r6_assessment_handoff(
+    packet: OfflineR6AssessmentPacket,
+    *,
+    anchor: FrozenR6AssessmentAnchor,
+    protocol: FrozenCloseoutProtocol,
+    closeout_packet: CohortCloseoutPacket,
+    r5_result: OfflineR5CloseResult,
+    r5_anchor: FrozenR5CloseAnchor,
+    r4_packet: OfflineR4SurveillancePacket,
+    r4_result: OfflineR4SurveillanceResult,
+    preclose_state: WitnessedState,
+    admission: SyntheticWitnessedAdmission,
+    store: OfflineTransactionStore,
+    audit: SyntheticCohortAuditSink,
+    recovery_anchor: FrozenCohortRecoveryAnchor,
+    reproduction: OfflineR4TriggerReproduction | None,
+    now: datetime,
+) -> OfflineR6AssessmentResult:
+    """Recheck the reproduced R5 handoff before reviewing R6 metadata."""
+    base = validate_offline_r6_assessment_handoff(
+        packet,
+        anchor=anchor,
+        protocol=protocol,
+        closeout_packet=closeout_packet,
+        r5_result=r5_result,
+        now=now,
+    )
+    reasons = set(base.reasons)
+    expected = anchor.r5_reproduction_sha256
+    if (
+        reproduction is None
+        or expected is None
+        or packet.r5_reproduction_sha256 is None
+    ):
+        reasons.add("r5_reproduction_missing")
+    else:
+        if (
+            digest(canonical_bytes(reproduction)) != expected
+            or packet.r5_reproduction_sha256 != expected
+        ):
+            reasons.add("r5_reproduction_binding_mismatch")
+        replayed = validate_reproduced_offline_r5_close_handoff(
+            closeout_packet,
+            protocol=protocol,
+            anchor=r5_anchor,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            preclose_state=preclose_state,
+            admission=admission,
+            store=store,
+            audit=audit,
+            recovery_anchor=recovery_anchor,
+            reproduction=reproduction,
+            expected_reproduction_sha256=expected,
+            now=closeout_packet.prepared_at,
+        )
+        if replayed != r5_result or replayed.status != "reviewable":
+            reasons.add("r5_reproduction_handoff_invalid")
+    return OfflineR6AssessmentResult(
+        status="blocked" if reasons else "reviewable",
+        reasons=tuple(sorted(reasons)),
+        assignment_count=base.assignment_count,
+        claim_count=base.claim_count,
+        no_dispatch_count=base.no_dispatch_count,
+        possible_transfer_count=base.possible_transfer_count,
+        followup_unknown_count=base.followup_unknown_count,
+        conservative_exposure_microusd=base.conservative_exposure_microusd,
+        r5_reproduction_checked=True,
     )

@@ -18,16 +18,29 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 | Finish live read-only critic/judge integration | Credentialed conformance, broker/spending/quorum and cancellation evidence |
+| G2 — explicit Anthropic profile qualified; default policy pending | Extend live read-only critic/judge integration to the default two-provider quorum | Owner operated credentialed conformance, broker/spending/quorum and cancellation evidence for each exact qualified profile |
 | G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
 | G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
 
+**Anthropic G2 status, 2026-09-27:** the
+[owner operated G2 contract and closeout](G2_OWNER_OPERATED_CONTRACT.md) record
+three accepted, signed live campaign slots and one separately signed, admitted
+Sonnet 5 critic / Opus 5.5 judge launch. The final launch settled at $0.050520
+with no unresolved entries. Earlier failed campaign and launch attempts remain
+retained and conservatively counted under Joshua Myers's $1 total cap. This
+qualifies only the focused, explicit one-provider profile; the default
+two-provider policy still needs its own implementation and campaign. The earlier
+[operator route](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) remains separate evidence.
+
 The [G5 paired whole-task preregistration protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
 records the comparison and analysis rules that can be fixed before outcomes. Its
 study-specific numeric thresholds, sampling design, independent groups, labels,
 splits and feasibility calculation remain unset; no G5 study is sealed or qualified.
+The [Stage-0 design packet](G5_STAGE0_BEST_PRACTICES_DESIGN_PACKET.md) specifies
+the proposed source-backed sampling and review procedure, pending actual
+custodian inputs and independent approval.
 
 **Continuous production study, 2026-09-25 — planned:** [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
 adds three separately gated levels after the applicable provider and execution
@@ -185,7 +198,12 @@ loading and telemetry adapters remain planned.
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
    registry, deterministic effort resolution, byte budgets and boundary journal.
-3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
+3. **In progress — live read-only review:** The explicit one-provider Anthropic
+   Sonnet 5 / Opus 5.5 profile passed its owner-signed three-slot campaign and
+   separately admitted live launch on 2026-09-27; see the
+   [G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-g2-scope-2026-09-27).
+   The default two-provider policy remains pending. The earlier work below is
+   retained as an implementation history. OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
    and contract tests. Shared local cross-process spending admission is implemented.

@@ -14,16 +14,20 @@ from mos_eisley.run.cohort_surveillance import (
     OfflineR4TransportEntryReference,
     inspect_offline_r4_surveillance,
 )
-from tests import test_cohort_controller as cohort_module
+from tests import test_cohort_r3_attempt as r3_module
 
 
 class CohortR4SurveillanceTests(TestCase):
     def setUp(self) -> None:
-        self.fixture = cohort_module.CohortControllerTests()
-        self.fixture.setUp()
-        self.addCleanup(self.fixture.doCleanups)
-        self.release = self.fixture.live()
-        self.fixture.assign()
+        self.r3 = r3_module.CohortR3AttemptTests()
+        self.r3.setUp()
+        self.addCleanup(self.r3.doCleanups)
+        self.entry = self.r3.r2.validate_end_to_end()
+        self.assertEqual((self.entry.status, self.entry.reasons), ("reviewable", ()))
+        self.r3.enter_live()
+        self.fixture = self.r3.fixture
+        self.release = self.r3.r2.proposed
+        self.assignment = self.fixture.assign()
         self.base = self.fixture.base
         self.now = self.fixture.now
         self.anchor = FrozenR4SurveillanceAnchor(
@@ -99,6 +103,10 @@ class CohortR4SurveillanceTests(TestCase):
         )
 
     def test_healthy_snapshot_joins_one_inert_entry_without_mutation(self) -> None:
+        self.assertTrue(self.entry.readiness_checked)
+        self.assertTrue(self.entry.signed_owner_decision_checked)
+        self.assertFalse(self.entry.owner_release_authorized)
+        self.assertFalse(self.entry.dispatch_authorized)
         self.assertEqual(self.fixture.execute().status, "settled")
         packet = self.packet()
         before_state = self.base.admission.read_current()
@@ -108,6 +116,27 @@ class CohortR4SurveillanceTests(TestCase):
         before_entries = tuple(self.base.transport.entries)
         result = self.inspect(packet)
         self.assertEqual((result.status, result.reasons), ("healthy", ()))
+        cohort = before_state.cohort
+        assert cohort is not None
+        self.assertEqual(cohort.signed_release, self.r3.r2.proposed)
+        self.assertEqual(cohort.assignments, (self.assignment,))
+        self.assertEqual(
+            self.assignment.release_sha256,
+            self.release.release.release_sha256,
+        )
+        self.assertEqual(
+            before_state.attempts[0].attempt.task_id, self.assignment.task_id
+        )
+        self.assertEqual(
+            before_state.attempts[0].attempt.session_id, self.assignment.session_id
+        )
+        self.assertEqual(packet.release_sha256, self.release.release.release_sha256)
+        self.assertEqual(packet.entries[0].claim_id, before_state.attempts[0].claim_id)
+        self.assertEqual(
+            packet.entries[0].intent_sha256, before_intents[0].intent_sha256
+        )
+        self.assertEqual(before_audit[0].intent_sha256, before_intents[0].intent_sha256)
+        self.assertEqual(packet.entries[0].request_sha256, before_entries[0])
         self.assertEqual(
             (
                 result.assignment_count,
@@ -135,6 +164,45 @@ class CohortR4SurveillanceTests(TestCase):
         self.assertEqual(self.base.store.list_intents(), before_intents)
         self.assertEqual(self.fixture.audit.read_current(), before_audit)
         self.assertEqual(tuple(self.base.transport.entries), before_entries)
+
+    def test_broken_upstream_handoff_cannot_reach_r4(self) -> None:
+        for name in ("expired_readiness", "rejected_q7", "missing_owner_decision"):
+            with self.subTest(name=name):
+                upstream = r3_module.CohortR3AttemptTests()
+                upstream.setUp()
+                try:
+                    changes: dict[str, object]
+                    if name == "expired_readiness":
+                        changes = {
+                            "readiness": upstream.r2.readiness.model_copy(
+                                update={"valid_until": upstream.fixture.now}
+                            )
+                        }
+                    elif name == "rejected_q7":
+                        changes = {
+                            "reviews": upstream.r2.qualification.reviews(
+                                decision="reject"
+                            )
+                        }
+                    else:
+                        changes = {"owner_decision": None}
+                    before = upstream.base.admission.read_current()
+                    checkpoint = upstream.base.admission.checkpoint.read_current()
+                    self.assertEqual(upstream.r2.validate().status, "reviewable")
+                    result = upstream.r2.validate_end_to_end(**changes)
+                    self.assertEqual(result.status, "blocked")
+                    self.assertTrue(result.readiness_checked)
+                    with self.assertRaisesRegex(ValueError, "handoff blocked"):
+                        upstream.enter_live(**changes)
+                    self.assertEqual(upstream.base.admission.read_current(), before)
+                    self.assertEqual(
+                        upstream.base.admission.checkpoint.read_current(), checkpoint
+                    )
+                    with self.assertRaises(ValueError):
+                        upstream.fixture.assign(release=upstream.r2.proposed)
+                    upstream.assert_no_claim_or_send()
+                finally:
+                    upstream.doCleanups()
 
     def test_missing_duplicate_or_changed_transport_reference_is_hard_stop(
         self,

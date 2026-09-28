@@ -47,8 +47,9 @@ def _run(args: argparse.Namespace) -> int:
         raise ValueError("selected launch conformance input changed")
     configuration = decode_launch_configuration(config_raw)
     submission = decode_campaign_submission(evidence_raw)
+    provider = configuration.critics[0].critic.provider
     runtime = ReviewConformanceRuntime(
-        sdk_version=version("openai"), image_id=cast(str, args.image_id)
+        sdk_version=version(provider), image_id=cast(str, args.image_id)
     )
     preview = review_launch_cli.prepare_from_arguments(args, configuration)
     result = check_review_launch_conformance(

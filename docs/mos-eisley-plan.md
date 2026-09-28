@@ -33,6 +33,13 @@ the linked records.
 They are post-v1 product requirements and do not change the v1 release gates or
 claim current availability.
 
+**G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
+perform the phase authorizer, observer and launch reviewer roles for G2. The
+[owner operated contract](G2_OWNER_OPERATED_CONTRACT.md) supersedes earlier G2
+human independence wording. Distinct enrolled role keys, prospective evidence,
+exact approvals, spending and containment gates remain required. This change does
+not apply to independent evaluation grading or later promotion gates.
+
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring
 reviewed calibration and promotion. It keeps the existing grading rubric fixed and
@@ -4143,7 +4150,7 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 |---|---|---|
 | G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry; §§6.6–6.7 artifact/view, work-unit/checkpoint schemas, cumulative input metrics and offline instruction/tool-profile diagnostics | Versioned clause/decision/outcome and task-state fixtures, truthful unknowns, old replay compatibility, owner boundaries, bounded views with disclosed loss; required-tool omission, stale state and budget-reset negative cases |
 | G1 — usable product slice | G0; recorded conversation controller; L1 reading experiment; author compaction, explicit checkpoint continuation, pressure indicators and reusable-memory/task-state separation | Conversation → frozen review → visible result → cancel/resume; milestone → checkpoint → fresh continuation detects changed tree/tests and completes with obligations/ledgers intact; duplicate handoff, blindness, stale approval, compaction reconstruction and overflow-stop tests pass |
-| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; independent of later writing | Authorized credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts |
+| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; owner operated human custody is allowed under the 2026-09-26 G2 amendment | Prospectively committed, owner assessed credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts; report exact qualified profile and owner custody |
 | G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; G1 for session-policy comparisons; live claims require G2 | Sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading; matched and held-out context-policy completion, missed-evidence/stale-state, latency, cumulative-input and total-cost report; quality gates pass before claiming savings |
 | G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
 | G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |

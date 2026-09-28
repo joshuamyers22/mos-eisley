@@ -20,14 +20,21 @@ class CohortR3AttemptTests(TestCase):
         self.addCleanup(self.r2.doCleanups)
         self.fixture = self.r2.fixture
         self.base = self.fixture.base
-        entry = self.r2.validate()
+        entry = self.r2.validate_end_to_end()
         self.assertEqual((entry.status, entry.reasons), ("reviewable", ()))
+        self.assertTrue(entry.signed_owner_decision_checked)
+        self.assertTrue(entry.readiness_checked)
         self.assertFalse(entry.owner_release_authorized)
         self.assertFalse(entry.dispatch_authorized)
         self.assertEqual(self.base.admission.read_current().attempts, ())
         self.assertEqual(self.base.transport.entries, [])
 
-    def enter_live(self) -> None:
+    def enter_live(self, **changes: object) -> None:
+        entry = self.r2.validate_end_to_end(**changes)
+        if entry.status != "reviewable":
+            raise ValueError(
+                "R2-to-R3 offline handoff blocked: " + ", ".join(entry.reasons)
+            )
         self.fixture.controller.advance_release(
             signed_release=self.r2.proposed, now=self.fixture.now
         )
@@ -59,6 +66,71 @@ class CohortR3AttemptTests(TestCase):
         self.assertEqual(cohort.signed_release, self.fixture.shadow)
         self.assertEqual(cohort.assignments, ())
         self.assert_no_claim_or_send()
+
+    def test_r2_to_r3_handoff_rechecks_readiness_before_release(self) -> None:
+        self.assertEqual(self.r2.validate().status, "reviewable")
+        q = self.r2.qualification
+        cases: tuple[tuple[str, dict[str, object]], ...] = (
+            (
+                "expired_readiness",
+                {"readiness": self.r2.readiness.model_copy(
+                    update={"valid_until": self.fixture.now}
+                )},
+            ),
+            (
+                "rejected_inspection",
+                {"readiness": self.r2.readiness.model_copy(update={
+                    "source_inspections": (
+                        self.r2.readiness.source_inspections[0].model_copy(
+                            update={"status": "reject"}
+                        ),
+                        *self.r2.readiness.source_inspections[1:],
+                    )
+                })},
+            ),
+            ("rejected_q7", {"reviews": q.reviews(decision="reject")}),
+            (
+                "changed_source_handoff",
+                {"source_handoff": self.r2.source_handoff.model_copy(update={
+                    "references": (
+                        self.r2.source_handoff.references[0].model_copy(
+                            update={"status": "unavailable"}
+                        ),
+                        *self.r2.source_handoff.references[1:],
+                    )
+                })},
+            ),
+            (
+                "changed_frozen_root",
+                {"expected_review_trust_sha256": digest(b"changed-q7-root")},
+            ),
+            (
+                "changed_cohort_roster",
+                {"qualification_packet": q.packet.model_copy(update={
+                    "scope": q.packet.scope.model_copy(update={
+                        "task_enrollment_sha256": digest(b"different-roster")
+                    })
+                })},
+            ),
+            ("owner_decision_missing", {"owner_decision": None}),
+        )
+        before = self.base.admission.read_current()
+        checkpoint = self.base.admission.checkpoint.read_current()
+        for name, changes in cases:
+            with self.subTest(name=name):
+                self.assertEqual(self.r2.validate().status, "reviewable")
+                denied = self.r2.validate_end_to_end(**changes)
+                self.assertEqual(denied.status, "blocked")
+                self.assertTrue(denied.readiness_checked)
+                with self.assertRaisesRegex(ValueError, "handoff blocked"):
+                    self.enter_live(**changes)
+                self.assertEqual(self.base.admission.read_current(), before)
+                self.assertEqual(
+                    self.base.admission.checkpoint.read_current(), checkpoint
+                )
+                with self.assertRaises(ValueError):
+                    self.fixture.assign(release=self.r2.proposed)
+                self.assert_no_claim_or_send()
 
     def test_explicit_release_and_assignment_precede_one_inert_attempt(self) -> None:
         self.enter_live()

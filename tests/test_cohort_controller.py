@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 from unittest import TestCase
@@ -74,6 +75,8 @@ def run_assignment_bundle(path: str, cut: str) -> None:
 
 
 class CohortControllerTests(TestCase):
+    go_sha256_factory: Callable[[CohortControllerTests], str] | None = None
+
     def setUp(self) -> None:
         self.base = witnessed_module.WitnessedAdmissionTests()
         self.base.setUp()
@@ -82,15 +85,6 @@ class CohortControllerTests(TestCase):
         self.owner_key = Ed25519PrivateKey.generate()
         self.release_operator_key = Ed25519PrivateKey.generate()
         self.go_sha256 = digest(b"synthetic-g6-05-go")
-        self.release_trust = SyntheticCohortTrust(
-            owner_signer_id="cohort-owner",
-            owner_public_key_hex=self.owner_key.public_key().public_bytes_raw().hex(),
-            operator_signer_id="cohort-operator",
-            operator_public_key_hex=self.release_operator_key.public_key()
-            .public_bytes_raw()
-            .hex(),
-            g6_05_go_sha256=self.go_sha256,
-        )
         self.manifest = CohortManifest(
             owner_id="owner-a",
             cohort_id="cohort-a",
@@ -107,6 +101,17 @@ class CohortControllerTests(TestCase):
             max_concurrent=1,
             valid_from=self.now - timedelta(minutes=1),
             valid_until=self.now + timedelta(minutes=5),
+        )
+        if self.go_sha256_factory is not None:
+            self.go_sha256 = self.go_sha256_factory(self)
+        self.release_trust = SyntheticCohortTrust(
+            owner_signer_id="cohort-owner",
+            owner_public_key_hex=self.owner_key.public_key().public_bytes_raw().hex(),
+            operator_signer_id="cohort-operator",
+            operator_public_key_hex=self.release_operator_key.public_key()
+            .public_bytes_raw()
+            .hex(),
+            g6_05_go_sha256=self.go_sha256,
         )
         self.controller = OfflineCohortController(self.base.admission)
         self.route_probe = SyntheticExactRouteProbe(

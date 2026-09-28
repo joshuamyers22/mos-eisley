@@ -40,7 +40,7 @@ from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ReviewRoleProfile(Contract):
-    provider: Literal["openai"] = "openai"
+    provider: Literal["openai", "anthropic"] = "openai"
     model: Identifier
     effort: Effort
     system_sha256: Digest
@@ -54,12 +54,13 @@ def review_role_profile(
 ) -> ReviewRoleProfile:
     request = ModelRequest.model_validate_json(canonical_bytes(request))
     if (
-        request.provider != "openai"
+        request.provider not in ("openai", "anthropic")
         or request.tools
         or request.max_output_tokens is None
     ):
-        raise ValueError("review acceptance requires bounded tool-free OpenAI roles")
+        raise ValueError("review acceptance requires bounded tool-free roles")
     return ReviewRoleProfile(
+        provider=request.provider,
         model=request.model,
         effort=request.effort,
         system_sha256=digest(request.system.encode()),
@@ -117,6 +118,7 @@ class ReviewAcceptancePolicy(Contract):
         if (
             any(item.critic_sha256 is None for item in self.critics)
             or self.judge.critic_sha256 is not None
+            or any(item.provider != self.judge.provider for item in self.critics)
         ):
             raise ValueError("review acceptance role identities are inconsistent")
         if (
@@ -222,6 +224,7 @@ def evaluate_review_conformance(
             or any(
                 item.authorization.scope.sdk_version != policy.runtime.sdk_version
                 or item.authorization.scope.image_id != policy.runtime.image_id
+                or item.authorization.scope.provider != policy.judge.provider
                 for item in attempt.authorizations
             )
             or attempt.start.started_at < policy.committed_at

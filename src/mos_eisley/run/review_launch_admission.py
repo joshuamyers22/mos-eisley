@@ -1,4 +1,4 @@
-"""Require fresh campaign evidence and an independent decision at every launch edge."""
+"""Require fresh campaign evidence and a separate signed decision at launch edges."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -23,6 +23,7 @@ from mos_eisley.run.review_approval import ApprovalPreview
 from mos_eisley.run.review_broker import PreparedReviewEnvelope
 from mos_eisley.run.review_campaign import (
     CAMPAIGN_BYTES,
+    ReviewCampaignBundle,
     decode_campaign_submission,
     read_campaign_seal,
 )
@@ -47,6 +48,7 @@ from mos_eisley.run.review_launch_authorization import (
     verify_review_launch_decision,
 )
 from mos_eisley.run.review_launch_conformance import check_review_launch_conformance
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
 
@@ -61,9 +63,7 @@ class ReviewLaunchBinding(Contract):
         if not all(
             Path(p).is_absolute() for p in (self.campaign_directory, self.evidence_path)
         ):
-            raise ValueError(
-                "launch admission requires independently selected absolute paths"
-            )
+            raise ValueError("launch admission requires caller-selected absolute paths")
         return self
 
 
@@ -73,6 +73,22 @@ class ReviewLaunchAdmissionInputs:
     configuration: ReviewLaunchConfiguration
     authority_policy: Callable[[], ReviewLaunchAuthorityPolicy]
     load_decision: Callable[[], SignedReviewLaunchDecision | None]
+    owner_total_cap_microusd: int
+
+
+def campaign_charged_microusd(bundle: ReviewCampaignBundle) -> int:
+    total = 0
+    seen: set[Path] = set()
+    for attempt in bundle.attempts:
+        path = Path(attempt.ledger_path).resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        snapshot = SpendLedger(path).snapshot()
+        if snapshot.blocked or snapshot.unresolved_entries:
+            raise ValueError("campaign spending is blocked or unresolved")
+        total += snapshot.charged_microusd
+    return total
 
 
 class ReviewLaunchAdmission:
@@ -106,10 +122,17 @@ class ReviewLaunchAdmission:
         bundle, _ = read_campaign_seal(
             Path(self._binding.campaign_directory), self._binding.expected_seal_sha256
         )
+        campaign_charge = campaign_charged_microusd(bundle)
+        if (
+            inputs.owner_total_cap_microusd <= 0
+            or campaign_charge + envelope.envelope.total_reserved_microusd
+            > inputs.owner_total_cap_microusd
+        ):
+            raise ValueError("campaign plus launch exceeds the owner total cap")
         policy = self._policy()
         evidence_raw = read_bounded(Path(self._binding.evidence_path), CAMPAIGN_BYTES)
         if digest(evidence_raw) != self._binding.expected_evidence_sha256:
-            raise ValueError("independently selected launch evidence changed")
+            raise ValueError("selected launch evidence changed")
         evidence = decode_campaign_submission(evidence_raw)
         evidence_deadlines = [
             min(
@@ -138,6 +161,8 @@ class ReviewLaunchAdmission:
             ledger_path=str(envelope.ledger.path.resolve()),
             artifact_directory=envelope.envelope.artifact_directory,
             max_reserved_microusd=envelope.envelope.total_reserved_microusd,
+            owner_total_cap_microusd=inputs.owner_total_cap_microusd,
+            campaign_charged_microusd=campaign_charge,
             expires_at=min(
                 policy.valid_until,
                 self._phase_policy().valid_until,
@@ -211,6 +236,11 @@ class ReviewLaunchAdmission:
         bundle, _ = read_campaign_seal(
             Path(self._binding.campaign_directory), scope.seal_sha256
         )
+        if campaign_charged_microusd(bundle) != scope.campaign_charged_microusd or (
+            scope.campaign_charged_microusd + scope.max_reserved_microusd
+            > scope.owner_total_cap_microusd
+        ):
+            raise ValueError("campaign plus launch exceeds the pinned owner cap")
         forbidden = [
             s
             for p in (phase_policy, *(a.authority_policy for a in bundle.attempts))
@@ -222,7 +252,8 @@ class ReviewLaunchAdmission:
             for other in forbidden
         ):
             raise ValueError(
-                "launch reviewers must be separate from phase authorities and observers"
+                "launch decision requires separate role identities and keys from "
+                "phase authorities and observers"
             )
         if any(
             Path(a.ledger_path).resolve() == Path(scope.ledger_path)
@@ -233,7 +264,7 @@ class ReviewLaunchAdmission:
             raise ValueError("launch requires a separate ledger from campaign evidence")
         raw = read_bounded(Path(self._binding.evidence_path), CAMPAIGN_BYTES)
         if digest(raw) != scope.evidence_file_sha256:
-            raise ValueError("independently selected launch evidence changed")
+            raise ValueError("selected launch evidence changed")
         guidance = envelope.envelope.critics[0].guidance_sha256
         if guidance is None:
             raise ValueError("launch admission requires guided preview evidence")
@@ -283,7 +314,7 @@ class ReviewLaunchAdmission:
     def check(self, preview: ApprovalPreview) -> None:
         signed = self._decision()
         if signed is None:
-            raise ValueError("launch requires an independent signed decision")
+            raise ValueError("launch requires a separately signed decision")
         signed = SignedReviewLaunchDecision.model_validate_json(canonical_bytes(signed))
         policy = self._fresh(preview)
         verify_review_launch_decision(signed, policy, self.scope, datetime.now(UTC))

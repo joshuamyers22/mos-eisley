@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 from datetime import datetime, timedelta
-from typing import Annotated, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -17,6 +17,12 @@ from pydantic import Field, field_validator, model_validator
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import Effort
 from mos_eisley.evaluation.models import RouteCandidate
+
+if TYPE_CHECKING:
+    from mos_eisley.run.routing_host_drills import (
+        HostDrillEvidenceIndex,
+        HostDrillProtocol,
+    )
 
 _REVIEW_DOMAIN = b"mos-eisley/g6-offline-qualification-review/v1\0"
 _REQUIRED = (
@@ -340,8 +346,10 @@ class QualificationDrillSummary(Contract):
 
 
 class OfflineQualificationEvidence(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     packet_sha256: Digest
+    drill_protocol_sha256: Digest
+    drill_index_sha256: Digest
     assembled_at: datetime
     records: Annotated[tuple[QualificationEvidenceRecord, ...], Field(max_length=64)]
     route_observations: Annotated[
@@ -454,11 +462,43 @@ def validate_offline_qualification_packet(
     evidence: OfflineQualificationEvidence,
     reviews: tuple[SignedOfflineQualificationReview, ...],
     trust: OfflineQualificationReviewTrust,
+    drill_protocol: HostDrillProtocol,
+    drill_index: HostDrillEvidenceIndex,
     now: datetime,
 ) -> OfflineQualificationAssessment:
     """Check bounded packet metadata; never authenticate underlying G5 outcomes."""
+    from mos_eisley.run.routing_host_drills import (
+        drill_case_sha256,
+        validate_joined_inert_host_drill_index,
+    )
+
     _utc(now)
     reasons: set[str] = set()
+    drill_assessment = validate_joined_inert_host_drill_index(
+        packet=packet, protocol=drill_protocol, evidence=drill_index, now=now
+    )
+    if not drill_assessment.reviewable:
+        reasons.add("drill_index_invalid")
+    if (
+        evidence.drill_protocol_sha256 != drill_protocol.protocol_sha256
+        or evidence.drill_index_sha256 != drill_index.evidence_sha256
+    ):
+        reasons.add("drill_digest_mismatch")
+    if (
+        evidence.drill_summary.workers_used != drill_index.workers_used
+        or evidence.drill_summary.crash_cases_run != drill_index.crash_cases_run
+        or evidence.drill_summary.synthetic_admissions
+        != drill_index.synthetic_admissions
+        or evidence.drill_summary.paid_provider_calls
+        != drill_index.paid_provider_calls
+        or evidence.drill_summary.measured_max_stop_latency_ms
+        != drill_index.measured_max_stop_latency_ms
+        or evidence.drill_summary.measured_max_alert_latency_ms
+        != drill_index.measured_max_alert_latency_ms
+    ):
+        reasons.add("drill_summary_mismatch")
+    if not drill_index.assembled_at <= evidence.assembled_at:
+        reasons.add("drill_evidence_time_invalid")
     if not packet.scope.valid_from <= now < packet.scope.valid_until:
         reasons.add("scope_stale")
     if not packet.frozen_at <= now < packet.decision_deadline:
@@ -492,6 +532,24 @@ def validate_offline_qualification_packet(
             or not item.collected_at <= now < item.valid_until
         ):
             reasons.add("evidence_stale")
+    for case_id in ("Q6", *(f"O{number:02d}" for number in range(1, 11))):
+        record = records.get(case_id)
+        if record is None:
+            continue
+        expected_sha256 = (
+            drill_index.evidence_sha256
+            if case_id == "Q6"
+            else drill_case_sha256(drill_index, case_id)
+        )
+        if record.source_sha256 != expected_sha256:
+            reasons.add("drill_record_mismatch")
+        if (
+            record.producer_id != drill_protocol.operator_id
+            or record.checker_id != drill_protocol.independent_checker_id
+        ):
+            reasons.add("drill_record_role_mismatch")
+        if record.collected_at < drill_index.assembled_at:
+            reasons.add("drill_record_time_invalid")
 
     required_routes = {
         item.identity.candidate_id: item for item in packet.candidate.routes

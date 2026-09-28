@@ -82,12 +82,18 @@ now has an offline implementation, inert transport, synthetic witness/budget
 fixtures and fault tests. Its independent gate review remains open. Do not
 change existing preflight denial fields to make a test pass; dispatch authority
 belongs to a separately reviewed trusted broker boundary.
+The [G6-03 technical gate review](G6_03_TECHNICAL_GATE_REVIEW.md) records the
+T01–T15 source and test trace, offline contract limits and open dispositions;
+it does not close that independent gate.
 
 The [G6-04 witnessed control and budget design](G6_04_WITNESSED_CONTROL_BUDGET_SPEC.md)
 now has an offline synthetic implementation and fault suite. It exercises atomic
 claim and task/session/cohort admission, checkpoint ordering, signed bootstrap,
 rollback detection, stop races and budget exhaustion. Independent review and
 live witness decisions remain open.
+The [G6-04 technical gate review](G6_04_TECHNICAL_GATE_REVIEW.md) records the
+W01–W15 source and test trace, offline claim boundary, coverage gaps and
+required independent decisions; it does not close the gate.
 
 The [G6-01 through G6-04 independent-review packet](G6_01_TO_G6_04_INDEPENDENT_REVIEW_PACKET.md)
 indexes the offline contracts, source hashes, focused test result, review
@@ -102,6 +108,20 @@ route observations, target-host drills and security review pass.
 An [inert target-host drill package](G6_05_INERT_TARGET_HOST_DRILL_PACKAGE.md)
 now freezes O01–O10 fault points and validates a bounded evidence index; no
 target-host run or independent acceptance is claimed.
+The [G6-05 offline technical review](G6_05_OFFLINE_TECHNICAL_REVIEW.md)
+traces Q1–Q7 and O01–O10. The G605-02 joined validator now checks the drill
+protocol against the exact packet; G605-03 now binds Q6/O01–O10 evidence to
+that index. G605-04 now pins post-claim and full-exposure fault minimums.
+The [G605-05 source-evidence handoff package](G6_05_SOURCE_EVIDENCE_HANDOFF_PACKAGE.md)
+prepares a complete metadata inventory and independent inspection queue.
+The [G605-06 decision-readiness package](G6_05_DECISION_READINESS_PACKAGE.md)
+checks the handoff, source dispositions and Q7 review ordering for an offline
+owner-decision queue; the actual owner go/no-go remains open.
+The [signed G6-05 owner-decision and readiness-to-R2 rehearsal](G6_05_OWNER_DECISION_R2_BINDING.md)
+reruns the frozen G605-06 readiness inputs and requires an exact signed record
+and qualified operating envelope in the synthetic bounded-live entry check.
+Independent source, host and gate reviews remain open, so qualification is
+still open.
 
 The [G6-06 bounded rollout and assessment plan](G6_06_BOUNDED_ROLLOUT_ASSESSMENT_PLAN.md)
 has an offline cohort controller fixture with signed release phases, a durable
@@ -139,25 +159,36 @@ and witness state, required paths and conservative budget headroom. Synthetic
 denial tests leave the shadow release and all dispatch state untouched. Its
 `reviewable` result grants no release or dispatch authority.
 
-An R3 offline per-attempt fixture now connects a reviewable R2 packet to a
-separately applied synthetic release, witnessed assignment, exact-route claim,
+An R3 offline per-attempt fixture now reruns the end-to-end G6-05
+readiness-to-R2 screen immediately before a separately applied synthetic
+release. Changed readiness, trust, source or roster inputs block that fixture
+transition. A passing screen precedes witnessed assignment, exact-route claim,
 durable intent, audit and one inert transport entry. Boundary faults retain
 full possible exposure or deny before send. This does not implement live R3.
-An R4 offline surveillance inspector now checks bounded assignment, claim,
+The R4 offline fixture now consumes the end-to-end R2-to-R3 synthetic chain;
+an upstream denial cannot create its live assignment or inert entry. Its
+surveillance inspector checks bounded assignment, claim,
 intent, audit and inert-entry joins, conservative exposure, exact route and
 required-path health, anchored safety metadata and signed stop acknowledgment.
 Synthetic faults produce warning or hard-stop findings without granting stop,
 release or dispatch authority.
 An R5 offline handoff validator now binds an R4 trigger and pre-close
 high-water snapshot to a separately signed close and original-roster follow-up
-packet. It blocks post-trigger assignment, substituted close evidence and
+packet. A pre-close reproduction screen reruns R4 against current synthetic
+sources and binds its frozen result into the later R5 handoff. It blocks
+post-trigger assignment, substituted close evidence and
 unreconciled retained exposure; pending or late synthetic follow-up grants no
 assessment authority.
 An R6 offline assessment packet validator now binds a mature R5 handoff to the
 original denominator, independently anchored inert-entry index, conservative
 cost and follow-up counts, incident status, reviewed evidence references and
-explicit comparison registration. Its synthetic `reviewable` status grants no
+explicit comparison registration. A joined R6 screen now requires the frozen
+R4 reproduction receipt and reruns the reproduced R5 close handoff before
+reviewing the assessment metadata. Its synthetic `reviewable` status grants no
 assessment, comparative, promotion, next-cohort or dispatch authority.
+The [R0–R6 full offline runner](../tools/g6_06_full_offline.py) now records the
+fixed suites and source digests in one private metadata-only index. A local
+synthetic pass carries no target-build or independent gate authority.
 
 The plan fixes the live monitor/stop/fallback requirements and later-window
 assessment rubric. Actual rollout and assessment remain blocked by G6-05 and a

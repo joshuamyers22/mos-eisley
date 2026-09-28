@@ -14,6 +14,7 @@ from mos_eisley.run.cohort_assessment_handoff import (
     R6EvidenceReferences,
     R6RosterIndex,
     validate_offline_r6_assessment_handoff,
+    validate_reproduced_offline_r6_assessment_handoff,
 )
 from mos_eisley.run.cohort_close_handoff import OfflineR5CloseResult
 from mos_eisley.run.cohort_closeout import CohortCloseoutPacket, TaskFollowupIndex
@@ -40,6 +41,25 @@ class CohortR6AssessmentHandoffTests(TestCase):
             trigger="registered_cutoff",
             closed=closed,
         )
+        self.r4_packet = r4_packet
+        self.r4_result = r4_result
+        self.r5_anchor = r5_anchor
+        self.preclose_state = prior
+        self.recovery_anchor = recovery
+        self.reproduction = self.r5.reproduce_trigger(
+            anchor=r5_anchor,
+            r4_anchor=self.r5.r4.anchor,
+            expected_r4_anchor_sha256=digest(canonical_bytes(self.r5.r4.anchor)),
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertEqual(
+            (self.reproduction.status, self.reproduction.reasons),
+            ("reproduced", ()),
+        )
+        self.reproduction_sha256 = digest(canonical_bytes(self.reproduction))
         self.fixture.controller.advance_release(signed_release=closed, now=cutoff)
         due = self.r5.protocol.followup_due_at
         self.closeout = self.r5.packet(
@@ -60,13 +80,15 @@ class CohortR6AssessmentHandoffTests(TestCase):
             ),
             local_dispositions=(settled,),
         )
-        self.r5_result = self.r5.inspect(
+        self.r5_result = self.r5.inspect_reproduced(
             self.closeout,
             anchor=r5_anchor,
             r4_packet=r4_packet,
             r4_result=r4_result,
             prior=prior,
             recovery=recovery,
+            reproduction=self.reproduction,
+            expected_reproduction_sha256=self.reproduction_sha256,
         )
         self.assertEqual(self.r5_result.status, "reviewable")
         self.evidence = R6EvidenceReferences(
@@ -90,6 +112,7 @@ class CohortR6AssessmentHandoffTests(TestCase):
             closeout_protocol_sha256=digest(canonical_bytes(self.r5.protocol)),
             closeout_packet_sha256=digest(canonical_bytes(self.closeout)),
             r5_result_sha256=digest(canonical_bytes(self.r5_result)),
+            r5_reproduction_sha256=self.reproduction_sha256,
             roster_sha256=roster_sha256,
             dispatch_index_sha256=digest(canonical_bytes(self.dispatch_index)),
             evidence_references_sha256=digest(canonical_bytes(self.evidence)),
@@ -109,6 +132,7 @@ class CohortR6AssessmentHandoffTests(TestCase):
             closeout_protocol_sha256=self.anchor.closeout_protocol_sha256,
             closeout_packet_sha256=self.anchor.closeout_packet_sha256,
             r5_result_sha256=self.anchor.r5_result_sha256,
+            r5_reproduction_sha256=self.reproduction_sha256,
             roster_sha256=roster_sha256,
             dispatch_index=self.dispatch_index,
             assignment_count=2,
@@ -149,10 +173,33 @@ class CohortR6AssessmentHandoffTests(TestCase):
             now=now or current.reviewed_at,
         )
 
+    def validate_reproduced(self, **changes: object) -> OfflineR6AssessmentResult:
+        values: dict[str, object] = {
+            "packet": self.packet,
+            "anchor": self.anchor,
+            "protocol": self.r5.protocol,
+            "closeout_packet": self.closeout,
+            "r5_result": self.r5_result,
+            "r5_anchor": self.r5_anchor,
+            "r4_packet": self.r4_packet,
+            "r4_result": self.r4_result,
+            "preclose_state": self.preclose_state,
+            "admission": self.r5.base.admission,
+            "store": self.r5.base.store,
+            "audit": self.fixture.audit,
+            "recovery_anchor": self.recovery_anchor,
+            "reproduction": self.reproduction,
+            "now": self.packet.reviewed_at,
+        }
+        values.update(changes)
+        return validate_reproduced_offline_r6_assessment_handoff(
+            **values  # type: ignore[arg-type]
+        )
+
     def test_complete_synthetic_handoff_is_reviewable_without_authority(self) -> None:
         before = self.r5.base.admission.read_current()
         checkpoint = self.r5.base.admission.checkpoint.read_current()
-        result = self.validate()
+        result = self.validate_reproduced()
         self.assertEqual((result.status, result.reasons), ("reviewable", ()))
         self.assertEqual(
             (
@@ -166,6 +213,7 @@ class CohortR6AssessmentHandoffTests(TestCase):
             (2, 1, 1, 0, 0, 15),
         )
         self.assertFalse(result.assessment_authorized)
+        self.assertTrue(result.r5_reproduction_checked)
         self.assertFalse(result.comparative_claim_authorized)
         self.assertFalse(result.policy_promotion_authorized)
         self.assertFalse(result.next_cohort_authorized)
@@ -173,6 +221,40 @@ class CohortR6AssessmentHandoffTests(TestCase):
         self.assertEqual(self.r5.base.admission.read_current(), before)
         self.assertEqual(self.r5.base.admission.checkpoint.read_current(), checkpoint)
         self.assertEqual(len(self.r5.base.transport.entries), 1)
+
+    def test_missing_blocked_or_substituted_reproduction_blocks_r6(self) -> None:
+        self.assertEqual(self.validate().status, "reviewable")
+        missing = self.validate_reproduced(reproduction=None)
+        self.assertEqual(missing.status, "blocked")
+        self.assertIn("r5_reproduction_missing", missing.reasons)
+        wrong_receipt = self.reproduction.model_copy(
+            update={
+                "reproduced_at": self.reproduction.reproduced_at
+                + timedelta(seconds=1)
+            }
+        )
+        substituted = self.validate_reproduced(reproduction=wrong_receipt)
+        self.assertIn("r5_reproduction_binding_mismatch", substituted.reasons)
+        self.assertIn("r5_reproduction_handoff_invalid", substituted.reasons)
+        blocked_receipt = self.reproduction.model_copy(
+            update={"status": "blocked", "reasons": ("synthetic_fault",)}
+        )
+        blocked_sha256 = digest(canonical_bytes(blocked_receipt))
+        anchor = self.anchor.model_copy(
+            update={"r5_reproduction_sha256": blocked_sha256}
+        )
+        packet = self.packet.model_copy(
+            update={"r5_reproduction_sha256": blocked_sha256}
+        )
+        blocked = self.validate_reproduced(
+            anchor=anchor, packet=packet, reproduction=blocked_receipt
+        )
+        self.assertEqual(blocked.status, "blocked")
+        self.assertIn("r5_reproduction_handoff_invalid", blocked.reasons)
+        no_digest = self.validate_reproduced(
+            packet=self.packet.model_copy(update={"r5_reproduction_sha256": None})
+        )
+        self.assertIn("r5_reproduction_missing", no_digest.reasons)
 
     def test_early_or_incomplete_handoff_is_blocked(self) -> None:
         early_time = self.r5.protocol.followup_due_at - timedelta(seconds=1)

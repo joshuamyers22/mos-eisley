@@ -76,10 +76,19 @@ never inline prompt content. Their candidate digests require independent source
 checking against the frozen policy. The packet's canonical digest binds a separate
 `OfflineQualificationEvidence` index containing Q1–Q6, O01–O10, G6-01–G6-04
 and every applicable G2/G3/G4 record, exact route observations, and measured
-drill limits. Missing, extra, failed, stale or conflicting entries deny.
+drill limits. Evidence schema version 2 also requires the exact drill protocol
+and index digests. Q6's source digest must equal the index digest; each O01–O10
+source digest must equal `drill_case_sha256` over that case's indexed fault
+observations and protocol digest. The Q6/O records must use the protocol's
+operator/checker IDs and be collected after the index was assembled. The
+summary counts and latencies must match the index exactly. Missing, extra,
+failed, stale or conflicting entries deny.
 
 `validate_offline_qualification_packet` takes an explicit UTC time and an
-independently supplied `OfflineQualificationReviewTrust`. Four distinct
+independently supplied `OfflineQualificationReviewTrust`, the exact
+`HostDrillProtocol` and `HostDrillEvidenceIndex`. It requires the joined
+packet/drill check to be `reviewable`; a generic O-case `pass` record or a
+standalone index result cannot substitute. Four distinct
 operations, owner, security and statistical signatures must accept the exact
 packet **and** evidence digest. The result is only `reviewable` or a bounded
 set of denial reasons; its qualification and dispatch authority fields are
@@ -108,13 +117,32 @@ chain. The [G6-02 resolver](../src/mos_eisley/run/exact_route.py) and
 [G6-04 offline broker path](../src/mos_eisley/run/routing_transaction.py)
 provide fixture evidence only. No production credentialed G6 send path or
 external witness deployment is established by those modules.
+The [G605-05 source-evidence handoff package](G6_05_SOURCE_EVIDENCE_HANDOFF_PACKAGE.md)
+enumerates the exact source digest slots and independent inspection assignments
+for this packet and the joined drill index. Its metadata result cannot
+authenticate the underlying sources or close Q1–Q7.
+The [G605-06 decision-readiness package](G6_05_DECISION_READINESS_PACKAGE.md)
+binds source-inspection outcomes, finding and operations dispositions, and Q7
+review signatures into an offline owner-decision queue. It grants no
+qualification or dispatch authority.
+The [owner-decision contract and R2 binding rehearsal](G6_05_OWNER_DECISION_R2_BINDING.md)
+prepare a signed go/no-go record and a synthetic G6-06 entry join; no real go
+has been issued.
 
 ## Target-host qualification matrix
 
 The [inert target-host drill package](G6_05_INERT_TARGET_HOST_DRILL_PACKAGE.md)
 now supplies a frozen O01–O10 fault index, metadata validator, run protocol and
 synthetic denial tests. It prepares the actual target-host exercise but does
-not execute it or close Q5/Q6.
+not execute it or close Q5/Q6. Its joined offline validator checks that the
+protocol and evidence index stay within the exact qualification packet's
+host/build/witness/test-protocol identities, ceilings and validity window;
+the qualification validator now binds Q6/O01–O10 to that exact index. Source
+artifacts and the actual host exercise still require independent review.
+The drill protocol's version 2 request maximum must equal the packet's
+maximum. Its code-owned O03/O04/O08 minimums reject missing post-claim state
+and underreported full exposure, even when a frozen oracle requests weaker
+bounds.
 
 Use the packet's frozen route, ceilings, clock and failpoint oracles. Run each
 case on the named host and witness topology with an inert endpoint, isolated

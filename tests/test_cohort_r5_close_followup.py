@@ -8,8 +8,11 @@ from unittest import TestCase
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.run.cohort_close_handoff import (
     FrozenR5CloseAnchor,
+    OfflineR4TriggerReproduction,
     OfflineR5CloseResult,
+    reproduce_offline_r4_trigger,
     validate_offline_r5_close_handoff,
+    validate_reproduced_offline_r5_close_handoff,
 )
 from mos_eisley.run.cohort_closeout import (
     AttemptCloseoutLink,
@@ -20,6 +23,7 @@ from mos_eisley.run.cohort_closeout import (
     validate_offline_cohort_closeout,
 )
 from mos_eisley.run.cohort_surveillance import (
+    FrozenR4SurveillanceAnchor,
     OfflineR4SurveillancePacket,
     OfflineR4SurveillanceResult,
 )
@@ -169,12 +173,272 @@ class CohortR5CloseFollowupTests(TestCase):
             now=packet.prepared_at,
         )
 
+    def reproduce_trigger(
+        self,
+        *,
+        anchor: FrozenR5CloseAnchor,
+        r4_anchor: FrozenR4SurveillanceAnchor,
+        expected_r4_anchor_sha256: str,
+        r4_packet: OfflineR4SurveillancePacket,
+        r4_result: OfflineR4SurveillanceResult,
+        prior: WitnessedState,
+        recovery: FrozenCohortRecoveryAnchor,
+    ) -> OfflineR4TriggerReproduction:
+        return reproduce_offline_r4_trigger(
+            protocol=self.protocol,
+            close_anchor=anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            preclose_state=prior,
+            selection=self.base.selection,
+            preflight=self.base.preflight,
+            admission=self.base.admission,
+            store=self.base.store,
+            audit=self.fixture.audit,
+            recovery_anchor=recovery,
+            route_probe=self.fixture.route_probe,
+            monitor=self.base.monitor,
+            alerts=self.fixture.alerts,
+            transport=self.base.transport,
+            now=r4_packet.observed_at,
+        )
+
+    def inspect_reproduced(
+        self,
+        packet: CohortCloseoutPacket,
+        *,
+        anchor: FrozenR5CloseAnchor,
+        r4_packet: OfflineR4SurveillancePacket,
+        r4_result: OfflineR4SurveillanceResult,
+        prior: WitnessedState,
+        recovery: FrozenCohortRecoveryAnchor,
+        reproduction: OfflineR4TriggerReproduction,
+        expected_reproduction_sha256: str,
+    ) -> OfflineR5CloseResult:
+        return validate_reproduced_offline_r5_close_handoff(
+            packet,
+            protocol=self.protocol,
+            anchor=anchor,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            preclose_state=prior,
+            admission=self.base.admission,
+            store=self.base.store,
+            audit=self.fixture.audit,
+            recovery_anchor=recovery,
+            reproduction=reproduction,
+            expected_reproduction_sha256=expected_reproduction_sha256,
+            now=packet.prepared_at,
+        )
+
     def stop_and_close(self, closed: SignedCohortRelease) -> None:
         stopped = self.base.stop_entry()
         self.base.admission.advance_control(stopped, self.now + timedelta(seconds=1))
         self.fixture.controller.advance_release(
             signed_release=closed, now=self.now + timedelta(seconds=1)
         )
+
+    def test_reproduced_hard_stop_joins_later_pending_close(self) -> None:
+        r4_packet = self.r4.packet().model_copy(update={"safety_signal": "hard_stop"})
+        r4_anchor = self.r4.anchor.model_copy(update={"safety_signal": "hard_stop"})
+        expected_r4_anchor_sha256 = digest(canonical_bytes(r4_anchor))
+        r4_result = self.r4.inspect(r4_packet, anchor=r4_anchor)
+        self.assertEqual(r4_result.status, "hard_stop")
+        closed = self.closed_release(self.now + timedelta(seconds=1))
+        anchor, prior, recovery = self.freeze(
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            trigger="r4_hard_stop",
+            closed=closed,
+        )
+        before = self.base.admission.read_current()
+        before_checkpoint = self.base.admission.checkpoint.read_current()
+        before_intents = self.base.store.list_intents()
+        before_audit = self.fixture.audit.read_current()
+        before_entries = tuple(self.base.transport.entries)
+        reproduction = self.reproduce_trigger(
+            anchor=anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertEqual(
+            (reproduction.status, reproduction.reasons), ("reproduced", ())
+        )
+        self.assertFalse(reproduction.close_authorized)
+        self.assertFalse(reproduction.dispatch_authorized)
+        self.assertEqual(self.base.admission.read_current(), before)
+        self.assertEqual(
+            self.base.admission.checkpoint.read_current(), before_checkpoint
+        )
+        self.assertEqual(self.base.store.list_intents(), before_intents)
+        self.assertEqual(self.fixture.audit.read_current(), before_audit)
+        self.assertEqual(tuple(self.base.transport.entries), before_entries)
+        frozen_reproduction_sha256 = digest(canonical_bytes(reproduction))
+        self.stop_and_close(closed)
+        pending = self.packet(
+            prepared_at=self.protocol.cutoff_at + timedelta(hours=1),
+            followups=(TaskFollowupIndex(task_id="task-a", status="pending"),),
+        )
+        result = self.inspect_reproduced(
+            pending,
+            anchor=anchor,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+            reproduction=reproduction,
+            expected_reproduction_sha256=frozen_reproduction_sha256,
+        )
+        self.assertEqual((result.status, result.reasons), ("pending_followup", ()))
+        self.assertFalse(result.close_authorized)
+        self.assertFalse(result.dispatch_authorized)
+        rejected = self.inspect_reproduced(
+            pending,
+            anchor=anchor,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+            reproduction=reproduction,
+            expected_reproduction_sha256=digest(b"substituted-reproduction"),
+        )
+        self.assertEqual(rejected.status, "blocked")
+        self.assertIn("r4_trigger_reproduction_invalid", rejected.reasons)
+        blocked_receipt = reproduction.model_copy(
+            update={"status": "blocked", "reasons": ("synthetic_fault",)}
+        )
+        blocked_result = self.inspect_reproduced(
+            pending,
+            anchor=anchor,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+            reproduction=blocked_receipt,
+            expected_reproduction_sha256=digest(canonical_bytes(blocked_receipt)),
+        )
+        self.assertIn("r4_trigger_reproduction_invalid", blocked_result.reasons)
+
+    def test_substituted_r4_result_and_changed_sources_block_reproduction(self) -> None:
+        r4_packet = self.r4.packet()
+        r4_anchor = self.r4.anchor
+        expected_r4_anchor_sha256 = digest(canonical_bytes(r4_anchor))
+        actual = self.r4.inspect(r4_packet)
+        self.assertEqual(actual.status, "healthy")
+        forged = actual.model_copy(
+            update={"status": "hard_stop", "stop_required": True}
+        )
+        closed = self.closed_release(self.now + timedelta(seconds=1))
+        anchor, prior, recovery = self.freeze(
+            r4_packet=r4_packet,
+            r4_result=forged,
+            trigger="r4_hard_stop",
+            closed=closed,
+        )
+        substituted = self.reproduce_trigger(
+            anchor=anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=forged,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertEqual(substituted.status, "blocked")
+        self.assertIn("r4_result_not_reproduced", substituted.reasons)
+        self.assertEqual(self.base.admission.read_current(), prior)
+
+        wrong_root = self.reproduce_trigger(
+            anchor=anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=digest(b"different-r4-anchor"),
+            r4_packet=r4_packet,
+            r4_result=forged,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertIn("r4_anchor_mismatch", wrong_root.reasons)
+
+        valid_anchor = anchor.model_copy(
+            update={"r4_result_sha256": digest(canonical_bytes(actual))}
+        )
+        current_route = self.fixture.route_probe.current
+        self.fixture.route_probe.current = current_route.model_copy(
+            update={"available": False}
+        )
+        changed_route = self.reproduce_trigger(
+            anchor=valid_anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=actual,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertIn("r4_result_not_reproduced", changed_route.reasons)
+        self.fixture.route_probe.current = current_route
+        self.fixture.assign("task-c", "session-b")
+        changed_witness = self.reproduce_trigger(
+            anchor=valid_anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=actual,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertIn("preclose_source_changed", changed_witness.reasons)
+        self.assertIn("r4_result_not_reproduced", changed_witness.reasons)
+        cohort = self.base.admission.read_current().cohort
+        assert cohort is not None
+        self.assertEqual(cohort.signed_release.release.phase, "bounded_live")
+        self.assertEqual(self.base.admission.read_current().attempts, ())
+        self.assertEqual(self.base.transport.entries, [])
+
+    def test_registered_cutoff_reproduction_requires_exact_cutoff(self) -> None:
+        r4_packet = self.r4.packet(now=self.protocol.cutoff_at)
+        r4_anchor = self.r4.anchor
+        expected_r4_anchor_sha256 = digest(canonical_bytes(r4_anchor))
+        r4_result = self.r4.inspect(r4_packet, now=self.protocol.cutoff_at)
+        closed = self.closed_release(self.protocol.cutoff_at + timedelta(seconds=1))
+        anchor, prior, recovery = self.freeze(
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            trigger="registered_cutoff",
+            closed=closed,
+        )
+        accepted = self.reproduce_trigger(
+            anchor=anchor,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertEqual((accepted.status, accepted.reasons), ("reproduced", ()))
+        wrong_cutoff = anchor.model_copy(
+            update={"triggered_at": self.protocol.cutoff_at + timedelta(seconds=1)}
+        )
+        denied = self.reproduce_trigger(
+            anchor=wrong_cutoff,
+            r4_anchor=r4_anchor,
+            expected_r4_anchor_sha256=expected_r4_anchor_sha256,
+            r4_packet=r4_packet,
+            r4_result=r4_result,
+            prior=prior,
+            recovery=recovery,
+        )
+        self.assertEqual(denied.status, "blocked")
+        self.assertIn("cutoff_trigger_mismatch", denied.reasons)
+        self.assertEqual(self.base.admission.read_current(), prior)
+        self.assertEqual(self.base.transport.entries, [])
 
     def test_r4_hard_stop_closes_original_roster_and_tracks_late_followup(self) -> None:
         self.fixture.assign("task-c", "session-b")

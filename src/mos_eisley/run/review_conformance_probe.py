@@ -12,13 +12,22 @@ from typing import Literal
 from pydantic import JsonValue
 
 from mos_eisley.core.models import ReviewPolicy, canonical_bytes
+from mos_eisley.providers.anthropic_live import EphemeralAnthropicTransport
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_live import EphemeralOpenAITransport
-from mos_eisley.providers.openai_responses import request_payload
-from mos_eisley.providers.openai_spend import count_payload, spending_request_sha256
+from mos_eisley.providers.openai_spend import spending_request_sha256
 from mos_eisley.run.isolation import OfflineContainer
+from mos_eisley.run.operator_review_probe import (
+    OperatorReviewIdentity,
+    validate_operator_review_identity,
+)
 from mos_eisley.run.review_approval import BrokeredReviewApprovalFlow, ReviewApprovalUI
-from mos_eisley.run.review_broker import PreparedReviewEnvelope
+from mos_eisley.run.review_broker import (
+    PreparedReviewEnvelope,
+    review_count_payload,
+    review_request_payload,
+)
+from mos_eisley.run.review_campaign import read_campaign_seal
 from mos_eisley.run.review_campaign_dispatch import (
     ReviewCampaignAdmission,
     ReviewCampaignBinding,
@@ -99,11 +108,12 @@ class _ApprovedReviewTransport:
         if self._guidance.prepared.sha256 != authorization.scope.guidance_sha256:
             raise ValueError("review conformance guidance binding changed")
         self._guidance.check()
-        expected = request_payload(request)
-        expected["service_tier"] = "default"
-        if spending_request_sha256(payload) != spending_request_sha256(
-            count_payload(expected) if count else expected
-        ):
+        expected = (
+            review_count_payload(request) if count else review_request_payload(request)
+        )
+        if not count and request.provider == "openai":
+            expected["service_tier"] = "default"
+        if spending_request_sha256(payload) != spending_request_sha256(expected):
             raise ValueError(
                 "review conformance provider payload differs from approval"
             )
@@ -129,14 +139,25 @@ class _ApprovedReviewTransport:
 
     def _transport(
         self, payload: dict[str, JsonValue], *, count: bool
-    ) -> tuple[EphemeralOpenAITransport, float]:
+    ) -> tuple[EphemeralOpenAITransport | EphemeralAnthropicTransport, float]:
         self._check(payload, count=count)
         # The trusted synchronous loader runs only after signature, local consent,
         # current guidance, runtime and exact-payload checks. It may itself revoke
         # policy, so recheck before constructing any credentialed SDK transport.
         key = self._key()
         remaining = self._check(payload, count=count)
-        return EphemeralOpenAITransport(key, remaining), remaining
+        preview, _ = self._ui.approved_phase(self._phase)
+        request = (
+            preview.requests[self._index]
+            if isinstance(preview, ControllerCriticPreview)
+            else preview.model_request
+        )
+        transport = (
+            EphemeralOpenAITransport(key, remaining)
+            if request.provider == "openai"
+            else EphemeralAnthropicTransport(key, remaining)
+        )
+        return transport, remaining
 
     def _record(
         self, payload: dict[str, JsonValue], *, count: bool
@@ -225,6 +246,7 @@ class BrokeredReviewConformanceProbe:
         total_seconds: float = 30,
         campaign: ReviewCampaignBinding | None = None,
         launch: ReviewLaunchAdmissionInputs | None = None,
+        operator_identity: OperatorReviewIdentity | None = None,
     ) -> None:
         if campaign is not None and launch is not None:
             raise ValueError(
@@ -234,9 +256,28 @@ class BrokeredReviewConformanceProbe:
             {id(container) for container in critic_containers}
         ) != len(critic_containers):
             raise ValueError("review probe requires a distinct worker for every critic")
+        if operator_identity is not None:
+            identity = validate_operator_review_identity(
+                operator_identity, envelope, reviewer
+            )
+            if campaign is not None:
+                bundle, _ = read_campaign_seal(
+                    Path(campaign.campaign_directory), campaign.expected_seal_sha256
+                )
+                if (
+                    sum(
+                        item.preview.envelope.total_reserved_microusd
+                        for item in bundle.attempts
+                    )
+                    > identity.max_total_microusd
+                ):
+                    raise ValueError(
+                        "signed operator campaign exceeds the selected total cap"
+                    )
         guidance = envelope.critics[0].guidance
         if guidance is None:
             raise ValueError("review conformance probe requires current guidance")
+        self._provider = envelope.critics[0].model_request.provider
         self._containers = (*critic_containers, judge_container)
         self._runtime()  # Validate immutable image agreement before any prompt.
         self.controller = BrokeredReviewController(
@@ -315,7 +356,7 @@ class BrokeredReviewConformanceProbe:
         if len(images) != 1:
             raise ValueError("review conformance workers require the same pinned image")
         return ReviewConformanceRuntime(
-            sdk_version=version("openai"), image_id=next(iter(images))
+            sdk_version=version(self._provider), image_id=next(iter(images))
         )
 
     @property
