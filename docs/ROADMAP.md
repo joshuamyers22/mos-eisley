@@ -155,8 +155,25 @@ claim, and preserves the existing provider, spending, quality, and containment g
 adds a bounded paid-review launch preview, exact file/range attachments, and a
 complete stdin/final-status contract for `mos exec` to the post-v1 product phase in
 [plan §31](mos-eisley-plan.md#31-version-2-conversation-and-automation-requirements).
+The 2026-09-27 Managed Agents survey also adds durable recovery across session,
+controller and sandbox failures, plus brokered credential attachment at approved
+network destinations, to that v2 phase. Injected-failure and credential-egress
+tests are required before either is advertised.
+The 2026-09-28 `resume` survey adds ranked name/ID discovery to the existing
+metadata-only resume picker, with deterministic ordering, existing scope and
+catalog limits, and stale-selection rechecks; see plan §31.6.
 They depend on the applicable v1 conversation, review, read and policy gates. They
 do not change v1 scope, grant new authority or advance an implementation gate.
+
+**Version 3 Managed Agents interoperability — planned:**
+[plan §32](mos-eisley-plan.md#32-version-3-managed-agent-interoperability) permits
+an optional Claude Managed Agents client to use the qualified narrow outward MCP
+interface for owner-scoped review preflight, status and bounded replay. The
+canonical multi-provider loop, structural critic/judge isolation, local policy and
+owner-controlled evidence remain Mos Eisley's authority. Begin with an inert
+external-client fixture after E4; credentialed use needs a separate data-egress
+decision and applicable conformance gates. This is a v3 direction, not an
+implemented integration or a change to current release scope.
 
 **Data ownership and storage, 2026-09-06:** keep saved conversations, replay,
 evaluation evidence, and model-selection records under one user's ownership.

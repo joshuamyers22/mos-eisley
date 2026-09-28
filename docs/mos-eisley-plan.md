@@ -30,8 +30,11 @@ the linked records.
 
 **Version 2 scope, 2026-09-25:** §31 records the accepted additions from the
 [Claude Code feature survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
-They are post-v1 product requirements and do not change the v1 release gates or
-claim current availability.
+The 2026-09-27 Claude Managed Agents survey adds recovery and credential-boundary
+requirements to §31 and a scoped v3 interoperability direction in §32. The
+2026-09-28 `resume` survey adds ranked resume-picker discovery to §31. These are
+post-v1 product requirements and do not change the v1 release gates or claim
+current availability.
 
 **G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
 perform the phase authorizer, observer and launch reviewer roles for G2. The
@@ -4749,8 +4752,15 @@ cannot replace real PTY and ConPTY evidence.
 
 ## 31. Version 2 conversation and automation requirements
 
-**Scope and order.** These three requirements come from the
-[2026-09-25 feature review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
+**Scope and order.** Requirements 31.1–31.3 come from the
+[2026-09-25 feature review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md);
+31.4–31.5 incorporate the 2026-09-27
+[Claude Managed Agents architecture](https://www.anthropic.com/engineering/managed-agents)
+and [vault design](https://claude.com/blog/whats-new-in-claude-managed-agents)
+survey where they strengthen existing Mos Eisley contracts.
+Requirement 31.6 draws on
+[`robertmartin8/resume`'s title-first search](https://github.com/robertmartin8/resume/blob/42da916ca9c59cc7a92db72c407af83527d82222/src/search.rs)
+while retaining Mos Eisley's owner-scoped, metadata-only picker.
 They belong to version 2 after the applicable v1 conversation, live-review,
 bounded-read, storage and policy gates have passed. Version 2 here denotes a
 product phase, not a storage/schema version or a claim that §27's 0.1.1 release
@@ -4809,3 +4819,99 @@ events and provider failure produce one unambiguous terminal state. Plain and JS
 paths share the interactive controller, policy, spending ledger and redaction
 rules. This v2 expansion does not retroactively change the documented scope of
 the existing `mos exec --json` command or the historical M10 milestone table.
+
+### 31.4 Recoverable session, controller and execution boundaries
+
+Make the retained, owner-scoped session event log the durable source for controller
+recovery, separate from the disposable execution sandbox. Assign monotonic event
+sequence numbers and stable operation IDs. Persist a decision and its applicable
+policy, target revision and budget reservation before dispatch; persist the result
+or an explicit uncertain-effect state before advancing the session cursor. A
+restarted controller reconstructs the bounded working context, remaining task
+budget and outstanding user steering from verified records; an unclosed dispatch
+is conservatively recovered as uncertain. A replacement sandbox
+must be provisioned from a pinned recipe and scoped mounts, then revalidate the
+workspace revision and capabilities before any further tool call. A lost response
+to a tool with possible side effects is never silently retried. This strengthens
+§§6.7, 14.1 and 17.7 without creating a second transcript store or granting
+additional execution authority.
+
+Acceptance: inject controller, event-store and sandbox failure before dispatch,
+after dispatch, and before result commit. Recovery causes no automatic repeat of
+a possible write or paid call, lost steering, reset budget, cross-owner read,
+widened mount or skipped approval. Preserve full spend exposure for an ambiguous
+paid call. The user sees an uncertain effect when it cannot be resolved; verified
+read-only operations may resume from the last committed cursor. Exercise the same
+contract through TUI, plain and JSON modes on each supported storage backend.
+
+### 31.5 Credential attachment at the approved network boundary
+
+Extend the trusted credential holder in §§4.5 and 19.2–19.4 so approved outbound
+requests can authenticate without placing a provider or service secret in an
+agent's prompt, tool arguments, process environment, sandbox filesystem, transcript
+or event payload. Resolve a typed credential reference only in the trusted broker;
+attach the secret to an allowlisted destination and operation after policy and
+owner checks. Pin scheme, host and redirect behavior, scope and expiry; fail closed
+on destination changes or unsupported client behavior. Preserve the existing
+separate publisher path for GitHub writes. Credential rotation and revocation must
+take effect without restarting an agent session, and an uncertain write must not
+be replayed merely because authentication changed.
+
+Acceptance: negative tests cover model-controlled destinations, redirects, DNS and
+proxy changes, tool-output injection, subprocess environment inspection,
+cross-owner references, logs/replay/export, rotation during an active session and
+revocation before dispatch. Network capture proves the credential reaches only the
+approved destination. Existing credential paths remain supported until this
+brokered path passes the same provider and tool conformance gates.
+
+### 31.6 Ranked discovery in the existing resume picker
+
+Improve the §16.0.3 picker using only the bounded session metadata already
+admitted for the selected owner, canonical workspace, storage location and
+backend. Rank exact session-ID and normalized-name matches first, followed by
+name prefixes, all-query-word name matches, then bounded fuzzy name matches;
+use saved time and immutable ID for deterministic ties. Show the match basis and
+keep the selected session's full name, ID and saved time visible. An empty query
+continues to show recent sessions. Search must not parse transcripts, index prior
+messages, create a second content cache, combine workspaces/backends, or load a
+prior conversation into the model. `mos resume --name` keeps its exact-match and
+ambiguity behavior; ranked search is an interactive discovery aid, not authority
+to choose a session automatically. Existing catalog limits and selected-state
+identity/hash rechecks remain in force.
+
+Acceptance: exact and prefix hits outrank fuzzy hits regardless of recency; ties
+are stable across refresh and restart. Unicode normalization, duplicate names,
+unnamed sessions, query-length/CPU bounds and the 1,000-session SQLite picker
+limit behave predictably. A rename, deletion, replacement or active-session change
+between search and Enter cannot resume a stale selection. Two-owner and
+two-workspace fixtures prove no cross-scope result or transcript-content read;
+JSON and SQLite catalogs produce the same ranking for equivalent metadata.
+
+## 32. Version 3 managed-agent interoperability
+
+**Scope and order.** Treat
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview)
+as an optional external client ecosystem after the narrow outward MCP boundary in
+§13.2/E4 is qualified. A configured Managed Agent may invoke owner-authenticated,
+schema-versioned Mos Eisley review preflight, status and bounded replay through
+that interface. Mos Eisley remains the authority for roster, frozen briefs,
+spending, execution policy, retained evidence and publication. The integration
+must not expose a general remote runner or permit a caller to assert its own
+sandbox tier, repository identity or review verdict.
+
+Managed Agents runs a Claude-specific agent loop and retains session history on
+Anthropic's service. Its multiagent threads have separate contexts but share a
+sandbox, filesystem and vault credentials; its outcome grader supplies iterative
+feedback, not Mos Eisley's independent cross-provider judgment. Therefore it is
+not a substitute for the canonical provider loop, structurally blind critics or
+judge. Self-hosted tool execution still sends tool inputs and results to
+Anthropic's control plane. Any later proposal to use a Managed Agent as a
+model-facing backend requires a separate owner data-egress decision and the same
+provider, role, containment, spending and replay conformance gates as other routes.
+
+Acceptance for the initial v3 interface: a Managed Agent can request a bounded
+preflight and retrieve only its owner's authorized status/replay view; forged owner
+IDs, cross-owner run IDs, stale targets, repeated requests and attempts to enlarge
+permissions fail closed. Cancellation and uncertain outcomes remain visible across
+the boundary. Test with an inert external-client fixture before any credentialed
+Managed Agents run. No v3 feature or Managed Agents availability is claimed here.
