@@ -205,6 +205,18 @@ class _RawModelProposal(Contract):
     unresolved_issue_count: Annotated[int, Field(ge=0, le=10_000)]
 
 
+class _RawUtf8ModelFile(Contract):
+    path: str
+    content_utf8: Annotated[str, Field(max_length=64_000)]
+
+
+class _RawUtf8ModelProposal(Contract):
+    replacements: Annotated[
+        tuple[_RawUtf8ModelFile, ...], Field(min_length=1, max_length=64)
+    ]
+    unresolved_issue_count: Annotated[int, Field(ge=0, le=10_000)]
+
+
 class _ModelProposal(Contract):
     replacements: Annotated[
         tuple[G4CorrectionChildSourceFile, ...], Field(min_length=1, max_length=64)
@@ -257,6 +269,43 @@ def _parse_model_proposal(output: str) -> _ModelProposal:
             G4CorrectionChildSourceFile(
                 path=item.path,
                 content_base64=canonical,
+                content_sha256=digest(content),
+            )
+        )
+    return _ModelProposal(
+        replacements=tuple(replacements),
+        unresolved_issue_count=raw.unresolved_issue_count,
+    )
+
+
+def parse_initial_child_source_text_proposal(output: str) -> _ModelProposal:
+    """Encode exact provider source text inside the trusted child boundary."""
+    if len(output.encode("utf-8")) > 64_000:
+        raise ValueError("production child proposal exceeds output byte limit")
+
+    def unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("production child proposal has duplicate JSON keys")
+            result[key] = value
+        return result
+
+    try:
+        json.loads(output, object_pairs_hook=unique_pairs)
+    except (json.JSONDecodeError, RecursionError):
+        raise ValueError("production child proposal is not bounded JSON") from None
+    raw = _RawUtf8ModelProposal.model_validate_json(output)
+    replacements: list[G4CorrectionChildSourceFile] = []
+    for item in raw.replacements:
+        try:
+            content = item.content_utf8.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("production child source is not valid UTF-8") from None
+        replacements.append(
+            G4CorrectionChildSourceFile(
+                path=item.path,
+                content_base64=base64.b64encode(content).decode("ascii"),
                 content_sha256=digest(content),
             )
         )
