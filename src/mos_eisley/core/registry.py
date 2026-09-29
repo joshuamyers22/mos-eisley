@@ -181,7 +181,7 @@ def anthropic_registry() -> ModelRegistry:
                 max_output_bytes=256_000,
                 context_tokens=1_000_000,
                 max_output_tokens=128_000,
-                efforts=("low", "medium", "high", "xhigh", "max"),
+                efforts=("none", "low", "medium", "high", "xhigh", "max"),
                 default_effort="high",
                 tool_calling=True,
                 structured_output=True,

@@ -91,9 +91,9 @@ def validate_operator_review_identity(
     if (
         len(critic_models) != len(envelope.critics)
         or len(identities) != len(envelope.critics) + 2
-        or any(provider not in {"openai", "anthropic"} for provider, _ in critic_models)
-        or judge.provider not in {"openai", "anthropic"}
-        or envelope.envelope.judge.spend_policy.provider != judge.provider
+        or any(provider != "anthropic" for provider, _ in critic_models)
+        or judge.provider != "anthropic"
+        or envelope.envelope.judge.spend_policy.provider != "anthropic"
         or envelope.envelope.judge.spend_policy.model != judge.model
     ):
         raise ValueError(

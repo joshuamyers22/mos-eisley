@@ -11,6 +11,7 @@ from pydantic import JsonValue
 
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.providers.anthropic_messages import review_json_format
 from mos_eisley.providers.openai_spend import (
     CountedTransport,
     SpendPolicy,
@@ -38,18 +39,25 @@ def _request(
         "stream",
     }:
         raise ProviderError("Anthropic request contains unpriced controls")
+    formats: tuple[dict[str, JsonValue], ...] = (
+        {},
+        {"format": review_json_format("critique")},
+        {"format": review_json_format("judge")},
+    )
+    adaptive = value.get("thinking") == {"type": "adaptive"} and any(
+        value.get("output_config") == {"effort": effort, **format_control}
+        for effort in ("low", "medium", "high", "xhigh", "max")
+        for format_control in formats
+    )
+    disabled = (
+        policy.model == "claude-sonnet-5"
+        and value.get("thinking") == {"type": "disabled"}
+        and ("output_config" not in value or value.get("output_config") in formats[1:])
+    )
     if (
         value.get("service_tier") != "standard_only"
         or value.get("stream") is not False
-        or value.get("thinking") != {"type": "adaptive"}
-        or value.get("output_config")
-        not in (
-            {"effort": "low"},
-            {"effort": "medium"},
-            {"effort": "high"},
-            {"effort": "xhigh"},
-            {"effort": "max"},
-        )
+        or not (adaptive or disabled)
         or not isinstance(value.get("system"), str)
     ):
         raise ProviderError("Anthropic request has unsupported review controls")

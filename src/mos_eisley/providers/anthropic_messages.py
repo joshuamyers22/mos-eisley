@@ -142,8 +142,10 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         raise ProviderError("Anthropic adapter received another provider")
     if request.max_output_tokens is None:
         raise ProviderError("Anthropic request requires an output token limit")
-    if request.effort not in ("low", "medium", "high", "xhigh", "max"):
+    if request.effort not in ("none", "low", "medium", "high", "xhigh", "max"):
         raise ProviderError("Anthropic model does not support this effort")
+    if request.effort == "none" and request.model != "claude-sonnet-5":
+        raise ProviderError("thinking cannot be disabled for this Anthropic model")
     messages: list[dict[str, JsonValue]] = []
     call_ids = {
         block.id: block.provider_call_id or block.id
@@ -184,11 +186,17 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         "model": request.model,
         "max_tokens": request.max_output_tokens,
         "messages": cast(JsonValue, messages),
-        "output_config": {"effort": request.effort},
-        "thinking": {"type": "adaptive"},
+        "thinking": {"type": "disabled" if request.effort == "none" else "adaptive"},
         "service_tier": "standard_only",
         "stream": False,
     }
+    output_config: dict[str, JsonValue] = {}
+    if request.effort != "none":
+        output_config["effort"] = request.effort
+    if request.structured_output is not None:
+        output_config["format"] = review_json_format(request.structured_output)
+    if output_config:
+        payload["output_config"] = output_config
     if request.system:
         payload["system"] = request.system
     if request.tools:
@@ -202,6 +210,84 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         ]
         payload["tool_choice"] = {"type": "auto"}
     return payload
+
+
+def review_json_format(kind: str) -> dict[str, JsonValue]:
+    """Bounded schema for the two reviewed, tool-free JSON response types."""
+    if kind == "critique":
+        evidence: dict[str, JsonValue] = {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "const": "citation"},
+                "source": {"type": "string", "enum": ["spec", "diff", "constraints"]},
+                "quote": {
+                    "type": "string",
+                    "description": (
+                        "Copy an exact contiguous substring from one line of the "
+                        "brief field named by source, including a diff marker "
+                        "when present."
+                    ),
+                },
+                "explanation": {"type": "string"},
+            },
+            "required": ["kind", "source", "quote", "explanation"],
+            "additionalProperties": False,
+        }
+        finding: dict[str, JsonValue] = {
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "correctness",
+                        "spec_violation",
+                        "security",
+                        "performance",
+                        "preference",
+                    ],
+                },
+                "impact": {
+                    "type": "string",
+                    "enum": ["blocker", "high", "medium", "low"],
+                },
+                "claim": {"type": "string"},
+                "evidence": evidence,
+                "suggested_fix": {"type": ["string", "null"]},
+            },
+            "required": [
+                "location",
+                "category",
+                "impact",
+                "claim",
+                "evidence",
+                "suggested_fix",
+            ],
+            "additionalProperties": False,
+        }
+        schema: dict[str, JsonValue] = {
+            "type": "object",
+            "properties": {
+                "schema_version": {"type": "integer", "const": 1},
+                "findings": {"type": "array", "items": finding},
+            },
+            "required": ["schema_version", "findings"],
+            "additionalProperties": False,
+        }
+    elif kind == "judge":
+        schema = {
+            "type": "object",
+            "properties": {
+                "schema_version": {"type": "integer", "const": 1},
+                "upheld": {"type": "array", "items": {"type": "string"}},
+                "rationale": {"type": "string"},
+            },
+            "required": ["schema_version", "upheld", "rationale"],
+            "additionalProperties": False,
+        }
+    else:
+        raise ProviderError("unsupported Anthropic review output format")
+    return {"type": "json_schema", "schema": schema}
 
 
 class _External(BaseModel):

@@ -60,9 +60,13 @@ class ReviewLaunchConfiguration(Contract):
     judge_model: Identifier
     judge_spending: SpendPolicy
     effort: Effort
+    critic_effort: Effort | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     budget: BudgetPolicy
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
+    critic_preview_lifetime_seconds: Annotated[int, Field(gt=0, le=3600)] = 600
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
 
 
@@ -108,7 +112,6 @@ def prepare_review_launch_preview(
     expected_guidance_policy_sha256: str,
     ledger: SpendLedger,
     review_directory: Path,
-    authorization_ttl_seconds: int = 600,
 ) -> ReviewLaunchPreview:
     """No credentials, containers, reservations or authority from registry labels.
 
@@ -126,7 +129,6 @@ def prepare_review_launch_preview(
         expected_guidance_policy_sha256=expected_guidance_policy_sha256,
         ledger=ledger,
         review_directory=review_directory,
-        authorization_ttl_seconds=authorization_ttl_seconds,
     )
     controller = BrokeredReviewController(
         envelope,
@@ -155,10 +157,16 @@ def prepare_review_launch_components(
     expected_guidance_policy_sha256: str,
     ledger: SpendLedger,
     review_directory: Path,
-    authorization_ttl_seconds: int = 600,
+    committed_preview: ControllerCriticPreview | None = None,
 ) -> tuple[PreparedReviewEnvelope, ModelReviewer, ReviewGuidanceAdmission]:
-    """Fresh guided host composition for preview or an operator-approved run."""
+    """Compose fresh inputs or restore an exact sealed, still-current preview."""
     configuration = decode_launch_configuration(canonical_bytes(configuration))
+    if committed_preview is not None:
+        committed_preview = ControllerCriticPreview.model_validate_json(
+            canonical_bytes(committed_preview)
+        )
+        if len(committed_preview.envelope.critics) != len(configuration.critics):
+            raise ValueError("committed critic count differs from configuration")
     if prepared.sha256 != expected_prepared_sha256:
         raise ValueError("selected prepared review hash mismatch")
     if (
@@ -176,13 +184,25 @@ def prepare_review_launch_components(
         guidance_policy_path,
         expected_guidance_policy_sha256,
     )
-    for provider, model in (
-        *((item.critic.provider, item.critic.model) for item in configuration.critics),
-        (configuration.judge_provider, configuration.judge_model),
-    ):
+    roles: tuple[tuple[str, str, Effort], ...] = (
+        *(
+            (
+                item.critic.provider,
+                item.critic.model,
+                configuration.critic_effort or configuration.effort,
+            )
+            for item in configuration.critics
+        ),
+        (
+            configuration.judge_provider,
+            configuration.judge_model,
+            configuration.effort,
+        ),
+    )
+    for provider, model, effort in roles:
         if provider not in ("openai", "anthropic"):
             raise ValueError("brokered review launch provider is unsupported")
-        resolved = configuration.registry.resolve(provider, model, configuration.effort)
+        resolved = configuration.registry.resolve(provider, model, effort)
         if resolved.substituted:
             raise ValueError(
                 "review launch cannot silently substitute reasoning effort"
@@ -209,6 +229,7 @@ def prepare_review_launch_components(
         judge_provider=configuration.judge_provider,
         judge_model=configuration.judge_model,
         effort=configuration.effort,
+        critic_effort=configuration.critic_effort,
         budget=configuration.budget,
     )
     calls = tuple(
@@ -219,9 +240,16 @@ def prepare_review_launch_components(
             ledger,
             critic=item.critic,
             guidance=admission,
-            authorization_ttl_seconds=authorization_ttl_seconds,
+            authorization_lifetime_seconds=(
+                configuration.critic_preview_lifetime_seconds
+            ),
+            committed_authorization=(
+                None
+                if committed_preview is None
+                else committed_preview.envelope.critics[index]
+            ),
         )
-        for item in configuration.critics
+        for index, item in enumerate(configuration.critics)
     )
     envelope = PreparedReviewEnvelope(
         calls,
@@ -229,6 +257,18 @@ def prepare_review_launch_components(
         ledger,
         max_total_microusd=configuration.max_total_microusd,
         directory=review_directory,
+        committed_judge=(
+            None if committed_preview is None else committed_preview.envelope.judge
+        ),
     )
+    if committed_preview is not None:
+        controller = BrokeredReviewController(
+            envelope,
+            reviewer,
+            configuration.policy,
+            total_seconds=configuration.total_seconds,
+        )
+        if canonical_bytes(controller.preview) != canonical_bytes(committed_preview):
+            raise ValueError("committed critic preview differs from current inputs")
     admission.check()
     return envelope, reviewer, admission

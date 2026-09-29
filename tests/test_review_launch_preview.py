@@ -10,9 +10,15 @@ from test_review_guidance_admission import GuidedBrokerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
-from mos_eisley.core.models import CriticSpec, ReviewPolicy, canonical_bytes
+from mos_eisley.core.models import (
+    CriticSpec,
+    JudgeRequest,
+    ReviewPolicy,
+    canonical_bytes,
+)
 from mos_eisley.core.registry import anthropic_registry, openai_registry
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.run.review_campaign import campaign_reviewer
 from mos_eisley.run.review_controller import BrokeredReviewController
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
@@ -40,12 +46,7 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         )
         self.review_directory = self.base.root / "launch"
 
-    def launch(
-        self,
-        configuration: ReviewLaunchConfiguration | None = None,
-        *,
-        authorization_ttl_seconds: int = 600,
-    ):
+    def launch(self, configuration: ReviewLaunchConfiguration | None = None):
         return prepare_review_launch_preview(
             self.configuration if configuration is None else configuration,
             prepared=self.guided.prepared,
@@ -56,7 +57,6 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             expected_guidance_policy_sha256=self.guided.policy_sha,
             ledger=self.base.ledger,
             review_directory=self.review_directory,
-            authorization_ttl_seconds=authorization_ttl_seconds,
         )
 
     def cli_arguments(self):
@@ -136,14 +136,22 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             judge_provider="anthropic",
             judge_model="claude-sonnet-5",
             judge_spending=spending,
-            effort="high",
+            effort="low",
+            critic_effort="none",
             budget=BudgetPolicy(max_output_tokens=32),
             policy=ReviewPolicy(min_critics=1, min_providers=1),
             max_total_microusd=10_000,
         )
         result = self.launch(configuration)
         self.assertEqual(result.preview.requests[0].provider, "anthropic")
+        self.assertEqual(result.preview.requests[0].effort, "none")
+        self.assertEqual(result.preview.requests[0].structured_output, "critique")
         self.assertEqual(result.preview.envelope.critics[0].provider, "anthropic")
+        judge_request = campaign_reviewer(configuration).judge_request(
+            JudgeRequest(brief=self.guided.prepared.brief, findings=())
+        )
+        self.assertEqual(judge_request.effort, "low")
+        self.assertEqual(judge_request.structured_output, "judge")
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
         self.assertFalse(result.live_launch_available)
 
@@ -153,21 +161,22 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(first.configuration_sha256, second.configuration_sha256)
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
-    def test_sealed_campaign_preview_can_be_reprojected_exactly(self):
-        future_policy = self.base.policy.model_copy(
-            update={"valid_until": datetime.now(UTC) + timedelta(hours=3)}
+    def test_bounded_longer_preview_restores_without_reserving_spend(self):
+        spending = self.base.policy.model_copy(
+            update={"valid_until": datetime.now(UTC) + timedelta(hours=2)}
         )
         configuration = self.configuration.model_copy(
             update={
-                "critics": (
-                    self.configuration.critics[0].model_copy(
-                        update={"spending": future_policy}
-                    ),
-                ),
-                "judge_spending": future_policy,
+                "critics": (LaunchCritic(critic=self.base.critic, spending=spending),),
+                "judge_spending": spending,
+                "critic_preview_lifetime_seconds": 3600,
             }
         )
-        committed = self.launch(configuration, authorization_ttl_seconds=7_200).preview
+        before = datetime.now(UTC)
+        committed = self.launch(configuration).preview
+        remaining = (committed.envelope.expires_at - before).total_seconds()
+        self.assertGreater(remaining, 3590)
+        self.assertLessEqual(remaining, 3601)
         envelope, reviewer, _ = prepare_review_launch_components(
             configuration,
             prepared=self.guided.prepared,
@@ -178,28 +187,26 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             expected_guidance_policy_sha256=self.guided.policy_sha,
             ledger=self.base.ledger,
             review_directory=self.review_directory,
+            committed_preview=committed,
         )
-        self.assertNotEqual(envelope.envelope, committed.envelope)
-        envelope.bind_committed_envelope(committed.envelope)
-        self.assertGreater(
-            (committed.envelope.expires_at - datetime.now(UTC)).total_seconds(),
-            7_190,
-        )
-        self.assertLessEqual(
-            (envelope.critics[0].local_expires_at - datetime.now(UTC)).total_seconds(),
-            600,
-        )
-        controller = BrokeredReviewController(
+        restored = BrokeredReviewController(
             envelope,
             reviewer,
             configuration.policy,
             total_seconds=configuration.total_seconds,
         )
-        self.assertEqual(controller.preview, committed)
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
-    def test_sealed_campaign_reprojection_rejects_changed_request(self):
+    def test_preview_lifetime_over_one_hour_is_rejected(self):
+        raw = self.configuration.model_dump(mode="json")
+        raw["critic_preview_lifetime_seconds"] = 3601
+        with self.assertRaises(ValueError):
+            ReviewLaunchConfiguration.model_validate_json(json.dumps(raw))
+
+    def test_committed_preview_restores_exact_unused_attempt(self):
         committed = self.launch().preview
-        envelope, _, _ = prepare_review_launch_components(
+        envelope, reviewer, _ = prepare_review_launch_components(
             self.configuration,
             prepared=self.guided.prepared,
             expected_prepared_sha256=self.guided.prepared.sha256,
@@ -209,13 +216,35 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             expected_guidance_policy_sha256=self.guided.policy_sha,
             ledger=self.base.ledger,
             review_directory=self.review_directory,
+            committed_preview=committed,
         )
-        changed_call = committed.envelope.critics[0].model_copy(
-            update={"provider_request_sha256": "0" * 64}
+        restored = BrokeredReviewController(
+            envelope,
+            reviewer,
+            self.configuration.policy,
+            total_seconds=self.configuration.total_seconds,
         )
-        changed = committed.envelope.model_copy(update={"critics": (changed_call,)})
-        with self.assertRaisesRegex(ValueError, "call differs"):
-            envelope.bind_committed_envelope(changed)
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+        self.assertFalse(self.review_directory.exists())
+
+    def test_committed_preview_rejects_changed_configuration(self):
+        committed = self.launch().preview
+        changed = self.configuration.model_copy(update={"total_seconds": 121})
+        with self.assertRaisesRegex(ValueError, "committed critic preview"):
+            prepare_review_launch_components(
+                changed,
+                prepared=self.guided.prepared,
+                expected_prepared_sha256=self.guided.prepared.sha256,
+                workspace=self.guided.fixture.workspace,
+                guidance_store=self.guided.store,
+                guidance_policy_path=self.guided.fixture.policy_path,
+                expected_guidance_policy_sha256=self.guided.policy_sha,
+                ledger=self.base.ledger,
+                review_directory=self.review_directory,
+                committed_preview=committed,
+            )
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
     def test_current_guidance_change_blocks_preparation(self):
         self.invalidate()

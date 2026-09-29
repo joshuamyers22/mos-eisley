@@ -1,4 +1,4 @@
-"""Interactive operator-owned critic/judge review under a fixed cap."""
+"""Interactive operator-owned Anthropic critic/judge review under a fixed cap."""
 
 from __future__ import annotations
 
@@ -43,8 +43,8 @@ from mos_eisley.run.review_conformance_authorization import (
     SignedReviewConformanceAuthorization,
 )
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
+from mos_eisley.run.review_controller import ControllerCriticPreview
 from mos_eisley.run.review_controller_inspection import inspect_review_controller
-from mos_eisley.run.review_credentials import load_review_key
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     decode_launch_configuration,
@@ -65,7 +65,6 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--spend-ledger", type=Path, required=True)
     command.add_argument("--review-dir", type=Path, required=True)
     command.add_argument("--key-file", type=Path, required=True)
-    command.add_argument("--openai-key-file", type=Path)
     command.add_argument("--image-id", required=True)
     command.add_argument("--docker", type=Path)
     command.add_argument("--campaign-dir", type=Path)
@@ -75,7 +74,6 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--completion-output", type=Path)
     command.add_argument("--previous-evidence", type=Path)
     command.add_argument("--expected-previous-evidence-sha256")
-    command.add_argument("--phase-scope-dir", type=Path)
 
 
 async def read_line(prompt: str) -> str:
@@ -106,7 +104,7 @@ async def read_line(prompt: str) -> str:
         loop.remove_reader(fd)
 
 
-def verify_campaign_prefix_ledgers(
+def verify_operator_campaign_prefix_ledgers(
     bundle: ReviewCampaignBundle,
     prior: CampaignEvidenceSubmission,
     slot: int,
@@ -161,7 +159,6 @@ def run_command(args: argparse.Namespace) -> int:
             args.completion_output,
         )
         signed = any(item is not None for item in signed_options)
-        bundle: ReviewCampaignBundle | None = None
         if signed and any(item is None for item in signed_options):
             raise ValueError(
                 "signed campaign requires all campaign and authority options"
@@ -169,10 +166,10 @@ def run_command(args: argparse.Namespace) -> int:
         if not signed and (
             args.previous_evidence is not None
             or args.expected_previous_evidence_sha256 is not None
-            or args.phase_scope_dir is not None
         ):
-            raise ValueError("signed campaign options require a campaign slot")
+            raise ValueError("previous evidence requires a signed campaign slot")
         prior_raw: bytes | None = None
+        committed_preview: ControllerCriticPreview | None = None
         if signed:
             slot = cast(int, args.campaign_slot)
             campaign_dir = cast(Path, args.campaign_dir)
@@ -180,6 +177,7 @@ def run_command(args: argparse.Namespace) -> int:
             bundle, _ = read_campaign_seal(
                 campaign_dir, cast(str, args.expected_seal_sha256)
             )
+            committed_preview = bundle.attempts[slot].preview
             protected = (
                 campaign_dir,
                 *(
@@ -206,7 +204,7 @@ def run_command(args: argparse.Namespace) -> int:
             if has_prior != (slot > 0):
                 raise ValueError("later campaign slots require prior verified evidence")
             if slot == 0:
-                verify_campaign_prefix_ledgers(
+                verify_operator_campaign_prefix_ledgers(
                     bundle,
                     CampaignEvidenceSubmission(
                         seal_sha256=cast(str, args.expected_seal_sha256),
@@ -235,7 +233,7 @@ def run_command(args: argparse.Namespace) -> int:
                 )
                 if accepted.qualifying_attempts != slot:
                     raise ValueError("previous campaign slots are not all accepted")
-                verify_campaign_prefix_ledgers(bundle, prior, slot)
+                verify_operator_campaign_prefix_ledgers(bundle, prior, slot)
 
         def current_authority() -> ReviewConformanceAuthorityPolicy:
             if prior_raw is not None:
@@ -253,14 +251,6 @@ def run_command(args: argparse.Namespace) -> int:
         async def load_authorization(
             scope: ReviewConformanceScope,
         ) -> SignedReviewConformanceAuthorization | None:
-            if signed and args.phase_scope_dir is not None:
-                write_campaign_export(
-                    cast(Path, args.campaign_dir),
-                    cast(str, args.expected_seal_sha256),
-                    cast(Path, args.phase_scope_dir)
-                    / f"slot-{cast(int, args.campaign_slot)}-{scope.phase}-scope.json",
-                    canonical_bytes(scope),
-                )
             print(
                 json.dumps(
                     {
@@ -310,12 +300,8 @@ def run_command(args: argparse.Namespace) -> int:
             ),
             ledger=ledger,
             review_directory=review_dir,
+            committed_preview=committed_preview,
         )
-        if signed:
-            assert bundle is not None
-            envelope.bind_committed_envelope(
-                bundle.attempts[cast(int, args.campaign_slot)].preview.envelope
-            )
         executable = cast(Path | None, args.docker)
         if executable is None:
             found = shutil.which("docker")
@@ -333,20 +319,6 @@ def run_command(args: argparse.Namespace) -> int:
         )
         key_path = cast(Path, args.key_file)
         if signed:
-            providers = {
-                *(critic.critic.provider for critic in configuration.critics),
-                configuration.judge_provider,
-            }
-            openai_key_path = cast(Path | None, args.openai_key_file)
-            if "openai" in providers and openai_key_path is None:
-                raise ValueError("signed OpenAI review requires --openai-key-file")
-            key_loaders = {
-                "anthropic": lambda: load_review_key(key_path, "anthropic"),
-            }
-            if openai_key_path is not None:
-                key_loaders["openai"] = lambda: load_review_key(
-                    openai_key_path, "openai"
-                )
             campaign = ReviewCampaignBinding(
                 campaign_directory=str(cast(Path, args.campaign_dir).resolve()),
                 expected_seal_sha256=cast(str, args.expected_seal_sha256),
@@ -362,7 +334,6 @@ def run_command(args: argparse.Namespace) -> int:
                 authority_policy=current_authority,
                 load_authorization=load_authorization,
                 load_api_key=lambda: load_anthropic_key(key_path),
-                load_api_keys=key_loaders,
                 total_seconds=configuration.total_seconds,
                 campaign=campaign,
                 operator_identity=identity,

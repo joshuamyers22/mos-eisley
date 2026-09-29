@@ -37,12 +37,22 @@ class FakeClaude:
 
     async def count_input_tokens(self, payload: dict[str, JsonValue]) -> int:
         self.counts += 1
+        output_config = payload.get("output_config")
+        assert isinstance(output_config, dict)
+        format_control = output_config.get("format")
+        assert isinstance(format_control, dict)
+        assert format_control["type"] == "json_schema"
         return 300
 
     async def create_response(
         self, payload: dict[str, JsonValue]
     ) -> dict[str, JsonValue]:
         self.calls += 1
+        output_config = payload.get("output_config")
+        assert isinstance(output_config, dict)
+        format_control = output_config.get("format")
+        assert isinstance(format_control, dict)
+        assert format_control["type"] == "json_schema"
         return {
             "id": "msg_synthetic_critic",
             "type": "message",

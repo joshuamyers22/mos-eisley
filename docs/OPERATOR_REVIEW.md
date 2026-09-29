@@ -1,9 +1,11 @@
 # Operator-authorized three-model review
 
-**G2 amendment, 2026-09-26:** the [owner operated contract](G2_OWNER_OPERATED_CONTRACT.md)
-allows Joshua Myers to perform the signed campaign roles with distinct keys.
-`mos review-live` now composes the exact signed launch path after campaign
-acceptance. The prior single operator review below remains outside that campaign.
+**G2 amendment, 2026-09-27:** The [owner-operated G2 contract](G2_OWNER_OPERATED_CONTRACT.md)
+records the signed one-provider and default two-provider qualifications. For the
+mixed-provider signed launch, `mos review-live` requires a separate private
+OpenAI credential file through `--openai-key-file`; `mos operator-review` remains
+the Anthropic operator route described below. Joshua Myers holds the enrolled
+owner roles under that contract, with separate signed records for each role.
 
 `mos operator-review` runs one guided, read-only Anthropic critic/judge review with
 two exact terminal approvals. It uses the existing private worker broker, shared
@@ -23,10 +25,6 @@ Sonnet produced one finding, Opus did not uphold it, and the retained verdict wa
 `1cb0ce9c8cd8011927434eb193937ab5d660431adb7be7e94f44d09c46f69b35`.
 That local run exercises the credentialed route; it does not establish the older
 independently signed campaign gate.
-For a signed mixed-provider campaign or launch, the CLI also accepts
-`--openai-key-file` and uses a separate private OpenAI credential file. The signed
-probe selects the credential for each critic and judge by provider. The unsigned
-operator review described below remains the Anthropic-only route.
 The [Anthropic conformance closeout](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) records
 fresh local verification of all four attempts and the signed campaign extension.
 
@@ -88,22 +86,22 @@ directory. A completed local result does not claim independent provider
 authorship, external observer assessment, billing reconciliation or repeated
 conformance. The older signed campaign gate retains its separate meaning.
 
-## Add the owner signed campaign
+## Add the independently signed campaign
 
 The same command can run a slot from a separately sealed three-attempt campaign.
 Supply `--campaign-dir`, `--expected-seal-sha256`, `--campaign-slot`,
 `--authority-policy` and `--completion-output` together with the options above.
+It restores the sealed attempt identities only after recomputing the current
+requests, guidance, policies, ledger and complete critic preview. A changed or
+expired preview stops before credential access.
 For slots 1 and 2, also supply `--previous-evidence` and
 `--expected-previous-evidence-sha256` for the accepted prefix. The command prints
-each exact signed scope and prompts for an owner signed authorization
+each exact signed scope and prompts for an independently signed authorization
 file before each local phase approval. It writes the completed handoff outside
-the run and seal directories. The owner observer must still assess and sign
+the run and seal directories. The independent observer must still assess and sign
 each slot before the next one starts; use the existing campaign observation,
 evidence append and review commands. All three committed allowances must fit the
 operator identity's selected cap. No signer keys are loaded by this command.
 
-Joshua Myers approved the owner operated G2 contract in
-[G2_OWNER_OPERATED_CONTRACT.md](G2_OWNER_OPERATED_CONTRACT.md). A sealed commitment
-alone does not establish a completed signed live tranche; each slot still needs
-owner signatures, local approvals, actual runtime evidence and a signed observer
-assessment.
+No signed live tranche has been run. Independent authorizer and observer
+enrollment, a new sealed commitment and campaign spending approval are pending.

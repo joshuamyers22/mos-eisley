@@ -134,10 +134,20 @@ class PreparedReviewCall:
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
-        authorization_ttl_seconds: int = 600,
+        committed_authorization: ReviewAuthorization | None = None,
+        authorization_lifetime_seconds: int = 600,
+        authorization_ttl_seconds: int | None = None,
     ) -> None:
-        if not 60 <= authorization_ttl_seconds <= 7_200:
-            raise ValueError("review authorization lifetime must be 60 to 7200 seconds")
+        if authorization_ttl_seconds is not None:
+            if authorization_lifetime_seconds != 600:
+                raise ValueError("review authorization lifetime has two values")
+            if not 60 <= authorization_ttl_seconds <= 7_200:
+                raise ValueError(
+                    "review authorization lifetime must be 60 to 7200 seconds"
+                )
+            authorization_lifetime_seconds = authorization_ttl_seconds
+        elif not 0 < authorization_lifetime_seconds <= 3600:
+            raise ValueError("review authorization lifetime must be at most one hour")
         if guidance is not None:
             guidance.check_brief(request.brief)
         if isinstance(request, CriticRequest) and critic is not None:
@@ -191,7 +201,7 @@ class PreparedReviewCall:
             or reservation.reserved_microusd > snapshot.available_microusd + credit
         ):
             raise ValueError("review spending envelope is unavailable")
-        self._authorization = ReviewAuthorization(
+        authorization = ReviewAuthorization(
             provider=model_request.provider,
             role=role,
             brief_sha256=request.brief.brief_id,
@@ -206,12 +216,33 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(seconds=authorization_ttl_seconds),
+                datetime.now(UTC) + timedelta(seconds=authorization_lifetime_seconds),
                 policy.valid_until,
             ),
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
-        self._local_expires_at = self._authorization.expires_at
+        if committed_authorization is not None:
+            if role != "critic" or reserved_allowance is not None:
+                raise ValueError("only a critic can restore committed authorization")
+            committed = ReviewAuthorization.model_validate_json(
+                canonical_bytes(committed_authorization)
+            )
+            if (
+                datetime.now(UTC) >= committed.expires_at
+                or committed.expires_at > authorization.expires_at
+                or authorization.model_copy(
+                    update={
+                        "ledger_entry_id": committed.ledger_entry_id,
+                        "expires_at": committed.expires_at,
+                    }
+                )
+                != committed
+            ):
+                raise ValueError(
+                    "committed review authorization differs from current inputs"
+                )
+            authorization = committed
+        self._authorization = authorization
         self._request = frozen
         self._input = canonical_bytes(request)
         self._critic = None if critic is None else canonical_bytes(critic)
@@ -236,27 +267,6 @@ class PreparedReviewCall:
     @property
     def spend_policy(self) -> SpendPolicy:
         return SpendPolicy.model_validate_json(canonical_bytes(self._policy))
-
-    @property
-    def local_expires_at(self) -> datetime:
-        return self._local_expires_at
-
-    def bind_committed_authorization(self, expected: ReviewAuthorization) -> None:
-        expected = ReviewAuthorization.model_validate_json(canonical_bytes(expected))
-        projected = self.authorization.model_copy(
-            update={
-                "ledger_entry_id": expected.ledger_entry_id,
-                "expires_at": expected.expires_at,
-            }
-        )
-        now = datetime.now(UTC)
-        if (
-            canonical_bytes(projected) != canonical_bytes(expected)
-            or not now < expected.expires_at <= self._policy.valid_until
-        ):
-            raise ValueError("committed review call differs from current projection")
-        self._authorization = expected
-        self._local_expires_at = min(expected.expires_at, now + timedelta(minutes=10))
 
     @property
     def review_request(self) -> CriticRequest | JudgeRequest:
@@ -317,7 +327,7 @@ class PreparedReviewCall:
                 "review broker timeout must be between zero and 60 seconds"
             )
         self._policy.check_current()
-        if datetime.now(UTC) >= self._local_expires_at:
+        if datetime.now(UTC) >= self._authorization.expires_at:
             raise ValueError("review approval expired")
         if (
             digest(canonical_bytes(self._ledger.policy))
@@ -352,7 +362,7 @@ class PreparedReviewCall:
                 canonical_bytes(self._guidance.prepared),
             )
             transport = GuidanceCheckedTransport(transport, self._guidance)
-        remaining = (self._local_expires_at - datetime.now(UTC)).total_seconds()
+        remaining = (authorization.expires_at - datetime.now(UTC)).total_seconds()
         controller = (
             PreReservedOpenAITransport(
                 transport,
@@ -483,6 +493,7 @@ class PreparedReviewEnvelope:
         *,
         max_total_microusd: int,
         directory: Path,
+        committed_judge: DeferredJudgeAllowance | None = None,
     ) -> None:
         if not 1 <= len(critics) <= 8:
             raise ValueError("review envelope requires one to eight critics")
@@ -506,6 +517,18 @@ class PreparedReviewEnvelope:
                 judge_policy.max_input_tokens, judge_policy.max_output_tokens
             ),
         )
+        if committed_judge is not None:
+            committed = DeferredJudgeAllowance.model_validate_json(
+                canonical_bytes(committed_judge)
+            )
+            if (
+                judge.model_copy(update={"ledger_entry_id": committed.ledger_entry_id})
+                != committed
+            ):
+                raise ValueError(
+                    "committed judge allowance differs from current inputs"
+                )
+            judge = committed
         self._envelope = ReviewSpendingEnvelope(
             critics=tuple(call.authorization for call in critics),
             artifact_directory=str(directory.resolve()),
@@ -541,53 +564,6 @@ class PreparedReviewEnvelope:
     @property
     def envelope(self) -> ReviewSpendingEnvelope:
         return self._envelope
-
-    def bind_committed_envelope(self, committed: ReviewSpendingEnvelope) -> None:
-        """Restore sealed nonce and expiry values after reprojection on this host.
-
-        Only the generated ledger entry IDs and expiration may differ. All
-        provider requests, guidance, prices, reservations, paths and limits must
-        reproduce exactly before the sealed values replace the fresh preview.
-        """
-        committed = ReviewSpendingEnvelope.model_validate_json(
-            canonical_bytes(committed)
-        )
-        if len(committed.critics) != len(self._critics):
-            raise ValueError("committed review critic count changed")
-        now = datetime.now(UTC)
-        for call, expected in zip(self._critics, committed.critics, strict=True):
-            projected = call.authorization.model_copy(
-                update={
-                    "ledger_entry_id": expected.ledger_entry_id,
-                    "expires_at": expected.expires_at,
-                }
-            )
-            if (
-                canonical_bytes(projected) != canonical_bytes(expected)
-                or not now < expected.expires_at <= call.spend_policy.valid_until
-            ):
-                raise ValueError(
-                    "committed review call differs from current projection"
-                )
-        judge = self._envelope.judge.model_copy(
-            update={"ledger_entry_id": committed.judge.ledger_entry_id}
-        )
-        projected_envelope = self._envelope.model_copy(
-            update={
-                "critics": committed.critics,
-                "judge": judge,
-                "expires_at": committed.expires_at,
-            }
-        )
-        if canonical_bytes(judge) != canonical_bytes(
-            committed.judge
-        ) or canonical_bytes(projected_envelope) != canonical_bytes(committed):
-            raise ValueError(
-                "committed review envelope differs from current projection"
-            )
-        for call, expected in zip(self._critics, committed.critics, strict=True):
-            call.bind_committed_authorization(expected)
-        self._envelope = committed
 
     @property
     def approval_sha256(self) -> str:

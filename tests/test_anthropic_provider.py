@@ -85,6 +85,62 @@ class AnthropicTranslationTests(TestCase):
         self.assertEqual(schema["required"], ["key"])
         self.assertIs(schema["additionalProperties"], False)
 
+    def test_sonnet_can_disable_thinking_without_disabling_opus(self) -> None:
+        request = _request().model_copy(update={"effort": "none"})
+        payload = request_payload(request)
+        self.assertEqual(payload["thinking"], {"type": "disabled"})
+        self.assertNotIn("output_config", payload)
+        with self.assertRaisesRegex(ProviderError, "cannot be disabled"):
+            request_payload(request.model_copy(update={"model": "claude-opus-5-5"}))
+
+    def test_review_roles_project_structured_json_formats(self) -> None:
+        critic = _request().model_copy(
+            update={"effort": "none", "structured_output": "critique", "tools": ()}
+        )
+        critic_payload = request_payload(critic)
+        critic_config = critic_payload["output_config"]
+        assert isinstance(critic_config, dict)
+        self.assertNotIn("effort", critic_config)
+        critic_format = critic_config["format"]
+        assert isinstance(critic_format, dict)
+        self.assertEqual(critic_format["type"], "json_schema")
+        schema = critic_format["schema"]
+        assert isinstance(schema, dict)
+        properties = schema["properties"]
+        assert isinstance(properties, dict)
+        findings = properties["findings"]
+        assert isinstance(findings, dict)
+        item = findings["items"]
+        assert isinstance(item, dict)
+        fields = item["properties"]
+        assert isinstance(fields, dict)
+        evidence = fields["evidence"]
+        assert isinstance(evidence, dict)
+        evidence_fields = evidence["properties"]
+        assert isinstance(evidence_fields, dict)
+        explanation = evidence_fields["explanation"]
+        assert isinstance(explanation, dict)
+        self.assertEqual(explanation, {"type": "string"})
+        quote = evidence_fields["quote"]
+        assert isinstance(quote, dict)
+        description = quote["description"]
+        assert isinstance(description, str)
+        self.assertIn("exact contiguous substring", description)
+        self.assertEqual(fields["suggested_fix"], {"type": ["string", "null"]})
+        judge = critic.model_copy(
+            update={
+                "model": "claude-opus-5-5",
+                "effort": "low",
+                "structured_output": "judge",
+            }
+        )
+        judge_config = request_payload(judge)["output_config"]
+        assert isinstance(judge_config, dict)
+        self.assertEqual(judge_config["effort"], "low")
+        judge_format = judge_config["format"]
+        assert isinstance(judge_format, dict)
+        self.assertEqual(judge_format["type"], "json_schema")
+
     def test_thinking_tool_result_round_trip_preserves_signed_native_block(
         self,
     ) -> None:

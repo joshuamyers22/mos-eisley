@@ -54,10 +54,15 @@ The review route uses the existing guided envelope, full aggregate reservation,
 private worker broker, one-use controller, separate critic and judge approval,
 and either signed phase authorization or exact operator approval. Anthropic review
 requests are restricted to one
-bounded, tool-free user message. They use adaptive thinking at a selected effort,
-standard service tier, and nonstreaming Messages calls. A conservative policy
-prices cache writes at the documented rate even though the review request has no
-cache control. Local runtime records can be handed to an independent observer;
+bounded, tool-free user message. They use standard service tier and nonstreaming
+Messages calls. Sonnet 5 supports an explicit `none` critic effort that sends
+`thinking: {"type": "disabled"}`; other selected efforts use adaptive thinking.
+Both review roles send a fixed JSON schema through `output_config.format` so
+the provider constrains the response shape. Opus 5.5 remains adaptive because
+it does not support disabled thinking. A
+conservative policy prices cache writes at the documented rate even though the
+review request has no cache control. Local runtime records can be handed to an
+independent observer;
 they do not authenticate a live provider response by themselves.
 
 `tests/test_anthropic_review_conformance.py` exercises both signed phases,
@@ -102,6 +107,5 @@ review ledgers together charged 826,404 micro USD ($0.826404), below the selecte
 $1 ceiling, with zero unresolved entries. Private run artifacts remain outside Git.
 This is one completed local operator route, without independent signature,
 observer, invoice reconciliation or repeated conformance claims.
-The [closeout](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) records fresh local verification
-and the operator command's separate signed-campaign path. A live signed tranche
-remains pending independent enrollment and a new sealed commitment.
+The [closeout](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) records the operator result and
+the later, incomplete signed campaign, including its failed third slot.
