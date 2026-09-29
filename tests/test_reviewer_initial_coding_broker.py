@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,6 +18,7 @@ from test_reviewer_coding_broker import _FakeTransport
 
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.reviewer_coding_broker import parse_initial_child_source_text_proposal
 from mos_eisley.reviewer_correction_dispatch import (
     G4CorrectionChildSourceFile,
     creator_test_bundle_sha256,
@@ -32,6 +34,7 @@ from mos_eisley.reviewer_initial_coding_broker import (
     G4ProductionInitialChildApproval,
     ProductionInitialChildBroker,
     initial_child_request,
+    initial_child_source_text_request,
     sign_production_initial_child_approval,
     verify_production_initial_child_receipt,
 )
@@ -60,7 +63,7 @@ def _file(path: str, content: bytes) -> G4CorrectionChildSourceFile:
 
 
 class InitialChildBrokerTests(unittest.TestCase):
-    def _setup(self, root: Path, *, invalid: bool = False):
+    def _setup(self, root: Path, *, invalid: bool = False, source_text: bool = False):
         now = datetime.now(UTC)
         creator = Ed25519PrivateKey.generate()
         child = Ed25519PrivateKey.generate()
@@ -152,7 +155,11 @@ class InitialChildBrokerTests(unittest.TestCase):
             max_output_tokens=128,
         )
         ledger = SpendLedger.create(root / "ledger.sqlite", 5000)
-        request = initial_child_request(offer, MODEL, "low", 128)
+        request = (
+            initial_child_source_text_request(offer, MODEL, "low", 128)
+            if source_text
+            else initial_child_request(offer, MODEL, "low", 128)
+        )
         live = sign_production_initial_child_approval(
             G4ProductionInitialChildApproval(
                 approval_id="initial-live",
@@ -176,7 +183,11 @@ class InitialChildBrokerTests(unittest.TestCase):
             "creator",
             creator,
         )
-        transport = _FakeTransport(b"def demo(x): return x + 1\n", invalid=invalid)
+        transport = _FakeTransport(
+            b"def demo(x): return x + 1\n",
+            invalid=invalid,
+            source_text=source_text,
+        )
         container = OfflineContainer(Path("/usr/bin/docker"), IMAGE, root / "life")
         broker = ProductionInitialChildBroker(
             assignment=task,
@@ -266,6 +277,64 @@ class InitialChildBrokerTests(unittest.TestCase):
             self.assertEqual(transport.calls, 1)
             self.assertEqual(ledger.snapshot().unresolved_entries, 0)
             self.assertIsNone(broker.receipt)
+
+    def test_source_text_request_signs_exact_utf8_bytes_and_replays(self) -> None:
+        with TemporaryDirectory() as temporary:
+            broker, offer, order, policy, ledger, transport, container = self._setup(
+                Path(temporary), source_text=True
+            )
+            request = initial_child_source_text_request(offer, MODEL, "low", 128)
+            self.assertIn("content_utf8", str(request["text"]))
+            self.assertNotIn("content_base64", str(request["text"]))
+
+            async def exchange(
+                _arguments: tuple[str, ...],
+                payload: bytes,
+                handler: ExchangeHandler,
+                _timeout: float,
+            ) -> bytes:
+                response = await handler(payload)
+                return canonical_bytes(BrokerAck(response_sha256=digest(response)))
+
+            with patch.object(container, "exchange_async", side_effect=exchange):
+                signed = asyncio.run(broker.generate(offer))
+            self.assertEqual(
+                signed.proposal.replacements[0].content,
+                b"def demo(x): return x + 1\n",
+            )
+            self.assertEqual(transport.calls, 1)
+            receipt = broker.receipt
+            assert receipt is not None
+            dispatch = G4InitialChildDispatchReceipt(
+                approval=order,
+                offer=offer,
+                signed_proposal=signed,
+                execution=validate_initial_child_proposal(offer, signed, policy),
+                dispatched_at=datetime.now(UTC),
+            )
+            verify_production_initial_child_receipt(
+                receipt, dispatch, policy, ledger, Path(temporary) / "run"
+            )
+
+    def test_source_text_parser_rejects_mixed_or_duplicate_fields(self) -> None:
+        valid = json.dumps(
+            {
+                "replacements": [{"path": "src/demo.py", "content_utf8": "x = 1\n"}],
+                "unresolved_issue_count": 0,
+            }
+        )
+        parsed = parse_initial_child_source_text_proposal(valid)
+        self.assertEqual(parsed.replacements[0].content, b"x = 1\n")
+        with self.assertRaises(ValueError):
+            parse_initial_child_source_text_proposal(
+                valid.replace('"content_utf8"', '"content_base64"')
+            )
+        with self.assertRaisesRegex(ValueError, "duplicate JSON keys"):
+            parse_initial_child_source_text_proposal(
+                valid.replace(
+                    '"content_utf8":', '"content_utf8":"bad", "content_utf8":'
+                )
+            )
 
 
 if __name__ == "__main__":

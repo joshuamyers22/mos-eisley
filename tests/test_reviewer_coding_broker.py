@@ -73,11 +73,17 @@ def _file(path: str, content: bytes) -> G4CorrectionChildSourceFile:
 
 class _FakeTransport:
     def __init__(
-        self, proposed: bytes, *, invalid: bool = False, fail_send: bool = False
+        self,
+        proposed: bytes,
+        *,
+        invalid: bool = False,
+        fail_send: bool = False,
+        source_text: bool = False,
     ) -> None:
         self.proposed = proposed
         self.invalid = invalid
         self.fail_send = fail_send
+        self.source_text = source_text
         self.counts = 0
         self.calls = 0
 
@@ -91,10 +97,14 @@ class _FakeTransport:
         self.calls += 1
         if self.fail_send:
             raise RuntimeError("fixture provider send failed")
-        replacement = _file("src/demo.py", self.proposed)
+        replacement = (
+            {"path": "src/demo.py", "content_utf8": self.proposed.decode("utf-8")}
+            if self.source_text
+            else _file("src/demo.py", self.proposed).model_dump(mode="json")
+        )
         text = json.dumps(
             {
-                "replacements": [replacement.model_dump(mode="json")],
+                "replacements": [replacement],
                 "unresolved_issue_count": 0,
             }
         )
