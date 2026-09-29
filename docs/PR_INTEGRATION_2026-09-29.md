@@ -57,27 +57,28 @@ is necessary but does not certify product production readiness.
 - GitHub marks #244 and #245 merged into the G4 branch. Their 4 initial broker
   and 12 correction broker tests, Ruff, and Pyright passed. The earlier combined
   `make check` session was interrupted before its final result was captured.
-- G2 PR #240 was reconciled locally with the new `main`. The integration retains
+- G2 PR #240 was reconciled with the new `main`. The integration retains
   the later Anthropic structured-output and signed-campaign controls, restores
   G2 mixed-provider credential and signed-scope checks, and keeps the exact G2
   qualification contract. Focused mixed, acceptance, launch, and broker tests
-  passed; its combined `make check` is running before publication.
+  passed. The combined `make check` passed 2,376 source and 1,761 installed-wheel
+  tests, and the branch was pushed for fresh GitHub checks.
 - The G3 branch now has a local merge of G2 with mixed-provider and owner-role
   gates retained. Focused launch, reviewer, broker, and readiness tests passed.
   A direct SDK callback exception is reduced to a coarse readiness failure so
   the OpenAI dependency update cannot expose private error text.
 - The G4 branch has a local merge of that G3/G2 integration. Its two document
   conflicts retained G3 study deferral, exact G2 qualification, and current G4
-  correction status; the combined branch gate remains pending.
-- The refreshed #234, #237, and #239 GitHub quality checks are running. #236
-  still fails its old branch test for the direct SDK callback exception; its
-  corrected code is staged in the integrated G3/G4 branch. The earlier two HTTP
-  package failures were stale runtime exports.
+  correction status. Its combined `make check` passed 2,599 source and 1,910
+  installed-wheel tests before publication.
+- PR #234 merged after its required checks. PR #236 still fails its old branch
+  test for the direct SDK callback exception; its corrected code is in G3/G4 and
+  a repair branch. PRs #237 and #239 failed on stale runtime exports; their
+  repaired exports pass the verifier in local repair branches.
 
 ## Handoff
 
-The G2 full gate was restarted after the interrupted session. Run the combined
-G4/G3/G2 gate and resolve any failures before pushing the integrated G4 head.
-After both gates pass, push and merge #240, then the integrated #243, verify
-whether #241 is automatically marked merged, and finish the dependency PRs.
-Update this note with the final merge inventory and checks.
+PR #240 is queued for auto-merge after fresh GitHub checks. Push the integrated
+G3 and G4 heads, wait for required checks, then merge #241 and #243 in order.
+Refresh the repaired dependency branches against integrated `main`, run the
+combined dependency gate, and merge their PRs after fresh required checks.
