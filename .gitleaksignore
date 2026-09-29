@@ -13,16 +13,14 @@ e800043af4061dcdc39d6fe6fdb4b38236c8c932:.gitleaksignore:generic-api-key:1
 # False positive: a typed Ed25519 signing-key function parameter, with no value.
 # Limit the exception to this exact historical finding.
 3f7437276504e1f2a8d19586068e51a4fcc5a402:src/mos_eisley/run/review_conformance_observation.py:generic-api-key:299
-# False positives in historical roadmap prose about broker and spending controls.
-# These lines contain no credential values; keep the exceptions commit-specific.
+# Historical false positives in roadmap status prose; no credential value.
 6d079cadf2a57da54acf445b6c364ad7aad50bd4:docs/ROADMAP.md:generic-api-key:21
 681da9f2fbfc51ef231fa60630a23d2439010cc0:docs/ROADMAP.md:generic-api-key:21
-# False positives in historical qualification prose about credential handling and
-# replay evidence. No credential value is present in any of these rows.
+# Historical false positives in qualification evidence prose.
 195ef9c0b00c5b89ca78b033483bd526397343dc:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:98
 06191c0f7e8a6f55fadac92ebe98141b914f493c:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:94
 768519f599c5162aa9270f62959b741a2e2a182c:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:63
-# False positive on a typed Ed25519 key field assignment, with no key bytes.
+# Historical false positive in an Ed25519 type annotation; no key value.
 768519f599c5162aa9270f62959b741a2e2a182c:src/mos_eisley/run/review_single_operator.py:generic-api-key:140
 # Historical source-code false positives: API-key parameter and Ed25519 signing-key
 # type annotations. No credential or private key value is present. Each exception

@@ -187,7 +187,7 @@ def prepare_anthropic_critic_grant(
         or spend_policy.input_microusd_per_million != 2_000_000
         or spend_policy.cache_write_microusd_per_million != 4_000_000
         or spend_policy.output_microusd_per_million != 10_000_000
-        or spend_policy.max_input_tokens > 16_000
+        or spend_policy.max_input_tokens > 32_000
         or spend_policy.max_output_tokens > 4096
         or ledger.policy.ceiling_microusd > MAX_G4_REVIEW_TASK_MICROUSD
         or not spend_policy.valid_from

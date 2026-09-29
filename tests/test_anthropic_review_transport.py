@@ -13,7 +13,7 @@ from unittest.mock import patch
 import httpx2
 from pydantic import JsonValue
 
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import Brief, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.anthropic_review import (
     ANTHROPIC_COUNT_URL,
@@ -21,6 +21,7 @@ from mos_eisley.providers.anthropic_review import (
     CRITIQUE_SCHEMA,
     MAX_ANTHROPIC_RESPONSE_BYTES,
     AnthropicReviewHTTPTransport,
+    critic_payload,
     normalized_payload,
     payload_bytes,
 )
@@ -29,6 +30,7 @@ from mos_eisley.providers.anthropic_review_spend import (
     prepare_anthropic_reservation,
 )
 from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.review.citations import citation_bound_request
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 
 
@@ -63,6 +65,43 @@ def _policy() -> SpendPolicy:
 
 
 class AnthropicReviewTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_projection_keeps_exact_unit_text_in_user_data(self) -> None:
+        diff = (
+            "diff --git a/example.py b/example.py\n"
+            "--- a/example.py\n"
+            "+++ b/example.py\n"
+            "@@ -1 +1 @@\n"
+            "-value = 1\n"
+            "+value = 2  # untrusted-code-sentinel\n"
+        )
+        request = citation_bound_request(
+            Brief(spec="Check the changed value.", diff=diff), "correctness"
+        )
+        payload = critic_payload(request, "claude-sonnet-5", 4096)
+        messages = payload["messages"]
+        assert isinstance(messages, list)
+        message = messages[0]
+        assert isinstance(message, dict)
+        text = message["content"]
+        assert isinstance(text, str)
+        content = json.loads(text)
+        self.assertEqual(
+            content["critic_request"], json.loads(canonical_bytes(request))
+        )
+        self.assertEqual(
+            {unit["id"] for unit in content["diff_source_units"]},
+            {unit.id for unit in request.citation_units},
+        )
+        self.assertTrue(
+            any(
+                "value = 2  # untrusted-code-sentinel" in unit["text"]
+                for unit in content["diff_source_units"]
+            )
+        )
+        system = payload["system"]
+        assert isinstance(system, str)
+        self.assertNotIn("untrusted-code-sentinel", system)
+
     async def test_count_and_message_use_fixed_endpoints_and_no_retry(self) -> None:
         seen: list[tuple[str, dict[str, object]]] = []
 
@@ -113,6 +152,41 @@ class AnthropicReviewTransportTests(unittest.IsolatedAsyncioTestCase):
                     normalized_payload(_payload(), _policy())
                 )
         self.assertEqual(urls, [ANTHROPIC_MESSAGES_URL])
+
+    async def test_rejection_records_bounded_private_diagnostic(self) -> None:
+        def respond(_request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(
+                400,
+                json={
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": "Invalid field",
+                    }
+                },
+            )
+
+        with TemporaryDirectory() as root:
+            diagnostic = Path(root) / "provider-error.json"
+            async with httpx2.AsyncClient(
+                transport=httpx2.MockTransport(respond)
+            ) as client:
+                transport = AnthropicReviewHTTPTransport(
+                    "fixture-key", client, diagnostic
+                )
+                with self.assertRaisesRegex(ProviderError, "HTTP 400"):
+                    await transport.create_response(
+                        normalized_payload(_payload(), _policy())
+                    )
+            self.assertEqual(
+                json.loads(diagnostic.read_bytes()),
+                {
+                    "http_status": 400,
+                    "stage": "response",
+                    "type": "invalid_request_error",
+                    "message": "Invalid field",
+                },
+            )
+            self.assertEqual(diagnostic.stat().st_mode & 0o777, 0o600)
 
     async def test_oversize_body_is_rejected(self) -> None:
         def respond(_request: httpx2.Request) -> httpx2.Response:

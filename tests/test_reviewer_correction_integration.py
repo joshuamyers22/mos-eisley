@@ -34,6 +34,7 @@ from mos_eisley.reviewer_correction_dispatch import (
     sign_correction_child_proposal,
 )
 from mos_eisley.reviewer_correction_integration import (
+    _RECORD_DOMAIN,
     G4CorrectionIntegrationApproval,
     G4CorrectionIntegrationRecord,
     SignedG4CorrectionIntegrationApproval,
@@ -45,6 +46,7 @@ from mos_eisley.reviewer_correction_integration import (
     sign_correction_integration_record,
     verify_correction_integration_record,
 )
+from mos_eisley.reviewer_provenance import G4ArtifactSignature, G4ProvenanceTrustPolicy
 from mos_eisley.run.isolation import OfflineContainer
 
 
@@ -304,6 +306,184 @@ class CorrectionIntegrationTests(unittest.TestCase):
                 )
 
             verify(signed)
+            renewed_store = root / "renewed-integration"
+            renewed_store.mkdir(mode=0o700)
+            renewed_policy = G4ProvenanceTrustPolicy.model_validate(
+                fixture.policy.model_dump()
+                | {
+                    "policy_id": "renewed-fixture-integration",
+                    "valid_from": NOW + timedelta(hours=1, minutes=30),
+                    "valid_until": NOW + timedelta(hours=3),
+                }
+            )
+            renewed_approval = G4CorrectionIntegrationApproval(
+                schema_version=2,
+                integration_id="renewed-integration-one",
+                policy_sha256=fixture.policy.policy_sha256,
+                renewed_policy_sha256=renewed_policy.policy_sha256,
+                integration_store_sha256=digest(str(renewed_store.resolve()).encode()),
+                admission_sha256=admission.admission_sha256,
+                child_dispatch_receipt_sha256=digest(canonical_bytes(receipt)),
+                repository_id="fixture-repository",
+                source_revision=fixture.source_revision,
+                owned_paths=receipt.execution.changed_paths,
+                issued_at=NOW + timedelta(hours=2),
+                expires_at=NOW + timedelta(hours=2, minutes=10),
+            )
+            renewed_grant = sign_correction_integration_approval(
+                renewed_approval, "creator", fixture.creator_key
+            )
+            with self.assertRaisesRegex(ValueError, "signed cycle deadline"):
+                integrate_correction_child(
+                    admission=admission,
+                    receipt=receipt,
+                    approval=integration_grant,
+                    first=first,
+                    provenance=provenance,
+                    controls=fixture.controls,
+                    binding=fixture.binding,
+                    package=fixture.package,
+                    reviewer_package_path=fixture.package_path,
+                    repository_root=fixture.repository,
+                    implementation_root=fixture.repository,
+                    git_executable=fixture.git,
+                    candidate_dispatch_store=candidate_store,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                    integration_store=renewed_store,
+                    now=NOW + timedelta(hours=2, minutes=1),
+                )
+
+            def run_renewed(
+                grant: SignedG4CorrectionIntegrationApproval = renewed_grant,
+            ) -> G4CorrectionIntegrationRecord:
+                return integrate_correction_child(
+                    admission=admission,
+                    receipt=receipt,
+                    approval=grant,
+                    first=first,
+                    provenance=provenance,
+                    controls=fixture.controls,
+                    binding=fixture.binding,
+                    package=fixture.package,
+                    reviewer_package_path=fixture.package_path,
+                    repository_root=fixture.repository,
+                    implementation_root=fixture.repository,
+                    git_executable=fixture.git,
+                    candidate_dispatch_store=candidate_store,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                    integration_store=renewed_store,
+                    now=NOW + timedelta(hours=2, minutes=1),
+                    renewed_policy=renewed_policy,
+                )
+
+            wrong_store = sign_correction_integration_approval(
+                renewed_approval.model_copy(
+                    update={"integration_store_sha256": digest(b"other store")}
+                ),
+                "creator",
+                fixture.creator_key,
+            )
+            with self.assertRaisesRegex(ValueError, "renewal differs"):
+                run_renewed(wrong_store)
+            wrong_policy = sign_correction_integration_approval(
+                renewed_approval.model_copy(
+                    update={"renewed_policy_sha256": digest(b"other policy")}
+                ),
+                "creator",
+                fixture.creator_key,
+            )
+            with self.assertRaisesRegex(ValueError, "renewal differs"):
+                run_renewed(wrong_policy)
+            premature = sign_correction_integration_approval(
+                renewed_approval.model_copy(
+                    update={"issued_at": NOW + timedelta(minutes=20)}
+                ),
+                "creator",
+                fixture.creator_key,
+            )
+            with self.assertRaisesRegex(ValueError, "renewal differs"):
+                run_renewed(premature)
+            self.assertEqual(tuple(renewed_store.iterdir()), ())
+            renewed_record = run_renewed()
+            self.assertEqual(renewed_record.schema_version, 2)
+            self.assertEqual(renewed_record.changed_paths, record.changed_paths)
+            renewed_signed = sign_correction_integration_record(
+                renewed_record, "vcs-broker", fixture.vcs_key
+            )
+            old_domain_record = SignedG4CorrectionIntegrationRecord(
+                record=renewed_record,
+                signature=G4ArtifactSignature(
+                    signer_id="vcs-broker",
+                    public_key_sha256=digest(
+                        fixture.vcs_key.public_key().public_bytes_raw()
+                    ),
+                    signature_base64=base64.b64encode(
+                        fixture.vcs_key.sign(
+                            _RECORD_DOMAIN + canonical_bytes(renewed_record)
+                        )
+                    ).decode(),
+                ),
+            )
+            with self.assertRaisesRegex(ValueError, "invalid G4 vcs signature"):
+                verify_correction_integration_record(
+                    old_domain_record,
+                    admission=admission,
+                    receipt=receipt,
+                    first=first,
+                    provenance=provenance,
+                    controls=fixture.controls,
+                    binding=fixture.binding,
+                    package=fixture.package,
+                    reviewer_package_path=fixture.package_path,
+                    repository_root=fixture.repository,
+                    implementation_root=fixture.repository,
+                    git_executable=fixture.git,
+                    candidate_dispatch_store=candidate_store,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                    integration_store=renewed_store,
+                    renewed_policy=renewed_policy,
+                )
+            with self.assertRaisesRegex(ValueError, "needs renewed trust policy"):
+                verify_correction_integration_record(
+                    renewed_signed,
+                    admission=admission,
+                    receipt=receipt,
+                    first=first,
+                    provenance=provenance,
+                    controls=fixture.controls,
+                    binding=fixture.binding,
+                    package=fixture.package,
+                    reviewer_package_path=fixture.package_path,
+                    repository_root=fixture.repository,
+                    implementation_root=fixture.repository,
+                    git_executable=fixture.git,
+                    candidate_dispatch_store=candidate_store,
+                    correction_store=correction_store,
+                    child_dispatch_store=child_store,
+                    integration_store=renewed_store,
+                )
+            verify_correction_integration_record(
+                renewed_signed,
+                admission=admission,
+                receipt=receipt,
+                first=first,
+                provenance=provenance,
+                controls=fixture.controls,
+                binding=fixture.binding,
+                package=fixture.package,
+                reviewer_package_path=fixture.package_path,
+                repository_root=fixture.repository,
+                implementation_root=fixture.repository,
+                git_executable=fixture.git,
+                candidate_dispatch_store=candidate_store,
+                correction_store=correction_store,
+                child_dispatch_store=child_store,
+                integration_store=renewed_store,
+                renewed_policy=renewed_policy,
+            )
             original_readme = fixture.repository / "README.md"
             original_readme.write_text("changed outside binding\n")
             with self.assertRaisesRegex(ValueError, "original checkout is not clean"):

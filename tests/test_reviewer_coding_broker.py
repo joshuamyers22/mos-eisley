@@ -12,6 +12,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -72,11 +73,17 @@ def _file(path: str, content: bytes) -> G4CorrectionChildSourceFile:
 
 class _FakeTransport:
     def __init__(
-        self, proposed: bytes, *, invalid: bool = False, fail_send: bool = False
+        self,
+        proposed: bytes,
+        *,
+        invalid: bool = False,
+        fail_send: bool = False,
+        source_text: bool = False,
     ) -> None:
         self.proposed = proposed
         self.invalid = invalid
         self.fail_send = fail_send
+        self.source_text = source_text
         self.counts = 0
         self.calls = 0
 
@@ -90,10 +97,14 @@ class _FakeTransport:
         self.calls += 1
         if self.fail_send:
             raise RuntimeError("fixture provider send failed")
-        replacement = _file("src/demo.py", self.proposed)
+        replacement = (
+            {"path": "src/demo.py", "content_utf8": self.proposed.decode("utf-8")}
+            if self.source_text
+            else _file("src/demo.py", self.proposed).model_dump(mode="json")
+        )
         text = json.dumps(
             {
-                "replacements": [replacement.model_dump(mode="json")],
+                "replacements": [replacement],
                 "unresolved_issue_count": 0,
             }
         )
@@ -120,6 +131,88 @@ class _FakeTransport:
 
 
 class ProductionCodingChildBrokerTests(unittest.TestCase):
+    def test_provider_request_requires_strict_json_proposal_shape(self) -> None:
+        with TemporaryDirectory() as directory:
+            offer = self._setup(Path(directory))[1]
+            request = coding_child_request(offer, MODEL, "low", 4096)
+        text_spec = cast(dict[str, JsonValue], request["text"])
+        format_spec = cast(dict[str, JsonValue], text_spec["format"])
+        self.assertEqual(format_spec["type"], "json_schema")
+        self.assertIs(format_spec["strict"], True)
+        schema = cast(dict[str, JsonValue], format_spec["schema"])
+        properties = cast(dict[str, JsonValue], schema["properties"])
+        replacements = cast(dict[str, JsonValue], properties["replacements"])
+        items = cast(dict[str, JsonValue], replacements["items"])
+        self.assertEqual(
+            items["required"],
+            ["path", "content_base64"],
+        )
+
+    def test_unpadded_file_with_placeholder_digest_is_revalidated(self) -> None:
+        content = b"def quote_cents():\n    return 1\n"
+        output = json.dumps(
+            {
+                "replacements": [
+                    {
+                        "path": "src/demo.py",
+                        "content_base64": base64.b64encode(content)
+                        .decode()
+                        .rstrip("="),
+                        "content_sha256": "0" * 64,
+                    }
+                ],
+                "unresolved_issue_count": 0,
+            }
+        )
+        parsed = _parse_model_proposal(output)
+        self.assertEqual(parsed.replacements[0].content, content)
+        self.assertEqual(parsed.replacements[0].content_sha256, digest(content))
+
+    def test_model_file_rejects_invalid_base64_before_signing(self) -> None:
+        output = json.dumps(
+            {
+                "replacements": [{"path": "src/demo.py", "content_base64": "YWJj$"}],
+                "unresolved_issue_count": 0,
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "base64"):
+            _parse_model_proposal(output)
+
+    def test_model_file_normalizes_bounded_ascii_spaces_in_base64(self) -> None:
+        content = b"def quote_cents():\n    return 1\n"
+        encoded = base64.b64encode(content).decode("ascii")
+        output = json.dumps(
+            {
+                "replacements": [
+                    {
+                        "path": "src/demo.py",
+                        "content_base64": encoded[:12] + " " + encoded[12:],
+                    }
+                ],
+                "unresolved_issue_count": 0,
+            }
+        )
+        parsed = _parse_model_proposal(output)
+        self.assertEqual(parsed.replacements[0].content, content)
+        self.assertEqual(parsed.replacements[0].content_base64, encoded)
+        self.assertEqual(parsed.replacements[0].content_sha256, digest(content))
+
+    def test_model_file_rejects_unbounded_spaces_and_other_whitespace(self) -> None:
+        for encoded in ("YW" + " " * 17 + "Jj", "YW\nJj", "YW$Jj"):
+            output = json.dumps(
+                {
+                    "replacements": [
+                        {"path": "src/demo.py", "content_base64": encoded}
+                    ],
+                    "unresolved_issue_count": 0,
+                }
+            )
+            with (
+                self.subTest(encoded=repr(encoded)),
+                self.assertRaisesRegex(ValueError, "base64"),
+            ):
+                _parse_model_proposal(output)
+
     def test_duplicate_model_keys_are_not_interpreted_last_wins(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate JSON keys"):
             _parse_model_proposal(

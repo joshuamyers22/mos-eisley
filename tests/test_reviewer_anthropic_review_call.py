@@ -134,6 +134,44 @@ class G4AnthropicGrantTests(unittest.TestCase):
             self.assertFalse(case["grant"].independent_review_evidence_passed)
             self.assertFalse(case["grant"].acceptance_authorized)
 
+    def test_larger_review_packet_has_a_fully_held_bounded_grant(self) -> None:
+        with TemporaryDirectory() as temp:
+            case = self._case(Path(temp))
+            policy = case["spend_policy"].model_copy(
+                update={"max_input_tokens": 32_000}
+            )
+            grant, _body, reservation = prepare_anthropic_critic_grant(
+                grant_id="g4-q1-anthropic-expanded-packet-1",
+                subject=case["subject"],
+                provenance=case["provenance"],
+                authority=case["authority"],
+                critic_id="anthropic-critic",
+                request=case["request"],
+                spend_policy=policy,
+                ledger=case["ledger"],
+                ledger_entry_id=digest(b"expanded anthropic packet"),
+                issued_at=NOW + timedelta(minutes=10),
+                expires_at=NOW + timedelta(minutes=20),
+            )
+            self.assertEqual(reservation.input_tokens, 32_000)
+            self.assertEqual(reservation.reserved_microusd, 168_960)
+            self.assertEqual(grant.reserved_microusd, 168_960)
+            oversized = policy.model_copy(update={"max_input_tokens": 32_001})
+            with self.assertRaisesRegex(ValueError, "signed G4 review lineage"):
+                prepare_anthropic_critic_grant(
+                    grant_id="g4-q1-anthropic-oversized-packet-1",
+                    subject=case["subject"],
+                    provenance=case["provenance"],
+                    authority=case["authority"],
+                    critic_id="anthropic-critic",
+                    request=case["request"],
+                    spend_policy=oversized,
+                    ledger=case["ledger"],
+                    ledger_entry_id=digest(b"oversized anthropic packet"),
+                    issued_at=NOW + timedelta(minutes=10),
+                    expires_at=NOW + timedelta(minutes=20),
+                )
+
     def test_changed_or_foreign_signature_is_rejected(self) -> None:
         with TemporaryDirectory() as temp:
             case = self._case(Path(temp))

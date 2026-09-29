@@ -4134,6 +4134,14 @@ visible as gaps or impact-supported invariant findings. Every final accepted tre
 must pass required creator/reviewer checks and independent implementation review.
 Model agreement, a plan-only approval or an author's acceptance cannot replace it.
 
+For integrated G4 commit `f54e815987c1e51941abf4c2f2138a7268dcf0a7`
+only, [ADR-0008](adr/0008-g4-one-human-formal-review-exception.md) proposes a
+separately owner-signed alternative formal implementation-review gate using the
+replayed two-provider single-operator record and live-call audits. It takes
+effect only after the exact exception signature verifies. It makes no claim of
+independent human review, does not satisfy the original independent-review
+contract, and grants no acceptance or release authority.
+
 Defaults are two critique/rebuttal rounds per artifact and two correction cycles
 per task, under one aggregate cost/deadline budget. Persist counters and stale-work
 invalidation across resume, cancellation and user steering. Exhaustion returns
