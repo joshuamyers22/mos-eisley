@@ -1,6 +1,6 @@
 # PR integration work note — 2026-09-29
 
-- Status: active
+- Status: complete
 - Owner and merge authorizer: Joshua Myers
 - Implementation: Codex
 - Scope: all 13 Mos Eisley PRs open when the owner requested fixes and merges
@@ -40,50 +40,49 @@ is necessary but does not certify product production readiness.
   release protection, or study timing without a testable resolution; keep the PR
   open and record the exact blocker for owner review.
 
-## Current integration sequence
+## Merge inventory
 
-| PRs | Planned disposition | Evidence or open gate |
-|---|---|---|
-| #244, #245 | Merge into their G4 base #243 first | Both local merges were clean; the source-text broker's 4 initial and 12 correction tests, Ruff and Pyright passed. Full combined gate pending. |
-| #242 | Merge into its G3/G4 base #241 first | PR checks passed before integration; release approval remains separate. |
-| #233, #240 | Integrate Anthropic and G2 owner live-review changes | Both have passing PR checks but overlapping source and docs; review conflicts and preserve the later G2 exact profile. |
-| #241, #243 | Integrate G3/G4 development and connected correction into `main` | Both overlap G2/G4; maintain ADR-0011 study deferral and exact G4 evidence limits. |
-| #234–#239 | Refresh against integrated `main`, fix lock/export or CI failures, then merge | #236, #237, #239 quality failed; #234 quality canceled. No bypass. |
+| PRs | Final disposition |
+|---|---|
+| #233, #235, #238 | Merged directly into `main`. |
+| #242, #244, #245 | Merged into their feature base branches; those commits reached `main` through #241 and #243. |
+| #240, #241, #243 | Merged into `main` in G2, G3, G4 order after conflict resolution and fresh required checks. |
+| #234, #236, #237, #239 | Merged into `main` after repaired checks; #236 handled direct SDK callback errors, and #237/#239 repaired the runtime export. |
 
 ## Integration progress
 
-- PRs #233, #235, and #238 were merged into `main` with passing GitHub checks.
-- PR #242 was marked ready and merged into its G3 base with passing checks.
-- GitHub marks #244 and #245 merged into the G4 branch. Their 4 initial broker
-  and 12 correction broker tests, Ruff, and Pyright passed. The earlier combined
-  `make check` session was interrupted before its final result was captured.
+- PRs #233, #235, and #238 merged into `main` with passing GitHub checks.
+- PR #242 merged into its G3 base; #244 and #245 merged into their G4 base.
+  Their commits are ancestors of the final integrated `main`.
 - G2 PR #240 was reconciled with the new `main`. The integration retains
   the later Anthropic structured-output and signed-campaign controls, restores
   G2 mixed-provider credential and signed-scope checks, and keeps the exact G2
   qualification contract. Focused mixed, acceptance, launch, and broker tests
   passed. The combined `make check` passed 2,376 source and 1,761 installed-wheel
   tests. PR #240 merged after its fresh GitHub checks.
-- The G3 branch now has a local merge of G2 with mixed-provider and owner-role
+- The G3 branch merged G2 with mixed-provider and owner-role
   gates retained. Focused launch, reviewer, broker, and readiness tests passed.
   A direct SDK callback exception is reduced to a coarse readiness failure so
   the OpenAI dependency update cannot expose private error text.
-- The G4 branch has a local merge of that G3/G2 integration. Its two document
+- The G4 branch merged that G3/G2 integration. Its two document
   conflicts retained G3 study deferral, exact G2 qualification, and current G4
   correction status. Its combined `make check` passed 2,599 source and 1,910
   installed-wheel tests before publication.
-- PR #234 merged after its required checks. PR #236 still fails its old branch
-  test for the direct SDK callback exception; its corrected code is in G3/G4 and
-  a repair branch. PRs #237 and #239 failed on stale runtime exports; their
-  repaired exports pass the verifier in local repair branches.
+- PR #234 merged after its required checks. PR #236's SDK callback fix passed
+  its focused readiness tests under OpenAI 3.19.2. PRs #237 and #239 repaired
+  stale runtime exports. The combined dependency batch passed 2,599 source
+  tests, 1,910 installed-wheel tests, export verification, and a production
+  dependency audit with no known vulnerabilities in 50 packages.
 - The first integrated G3/G4 pushes exposed merge conflicts and historical
   `generic-api-key` scan findings on API-key parameters and Ed25519 signing-key
-  type annotations. No credential value was present in those findings. G3 now
-  includes current `main`, the pinned setup-uv update across all jobs, and
-  exact-fingerprint exceptions; G4 includes that reconciliation.
+  type annotations. No credential value was present in those findings. G3 and
+  G4 include the pinned setup-uv update across all jobs and exact-fingerprint
+  exceptions. Their fresh GitHub checks passed before merge.
 
-## Handoff
+## Final verification
 
-Push the reconciled G3 and G4 heads, wait for required checks, then merge #241
-and #243 in order.
-Refresh the repaired dependency branches against integrated `main`, run the
-combined dependency gate, and merge their PRs after fresh required checks.
+- GitHub marked all 13 original PRs merged and reported no open PRs after #239.
+- The `main` tree at `888c669` was byte-for-byte identical to the locally
+  verified combined dependency tree. This note changes documentation only.
+- ADR-0011's study deferral remains in the integrated roadmap. No study,
+  live provider call, production deployment, or release was performed.
