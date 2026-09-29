@@ -5,8 +5,12 @@ A foundation for independent, multi-provider adversarial review of code changes.
 Recorded review remains the default; an explicit one-prompt OpenAI command is
 available. Paid commands remain tool-free; an explicit MCP adapter supplies data
 tools to the canonical agent port. The private owning-library critic/judge path has
-completed its exact three-slot G2 qualification, but there is no public live-review
-command or automatic activation. Offline model/effort evaluation planning and
+completed its exact three-slot G2 qualification. The separate
+[owner-operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md) records an exact
+qualified Terra/Sonnet/Opus two-provider profile, with a signed campaign and an
+admitted launch. The `review-live` command requires exact approvals and separate
+provider credentials; neither profile authorizes public or automatic activation.
+Offline model/effort evaluation planning and
 scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
 owner-authorized tasks; see

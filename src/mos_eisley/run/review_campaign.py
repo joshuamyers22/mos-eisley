@@ -60,6 +60,7 @@ def campaign_reviewer(configuration: ReviewLaunchConfiguration) -> ModelReviewer
         judge_provider=configuration.judge_provider,
         judge_model=configuration.judge_model,
         effort=configuration.effort,
+        critic_effort=configuration.critic_effort,
         budget=configuration.budget,
         max_text_output_bytes=configuration.max_text_output_bytes,
     )

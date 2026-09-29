@@ -4,7 +4,6 @@ import argparse
 import json
 import sqlite3
 from datetime import UTC, datetime
-from importlib.metadata import version
 from pathlib import Path
 from typing import cast
 
@@ -12,7 +11,10 @@ from mos_eisley import review_launch_cli
 from mos_eisley.core.models import digest
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.review_campaign import CAMPAIGN_BYTES, decode_campaign_submission
-from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
+from mos_eisley.run.review_conformance_admission import (
+    ReviewConformanceRuntime,
+    review_sdk_version,
+)
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     decode_launch_configuration,
@@ -47,8 +49,10 @@ def _run(args: argparse.Namespace) -> int:
         raise ValueError("selected launch conformance input changed")
     configuration = decode_launch_configuration(config_raw)
     submission = decode_campaign_submission(evidence_raw)
+    providers = {item.critic.provider for item in configuration.critics}
+    providers.add(configuration.judge_provider)
     runtime = ReviewConformanceRuntime(
-        sdk_version=version("openai"), image_id=cast(str, args.image_id)
+        sdk_version=review_sdk_version(providers), image_id=cast(str, args.image_id)
     )
     preview = review_launch_cli.prepare_from_arguments(args, configuration)
     result = check_review_launch_conformance(

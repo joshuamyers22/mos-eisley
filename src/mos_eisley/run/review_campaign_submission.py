@@ -1,4 +1,4 @@
-"""Append independently signed evidence to one fixed campaign slot, without keys."""
+"""Append separately signed evidence to one fixed campaign slot, without keys."""
 
 import json
 from datetime import datetime

@@ -19,7 +19,7 @@ from mos_eisley.run.review_conformance_authorization import (
     ReviewOperatorMode,
 )
 
-_DOMAIN = b"mos-eisley/review-launch-decision/v1\x00"
+_DOMAIN = b"mos-eisley/review-launch-decision/v2\x00"
 
 
 def _decode(value: str, size: int) -> bytes:
@@ -101,6 +101,8 @@ class ReviewLaunchScope(Contract):
     ledger_path: Annotated[str, Field(min_length=1, max_length=4096)]
     artifact_directory: Annotated[str, Field(min_length=1, max_length=4096)]
     max_reserved_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    owner_total_cap_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    campaign_charged_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)]
     expires_at: datetime
 
     @field_validator("expires_at")
@@ -160,7 +162,7 @@ class ReviewLaunchDecision(Contract):
 
 
 class SignedReviewLaunchDecision(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     decision: ReviewLaunchDecision
     signer_id: Identifier
     public_key_sha256: Digest
