@@ -152,6 +152,33 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             self.prepared.authorization.brief_sha256, self.request.brief.brief_id
         )
 
+    def test_extended_campaign_preview_lifetime_is_bounded(self) -> None:
+        policy = self.policy.model_copy(
+            update={"valid_until": datetime.now(UTC) + timedelta(hours=3)}
+        )
+        prepared = PreparedReviewCall(
+            self.reviewer,
+            self.request,
+            policy,
+            self.ledger,
+            critic=self.critic,
+            authorization_ttl_seconds=7_200,
+        )
+        remaining = (
+            prepared.authorization.expires_at - datetime.now(UTC)
+        ).total_seconds()
+        self.assertGreater(remaining, 7_190)
+        self.assertLessEqual(remaining, 7_200)
+        with self.assertRaisesRegex(ValueError, "lifetime must be"):
+            PreparedReviewCall(
+                self.reviewer,
+                self.request,
+                policy,
+                self.ledger,
+                critic=self.critic,
+                authorization_ttl_seconds=7_201,
+            )
+
     def test_exact_confirmation_required_before_any_effect(self) -> None:
         for confirmation in (
             "",

@@ -1,5 +1,12 @@
 # Operator-authorized three-model review
 
+**G2 amendment, 2026-09-27:** The [owner-operated G2 contract](G2_OWNER_OPERATED_CONTRACT.md)
+records the signed one-provider and default two-provider qualifications. For the
+mixed-provider signed launch, `mos review-live` requires a separate private
+OpenAI credential file through `--openai-key-file`; `mos operator-review` remains
+the Anthropic operator route described below. Joshua Myers holds the enrolled
+owner roles under that contract, with separate signed records for each role.
+
 `mos operator-review` runs one guided, read-only Anthropic critic/judge review with
 two exact terminal approvals. It uses the existing private worker broker, shared
 full-envelope reservation, evidence-derived judge request, retained result and

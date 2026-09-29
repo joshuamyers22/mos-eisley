@@ -1,5 +1,10 @@
 # Review conformance acceptance
 
+**G2 amendment, 2026-09-26:** [owner operated custody](G2_OWNER_OPERATED_CONTRACT.md)
+allows Joshua Myers to assess and sign the observer role. Authentication still
+checks the distinct enrolled role key and actual attempt evidence; it does not
+establish independent human judgment.
+
 `evaluate_review_conformance` now evaluates one fixed tranche of three precommitted
 review probes. All three must have fresh, independently authenticated observations,
 verified runtime evidence and fully explained settled ledger entries. The evaluator
@@ -30,10 +35,11 @@ declined, failed or unproven attempt cannot be replaced silently. A different tr
 requires a separately retained policy and fresh exact approvals. That is not automatic
 retry authority or a disposition of an earlier failure.
 
-The same-provider evaluator preserves the explicitly selected review policy. It rejects
-a profile that cannot meet that policy, including two-provider quorum. Acceptance of
-an explicitly selected one-provider experiment does not establish conformance for
-the default two-provider review policy or for other models, effort levels or images.
+The evaluator preserves the explicitly selected review policy and verifies that
+the committed critic roster contains enough distinct providers to meet its quorum.
+Acceptance of an explicitly selected one-provider experiment does not establish
+conformance for the default two-provider policy or for other models, effort levels
+or images.
 
 ## Fresh verification
 

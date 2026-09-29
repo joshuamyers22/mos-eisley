@@ -118,12 +118,12 @@ class ReviewAcceptancePolicy(Contract):
         if (
             any(item.critic_sha256 is None for item in self.critics)
             or self.judge.critic_sha256 is not None
-            or any(item.provider != self.judge.provider for item in self.critics)
         ):
             raise ValueError("review acceptance role identities are inconsistent")
-        if (
-            self.review_policy.min_critics > len(self.critics)
-            or self.review_policy.min_providers > 1
+        if self.review_policy.min_critics > len(
+            self.critics
+        ) or self.review_policy.min_providers > len(
+            {item.provider for item in self.critics}
         ):
             raise ValueError(
                 "review acceptance profile cannot meet the selected quorum"
@@ -224,8 +224,16 @@ def evaluate_review_conformance(
             or any(
                 item.authorization.scope.sdk_version != policy.runtime.sdk_version
                 or item.authorization.scope.image_id != policy.runtime.image_id
-                or item.authorization.scope.provider != policy.judge.provider
-                for item in attempt.authorizations
+                or item.authorization.scope.provider
+                != (
+                    "mixed"
+                    if index == 0
+                    and len({role.provider for role in policy.critics}) > 1
+                    else policy.critics[0].provider
+                    if index == 0
+                    else policy.judge.provider
+                )
+                for index, item in enumerate(attempt.authorizations)
             )
             or attempt.start.started_at < policy.committed_at
             or (now - signed.observation.observed_at).total_seconds()

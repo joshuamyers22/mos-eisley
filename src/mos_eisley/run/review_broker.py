@@ -136,8 +136,17 @@ class PreparedReviewCall:
         guidance: ReviewGuidanceAdmission | None = None,
         committed_authorization: ReviewAuthorization | None = None,
         authorization_lifetime_seconds: int = 600,
+        authorization_ttl_seconds: int | None = None,
     ) -> None:
-        if not 0 < authorization_lifetime_seconds <= 3600:
+        if authorization_ttl_seconds is not None:
+            if authorization_lifetime_seconds != 600:
+                raise ValueError("review authorization lifetime has two values")
+            if not 60 <= authorization_ttl_seconds <= 7_200:
+                raise ValueError(
+                    "review authorization lifetime must be 60 to 7200 seconds"
+                )
+            authorization_lifetime_seconds = authorization_ttl_seconds
+        elif not 0 < authorization_lifetime_seconds <= 3600:
             raise ValueError("review authorization lifetime must be at most one hour")
         if guidance is not None:
             guidance.check_brief(request.brief)

@@ -24,6 +24,7 @@ from mos_eisley import (
     review_campaign_cli,
     review_launch_cli,
     review_launch_conformance_cli,
+    review_live_cli,
     review_observer_cli,
     review_submission_cli,
 )
@@ -730,6 +731,12 @@ def parser() -> argparse.ArgumentParser:
         subcommands.add_parser(
             "review-launch-conformance-check",
             help="Check fresh campaign evidence against a proposed launch profile",
+        )
+    )
+    review_live_cli.add_arguments(
+        subcommands.add_parser(
+            "review-live",
+            help="Run one signed Anthropic review after campaign acceptance",
         )
     )
     for name in (
@@ -7915,6 +7922,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "review-launch-conformance-check",
             "anthropic-probe",
             "operator-review",
+            "review-live",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -7930,6 +7938,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "anthropic-probe": anthropic_probe_cli.run_command,
                 "operator-review": operator_review_cli.run_command,
+                "review-live": review_live_cli.run_command,
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (

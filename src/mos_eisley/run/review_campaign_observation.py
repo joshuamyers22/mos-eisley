@@ -1,4 +1,4 @@
-"""Offline unsigned observation proposals from independently selected evidence."""
+"""Offline unsigned observation proposals from explicitly selected evidence."""
 
 import json
 from datetime import datetime, timedelta
@@ -46,7 +46,7 @@ def decode_probe_completion(raw: bytes) -> CampaignProbeCompletion:
 
 
 class CampaignObservationPreview(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["review_campaign_observation_preview"] = (
         "review_campaign_observation_preview"
     )
@@ -55,7 +55,7 @@ class CampaignObservationPreview(Contract):
     unsigned_observation: ReviewProbeObservation
     observer_authenticated: Literal[False] = False
     signature_created: Literal[False] = False
-    requires_independent_attestation: Literal[True] = True
+    requires_owner_assessment: Literal[True] = True
     provider_dispatch_authorized: Literal[False] = False
     live_review_activation_authorized: Literal[False] = False
 

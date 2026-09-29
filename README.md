@@ -1,15 +1,16 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: live-provider preview.** Recorded review remains the default;
+**Current maturity: bounded live review for an exact qualified profile.** Recorded review remains the default;
 an explicit one-prompt OpenAI command is available. A
 [budgeted Anthropic Messages probe](docs/ANTHROPIC_PROVIDER.md) is available for
 one fixed synthetic request. An
 [operator-controlled three-model review](docs/OPERATOR_REVIEW.md) can run a guided
 Anthropic critic and judge with exact terminal approvals and held spending.
-The [Anthropic conformance closeout](docs/ANTHROPIC_CONFORMANCE_CLOSEOUT.md)
-records one completed credentialed route and the separate signed-campaign option;
-the live signed tranche awaits independent enrollment.
+The [owner operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md#executed-default-two-provider-scope-2026-09-27)
+records a signed three-slot campaign and one admitted live launch for the
+default two-provider quorum with Terra and Sonnet critics and an Opus judge.
+Qualification is limited to that exact frozen profile.
 Paid commands remain tool-free;
 an explicit MCP adapter supplies data tools to the canonical agent port. The
 default interactive session does not yet run that workflow live. It can

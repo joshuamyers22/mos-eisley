@@ -2,10 +2,9 @@
 
 import asyncio
 import copy
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
-from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
@@ -35,6 +34,7 @@ from mos_eisley.run.review_campaign_dispatch import (
 from mos_eisley.run.review_conformance_admission import (
     ReviewConformanceRuntime,
     SignedReviewApprovalUI,
+    review_sdk_version,
 )
 from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceAuthorityPolicy,
@@ -243,6 +243,7 @@ class BrokeredReviewConformanceProbe:
             Awaitable[SignedReviewConformanceAuthorization | None],
         ],
         load_api_key: Callable[[], str],
+        load_api_keys: Mapping[str, Callable[[], str]] | None = None,
         total_seconds: float = 30,
         campaign: ReviewCampaignBinding | None = None,
         launch: ReviewLaunchAdmissionInputs | None = None,
@@ -277,7 +278,25 @@ class BrokeredReviewConformanceProbe:
         guidance = envelope.critics[0].guidance
         if guidance is None:
             raise ValueError("review conformance probe requires current guidance")
-        self._provider = envelope.critics[0].model_request.provider
+        self._providers = {
+            *(call.model_request.provider for call in envelope.critics),
+            envelope.envelope.judge.spend_policy.provider,
+        }
+        if len(self._providers) > 1 and (
+            load_api_keys is None or not self._providers <= load_api_keys.keys()
+        ):
+            raise ValueError(
+                "mixed review requires a separate loader for each provider"
+            )
+
+        def key_loader(provider: str) -> Callable[[], str]:
+            if load_api_keys is not None:
+                selected = load_api_keys.get(provider)
+                if selected is None:
+                    raise ValueError("review provider credential loader is missing")
+                return selected
+            return load_api_key
+
         self._containers = (*critic_containers, judge_container)
         self._runtime()  # Validate immutable image agreement before any prompt.
         self.controller = BrokeredReviewController(
@@ -330,7 +349,7 @@ class BrokeredReviewConformanceProbe:
                 self.approval_ui,
                 self.controller,
                 guidance,
-                load_api_key,
+                key_loader(envelope.critics[index].model_request.provider),
                 critic_containers[index],
                 Path(envelope.envelope.artifact_directory)
                 / envelope.critics[index].authorization.ledger_entry_id,
@@ -344,7 +363,7 @@ class BrokeredReviewConformanceProbe:
             self.approval_ui,
             self.controller,
             guidance,
-            load_api_key,
+            key_loader(envelope.envelope.judge.spend_policy.provider),
             judge_container,
             Path(envelope.envelope.artifact_directory) / "judge",
             phase="judge",
@@ -356,7 +375,8 @@ class BrokeredReviewConformanceProbe:
         if len(images) != 1:
             raise ValueError("review conformance workers require the same pinned image")
         return ReviewConformanceRuntime(
-            sdk_version=version(self._provider), image_id=next(iter(images))
+            sdk_version=review_sdk_version(self._providers),
+            image_id=next(iter(images)),
         )
 
     @property

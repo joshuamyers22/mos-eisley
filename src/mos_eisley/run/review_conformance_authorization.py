@@ -127,11 +127,11 @@ class ReviewConformanceScope(Contract):
     sdk_version: Identifier
     image_id: ImageID
     expires_at: datetime
-    provider: Literal["openai", "anthropic"] = "openai"
-    endpoint_origin: Literal["https://api.openai.com", "https://api.anthropic.com"] = (
-        "https://api.openai.com"
-    )
-    api_family: Literal["responses", "messages"] = "responses"
+    provider: Literal["openai", "anthropic", "mixed"] = "openai"
+    endpoint_origin: Literal[
+        "https://api.openai.com", "https://api.anthropic.com", "mixed"
+    ] = "https://api.openai.com"
+    api_family: Literal["responses", "messages", "mixed"] = "responses"
     automatic_retries: Literal[0] = 0
     provider_storage_requested: Literal[False] = False
 
@@ -145,6 +145,7 @@ class ReviewConformanceScope(Contract):
         if (self.provider, self.endpoint_origin, self.api_family) not in (
             ("openai", "https://api.openai.com", "responses"),
             ("anthropic", "https://api.anthropic.com", "messages"),
+            ("mixed", "mixed", "mixed"),
         ):
             raise ValueError("review conformance provider API binding is invalid")
         if self.phase == "critics":
@@ -156,7 +157,11 @@ class ReviewConformanceScope(Contract):
                 raise ValueError(
                     "critic scope has inconsistent reservation or preview bindings"
                 )
-        elif self.start_sha256 is None or self.additional_reservation_microusd != 0:
+        elif (
+            self.start_sha256 is None
+            or self.additional_reservation_microusd != 0
+            or self.provider == "mixed"
+        ):
             raise ValueError(
                 "judge scope requires a start and transfers only existing spending"
             )
@@ -175,14 +180,21 @@ def review_conformance_scope(
     critics = ControllerCriticPreview.model_validate_json(canonical_bytes(critics))
     envelope = critics.envelope
     guidance = envelope.critics[0].guidance_sha256
-    provider = critics.requests[0].provider
+    providers = {request.provider for request in critics.requests}
     if guidance is None or any(
-        request.provider != provider or call.provider != provider
+        request.provider != call.provider or call.guidance_sha256 != guidance
         for request, call in zip(critics.requests, envelope.critics, strict=True)
     ):
-        raise ValueError("review conformance requires guided same-provider requests")
-    if provider not in ("openai", "anthropic"):
+        raise ValueError("review conformance requires guided provider-bound requests")
+    if not providers <= {"openai", "anthropic"}:
         raise ValueError("review conformance provider is unsupported")
+    provider: Literal["openai", "anthropic", "mixed"]
+    if len(providers) > 1:
+        provider = "mixed"
+    elif "openai" in providers:
+        provider = "openai"
+    else:
+        provider = "anthropic"
     amount = envelope.total_reserved_microusd
     deadline = envelope.expires_at
     phase_sha = digest(canonical_bytes(critics))
@@ -210,7 +222,7 @@ def review_conformance_scope(
             or judge.evidence.policy != critics.authorization.policy
             or judge.evidence.judge_request.brief.brief_id
             != envelope.judge.brief_sha256
-            or judge.model_request.provider != provider
+            or judge.model_request.provider != envelope.judge.spend_policy.provider
             or judge.model_request.model != envelope.judge.spend_policy.model
             or digest(canonical_bytes(judge.evidence))
             != judge.authorization.evidence_sha256
@@ -220,6 +232,7 @@ def review_conformance_scope(
         deadline = start.expires_at
         phase_sha = judge.sha256
         start_sha = digest(canonical_bytes(start))
+        provider = "openai" if judge.model_request.provider == "openai" else "anthropic"
     return ReviewConformanceScope(
         phase="critics" if judge is None else "judge",
         controller_sha256=critics.sha256,
@@ -239,8 +252,16 @@ def review_conformance_scope(
             "https://api.openai.com"
             if provider == "openai"
             else "https://api.anthropic.com"
+            if provider == "anthropic"
+            else "mixed"
         ),
-        api_family="responses" if provider == "openai" else "messages",
+        api_family=(
+            "responses"
+            if provider == "openai"
+            else "messages"
+            if provider == "anthropic"
+            else "mixed"
+        ),
     )
 
 

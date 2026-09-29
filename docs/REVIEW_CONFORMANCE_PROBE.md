@@ -23,8 +23,10 @@ The remaining dependencies are trusted host callbacks:
 - `authority_policy()` selects the current independently enrolled authority policy.
 - `load_authorization(scope)` asynchronously obtains the authorizer's signature for
   the exact critic or judge scope. It must not automatically sign for the observer.
-- `load_api_key()` synchronously returns the host credential after admission. The
-  probe does not search environment variables or select a key store itself.
+- `load_api_key()` synchronously returns the host credential after admission for a
+  one-provider review. A mixed review supplies `load_api_keys` with a separate
+  loader for each provider. The probe does not search environment variables or
+  select a key store itself.
 
 `controller.preview` provides the exact initial preview. After execution, the host
 can retain `controller.start`, `judge_preview` and `approval_ui.authorizations`

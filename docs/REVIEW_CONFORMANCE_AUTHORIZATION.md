@@ -1,5 +1,10 @@
 # Signed review conformance authorization
 
+**G2 amendment, 2026-09-26:** [owner operated custody](G2_OWNER_OPERATED_CONTRACT.md)
+allows Joshua Myers to sign both phase authorizations with the enrolled authority
+key. The observer and launch roles still require distinct enrolled keys and exact
+separate records; no independent human is required for G2.
+
 The brokered review path now has a library boundary for independently authorized
 probe phases. An enrolled authorizer signs one exact critic phase, and later signs
 the evidence-derived judge phase separately. The existing local approval prompts
@@ -17,12 +22,14 @@ must be distinct from every enrolled observer. The policy fixes its validity win
 maximum authorization lifetime (at most 600 seconds) and reservation ceiling.
 
 `review_conformance_scope` derives the signed scope from the trusted previews. It
-requires guided, same-provider OpenAI or Anthropic requests and binds:
+requires guided OpenAI or Anthropic requests, binds each request to its selected
+provider, and marks a two-provider critic phase as `mixed`. The judge phase binds
+the judge's selected provider. Each scope binds:
 
 - The full canonical critic preview and controller authorization hashes.
 - The exact phase preview, selected guidance, ledger and ledger policy.
-- SDK version, immutable worker image ID, the selected Responses or Messages endpoint, zero automatic
-  retries and disabled provider storage.
+- Installed SDK version for every selected provider, immutable worker image ID,
+  provider API family, zero automatic retries and disabled provider storage.
 - The reservation ceiling and expiry. Critics reserve the complete envelope;
   judge authorization binds the controller start and existing judge allowance,
   with zero additional reservation.

@@ -1,4 +1,4 @@
-"""A separate, domain-separated independent decision for one exact review launch."""
+"""A separately signed, domain-separated decision for one exact review launch."""
 
 import base64
 import binascii
@@ -18,7 +18,7 @@ from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceSigner,
 )
 
-_DOMAIN = b"mos-eisley/review-launch-decision/v1\x00"
+_DOMAIN = b"mos-eisley/review-launch-decision/v2\x00"
 
 
 def _decode(value: str, size: int) -> bytes:
@@ -75,7 +75,7 @@ class ReviewLaunchAuthorityPolicy(Contract):
 
 
 class ReviewLaunchScope(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["review_launch_scope"] = "review_launch_scope"
     launch_authority_policy_sha256: Digest
     phase_authority_policy_sha256: Digest
@@ -87,6 +87,8 @@ class ReviewLaunchScope(Contract):
     ledger_path: Annotated[str, Field(min_length=1, max_length=4096)]
     artifact_directory: Annotated[str, Field(min_length=1, max_length=4096)]
     max_reserved_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    owner_total_cap_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    campaign_charged_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)]
     expires_at: datetime
 
     @field_validator("expires_at")
@@ -96,15 +98,16 @@ class ReviewLaunchScope(Contract):
 
 
 class ReviewLaunchDecision(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["review_launch_decision"] = "review_launch_decision"
     scope: ReviewLaunchScope
     issued_at: datetime
     valid_until: datetime
-    # Required independent assertions, never inferred from fixture or verifier success.
+    # These are human assertions, never inferred from fixture or verifier success.
+    human_custody_mode: Literal["owner_operated"] = "owner_operated"
     commitment_custody_reviewed: Literal[True]
     credentialed_campaign_reviewed: Literal[True]
-    independent_observer_assessment_reviewed: Literal[True]
+    observer_assessment_reviewed: Literal[True]
     exact_launch_authorized: Literal[True] = True
     local_and_phase_approvals_required: Literal[True] = True
     automatic_retry_authorized: Literal[False] = False
@@ -117,7 +120,7 @@ class ReviewLaunchDecision(Contract):
 
 
 class SignedReviewLaunchDecision(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     decision: ReviewLaunchDecision
     signer_id: Identifier
     public_key_sha256: Digest
@@ -175,7 +178,7 @@ def verify_review_launch_decision(
         if s.signer_id == signed.signer_id and s.key_sha256 == signed.public_key_sha256
     ]
     if len(enrolled) != 1:
-        raise ValueError("independent launch reviewer is not enrolled")
+        raise ValueError("launch decision signer is not enrolled")
     try:
         Ed25519PublicKey.from_public_bytes(
             _decode(enrolled[0].public_key_base64, 32)
@@ -183,5 +186,5 @@ def verify_review_launch_decision(
             _decode(signed.signature_base64, 64), _DOMAIN + canonical_bytes(decision)
         )
     except (InvalidSignature, ValueError, UnsupportedAlgorithm):
-        raise ValueError("invalid independent launch decision signature") from None
+        raise ValueError("invalid launch decision signature") from None
     return decision
