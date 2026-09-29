@@ -1,6 +1,6 @@
 # Work note: distinct bounded JSON Patch G4 task
 
-- Status: creator approval signed and controls validated; reviewer custody signature pending
+- Status: initial candidate passed; connected correction attempt closed without correction
 - Owner: Joshua Myers
 - Started (UTC): 2026-09-28
 - Risk: high, because later gates may spend money and write an isolated Git tree
@@ -85,3 +85,40 @@ control record is
 No candidate or provider call occurred. Reviewer custody preflight passed
 against the exact creator/package hashes and disclosed single-operator mode.
 Joshua's next local step is `/Users/josh/g4-patch4-custody-sign`.
+
+## Result of this attempt
+
+Joshua signed reviewer custody `031696198e42b98b7926c6683ac50abdd1a44065de575fffae26785471600fdc`,
+initial-child assignment `c46bcbde465d544a90abdbd21e8416020a393c02f1358dc7b22b640d0830c53d`,
+and dispatch approval `1617547d9761221155c4cd56f8898b8ecb4d98b54dc99305b40816ab2c30ab68`.
+The exact offer was `1aef6f18acba3b32bbd9d92b78e85d269056868a7968c1f3097ffee11f7b4c0a`.
+The one-use live grant was `cb4a1d495048bbd6a5fc7503b7b5979e1c4138a8788974a3287d8bcdff3df460`,
+with a maximum hold of 49,750 micro-USD. The first local runner attempt
+stopped before the dispatch claim or provider call because its private claim
+store did not exist. After the store was created and the preflight corrected,
+the same unused grant produced initial dispatch receipt
+`c7f3739dc017a8c0e21b954654950db6d7fe8362b75211f1de72c47576bdf11c`
+and production receipt
+`49fee1a3ee45c01b598e0577781a1a50b5ee277728af574baaf71784ec2fc2bc`.
+The shared ledger settled at 31,183 micro-USD. The proposal changed only
+`src/json_patch_lab/patch.py` and reported zero unresolved issues.
+
+Joshua signed isolated integration grant
+`c232785530b9ab4a60ff83860dd2c17d3992fda4d340363f592ca9a8f1afd89e`.
+The isolated commit is `9c901afae97e804c33de89d7ea91b08226dfdf23`;
+integration record `49ce60bbc62d23a61b642a4cc0d33d55ebb7a1d323baef1fc65aa1aa36b76414`
+was signed as the VCS attestation. The original source HEAD stayed unchanged.
+The candidate binding is
+`2b271f3864fd86b9b39468a13f7af76bc146996dd143d7075d3cd7e6ed201fd3`.
+Joshua signed first-candidate approval
+`04ecf3ac34248d58c2dfb31f7733c3586d1960d10511a5c42e97051b18cf3312`.
+Candidate receipt `0596a422b9a3620270c00a144d38378536f6045161036dc26a094bf18c7d2380`
+is canonical and records 12 collected and executed frozen reviewer tests,
+zero failures and zero errors. The candidate passed.
+
+Under the approved stopping rule, this attempt provides no qualifying defect
+for connected correction. No correction, final suites, independent review,
+quality acceptance or G4 creator acceptance occurred. A new, distinct task
+would require its own fixed plan, reviewer tests and authority before any new
+initial child. Do not alter this passing source or its frozen reviewer oracle
+to create a correction finding.
