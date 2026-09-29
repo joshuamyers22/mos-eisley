@@ -26,7 +26,7 @@ from mos_eisley.run.store import private_write
 class CleanupLease(Contract):
     schema_version: Literal[1] = 1
     container_id: Digest
-    max_runtime_seconds: Annotated[float, Field(gt=0, le=65)]
+    max_runtime_seconds: Annotated[float, Field(gt=0, le=305)]
 
 
 class CleanupRecord(Contract):

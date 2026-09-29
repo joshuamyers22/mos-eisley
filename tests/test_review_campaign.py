@@ -24,6 +24,7 @@ from mos_eisley.run.review_campaign import (
     review_campaign_evidence,
     seal_review_campaign,
 )
+from mos_eisley.run.review_campaign_dispatch import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_observation import ReviewObservationPolicy
 from mos_eisley.run.review_launch import LaunchCritic, ReviewLaunchConfiguration
 from mos_eisley.run.spend_ledger import LedgerEntry
@@ -31,37 +32,51 @@ from mos_eisley.run.store import private_write
 
 
 class CampaignCeremonyFixture(ReviewAcceptanceFixture):
+    def configure_attempts(self) -> None:
+        for fixture in self.fixtures:
+            fixture.call = fixture.prepare(preparation_scope="formal_campaign")
+            fixture.review = fixture.envelope()
+            fixture.base.fake.directory = fixture.critic_directory()
+
     def before_attempts(
         self, observation_policies: list[ReviewObservationPolicy]
     ) -> None:
-        self.bundle = ReviewCampaignBundle(
-            policy=self.policy,
-            attempts=tuple(
+        attempts: list[CampaignAttempt] = []
+        for fixture, observation_policy in zip(
+            self.fixtures, observation_policies, strict=True
+        ):
+            output_limit = fixture.preview.requests[0].max_text_output_bytes
+            assert output_limit is not None
+            attempts.append(
                 CampaignAttempt(
                     configuration=ReviewLaunchConfiguration(
                         registry=openai_registry(),
                         critics=(
                             LaunchCritic(
-                                critic=fixture.base.critic, spending=fixture.base.policy
+                                critic=fixture.base.critic,
+                                spending=fixture.base.policy,
                             ),
                         ),
                         judge_model=fixture.base.policy.model,
                         judge_spending=fixture.base.policy,
                         effort=fixture.preview.requests[0].effort,
                         budget=BudgetPolicy(max_output_tokens=100),
+                        max_text_output_bytes=output_limit,
                         policy=self.policy.review_policy,
                         total_seconds=self.policy.total_seconds,
                         max_total_microusd=650,
+                        preparation_scope="formal_campaign",
                     ),
                     preview=fixture.preview,
                     authority_policy=fixture.policy,
                     observation_policy=observation_policy,
                     ledger_path=str(fixture.base.ledger.path),
                 )
-                for fixture, observation_policy in zip(
-                    self.fixtures, observation_policies, strict=True
-                )
-            ),
+            )
+        self.bundle = ReviewCampaignBundle(
+            schema_version=(2 if self.policy.operator_mode == "single_operator" else 1),
+            policy=self.policy,
+            attempts=tuple(attempts),
         )
         self.root = self.fixtures[0].base.root
         self.bundle_file = self.root / "operator-bundle.json"
@@ -100,6 +115,16 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
         )
         for fixture in self.fixtures:
             fixture.key_loader.assert_not_called()
+        self.probes = [
+            fixture.probe(
+                campaign=ReviewCampaignBinding(
+                    campaign_directory=str(self.sealed_directory),
+                    expected_seal_sha256=self.seal_sha,
+                    attempt_index=index,
+                )
+            )
+            for index, fixture in enumerate(self.fixtures)
+        ]
 
     def submission(self) -> CampaignEvidenceSubmission:
         return CampaignEvidenceSubmission(
@@ -141,6 +166,37 @@ class CampaignPrefixAdmissionTests(CampaignCeremonyFixture):
 
 
 class CampaignCeremonyTests(CampaignCeremonyFixture):
+    def test_campaign_rejects_planned_judge_scope_substitution(self):
+        attempt = self.bundle.attempts[0]
+        envelope = attempt.preview.envelope
+        changed_envelope = envelope.model_copy(
+            update={
+                "judge": envelope.judge.model_copy(
+                    update={"preparation_scope": "standard"}
+                )
+            }
+        )
+        changed_preview = attempt.preview.model_copy(
+            update={
+                "envelope": changed_envelope,
+                "authorization": attempt.preview.authorization.model_copy(
+                    update={
+                        "envelope_sha256": digest(canonical_bytes(changed_envelope))
+                    }
+                ),
+            }
+        )
+        with self.assertRaisesRegex(
+            ValueError, "configuration differs|approved envelope"
+        ):
+            CampaignAttempt(
+                configuration=attempt.configuration,
+                preview=changed_preview,
+                authority_policy=attempt.authority_policy,
+                observation_policy=attempt.observation_policy,
+                ledger_path=attempt.ledger_path,
+            )
+
     def test_cli_seals_before_attempts_and_freshly_reviews_completed_evidence(self):
         self.assertEqual(self.preview_output["attempts"], 3)
         self.assertEqual(self.preview_output["total_planned_microusd"], 1950)
@@ -323,6 +379,22 @@ class CampaignCeremonyTests(CampaignCeremonyFixture):
         )
         with self.assertRaises(ValueError):
             decode_campaign_bundle(canonical_bytes(broken))
+
+    def test_text_output_limit_is_bound_to_committed_projection(self):
+        first = self.bundle.attempts[0]
+        changed = first.configuration.model_copy(
+            update={
+                "max_text_output_bytes": (first.configuration.max_text_output_bytes + 1)
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "differs from approved content"):
+            CampaignAttempt(
+                configuration=changed,
+                preview=first.preview,
+                authority_policy=first.authority_policy,
+                observation_policy=first.observation_policy,
+                ledger_path=first.ledger_path,
+            )
 
     def test_existing_seal_is_preserved(self):
         before = (self.sealed_directory / "seal.json").read_bytes()

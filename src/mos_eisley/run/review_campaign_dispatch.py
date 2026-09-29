@@ -3,14 +3,9 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Self
-
-from pydantic import Field, model_validator
 
 from mos_eisley.core.models import (
-    Contract,
     CriticRequest,
-    Digest,
     JudgeRequest,
     canonical_bytes,
     digest,
@@ -20,6 +15,7 @@ from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.run.review_approval import ApprovalPreview
 from mos_eisley.run.review_broker import PreparedReviewEnvelope
 from mos_eisley.run.review_campaign import read_campaign_seal
+from mos_eisley.run.review_campaign_binding import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_acceptance import review_role_profile
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_authorization import (
@@ -29,18 +25,6 @@ from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
 )
-
-
-class ReviewCampaignBinding(Contract):
-    campaign_directory: Annotated[str, Field(min_length=1, max_length=4096)]
-    expected_seal_sha256: Digest
-    attempt_index: Annotated[int, Field(ge=0, le=2)]
-
-    @model_validator(mode="after")
-    def absolute_directory(self) -> Self:
-        if not Path(self.campaign_directory).is_absolute():
-            raise ValueError("campaign dispatch binding requires an absolute directory")
-        return self
 
 
 class ReviewCampaignAdmission:

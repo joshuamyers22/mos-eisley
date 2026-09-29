@@ -32,7 +32,7 @@ There is no prefix-wide removal, prune, name reuse or caller-supplied shell comm
 ## Bounds and records
 
 The watchdog lifetime is the attached execution timeout plus five seconds (default
-35 seconds, maximum 65), beginning just before readiness. It cannot be extended by
+35 seconds, maximum 305), beginning just before readiness. It cannot be extended by
 the launcher. Cleanup tries at most three times, with a 200 ms pause between failed
 attempts. Each removal and absence check has its own three-second deadline and
 bounded output. A live launcher waits up to 25 seconds for watchdog completion;

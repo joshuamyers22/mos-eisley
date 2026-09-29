@@ -76,7 +76,7 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--expected-previous-evidence-sha256")
 
 
-async def _read_line(prompt: str) -> str:
+async def read_line(prompt: str) -> str:
     """Wait on terminal input without leaving a blocked reader on cancellation."""
     loop = asyncio.get_running_loop()
     future: asyncio.Future[str] = loop.create_future()
@@ -262,7 +262,7 @@ def run_command(args: argparse.Namespace) -> int:
                 flush=True,
             )
             try:
-                answer = await _read_line(
+                answer = await read_line(
                     "Signed phase authorization file (or cancel): "
                 )
             except EOFError:
@@ -328,7 +328,7 @@ def run_command(args: argparse.Namespace) -> int:
                 envelope,
                 reviewer,
                 configuration.policy,
-                TerminalReviewApproval(_read_line, sys.stdout),
+                TerminalReviewApproval(read_line, sys.stdout),
                 critic_containers=containers,
                 judge_container=judge_container,
                 authority_policy=current_authority,
@@ -344,7 +344,7 @@ def run_command(args: argparse.Namespace) -> int:
                 envelope,
                 reviewer,
                 configuration.policy,
-                TerminalReviewApproval(_read_line, sys.stdout),
+                TerminalReviewApproval(read_line, sys.stdout),
                 critic_containers=containers,
                 judge_container=judge_container,
                 load_api_key=lambda: load_anthropic_key(key_path),

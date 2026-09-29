@@ -212,7 +212,7 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         raise ProviderError("OpenAI adapter received another provider")
     if request.max_output_tokens is None:
         raise ProviderError("OpenAI request requires an output token limit")
-    return {
+    payload: dict[str, JsonValue] = {
         "model": request.model,
         "instructions": request.system or None,
         "input": cast(JsonValue, _input_payload(request)),
@@ -224,6 +224,16 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         "store": False,
         "truncation": "disabled",
     }
+    if request.response_format is not None:
+        payload["text"] = {
+            "format": {
+                "type": "json_schema",
+                "name": request.response_format.name,
+                "strict": request.response_format.strict,
+                "schema": request.response_format.json_schema,
+            }
+        }
+    return payload
 
 
 def _harness_call_id(provider_call_id: str) -> str:

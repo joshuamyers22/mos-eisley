@@ -7,6 +7,35 @@ e800043af4061dcdc39d6fe6fdb4b38236c8c932:.gitleaksignore:generic-api-key:1
 # False positive: slash-separated names of the broker, spending, and quorum gates
 # in the integrated delivery roadmap. No credential value is present.
 3583aa580aebcd77f86ab5a086efede0888595e4:docs/ROADMAP.md:generic-api-key:14
+# False positive: the same gate names in the G2 roadmap row, later reworded.
+# This exact historical commit contains no credential value.
+70a7efcca59b60035e618f2fde9db1ec1bf5fb2b:docs/ROADMAP.md:generic-api-key:21
 # False positive: a typed Ed25519 signing-key function parameter, with no value.
 # Limit the exception to this exact historical finding.
 3f7437276504e1f2a8d19586068e51a4fcc5a402:src/mos_eisley/run/review_conformance_observation.py:generic-api-key:299
+# Historical false positives in roadmap status prose; no credential value.
+6d079cadf2a57da54acf445b6c364ad7aad50bd4:docs/ROADMAP.md:generic-api-key:21
+681da9f2fbfc51ef231fa60630a23d2439010cc0:docs/ROADMAP.md:generic-api-key:21
+# Historical false positives in qualification evidence prose.
+195ef9c0b00c5b89ca78b033483bd526397343dc:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:98
+06191c0f7e8a6f55fadac92ebe98141b914f493c:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:94
+768519f599c5162aa9270f62959b741a2e2a182c:docs/LIVE_READ_ONLY_REVIEW_QUALIFICATION_VERIFICATION.md:generic-api-key:63
+# Historical false positive in an Ed25519 type annotation; no key value.
+768519f599c5162aa9270f62959b741a2e2a182c:src/mos_eisley/run/review_single_operator.py:generic-api-key:140
+# Historical source-code false positives: API-key parameter and Ed25519 signing-key
+# type annotations. No credential or private key value is present. Each exception
+# is limited to the introducing commit and exact finding.
+426aa4c3474c28a3fe12bcd39da4f5d3d39375f8:src/mos_eisley/providers/anthropic_review.py:generic-api-key:271
+7bb63c4bba762b779d74c7247937c10b55605c64:src/mos_eisley/reviewer_independent_review.py:generic-api-key:257
+7bb63c4bba762b779d74c7247937c10b55605c64:src/mos_eisley/reviewer_independent_review.py:generic-api-key:267
+7bb63c4bba762b779d74c7247937c10b55605c64:src/mos_eisley/reviewer_independent_review.py:generic-api-key:276
+3a121feafeffce25288931d2cb9a13dea29714f0:src/mos_eisley/reviewer_provenance.py:generic-api-key:566
+3a121feafeffce25288931d2cb9a13dea29714f0:src/mos_eisley/reviewer_provenance.py:generic-api-key:575
+3a121feafeffce25288931d2cb9a13dea29714f0:src/mos_eisley/reviewer_provenance.py:generic-api-key:584
+3a121feafeffce25288931d2cb9a13dea29714f0:src/mos_eisley/reviewer_provenance.py:generic-api-key:593
+3a121feafeffce25288931d2cb9a13dea29714f0:src/mos_eisley/reviewer_provenance.py:generic-api-key:602
+f8544c90ae6dfc8c0459406b866bb6c4a9a09d05:src/mos_eisley/reviewer_correction.py:generic-api-key:401
+f8544c90ae6dfc8c0459406b866bb6c4a9a09d05:src/mos_eisley/reviewer_correction.py:generic-api-key:410
+39ae0c341feee24710bf60230ccb5ba1ced1c7bc:src/mos_eisley/reviewer_initial_candidate.py:generic-api-key:106
+8057cf54c9bb0776256f41374ab8952336686e94:src/mos_eisley/reviewer_initial_integration.py:generic-api-key:105
+8057cf54c9bb0776256f41374ab8952336686e94:src/mos_eisley/reviewer_initial_integration.py:generic-api-key:169

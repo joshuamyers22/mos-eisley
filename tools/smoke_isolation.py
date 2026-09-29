@@ -346,6 +346,7 @@ def check_brokered_model(container: OfflineContainer, root: Path) -> None:
         effort="low",
         turns=(Turn(role="user", blocks=(TextBlock(text="Fixture"),)),),
         max_output=8000,
+        max_text_output_bytes=4000,
         max_output_tokens=10,
     )
     fixture = Fixture()

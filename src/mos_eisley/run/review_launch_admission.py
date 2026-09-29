@@ -1,4 +1,4 @@
-"""Require fresh campaign evidence and an independent decision at every launch edge."""
+"""Require fresh campaign evidence and a signed decision at every launch edge."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -23,6 +23,7 @@ from mos_eisley.run.review_approval import ApprovalPreview
 from mos_eisley.run.review_broker import PreparedReviewEnvelope
 from mos_eisley.run.review_campaign import (
     CAMPAIGN_BYTES,
+    ReviewCampaignBundle,
     decode_campaign_submission,
     read_campaign_seal,
 )
@@ -47,6 +48,7 @@ from mos_eisley.run.review_launch_authorization import (
     verify_review_launch_decision,
 )
 from mos_eisley.run.review_launch_conformance import check_review_launch_conformance
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
 
@@ -61,9 +63,7 @@ class ReviewLaunchBinding(Contract):
         if not all(
             Path(p).is_absolute() for p in (self.campaign_directory, self.evidence_path)
         ):
-            raise ValueError(
-                "launch admission requires independently selected absolute paths"
-            )
+            raise ValueError("launch admission requires caller-selected absolute paths")
         return self
 
 
@@ -73,6 +73,57 @@ class ReviewLaunchAdmissionInputs:
     configuration: ReviewLaunchConfiguration
     authority_policy: Callable[[], ReviewLaunchAuthorityPolicy]
     load_decision: Callable[[], SignedReviewLaunchDecision | None]
+    owner_total_cap_microusd: int
+
+
+def campaign_charged_microusd(bundle: ReviewCampaignBundle) -> int:
+    total = 0
+    seen: set[Path] = set()
+    for attempt in bundle.attempts:
+        path = Path(attempt.ledger_path).resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        snapshot = SpendLedger(path).snapshot()
+        if snapshot.blocked or snapshot.unresolved_entries:
+            raise ValueError("campaign spending is blocked or unresolved")
+        total += snapshot.charged_microusd
+    return total
+
+
+def validate_review_operator_roles(
+    launch_policy: ReviewLaunchAuthorityPolicy,
+    phase_policy: ReviewConformanceAuthorityPolicy,
+    campaign_policies: tuple[ReviewConformanceAuthorityPolicy, ...],
+) -> None:
+    """Enforce either separated human roles or one explicit shared operator."""
+    phase_policies = (phase_policy, *campaign_policies)
+    if launch_policy.operator_mode == "separated":
+        if any(policy.operator_mode != "separated" for policy in phase_policies):
+            raise ValueError("launch and campaign operator modes must match")
+        forbidden = [
+            signer
+            for policy in phase_policies
+            for signer in (*policy.authorities, *policy.observers)
+        ]
+        if any(
+            signer.signer_id == other.signer_id or signer.key_sha256 == other.key_sha256
+            for signer in launch_policy.reviewers
+            for other in forbidden
+        ):
+            raise ValueError(
+                "launch reviewers must be separate from phase authorities and observers"
+            )
+        return
+    if any(policy.operator_mode != "single_operator" for policy in phase_policies):
+        raise ValueError("launch and campaign operator modes must match")
+    operators = {
+        (signer.signer_id, signer.key_sha256)
+        for policy in phase_policies
+        for signer in (*policy.authorities, *policy.observers)
+    } | {(signer.signer_id, signer.key_sha256) for signer in launch_policy.reviewers}
+    if len(operators) != 1:
+        raise ValueError("single-operator launch requires one shared signer and key")
 
 
 class ReviewLaunchAdmission:
@@ -106,10 +157,17 @@ class ReviewLaunchAdmission:
         bundle, _ = read_campaign_seal(
             Path(self._binding.campaign_directory), self._binding.expected_seal_sha256
         )
+        campaign_charge = campaign_charged_microusd(bundle)
+        if (
+            inputs.owner_total_cap_microusd <= 0
+            or campaign_charge + envelope.envelope.total_reserved_microusd
+            > inputs.owner_total_cap_microusd
+        ):
+            raise ValueError("campaign plus launch exceeds the owner total cap")
         policy = self._policy()
         evidence_raw = read_bounded(Path(self._binding.evidence_path), CAMPAIGN_BYTES)
         if digest(evidence_raw) != self._binding.expected_evidence_sha256:
-            raise ValueError("independently selected launch evidence changed")
+            raise ValueError("selected launch evidence changed")
         evidence = decode_campaign_submission(evidence_raw)
         evidence_deadlines = [
             min(
@@ -128,8 +186,10 @@ class ReviewLaunchAdmission:
             if supplied is not None
         ]
         self._scope = ReviewLaunchScope(
+            schema_version=2 if policy.operator_mode == "single_operator" else 1,
             launch_authority_policy_sha256=policy.sha256,
             phase_authority_policy_sha256=self._phase_policy().sha256,
+            operator_mode=policy.operator_mode,
             configuration_sha256=digest(canonical_bytes(self._configuration)),
             critic_preview_sha256=digest(canonical_bytes(controller.preview)),
             seal_sha256=self._binding.expected_seal_sha256,
@@ -138,6 +198,8 @@ class ReviewLaunchAdmission:
             ledger_path=str(envelope.ledger.path.resolve()),
             artifact_directory=envelope.envelope.artifact_directory,
             max_reserved_microusd=envelope.envelope.total_reserved_microusd,
+            owner_total_cap_microusd=inputs.owner_total_cap_microusd,
+            campaign_charged_microusd=campaign_charge,
             expires_at=min(
                 policy.valid_until,
                 self._phase_policy().valid_until,
@@ -211,19 +273,16 @@ class ReviewLaunchAdmission:
         bundle, _ = read_campaign_seal(
             Path(self._binding.campaign_directory), scope.seal_sha256
         )
-        forbidden = [
-            s
-            for p in (phase_policy, *(a.authority_policy for a in bundle.attempts))
-            for s in (*p.authorities, *p.observers)
-        ]
-        if any(
-            s.signer_id == other.signer_id or s.key_sha256 == other.key_sha256
-            for s in policy.reviewers
-            for other in forbidden
+        if campaign_charged_microusd(bundle) != scope.campaign_charged_microusd or (
+            scope.campaign_charged_microusd + scope.max_reserved_microusd
+            > scope.owner_total_cap_microusd
         ):
-            raise ValueError(
-                "launch reviewers must be separate from phase authorities and observers"
-            )
+            raise ValueError("campaign plus launch exceeds the pinned owner cap")
+        validate_review_operator_roles(
+            policy,
+            phase_policy,
+            tuple(attempt.authority_policy for attempt in bundle.attempts),
+        )
         if any(
             Path(a.ledger_path).resolve() == Path(scope.ledger_path)
             or a.preview.envelope.critics[0].ledger_id
@@ -233,7 +292,7 @@ class ReviewLaunchAdmission:
             raise ValueError("launch requires a separate ledger from campaign evidence")
         raw = read_bounded(Path(self._binding.evidence_path), CAMPAIGN_BYTES)
         if digest(raw) != scope.evidence_file_sha256:
-            raise ValueError("independently selected launch evidence changed")
+            raise ValueError("selected launch evidence changed")
         guidance = envelope.envelope.critics[0].guidance_sha256
         if guidance is None:
             raise ValueError("launch admission requires guided preview evidence")
@@ -283,7 +342,7 @@ class ReviewLaunchAdmission:
     def check(self, preview: ApprovalPreview) -> None:
         signed = self._decision()
         if signed is None:
-            raise ValueError("launch requires an independent signed decision")
+            raise ValueError("launch requires a signed decision")
         signed = SignedReviewLaunchDecision.model_validate_json(canonical_bytes(signed))
         policy = self._fresh(preview)
         verify_review_launch_decision(signed, policy, self.scope, datetime.now(UTC))

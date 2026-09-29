@@ -9,6 +9,7 @@ from mos_eisley.run.process import MAX_WIRE_BYTES, docker_environment
 
 ExchangeHandler = Callable[[bytes], Awaitable[bytes]]
 CLAIM_LIMIT = 1024
+MAX_EXCHANGE_SECONDS = 300
 
 
 def _cancel_once[T](future: asyncio.Future[T]) -> None:
@@ -98,7 +99,7 @@ async def bounded_exchange(
         len(offer) > CLAIM_LIMIT
         or b"\n" in offer
         or not math.isfinite(timeout)
-        or not 0 < timeout <= 60
+        or not 0 < timeout <= MAX_EXCHANGE_SECONDS
     ):
         raise ValueError("invalid broker exchange bounds")
     process: asyncio.subprocess.Process | None = None

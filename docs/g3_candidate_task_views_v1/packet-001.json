@@ -1,0 +1,1 @@
+{"schema_version":"g3-public-source-task-view-v1","task_text":"ActionMultiParts: implicit nospace\nimplicit `nospace` might be possible (e.g when delimiter is empty) by adding a duplicate with space suffix when there is only one value\r\n\r\n- add `nospace` bool to Action\r\n- update util functions like `Merge` to keep the state"}

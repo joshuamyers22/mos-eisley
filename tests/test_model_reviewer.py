@@ -7,6 +7,8 @@ import json
 import unittest
 from collections.abc import Callable
 
+from pydantic import JsonValue
+
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import (
     Brief,
@@ -33,6 +35,7 @@ from mos_eisley.core.protocol import (
 )
 from mos_eisley.core.registry import ModelRegistry, ModelSpec
 from mos_eisley.providers.model_reviewer import ModelReviewer
+from mos_eisley.review.citations import citation_bound_request
 from mos_eisley.review.pipeline import review
 
 
@@ -133,7 +136,91 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent.turns), 1)
         self.assertNotIn(self.critic.id, canonical_bytes(sent).decode())
         self.assertNotIn("Frozen project rubric", sent.system)
+        self.assertNotIn("source_unit", sent.system)
+        self.assertEqual(sent.max_output, 16_000)
+        self.assertEqual(sent.max_text_output_bytes, 8_000)
         self.assertEqual(sent.max_output_tokens, 4096)
+
+    def test_schema_two_prompt_exposes_units_without_duplicate_diff(self) -> None:
+        request = citation_bound_request(self.brief, self.critic.persona)
+        sent = self.reviewer.critic_request(self.critic, request)
+        payload = input_text(sent)
+        self.assertEqual(json.loads(payload), request.model_dump(mode="json"))
+        self.assertIn("set evidence.source_unit", sent.system)
+        self.assertIn('"source_unit"', sent.system)
+        self.assertIn("Never combine text across units", sent.system)
+        self.assertIn("Set source_unit to null", sent.system)
+        self.assertEqual(payload.count(self.brief.diff), 1)
+
+    def test_capable_models_receive_native_strict_result_schemas(self) -> None:
+        registry = self.registry.model_copy(
+            update={
+                "models": tuple(
+                    spec.model_copy(update={"structured_output": True})
+                    for spec in self.registry.models
+                )
+            }
+        )
+        reviewer = ModelReviewer(
+            self.client,
+            registry,
+            judge_provider="judge",
+            judge_model="model",
+        )
+        schema_one = reviewer.critic_request(self.critic, self.request).response_format
+        schema_two = reviewer.critic_request(
+            self.critic, citation_bound_request(self.brief, self.critic.persona)
+        ).response_format
+        judge = reviewer.judge_request(
+            JudgeRequest(brief=self.brief, findings=(self.finding,))
+        ).response_format
+        assert schema_one is not None and schema_two is not None and judge is not None
+        self.assertEqual(schema_one.name, "mos_eisley_critique")
+        self.assertEqual(schema_two.name, "mos_eisley_critique")
+        self.assertEqual(judge.name, "mos_eisley_judge_decision")
+        self.assertNotIn("source_unit", json.dumps(schema_one.json_schema))
+        self.assertIn("source_unit", json.dumps(schema_two.json_schema))
+
+        def inspect(value: JsonValue) -> None:
+            if isinstance(value, list):
+                for item in value:
+                    inspect(item)
+            elif isinstance(value, dict):
+                self.assertNotIn("default", value)
+                self.assertNotIn("title", value)
+                properties = value.get("properties")
+                if value.get("type") == "object" and isinstance(properties, dict):
+                    required = value.get("required")
+                    self.assertIsInstance(required, list)
+                    assert isinstance(required, list)
+                    self.assertTrue(all(isinstance(item, str) for item in required))
+                    self.assertEqual(set(required), set(properties))
+                    self.assertIs(value["additionalProperties"], False)
+                for item in value.values():
+                    inspect(item)
+
+        inspect(schema_one.json_schema)
+        inspect(schema_two.json_schema)
+        inspect(judge.json_schema)
+
+    def test_incapable_models_remain_prompt_only(self) -> None:
+        critic = self.reviewer.critic_request(self.critic, self.request)
+        judge = self.reviewer.judge_request(
+            JudgeRequest(brief=self.brief, findings=(self.finding,))
+        )
+        self.assertIsNone(critic.response_format)
+        self.assertIsNone(judge.response_format)
+
+    def test_explicit_text_output_limit_is_validated(self) -> None:
+        for value in (0, True, 64_001):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                ModelReviewer(
+                    self.client,
+                    self.registry,
+                    judge_provider="judge",
+                    judge_model="model",
+                    max_text_output_bytes=value,
+                )
 
     async def test_judge_receives_exact_ids_without_critic_metadata(self) -> None:
         decision = JudgeDecision(
@@ -321,7 +408,7 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
             await self.reviewer.critique(self.critic, self.request)
         self.assertEqual(len(self.client.requests), 4)
 
-    async def test_whole_response_budget_includes_opaque_reasoning(self) -> None:
+    async def test_opaque_reasoning_uses_separate_response_envelope(self) -> None:
         self.client.reply = lambda _: response(Critique()).model_copy(
             update={
                 "turn": Turn(
@@ -335,8 +422,68 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
                 )
             }
         )
-        with self.assertRaises(ProviderError):
-            await self.reviewer.critique(self.critic, self.request)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+
+    async def test_visible_answer_and_whole_envelope_fail_independently(self) -> None:
+        raw = canonical_bytes(Critique()).decode()
+
+        def answer_of_size(size: int) -> ModelResponse:
+            text = raw + " " * (size - len(raw.encode()))
+            return response(Critique()).model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=tuple(
+                            TextBlock(text=text[offset : offset + 8_000])
+                            for offset in range(0, len(text), 8_000)
+                        ),
+                    )
+                }
+            )
+
+        def envelope_of_size(size: int) -> ModelResponse:
+            empty = response(Critique()).model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=(
+                            ReasoningBlock(provider="alpha", opaque={"payload": ""}),
+                            TextBlock(text=raw),
+                        ),
+                    )
+                }
+            )
+            padding = size - len(canonical_bytes(empty))
+            candidate = empty.model_copy(
+                update={
+                    "turn": Turn(
+                        role="assistant",
+                        blocks=(
+                            ReasoningBlock(
+                                provider="alpha", opaque={"payload": "x" * padding}
+                            ),
+                            TextBlock(text=raw),
+                        ),
+                    )
+                }
+            )
+            self.assertEqual(len(canonical_bytes(candidate)), size)
+            return candidate
+
+        self.client.reply = lambda _: answer_of_size(8_000)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+        self.client.reply = lambda _: envelope_of_size(16_000)
+        self.assertEqual(
+            await self.reviewer.critique(self.critic, self.request), Critique()
+        )
+        for reply in (answer_of_size(8_001), envelope_of_size(16_001)):
+            self.client.reply = lambda _, reply=reply: reply
+            with self.subTest(reply=reply), self.assertRaises(ProviderError):
+                await self.reviewer.critique(self.critic, self.request)
 
     async def test_usage_ceilings_and_tampered_response_revalidated(self) -> None:
         for usage in (

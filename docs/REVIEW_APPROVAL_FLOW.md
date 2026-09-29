@@ -14,7 +14,7 @@ approval. Its total size is bounded before any prompt or spending. The second
 `ControllerJudgePreview` is the existing evidence-bound controller output.
 
 `TerminalReviewApproval` displays provider/model choices, reserved spending,
-quorum, approval expiry and review time limit. `show` displays the full structured
+quorum, approval expiry and active execution budget. `show` displays the full structured
 preview. Approval requires `approve <exact hash>`; blank input, EOF, `cancel`,
 `yes`, an incorrect hash or any other input declines. Judge approval is a second
 prompt with its own hash. No default input approves a request. Full preview JSON
@@ -56,11 +56,13 @@ required. This increment delivers the approval interaction and controller
 composition; it does not replace those admission decisions or relax the default
 two-provider quorum. OpenAI-only synthetic tests explicitly select one provider.
 
-Declining before critics creates no spending entries. Declining the judge retains
-its existing allowance and creates no judge call. The judge prompt has only the
-remaining whole-review time: time spent inspecting content counts, and expiry
-cancels the pause while preserving holds. Initial approval cannot extend the
-spending envelope's expiry. Cancellation during provider work awaits the owning
+Declining before critics creates no spending entries. Declining the judge creates no
+judge call and terminally settles the exact unused spend-only judge allowance at
+zero. Standard review prompts have only the remaining whole-review time. A formal
+campaign instead has an authorization-bound 600-second judge-approval window; time
+spent at that prompt does not consume the saved active execution budget, but neither
+window can outlive the spending envelope's expiry. Initial approval cannot extend
+that expiry. Cancellation during provider work awaits the owning
 controller's complete child cleanup, including repeated cancellation. UI failures
 cannot replay a completed operation. A stale competing flow cannot cancel another
 flow's judge pause.

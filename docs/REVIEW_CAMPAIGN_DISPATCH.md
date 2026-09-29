@@ -29,17 +29,22 @@ to another path does not satisfy this binding. The owning reviewer's projected j
 profile is checked before the first critic can spend, and the actual judge preview
 is checked again before judge approval and dispatch.
 
-`ReviewLaunchConfiguration.critic_preview_lifetime_seconds` selects the maximum
-time between preview preparation and critic dispatch, from 1 to 3600 seconds. Its
-default is 600 seconds. A longer three-slot ceremony must select and seal its exact
-value before dispatch. The current pricing and guidance are still checked at each
-use, and each separately signed phase authorization remains limited to 600 seconds.
-The controller's own review deadline is separately limited to 600 seconds per slot.
+`ReviewLaunchConfiguration.preparation_scope` binds the preparation window. Ordinary
+calls expire after 600 seconds. A separately sealed `formal_campaign` commitment
+permits a 1,800-second preparation window; the owned probe requires that exact
+campaign binding. Ad hoc lifetime overrides are rejected. Current pricing and
+guidance are checked at each use, each separately signed phase authorization
+remains limited to 600 seconds, and the controller's review deadline is separately
+limited to 600 seconds per slot.
 
 The host must still obtain separate independent signatures and local approvals for
 critics and judge. A seal cannot supply either approval. The host owns and awaits
 `probe.run()`, including cancellation cleanup, and independently retains start,
 judge preview, signatures, result hash and lifecycle paths for subsequent observation.
+The immutable binding is also carried into the owned controller. Its terminal cleanup
+rereads the exact seal and slot before retiring an unused judge allowance; an unbound,
+changed or mismatched binding, or a start outside the committed window, leaves that
+allowance held.
 
 ## Rechecks and failure behavior
 
@@ -55,6 +60,9 @@ authority-policy and preview expiry. An expired or changed seal, changed runtime
 rotated authority policy, substituted ledger or changed judge configuration blocks
 further dispatch. A late failure preserves held or uncertain spending and awaits
 owned cleanup. A cancelled, declined or consumed probe has no automatic retry.
+Cleanup of an exact source that has already been settled, transferred, marked
+uncertain or marked violated is an idempotent no-op; it cannot alter the destination,
+critic or unrelated ledger entries.
 
 This is a host admission restriction, not an independent attestation that it ran.
 Existing evidence verification still reconstructs the actual records and requires

@@ -1,19 +1,20 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: live-provider preview.** Recorded review remains the default;
-an explicit one-prompt OpenAI command is available. A
-[budgeted Anthropic Messages probe](docs/ANTHROPIC_PROVIDER.md) is available for
-one fixed synthetic request. An
-[operator-controlled three-model review](docs/OPERATOR_REVIEW.md) can run a guided
-Anthropic critic and judge with exact terminal approvals and held spending.
-The [Anthropic conformance closeout](docs/ANTHROPIC_CONFORMANCE_CLOSEOUT.md)
-records one completed credentialed route and the separate signed-campaign option;
-the live signed tranche awaits independent enrollment.
-Paid commands remain tool-free;
-an explicit MCP adapter supplies data tools to the canonical agent port. The
-default interactive session does not yet run that workflow live. It can
-plan and score offline model/effort evaluations, but automatic routing is disabled.
+**Current maturity: qualified private live-review library; public launch gated.**
+Recorded review remains the default; an explicit one-prompt OpenAI command is
+available. Paid commands remain tool-free; an explicit MCP adapter supplies data
+tools to the canonical agent port. The private owning-library critic/judge path has
+completed its exact three-slot G2 qualification. The separate
+[owner-operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md) records an exact
+qualified Terra/Sonnet/Opus two-provider profile, with a signed campaign and an
+admitted launch. The `review-live` command requires exact approvals and separate
+provider credentials; neither profile authorizes public or automatic activation.
+Offline model/effort evaluation planning and
+scoring tools exist, while automatic routing remains disabled. Study execution
+is deferred until Mos Eisley is launched and operating in production on real
+owner-authorized tasks; see
+[ADR-0011](docs/adr/0011-defer-studies-until-production.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -281,6 +282,74 @@ and critic/judge workflows retain their existing tool-free boundaries.
   reads, compactions, and explicitly unavailable provider-token counts in `/context`
   and `/status`; bounded threshold events never stop, compact, delegate, request
   approval, or grant authority.
+- The first [G4 blind reviewer-test-package](docs/G4_REVIEWER_TEST_PACKAGE.md)
+  boundary freezes complete reviewer test/fixture/oracle bytes, derivation-reference
+  identities and collection expectations into a canonical inert artifact. It rejects
+  unsafe aliases, vacuous collection commitments and direct undeclared skip/xfail
+  markers while explicitly denying execution, binding, mutation and acceptance.
+- The separate [G4 implementation binding](docs/G4_IMPLEMENTATION_BINDING.md) records
+  the frozen package before and after inspection, every regular source-root file,
+  exact dependency/build inputs and an allowlisted direct-symbol adapter. It rejects
+  stale/hidden resources and executable adapter behavior while granting no test,
+  write, VCS, network, credential, correction or acceptance authority.
+- [G4 isolated reviewer-test execution](docs/G4_ISOLATED_TEST_EXECUTION.md) now sends
+  only that exact package and bound source/resource material to the immutable-image,
+  no-mount offline container. Canonical receipts retain exact runtime counts and
+  ordered test-ID digests; paired known-good/known-bad validation rejects wrong-code,
+  count-drift and error-only failures while granting no candidate or downstream
+  authority.
+- [G4 authenticated custody and trusted VCS/E2 provenance](docs/G4_AUTHENTICATED_PROVENANCE.md)
+  now verifies domain-separated creator, reviewer, child and VCS signatures, exact
+  base/child/final Git ancestry, the child patch and owned paths, every bound Git
+  blob, a clean worktree and the prior known-control record. Its Git broker is
+  fixed-argv and read-only, and every dispatch, write, correction and acceptance
+  authority remains false.
+- [G4 candidate execution admission and dispatch](docs/G4_CANDIDATE_EXECUTION.md)
+  now requires a separate exact creator signature, current Git/control replay and
+  one-use private claim before the immutable offline container runs candidate
+  reviewer tests. It retains passing or failing count evidence without authorizing
+  child implementation, correction, repository/VCS writes or final acceptance.
+- The offline [G4 bounded correction evidence gate](docs/G4_BOUNDED_CORRECTION.md)
+  requires two matching assertion-failure receipts, a signed judge disposition,
+  a separately signed creator cycle and an exclusive private claim. It caps two
+  cycles under one conservative task allowance and verifies a renewed full
+  custody/Git/candidate chain without granting child dispatch, writes or final
+  acceptance. Production correction and final whole-suite/review gates remain open.
+- The offline [G4 correction-child dispatch boundary](docs/G4_CORRECTION_CHILD_DISPATCH.md)
+  adds a separate creator-signed, one-use task/cycle grant for an enrolled child's
+  scoped proposal. The immutable offline container validates the signed replacement
+  set and the host replays Git, but no host patch, live provider call, measured
+  spend or final acceptance is authorized.
+- The offline [G4 correction integration boundary](docs/G4_CORRECTION_INTEGRATION.md)
+  separately authorizes one exact proposal to become a local commit in a new
+  private detached worktree. It replays the prior chain, restricts checkout and
+  changed paths, verifies bytes and Git provenance, and leaves the original
+  checkout unchanged. This is not provider dispatch, final testing or acceptance.
+- The separately gated [G4 production coding-child broker](docs/G4_PRODUCTION_CODING_CHILD_BROKER.md)
+  now binds an exact creator-signed provider grant to one tool-free isolated call
+  and conservative shared-ledger settlement. It was implemented and tested offline;
+  no live call or final acceptance follows from its availability.
+- The [G4 final whole-suite gate](docs/G4_FINAL_WHOLE_SUITES.md) separately
+  authorizes exact creator/reviewer test packages on a passing authenticated
+  candidate, runs them in isolated containers and retains count/Git replay evidence.
+  Its offline implementation does not establish a production passing result or
+  independent acceptance.
+- The offline [G4 independent-review gate](docs/G4_INDEPENDENT_REVIEW.md) replays
+  the approved plan, full Git diff and passing final-suite receipt before checking
+  distinct signed critic/judge assessments, two-family quorum, citations and the
+  deterministic verdict. No live review, proof of provider/human independence or
+  release approval follows from this implementation alone.
+- A separate [G4 single-operator review path](docs/G4_SINGLE_OPERATOR_REVIEW.md)
+  checks one owner's signed, two-provider critic/judge record against the same
+  exact subject. It always denies independent-review and acceptance claims;
+  no live provider run has occurred through this path.
+- The [first G4 qualification preparation packet](docs/G4_QUALIFICATION_PREPARATION_2026-09-25.md)
+  pins the controller image and isolated target. Signed custody, paired controls,
+  seeded provenance, two failed candidate reproductions, contained offline
+  correction, isolated Git integration and a passing corrected-revision candidate
+  receipt replay-verify. Separately granted final creator and reviewer whole
+  suites each passed 5/5 in the pinned image; independent review and a real
+  provider child remain open.
 - Explicit briefs identified by content hash; no automatic repository/config reads.
 - Concurrent critic calls with separate brief/persona requests and timeouts.
 - Minimum critic/provider quorum; outages cannot produce acceptance.
@@ -552,6 +621,12 @@ See the [project brief](PROJECT_BRIEF.md),
 [one-assignment OpenAI calibration execution](docs/OPENAI_CALIBRATION_EXECUTION.md),
 [empirical routing ADR](docs/adr/0004-empirical-difficulty-routing.md),
 [evaluation foundation](docs/EVALUATION.md),
+[G3 fixed-matrix feasibility verification](docs/G3_FEASIBILITY_VERIFICATION.md),
+[G3 context-study policy and label eligibility](docs/G3_CONTEXT_STUDY.md),
+[G3 SWE-rebench full-source audit](docs/G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md),
+[G3 bounded candidate frame and task view](docs/G3_SWE_REBENCH_CANDIDATE_FRAME.md),
+[G3 four-case execution-view audit](docs/G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md),
+[production real-outcome acceptance criteria](docs/PRODUCTION_OUTCOME_ACCEPTANCE.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
 [routing calibration](docs/ROUTING_CALIBRATION.md),
 [candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),

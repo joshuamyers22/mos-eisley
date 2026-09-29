@@ -11,7 +11,12 @@ from uuid import uuid4
 
 from pydantic import JsonValue, TypeAdapter
 
-from mos_eisley.run.duplex import CLAIM_LIMIT, ExchangeHandler, bounded_exchange
+from mos_eisley.run.duplex import (
+    CLAIM_LIMIT,
+    MAX_EXCHANGE_SECONDS,
+    ExchangeHandler,
+    bounded_exchange,
+)
 from mos_eisley.run.process import bounded_process
 from mos_eisley.run.watchdog import WatchdogHandle, arm_watchdog, remove_exact
 
@@ -66,7 +71,7 @@ async def exchange_in_container(
         len(payload) > CLAIM_LIMIT
         or b"\n" in payload
         or not math.isfinite(timeout)
-        or not 0 < timeout <= 60
+        or not 0 < timeout <= MAX_EXCHANGE_SECONDS
     ):
         raise ValueError("invalid isolated exchange bounds")
     owned = _OwnedOperations()

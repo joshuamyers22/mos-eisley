@@ -10,7 +10,6 @@ from mos_eisley.conversation_memory_replace import unique_object
 from mos_eisley.core.budget import BudgetPolicy, resolve_budget
 from mos_eisley.core.models import (
     Contract,
-    CriticRequest,
     CriticSpec,
     Digest,
     Identifier,
@@ -24,7 +23,12 @@ from mos_eisley.project_guidance_review import PreparedGuidanceReview
 from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import SpendPolicy
-from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvelope
+from mos_eisley.review.citations import citation_bound_request
+from mos_eisley.run.review_broker import (
+    PreparedReviewCall,
+    PreparedReviewEnvelope,
+    ReviewPreparationScope,
+)
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
@@ -64,10 +68,13 @@ class ReviewLaunchConfiguration(Contract):
         default=None, exclude_if=lambda value: value is None
     )
     budget: BudgetPolicy
+    max_text_output_bytes: Annotated[int, Field(gt=0, le=64_000)] = 8_000
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
-    critic_preview_lifetime_seconds: Annotated[int, Field(gt=0, le=3600)] = 600
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
 
 
 class ReviewLaunchPreview(Contract):
@@ -231,18 +238,17 @@ def prepare_review_launch_components(
         effort=configuration.effort,
         critic_effort=configuration.critic_effort,
         budget=configuration.budget,
+        max_text_output_bytes=configuration.max_text_output_bytes,
     )
     calls = tuple(
         PreparedReviewCall(
             reviewer,
-            CriticRequest(brief=prepared.brief, persona=item.critic.persona),
+            citation_bound_request(prepared.brief, item.critic.persona),
             item.spending,
             ledger,
             critic=item.critic,
             guidance=admission,
-            authorization_lifetime_seconds=(
-                configuration.critic_preview_lifetime_seconds
-            ),
+            preparation_scope=configuration.preparation_scope,
             committed_authorization=(
                 None
                 if committed_preview is None
