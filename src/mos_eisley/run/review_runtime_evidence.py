@@ -10,11 +10,11 @@ from pydantic import Field, JsonValue, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.protocol import ModelRequest
-from mos_eisley.providers.openai_responses import request_payload
-from mos_eisley.providers.openai_spend import count_payload, spending_request_sha256
+from mos_eisley.providers.openai_spend import spending_request_sha256
 from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
+from mos_eisley.run.review_broker import review_count_payload, review_request_payload
 from mos_eisley.run.review_conformance_authorization import (
     ImageID,
     ReviewConformanceAuthorization,
@@ -196,13 +196,16 @@ def collect_review_runtime_exchange(
         or cleanup.result.container_id != cleanup.lease.container_id
     ):
         raise ValueError("runtime worker cleanup is incomplete or mismatched")
-    payload = request_payload(request)
-    payload["service_tier"] = "default"
+    payload = review_request_payload(request)
+    if request.provider == "openai":
+        payload["service_tier"] = "default"
     for operation, start, end in (
         ("count", evidence.count_start, evidence.count_end),
         ("generation", evidence.generation_start, evidence.generation_end),
     ):
-        expected_payload = count_payload(payload) if operation == "count" else payload
+        expected_payload = (
+            review_count_payload(request) if operation == "count" else payload
+        )
         if (
             start.operation != operation
             or start.model_request_sha256 != digest(canonical_bytes(request))

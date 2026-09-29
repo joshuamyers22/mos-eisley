@@ -24,6 +24,14 @@ continuation, compaction or pressure behavior.
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
 | G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
 
+**Anthropic G2 status, 2026-09-26:** the
+[credentialed operator route and closeout](ANTHROPIC_CONFORMANCE_CLOSEOUT.md)
+verify one Sonnet critic/Opus judge review and its four-attempt spending record.
+The operator command can now execute slots from a separately sealed, signed
+campaign while retaining the three-model identity and aggregate cap. Independent
+authorizer/observer enrollment, a fresh three-slot commitment and live acceptance
+remain pending; the earlier operator run is not signed-campaign evidence.
+
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.

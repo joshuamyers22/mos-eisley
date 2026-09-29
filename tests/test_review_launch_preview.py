@@ -10,15 +10,25 @@ from test_review_guidance_admission import GuidedBrokerFixture
 
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
-from mos_eisley.core.models import ReviewPolicy, canonical_bytes
-from mos_eisley.core.registry import openai_registry
+from mos_eisley.core.models import (
+    CriticSpec,
+    JudgeRequest,
+    ReviewPolicy,
+    canonical_bytes,
+)
+from mos_eisley.core.registry import anthropic_registry, openai_registry
+from mos_eisley.providers.openai_spend import SpendPolicy
+from mos_eisley.run.review_campaign import campaign_reviewer
+from mos_eisley.run.review_controller import BrokeredReviewController
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     LaunchCritic,
     ReviewLaunchConfiguration,
     decode_launch_configuration,
+    prepare_review_launch_components,
     prepare_review_launch_preview,
 )
+from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ReviewLaunchTests(GuidedBrokerFixture):
@@ -97,10 +107,143 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(before, self.base.ledger.path.read_bytes())
         self.assertFalse(self.review_directory.exists())
 
+    def test_anthropic_preview_binds_provider_and_full_spending(self):
+        now = datetime.now(UTC)
+        spending = SpendPolicy(
+            schema_version=2,
+            provider="anthropic",
+            model="claude-sonnet-5",
+            pricing_source="https://platform.claude.com/docs/en/models/sonnet-5/overview",
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(minutes=5),
+            input_microusd_per_million=2_000_000,
+            cache_write_microusd_per_million=2_500_000,
+            output_microusd_per_million=10_000_000,
+            max_cost_microusd=5_000,
+            max_input_tokens=1000,
+            max_output_tokens=32,
+        )
+        critic = CriticSpec(
+            id="claude",
+            provider="anthropic",
+            model="claude-sonnet-5",
+            persona="correctness",
+        )
+        self.base.ledger = SpendLedger.create(self.base.root / "claude.sqlite", 10_000)
+        configuration = ReviewLaunchConfiguration(
+            registry=anthropic_registry(),
+            critics=(LaunchCritic(critic=critic, spending=spending),),
+            judge_provider="anthropic",
+            judge_model="claude-sonnet-5",
+            judge_spending=spending,
+            effort="low",
+            critic_effort="none",
+            budget=BudgetPolicy(max_output_tokens=32),
+            policy=ReviewPolicy(min_critics=1, min_providers=1),
+            max_total_microusd=10_000,
+        )
+        result = self.launch(configuration)
+        self.assertEqual(result.preview.requests[0].provider, "anthropic")
+        self.assertEqual(result.preview.requests[0].effort, "none")
+        self.assertEqual(result.preview.requests[0].structured_output, "critique")
+        self.assertEqual(result.preview.envelope.critics[0].provider, "anthropic")
+        judge_request = campaign_reviewer(configuration).judge_request(
+            JudgeRequest(brief=self.guided.prepared.brief, findings=())
+        )
+        self.assertEqual(judge_request.effort, "low")
+        self.assertEqual(judge_request.structured_output, "judge")
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+        self.assertFalse(result.live_launch_available)
+
     def test_repeated_previews_do_not_consume_spend_or_reuse_attempt_hashes(self):
         first, second = self.launch(), self.launch()
         self.assertNotEqual(first.preview.sha256, second.preview.sha256)
         self.assertEqual(first.configuration_sha256, second.configuration_sha256)
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_bounded_longer_preview_restores_without_reserving_spend(self):
+        spending = self.base.policy.model_copy(
+            update={"valid_until": datetime.now(UTC) + timedelta(hours=2)}
+        )
+        configuration = self.configuration.model_copy(
+            update={
+                "critics": (LaunchCritic(critic=self.base.critic, spending=spending),),
+                "judge_spending": spending,
+                "critic_preview_lifetime_seconds": 3600,
+            }
+        )
+        before = datetime.now(UTC)
+        committed = self.launch(configuration).preview
+        remaining = (committed.envelope.expires_at - before).total_seconds()
+        self.assertGreater(remaining, 3590)
+        self.assertLessEqual(remaining, 3601)
+        envelope, reviewer, _ = prepare_review_launch_components(
+            configuration,
+            prepared=self.guided.prepared,
+            expected_prepared_sha256=self.guided.prepared.sha256,
+            workspace=self.guided.fixture.workspace,
+            guidance_store=self.guided.store,
+            guidance_policy_path=self.guided.fixture.policy_path,
+            expected_guidance_policy_sha256=self.guided.policy_sha,
+            ledger=self.base.ledger,
+            review_directory=self.review_directory,
+            committed_preview=committed,
+        )
+        restored = BrokeredReviewController(
+            envelope,
+            reviewer,
+            configuration.policy,
+            total_seconds=configuration.total_seconds,
+        )
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_preview_lifetime_over_one_hour_is_rejected(self):
+        raw = self.configuration.model_dump(mode="json")
+        raw["critic_preview_lifetime_seconds"] = 3601
+        with self.assertRaises(ValueError):
+            ReviewLaunchConfiguration.model_validate_json(json.dumps(raw))
+
+    def test_committed_preview_restores_exact_unused_attempt(self):
+        committed = self.launch().preview
+        envelope, reviewer, _ = prepare_review_launch_components(
+            self.configuration,
+            prepared=self.guided.prepared,
+            expected_prepared_sha256=self.guided.prepared.sha256,
+            workspace=self.guided.fixture.workspace,
+            guidance_store=self.guided.store,
+            guidance_policy_path=self.guided.fixture.policy_path,
+            expected_guidance_policy_sha256=self.guided.policy_sha,
+            ledger=self.base.ledger,
+            review_directory=self.review_directory,
+            committed_preview=committed,
+        )
+        restored = BrokeredReviewController(
+            envelope,
+            reviewer,
+            self.configuration.policy,
+            total_seconds=self.configuration.total_seconds,
+        )
+        self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
+        self.assertEqual(self.base.ledger.snapshot().entries, 0)
+        self.assertFalse(self.review_directory.exists())
+
+    def test_committed_preview_rejects_changed_configuration(self):
+        committed = self.launch().preview
+        changed = self.configuration.model_copy(update={"total_seconds": 121})
+        with self.assertRaisesRegex(ValueError, "committed critic preview"):
+            prepare_review_launch_components(
+                changed,
+                prepared=self.guided.prepared,
+                expected_prepared_sha256=self.guided.prepared.sha256,
+                workspace=self.guided.fixture.workspace,
+                guidance_store=self.guided.store,
+                guidance_policy_path=self.guided.fixture.policy_path,
+                expected_guidance_policy_sha256=self.guided.policy_sha,
+                ledger=self.base.ledger,
+                review_directory=self.review_directory,
+                committed_preview=committed,
+            )
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
     def test_current_guidance_change_blocks_preparation(self):

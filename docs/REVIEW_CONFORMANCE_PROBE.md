@@ -4,7 +4,7 @@ An optional [sealed campaign binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts
 owned probe to an exact committed slot, with fresh checks at approval and dispatch.
 
 `BrokeredReviewConformanceProbe` connects the guided review controller, independent
-phase signatures, local approval and the credentialed OpenAI transport. It is a
+phase signatures, local approval and the credentialed OpenAI or Anthropic transport. It is a
 paid-capable library entry point. Constructing it previews the selected review;
 calling and awaiting `run()` can count and generate only after both required forms
 of approval for that phase. This increment adds no live CLI and records no live
@@ -15,7 +15,7 @@ provider conformance result.
 The caller supplies a `PreparedReviewEnvelope`, its `ModelReviewer`, explicit
 `ReviewPolicy`, asynchronous `ReviewApprovalUI`, distinct critic `OfflineContainer`
 instances and a judge container. Every container must select the same immutable
-image. The default quorum is preserved; an OpenAI-only probe requires an explicitly
+image. The default quorum is preserved; a one-provider probe requires an explicitly
 selected policy permitting one provider. Fixtures select their own smaller quorum.
 
 The remaining dependencies are trusted host callbacks:
@@ -45,7 +45,7 @@ controller, and generation includes the approved limits and default service tier
 Canonical comparison distinguishes JSON booleans from numerically equal integers.
 
 Before reading the key, the probe checks the independent signature, local approval,
-current authority policy, installed OpenAI SDK version, selected worker images,
+current authority policy, installed provider SDK version, selected worker images,
 guidance, active controller phase, exact payload and expiry. It repeats those checks
 after key loading and after each provider await. Authorization or guidance changes
 detected after counting block generation; changes detected after generation invalidate
@@ -59,11 +59,13 @@ approved run through a new probe object. Each operation is bounded by the earlie
 signed expiry, controller deadline and 60-second maximum. The controller also
 preserves its shared monotonic deadline and awaits worker cleanup on cancellation.
 
-The probe uses the existing `EphemeralOpenAITransport`: short-lived SDK clients,
-`https://api.openai.com/v1`, zero automatic retries, bounded HTTP responses, disabled
-redirects and ignored proxy environment settings. Credentials stay in the host and
+The probe uses `EphemeralOpenAITransport` or `EphemeralAnthropicTransport` for the
+selected provider: short-lived SDK clients, fixed API origins, zero automatic
+retries, bounded HTTP responses, disabled redirects and ignored proxy environment
+settings. Credentials stay in the host and
 are absent from worker input and retained review records. Generation requests
-disable provider storage and truncation. A separate key lookup occurs for each
+disable provider storage and truncation where supported; Anthropic review requests
+use the Messages API with no cache controls. A separate key lookup occurs for each
 count and generation operation; loaders must be short, trusted local operations.
 
 ## Evidence and launch status
@@ -76,9 +78,10 @@ one successful probe's provenance. Independent runtime evidence collection,
 review-specific repeated-probe acceptance and authorized live runs remain required.
 An authorization signature is permission, not proof of a call.
 
-`review-launch-preview` continues to report live launch unavailable. No credentialed
-probe was run as part of this implementation; all provider responses in validation
-are synthetic.
+`review-launch-preview` continues to report live launch unavailable. Synthetic
+review-path fixtures cover both providers. The standalone credentialed Anthropic
+API probe documented in [Anthropic integration](ANTHROPIC_PROVIDER.md) does not
+establish review-role conformance.
 
 ## Verification
 

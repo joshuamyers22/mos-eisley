@@ -41,7 +41,10 @@ class LaunchCritic(Contract):
 
     @model_validator(mode="after")
     def same_model(self) -> Self:
-        if self.critic.model != self.spending.model:
+        if (
+            self.critic.model != self.spending.model
+            or self.critic.provider != self.spending.provider
+        ):
             raise ValueError("critic spending policy differs from the selected model")
         return self
 
@@ -53,13 +56,17 @@ class ReviewLaunchConfiguration(Contract):
     )
     registry: ModelRegistry
     critics: Annotated[tuple[LaunchCritic, ...], Field(min_length=1, max_length=8)]
-    judge_provider: Literal["openai"] = "openai"
+    judge_provider: Literal["openai", "anthropic"] = "openai"
     judge_model: Identifier
     judge_spending: SpendPolicy
     effort: Effort
+    critic_effort: Effort | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     budget: BudgetPolicy
     policy: ReviewPolicy = Field(default_factory=ReviewPolicy)
     total_seconds: Annotated[float, Field(gt=0, le=600)] = 120
+    critic_preview_lifetime_seconds: Annotated[int, Field(gt=0, le=3600)] = 600
     max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
 
 
@@ -112,6 +119,54 @@ def prepare_review_launch_preview(
     not establish credentialed conformance for this review-controller path.
     """
     configuration = decode_launch_configuration(canonical_bytes(configuration))
+    envelope, reviewer, admission = prepare_review_launch_components(
+        configuration,
+        prepared=prepared,
+        expected_prepared_sha256=expected_prepared_sha256,
+        workspace=workspace,
+        guidance_store=guidance_store,
+        guidance_policy_path=guidance_policy_path,
+        expected_guidance_policy_sha256=expected_guidance_policy_sha256,
+        ledger=ledger,
+        review_directory=review_directory,
+    )
+    controller = BrokeredReviewController(
+        envelope,
+        reviewer,
+        configuration.policy,
+        total_seconds=configuration.total_seconds,
+    )
+    preview = controller.preview
+    admission.check()
+    return ReviewLaunchPreview(
+        configuration_sha256=digest(canonical_bytes(configuration)),
+        registry_sha256=digest(canonical_bytes(configuration.registry)),
+        guidance_sha256=prepared.sha256,
+        preview=preview,
+    )
+
+
+def prepare_review_launch_components(
+    configuration: ReviewLaunchConfiguration,
+    *,
+    prepared: PreparedGuidanceReview,
+    expected_prepared_sha256: str,
+    workspace: Path,
+    guidance_store: RoleContextAdmissionStore,
+    guidance_policy_path: Path,
+    expected_guidance_policy_sha256: str,
+    ledger: SpendLedger,
+    review_directory: Path,
+    committed_preview: ControllerCriticPreview | None = None,
+) -> tuple[PreparedReviewEnvelope, ModelReviewer, ReviewGuidanceAdmission]:
+    """Compose fresh inputs or restore an exact sealed, still-current preview."""
+    configuration = decode_launch_configuration(canonical_bytes(configuration))
+    if committed_preview is not None:
+        committed_preview = ControllerCriticPreview.model_validate_json(
+            canonical_bytes(committed_preview)
+        )
+        if len(committed_preview.envelope.critics) != len(configuration.critics):
+            raise ValueError("committed critic count differs from configuration")
     if prepared.sha256 != expected_prepared_sha256:
         raise ValueError("selected prepared review hash mismatch")
     if (
@@ -129,18 +184,33 @@ def prepare_review_launch_preview(
         guidance_policy_path,
         expected_guidance_policy_sha256,
     )
-    for provider, model in (
-        *((item.critic.provider, item.critic.model) for item in configuration.critics),
-        (configuration.judge_provider, configuration.judge_model),
-    ):
-        if provider != "openai":
-            raise ValueError("brokered review launch supports only OpenAI")
-        resolved = configuration.registry.resolve(provider, model, configuration.effort)
+    roles: tuple[tuple[str, str, Effort], ...] = (
+        *(
+            (
+                item.critic.provider,
+                item.critic.model,
+                configuration.critic_effort or configuration.effort,
+            )
+            for item in configuration.critics
+        ),
+        (
+            configuration.judge_provider,
+            configuration.judge_model,
+            configuration.effort,
+        ),
+    )
+    for provider, model, effort in roles:
+        if provider not in ("openai", "anthropic"):
+            raise ValueError("brokered review launch provider is unsupported")
+        resolved = configuration.registry.resolve(provider, model, effort)
         if resolved.substituted:
             raise ValueError(
                 "review launch cannot silently substitute reasoning effort"
             )
-    if configuration.judge_spending.model != configuration.judge_model:
+    if (
+        configuration.judge_spending.model != configuration.judge_model
+        or configuration.judge_spending.provider != configuration.judge_provider
+    ):
         raise ValueError("judge spending policy differs from the selected model")
     judge_model = configuration.registry.resolve(
         configuration.judge_provider, configuration.judge_model, configuration.effort
@@ -159,6 +229,7 @@ def prepare_review_launch_preview(
         judge_provider=configuration.judge_provider,
         judge_model=configuration.judge_model,
         effort=configuration.effort,
+        critic_effort=configuration.critic_effort,
         budget=configuration.budget,
     )
     calls = tuple(
@@ -169,8 +240,16 @@ def prepare_review_launch_preview(
             ledger,
             critic=item.critic,
             guidance=admission,
+            authorization_lifetime_seconds=(
+                configuration.critic_preview_lifetime_seconds
+            ),
+            committed_authorization=(
+                None
+                if committed_preview is None
+                else committed_preview.envelope.critics[index]
+            ),
         )
-        for item in configuration.critics
+        for index, item in enumerate(configuration.critics)
     )
     envelope = PreparedReviewEnvelope(
         calls,
@@ -178,18 +257,18 @@ def prepare_review_launch_preview(
         ledger,
         max_total_microusd=configuration.max_total_microusd,
         directory=review_directory,
+        committed_judge=(
+            None if committed_preview is None else committed_preview.envelope.judge
+        ),
     )
-    controller = BrokeredReviewController(
-        envelope,
-        reviewer,
-        configuration.policy,
-        total_seconds=configuration.total_seconds,
-    )
-    preview = controller.preview
+    if committed_preview is not None:
+        controller = BrokeredReviewController(
+            envelope,
+            reviewer,
+            configuration.policy,
+            total_seconds=configuration.total_seconds,
+        )
+        if canonical_bytes(controller.preview) != canonical_bytes(committed_preview):
+            raise ValueError("committed critic preview differs from current inputs")
     admission.check()
-    return ReviewLaunchPreview(
-        configuration_sha256=digest(canonical_bytes(configuration)),
-        registry_sha256=digest(canonical_bytes(configuration.registry)),
-        guidance_sha256=prepared.sha256,
-        preview=preview,
-    )
+    return envelope, reviewer, admission

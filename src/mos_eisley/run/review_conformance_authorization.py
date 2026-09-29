@@ -127,9 +127,11 @@ class ReviewConformanceScope(Contract):
     sdk_version: Identifier
     image_id: ImageID
     expires_at: datetime
-    provider: Literal["openai"] = "openai"
-    endpoint_origin: Literal["https://api.openai.com"] = "https://api.openai.com"
-    api_family: Literal["responses"] = "responses"
+    provider: Literal["openai", "anthropic"] = "openai"
+    endpoint_origin: Literal["https://api.openai.com", "https://api.anthropic.com"] = (
+        "https://api.openai.com"
+    )
+    api_family: Literal["responses", "messages"] = "responses"
     automatic_retries: Literal[0] = 0
     provider_storage_requested: Literal[False] = False
 
@@ -140,6 +142,11 @@ class ReviewConformanceScope(Contract):
 
     @model_validator(mode="after")
     def coherent_phase(self) -> Self:
+        if (self.provider, self.endpoint_origin, self.api_family) not in (
+            ("openai", "https://api.openai.com", "responses"),
+            ("anthropic", "https://api.anthropic.com", "messages"),
+        ):
+            raise ValueError("review conformance provider API binding is invalid")
         if self.phase == "critics":
             if (
                 self.start_sha256 is not None
@@ -168,10 +175,14 @@ def review_conformance_scope(
     critics = ControllerCriticPreview.model_validate_json(canonical_bytes(critics))
     envelope = critics.envelope
     guidance = envelope.critics[0].guidance_sha256
+    provider = critics.requests[0].provider
     if guidance is None or any(
-        request.provider != "openai" for request in critics.requests
+        request.provider != provider or call.provider != provider
+        for request, call in zip(critics.requests, envelope.critics, strict=True)
     ):
-        raise ValueError("review conformance requires guided OpenAI requests")
+        raise ValueError("review conformance requires guided same-provider requests")
+    if provider not in ("openai", "anthropic"):
+        raise ValueError("review conformance provider is unsupported")
     amount = envelope.total_reserved_microusd
     deadline = envelope.expires_at
     phase_sha = digest(canonical_bytes(critics))
@@ -199,7 +210,7 @@ def review_conformance_scope(
             or judge.evidence.policy != critics.authorization.policy
             or judge.evidence.judge_request.brief.brief_id
             != envelope.judge.brief_sha256
-            or judge.model_request.provider != "openai"
+            or judge.model_request.provider != provider
             or judge.model_request.model != envelope.judge.spend_policy.model
             or digest(canonical_bytes(judge.evidence))
             != judge.authorization.evidence_sha256
@@ -223,6 +234,13 @@ def review_conformance_scope(
         sdk_version=sdk_version,
         image_id=image_id,
         expires_at=deadline.astimezone(UTC),
+        provider=provider,
+        endpoint_origin=(
+            "https://api.openai.com"
+            if provider == "openai"
+            else "https://api.anthropic.com"
+        ),
+        api_family="responses" if provider == "openai" else "messages",
     )
 
 

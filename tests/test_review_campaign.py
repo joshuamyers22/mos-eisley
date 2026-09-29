@@ -12,6 +12,7 @@ from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.registry import openai_registry
+from mos_eisley.operator_review_cli import verify_operator_campaign_prefix_ledgers
 from mos_eisley.run.review_campaign import (
     CampaignAttempt,
     CampaignAttemptSubmission,
@@ -25,6 +26,7 @@ from mos_eisley.run.review_campaign import (
 )
 from mos_eisley.run.review_conformance_observation import ReviewObservationPolicy
 from mos_eisley.run.review_launch import LaunchCritic, ReviewLaunchConfiguration
+from mos_eisley.run.spend_ledger import LedgerEntry
 from mos_eisley.run.store import private_write
 
 
@@ -116,6 +118,26 @@ class CampaignCeremonyFixture(ReviewAcceptanceFixture):
                 for item in self.evidence
             ),
         )
+
+
+class CampaignPrefixAdmissionTests(CampaignCeremonyFixture):
+    async def asyncSetUp(self) -> None:
+        self.prepare_attempts()
+
+    def test_operator_campaign_rejects_unexplained_spending_before_first_slot(self):
+        empty = CampaignEvidenceSubmission(
+            seal_sha256=self.seal_sha, attempts=(None, None, None)
+        )
+        verify_operator_campaign_prefix_ledgers(self.bundle, empty, 0)
+        self.fixtures[1].base.ledger.reserve(
+            LedgerEntry(
+                entry_id="a" * 64,
+                reservation_sha256="b" * 64,
+                reserved_microusd=1,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "unexplained prior exposure"):
+            verify_operator_campaign_prefix_ledgers(self.bundle, empty, 0)
 
 
 class CampaignCeremonyTests(CampaignCeremonyFixture):

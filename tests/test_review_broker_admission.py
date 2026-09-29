@@ -32,7 +32,6 @@ from mos_eisley.core.models import (
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest, ModelResponse
 from mos_eisley.core.registry import openai_registry
-from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.broker_audit import (
@@ -42,6 +41,7 @@ from mos_eisley.run.broker_audit import (
 from mos_eisley.run.duplex import ExchangeHandler, bounded_exchange
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.review_broker import (
+    BrokeredReviewClient,
     PreparedReviewCall,
     ReviewAuthorization,
     verify_review_broker_audit,
@@ -60,7 +60,7 @@ def output(text: str) -> dict[str, JsonValue]:
 
 
 class BoundClient:
-    target: BrokeredOpenAIClient | None = None
+    target: BrokeredReviewClient | None = None
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         assert self.target is not None, "preview must not invoke the model client"
@@ -112,7 +112,7 @@ class ReviewAdmissionFixture(TestCase):
             critic=self.critic,
         )
 
-    def issue(self, prepared: PreparedReviewCall | None = None) -> BrokeredOpenAIClient:
+    def issue(self, prepared: PreparedReviewCall | None = None) -> BrokeredReviewClient:
         prepared = self.prepared if prepared is None else prepared
         return prepared.issue(
             approved_transfer_sha256=prepared.approval_sha256,

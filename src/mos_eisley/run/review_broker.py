@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Literal, Self
 from uuid import uuid4
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from mos_eisley.core.models import (
     Contract,
@@ -24,15 +24,31 @@ from mos_eisley.project_guidance_review import (
     REVIEW_GUIDANCE_BYTES,
     decode_prepared_review,
 )
+from mos_eisley.providers.anthropic_messages import (
+    request_payload as anthropic_request_payload,
+)
+from mos_eisley.providers.anthropic_spend import (
+    PreReservedAnthropicTransport,
+    prepare_full_anthropic_reservation,
+)
+from mos_eisley.providers.anthropic_spend import (
+    count_payload as anthropic_count_payload,
+)
+from mos_eisley.providers.brokered_anthropic import BrokeredAnthropicClient
 from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
 from mos_eisley.providers.model_reviewer import ModelReviewer
-from mos_eisley.providers.openai_responses import request_payload
+from mos_eisley.providers.openai_responses import (
+    request_payload as openai_request_payload,
+)
 from mos_eisley.providers.openai_spend import (
     CountedTransport,
     Money,
     PreReservedOpenAITransport,
     SpendPolicy,
     prepare_full_reservation,
+)
+from mos_eisley.providers.openai_spend import (
+    count_payload as openai_count_payload,
 )
 from mos_eisley.run.broker_audit import (
     BrokerAdmission,
@@ -54,10 +70,31 @@ from mos_eisley.run.review_guidance import (
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
+BrokeredReviewClient = BrokeredOpenAIClient | BrokeredAnthropicClient
+
+
+def review_request_payload(request: ModelRequest) -> dict[str, JsonValue]:
+    if request.provider == "openai":
+        return openai_request_payload(request)
+    if request.provider == "anthropic":
+        return anthropic_request_payload(request)
+    raise ValueError("review request provider is unsupported")
+
+
+def review_count_payload(request: ModelRequest) -> dict[str, JsonValue]:
+    payload = review_request_payload(request)
+    if request.provider == "openai":
+        payload["service_tier"] = "default"
+        return openai_count_payload(payload)
+    return anthropic_count_payload(payload)
+
 
 class ReviewAuthorization(BrokerAuthorization):
     schema_version: Literal[1] = 1
     mode: Literal["read_only_review"] = "read_only_review"
+    provider: Literal["openai", "anthropic"] = Field(
+        default="openai", exclude_if=lambda value: value == "openai"
+    )
     role: Literal["critic", "judge"]
     brief_sha256: Digest
     review_input_sha256: Digest
@@ -97,7 +134,11 @@ class PreparedReviewCall:
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
+        committed_authorization: ReviewAuthorization | None = None,
+        authorization_lifetime_seconds: int = 600,
     ) -> None:
+        if not 0 < authorization_lifetime_seconds <= 3600:
+            raise ValueError("review authorization lifetime must be at most one hour")
         if guidance is not None:
             guidance.check_brief(request.brief)
         if isinstance(request, CriticRequest) and critic is not None:
@@ -111,20 +152,26 @@ class PreparedReviewCall:
         frozen = canonical_bytes(model_request)
         if (
             len(frozen) > MAX_REQUEST_BYTES
-            or model_request.provider != "openai"
+            or model_request.provider not in ("openai", "anthropic")
             or model_request.max_output > 16_000_000
         ):
             raise ValueError("review call exceeds the brokered text scope")
         policy = SpendPolicy.model_validate_json(canonical_bytes(policy))
+        if policy.provider != model_request.provider:
+            raise ValueError("review spending policy provider mismatch")
         if policy.schema_version != 2:
             raise ValueError(
                 "review spending requires conservative cache-write pricing"
             )
-        payload = request_payload(model_request)
+        payload = review_request_payload(model_request)
         provider_bytes = canonical_bytes(ApprovedRequest(payload=payload))
         if len(provider_bytes) > MAX_REQUEST_BYTES:
             raise ValueError("review provider request exceeds the broker limit")
-        reservation = prepare_full_reservation(payload, policy)
+        reservation = (
+            prepare_full_reservation(payload, policy)
+            if model_request.provider == "openai"
+            else prepare_full_anthropic_reservation(payload, policy)
+        )
         credit = 0
         if reserved_allowance is not None:
             reserved_allowance = DeferredJudgeAllowance.model_validate_json(
@@ -145,7 +192,8 @@ class PreparedReviewCall:
             or reservation.reserved_microusd > snapshot.available_microusd + credit
         ):
             raise ValueError("review spending envelope is unavailable")
-        self._authorization = ReviewAuthorization(
+        authorization = ReviewAuthorization(
+            provider=model_request.provider,
             role=role,
             brief_sha256=request.brief.brief_id,
             review_input_sha256=digest(canonical_bytes(request)),
@@ -159,10 +207,33 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(minutes=10), policy.valid_until
+                datetime.now(UTC) + timedelta(seconds=authorization_lifetime_seconds),
+                policy.valid_until,
             ),
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
+        if committed_authorization is not None:
+            if role != "critic" or reserved_allowance is not None:
+                raise ValueError("only a critic can restore committed authorization")
+            committed = ReviewAuthorization.model_validate_json(
+                canonical_bytes(committed_authorization)
+            )
+            if (
+                datetime.now(UTC) >= committed.expires_at
+                or committed.expires_at > authorization.expires_at
+                or authorization.model_copy(
+                    update={
+                        "ledger_entry_id": committed.ledger_entry_id,
+                        "expires_at": committed.expires_at,
+                    }
+                )
+                != committed
+            ):
+                raise ValueError(
+                    "committed review authorization differs from current inputs"
+                )
+            authorization = committed
+        self._authorization = authorization
         self._request = frozen
         self._input = canonical_bytes(request)
         self._critic = None if critic is None else canonical_bytes(critic)
@@ -185,6 +256,10 @@ class PreparedReviewCall:
         return ModelRequest.model_validate_json(self._request)
 
     @property
+    def spend_policy(self) -> SpendPolicy:
+        return SpendPolicy.model_validate_json(canonical_bytes(self._policy))
+
+    @property
     def review_request(self) -> CriticRequest | JudgeRequest:
         kind = CriticRequest if self._authorization.role == "critic" else JudgeRequest
         return kind.model_validate_json(self._input)
@@ -197,7 +272,7 @@ class PreparedReviewCall:
         directory: Path,
         container: OfflineContainer,
         timeout: float = 30,
-    ) -> BrokeredOpenAIClient:
+    ) -> BrokeredReviewClient:
         """Reserve once before grant issuance; any subsequent crash retains the hold.
 
         Approval includes token counting and generation. Transport and filesystem
@@ -257,7 +332,7 @@ class PreparedReviewCall:
         directory: Path,
         container: OfflineContainer,
         timeout: float,
-    ) -> BrokeredOpenAIClient:
+    ) -> BrokeredReviewClient:
         """Internal composition: caller owns approval and a fixed one-use path."""
         self.check_current(timeout)
         authorization = self._authorization
@@ -279,16 +354,37 @@ class PreparedReviewCall:
             )
             transport = GuidanceCheckedTransport(transport, self._guidance)
         remaining = (authorization.expires_at - datetime.now(UTC)).total_seconds()
-        controller = PreReservedOpenAITransport(
-            transport, self._policy, directory, self._ledger, self._reservation, entry
+        controller = (
+            PreReservedOpenAITransport(
+                transport,
+                self._policy,
+                directory,
+                self._ledger,
+                self._reservation,
+                entry,
+            )
+            if self.model_request.provider == "openai"
+            else PreReservedAnthropicTransport(
+                transport,
+                self._policy,
+                directory,
+                self._ledger,
+                self._reservation,
+                entry,
+            )
         )
         broker = RequestBoundBroker(
-            request_payload(self.model_request),
+            review_request_payload(self.model_request),
             controller,
             lifetime_seconds=min(timeout, remaining),
             audit=audit,
         )
-        return BrokeredOpenAIClient(
+        client_type = (
+            BrokeredOpenAIClient
+            if self.model_request.provider == "openai"
+            else BrokeredAnthropicClient
+        )
+        return client_type(
             self.model_request,
             broker,
             container,
@@ -388,6 +484,7 @@ class PreparedReviewEnvelope:
         *,
         max_total_microusd: int,
         directory: Path,
+        committed_judge: DeferredJudgeAllowance | None = None,
     ) -> None:
         if not 1 <= len(critics) <= 8:
             raise ValueError("review envelope requires one to eight critics")
@@ -411,6 +508,18 @@ class PreparedReviewEnvelope:
                 judge_policy.max_input_tokens, judge_policy.max_output_tokens
             ),
         )
+        if committed_judge is not None:
+            committed = DeferredJudgeAllowance.model_validate_json(
+                canonical_bytes(committed_judge)
+            )
+            if (
+                judge.model_copy(update={"ledger_entry_id": committed.ledger_entry_id})
+                != committed
+            ):
+                raise ValueError(
+                    "committed judge allowance differs from current inputs"
+                )
+            judge = committed
         self._envelope = ReviewSpendingEnvelope(
             critics=tuple(call.authorization for call in critics),
             artifact_directory=str(directory.resolve()),
@@ -493,7 +602,7 @@ class ReservedReviewEnvelope:
         transport: CountedTransport,
         container: OfflineContainer,
         timeout: float = 30,
-    ) -> BrokeredOpenAIClient:
+    ) -> BrokeredReviewClient:
         prepared = self._prepared
         if type(index) is not int or not 0 <= index < len(prepared.critics):
             raise ValueError("critic index is outside the approved envelope")
@@ -605,7 +714,7 @@ class PreparedJudgeTransfer:
         transport: CountedTransport,
         container: OfflineContainer,
         timeout: float = 30,
-    ) -> BrokeredOpenAIClient:
+    ) -> BrokeredReviewClient:
         if approved_transfer_sha256 != self.approval_sha256:
             raise ValueError("exact judge transfer approval required")
         self._check_envelope()

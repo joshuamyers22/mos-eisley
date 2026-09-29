@@ -30,7 +30,7 @@ declined, failed or unproven attempt cannot be replaced silently. A different tr
 requires a separately retained policy and fresh exact approvals. That is not automatic
 retry authority or a disposition of an earlier failure.
 
-The OpenAI-only evaluator preserves the explicitly selected review policy. It rejects
+The same-provider evaluator preserves the explicitly selected review policy. It rejects
 a profile that cannot meet that policy, including two-provider quorum. Acceptance of
 an explicitly selected one-provider experiment does not establish conformance for
 the default two-provider review policy or for other models, effort levels or images.

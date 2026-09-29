@@ -17,9 +17,13 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.protocol import ModelRequest, ModelResponse
-from mos_eisley.providers.brokered_openai import BrokeredOpenAIClient
+from mos_eisley.providers.anthropic_messages import (
+    response_from_payload as anthropic_response_from_payload,
+)
 from mos_eisley.providers.model_reviewer import ModelReviewer
-from mos_eisley.providers.openai_responses import response_from_payload
+from mos_eisley.providers.openai_responses import (
+    response_from_payload as openai_response_from_payload,
+)
 from mos_eisley.providers.openai_spend import CountedTransport
 from mos_eisley.review.pipeline import (
     critic_quorum_met,
@@ -35,6 +39,7 @@ from mos_eisley.run.model_evidence import ModelCompletion
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.provider_broker import MAX_REQUEST_BYTES
 from mos_eisley.run.review_broker import (
+    BrokeredReviewClient,
     JudgeTransferAuthorization,
     PreparedJudgeTransfer,
     PreparedReviewEnvelope,
@@ -123,9 +128,18 @@ def verify_model_completion(
         ):
             raise ValueError("received completion has no matching host reply")
         response = ModelResponse.model_validate_json(raw_response)
-        if raw_response != canonical_bytes(
-            response
-        ) or response != response_from_payload(reply.response):
+        decoder = (
+            openai_response_from_payload
+            if model_request.provider == "openai"
+            else anthropic_response_from_payload
+            if model_request.provider == "anthropic"
+            else None
+        )
+        if (
+            decoder is None
+            or raw_response != canonical_bytes(response)
+            or response != decoder(reply.response)
+        ):
             raise ValueError("canonical model response differs from retained reply")
     return completion, response
 
@@ -150,6 +164,7 @@ def _critic_evidence(
     )
     if (
         request.brief.brief_id != authorization.brief_sha256
+        or model_request.provider != authorization.provider
         or reviewer.critic_request(critic, request) != model_request
     ):
         raise ValueError("critic response projection or brief changed")
@@ -283,7 +298,7 @@ class PreparedEvidenceJudgeTransfer:
         transport: CountedTransport,
         container: OfflineContainer,
         timeout: float = 30,
-    ) -> BrokeredOpenAIClient:
+    ) -> BrokeredReviewClient:
         if approved_evidence_sha256 != self.approval_sha256:
             raise ValueError("exact evidence-bound judge approval required")
         current = verify_review_evidence(
