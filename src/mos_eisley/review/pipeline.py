@@ -1,6 +1,7 @@
 """Bounded review fan-out with deterministic, identity-free adjudication."""
 
 import asyncio
+from typing import Literal
 
 from mos_eisley.core.models import (
     Brief,
@@ -16,6 +17,7 @@ from mos_eisley.core.models import (
     canonical_bytes,
 )
 from mos_eisley.core.ports import ProviderError, Reviewer
+from mos_eisley.review.citations import citation_bound_request, validate_evidence
 
 
 def validate_roster(roster: tuple[CriticSpec, ...], policy: ReviewPolicy) -> None:
@@ -25,13 +27,6 @@ def validate_roster(roster: tuple[CriticSpec, ...], policy: ReviewPolicy) -> Non
         raise ValueError("critic IDs must be unique")
     if len({critic.provider for critic in roster}) < policy.min_providers:
         raise ValueError("roster cannot satisfy provider quorum")
-
-
-def validate_evidence(brief: Brief, findings: tuple[Finding, ...]) -> None:
-    for finding in findings:
-        source: str = getattr(brief, finding.evidence.source)
-        if finding.evidence.quote not in source:
-            raise ValueError("citation does not occur in its declared brief source")
 
 
 def critic_quorum_met(results: tuple[CriticResult, ...], policy: ReviewPolicy) -> bool:
@@ -92,11 +87,17 @@ async def review(
     roster: tuple[CriticSpec, ...],
     provider: Reviewer,
     policy: ReviewPolicy,
+    *,
+    citation_contract: Literal[1, 2] = 1,
 ) -> ReviewResult:
     validate_roster(roster, policy)
 
     async def run_critic(critic: CriticSpec) -> CriticResult:
-        request = CriticRequest(brief=brief, persona=critic.persona)
+        request = (
+            citation_bound_request(brief, critic.persona)
+            if citation_contract == 2
+            else CriticRequest(brief=brief, persona=critic.persona)
+        )
         if len(canonical_bytes(request)) > policy.max_request_bytes:
             return CriticResult(critic=critic, status="error", error="budget_exceeded")
         try:
@@ -107,7 +108,7 @@ async def review(
         except ProviderError:
             return CriticResult(critic=critic, status="error", error="provider_error")
         try:
-            validate_evidence(brief, critique.findings)
+            validate_evidence(request, critique.findings)
         except ValueError:
             return CriticResult(critic=critic, status="error", error="invalid_evidence")
         return CriticResult(critic=critic, status="completed", critique=critique)

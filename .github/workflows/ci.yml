@@ -6,24 +6,45 @@ on:
 permissions:
   contents: read
 jobs:
-  quality:
+  source:
     runs-on: ubuntu-latest
-    # Source and installed-wheel suites run sequentially; both remain required.
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
       - run: uv sync --frozen --dev
-      - run: make check
+      - run: make lint typecheck test verify-export build
       - run: make audit
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev
+      - run: make build smoke
+  quality:
+    needs: [source, package]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require source and installed-wheel checks
+        env:
+          SOURCE_RESULT: ${{ needs.source.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+        run: |
+          test "$SOURCE_RESULT" = success
+          test "$PACKAGE_RESULT" = success
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
       - run: uv sync --frozen --dev

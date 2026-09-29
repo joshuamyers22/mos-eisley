@@ -51,14 +51,29 @@
   Live conversation/review, advanced terminal features and remote
   session storage remain open; see `docs/CONVERSATIONS.md`.
 - Provider preview: OpenAI Responses API adapter and opt-in single-prompt command;
-  one independently authorized Luna/low assignment has passed credentialed
-  conformance, while complete profile and failure-boundary conformance remains open.
-  The canonical Anthropic Messages adapter now has offline text/tool/thinking
-  translation tests and credentialed, budgeted Sonnet 5 and Opus 5.5 probes.
-  The signed brokered route and operator-controlled three-model route pass
-  synthetic critic/judge tests. One operator-approved credentialed Sonnet 5 critic /
-  Opus 5.5 judge review completed on 2026-09-26 within a $1 cumulative cap; see
-  `docs/ANTHROPIC_PROVIDER.md`.
+  the private owning-library Luna/low critic/judge profile has completed its exact
+  three-slot G2 qualification, while public launch and automatic activation remain
+  separately gated.
+  The private owning-library review path has one successful bounded standalone
+  Luna/low campaign at `b3357aa`: two valid critics preserved threshold-two quorum
+  when one critic produced `invalid_evidence`, the judge returned `accept`, and the
+  signed observation replayed from complete retained evidence. A later exact
+  `0010970a` production image completed an earlier formal three-slot campaign;
+  all slots qualified operationally and reconstructed with complete local settlement
+  and cleanup. Its `reject`/`revise`/`reject` content verdicts identified an overbroad
+  preparation window and ambiguous revision wording. Both are corrected offline by
+  retaining 10 minutes for ordinary calls and requiring a sealed `formal_campaign`
+  scope for 30 minutes. The old exact-commit campaign does not authorize launch of
+  the corrected artifact. The later corrected commit `3b32f14` and production image
+  `sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`
+  completed a wholly fresh sealed campaign with three qualifying `accept` verdicts,
+  32,226 micro-USD settled, zero unresolved entries, complete worker cleanup and
+  accepted independent reconstruction. This closes that exact G2 qualification but
+  creates no general launch decision. A separate
+  [owner-operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md) records a signed
+  Terra/Sonnet/Opus two-provider campaign and admitted launch for its frozen
+  profile. The `review-live` command is approval-bound and does not enable public
+  or automatic activation.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or
@@ -98,9 +113,9 @@
   order offline; failed/missing assignments retain unknown timing.
   The original one-prompt and critic workflows expose no MCP tools. See
   docs/MCP_DATA.md and docs/ANALYSIS_EVALUATION.md.
-- Non-goals for this phase: live adversarial review, general machine tools,
-  sandboxing, test execution, repository config, GitHub writes, author agents,
-  advanced TUI features and model pricing.
+- Non-goals for this phase: public or automatically activated live adversarial
+  review, general machine tools, sandboxing, test execution, repository config,
+  GitHub writes, author agents, advanced TUI features and model pricing.
 - Runtime: Python 3.12+, uv, macOS/Linux; non-root container for operational use.
 - Inputs: user-selected JSON files, bounded before parsing. At most eight critics,
   fifty findings per critic; request budgets and 10-second call deadlines enforced.
@@ -150,6 +165,98 @@
   `docs/G1_FRESH_CONTEXT_CONTINUATION.md`, `docs/G1_AUTHOR_COMPACTION.md` and
   `docs/G1_CONTEXT_PRESSURE.md` and
   `docs/G1_WORK_UNIT_PROFILE_ACQUISITION.md`.
+- G4 offline boundary, 2026-09-24: a canonical blind reviewer-test package now binds
+  exact plan/interface/rubric/creator reference identities, complete declared test
+  bytes and collection expectations while denying execution, implementation binding,
+  repository/VCS mutation, credentials, network, provider use, correction and
+  acceptance. Unsafe filesystem inputs, unselected tests, vacuous counts and direct
+  undeclared skip/xfail markers fail closed. This does not authenticate independence
+  or approval and does not satisfy the later binding, containment, execution,
+  correction or final-review gates. See `docs/G4_REVIEWER_TEST_PACKAGE.md`.
+- G4 offline binding boundary, 2026-09-24: a separate immutable record now binds that
+  canonical reviewer package before and after implementation inspection to every
+  regular file under reviewed source roots, exact dependency/build declarations and
+  a non-executable direct-symbol adapter. Direct implementation imports, undeclared
+  files/resources, filesystem aliases and adapter mutation/substitution powers fail
+  closed. This does not execute tests, attest Git or dependency completeness, prove
+  dynamic Python behavior, or grant correction/acceptance authority. See
+  `docs/G4_IMPLEMENTATION_BINDING.md`.
+- G4 isolated execution/count boundary, 2026-09-24: a self-contained canonical job
+  now carries the exact frozen package and bound implementation source/resources into
+  the immutable-image, no-mount offline container. A clean isolated child generates
+  only the declarative direct-import adapter, enforces frozen collection counts, and
+  returns ordered test-ID digests and classified outcomes. Private immutable receipts
+  and paired known-good/known-bad records reject stale inputs, wrong-code shadowing,
+  count drift and error-only bad controls. This grants no candidate, correction,
+  acceptance, repository/VCS, network, credential or provider authority; VCS/E2,
+  authenticated custody, correction and final review remain open. See
+  `docs/G4_ISOLATED_TEST_EXECUTION.md`.
+- G4 authenticated provenance boundary, 2026-09-24: domain-separated Ed25519
+  artifacts now bind creator approval, blind reviewer custody, a bounded and
+  path-disjoint child assignment/result, trusted read-only Git reconstruction and
+  the prior known-control record. Exact base/child/final ancestry, binary patch,
+  complete bound-tree Git blobs and current clean worktree are replayed under a
+  fixed minimal Git environment. Single-operator mode explicitly denies independent
+  human review and still requires a distinct child key. This grants no child or
+  candidate dispatch, repository/VCS write, provider, correction or acceptance
+  authority. See `docs/G4_AUTHENTICATED_PROVENANCE.md`.
+- G4 candidate execution boundary, 2026-09-24: a separate domain-signed creator
+  approval binds one candidate request to authenticated custody, controls, exact
+  source revision and immutable image. Preflight and dispatch replay current
+  read-only Git; dispatch exclusively spends the approval in a private controller
+  store, runs the existing no-mount offline container and retains exact result
+  counts after post-run revalidation. The generic isolated runner rejects
+  candidate requests. A failed or passing candidate receipt grants no child
+  implementation, correction, repository/VCS write, provider or acceptance
+  authority. See `docs/G4_CANDIDATE_EXECUTION.md`.
+- G4 offline bounded-correction boundary, 2026-09-24: two separately authorized
+  candidate runs must reproduce the same assertion-failure identities before a
+  signed full-ID judge triage and creator cycle approval can claim one of at most
+  two task-budgeted correction cycles. A corrected candidate needs renewed
+  custody, Git and test evidence with unchanged approved plan/creator-test
+  digests and frozen reviewer-test bytes. This is
+  evidence gating only: child/provider dispatch, writes, measured aggregate
+  spend, final whole-suite and independent acceptance remain open. See
+  `docs/G4_BOUNDED_CORRECTION.md`.
+- G4 offline correction-child dispatch boundary, 2026-09-24: a separate
+  creator-signed order and task/cycle-unique claim gate one child-signed proposal
+  over existing owned source files. The host and immutable offline container
+  validate the exact offer, replacements and reported allowance, then replay Git.
+  No live provider, measured spend, host repository/VCS write, completed
+  correction or final acceptance is authorized. See
+  `docs/G4_CORRECTION_CHILD_DISPATCH.md`.
+- G4 offline correction integration boundary, 2026-09-24: a separate
+  creator-signed one-use grant permits the trusted broker to commit exact
+  child-signed replacement bytes only in a new private detached worktree.
+  The original checkout and branch remain unchanged, while parent, paths,
+  blobs, patch and source provenance are replayed. Provider dispatch,
+  measured spend, final suites, independent review and acceptance remain open.
+  See `docs/G4_CORRECTION_INTEGRATION.md`.
+- G4 production coding-child broker, 2026-09-24: a distinct creator-signed
+  provider grant binds the frozen correction offer, request/model/effort,
+  provenance policy, child key, immutable image and shared ledger. The host
+  reserves a conservative one-call envelope, runs a tool-free stateless request
+  through the existing isolated broker, settles provider-reported usage, and
+  signs only a valid bounded proposal with the enrolled child key. The private
+  audit/response/spend record replays against the offline dispatch receipt.
+  No live call occurred during implementation; code presence itself grants no
+  provider call, final suite, independent review or acceptance. See
+  `docs/G4_PRODUCTION_CODING_CHILD_BROKER.md`.
+- G4 final whole-suite gate, 2026-09-24: a separate creator-signed approval
+  binds a passing authenticated candidate, complete protected creator-test Git
+  bytes, frozen reviewer package, two exact offline requests, final revision and
+  image. Separate isolated runs retain counts and test identities; a private
+  one-use claim and post-run Git replay prevent silent retry or substitution.
+  This was implemented and fixture-tested offline, not run on a production
+  candidate. Independent review, critic quorum, correction completion and
+  acceptance remain open. See `docs/G4_FINAL_WHOLE_SUITES.md`.
+- G4 offline independent-review gate, 2026-09-24: a creator-signed exact-subject
+  roster requires distinct external critic/judge keys, two provider-family
+  critic quorum, source citations and a signed judge decision. Replay checks the
+  creator-approved plan bytes, complete base-to-source Git diff and passing
+  final-suite receipt. The gate was fixture-tested only; real provider/human
+  independence, production review and final acceptance remain open. See
+  `docs/G4_INDEPENDENT_REVIEW.md`.
 - Architecture choices: see `docs/adr/0001-offline-foundation.md`,
   `docs/adr/0002-canonical-agent-protocol.md`,
   `docs/adr/0003-openai-first-provider.md` and the proposed

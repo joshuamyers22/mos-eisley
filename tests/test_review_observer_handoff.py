@@ -78,7 +78,7 @@ class ObserverHandoffTests(ObserverHandoffFixture):
             code = main(self.arguments())
         self.assertEqual(code, 0)
         report = json.loads(out.getvalue())
-        self.assertTrue(report["requires_independent_attestation"])
+        self.assertTrue(report["requires_owner_assessment"])
         self.assertFalse(report["observer_authenticated"])
         self.assertFalse(report["signature_created"])
         self.assertNotIn("unsigned_observation", report)
@@ -104,7 +104,7 @@ class ObserverHandoffTests(ObserverHandoffFixture):
         )
         self.assertEqual(self.output.stat().st_mode & 0o777, 0o600)
         self.assertFalse(stored.observer_authenticated)
-        self.assertTrue(stored.requires_independent_attestation)
+        self.assertTrue(stored.requires_owner_assessment)
 
     def test_independently_signed_preview_passes_fresh_partial_campaign_review(self):
         preview = self.preview()
@@ -162,7 +162,7 @@ class ObserverHandoffTests(ObserverHandoffFixture):
         )
         with (
             patch(
-                "mos_eisley.run.review_campaign_observation.collect_review_runtime_exchange"
+                "mos_eisley.run.review_campaign_observation.collect_review_runtime_exchanges"
             ) as collect,
             self.assertRaises(ValueError),
         ):

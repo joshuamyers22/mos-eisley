@@ -23,6 +23,7 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.model_evidence import ModelCompletion, save_completion
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.provider_broker import (
+    MAX_BROKER_EXCHANGE_SECONDS,
     MAX_REQUEST_BYTES,
     ApprovedRequest,
     RequestBoundBroker,
@@ -47,7 +48,7 @@ class BrokeredOpenAIClient:
         response_directory: Path | None = None,
         admission_check: Callable[[], None] | None = None,
     ) -> None:
-        if not math.isfinite(timeout) or not 0 < timeout <= 60:
+        if not math.isfinite(timeout) or not 0 < timeout <= MAX_BROKER_EXCHANGE_SECONDS:
             raise ValueError("invalid brokered model timeout")
         if canonical_fingerprint(request).bytes > MAX_REQUEST_BYTES:
             raise ValueError("canonical broker request exceeds byte limit")
@@ -62,6 +63,8 @@ class BrokeredOpenAIClient:
                 not isinstance(block, TextBlock) for block in request.turns[0].blocks
             )
             or request.max_output > MAX_WIRE_BYTES
+            or request.max_text_output_bytes is None
+            or request.max_text_output_bytes > request.max_output
             or request.max_output_tokens is None
         ):
             raise ValueError("brokered model client requires one bounded text request")
@@ -101,6 +104,7 @@ class BrokeredOpenAIClient:
                 raise ValueError("canonical request changed")
             frozen = ModelRequest.model_validate_json(self._request)
             assert frozen.max_output_tokens is not None
+            assert frozen.max_text_output_bytes is not None
             if self._admission_check is not None:
                 self._admission_check()
             reply = await run_isolated_broker_async(
@@ -121,8 +125,14 @@ class BrokeredOpenAIClient:
             if reply.response.get("model") != frozen.model:
                 raise ValueError("brokered response model does not match request")
             response = response_from_payload(reply.response)
+            text_output_bytes = sum(
+                len(block.text.encode("utf-8"))
+                for block in response.turn.blocks
+                if isinstance(block, TextBlock)
+            )
             if (
                 canonical_fingerprint(response).bytes > frozen.max_output
+                or text_output_bytes > frozen.max_text_output_bytes
                 or response.usage.output > frozen.max_output_tokens
                 or any(
                     isinstance(block, ToolCallBlock) for block in response.turn.blocks

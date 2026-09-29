@@ -26,13 +26,29 @@ It reconstructs and privately retains the final result using the same strict
 decoder and verdict rules as the lower-level verifier. A completed workflow may
 contain an `infrastructure_error`; completion never means code acceptance.
 
-One monotonic deadline covers critics, the judge approval pause and judge execution,
-and cannot outlive the envelope's absolute expiry. Per-call deadlines remain bounded
-by the review policy and the broker's 60-second maximum. These deadlines initiate
-cancellation; bounded broker/container cleanup is still awaited afterward. Repeated
+Standard reviews retain one monotonic deadline across critics, the judge approval
+pause and judge execution. Formal campaigns instead use schema 2: the exact
+controller authorization binds a fixed 600-second judge-approval grace, pauses the
+remaining active execution budget only after the critic preview is durably written,
+and resumes that budget when exact judge approval is supplied. The formal hard wall
+is the active budget plus that grace, clipped by the prepared envelope's absolute
+expiry. The grace is not caller-configurable and does not apply to standard reviews.
+The policy timeout still applies to each provider operation, capped at 60 seconds by
+the live transport. A brokered role gets a derived lifecycle window of at most twice
+that operation limit so token counting cannot consume generation's entire allowance;
+it remains inside the active controller budget. The one-use claim must still be
+presented within 60 seconds.
+These deadlines initiate cancellation; bounded broker/container cleanup is still
+awaited afterward. Repeated
 caller cancellation cannot detach the controller's children. Cancel an active
 coroutine and await it; `cancel()` stops only a prepared or awaiting-approval
-controller. Every cancellation preserves existing holds and uncertain spending.
+controller. A graceful terminal transition retires only the exact, still-held,
+spend-only judge source allowance at zero when it was never transferred and the
+controller is bound to an exact sealed campaign slot whose start occurred inside
+the committed window. The seal, slot, controller preview, ledger path and ledger
+policy are reread at terminal time.
+An unbound formal controller or changed binding preserves the hold. Critic holds,
+uncertain spending and a transferred judge request remain conservative.
 
 The private `controller-start.json`, `controller-judge-preview.json` and
 `controller-terminal.json` records supplement existing envelope, audit, response and
@@ -40,7 +56,7 @@ result artifacts. Exclusive writes reject repeats. A duplicate controller that
 cannot reserve the envelope never writes into the winning controller's records.
 Wrong approval hashes and wrong transport counts leave a prepared/paused controller
 unchanged; once an attempt starts, failures and cancellation consume that phase.
-No controller transition retries providers or releases budget.
+No controller transition retries providers or releases provider-request exposure.
 
 This first controller is process-local. Durable records support inspection and the
 existing lower-level evidence verifiers; they are not serialized controller handles

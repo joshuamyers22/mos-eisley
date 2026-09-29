@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import Contract, canonical_bytes
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport
 from mos_eisley.run.provider_broker import RequestBoundBroker
@@ -99,6 +99,51 @@ class BrokerTests(IsolatedAsyncioTestCase):
         with self.assertRaises(ProviderError):
             await broker.redeem(canonical_bytes(broker.claim()))
 
+    async def test_short_claim_window_does_not_truncate_claimed_exchange(self) -> None:
+        broker = RequestBoundBroker(
+            request(),
+            self.transport,
+            lifetime_seconds=0.02,
+            exchange_timeout_seconds=1,
+        )
+
+        async def delayed_response(*_: object):
+            await asyncio.sleep(0.05)
+            return self.fake.response
+
+        with patch.object(
+            self.transport, "create_response", side_effect=delayed_response
+        ):
+            self.assertEqual(
+                await broker.redeem(canonical_bytes(broker.claim())),
+                self.fake.response,
+            )
+
+    def test_exchange_clock_starts_before_request_encoding(self) -> None:
+        events: list[str] = []
+
+        def start_clock() -> float:
+            events.append("clock")
+            return 100.0
+
+        def encode(value: Contract) -> bytes:
+            events.append("encode")
+            return canonical_bytes(value)
+
+        with (
+            patch(
+                "mos_eisley.run.provider_broker.time.monotonic",
+                side_effect=start_clock,
+            ),
+            patch(
+                "mos_eisley.run.provider_broker.canonical_bytes",
+                side_effect=encode,
+            ),
+        ):
+            RequestBoundBroker(request(), self.transport)
+
+        self.assertEqual(events[:2], ["clock", "encode"])
+
     @staticmethod
     async def slow(*_: object) -> None:
         await asyncio.sleep(1)
@@ -107,6 +152,20 @@ class BrokerTests(IsolatedAsyncioTestCase):
         for lifetime in (0, -1, 61, float("nan"), float("inf")):
             with self.assertRaises(ValueError):
                 RequestBoundBroker(request(), self.transport, lifetime_seconds=lifetime)
+        for exchange_timeout in (0, 301, float("nan"), float("inf")):
+            with self.assertRaises(ValueError):
+                RequestBoundBroker(
+                    request(),
+                    self.transport,
+                    exchange_timeout_seconds=exchange_timeout,
+                )
+        with self.assertRaises(ValueError):
+            RequestBoundBroker(
+                request(),
+                self.transport,
+                lifetime_seconds=2,
+                exchange_timeout_seconds=1,
+            )
         with self.assertRaises(ValueError):
             RequestBoundBroker({"input": "x" * 1_048_576}, self.transport)
         with self.assertRaises(ValueError):

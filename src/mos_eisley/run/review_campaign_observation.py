@@ -1,4 +1,4 @@
-"""Offline unsigned observation proposals from independently selected evidence."""
+"""Offline unsigned observation proposals from explicitly selected evidence."""
 
 import json
 from datetime import datetime, timedelta
@@ -22,7 +22,7 @@ from mos_eisley.run.review_conformance_observation import (
     ReviewProbeObservation,
     make_review_probe_observation,
 )
-from mos_eisley.run.review_runtime_evidence import collect_review_runtime_exchange
+from mos_eisley.run.review_runtime_evidence import collect_review_runtime_exchanges
 from mos_eisley.run.spend_ledger import SpendLedger
 
 
@@ -46,7 +46,7 @@ def decode_probe_completion(raw: bytes) -> CampaignProbeCompletion:
 
 
 class CampaignObservationPreview(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["review_campaign_observation_preview"] = (
         "review_campaign_observation_preview"
     )
@@ -55,7 +55,7 @@ class CampaignObservationPreview(Contract):
     unsigned_observation: ReviewProbeObservation
     observer_authenticated: Literal[False] = False
     signature_created: Literal[False] = False
-    requires_independent_attestation: Literal[True] = True
+    requires_owner_assessment: Literal[True] = True
     provider_dispatch_authorized: Literal[False] = False
     live_review_activation_authorized: Literal[False] = False
 
@@ -121,19 +121,12 @@ def preview_campaign_observation(
         *(directory / call.ledger_entry_id for call in critics.envelope.critics),
         directory / "judge",
     )
-    requests = (*critics.requests, completion.judge.model_request)
-    exchanges = tuple(
-        collect_review_runtime_exchange(
-            call_directory,
-            lifecycle,
-            request,
-            completion.authorizations[
-                1 if index == len(critics.requests) else 0
-            ].authorization,
-        )
-        for index, (call_directory, lifecycle, request) in enumerate(
-            zip(call_directories, lifecycle_directories, requests, strict=True)
-        )
+    exchanges = collect_review_runtime_exchanges(
+        call_directories,
+        lifecycle_directories,
+        critics.requests,
+        completion.judge.model_request,
+        tuple(item.authorization for item in completion.authorizations),
     )
     observation = make_review_probe_observation(
         attempt.observation_policy,

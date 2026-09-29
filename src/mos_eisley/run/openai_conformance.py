@@ -5,25 +5,9 @@ from __future__ import annotations
 from pydantic import JsonValue
 
 from mos_eisley.core.models import Critique, canonical_bytes
+from mos_eisley.core.structured_output import strict_json_schema
 from mos_eisley.evaluation.execution import EvaluationRequest, ExecutionBatch
 from mos_eisley.providers.openai_spend import SpendPolicy
-
-
-def _strict_schema(value: JsonValue) -> JsonValue:
-    if isinstance(value, list):
-        return [_strict_schema(item) for item in value]
-    if not isinstance(value, dict):
-        return value
-    result: dict[str, JsonValue] = {
-        key: _strict_schema(item)
-        for key, item in value.items()
-        if key not in ("default", "title")
-    }
-    properties = result.get("properties")
-    if result.get("type") == "object" and isinstance(properties, dict):
-        result["required"] = list(properties)
-        result["additionalProperties"] = False
-    return result
 
 
 def critique_format() -> dict[str, JsonValue]:
@@ -33,7 +17,7 @@ def critique_format() -> dict[str, JsonValue]:
             "type": "json_schema",
             "name": "mos_eisley_critique",
             "strict": True,
-            "schema": _strict_schema(Critique.model_json_schema()),
+            "schema": strict_json_schema(Critique.model_json_schema()),
         }
     }
 

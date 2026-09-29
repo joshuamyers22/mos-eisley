@@ -4,6 +4,35 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Give formal review campaigns a separately hash-bound 600-second judge-approval
+  grace while preserving their active execution budget. Terminal cleanup now
+  revalidates the exact immutable sealed slot before settling an unused deferred
+  judge allowance, leaves unbound formal holds intact, and treats transferred,
+  settled, uncertain or violated exact sources as conservative idempotent no-ops
+  without changing standard schema-1 behavior or unrelated ledger entries.
+
+- Add versioned, content-bound review citation units for unified diffs. New
+  production critic requests bind exact raw/before/after hunk views while rejecting
+  stale IDs, normalization and cross-hunk splicing; schema-1 requests remain
+  byte-compatible for historical replay.
+
+- Separate the review model's sealed 8,000-byte visible-text limit from its bounded
+  64,000-byte canonical response envelope, preserving provider token/spend ceilings
+  while allowing bounded opaque reasoning and retaining exact-limit failure handling.
+
+- Record the approved default-retention OpenAI data boundary for live review,
+  including the exact count/generation field inventory, mandatory `store: false`,
+  minimum critic/judge content, and the explicit absence of any ZDR claim.
+
+- Add an inert one-process single-operator review host with an ephemeral Ed25519
+  identity, explicit phase/observation/launch signing operations, and a late,
+  uncached native-macOS-Keychain OpenAI credential callback. The host adds no public
+  live CLI, automatic approval, provider call or spending authority.
+
+- Add an explicit schema-2 single-operator review contract so one accountable signer
+  can authorize, observe and approve an exact launch while recording self-review risk;
+  schema-1 separated roles remain the backward-compatible default.
+
 - Complete G1 work-unit-owned profile acquisition with schema-2 private task bundles,
   exact retained instruction material, work-unit/policy binding, checkpoint-store
   reconstruction, selected trusted tool schemas, legacy fail-closed replay and
@@ -73,13 +102,15 @@ Notable changes are recorded here using semantic versioning.
   no-dispatch CLI that preserves the credentialed review-conformance launch gate.
 
 - Connect exact critic and judge approval prompts to the brokered review controller,
-  with cancellable terminal input, shared deadlines and conservative decline handling.
+  with cancellable terminal input, bounded standard/formal timing and formal-only
+  exact unused judge-allowance cleanup on decline.
 
 - Inspect saved brokered controller records and held or uncertain spending through
   a read-only CLI, preserving incomplete crash attribution without retry authority.
 
 - Compose brokered critic fan-out, a separately approved judge and retained final
-  results under one deadline, with owned cancellation cleanup and no automatic retry.
+  results under an active execution budget, with owned cancellation cleanup and no
+  automatic retry.
 
 - Bind brokered critic/judge approvals to current project guidance, revalidate at
   dispatch boundaries and preserve conservative spending on stale-policy failures.

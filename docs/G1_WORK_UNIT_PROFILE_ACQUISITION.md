@@ -58,4 +58,3 @@ instruction non-disclosure, schema-6 provenance, JSON replay, legacy replay with
 fail-closed acquisition, missing bindings, tampered bytes, stale policy bindings,
 workspace changes, duplicate claims, and substituted checkpoint provenance before
 dispatch. The installed-wheel smoke suite includes the same continuation tests.
-
