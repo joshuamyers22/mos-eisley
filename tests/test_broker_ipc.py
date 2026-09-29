@@ -160,7 +160,7 @@ class DuplexTests(IsolatedAsyncioTestCase):
             (b"a\nb", 1),
             (b"a", 0),
             (b"a", float("nan")),
-            (b"a", 61),
+            (b"a", 301),
         ):
             with self.assertRaises(ValueError):
                 await bounded_exchange([sys.executable], offer, handle, timeout)

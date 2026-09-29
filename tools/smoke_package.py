@@ -242,6 +242,7 @@ def main() -> int:
             "test_held_spend_transfer.py",
             "test_spend_ledger_batch.py",
             "test_openai_spend.py",
+            "test_anthropic_review_transport.py",
             "test_conversation_storage_budgets.py",
             "test_conversation_sqlite.py",
             "test_conversation_migration.py",
@@ -285,6 +286,18 @@ def main() -> int:
             "test_analysis_raw.py",
             "test_analysis_schedule.py",
             "test_task_state_g0.py",
+            "test_reviewer_test_package.py",
+            "test_reviewer_implementation_binding.py",
+            "test_reviewer_test_execution.py",
+            "test_reviewer_provenance.py",
+            "test_reviewer_candidate_execution.py",
+            "test_reviewer_correction.py",
+            "test_reviewer_coding_broker.py",
+            "test_reviewer_final_suites.py",
+            "test_reviewer_independent_review.py",
+            "test_reviewer_single_operator_review.py",
+            "test_reviewer_anthropic_review_call.py",
+            "test_reviewer_openai_review_grant.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
         subprocess.run(

@@ -23,6 +23,7 @@ from mos_eisley.run.review_controller import (
 _DOMAIN = b"mos-eisley/review-conformance-authorization/v1\x00"
 Amount = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 ImageID = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+ReviewOperatorMode = Literal["separated", "single_operator"]
 
 
 def _decode(value: str, size: int) -> bytes:
@@ -65,7 +66,7 @@ def review_conformance_signer(
 
 
 class ReviewConformanceAuthorityPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_authority_policy"] = (
         "review_conformance_authority_policy"
     )
@@ -80,6 +81,9 @@ class ReviewConformanceAuthorityPolicy(Contract):
     valid_until: datetime
     max_authorization_seconds: Annotated[int, Field(gt=0, le=600)]
     max_reserved_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     explicit_local_consent_required: Literal[True] = True
     live_review_activation_authorized: Literal[False] = False
 
@@ -89,15 +93,29 @@ class ReviewConformanceAuthorityPolicy(Contract):
         return _utc(value)
 
     @model_validator(mode="after")
-    def independent_keys_and_window(self) -> Self:
+    def operator_keys_and_window(self) -> Self:
         if self.valid_until <= self.valid_from:
             raise ValueError("review authority window must be positive")
         all_signers = self.authorities + self.observers
-        if len({s.signer_id for s in all_signers}) != len(all_signers) or len(
-            {s.key_sha256 for s in all_signers}
-        ) != len(all_signers):
+        identities = {(s.signer_id, s.key_sha256) for s in all_signers}
+        if self.operator_mode == "separated":
+            if self.schema_version != 1:
+                raise ValueError("separated review authority policy requires schema 1")
+            if len({s.signer_id for s in all_signers}) != len(all_signers) or len(
+                {s.key_sha256 for s in all_signers}
+            ) != len(all_signers):
+                raise ValueError(
+                    "review authorities and observers require distinct "
+                    "identities and keys"
+                )
+        elif (
+            self.schema_version != 2
+            or len(self.authorities) != 1
+            or len(self.observers) != 1
+            or len(identities) != 1
+        ):
             raise ValueError(
-                "review authorities and observers require distinct identities and keys"
+                "single-operator review requires schema 2 and one shared signer"
             )
         for group in (self.authorities, self.observers):
             if tuple(s.signer_id for s in group) != tuple(
@@ -127,11 +145,11 @@ class ReviewConformanceScope(Contract):
     sdk_version: Identifier
     image_id: ImageID
     expires_at: datetime
-    provider: Literal["openai", "anthropic"] = "openai"
-    endpoint_origin: Literal["https://api.openai.com", "https://api.anthropic.com"] = (
-        "https://api.openai.com"
-    )
-    api_family: Literal["responses", "messages"] = "responses"
+    provider: Literal["openai", "anthropic", "mixed"] = "openai"
+    endpoint_origin: Literal[
+        "https://api.openai.com", "https://api.anthropic.com", "mixed"
+    ] = "https://api.openai.com"
+    api_family: Literal["responses", "messages", "mixed"] = "responses"
     automatic_retries: Literal[0] = 0
     provider_storage_requested: Literal[False] = False
 
@@ -145,6 +163,7 @@ class ReviewConformanceScope(Contract):
         if (self.provider, self.endpoint_origin, self.api_family) not in (
             ("openai", "https://api.openai.com", "responses"),
             ("anthropic", "https://api.anthropic.com", "messages"),
+            ("mixed", "mixed", "mixed"),
         ):
             raise ValueError("review conformance provider API binding is invalid")
         if self.phase == "critics":
@@ -156,7 +175,11 @@ class ReviewConformanceScope(Contract):
                 raise ValueError(
                     "critic scope has inconsistent reservation or preview bindings"
                 )
-        elif self.start_sha256 is None or self.additional_reservation_microusd != 0:
+        elif (
+            self.start_sha256 is None
+            or self.additional_reservation_microusd != 0
+            or self.provider == "mixed"
+        ):
             raise ValueError(
                 "judge scope requires a start and transfers only existing spending"
             )
@@ -175,14 +198,21 @@ def review_conformance_scope(
     critics = ControllerCriticPreview.model_validate_json(canonical_bytes(critics))
     envelope = critics.envelope
     guidance = envelope.critics[0].guidance_sha256
-    provider = critics.requests[0].provider
+    providers = {request.provider for request in critics.requests}
     if guidance is None or any(
-        request.provider != provider or call.provider != provider
+        request.provider != call.provider or call.guidance_sha256 != guidance
         for request, call in zip(critics.requests, envelope.critics, strict=True)
     ):
-        raise ValueError("review conformance requires guided same-provider requests")
-    if provider not in ("openai", "anthropic"):
+        raise ValueError("review conformance requires guided provider-bound requests")
+    if not providers <= {"openai", "anthropic"}:
         raise ValueError("review conformance provider is unsupported")
+    provider: Literal["openai", "anthropic", "mixed"]
+    if len(providers) > 1:
+        provider = "mixed"
+    elif "openai" in providers:
+        provider = "openai"
+    else:
+        provider = "anthropic"
     amount = envelope.total_reserved_microusd
     deadline = envelope.expires_at
     phase_sha = digest(canonical_bytes(critics))
@@ -204,13 +234,16 @@ def review_conformance_scope(
             or start.expires_at.tzinfo is None
             or not start.started_at < start.expires_at <= envelope.expires_at
             or (start.expires_at - start.started_at).total_seconds()
-            > critics.authorization.total_seconds
+            > (
+                critics.authorization.total_seconds
+                + critics.authorization.judge_approval_seconds
+            )
             or judge.controller_sha256 != critics.sha256
             or judge.evidence.envelope_sha256 != critics.authorization.envelope_sha256
             or judge.evidence.policy != critics.authorization.policy
             or judge.evidence.judge_request.brief.brief_id
             != envelope.judge.brief_sha256
-            or judge.model_request.provider != provider
+            or judge.model_request.provider != envelope.judge.spend_policy.provider
             or judge.model_request.model != envelope.judge.spend_policy.model
             or digest(canonical_bytes(judge.evidence))
             != judge.authorization.evidence_sha256
@@ -220,6 +253,7 @@ def review_conformance_scope(
         deadline = start.expires_at
         phase_sha = judge.sha256
         start_sha = digest(canonical_bytes(start))
+        provider = "openai" if judge.model_request.provider == "openai" else "anthropic"
     return ReviewConformanceScope(
         phase="critics" if judge is None else "judge",
         controller_sha256=critics.sha256,
@@ -239,17 +273,28 @@ def review_conformance_scope(
             "https://api.openai.com"
             if provider == "openai"
             else "https://api.anthropic.com"
+            if provider == "anthropic"
+            else "mixed"
         ),
-        api_family="responses" if provider == "openai" else "messages",
+        api_family=(
+            "responses"
+            if provider == "openai"
+            else "messages"
+            if provider == "anthropic"
+            else "mixed"
+        ),
     )
 
 
 class ReviewConformanceAuthorization(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_authorization"] = (
         "review_conformance_authorization"
     )
     authority_policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     scope: ReviewConformanceScope
     issued_at: datetime
     valid_until: datetime
@@ -302,7 +347,9 @@ def make_review_conformance_authorization(
             "review conformance authorization exceeds its time or spending scope"
         )
     return ReviewConformanceAuthorization(
+        schema_version=2 if policy.operator_mode == "single_operator" else 1,
         authority_policy_sha256=policy.sha256,
+        operator_mode=policy.operator_mode,
         scope=scope,
         issued_at=issued_at,
         valid_until=valid_until,
@@ -349,6 +396,7 @@ def verify_review_conformance_authorization(
     )
     if (
         signed.authorization != expected
+        or signed.authorization.operator_mode != policy.operator_mode
         or not signed.authorization.issued_at <= now < signed.authorization.valid_until
     ):
         raise ValueError("review conformance scope changed or authorization expired")

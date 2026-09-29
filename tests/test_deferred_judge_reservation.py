@@ -189,6 +189,16 @@ class JudgeReservationTests(IsolatedAsyncioTestCase):
             ).status,
             "response_received",
         )
+        tampered = prepared.authorization.model_copy(
+            update={
+                "call": prepared.authorization.call.model_copy(
+                    update={"preparation_scope": "formal_campaign"}
+                )
+            }
+        )
+        (self.directory / "judge-transfer.json").write_bytes(canonical_bytes(tampered))
+        with self.assertRaisesRegex(ValueError, "preparation scope"):
+            verify_judge_transfer(self.directory, tampered, self.ledger)
         self.assertEqual(
             (self.directory / "judge-transfer.json").stat().st_mode & 0o777, 0o600
         )

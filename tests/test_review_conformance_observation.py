@@ -69,7 +69,7 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
             return
         self.observation = self.make_observation()
         self.signed = sign_review_probe_observation(
-            self.observation, "observer", self.observer_key
+            self.observation, self.policy.observers[0].signer_id, self.observer_key
         )
 
     def make_observation(self):
@@ -129,14 +129,14 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         self.signed = sign_review_probe_observation(
             self.observation, "authority", self.key
         )
-        with self.assertRaisesRegex(ValueError, "independently enrolled"):
+        with self.assertRaisesRegex(ValueError, "not enrolled"):
             self.authenticate()
 
     def test_changed_observer_key_is_rejected(self):
         self.signed = sign_review_probe_observation(
             self.observation, "observer", self.key
         )
-        with self.assertRaisesRegex(ValueError, "independently enrolled"):
+        with self.assertRaisesRegex(ValueError, "not enrolled"):
             self.authenticate()
 
     def test_modified_observation_fails_signature(self):
@@ -211,6 +211,31 @@ class ReviewObservationTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         self.observed_at = late + timedelta(seconds=1)
         with self.assertRaises(ValueError):
             self.make_observation()
+
+    def test_each_provider_operation_has_its_own_sixty_second_limit(self):
+        start = self.start.started_at
+        combined = ReviewObservedExchange(
+            model_request_sha256="a" * 64,
+            count_started_at=start,
+            count_finished_at=start + timedelta(seconds=40),
+            generation_started_at=start + timedelta(seconds=41),
+            generation_finished_at=start + timedelta(seconds=81),
+            transport_evidence_sha256="b" * 64,
+            cleanup_evidence_sha256="c" * 64,
+        )
+        self.assertEqual(
+            (combined.generation_finished_at - combined.count_started_at).seconds,
+            81,
+        )
+        with self.assertRaisesRegex(ValueError, "operation exceeded 60 seconds"):
+            ReviewObservedExchange.model_validate(
+                {
+                    **combined.model_dump(),
+                    "count_finished_at": start + timedelta(seconds=61),
+                    "generation_started_at": start + timedelta(seconds=61),
+                    "generation_finished_at": start + timedelta(seconds=62),
+                }
+            )
 
     def test_missing_or_reordered_exchanges_are_rejected(self):
         original = self.exchanges

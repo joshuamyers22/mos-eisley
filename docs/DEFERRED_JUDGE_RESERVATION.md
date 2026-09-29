@@ -37,12 +37,13 @@ from another preview for the same findings or from an alternate proposed request
 The returned model client preserves exact request matching, one-use dispatch and
 awaited worker cleanup.
 
-A crash, storage failure or expiry after accounting transfer leaves the destination
-fully held. A cancellation or ambiguous provider outcome retains that full amount.
-Successful settlement retains actual cost even if the judge's answer later fails
-JSON or evidence checks. There is no automatic retry, refund, repair or allowance
-release. Source records are retained; rollback must preserve both their lineage and
-all destination exposure.
+A graceful controller terminal before transfer atomically settles only the exact
+still-held spend-only source allowance at zero. After accounting transfer, a crash,
+storage failure or expiry leaves the destination fully held. A cancellation or
+ambiguous provider outcome retains that full amount. Successful settlement retains
+actual cost even if the judge's answer later fails JSON or evidence checks. There is
+no automatic retry, refund, repair or transferred-request release. Source records
+are retained; rollback must preserve both their lineage and all destination exposure.
 
 `verify_judge_transfer` checks the expected transfer record, original envelope hash,
 ledger identity, retired source, exact destination reservation and completed child

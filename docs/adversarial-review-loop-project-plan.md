@@ -263,3 +263,12 @@ Adaptive reasoning follows [R0–R4](adaptive-reasoning-routing.md#delivery-gate
 Whole-loop causal effects, output-budget routing and cross-family transfer need
 their own evidence; the Phase L4 proxy stream does not automatically train or
 activate a safe router.
+
+[Plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+adds recurring owner-scoped production measurement, live comparison among already
+qualified complete policies, and independently reviewed between-cohort calibration.
+The same independent grading rubric and L5 safety outcomes apply at every level.
+The initial paired frozen-start study remains a distinct gate; live tasks receive
+one user-affecting whole-task assignment, with no duplicated writes for pairing.
+New candidates remain shadow-only until qualified, and each production cohort
+uses fresh evidence under its own registered design.

@@ -25,6 +25,10 @@ an explicit registry snapshot, one to eight `LaunchCritic` entries (each with a
 `CriticSpec` and schema-2 `SpendPolicy`), judge model/spending selection, reasoning
 effort, byte/token `BudgetPolicy`, `ReviewPolicy`, whole-review time limit and
 aggregate micro-USD ceiling. Its mode is `brokered_review_launch_configuration`.
+Its `preparation_scope` defaults to `standard`, which retains the ten-minute
+pre-dispatch cap. Only a fixed campaign commitment selects `formal_campaign`; the
+owned probe will not execute that thirty-minute scope without a matching sealed
+campaign binding.
 The registry is configuration data; a `live_conformance` label is not proof.
 
 For example, an owner can serialize the configuration from already selected inputs:

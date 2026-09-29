@@ -40,9 +40,12 @@ Output is one `review.controller.status` JSON object containing:
   alone cannot establish a complete model exchange or a valid review decision.
 - The original judge allowance, identified charged exposure, total ledger charged
   exposure, and `spending_inventory_complete`. The ledger total can include other
-  reviews. An allowance retired before its transfer record was saved is flagged
-  as incomplete attribution; the inspector cannot identify its target by guessing
-  among other ledger entries. Held and uncertain exposure remains charged.
+  reviews. A schema-2 terminal record says that the controller itself changed the
+  exact unused source from held to zero; this is complete even when the selected
+  ledger also contains unrelated review entries. A zero source without that marker
+  and without a transfer record is flagged as incomplete attribution because a
+  transfer destination may have lost its record. The inspector never guesses among
+  ledger entries. Held and uncertain exposure remains charged.
 - Whether a result artifact exists, its digest, and whether the saved absolute
   deadline has elapsed. Result bytes, request/response bodies and diagnostic prose
   are never printed.

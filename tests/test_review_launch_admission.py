@@ -1,4 +1,4 @@
-"""Launch decisions and revocation races use synthetic independent keys only."""
+"""Launch decisions and revocation races use synthetic keys only."""
 
 import asyncio
 import base64
@@ -13,6 +13,7 @@ from test_review_campaign import CampaignCeremonyFixture
 from mos_eisley.core.models import JudgeRequest, canonical_bytes, digest
 from mos_eisley.run.review_approval import ApprovalPreview
 from mos_eisley.run.review_conformance_authorization import (
+    ReviewConformanceAuthorityPolicy,
     ReviewConformanceScope,
     review_conformance_signer,
 )
@@ -71,6 +72,7 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
             max_reserved_microusd=1000,
         )
         self.signed: SignedReviewLaunchDecision | None = None
+        self.owner_total_cap_microusd = 1000
         self.enterContext(
             patch(
                 "mos_eisley.run.review_conformance_probe.EphemeralOpenAITransport",
@@ -100,6 +102,7 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
                 self.configuration,
                 lambda: self.launch_policy,
                 lambda: self.signed,
+                self.owner_total_cap_microusd,
             ),
         )
         fixture.controller, fixture.preview = probe.controller, probe.controller.preview
@@ -112,15 +115,22 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
         assert scope is not None
         now = datetime.now(UTC)
         decision = ReviewLaunchDecision(
+            schema_version=scope.schema_version,
             scope=scope,
             issued_at=now,
             valid_until=min(scope.expires_at, now + timedelta(seconds=seconds)),
+            operator_mode=scope.operator_mode,
             commitment_custody_reviewed=True,
             credentialed_campaign_reviewed=True,
-            independent_observer_assessment_reviewed=True,
+            independent_observer_assessment_reviewed=(
+                True if scope.operator_mode == "separated" else None
+            ),
+            single_operator_self_review_risk_accepted=(
+                True if scope.operator_mode == "single_operator" else None
+            ),
         )
         self.signed = sign_review_launch_decision(
-            decision, "launch-reviewer", self.launch_key
+            decision, self.launch_policy.reviewers[0].signer_id, self.launch_key
         )
 
     def revoke(self) -> None:
@@ -134,6 +144,17 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
 
 
 class LaunchAdmissionTests(LaunchAdmissionFixture):
+    async def test_owner_total_cap_includes_campaign_and_full_launch_allowance(self):
+        campaign_charged = sum(
+            fixture.base.ledger.snapshot().charged_microusd for fixture in self.fixtures
+        )
+        self.owner_total_cap_microusd = (
+            campaign_charged + self.fixture.review.envelope.total_reserved_microusd - 1
+        )
+        with self.assertRaisesRegex(ValueError, "owner total cap"):
+            self.probe()
+        self.assert_unspent()
+
     async def test_exact_launch_requires_all_approvals_and_retains_private_decision(
         self,
     ):
@@ -163,7 +184,7 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
     async def test_missing_decision_blocks_before_phase_or_local_approval(self):
         with patch.object(self, "load_phase") as load:
             probe = self.probe()
-            with self.assertRaisesRegex(ValueError, "independent signed decision"):
+            with self.assertRaisesRegex(ValueError, "signed decision"):
                 await probe.run()
         load.assert_not_called()
         self.assertEqual(self.user.previews, [])
@@ -453,3 +474,71 @@ class LaunchAdmissionTests(LaunchAdmissionFixture):
         )
         with self.assertRaises(ValueError):
             await probe.run()
+
+
+class SingleOperatorLaunchAdmissionTests(LaunchAdmissionFixture):
+    def create_fixture(self):
+        fixture = super().create_fixture()
+        signer = review_conformance_signer("joshua-myers", fixture.key.public_key())
+        fixture.observer_key = fixture.key
+        fixture.policy = ReviewConformanceAuthorityPolicy(
+            schema_version=2,
+            operator_mode="single_operator",
+            policy_id="joshua-single-operator",
+            authorities=(signer,),
+            observers=(signer,),
+            valid_from=fixture.policy.valid_from,
+            valid_until=fixture.policy.valid_until,
+            max_authorization_seconds=fixture.policy.max_authorization_seconds,
+            max_reserved_microusd=5_000_000,
+        )
+        return fixture
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.launch_key = self.fixture.key
+        now = datetime.now(UTC)
+        self.launch_policy = ReviewLaunchAuthorityPolicy(
+            schema_version=2,
+            operator_mode="single_operator",
+            policy_id="joshua-single-operator-launch",
+            reviewers=(
+                review_conformance_signer("joshua-myers", self.launch_key.public_key()),
+            ),
+            valid_from=now - timedelta(seconds=1),
+            valid_until=now + timedelta(minutes=3),
+            max_decision_seconds=60,
+            max_reserved_microusd=5_000_000,
+        )
+
+    async def test_joshua_myers_can_hold_every_human_launch_role(self):
+        probe = self.probe()
+        scope = probe.launch_scope
+        assert scope is not None
+        now = datetime.now(UTC)
+        with self.assertRaisesRegex(ValueError, "self-review risk acceptance"):
+            ReviewLaunchDecision(
+                schema_version=2,
+                operator_mode="single_operator",
+                scope=scope,
+                issued_at=now,
+                valid_until=min(scope.expires_at, now + timedelta(seconds=60)),
+                commitment_custody_reviewed=True,
+                credentialed_campaign_reviewed=True,
+                independent_observer_assessment_reviewed=True,
+                single_operator_self_review_risk_accepted=True,
+            )
+        self.authorize(probe)
+        result = await probe.run()
+        assert result is not None and self.signed is not None
+        self.assertEqual(result.result.verdict.decision, "accept")
+        self.assertEqual(self.signed.decision.operator_mode, "single_operator")
+        self.assertIsNone(self.signed.decision.independent_observer_assessment_reviewed)
+        self.assertTrue(self.signed.decision.single_operator_self_review_risk_accepted)
+
+    def test_single_operator_launch_rejects_mixed_campaign_mode(self):
+        self.launch_policy = self.launch_policy.model_copy(
+            update={"schema_version": 1, "operator_mode": "separated"}
+        )
+        with self.assertRaisesRegex(ValueError, "operator modes must match"):
+            self.probe()

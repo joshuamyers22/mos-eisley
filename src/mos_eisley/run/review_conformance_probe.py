@@ -2,10 +2,9 @@
 
 import asyncio
 import copy
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
-from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
@@ -35,12 +34,14 @@ from mos_eisley.run.review_campaign_dispatch import (
 from mos_eisley.run.review_conformance_admission import (
     ReviewConformanceRuntime,
     SignedReviewApprovalUI,
+    review_sdk_version,
 )
 from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceAuthorityPolicy,
     ReviewConformanceScope,
     SignedReviewConformanceAuthorization,
 )
+from mos_eisley.run.review_conformance_observation import ReviewObservedExchange
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
@@ -55,7 +56,10 @@ from mos_eisley.run.review_launch_authorization import (
     ReviewLaunchScope,
     SignedReviewLaunchDecision,
 )
-from mos_eisley.run.review_runtime_evidence import RuntimeOperationRecorder
+from mos_eisley.run.review_runtime_evidence import (
+    RuntimeOperationRecorder,
+    collect_review_runtime_exchanges,
+)
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
 
@@ -243,6 +247,7 @@ class BrokeredReviewConformanceProbe:
             Awaitable[SignedReviewConformanceAuthorization | None],
         ],
         load_api_key: Callable[[], str],
+        load_api_keys: Mapping[str, Callable[[], str]] | None = None,
         total_seconds: float = 30,
         campaign: ReviewCampaignBinding | None = None,
         launch: ReviewLaunchAdmissionInputs | None = None,
@@ -251,6 +256,20 @@ class BrokeredReviewConformanceProbe:
         if campaign is not None and launch is not None:
             raise ValueError(
                 "select either a campaign probe or a separately admitted launch"
+            )
+        preparation_scopes = {
+            call.authorization.preparation_scope for call in envelope.critics
+        }
+        preparation_scopes.add(envelope.envelope.judge.preparation_scope)
+        if len(preparation_scopes) != 1:
+            raise ValueError("review probe requires one preparation scope")
+        preparation_scope = next(iter(preparation_scopes))
+        self._extended_preparation_unbound = (
+            preparation_scope == "formal_campaign" and campaign is None
+        )
+        if campaign is not None and preparation_scope != "formal_campaign":
+            raise ValueError(
+                "sealed campaign dispatch requires formal campaign preparation"
             )
         if len(critic_containers) != len(envelope.critics) or len(
             {id(container) for container in critic_containers}
@@ -277,16 +296,38 @@ class BrokeredReviewConformanceProbe:
         guidance = envelope.critics[0].guidance
         if guidance is None:
             raise ValueError("review conformance probe requires current guidance")
-        self._provider = envelope.critics[0].model_request.provider
+        self._providers = {
+            *(call.model_request.provider for call in envelope.critics),
+            envelope.envelope.judge.spend_policy.provider,
+        }
+        if len(self._providers) > 1 and (
+            load_api_keys is None or not self._providers <= load_api_keys.keys()
+        ):
+            raise ValueError(
+                "mixed review requires a separate loader for each provider"
+            )
+
+        def key_loader(provider: str) -> Callable[[], str]:
+            if load_api_keys is not None:
+                selected = load_api_keys.get(provider)
+                if selected is None:
+                    raise ValueError("review provider credential loader is missing")
+                return selected
+            return load_api_key
+
         self._containers = (*critic_containers, judge_container)
         self._runtime()  # Validate immutable image agreement before any prompt.
-        self.controller = BrokeredReviewController(
-            envelope, reviewer, policy, total_seconds=total_seconds
-        )
         self._campaign_binding = (
             None
             if campaign is None
             else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
+        self.controller = BrokeredReviewController(
+            envelope,
+            reviewer,
+            policy,
+            total_seconds=total_seconds,
+            campaign=self._campaign_binding,
         )
         campaign_admission = (
             None
@@ -330,7 +371,7 @@ class BrokeredReviewConformanceProbe:
                 self.approval_ui,
                 self.controller,
                 guidance,
-                load_api_key,
+                key_loader(envelope.critics[index].model_request.provider),
                 critic_containers[index],
                 Path(envelope.envelope.artifact_directory)
                 / envelope.critics[index].authorization.ledger_entry_id,
@@ -344,7 +385,7 @@ class BrokeredReviewConformanceProbe:
             self.approval_ui,
             self.controller,
             guidance,
-            load_api_key,
+            key_loader(envelope.envelope.judge.spend_policy.provider),
             judge_container,
             Path(envelope.envelope.artifact_directory) / "judge",
             phase="judge",
@@ -356,7 +397,8 @@ class BrokeredReviewConformanceProbe:
         if len(images) != 1:
             raise ValueError("review conformance workers require the same pinned image")
         return ReviewConformanceRuntime(
-            sdk_version=version(self._provider), image_id=next(iter(images))
+            sdk_version=review_sdk_version(self._providers),
+            image_id=next(iter(images)),
         )
 
     @property
@@ -388,7 +430,44 @@ class BrokeredReviewConformanceProbe:
             transport.lifecycle_path for transport in (*self._critics, self._judge)
         )
 
+    def collect_runtime_exchanges(self) -> tuple[ReviewObservedExchange, ...]:
+        """Collect local post-result evidence with critic/judge phase separation."""
+        judge = self.judge_preview
+        lifecycle_paths = self.lifecycle_paths
+        if (
+            self.controller.phase != "finished"
+            or judge is None
+            or len(self.approval_ui.authorizations) != 2
+            or any(path is None for path in lifecycle_paths)
+        ):
+            raise ValueError("completed review runtime evidence is unavailable")
+        directory = Path(self.controller.preview.envelope.artifact_directory)
+        call_directories = (
+            *(
+                directory / call.ledger_entry_id
+                for call in self.controller.preview.envelope.critics
+            ),
+            directory / "judge",
+        )
+        complete_lifecycles = tuple(
+            path for path in lifecycle_paths if path is not None
+        )
+        authorizations = tuple(
+            signed.authorization for signed in self.approval_ui.authorizations
+        )
+        return collect_review_runtime_exchanges(
+            call_directories,
+            complete_lifecycles,
+            self.controller.preview.requests,
+            judge.model_request,
+            authorizations,
+        )
+
     async def run(self) -> RetainedReviewResult | None:
+        if self._extended_preparation_unbound:
+            raise ValueError(
+                "extended review preparation requires a sealed campaign binding"
+            )
         return await self._flow.run(
             critic_transports=self._critics,
             critic_containers=self._containers[:-1],

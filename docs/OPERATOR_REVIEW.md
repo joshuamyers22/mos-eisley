@@ -1,5 +1,12 @@
 # Operator-authorized three-model review
 
+**G2 amendment, 2026-09-27:** The [owner-operated G2 contract](G2_OWNER_OPERATED_CONTRACT.md)
+records the signed one-provider and default two-provider qualifications. For the
+mixed-provider signed launch, `mos review-live` requires a separate private
+OpenAI credential file through `--openai-key-file`; `mos operator-review` remains
+the Anthropic operator route described below. Joshua Myers holds the enrolled
+owner roles under that contract, with separate signed records for each role.
+
 `mos operator-review` runs one guided, read-only Anthropic critic/judge review with
 two exact terminal approvals. It uses the existing private worker broker, shared
 full-envelope reservation, evidence-derived judge request, retained result and
@@ -89,12 +96,13 @@ requests, guidance, policies, ledger and complete critic preview. A changed or
 expired preview stops before credential access.
 For slots 1 and 2, also supply `--previous-evidence` and
 `--expected-previous-evidence-sha256` for the accepted prefix. The command prints
-each exact signed scope and prompts for an independently signed authorization
+each exact signed scope and prompts for an enrolled signed authorization
 file before each local phase approval. It writes the completed handoff outside
-the run and seal directories. The independent observer must still assess and sign
+the run and seal directories. The enrolled observer must still assess and sign
 each slot before the next one starts; use the existing campaign observation,
 evidence append and review commands. All three committed allowances must fit the
 operator identity's selected cap. No signer keys are loaded by this command.
 
-No signed live tranche has been run. Independent authorizer and observer
-enrollment, a new sealed commitment and campaign spending approval are pending.
+The [owner-operated G2 closeout](G2_OWNER_OPERATED_CONTRACT.md) records exact
+signed live tranches and their settled spending. Those records do not authorize
+another campaign, profile or launch; each requires a fresh commitment and cap.

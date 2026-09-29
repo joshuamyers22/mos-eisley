@@ -43,6 +43,7 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                 fixture.call = fixture.prepare()
                 fixture.review = fixture.envelope()
                 fixture.base.fake.directory = fixture.critic_directory()
+        self.configure_attempts()
         self.probes = [fixture.probe() for fixture in self.fixtures]
         self.observation_policies = [
             ReviewObservationPolicy(
@@ -57,6 +58,10 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
         ]
         first = self.fixtures[0]
         self.policy = ReviewAcceptancePolicy(
+            schema_version=(
+                2 if first.policy.operator_mode == "single_operator" else 1
+            ),
+            operator_mode=first.policy.operator_mode,
             policy_id="fixture-tranche",
             committed_at=datetime.now(UTC),
             valid_until=datetime.now(UTC) + timedelta(minutes=5),
@@ -89,6 +94,9 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
             ),
         )
         self.before_attempts(self.observation_policies)
+
+    def configure_attempts(self) -> None:
+        """Allow campaign fixtures to select stricter pre-dispatch scope."""
 
     async def execute_attempts(self) -> None:
         self.evidence: list[ReviewAttemptEvidence] = []
@@ -142,7 +150,9 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                 observed_at=datetime.now(UTC),
             )
             signed = sign_review_probe_observation(
-                observation, "observer", fixture.observer_key
+                observation,
+                fixture.policy.observers[0].signer_id,
+                fixture.observer_key,
             )
             self.evidence.append(
                 ReviewAttemptEvidence(

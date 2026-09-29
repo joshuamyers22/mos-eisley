@@ -23,6 +23,14 @@ CID = "c" * 64
 
 
 class WatchdogTests(TestCase):
+    def test_cleanup_lease_has_a_finite_five_minute_ceiling(self) -> None:
+        self.assertEqual(
+            CleanupLease(container_id=CID, max_runtime_seconds=305).max_runtime_seconds,
+            305,
+        )
+        with self.assertRaises(ValueError):
+            CleanupLease(container_id=CID, max_runtime_seconds=306)
+
     def test_removal_is_exact_and_missing_requires_successful_absence_check(
         self,
     ) -> None:

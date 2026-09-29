@@ -1,4 +1,4 @@
-"""Read-only evidence projection for independent review, without signing keys."""
+"""Read-only evidence projection for owner assessment, without signing keys."""
 
 import argparse
 import json
