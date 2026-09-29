@@ -18,11 +18,45 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — qualification complete; production launch separately gated | Maintain the qualified private live read-only critic/judge path; require exact launch admission for any target call | Commit `3b32f14` and image `sha256:3f67fa22…` have three authenticated qualifying `accept` slots, 32,226 micro-USD settled, zero unresolved entries, complete cleanup and accepted reconstruction |
-| G3 — feasibility and study-sealing boundaries implemented; real labels/open study remain | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
+| G2 — exact profiles qualified; production launch separately gated | Maintain the qualified private live read-only critic/judge paths; require exact launch admission for any target call | The private Luna profile at commit `3b32f14` has three qualifying `accept` slots and accepted reconstruction. The separate [owner-operated G2 closeout](G2_OWNER_OPERATED_CONTRACT.md) records a signed Terra/Sonnet/Opus two-provider campaign and admitted launch for its frozen profile. Neither is general activation. |
+| G3 — planning boundaries implemented; all study execution deferred until production | Prepare an affordable real-task utility study and, if useful, the narrow objective-oracle protocol; do not enroll or run either before product launch | Documented launch and actual ordinary production operation plus a separately approved, feasible preregistered sample/spend design, protected holdout and real owner-task outcomes; quality gates before savings claims; broad ordinary-task qualification remains open |
 | G4 — isolated correction path accepted; full workflow open | Commit `f54e815` has a real signed correction child, isolated Git integration, passing final whole suites, an accepted OpenAI/Anthropic single-operator review under the signed one-human formal exception, reconciled spend, a signed G3 applicability decision, and Joshua's separate scoped creator acceptance. The original branch remains untouched | Qualify a real initial-child path under its own authority and evidence before claiming the entire creator-led G4 workflow; merge, release and activation remain separately gated |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
-| G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+| G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
+
+The [G5 paired whole-task preregistration protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+records the comparison and analysis rules that can be fixed before outcomes. Its
+study-specific numeric thresholds, sampling design, independent groups, labels,
+splits and feasibility calculation remain unset; no G5 study is sealed or qualified.
+
+**Continuous production study, 2026-09-25 — planned:** [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+adds three separately gated levels after the applicable provider and execution
+boundaries: (1) owner-scoped live measurement of a fixed policy, (2) bounded
+randomized production comparisons among already-qualified policies, and (3)
+recurring calibration on mature prior-window evidence with a fresh future holdout
+and independent promotion for each immutable policy version. The independent
+grading rubric stays fixed across levels and cohorts. These levels add no runtime
+authority today. Each cohort needs its own prospective manifest, feasible
+sample/spend design, durable assignment record, owner isolation, safety monitor,
+and tested stop/rollback path. Newly fitted policies stay shadow-only until G5
+qualification; within-cohort adaptive selection needs the separate G7/R4 gate.
+See [ADR 0009](adr/0009-continuous-production-evaluation.md) for the decision and
+operational consequences.
+
+**Study timing, 2026-09-28:** Joshua directed that no studies begin or continue until
+Mos Eisley is in production. [ADR-0011](adr/0011-defer-studies-until-production.md)
+defers G3, G5, the narrow oracle proposal and all continuous production cohorts.
+Before launch, source audits, protocol drafting, fixture tests and product
+qualification remain engineering preparation only. No case enrollment, study
+assignment or outcome-bearing study run is authorized; launch alone will not
+authorize one. Capabilities dependent on G3/G5 evidence remain gated.
+
+Joshua's 2026-09-27 [real-outcome criterion](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+requires mature, verified outcomes of actual owner-authorized tasks for any
+production effectiveness, harm or savings decision. Fixture, oracle and benchmark
+results stay in preproduction calibration or diagnostics; no production outcome
+cohort is present. The fixed-policy measurement, bounded live comparison and
+recurring promotion levels remain planned and separately gated.
 
 **Exact G4 correction-path qualification, 2026-09-27:** integrated commit
 `f54e815` has a replayed real production correction-child receipt, passing
@@ -39,6 +73,35 @@ release, activation, provider-call or spending authority.
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
+The G3 statistical-method reviewer is now Joshua Myers under the disclosed
+owner-conducted exception in [ADR-0008](adr/0008-g3-owner-statistical-review.md).
+His actual review remains pending; independent label grading and all other G3
+gates remain required.
+
+The [single-human objective-oracle direction](adr/0010-g3-single-human-oracle-study.md)
+is approved for planning only; execution waits for product production launch.
+No source, oracle, revised verifier, signed labels, cohort or study spend is
+approved by that decision. Its possible claim is limited to the audited
+oracle-verifiable frame.
+That study cannot stand in for the real-task production outcome criterion.
+The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
+and identified answer leakage, related cases and oracle limitations; no study
+cases or labels have been admitted from it.
+The [SWE-rebench V2 full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified all 32,079 source identifiers and repeated one public oracle with
+independent-parser and wrong-repair controls. Rights, leakage-safe task views,
+broader oracle validity, dependence and six-arm feasibility still deny G3
+source enrollment. The public identifier manifest grants no holdout authority.
+The [bounded candidate frame](G3_SWE_REBENCH_CANDIDATE_FRAME.md) now freezes
+four issue-only task packets from a deterministic 12-row inspection batch,
+with original-issue and base-license checks. The subsequent
+[execution-view audit](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md) verified four
+pinned base trees and isolated workspaces. Policy-bot passed three fresh
+offline base/gold/wrong whole-suite rounds; carapace, osv-scanner and revive
+failed their declared whole-suite oracles. Rights, historical exposure,
+dependence, six-arm feasibility and owner method review remain open; none of
+the four is enrolled or production evidence.
+
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
 

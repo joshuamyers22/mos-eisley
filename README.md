@@ -5,9 +5,16 @@ A foundation for independent, multi-provider adversarial review of code changes.
 Recorded review remains the default; an explicit one-prompt OpenAI command is
 available. Paid commands remain tool-free; an explicit MCP adapter supplies data
 tools to the canonical agent port. The private owning-library critic/judge path has
-completed its exact three-slot G2 qualification, but there is no public live-review
-command or automatic activation. The project can plan and score offline model/effort
-evaluations, while automatic routing remains disabled.
+completed its exact three-slot G2 qualification. The separate
+[owner-operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md) records an exact
+qualified Terra/Sonnet/Opus two-provider profile, with a signed campaign and an
+admitted launch. The `review-live` command requires exact approvals and separate
+provider credentials; neither profile authorizes public or automatic activation.
+Offline model/effort evaluation planning and
+scoring tools exist, while automatic routing remains disabled. Study execution
+is deferred until Mos Eisley is launched and operating in production on real
+owner-authorized tasks; see
+[ADR-0011](docs/adr/0011-defer-studies-until-production.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -616,6 +623,10 @@ See the [project brief](PROJECT_BRIEF.md),
 [evaluation foundation](docs/EVALUATION.md),
 [G3 fixed-matrix feasibility verification](docs/G3_FEASIBILITY_VERIFICATION.md),
 [G3 context-study policy and label eligibility](docs/G3_CONTEXT_STUDY.md),
+[G3 SWE-rebench full-source audit](docs/G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md),
+[G3 bounded candidate frame and task view](docs/G3_SWE_REBENCH_CANDIDATE_FRAME.md),
+[G3 four-case execution-view audit](docs/G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md),
+[production real-outcome acceptance criteria](docs/PRODUCTION_OUTCOME_ACCEPTANCE.md),
 [routing study protocol](docs/ROUTING_STUDY_PROTOCOL.md),
 [routing calibration](docs/ROUTING_CALIBRATION.md),
 [candidate policy freezing](docs/ROUTING_POLICY_FREEZE.md),

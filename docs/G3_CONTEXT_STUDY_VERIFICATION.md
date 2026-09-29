@@ -68,3 +68,12 @@
 - Durable facts: contracts, CLI, tests, threat model, study guide, roadmap and project
   memory record the completed offline boundary and the truthful zero-label production
   inventory
+
+## Later reviewer-role amendment
+
+On 2026-09-26 the owner approved Joshua Myers to conduct the G3 statistical-method
+review himself. [ADR-0008](adr/0008-g3-owner-statistical-review.md) supersedes this
+record's earlier separate-person statistical-review assignment for future G3 work.
+The original implementation verification and its pending-review result above are
+unchanged. No statistical review, empirical cohort seal or live authority is
+created by the role assignment.

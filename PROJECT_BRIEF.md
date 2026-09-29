@@ -68,8 +68,12 @@
   `sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`
   completed a wholly fresh sealed campaign with three qualifying `accept` verdicts,
   32,226 micro-USD settled, zero unresolved entries, complete worker cleanup and
-  accepted independent reconstruction. This closes G2 qualification but creates no
-  launch decision; no public live-review CLI is enabled.
+  accepted independent reconstruction. This closes that exact G2 qualification but
+  creates no general launch decision. A separate
+  [owner-operated G2 closeout](docs/G2_OWNER_OPERATED_CONTRACT.md) records a signed
+  Terra/Sonnet/Opus two-provider campaign and admitted launch for its frozen
+  profile. The `review-live` command is approval-bound and does not enable public
+  or automatic activation.
 - Routing target: choose model and reasoning effort from prompt difficulty using a
   versioned policy learned from blinded backend × model × effort evaluations. Role
   defaults provide hard minimums and conservative fallbacks; uncalibrated or

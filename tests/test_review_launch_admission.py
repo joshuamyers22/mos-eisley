@@ -72,6 +72,7 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
             max_reserved_microusd=1000,
         )
         self.signed: SignedReviewLaunchDecision | None = None
+        self.owner_total_cap_microusd = 1000
         self.enterContext(
             patch(
                 "mos_eisley.run.review_conformance_probe.EphemeralOpenAITransport",
@@ -101,6 +102,7 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
                 self.configuration,
                 lambda: self.launch_policy,
                 lambda: self.signed,
+                self.owner_total_cap_microusd,
             ),
         )
         fixture.controller, fixture.preview = probe.controller, probe.controller.preview
@@ -142,6 +144,17 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
 
 
 class LaunchAdmissionTests(LaunchAdmissionFixture):
+    async def test_owner_total_cap_includes_campaign_and_full_launch_allowance(self):
+        campaign_charged = sum(
+            fixture.base.ledger.snapshot().charged_microusd for fixture in self.fixtures
+        )
+        self.owner_total_cap_microusd = (
+            campaign_charged + self.fixture.review.envelope.total_reserved_microusd - 1
+        )
+        with self.assertRaisesRegex(ValueError, "owner total cap"):
+            self.probe()
+        self.assert_unspent()
+
     async def test_exact_launch_requires_all_approvals_and_retains_private_decision(
         self,
     ):

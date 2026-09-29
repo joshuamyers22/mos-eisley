@@ -105,6 +105,8 @@ class SingleOperatorHostBoundaryTests(IsolatedAsyncioTestCase):
             ledger_path="/private/launch.sqlite",
             artifact_directory="/private/launch",
             max_reserved_microusd=100,
+            owner_total_cap_microusd=100,
+            campaign_charged_microusd=0,
             expires_at=self.now + timedelta(minutes=2),
         )
 

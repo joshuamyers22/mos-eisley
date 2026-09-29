@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from importlib.metadata import version
 from typing import Literal, Protocol
 
 from mos_eisley.core.models import Contract, Identifier, canonical_bytes
@@ -31,6 +32,17 @@ class ReviewDispatchAdmission(Protocol):
 class ReviewConformanceRuntime(Contract):
     sdk_version: Identifier
     image_id: ImageID
+
+
+def review_sdk_version(providers: set[str]) -> str:
+    """Pin every SDK used by a review in one bounded, deterministic runtime ID."""
+    if not providers or not providers <= {"openai", "anthropic"}:
+        raise ValueError("review runtime provider set is unsupported")
+    if len(providers) == 1:
+        return version(next(iter(providers)))
+    return "__".join(
+        f"{provider}_{version(provider)}" for provider in sorted(providers)
+    )
 
 
 def _now() -> datetime:
