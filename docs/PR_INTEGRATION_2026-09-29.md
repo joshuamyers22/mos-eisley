@@ -62,7 +62,7 @@ is necessary but does not certify product production readiness.
   G2 mixed-provider credential and signed-scope checks, and keeps the exact G2
   qualification contract. Focused mixed, acceptance, launch, and broker tests
   passed. The combined `make check` passed 2,376 source and 1,761 installed-wheel
-  tests, and the branch was pushed for fresh GitHub checks.
+  tests. PR #240 merged after its fresh GitHub checks.
 - The G3 branch now has a local merge of G2 with mixed-provider and owner-role
   gates retained. Focused launch, reviewer, broker, and readiness tests passed.
   A direct SDK callback exception is reduced to a coarse readiness failure so
@@ -75,10 +75,15 @@ is necessary but does not certify product production readiness.
   test for the direct SDK callback exception; its corrected code is in G3/G4 and
   a repair branch. PRs #237 and #239 failed on stale runtime exports; their
   repaired exports pass the verifier in local repair branches.
+- The first integrated G3/G4 pushes exposed merge conflicts and historical
+  `generic-api-key` scan findings on API-key parameters and Ed25519 signing-key
+  type annotations. No credential value was present in those findings. G3 now
+  includes current `main`, the pinned setup-uv update across all jobs, and
+  exact-fingerprint exceptions; G4 includes that reconciliation.
 
 ## Handoff
 
-PR #240 is queued for auto-merge after fresh GitHub checks. Push the integrated
-G3 and G4 heads, wait for required checks, then merge #241 and #243 in order.
+Push the reconciled G3 and G4 heads, wait for required checks, then merge #241
+and #243 in order.
 Refresh the repaired dependency branches against integrated `main`, run the
 combined dependency gate, and merge their PRs after fresh required checks.
