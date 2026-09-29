@@ -11,11 +11,13 @@ from test_review_guidance_admission import GuidedBrokerFixture
 from mos_eisley.cli import main
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import (
+    CriticRequest,
     CriticSpec,
     JudgeRequest,
     ReviewPolicy,
     canonical_bytes,
 )
+from mos_eisley.core.protocol import TextBlock
 from mos_eisley.core.registry import anthropic_registry, openai_registry
 from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.review_campaign import campaign_reviewer
@@ -89,6 +91,7 @@ class ReviewLaunchTests(GuidedBrokerFixture):
 
     def test_exact_guided_preview_preserves_ledger_and_creates_no_run(self):
         before = self.base.ledger.path.read_bytes()
+        self.assertNotIn(b'"preparation_scope"', canonical_bytes(self.configuration))
         result = self.launch()
         self.assertEqual(result.preview.envelope.total_reserved_microusd, 650)
         self.assertEqual(result.guidance_sha256, self.guided.prepared.sha256)
@@ -103,6 +106,22 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertFalse(result.live_launch_available)
         self.assertEqual(
             result.conformance_status, "review_controller_conformance_required"
+        )
+        request = result.preview.requests[0]
+        critic_input = "".join(
+            block.text
+            for block in request.turns[0].blocks
+            if isinstance(block, TextBlock)
+        )
+        critic_request = CriticRequest.model_validate_json(critic_input)
+        self.assertEqual(critic_request.schema_version, 2)
+        self.assertTrue(critic_request.citation_units)
+        self.assertEqual(request.max_output, 64_000)
+        self.assertEqual(request.max_text_output_bytes, 8_000)
+        self.assertEqual(request.max_output_tokens, 100)
+        self.assertIn(b'"max_text_output_bytes":8000', canonical_bytes(result))
+        self.assertIn(
+            b'"response_envelope_bytes":64000', canonical_bytes(self.configuration)
         )
         self.assertEqual(before, self.base.ledger.path.read_bytes())
         self.assertFalse(self.review_directory.exists())
@@ -161,7 +180,7 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(first.configuration_sha256, second.configuration_sha256)
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
-    def test_bounded_longer_preview_restores_without_reserving_spend(self):
+    def test_formal_campaign_preview_restores_without_reserving_spend(self):
         spending = self.base.policy.model_copy(
             update={"valid_until": datetime.now(UTC) + timedelta(hours=2)}
         )
@@ -169,14 +188,14 @@ class ReviewLaunchTests(GuidedBrokerFixture):
             update={
                 "critics": (LaunchCritic(critic=self.base.critic, spending=spending),),
                 "judge_spending": spending,
-                "critic_preview_lifetime_seconds": 3600,
+                "preparation_scope": "formal_campaign",
             }
         )
         before = datetime.now(UTC)
         committed = self.launch(configuration).preview
         remaining = (committed.envelope.expires_at - before).total_seconds()
-        self.assertGreater(remaining, 3590)
-        self.assertLessEqual(remaining, 3601)
+        self.assertGreater(remaining, 1790)
+        self.assertLessEqual(remaining, 1801)
         envelope, reviewer, _ = prepare_review_launch_components(
             configuration,
             prepared=self.guided.prepared,
@@ -198,7 +217,7 @@ class ReviewLaunchTests(GuidedBrokerFixture):
         self.assertEqual(canonical_bytes(restored.preview), canonical_bytes(committed))
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
 
-    def test_preview_lifetime_over_one_hour_is_rejected(self):
+    def test_ad_hoc_preview_lifetime_is_rejected(self):
         raw = self.configuration.model_dump(mode="json")
         raw["critic_preview_lifetime_seconds"] = 3601
         with self.assertRaises(ValueError):

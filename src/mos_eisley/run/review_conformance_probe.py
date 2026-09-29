@@ -41,6 +41,7 @@ from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceScope,
     SignedReviewConformanceAuthorization,
 )
+from mos_eisley.run.review_conformance_observation import ReviewObservedExchange
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
     ControllerCriticPreview,
@@ -55,7 +56,10 @@ from mos_eisley.run.review_launch_authorization import (
     ReviewLaunchScope,
     SignedReviewLaunchDecision,
 )
-from mos_eisley.run.review_runtime_evidence import RuntimeOperationRecorder
+from mos_eisley.run.review_runtime_evidence import (
+    RuntimeOperationRecorder,
+    collect_review_runtime_exchanges,
+)
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
 
@@ -253,6 +257,20 @@ class BrokeredReviewConformanceProbe:
             raise ValueError(
                 "select either a campaign probe or a separately admitted launch"
             )
+        preparation_scopes = {
+            call.authorization.preparation_scope for call in envelope.critics
+        }
+        preparation_scopes.add(envelope.envelope.judge.preparation_scope)
+        if len(preparation_scopes) != 1:
+            raise ValueError("review probe requires one preparation scope")
+        preparation_scope = next(iter(preparation_scopes))
+        self._extended_preparation_unbound = (
+            preparation_scope == "formal_campaign" and campaign is None
+        )
+        if campaign is not None and preparation_scope != "formal_campaign":
+            raise ValueError(
+                "sealed campaign dispatch requires formal campaign preparation"
+            )
         if len(critic_containers) != len(envelope.critics) or len(
             {id(container) for container in critic_containers}
         ) != len(critic_containers):
@@ -299,13 +317,17 @@ class BrokeredReviewConformanceProbe:
 
         self._containers = (*critic_containers, judge_container)
         self._runtime()  # Validate immutable image agreement before any prompt.
-        self.controller = BrokeredReviewController(
-            envelope, reviewer, policy, total_seconds=total_seconds
-        )
         self._campaign_binding = (
             None
             if campaign is None
             else ReviewCampaignBinding.model_validate_json(canonical_bytes(campaign))
+        )
+        self.controller = BrokeredReviewController(
+            envelope,
+            reviewer,
+            policy,
+            total_seconds=total_seconds,
+            campaign=self._campaign_binding,
         )
         campaign_admission = (
             None
@@ -408,7 +430,44 @@ class BrokeredReviewConformanceProbe:
             transport.lifecycle_path for transport in (*self._critics, self._judge)
         )
 
+    def collect_runtime_exchanges(self) -> tuple[ReviewObservedExchange, ...]:
+        """Collect local post-result evidence with critic/judge phase separation."""
+        judge = self.judge_preview
+        lifecycle_paths = self.lifecycle_paths
+        if (
+            self.controller.phase != "finished"
+            or judge is None
+            or len(self.approval_ui.authorizations) != 2
+            or any(path is None for path in lifecycle_paths)
+        ):
+            raise ValueError("completed review runtime evidence is unavailable")
+        directory = Path(self.controller.preview.envelope.artifact_directory)
+        call_directories = (
+            *(
+                directory / call.ledger_entry_id
+                for call in self.controller.preview.envelope.critics
+            ),
+            directory / "judge",
+        )
+        complete_lifecycles = tuple(
+            path for path in lifecycle_paths if path is not None
+        )
+        authorizations = tuple(
+            signed.authorization for signed in self.approval_ui.authorizations
+        )
+        return collect_review_runtime_exchanges(
+            call_directories,
+            complete_lifecycles,
+            self.controller.preview.requests,
+            judge.model_request,
+            authorizations,
+        )
+
     async def run(self) -> RetainedReviewResult | None:
+        if self._extended_preparation_unbound:
+            raise ValueError(
+                "extended review preparation requires a sealed campaign binding"
+            )
         return await self._flow.run(
             critic_transports=self._critics,
             critic_containers=self._containers[:-1],

@@ -1,4 +1,4 @@
-"""Read-only acceptance of three precommitted, independently observed review probes."""
+"""Read-only acceptance of three precommitted, authenticated review probes."""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -22,6 +22,7 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceAuthorityPolicy,
+    ReviewOperatorMode,
     SignedReviewConformanceAuthorization,
 )
 from mos_eisley.run.review_conformance_observation import (
@@ -46,6 +47,9 @@ class ReviewRoleProfile(Contract):
     system_sha256: Digest
     max_output_tokens: Annotated[int, Field(gt=0)]
     max_output_bytes: Annotated[int, Field(gt=0)]
+    max_text_output_bytes: Annotated[
+        int | None, Field(gt=0, exclude_if=lambda value: value is None)
+    ] = None
     critic_sha256: Digest | None = None
 
 
@@ -66,6 +70,7 @@ def review_role_profile(
         system_sha256=digest(request.system.encode()),
         max_output_tokens=request.max_output_tokens,
         max_output_bytes=request.max_output,
+        max_text_output_bytes=request.max_text_output_bytes,
         critic_sha256=critic_sha256,
     )
 
@@ -77,7 +82,7 @@ class ReviewAttemptCommitment(Contract):
 
 
 class ReviewAcceptancePolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_acceptance_policy"] = (
         "review_conformance_acceptance_policy"
     )
@@ -94,6 +99,9 @@ class ReviewAcceptancePolicy(Contract):
         tuple[ReviewAttemptCommitment, ...], Field(min_length=3, max_length=3)
     ]
     required_successes: Literal[3] = 3
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     live_review_activation_authorized: Literal[False] = False
     provider_dispatch_authorized: Literal[False] = False
 
@@ -106,6 +114,10 @@ class ReviewAcceptancePolicy(Contract):
 
     @model_validator(mode="after")
     def consistent(self) -> Self:
+        if (self.operator_mode == "separated" and self.schema_version != 1) or (
+            self.operator_mode == "single_operator" and self.schema_version != 2
+        ):
+            raise ValueError("review acceptance schema differs from operator mode")
         if self.valid_until <= self.committed_at:
             raise ValueError("review acceptance window must be positive")
         if (
@@ -151,11 +163,14 @@ class ReviewAttemptEvidence:
 
 
 class ReviewAcceptanceResult(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_conformance_acceptance_result"] = (
         "review_conformance_acceptance_result"
     )
     policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     evaluated_at: datetime
     status: Literal["accepted", "incomplete"]
     qualifying_attempts: Annotated[int, Field(ge=0, le=3)]
@@ -176,7 +191,7 @@ def evaluate_review_conformance(
     """Freshly verify every supplied slot; incomplete/corrupt evidence never passes.
 
     Acceptance covers this exact fixed tranche and role/runtime/quorum profile.
-    Commitment custody and independent observer assessment remain external duties.
+    Commitment custody and the declared observer assessment remain external duties.
     """
     policy = ReviewAcceptancePolicy.model_validate_json(canonical_bytes(policy))
     if (
@@ -210,6 +225,8 @@ def evaluate_review_conformance(
             or digest(canonical_bytes(attempt.observation_policy))
             != commitment.observation_policy_sha256
             or attempt.authority_policy.sha256 != commitment.authority_policy_sha256
+            or attempt.authority_policy.operator_mode != policy.operator_mode
+            or signed.observation.operator_mode != policy.operator_mode
             or critics.authorization.policy != policy.review_policy
             or critics.authorization.total_seconds != policy.total_seconds
             or tuple(
@@ -346,7 +363,9 @@ def evaluate_review_conformance(
                     "review acceptance ledger contains unexplained exposure"
                 )
     return ReviewAcceptanceResult(
+        schema_version=2 if policy.operator_mode == "single_operator" else 1,
         policy_sha256=digest(canonical_bytes(policy)),
+        operator_mode=policy.operator_mode,
         evaluated_at=now,
         status="accepted" if len(accepted) == 3 else "incomplete",
         qualifying_attempts=len(accepted),

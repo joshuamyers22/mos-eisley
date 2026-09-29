@@ -31,6 +31,7 @@ from mos_eisley.run.review_broker import (
     PreparedReviewCall,
     PreparedReviewEnvelope,
     ReservedReviewEnvelope,
+    ReviewPreparationScope,
     ReviewSpendingEnvelope,
     verify_review_broker_audit,
 )
@@ -68,7 +69,10 @@ class ReviewEnvelopeTests(IsolatedAsyncioTestCase):
         self.workers = 0
 
     def call(
-        self, name: str, request: CriticRequest | None = None
+        self,
+        name: str,
+        request: CriticRequest | None = None,
+        preparation_scope: ReviewPreparationScope = "standard",
     ) -> PreparedReviewCall:
         return PreparedReviewCall(
             self.reviewer,
@@ -78,6 +82,7 @@ class ReviewEnvelopeTests(IsolatedAsyncioTestCase):
             critic=CriticSpec(
                 id=name, provider="openai", model="gpt-6-astra", persona="correctness"
             ),
+            preparation_scope=preparation_scope,
         )
 
     def prepare(
@@ -122,6 +127,8 @@ class ReviewEnvelopeTests(IsolatedAsyncioTestCase):
         self.assertEqual(envelope.total_reserved_microusd, 975)
         self.assertEqual(envelope.max_total_microusd, 1000)
         self.assertFalse(envelope.judge.transfer_authorized)
+        self.assertEqual(envelope.judge.preparation_scope, "standard")
+        self.assertNotIn(b'"preparation_scope"', canonical_bytes(envelope.judge))
         self.assertEqual(envelope.artifact_directory, str(self.directory.resolve()))
         self.assertEqual(
             envelope.critics, tuple(call.authorization for call in self.critics)
@@ -131,6 +138,31 @@ class ReviewEnvelopeTests(IsolatedAsyncioTestCase):
         self.assertNotEqual(
             self.prepared.approval_sha256, self.critics[0].approval_sha256
         )
+
+    def test_formal_scope_is_bound_to_judge_allowance_and_mismatch_rejects(
+        self,
+    ) -> None:
+        critics = tuple(
+            self.call(name, preparation_scope="formal_campaign")
+            for name in ("formal-one", "formal-two")
+        )
+        prepared = self.prepare(critics=critics)
+        envelope = prepared.envelope
+        self.assertEqual(envelope.judge.preparation_scope, "formal_campaign")
+        self.assertIn(
+            b'"preparation_scope":"formal_campaign"',
+            canonical_bytes(envelope.judge),
+        )
+        changed = envelope.model_copy(
+            update={
+                "judge": envelope.judge.model_copy(
+                    update={"preparation_scope": "standard"}
+                )
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "preparation scopes"):
+            ReviewSpendingEnvelope.model_validate_json(canonical_bytes(changed))
+        self.assertEqual(self.ledger.snapshot().entries, 0)
 
     def test_explicit_aggregate_confirmation_is_required(self) -> None:
         for approval in ("", "0" * 64, self.critics[0].approval_sha256):
@@ -359,6 +391,11 @@ class ReviewEnvelopeTests(IsolatedAsyncioTestCase):
             {"max_total_microusd": 974},
             {"expires_at": datetime.now(UTC) + timedelta(days=1)},
             {"judge": envelope.judge.model_copy(update={"transfer_authorized": True})},
+            {
+                "judge": envelope.judge.model_copy(
+                    update={"preparation_scope": "formal_campaign"}
+                )
+            },
         ):
             with self.subTest(update=update), self.assertRaises(ValueError):
                 ReviewSpendingEnvelope.model_validate_json(

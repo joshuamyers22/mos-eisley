@@ -305,6 +305,36 @@ class SpendLedger:
                 (source.entry_id,),
             )
 
+    def retire_unused(self, entry: LedgerEntry) -> bool:
+        """Settle one exact, still-held non-dispatch allowance at zero.
+
+        The caller must independently establish that the entry grants capacity only
+        and cannot represent an attempted provider request. A completed zero-cost
+        retirement returns true only for the transaction that changed the entry.
+        An exact non-held source returns false so cleanup is idempotent and cannot
+        release a transferred, settled, uncertain or violated exposure. Missing or
+        mismatched identity remains an error.
+        """
+        entry = LedgerEntry.model_validate_json(canonical_bytes(entry))
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT reservation_sha256, reserved, charged, status FROM entries "
+                "WHERE entry_id = ?",
+                (entry.entry_id,),
+            ).fetchone()
+            expected = (entry.reservation_sha256, entry.reserved_microusd)
+            if row is None or row[:2] != expected:
+                raise ValueError("retirement does not match an exact unused allowance")
+            if row[3] != "held":
+                return False
+            if row != (*expected, entry.reserved_microusd, "held"):
+                raise ValueError("retirement does not match an exact unused allowance")
+            connection.execute(
+                "UPDATE entries SET charged = 0, status = 'settled' WHERE entry_id = ?",
+                (entry.entry_id,),
+            )
+            return True
+
     def settle(self, settlement: LedgerSettlement) -> None:
         with self._transaction() as connection:
             row = connection.execute(

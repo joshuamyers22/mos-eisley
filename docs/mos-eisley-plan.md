@@ -28,12 +28,74 @@ history is now linked from §§17.7 and 25. Future updates keep current contract
 open gates here, implementation status in the roadmap, and execution history in
 the linked records.
 
-**G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
-perform the phase authorizer, observer and launch reviewer roles for G2. The
-[owner operated contract](G2_OWNER_OPERATED_CONTRACT.md) supersedes earlier G2
-human independence wording. Distinct enrolled role keys, prospective evidence,
-exact approvals, spending and containment gates remain required. This change does
-not apply to independent evaluation grading or later promotion gates.
+**G2 owner operation, 2026-09-26:** Joshua Myers may hold the G2 phase
+authorizer, observer and launch reviewer roles under the explicit
+[owner-operated contract](G2_OWNER_OPERATED_CONTRACT.md). Separate enrolled role
+records, exact approvals, spending and containment gates remain required. This
+does not change independent evaluation grading or later promotion gates.
+
+**G3 statistical-review assignment, 2026-09-26:** Joshua Myers may perform the
+G3 statistical-method review while also acting as study owner. This is an explicit
+owner-conducted exception to the earlier separate-person statistical-review
+requirement, with the overlap and absence of independent human judgment disclosed
+in the review. It does not complete the review, alter independent label grading,
+or waive holdout, feasibility, provider, G5/G6 promotion or release gates. See
+[ADR-0008](adr/0008-g3-owner-statistical-review.md).
+
+**G3 single-human oracle direction, 2026-09-27:** Joshua approved planning a
+separate prospective G3 study limited to tasks with independently reproducible
+objective oracles. [ADR-0010](adr/0010-g3-single-human-oracle-study.md) records
+the claim and single-operator limits. The source, method, amended verifier,
+signed labels, empirical cohort and spend remain open. The §26.4 broad G3 exit
+gate remains open; the narrow study cannot silently replace ordinary-task evidence.
+The [oracle case-source qualification](G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
+reproduced one public SWE-rebench V2 fail-before/pass-after test oracle under
+controlled execution, but found no audited eligible frame, leakage-safe task
+projection or defensible independent groups. It therefore does not qualify a
+prospective G3 source or change those open gates.
+The [full-release follow-up](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md) pinned the
+32,079-row public file and repeated the one-case oracle with wrong-repair and
+independent-parser controls. It still found no verified eligible frame,
+leakage-safe projection, broad casewise oracle, reviewed dependence or feasible
+six-arm cost design; no source was admitted.
+The [bounded candidate follow-up](G3_SWE_REBENCH_CANDIDATE_FRAME.md) fixes a
+12-row source inspection batch and four issue-only task packets, verifies their
+original issue provenance and exact base-commit license files, and excludes
+solution/test metadata from the task packets. This is a row-projection
+milestone only: the repository workspace, broader oracle, eligible case
+inventory, dependence, cost feasibility and single-human governance are still
+open. No case or outcome was enrolled.
+The [execution-view follow-up](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md)
+authenticated all four pinned base trees, isolated task workspaces from image
+Git history and operator patches, and ran offline whole-suite controls. One
+policy-bot view passed three fresh base/gold/wrong rounds with an independent
+parser; the other three failed their declared whole-suite oracles. This is a
+bounded preproduction source result only. Rights, historical exposure,
+eligible inventory, dependence, six-arm spend/sample feasibility and the
+single-human verifier amendment remain open; no case or outcome was enrolled.
+
+**Study timing, 2026-09-28:** Joshua directed that no studies are done until Mos
+Eisley is in production. [ADR-0011](adr/0011-defer-studies-until-production.md)
+supersedes the earlier preproduction execution path for G3, G5 and the narrow
+oracle proposal. Protocol design, source audits and product tests remain
+engineering preparation; they do not enroll cases or establish study results.
+Production launch alone does not approve a cohort or waive any quality gate.
+
+**Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
+owner-scoped live measurement, bounded live policy comparisons, and recurring
+reviewed calibration and promotion. It keeps the existing grading rubric fixed and
+adds no current production experiment or automatic learning authority. For later
+cohorts, §26.6 supersedes §26.3's single-study limit; each fresh cohort still
+consumes its own holdout once. The consequential choice is recorded in
+[ADR 0009](adr/0009-continuous-production-evaluation.md).
+
+**Real production outcomes, 2026-09-27:** after the product reaches its
+applicable launch gates, production testing and optimization decisions use
+observed outcomes of real owner-authorized tasks under the
+[production outcome acceptance contract](PRODUCTION_OUTCOME_ACCEPTANCE.md).
+Offline oracle/benchmark successes and operational proxies remain development
+and diagnostic evidence; they do not count as production completion, safety or
+savings. No production cohort or numerical acceptance threshold is sealed.
 
 ---
 
@@ -2906,6 +2968,11 @@ free. Keep exposed development regression fixtures separate from protected holdo
 
 ### 18.2 Metrics
 
+These evaluation-harness metrics characterize offline cases and preproduction
+policy candidates. After the applicable product launch gates, production
+effectiveness and optimization decisions use the real-task outcomes and
+prospective cohort rules in §26.6.
+
 | Metric | Why |
 |---|---|
 | Detection rate on mutants | does it find real bugs |
@@ -4014,16 +4081,19 @@ credentials, reservations and dispatch. Actual independent custody/runtime asses
 and a separately reviewed launch-admission decision remain required. See
 [launch conformance](REVIEW_LAUNCH_CONFORMANCE.md).
 
-**Exact library launch admission implemented:** a separately enrolled independent
-reviewer can now sign one exact launch scope after assessing real commitment custody,
-credentialed campaign evidence and observer assessment. The owning flow checks this
+**Exact library launch admission implemented:** an enrolled reviewer can now sign one
+exact launch scope after assessing real commitment custody, credentialed campaign
+evidence and observer assessment. Schema-1 separated mode requires disjoint human-role
+signers. ADR-0005's explicit schema-2 single-operator mode instead requires the same
+signer across every human role and records self-review risk without claiming
+independence. The owning flow checks this
 decision alongside both signed phase approvals and local prompts, freshly verifying
 all campaign evidence, current policy, guidance, runtime and spending at use. Changes
 or revocation stop further dispatch; timeouts are capped by the decision/evidence
 windows, and cancellation retains spending and awaits worker cleanup. This gate is
 tested with synthetic keys/providers and introduces no public live-launch CLI or
-automatic activation. Actual independent operating evidence and production review
-remain outstanding. See [launch admission](REVIEW_LAUNCH_ADMISSION.md).
+automatic activation. Actual live operating evidence and production review remain
+outstanding. See [launch admission](REVIEW_LAUNCH_ADMISSION.md).
 
 Keep the conversational product contract, creator-authored plan/tests, creator
 approval and delegated implementation requirements. Add Stage-0 independent readings
@@ -4036,9 +4106,10 @@ Live automatic routing remains off. Exact fallback eligibility, independently
 controlled holdout, external monotonic control and atomic brokered dispatch remain
 required. Before an activation milestone, document actual authority enrollment,
 key custody/separation, revocation/recovery and witness operations. Multiple keys
-held by one operator do not demonstrate independent judgment. If the prescribed
-operating model cannot be supplied, keep the feature offline/manual; any simplified
-trust model needs an explicit new design and threat review rather than cosmetic keys.
+held by one operator do not demonstrate independent judgment. ADR-0005 adopts a
+simplified single-operator trust model for exact review qualification: it is
+schema-versioned, requires one shared signer, records self-review risk, and makes no
+independence claim. Separated mode remains the default for stronger governance.
 
 ### 26.2 Review-loop contract
 
@@ -4119,9 +4190,12 @@ action schemas and cross-family difficulty transfer are separate research gates.
 Exploration is disabled initially. Offline/shadow trials need explicit study spend
 and data permissions and grant no machine authority. Later online randomization
 can select only already qualified actions above the role floor. Monitoring can
-quarantine/stop traffic; it cannot silently retrain/reactivate. Freshness deadlines,
-recent-window checks and new model/prompt/tool/template versions trigger renewed
-evaluation or eligible fallback/stop, even with no observed failures.
+quarantine/stop traffic; it cannot silently retrain/reactivate. Under §26.6, a
+later registered cohort may recalibrate using mature prior-window evidence and
+test on a fresh future holdout, with independent promotion before any policy
+change. Freshness deadlines, recent-window checks and new model/prompt/tool/template
+versions trigger renewed evaluation or eligible fallback/stop, even with no
+observed failures.
 
 ### 26.4 Delivery order and accountable gates
 
@@ -4134,27 +4208,131 @@ delivery roles, not a new user-confirmation step for ordinary authorized work.
 |---|---|---|
 | G0 — reconcile and instrument | Current offline core; L0/R0 schemas and telemetry; §§6.6–6.7 artifact/view, work-unit/checkpoint schemas, cumulative input metrics and offline instruction/tool-profile diagnostics | Versioned clause/decision/outcome and task-state fixtures, truthful unknowns, old replay compatibility, owner boundaries, bounded views with disclosed loss; required-tool omission, stale state and budget-reset negative cases |
 | G1 — usable product slice | G0; recorded conversation controller; L1 reading experiment; author compaction, explicit checkpoint continuation, pressure indicators and reusable-memory/task-state separation | Conversation → frozen review → visible result → cancel/resume; milestone → checkpoint → fresh continuation detects changed tree/tests and completes with obligations/ledgers intact; duplicate handoff, blindness, stale approval, compaction reconstruction and overflow-stop tests pass |
-| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; owner operated human custody is allowed under the 2026-09-26 G2 amendment | Prospectively committed, owner assessed credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts; report exact qualified profile and owner custody |
-| G3 — feasible utility study | G0; L4 labels and existing authenticated matrix chain; G1 for session-policy comparisons; live claims require G2 | Sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading; matched and held-out context-policy completion, missed-evidence/stale-state, latency, cumulative-input and total-cost report; quality gates pass before claiming savings |
-| G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
-| G5 — qualified simplification | G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline |
+| G2 — live read-only review | Provider conformance, shared spend and isolated broker integration; owner-operated G2 human custody is allowed under the 2026-09-26 amendment | Prospectively committed, owner-assessed credentialed conformance; one frozen brief through live critics/judge with preserved quorum, bounded spend, cancellation and evidence artifacts; report the exact qualified profile and custody |
+| G3 — feasible utility study, deferred until production | Product production launch plus G0, L4 labels and authenticated matrix chain; G1 for session-policy comparisons; applicable G2/G4 live capability gates | Before launch, only protocol and feasibility preparation. After launch, sealed baseline/ablation design and feasible sample/spend calculation; independent clean/defective grading and real owner-task completion, missed-evidence/stale-state, latency, cumulative-input and total-cost outcomes; quality gates pass before claiming savings |
+| G4 — executable correction loop | Execution containment and trusted VCS/E2 gates; L2/L3; applicable G3 quality gate for comparative claims or dependent capabilities | Immutable test-package/binding probes, stale-tree rejection, isolated known-bad controls, creator approval before child dispatch, final whole-suite and critic/judge result |
+| G5 — qualified simplification, deferred until production | Postlaunch G3 plus representative whole-loop G4 evidence for write workflows; L5/R1/R2 | Paired complete-workflow evidence for any review removal, sampled judging or cheaper selector; damage/recall/completion constraints pass, complete costs, inconclusive means retain baseline; production claims require separate real-task outcomes under §26.6 |
 | G6 — activated routing | G5 plus current promotion/preflight and R3 operational contract | Actual signer/witness custody, no-substitution resolver, one-use dispatch with revocation races/crash recovery tested, session budget, bounded cohort, stop/fallback drill |
-| G7 — optional research | G5/G6 as applicable; R4 | Independent benefit from transfer, budget routing or bandit methods; explicit estimator and fresh evaluation, no automatic online learning |
+| G7 — advanced adaptive methods | G5/G6 as applicable; R4 | Independent benefit from transfer, output-budget routing, bandits or within-cohort adaptation; separately reviewed sequential/statistical and activation protocol |
 
-G0/G1 can proceed while G2's live boundary is finished. Planning and labeling do not
-require machine-write authority; live evaluation does not wait for coding autonomy.
+Before production launch, G3 and G5 work is limited to protocol design and
+engineering diagnostics; no study is executed. After launch, an oracle-backed
+study may make only its declared source-bound claim. A production effectiveness,
+harm or savings claim requires the real-task outcome contract in §26.6; an
+oracle-backed case cannot be counted as a production task merely because its
+tests were run in a live environment. Capabilities that depend on G3/G5 study
+evidence remain gated until the applicable postlaunch study qualifies them.
+
+G0/G1 can proceed while G2's live boundary is finished. Protocol planning and
+engineering fixtures do not require machine-write authority; empirical study
+labeling and live evaluation wait for production launch and their separate gates.
+Coding autonomy is not a blanket prerequisite for a read-only production task.
 G4 can be developed in inert fixtures before its production gates pass. Skills and
 provider extensions retain their separate release gates and do not substitute for
 this sequence. The revised designs are approved planning inputs, not evidence that
 G0–G7 have shipped.
 
+**Implementation status, 2026-09-24:** G4's first inert L2 slice freezes a
+complete blind reviewer-test package and its derivation-reference identities into a
+canonical artifact with literal downstream-authority denials. It rejects traversal,
+symlinks, hard-link/inode aliases, special files, unselected declared tests, vacuous
+execution expectations and mismatched direct skip/xfail declarations. This is not an
+execution, authenticated-independence or creator-approval gate. A second inert slice
+now binds that canonical package before and after inspection to a complete declared
+source-root file inventory, exact dependency/build identities and a non-executable
+direct-symbol allowlist. It rejects stale files, omitted resources, unsafe filesystem
+aliases, direct static implementation imports and executable adapter powers. A third
+inert slice now sends the exact frozen package and bound source/resource material
+through the immutable-image, no-mount offline container, retains exact observed
+counts and ordered test-ID digests, and validates paired successful known-good and
+assertion-only known-bad controls over distinct trees. It has no host fallback and
+grants no candidate or downstream authority. A fourth inert slice authenticates the
+creator approval, reviewer custody, bounded child assignment/result and fixed-argv
+read-only Git reconstruction with domain-separated signatures. It verifies exact
+base/child/final ancestry, patch and owned paths, complete bound Git blobs, a clean
+worktree and the prior known controls. These slices still do not prove physical
+identity/key custody, external time, dependency/image correspondence or arbitrary
+dynamic Python semantics. Candidate dispatch, bounded correction, final whole-suite
+execution and independent review remain required. See
+[the isolated execution contract](G4_ISOLATED_TEST_EXECUTION.md) and
+[the authenticated provenance contract](G4_AUTHENTICATED_PROVENANCE.md).
+
+A fifth offline slice now adds a separate exact creator-signed candidate-test
+approval, current Git and known-control admission, one-use private dispatch claim,
+and isolated candidate execution with post-run source revalidation. The generic
+isolated runner cannot start a candidate without this gate. Candidate test success
+is evidence only; it grants no coding-child dispatch, correction, final whole-suite
+or independent-review acceptance, repository/VCS write, credential, network or
+provider authority. Physical key custody, external time and dependency/image
+correspondence remain trusted or unproven. See
+[candidate execution admission and dispatch](G4_CANDIDATE_EXECUTION.md).
+
+A sixth offline slice records the bounded correction evidence transition: two
+separately approved candidate runs must reproduce the same assertion-failure
+identities on one unchanged tree, a judge must sign a complete disposition and
+the creator must sign a task-budgeted cycle. Private one-use claims cap the task
+at two cycles. A corrected result needs a renewed authenticated custody/Git chain
+and candidate receipt with unchanged approved plan/creator-test digests, frozen
+reviewer test bytes, adapter and static dependencies. Creator-test Git blobs
+remain for the final whole-suite gate.
+This does not dispatch a coding child, prove critic quorum or actual spend, run the
+final whole suite, or grant independent acceptance. See
+[the bounded correction contract](G4_BOUNDED_CORRECTION.md).
+
+A seventh offline slice adds a separate creator-signed, one-use dispatch for a
+child-signed correction proposal over existing approved owned files. The no-mount,
+no-network image validates the proposal, while the host retains and replays the
+source and result without writing into Git. This is not production provider
+dispatch, measured spend, actual code integration or final acceptance. See
+[the correction-child dispatch contract](G4_CORRECTION_CHILD_DISPATCH.md).
+
+An eighth offline slice adds a separate creator-signed, one-use integration
+grant. It replays the original custody, candidate, correction and signed proposal
+chain before a trusted Git broker writes only approved existing files in a new
+private detached worktree. The exact local commit, parent, changed bytes, binary
+patch, original checkout and source provenance are checked; an enrolled VCS
+signer may attest the replayable record. No provider, measured-spend, final-suite,
+merge/push or acceptance authority follows. See
+[the correction integration contract](G4_CORRECTION_INTEGRATION.md).
+
+A ninth slice adds a separately creator-signed exact-offer production coding-child
+broker. Its provider request is stateless and tool-free; a conservative shared
+ledger reservation precedes one isolated broker exchange. Provider-reported usage
+is settled or retained as uncertain exposure, and only a valid scoped proposal is
+signed by the enrolled child. Private request, response, audit and spending bytes
+replay against the prior correction-child dispatch receipt. This was implemented
+and tested offline without a provider call. It does not itself authorize live
+dispatch or complete the renewed correction, final whole-suite or independent
+review gates. See [the production broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md).
+
+A tenth offline slice adds a separately creator-signed final whole-suite gate.
+It binds a passing authenticated candidate and final Git revision to complete
+protected creator-test bytes, the frozen reviewer package, two exact execution
+requests and one immutable image. A private one-use claim precedes separate
+isolated creator and reviewer runs; count and test-ID evidence and post-run Git
+replay produce a non-accepting result. Fixture tests used fake Docker transport,
+not a production candidate or live provider. Real passing suites, renewed
+correction evidence, critic quorum and independent implementation review remain
+open. See [the final whole-suite contract](G4_FINAL_WHOLE_SUITES.md).
+
+An eleventh offline slice binds a signed independent-review roster to the exact
+post-suite implementation subject: approved plan bytes, complete trusted Git
+base-to-source patch and the passing final whole-suite receipt. Distinct external
+critic/judge keys, two-family critic quorum, citation validation, signed complete
+critic lineage and deterministic judge verdict produce a replayable non-release
+record. Enrolled provider-family labels and signed review claims do not establish
+actual provider operation or independent human review. No production reviewer
+or coding-child call was made; accountable acceptance and the applicable G3 gate
+remain separate. See [the independent-review contract](G4_INDEPENDENT_REVIEW.md).
+
 Within G0, freeze the shared records and counting definitions before implementing
 offline diagnostics. Within G1, connect scoped acquisition/profile selection and
 memory classification to the existing admission path, then ship checkpoint closure,
 fresh continuation and pressure indicators under §6.7. Do not introduce a parallel
-roadmap or wait for deferred executable doctor/SecretRef subsystems. A G3 study may
-evaluate available policies incrementally; label unavailable arms and keep live
-quality/savings claims behind their applicable provider and measurement gates.
+roadmap or wait for deferred executable doctor/SecretRef subsystems. After product
+production launch and separate study admission, a G3 study may evaluate available
+policies incrementally; label unavailable arms and keep quality/savings claims
+behind their applicable provider and measurement gates.
 
 **Implementation status, 2026-09-21:** the six G1 implementation slices are complete.
 At the conversation request boundary, a scope-bound profile is revalidated
@@ -4209,6 +4387,150 @@ unbound profile. See
 Pass/fail fixtures prove controller enforcement; representative independent live
 evidence proves a quality or savings claim. Keep those statements separate in each
 milestone review and in the CLI's availability/status output.
+
+### 26.6 Continuous production study and calibration
+
+**Study start boundary, 2026-09-28:** From this decision forward, no study
+begins or continues before Mos Eisley is launched and operating in production
+on real owner-authorized tasks. This includes G3, G5, the narrow objective-oracle
+proposal and all three levels below. Before launch, only protocol preparation,
+source audits, fixture tests and product qualification
+may proceed; none is a study cohort or outcome-bearing evaluation. After launch,
+each study still needs its own prospective manifest, reviewed resource and safety
+limits, applicable quality gates and separate execution authority. A launch
+decision alone is insufficient for study admission. See
+[ADR-0011](adr/0011-defer-studies-until-production.md).
+
+**User direction, 2026-09-25 — planned, not enabled:** study and calibrate Mos Eisley
+continually using live production tasks. Deliver three explicit levels in order:
+continuous measurement under a fixed policy; bounded live comparisons of qualified
+policies; and recurring calibration and reviewed promotion from mature production
+evidence. This amends the one-time-study delivery model in §§26.3–26.4 without
+weakening G2–G6 prerequisites. The [G5 paired study protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+remains the initial design contract. Its study-specific inputs are still unset;
+this amendment does not seal it, supply missing probabilities/labels/groups/splits,
+or establish production readiness.
+
+**Outcome criterion, 2026-09-27:** every production acceptance or promotion
+decision is based on the [real-outcome contract](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+for actual owner-authorized tasks after the applicable product launch gates.
+Observed verified completion, escaped defects, correct-work damage, harmful
+actions, whole-task cost and latency are the decision outcomes. A passing test,
+synthetic or public benchmark oracle, model-judge verdict, token count or
+estimated cost is supporting evidence or a diagnostic, not a production outcome.
+No such task or outcome is supplied by this plan amendment.
+
+**One measurement rubric.** Pin the exact current independent grading rubric,
+grader/resolver qualification, outcome definitions, follow-up rules and measurement
+judge settings in a program-level manifest. Use that same rubric at all three
+levels and across cohorts; an arm may change only the registered execution policy.
+The rubric remains separate from a model judge's production verdict. Do not tune
+its wording, weights, graders' instructions or outcome mappings using live results.
+If a future rubric change is necessary, stop comparable claims, open a separately
+reviewed plan amendment and bridge study, and start a new measurement lineage;
+never silently pool old and new grades. Preserve the independently adjudicated
+damage, detection, completion, escaped-defect, latency and whole-task-cost gates in
+L5. A missing or disputed independent outcome stays unknown.
+
+| Level | Production behavior | Entry and exit evidence | Authority limit |
+|---|---|---|---|
+| 1 — continuous measurement | Observe the deployed fixed/full-review policy and run an owner-scoped ordinary-task audit with independently graded, delayed follow-up | G2 for live read-only review, G4 containment for write tasks, owner-isolated durable decision/outcome records, reviewed sampling and missingness, reproducible cohort reports | Observations may stop/quarantine a policy but cannot qualify or change one |
+| 2 — bounded live comparison | Assign eligible production tasks within a precommitted owner-scoped cohort to already-qualified complete policies; use the same rubric and control path for every arm | Level 1 health, G5 evidence for each policy that can affect a user, G6 dispatch/rollback controls, feasible sample/spend and reviewed randomization, independent outcome and safety-monitor evidence | No unqualified weaker route, omitted required review or new machine authority; a shadow arm with no user effect remains observational |
+| 3 — recurring calibration and promotion | Close a mature cohort, fit/freeze a candidate using permitted prior-window data, test it on a fresh later cohort, and independently decide whether to promote for the next bounded rollout | Levels 1–2, reviewed repeated-decision error budget, fresh holdout and drift checks, independent promotion/control signatures, current conformance and exercised rollback | No in-place self-modifying policy. Each version is immutable during its cohort; promotion is an explicit atomic G6 decision. Within-cohort adaptive action selection needs the additional G7/R4 gate |
+
+**Prospective cohort contract.** Before a production cohort receives traffic,
+its reviewed manifest must bind the owner, population and task eligibility,
+independent-group assignment rule, clean/defective ascertainment, exact
+rubric digest, policy/arm and provider versions, decision-time feature schema,
+allocation probabilities, randomization seed custody, study split and cutoff,
+follow-up window, missingness and replacement rules, exposure and spend ceilings,
+latency and quality limits, minimum useful effect, sample-size feasibility,
+scheduled analysis, safety stop rules and accountable owners. Place the exact
+manifest digest in an independently retained append-only record before assignment
+or outcome access. An absent field is unknown and blocks the relevant claim;
+historical probabilities, group membership, labels and splits are never inferred
+or repaired. Incoming group and split identities are recorded at admission under
+the frozen rules, before the task's outcome is available. The ordinary production
+audit and selected hard cases retain their separate inclusion channels and known
+probabilities. Related task revisions stay
+in one group and one cohort split; exposed examples cannot become fresh holdout.
+
+**Inference across time.** A cohort may make one fixed-horizon promotion decision
+after registered follow-up matures. Safety monitors may stop exposure at any time,
+but an early stop cannot be called a successful efficacy result. Reserve a reviewed
+family-wide error budget across candidate arms, gated outcomes and successive
+cohorts before results; record every allocation and spent decision in a durable
+owner-scoped ledger. For an unbounded cohort series, freeze a summable allocation
+schedule and a rule for exhausted or unused budget before the first decision; do
+not reclaim spent error allowance after a failed or stopped cohort. Use fresh
+independent future holdouts for later decisions,
+not repeated queries against a prior cohort. If continuous looks or adaptive
+allocation are proposed, validate a separately specified anytime-valid method,
+its support/positivity and delayed-outcome behavior before use. Existing
+fixed-matrix scoring, ordinary confidence intervals and selected-action telemetry
+cannot be relabeled as sequential or off-policy evidence. Report all assignments
+by intent to treat, including no-dispatch, failures, cancellations, unresolved
+follow-up, retained uncertain spend and abandoned work. Population claims require
+reviewed inclusion probabilities and independent groups; otherwise label the
+report descriptive. A later cohort cannot erase an earlier failure or replenish a
+spent error budget by renaming the policy.
+
+The initial G5 paired study uses separate frozen starts. A live cohort assigns one
+user-affecting whole-task policy per task or independent group; it must not replay
+writes or approvals merely to create a pair. Its causal comparison uses the
+precommitted randomized allocation and a separately reviewed estimator. A shadow
+execution may inspect an isolated copy only under the owner's study permissions,
+and its output cannot write, publish or stand in for the unobserved production
+counterfactual. Newly fitted candidates remain shadow-only until G5 qualifies
+their exact policy; only already-qualified actions can enter user-affecting Level 2
+or Level 3 comparisons. An underpowered owner-specific cohort stays inconclusive;
+evidence from different owners is not pooled to rescue it.
+
+**Operational boundary.** Use §17's one-owner storage and same-owner aggregate
+exception. No cross-user sample pooling, global model ranking, shared training set
+or centralized content telemetry; an owner's deletion/reset invalidates dependent
+calibration and promotion receipts. A production task enters a study only under
+the owner's explicit, effective data-transfer and study policy; withdrawal stops
+new study assignments and deletion invalidates dependent decisions. Trusted
+offline calibration may explicitly select mature same-owner evidence under its
+retention and access rules; an agent's fresh session and the automatic selector
+receive only §17.3's minimal allowed aggregates. Record the exact approved
+action distribution before dispatch, actual one-use grant and spend reservation,
+policy/control sequence, terminal and follow-up status, and safe evidence digests.
+Do not put prompts, transcripts, model responses, tool output, source diffs, labels
+or unrestricted reviewer prose in operational events or sampling metadata.
+Required assignment, before-send, spend and outcome links are durable before
+dependent effects; optional telemetry loss is counted and cannot be backfilled
+into valid experimental evidence. Bounded queues, disk pressure, clock skew,
+retention, backups, encryption, access, deletion and no-duplicate recovery need
+target-host tests before Level 1 production collection.
+
+**Operations and release.** Apply the production project template's evidence-led
+workflow: name the operational decision for each metric, emit versioned safe event
+and error codes, review counts/rates and missingness on a declared cadence, and
+separate observed signals from causal claims. Every rollout has an owner, support
+window, immutable artifact and policy digest, blast-radius limit, capacity and
+spend budget, independent reviewer, dashboard/alert thresholds, on-call and
+incident path, and tested stop/fallback/rollback runbook. Refuse new assignment
+when audit durability, owner isolation, randomization, current conformance,
+spending admission or control-witness freshness fails. Continue an already-sent
+task only under its original policy and conservative spending/recovery rules;
+never silently reassign it. Drift, harmful outcomes, uncertain exposure,
+missing labels, exhausted error budget or a broken monitor trigger the registered
+stop/fallback path. Reopening traffic requires new independent evidence and the
+existing signed promotion/control ceremony, not merely a quiet dashboard.
+
+**Verification and status.** Fixture and fault-injection suites must cover
+changed eligibility after assignment, zero/unknown probabilities, duplicate or
+lost events, clock/order skew, delayed labels, selective nonresponse, group/split
+leakage, concurrent cohorts, seed replay, partial reservations, stale policy and
+rubric, copied/rolled-back control state, monitor outage, emergency stop, rollback
+and owner deletion. A production-like canary must exercise cohort close,
+independent grading, one-use promotion, rollback and subsequent fresh-window
+assessment. Review a later window against the registered baseline and guardrails;
+fewer tokens, lower spend or cleaner logs alone do not show improvement. Report
+each level separately as planned, fixture-verified, live-observed or authorized.
+None is implemented by this plan amendment.
 
 ---
 

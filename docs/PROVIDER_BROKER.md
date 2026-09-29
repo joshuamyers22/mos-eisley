@@ -19,8 +19,11 @@ submit replacement prompts, model/effort settings, tools, endpoints, or budgets.
 
 The broker requires the existing shared-ledger spending controller. Failure,
 timeout, or cancellation burns the grant; uncertain generation retains its full
-reservation under the controller's existing rules. The grant lifetime (at most
-60 seconds) also bounds the cooperative provider deadline. Raw API errors are
+reservation under the controller's existing rules. A bearer claim must still be
+presented within at most 60 seconds. The separately selected cooperative exchange
+deadline may be at most 300 seconds and starts when the broker is constructed; it
+does not renew when the claim is redeemed. Callers that do not select a separate
+exchange deadline retain the original one-deadline behavior. Raw API errors are
 discarded, while schema-4 audits retain only allowlisted failure stages and
 categories.
 Request snapshots have a 1 MiB serialized ceiling; claims have a 1 KiB wire ceiling.
@@ -43,8 +46,9 @@ review was performed or that a model was called. No evaluation provenance is min
 
 `run.duplex.bounded_exchange` limits worker frames/offers to 1 KiB, host replies
 to 16 MB, and drained stderr to 64 KiB. Newline framing rejects incomplete, extra,
-oversized and early output. One cooperative deadline covers the conversation and
-provider work; early output/EOF while provider work is pending cancels that work.
+oversized and early output. One cooperative deadline, capped at 300 seconds, covers
+the conversation and provider work; early output/EOF while provider work is pending
+cancels that work.
 Disconnect detection can race dispatch: a request already sent may still charge,
 so the spending controller's conservative uncertainty rules remain necessary.
 Killing the attached Docker client is followed by existing exact-container removal

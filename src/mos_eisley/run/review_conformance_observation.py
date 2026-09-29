@@ -1,4 +1,4 @@
-"""Authenticate an independent observer's account of one completed review probe."""
+"""Authenticate an enrolled observer's account of one completed review probe."""
 
 import base64
 import binascii
@@ -17,6 +17,7 @@ from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceAuthorityPolicy,
+    ReviewOperatorMode,
     SignedReviewConformanceAuthorization,
     review_conformance_scope,
     verify_review_conformance_authorization,
@@ -104,14 +105,23 @@ class ReviewObservedExchange(Contract):
             <= self.generation_finished_at
         ):
             raise ValueError("review observation exchange times are out of order")
+        if (self.count_finished_at - self.count_started_at).total_seconds() > 60 or (
+            self.generation_finished_at - self.generation_started_at
+        ).total_seconds() > 60:
+            raise ValueError(
+                "review observation provider operation exceeded 60 seconds"
+            )
         return self
 
 
 class ReviewProbeObservation(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_probe_observation"] = "review_probe_observation"
     observation_policy_sha256: Digest
     authority_policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     critic_preview_sha256: Digest
     controller_start_sha256: Digest
     judge_preview_sha256: Digest
@@ -155,10 +165,13 @@ class SignedReviewProbeObservation(Contract):
 
 
 class AuthenticatedReviewProbe(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["authenticated_review_probe"] = "authenticated_review_probe"
     signed_observation_sha256: Digest
     observation_policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     controller_sha256: Digest
     result_sha256: Digest
     observer_authenticated: Literal[True] = True
@@ -186,7 +199,7 @@ def make_review_probe_observation(
     exchanges: tuple[ReviewObservedExchange, ...],
     observed_at: datetime,
 ) -> ReviewProbeObservation:
-    """Reconstruct local provenance; an observer must independently attest runtime."""
+    """Reconstruct local provenance; an enrolled observer attests the runtime."""
     policy = ReviewObservationPolicy.model_validate_json(canonical_bytes(policy))
     authority_policy = ReviewConformanceAuthorityPolicy.model_validate_json(
         canonical_bytes(authority_policy)
@@ -239,8 +252,10 @@ def make_review_probe_observation(
             <= exchange.generation_finished_at
             < start.expires_at
             or exchange.generation_finished_at > observed_at
+            or (exchange.count_finished_at - exchange.count_started_at).total_seconds()
+            > 60
             or (
-                exchange.generation_finished_at - exchange.count_started_at
+                exchange.generation_finished_at - exchange.generation_started_at
             ).total_seconds()
             > 60
         ):
@@ -276,13 +291,13 @@ def make_review_probe_observation(
     result = verify_retained_review_result(
         critics.envelope, reviewer, ledger, judge.authorization, expected_result_sha256
     )
-    if result.result.verdict.decision == "infrastructure_error" or any(
-        item.error is not None for item in result.result.critics
-    ):
+    if result.result.verdict.decision == "infrastructure_error":
         raise ValueError("review observation requires successful critics and judge")
     return ReviewProbeObservation(
+        schema_version=2 if authority_policy.operator_mode == "single_operator" else 1,
         observation_policy_sha256=digest(canonical_bytes(policy)),
         authority_policy_sha256=authority_policy.sha256,
+        operator_mode=authority_policy.operator_mode,
         critic_preview_sha256=digest(canonical_bytes(critics)),
         controller_start_sha256=digest(canonical_bytes(start)),
         judge_preview_sha256=judge.sha256,
@@ -327,7 +342,7 @@ def authenticate_review_probe(
     expected_result_sha256: str,
     now: datetime,
 ) -> AuthenticatedReviewProbe:
-    """Read-only historical verification against independently selected inputs."""
+    """Read-only historical verification against caller-selected inputs."""
     signed = SignedReviewProbeObservation.model_validate_json(canonical_bytes(signed))
     policy = ReviewObservationPolicy.model_validate_json(canonical_bytes(policy))
     authority_policy = ReviewConformanceAuthorityPolicy.model_validate_json(
@@ -344,7 +359,7 @@ def authenticate_review_probe(
         and item.key_sha256 == signed.public_key_sha256
     ]
     if len(enrolled) != 1:
-        raise ValueError("review probe observer is not independently enrolled")
+        raise ValueError("review probe observer is not enrolled")
     try:
         Ed25519PublicKey.from_public_bytes(
             base64.b64decode(enrolled[0].public_key_base64)
@@ -370,8 +385,10 @@ def authenticate_review_probe(
     if signed.observation != expected:
         raise ValueError("review probe observation differs from reconstructed evidence")
     return AuthenticatedReviewProbe(
+        schema_version=2 if authority_policy.operator_mode == "single_operator" else 1,
         signed_observation_sha256=digest(canonical_bytes(signed)),
         observation_policy_sha256=digest(canonical_bytes(policy)),
+        operator_mode=authority_policy.operator_mode,
         controller_sha256=critics.sha256,
         result_sha256=expected_result_sha256,
     )

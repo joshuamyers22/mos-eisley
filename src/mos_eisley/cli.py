@@ -27,6 +27,15 @@ from mos_eisley import (
     review_live_cli,
     review_observer_cli,
     review_submission_cli,
+    reviewer_candidate_execution_cli,
+    reviewer_correction_cli,
+    reviewer_final_suites_cli,
+    reviewer_implementation_binding_cli,
+    reviewer_independent_review_cli,
+    reviewer_provenance_cli,
+    reviewer_single_operator_review_cli,
+    reviewer_test_execution_cli,
+    reviewer_test_package_cli,
 )
 from mos_eisley.core.agent import AgentConfig, AgentFailure, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
@@ -55,6 +64,13 @@ from mos_eisley.evaluation.authentication import (
     SignedAdjudication,
     authenticate_adjudication,
 )
+from mos_eisley.evaluation.context_study import (
+    BaselineAblationPolicy,
+    EligibleLabelInventory,
+    IndependentLabelCatalog,
+    inventory_independent_labels,
+    seal_baseline_ablation_policy,
+)
 from mos_eisley.evaluation.execution import (
     BlindingMap,
     EvaluationCassette,
@@ -62,6 +78,10 @@ from mos_eisley.evaluation.execution import (
     RawResultSet,
     make_execution_batch,
     run_recorded_evaluation,
+)
+from mos_eisley.evaluation.feasibility import (
+    EvaluationStudyBudget,
+    assess_evaluation_feasibility,
 )
 from mos_eisley.evaluation.lineage import (
     DualGradedObservationSet,
@@ -757,6 +777,136 @@ def parser() -> argparse.ArgumentParser:
             help="Verify and append a separately signed campaign observation",
         )
     )
+    for name, help_text in (
+        (
+            "g4-freeze-reviewer-test-package",
+            "Freeze a blind reviewer-test package without execution authority",
+        ),
+        (
+            "g4-verify-reviewer-test-package",
+            "Replay-verify a frozen reviewer-test package without extracting it",
+        ),
+    ):
+        reviewer_test_package_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-bind-reviewer-implementation",
+            "Bind a frozen reviewer package to an allowlisted implementation surface",
+        ),
+        (
+            "g4-verify-reviewer-implementation-binding",
+            "Verify an immutable implementation binding against current inputs",
+        ),
+    ):
+        reviewer_implementation_binding_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-run-reviewer-tests-isolated",
+            "Run bound reviewer tests in one immutable offline container",
+        ),
+        (
+            "g4-verify-reviewer-test-execution",
+            "Verify an execution receipt against current bound inputs",
+        ),
+        (
+            "g4-validate-reviewer-test-controls",
+            "Validate paired known-good and known-bad execution receipts",
+        ),
+        (
+            "g4-verify-reviewer-test-controls",
+            "Replay-verify an immutable known-control validation record",
+        ),
+    ):
+        reviewer_test_execution_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-record-reviewer-git-provenance",
+            "Reconstruct exact binding and child lineage through read-only Git",
+        ),
+        (
+            "g4-assemble-reviewer-provenance",
+            "Assemble authenticated custody, VCS, E2 and control evidence",
+        ),
+        (
+            "g4-verify-reviewer-provenance",
+            "Replay authenticated custody and current read-only Git provenance",
+        ),
+    ):
+        reviewer_provenance_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-check-candidate-execution",
+            "Admit one separately approved offline candidate test request",
+        ),
+        (
+            "g4-dispatch-candidate-execution",
+            "Spend one candidate approval and run in the immutable container",
+        ),
+        (
+            "g4-verify-candidate-execution",
+            "Replay-verify one candidate dispatch receipt against current Git",
+        ),
+    ):
+        reviewer_candidate_execution_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-admit-correction-cycle",
+            "Claim one evidence-gated offline correction cycle",
+        ),
+        ("g4-complete-correction-cycle", "Verify a renewed G4 chain after correction"),
+    ):
+        reviewer_correction_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-run-final-whole-suites",
+            "Spend one exact approval and run final creator/reviewer suites offline",
+        ),
+        (
+            "g4-verify-final-whole-suites",
+            "Replay final creator/reviewer suite evidence against current Git",
+        ),
+    ):
+        reviewer_final_suites_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-assemble-independent-review",
+            "Assemble signed G4 implementation-review evidence offline",
+        ),
+        (
+            "g4-verify-independent-review",
+            "Replay G4 implementation-review evidence against current Git",
+        ),
+    ):
+        reviewer_independent_review_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
+    for name, help_text in (
+        (
+            "g4-assemble-single-operator-review",
+            "Assemble owner-attested G4 two-provider review evidence offline",
+        ),
+        (
+            "g4-verify-single-operator-review",
+            "Replay owner-attested G4 review against current evidence",
+        ),
+    ):
+        reviewer_single_operator_review_cli.add_arguments(
+            subcommands.add_parser(name, help=help_text), name
+        )
     conformance = subcommands.add_parser(
         "openai-conformance",
         help="Run one explicitly authorized blinded OpenAI conformance assignment",
@@ -813,6 +963,30 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Acknowledge access to private OpenAI organization billing metadata",
     )
+    eval_feasibility = subcommands.add_parser(
+        "eval-feasibility",
+        help="Calculate fixed-matrix case, assignment and spend feasibility",
+    )
+    eval_feasibility.add_argument("--candidates", type=Path, required=True)
+    eval_feasibility.add_argument("--gate", type=Path, required=True)
+    eval_feasibility.add_argument("--study-budget", type=Path, required=True)
+    eval_feasibility.add_argument("--output", type=Path, required=True)
+    eval_labels = subcommands.add_parser(
+        "eval-inventory-labels",
+        help="Verify independent label receipts and emit metadata-only eligibility",
+    )
+    eval_labels.add_argument("--catalog", type=Path, required=True)
+    eval_labels.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_labels.add_argument("--output", type=Path, required=True)
+    eval_context_policy = subcommands.add_parser(
+        "eval-seal-context-policy",
+        help="Seal matched baseline, candidate, and component-ablation arms",
+    )
+    eval_context_policy.add_argument("--policy", type=Path, required=True)
+    eval_context_policy.add_argument("--catalog", type=Path, required=True)
+    eval_context_policy.add_argument("--grading-trust-policy", type=Path, required=True)
+    eval_context_policy.add_argument("--label-inventory", type=Path, required=True)
+    eval_context_policy.add_argument("--output", type=Path, required=True)
     eval_plan = subcommands.add_parser(
         "eval-plan", help="Create a deterministic backend/model/effort sweep plan"
     )
@@ -7127,8 +7301,96 @@ def _routing_runtime_preflight_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _evaluation_feasibility_command(args: argparse.Namespace) -> int:
+    candidates = CandidateGrid.model_validate_json(
+        read_bounded(cast(Path, args.candidates))
+    )
+    gate = EvaluationGate.model_validate_json(read_bounded(cast(Path, args.gate)))
+    study_budget = EvaluationStudyBudget.model_validate_json(
+        read_bounded(cast(Path, args.study_budget))
+    )
+    report = assess_evaluation_feasibility(candidates, gate, study_budget)
+    output = cast(Path, args.output)
+    _write_contract(output, report)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.feasibility.assessed",
+                "path": str(output),
+                "report_sha256": report.report_sha256,
+                "minimum_resource_feasible": report.minimum_resource_feasible,
+                "issues": report.issues,
+                "study_execution_authorized": report.study_execution_authorized,
+            }
+        )
+    )
+    return 0 if report.minimum_resource_feasible else 1
+
+
+def _inventory_independent_labels_command(args: argparse.Namespace) -> int:
+    catalog = IndependentLabelCatalog.model_validate_json(
+        read_bounded(cast(Path, args.catalog))
+    )
+    policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy))
+    )
+    inventory = inventory_independent_labels(catalog, policy)
+    output = cast(Path, args.output)
+    _write_contract(output, inventory)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.labels.inventoried",
+                "path": str(output),
+                "inventory_sha256": inventory.inventory_sha256,
+                "eligible": len(inventory.eligible),
+                "excluded": len(inventory.excluded),
+                "holdout_sessions_inspected": inventory.holdout_sessions_inspected,
+                "study_execution_authorized": inventory.study_execution_authorized,
+            }
+        )
+    )
+    return 0
+
+
+def _seal_context_policy_command(args: argparse.Namespace) -> int:
+    policy = BaselineAblationPolicy.model_validate_json(
+        read_bounded(cast(Path, args.policy))
+    )
+    catalog = IndependentLabelCatalog.model_validate_json(
+        read_bounded(cast(Path, args.catalog))
+    )
+    grading_policy = GradingTrustPolicy.model_validate_json(
+        read_bounded(cast(Path, args.grading_trust_policy))
+    )
+    inventory = EligibleLabelInventory.model_validate_json(
+        read_bounded(cast(Path, args.label_inventory))
+    )
+    sealed = seal_baseline_ablation_policy(policy, catalog, grading_policy, inventory)
+    output = cast(Path, args.output)
+    _write_contract(output, sealed)
+    print(
+        json.dumps(
+            {
+                "type": "evaluation.context_policy.sealed",
+                "path": str(output),
+                "sealed_policy_sha256": sealed.sealed_policy_sha256,
+                "eligible_label_count": sealed.eligible_label_count,
+                "available_arm_ids": sealed.available_arm_ids,
+                "unavailable_arm_ids": sealed.unavailable_arm_ids,
+                "holdout_sessions_inspected": sealed.holdout_sessions_inspected,
+                "study_execution_authorized": sealed.study_execution_authorized,
+            }
+        )
+    )
+    return 0
+
+
 def _specialized_evaluation_command(args: argparse.Namespace) -> int | None:
     handlers = {
+        "eval-feasibility": _evaluation_feasibility_command,
+        "eval-inventory-labels": _inventory_independent_labels_command,
+        "eval-seal-context-policy": _seal_context_policy_command,
         "eval-compile-brokered-failure": _compile_brokered_failure_command,
         "eval-assemble-brokered-results": _assemble_brokered_results_command,
         "eval-convert-openai-conformance": _convert_openai_conformance_command,
@@ -7920,6 +8182,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             "review-campaign-observation-preview",
             "review-campaign-evidence-append",
             "review-launch-conformance-check",
+            "g4-freeze-reviewer-test-package",
+            "g4-verify-reviewer-test-package",
+            "g4-bind-reviewer-implementation",
+            "g4-verify-reviewer-implementation-binding",
+            "g4-run-reviewer-tests-isolated",
+            "g4-verify-reviewer-test-execution",
+            "g4-validate-reviewer-test-controls",
+            "g4-verify-reviewer-test-controls",
+            "g4-record-reviewer-git-provenance",
+            "g4-assemble-reviewer-provenance",
+            "g4-verify-reviewer-provenance",
+            "g4-check-candidate-execution",
+            "g4-dispatch-candidate-execution",
+            "g4-verify-candidate-execution",
+            "g4-admit-correction-cycle",
+            "g4-complete-correction-cycle",
+            "g4-run-final-whole-suites",
+            "g4-verify-final-whole-suites",
+            "g4-assemble-independent-review",
+            "g4-verify-independent-review",
+            "g4-assemble-single-operator-review",
+            "g4-verify-single-operator-review",
             "anthropic-probe",
             "operator-review",
             "review-live",
@@ -7935,6 +8219,62 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "review-campaign-evidence-append": review_submission_cli.run_command,
                 "review-launch-conformance-check": (
                     review_launch_conformance_cli.run_command
+                ),
+                "g4-freeze-reviewer-test-package": (
+                    reviewer_test_package_cli.run_command
+                ),
+                "g4-verify-reviewer-test-package": (
+                    reviewer_test_package_cli.run_command
+                ),
+                "g4-bind-reviewer-implementation": (
+                    reviewer_implementation_binding_cli.run_command
+                ),
+                "g4-verify-reviewer-implementation-binding": (
+                    reviewer_implementation_binding_cli.run_command
+                ),
+                "g4-run-reviewer-tests-isolated": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-verify-reviewer-test-execution": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-validate-reviewer-test-controls": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-verify-reviewer-test-controls": (
+                    reviewer_test_execution_cli.run_command
+                ),
+                "g4-record-reviewer-git-provenance": (
+                    reviewer_provenance_cli.run_command
+                ),
+                "g4-assemble-reviewer-provenance": (
+                    reviewer_provenance_cli.run_command
+                ),
+                "g4-verify-reviewer-provenance": (reviewer_provenance_cli.run_command),
+                "g4-check-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
+                "g4-dispatch-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
+                "g4-verify-candidate-execution": (
+                    reviewer_candidate_execution_cli.run_command
+                ),
+                "g4-admit-correction-cycle": (reviewer_correction_cli.run_command),
+                "g4-complete-correction-cycle": (reviewer_correction_cli.run_command),
+                "g4-run-final-whole-suites": (reviewer_final_suites_cli.run_command),
+                "g4-verify-final-whole-suites": (reviewer_final_suites_cli.run_command),
+                "g4-assemble-independent-review": (
+                    reviewer_independent_review_cli.run_command
+                ),
+                "g4-verify-independent-review": (
+                    reviewer_independent_review_cli.run_command
+                ),
+                "g4-assemble-single-operator-review": (
+                    reviewer_single_operator_review_cli.run_command
+                ),
+                "g4-verify-single-operator-review": (
+                    reviewer_single_operator_review_cli.run_command
                 ),
                 "anthropic-probe": anthropic_probe_cli.run_command,
                 "operator-review": operator_review_cli.run_command,

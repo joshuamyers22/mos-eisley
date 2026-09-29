@@ -61,7 +61,9 @@ selection uses only that owner's minimal aggregates allowed by §17.3: no raw
 conversations, code, embeddings, exact paths, case fingerprints, or retrieval of
 nearest historical trajectories. Explicit same-owner inspection does not grant a
 standing retrieval permission. An offline study can explicitly select same-owner
-evidence; its resulting selection artifact must still satisfy §17.3. No pooling
+evidence only after the production study-start gate in
+[ADR-0011](adr/0011-defer-studies-until-production.md); its resulting selection
+artifact must still satisfy §17.3. No pooling
 across users. Deletion/reset invalidates dependent aggregates and policies whose
 required evidence is no longer available.
 
@@ -158,14 +160,20 @@ truncation, fallback/OOD coverage and escalation payoff. Zero verified successes
 makes cost-per-success undefined and the policy ineligible. No fixed number of
 cases proves rare damage is below its ceiling; plan attainable confidence first.
 
-Freeze the candidate on calibration and consume the independently held holdout
-once. Monitoring may quarantine/stop a policy; it cannot refit and reactivate it.
+Freeze a candidate on calibration and consume that cohort's independently held
+holdout once. Monitoring may quarantine/stop a policy; it cannot silently refit
+and reactivate it. [Plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+allows later registered owner-scoped production cohorts to collect new evidence,
+recalibrate from mature prior windows and independently promote a version that
+passes a fresh future holdout. The grading rubric and measurement path stay fixed.
+New candidates remain shadow-only until their exact complete policy qualifies;
+live randomization uses only already-qualified actions. Each immutable production
+version changes only between cohorts through the existing promotion/control chain.
+Within-cohort adaptation needs a separately reviewed R4 sequential protocol.
 Model/client/prompt/tool/template drift, insufficient recent evidence, or a passed
-freshness deadline triggers conservative fallback or stop and a new study. Keep
-calendar freshness limits as well as recent-window comparisons; quiet traffic is
-not evidence of continued quality. Reuse the existing promotion/control chain;
-resolve external monotonic witness, authority custody and atomic one-use broker
-dispatch before runtime traffic.
+freshness deadline triggers conservative fallback or stop and new evidence. Quiet
+traffic is not evidence of continued quality. Resolve external monotonic witness,
+authority custody and atomic one-use broker dispatch before runtime traffic.
 
 ## Delivery gates
 
@@ -178,7 +186,9 @@ dispatch before runtime traffic.
    evidence means retain fixed routes; stopping at R0/R1 is a valid outcome.
 4. **R3 — operational activation:** current conformance, ownership enforcement,
    signer/witness operations, race-tested dispatch, spend, cancellation and rollback
-   gates pass. Start a bounded cohort with fixed measurement components.
+   gates pass. Start a bounded cohort with fixed measurement components. The
+   recurring, independently reviewed between-cohort promotion path is §26.6 Level 3.
 5. **R4 — advanced experiments:** transfer, output-budget routing, supported
-   off-policy estimation and bandits each need their own R1–R3 evidence. Online
-   learning is not implied by installing a frozen policy.
+   off-policy estimation, bandits and within-cohort adaptation each need their own
+   reviewed sequential design and R1–R3 evidence. Production monitoring alone
+   never authorizes online policy updates.

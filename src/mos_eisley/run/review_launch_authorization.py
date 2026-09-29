@@ -1,4 +1,4 @@
-"""A separately signed, domain-separated decision for one exact review launch."""
+"""A domain-separated signed decision for one exact review launch."""
 
 import base64
 import binascii
@@ -16,6 +16,7 @@ from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
 from mos_eisley.run.review_conformance_authorization import (
     ReviewConformanceSigner,
+    ReviewOperatorMode,
 )
 
 _DOMAIN = b"mos-eisley/review-launch-decision/v2\x00"
@@ -38,7 +39,7 @@ def _utc(value: datetime) -> datetime:
 
 
 class ReviewLaunchAuthorityPolicy(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_launch_authority_policy"] = "review_launch_authority_policy"
     policy_id: Identifier
     reviewers: Annotated[
@@ -48,6 +49,9 @@ class ReviewLaunchAuthorityPolicy(Contract):
     valid_until: datetime
     max_decision_seconds: Annotated[int, Field(gt=0, le=600)]
     max_reserved_microusd: Annotated[int, Field(gt=0, le=1_000_000_000_000)]
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     local_and_phase_approvals_required: Literal[True] = True
     automatic_activation_authorized: Literal[False] = False
 
@@ -61,6 +65,13 @@ class ReviewLaunchAuthorityPolicy(Contract):
         if self.valid_from >= self.valid_until:
             raise ValueError("launch authority window must be positive")
         ids = tuple(s.signer_id for s in self.reviewers)
+        if (self.operator_mode == "separated" and self.schema_version != 1) or (
+            self.operator_mode == "single_operator"
+            and (self.schema_version != 2 or len(self.reviewers) != 1)
+        ):
+            raise ValueError(
+                "launch authority schema or roster differs from operator mode"
+            )
         if ids != tuple(sorted(set(ids))) or len(
             {s.key_sha256 for s in self.reviewers}
         ) != len(ids):
@@ -75,10 +86,13 @@ class ReviewLaunchAuthorityPolicy(Contract):
 
 
 class ReviewLaunchScope(Contract):
-    schema_version: Literal[2] = 2
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_launch_scope"] = "review_launch_scope"
     launch_authority_policy_sha256: Digest
     phase_authority_policy_sha256: Digest
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
     configuration_sha256: Digest
     critic_preview_sha256: Digest
     seal_sha256: Digest
@@ -98,16 +112,23 @@ class ReviewLaunchScope(Contract):
 
 
 class ReviewLaunchDecision(Contract):
-    schema_version: Literal[2] = 2
+    schema_version: Literal[1, 2] = 1
     mode: Literal["review_launch_decision"] = "review_launch_decision"
     scope: ReviewLaunchScope
     issued_at: datetime
     valid_until: datetime
-    # These are human assertions, never inferred from fixture or verifier success.
-    human_custody_mode: Literal["owner_operated"] = "owner_operated"
+    operator_mode: ReviewOperatorMode = Field(
+        default="separated", exclude_if=lambda value: value == "separated"
+    )
+    # Human assertions are never inferred from fixture or verifier success.
     commitment_custody_reviewed: Literal[True]
     credentialed_campaign_reviewed: Literal[True]
-    observer_assessment_reviewed: Literal[True]
+    independent_observer_assessment_reviewed: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    single_operator_self_review_risk_accepted: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     exact_launch_authorized: Literal[True] = True
     local_and_phase_approvals_required: Literal[True] = True
     automatic_retry_authorized: Literal[False] = False
@@ -117,6 +138,27 @@ class ReviewLaunchDecision(Contract):
     @classmethod
     def utc(cls, value: datetime) -> datetime:
         return _utc(value)
+
+    @model_validator(mode="after")
+    def coherent_operator_assertions(self) -> Self:
+        if self.operator_mode == "separated":
+            if (
+                self.schema_version != 1
+                or self.independent_observer_assessment_reviewed is not True
+                or self.single_operator_self_review_risk_accepted is not None
+            ):
+                raise ValueError(
+                    "separated launch requires independent review assertion"
+                )
+        elif (
+            self.schema_version != 2
+            or self.independent_observer_assessment_reviewed is not None
+            or self.single_operator_self_review_risk_accepted is not True
+        ):
+            raise ValueError(
+                "single-operator launch requires explicit self-review risk acceptance"
+            )
+        return self
 
 
 class SignedReviewLaunchDecision(Contract):
@@ -159,6 +201,8 @@ def verify_review_launch_decision(
     decision = signed.decision
     if (
         decision.scope != expected
+        or decision.operator_mode != policy.operator_mode
+        or expected.operator_mode != policy.operator_mode
         or policy.sha256 != expected.launch_authority_policy_sha256
         or not policy.valid_from
         <= decision.issued_at
@@ -178,7 +222,7 @@ def verify_review_launch_decision(
         if s.signer_id == signed.signer_id and s.key_sha256 == signed.public_key_sha256
     ]
     if len(enrolled) != 1:
-        raise ValueError("launch decision signer is not enrolled")
+        raise ValueError("launch reviewer is not enrolled")
     try:
         Ed25519PublicKey.from_public_bytes(
             _decode(enrolled[0].public_key_base64, 32)

@@ -59,6 +59,8 @@ from mos_eisley.run.broker_audit import (
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.provider_broker import (
+    MAX_BROKER_CLAIM_SECONDS,
+    MAX_BROKER_EXCHANGE_SECONDS,
     MAX_REQUEST_BYTES,
     ApprovedRequest,
     RequestBoundBroker,
@@ -70,6 +72,9 @@ from mos_eisley.run.review_guidance import (
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
+STANDARD_REVIEW_AUTHORIZATION_SECONDS = 10 * 60
+FORMAL_CAMPAIGN_AUTHORIZATION_SECONDS = 30 * 60
+ReviewPreparationScope = Literal["standard", "formal_campaign"]
 BrokeredReviewClient = BrokeredOpenAIClient | BrokeredAnthropicClient
 
 
@@ -104,6 +109,9 @@ class ReviewAuthorization(BrokerAuthorization):
     reserved_microusd: Money
     ledger_policy_sha256: Digest
     expires_at: datetime
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
     guidance_sha256: Digest | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -134,20 +142,9 @@ class PreparedReviewCall:
         critic: CriticSpec | None = None,
         reserved_allowance: DeferredJudgeAllowance | None = None,
         guidance: ReviewGuidanceAdmission | None = None,
+        preparation_scope: ReviewPreparationScope = "standard",
         committed_authorization: ReviewAuthorization | None = None,
-        authorization_lifetime_seconds: int = 600,
-        authorization_ttl_seconds: int | None = None,
     ) -> None:
-        if authorization_ttl_seconds is not None:
-            if authorization_lifetime_seconds != 600:
-                raise ValueError("review authorization lifetime has two values")
-            if not 60 <= authorization_ttl_seconds <= 7_200:
-                raise ValueError(
-                    "review authorization lifetime must be 60 to 7200 seconds"
-                )
-            authorization_lifetime_seconds = authorization_ttl_seconds
-        elif not 0 < authorization_lifetime_seconds <= 3600:
-            raise ValueError("review authorization lifetime must be at most one hour")
         if guidance is not None:
             guidance.check_brief(request.brief)
         if isinstance(request, CriticRequest) and critic is not None:
@@ -216,9 +213,17 @@ class PreparedReviewCall:
             ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
             ledger_entry_id=digest(uuid4().bytes),
             expires_at=min(
-                datetime.now(UTC) + timedelta(seconds=authorization_lifetime_seconds),
+                datetime.now(UTC)
+                + timedelta(
+                    seconds=(
+                        FORMAL_CAMPAIGN_AUTHORIZATION_SECONDS
+                        if preparation_scope == "formal_campaign"
+                        else STANDARD_REVIEW_AUTHORIZATION_SECONDS
+                    )
+                ),
                 policy.valid_until,
             ),
+            preparation_scope=preparation_scope,
             guidance_sha256=None if guidance is None else guidance.prepared.sha256,
         )
         if committed_authorization is not None:
@@ -322,9 +327,9 @@ class PreparedReviewCall:
     def check_current(self, timeout: float) -> None:
         if self._guidance is not None:
             self._guidance.check()
-        if not math.isfinite(timeout) or not 0 < timeout <= 60:
+        if not math.isfinite(timeout) or not 0 < timeout <= MAX_BROKER_EXCHANGE_SECONDS:
             raise ValueError(
-                "review broker timeout must be between zero and 60 seconds"
+                "review broker exchange timeout must be between zero and 300 seconds"
             )
         self._policy.check_current()
         if datetime.now(UTC) >= self._authorization.expires_at:
@@ -385,7 +390,8 @@ class PreparedReviewCall:
         broker = RequestBoundBroker(
             review_request_payload(self.model_request),
             controller,
-            lifetime_seconds=min(timeout, remaining),
+            lifetime_seconds=min(MAX_BROKER_CLAIM_SECONDS, timeout, remaining),
+            exchange_timeout_seconds=min(timeout, remaining),
             audit=audit,
         )
         client_type = (
@@ -410,6 +416,9 @@ class DeferredJudgeAllowance(Contract):
     spend_policy: SpendPolicy
     ledger_entry_id: Digest
     reserved_microusd: Money
+    preparation_scope: ReviewPreparationScope = Field(
+        default="standard", exclude_if=lambda value: value == "standard"
+    )
     transfer_authorized: Literal[False] = False
 
     @model_validator(mode="after")
@@ -452,15 +461,18 @@ class ReviewSpendingEnvelope(Contract):
     @model_validator(mode="after")
     def coherent_envelope(self) -> Self:
         first = self.critics[0]
-        if any(
+        if self.judge.preparation_scope != first.preparation_scope or any(
             call.role != "critic"
             or call.brief_sha256 != self.judge.brief_sha256
             or call.ledger_policy_sha256 != self.ledger_policy_sha256
             or call.ledger_id != first.ledger_id
             or call.guidance_sha256 != first.guidance_sha256
+            or call.preparation_scope != first.preparation_scope
             for call in self.critics
         ):
-            raise ValueError("review envelope mixes role, brief or spending scopes")
+            raise ValueError(
+                "review envelope mixes role, brief, spending or preparation scopes"
+            )
         ids = [call.ledger_entry_id for call in self.critics] + [
             self.judge.ledger_entry_id
         ]
@@ -516,6 +528,7 @@ class PreparedReviewEnvelope:
             reserved_microusd=judge_policy.reservation_cost(
                 judge_policy.max_input_tokens, judge_policy.max_output_tokens
             ),
+            preparation_scope=critics[0].authorization.preparation_scope,
         )
         if committed_judge is not None:
             committed = DeferredJudgeAllowance.model_validate_json(
@@ -596,6 +609,10 @@ class PreparedReviewEnvelope:
         private_write(directory / "envelope.json", canonical_bytes(self.envelope))
         return ReservedReviewEnvelope(self)
 
+    def retire_unused_judge_allowance(self) -> bool:
+        """Retire only the spend-only source allowance, never a judge request."""
+        return self._ledger.retire_unused(self.envelope.judge.ledger_entry)
+
 
 class ReservedReviewEnvelope:
     """Trusted host handle; fixed child paths make every critic issuance exclusive."""
@@ -671,6 +688,7 @@ class PreparedJudgeTransfer:
             envelope.ledger,
             reserved_allowance=envelope.envelope.judge,
             guidance=envelope.critics[0].guidance,
+            preparation_scope=envelope.envelope.judge.preparation_scope,
         )
         self._authorization = JudgeTransferAuthorization(
             envelope_sha256=envelope.approval_sha256,
@@ -764,8 +782,12 @@ def verify_judge_transfer(
         digest(raw_envelope) != expected.envelope_sha256
         or ledger.policy.ledger_id != expected.call.ledger_id
         or expected.call.guidance_sha256 != envelope.critics[0].guidance_sha256
+        or expected.call.preparation_scope != envelope.judge.preparation_scope
+        or expected.call.preparation_scope != envelope.critics[0].preparation_scope
     ):
-        raise ValueError("judge transfer envelope or ledger mismatch")
+        raise ValueError(
+            "judge transfer envelope, ledger or preparation scope mismatch"
+        )
     source = ledger.entry_status(expected.allowance.entry_id)
     target = ledger.entry_status(expected.call.ledger_entry_id)
     if (

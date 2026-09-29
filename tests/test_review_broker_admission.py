@@ -152,7 +152,7 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             self.prepared.authorization.brief_sha256, self.request.brief.brief_id
         )
 
-    def test_extended_campaign_preview_lifetime_is_bounded(self) -> None:
+    def test_formal_campaign_preview_lifetime_is_bounded(self) -> None:
         policy = self.policy.model_copy(
             update={"valid_until": datetime.now(UTC) + timedelta(hours=3)}
         )
@@ -162,21 +162,21 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             policy,
             self.ledger,
             critic=self.critic,
-            authorization_ttl_seconds=7_200,
+            preparation_scope="formal_campaign",
         )
         remaining = (
             prepared.authorization.expires_at - datetime.now(UTC)
         ).total_seconds()
-        self.assertGreater(remaining, 7_190)
-        self.assertLessEqual(remaining, 7_200)
-        with self.assertRaisesRegex(ValueError, "lifetime must be"):
+        self.assertGreater(remaining, 1_790)
+        self.assertLessEqual(remaining, 1_800)
+        with self.assertRaises(ValueError):
             PreparedReviewCall(
                 self.reviewer,
                 self.request,
                 policy,
                 self.ledger,
                 critic=self.critic,
-                authorization_ttl_seconds=7_201,
+                preparation_scope="unbounded",  # type: ignore[arg-type]
             )
 
     def test_exact_confirmation_required_before_any_effect(self) -> None:
@@ -304,6 +304,41 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             clock.now.return_value = future
             with self.assertRaises(ValueError):
                 self.issue()
+        self.assertEqual(self.ledger.snapshot().entries, 0)
+
+    def test_approval_window_is_scope_specific_and_pricing_bounded(self) -> None:
+        now = datetime.now(UTC)
+        with patch("mos_eisley.run.review_broker.datetime") as clock:
+            clock.now.return_value = now
+            prepared = self.prepare()
+            campaign = PreparedReviewCall(
+                self.reviewer,
+                self.request,
+                self.policy,
+                self.ledger,
+                critic=self.critic,
+                preparation_scope="formal_campaign",
+            )
+            pricing_bounded = self.prepare(
+                self.policy.model_copy(
+                    update={"valid_until": now + timedelta(minutes=5)}
+                )
+            )
+        self.assertEqual(prepared.authorization.expires_at, now + timedelta(minutes=10))
+        self.assertEqual(prepared.authorization.preparation_scope, "standard")
+        self.assertNotIn(
+            b'"preparation_scope"', canonical_bytes(prepared.authorization)
+        )
+        self.assertEqual(campaign.authorization.expires_at, now + timedelta(minutes=30))
+        self.assertEqual(campaign.authorization.preparation_scope, "formal_campaign")
+        self.assertIn(
+            b'"preparation_scope":"formal_campaign"',
+            canonical_bytes(campaign.authorization),
+        )
+        self.assertEqual(
+            pricing_bounded.authorization.expires_at,
+            now + timedelta(minutes=5),
+        )
         self.assertEqual(self.ledger.snapshot().entries, 0)
 
     def test_policy_must_still_be_current_at_issue(self) -> None:
@@ -514,7 +549,7 @@ class ReviewAdmissionTests(ReviewAdmissionFixture, IsolatedAsyncioTestCase):
             verify_review_broker_audit(self.directory, self.prepared.authorization)
 
     def test_invalid_timeout_does_not_reserve(self) -> None:
-        for timeout in (0, 61, float("nan"), float("inf")):
+        for timeout in (0, 301, float("nan"), float("inf")):
             with self.subTest(timeout=timeout), self.assertRaises(ValueError):
                 self.prepared.issue(
                     approved_transfer_sha256=self.prepared.approval_sha256,

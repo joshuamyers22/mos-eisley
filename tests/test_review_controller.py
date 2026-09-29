@@ -22,9 +22,14 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvelope
 from mos_eisley.run.review_controller import (
     BrokeredReviewController,
+    ControllerAuthorization,
+    ControllerCriticPreview,
+    ControllerStart,
     ControllerTerminal,
+    review_exchange_timeout,
 )
 from mos_eisley.run.review_verdict import verify_retained_review_result
+from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ControllerFixture(TestCase):
@@ -78,6 +83,39 @@ class ControllerFixture(TestCase):
             total_seconds=30,
         )
 
+    def make_formal_controller(self):
+        directory = self.base.root / "formal-review"
+        calls = tuple(
+            PreparedReviewCall(
+                self.base.reviewer,
+                self.base.request,
+                self.base.policy,
+                self.base.ledger,
+                critic=self.base.critic.model_copy(update={"id": name}),
+                preparation_scope="formal_campaign",
+            )
+            for name in ("formal-one", "formal-two")
+        )
+        envelope = PreparedReviewEnvelope(
+            calls,
+            self.base.policy,
+            self.base.ledger,
+            max_total_microusd=975,
+            directory=directory,
+        )
+        controller = BrokeredReviewController(
+            envelope, self.base.reviewer, self.policy, total_seconds=30
+        )
+        transports = tuple(
+            FakeTransport(directory / call.authorization.ledger_entry_id)
+            for call in calls
+        )
+        for transport in transports:
+            transport.response = broker_fixture.output(
+                canonical_bytes(Critique()).decode()
+            )
+        return directory, envelope, controller, transports
+
     async def critics(self):
         return await self.controller.run_critics(
             approved_controller_sha256=self.controller.approval_sha256,
@@ -99,6 +137,31 @@ class ControllerFixture(TestCase):
 
 
 class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
+    def test_formal_grace_rejects_substitution_and_standard_scope(self):
+        authorization = self.controller.authorization
+        with self.assertRaises(ValueError):
+            ControllerAuthorization.model_validate(
+                authorization.model_dump()
+                | {"schema_version": 2, "judge_approval_seconds": 599}
+            )
+        formal_authorization = ControllerAuthorization.model_validate(
+            authorization.model_dump()
+            | {"schema_version": 2, "judge_approval_seconds": 600}
+        )
+        with self.assertRaises(ValueError):
+            ControllerCriticPreview(
+                authorization=formal_authorization,
+                envelope=self.envelope.envelope,
+                requests=self.controller.preview.requests,
+            )
+        with self.assertRaises(ValueError):
+            ControllerStart(
+                schema_version=2,
+                authorization=authorization,
+                started_at=self.envelope.envelope.expires_at,
+                expires_at=self.envelope.envelope.expires_at,
+            )
+
     async def test_exact_approvals_pause_judge_and_reconstruct_final_result(self):
         with self.assertRaises(ValueError):
             await self.controller.run_critics(
@@ -119,7 +182,11 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(result.result.verdict.decision, "accept")
         self.assertEqual(self.controller.phase, "finished")
         self.assertEqual(self.base.ledger.snapshot().charged_microusd, 60)
-        self.assertEqual(self.terminal().result_sha256, digest(canonical_bytes(result)))
+        terminal = self.terminal()
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        self.assertEqual(terminal.result_sha256, digest(canonical_bytes(result)))
+        self.assertFalse(self.envelope.retire_unused_judge_allowance())
         self.assertEqual(
             verify_retained_review_result(
                 self.envelope.envelope,
@@ -145,15 +212,22 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(self.controller.phase, "prepared")
         self.assertFalse(self.directory.exists())
 
-    def test_quorum_and_call_deadlines_are_checked_before_any_spend(self):
+    def test_quorum_is_checked_before_any_spend(self):
         for policy in (
             ReviewPolicy(),
             ReviewPolicy(min_critics=3, min_providers=1),
-            self.policy.model_copy(update={"timeout_seconds": 61.0}),
         ):
             with self.subTest(policy=policy), self.assertRaises(ValueError):
                 self.make_controller(policy)
         self.assertEqual(self.base.ledger.snapshot().entries, 0)
+
+    def test_policy_timeout_above_sixty_is_a_bounded_exchange_window(self):
+        controller = self.make_controller(
+            self.policy.model_copy(update={"timeout_seconds": 61.0})
+        )
+        self.assertEqual(controller.authorization.policy.timeout_seconds, 61.0)
+        self.assertEqual(review_exchange_timeout(61.0, 200.0), 120.0)
+        self.assertEqual(review_exchange_timeout(61.0, 45.0), 45.0)
 
     def test_request_budget_rejection_happens_before_any_spend(self):
         request = self.base.request.model_copy(
@@ -199,6 +273,72 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
             b"SECRET", (self.directory / "controller-terminal.json").read_bytes()
         )
 
+    async def test_three_critics_reach_two_quorum_with_one_invalid_response(self):
+        ledger = SpendLedger.create(self.base.root / "redundant.sqlite", 2_000)
+        directory = self.base.root / "redundant-review"
+        calls = tuple(
+            PreparedReviewCall(
+                self.base.reviewer,
+                self.base.request,
+                self.base.policy,
+                ledger,
+                critic=self.base.critic.model_copy(update={"id": name}),
+            )
+            for name in ("one", "two", "three")
+        )
+        envelope = PreparedReviewEnvelope(
+            calls,
+            self.base.policy,
+            ledger,
+            max_total_microusd=1_300,
+            directory=directory,
+        )
+        controller = BrokeredReviewController(
+            envelope,
+            self.base.reviewer,
+            ReviewPolicy(min_critics=2, min_providers=1),
+            total_seconds=30,
+        )
+        containers = tuple(
+            OfflineContainer(Path("/usr/bin/docker"), "sha256:" + char * 64)
+            for char in ("b", "c", "d")
+        )
+        for container in containers:
+            patcher = patch.object(
+                container, "exchange_async", side_effect=self.base.exchange
+            )
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        transports = tuple(
+            FakeTransport(directory / call.authorization.ledger_entry_id)
+            for call in calls
+        )
+        transports[0].response = broker_fixture.output("{}")
+        for transport in transports[1:]:
+            transport.response = broker_fixture.output(
+                canonical_bytes(Critique()).decode()
+            )
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=containers,
+        )
+        self.assertEqual(
+            [item.result.status for item in preview.evidence.critics],
+            ["error", "completed", "completed"],
+        )
+        judge = FakeTransport(directory / "judge")
+        judge.response = broker_fixture.output(
+            canonical_bytes(JudgeDecision(upheld=(), rationale="Fixture")).decode()
+        )
+        result = await controller.run_judge(
+            approved_preview_sha256=preview.sha256,
+            transport=judge,
+            container=containers[0],
+        )
+        self.assertEqual(result.result.verdict.decision, "accept")
+        self.assertEqual(len(judge.calls), 1)
+
     async def test_missing_quorum_blocks_judge_and_fails_controller(self):
         self.transports[0].response = broker_fixture.output("{}")
         with self.assertRaises(ValueError):
@@ -236,14 +376,87 @@ class ControllerTests(ControllerFixture, IsolatedAsyncioTestCase):
         self.assertEqual(self.judge.calls, [])
         self.assertFalse((self.directory / "judge-transfer.json").exists())
 
-    async def test_idle_cancel_keeps_judge_allowance_and_denies_continuation(self):
+    async def test_formal_judge_pause_preserves_remaining_execution_budget(self):
+        directory, _envelope, controller, transports = self.make_formal_controller()
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=self.containers,
+        )
+        self.assertEqual(controller.authorization.judge_approval_seconds, 600)
+        assert controller.start is not None
+        self.assertEqual(
+            (controller.start.expires_at - controller.start.started_at).total_seconds(),
+            630,
+        )
+        judge = FakeTransport(directory / "judge")
+        judge.response = broker_fixture.output(
+            canonical_bytes(JudgeDecision(upheld=(), rationale="Fixture")).decode()
+        )
+        loop = asyncio.get_running_loop()
+        later = loop.time() + 60
+        with patch.object(loop, "time", return_value=later):
+            result = await controller.run_judge(
+                approved_preview_sha256=preview.sha256,
+                transport=judge,
+                container=self.base.container,
+            )
+        self.assertEqual(result.result.verdict.decision, "accept")
+        self.assertEqual(controller.phase, "finished")
+
+    async def test_unbound_formal_idle_cancel_preserves_judge_allowance(self):
+        _directory, envelope, controller, transports = self.make_formal_controller()
+        preview = await controller.run_critics(
+            approved_controller_sha256=controller.approval_sha256,
+            transports=transports,
+            containers=self.containers,
+        )
+        before = self.base.ledger.snapshot()
+        controller.cancel()
+        terminal = ControllerTerminal.model_validate_json(
+            (
+                Path(envelope.envelope.artifact_directory) / "controller-terminal.json"
+            ).read_bytes()
+        )
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
+        after = self.base.ledger.snapshot()
+        self.assertEqual(after, before)
+        allowance = self.base.ledger.entry_status(
+            envelope.envelope.judge.ledger_entry_id
+        )
+        assert allowance is not None
+        self.assertEqual(
+            (allowance.status, allowance.charged_microusd),
+            ("held", envelope.envelope.judge.reserved_microusd),
+        )
+        with self.assertRaises(ValueError):
+            await controller.run_judge(
+                approved_preview_sha256=preview.sha256,
+                transport=self.judge,
+                container=self.base.container,
+            )
+
+    async def test_standard_idle_cancel_preserves_allowance_and_schema_one(self):
         preview = await self.critics()
         before = self.base.ledger.snapshot()
         self.controller.cancel()
-        self.assertEqual(self.terminal().phase, "cancelled")
+        terminal = self.terminal()
+        self.assertEqual(terminal.phase, "cancelled")
+        self.assertEqual(terminal.schema_version, 1)
+        self.assertFalse(terminal.unused_judge_allowance_retired)
         with self.assertRaises(ValueError):
             await self.finish(preview.sha256)
-        self.assertEqual(self.base.ledger.snapshot(), before)
+        after = self.base.ledger.snapshot()
+        self.assertEqual(after, before)
+        allowance = self.base.ledger.entry_status(
+            self.envelope.envelope.judge.ledger_entry_id
+        )
+        assert allowance is not None
+        self.assertEqual(
+            (allowance.status, allowance.charged_microusd),
+            ("held", self.envelope.envelope.judge.reserved_microusd),
+        )
 
     def test_cancel_before_start_has_no_persistent_effects(self):
         self.controller.cancel()

@@ -18,29 +18,415 @@ continuation, compaction or pressure behavior.
 |---|---|---|
 | G0 — complete | Clause/decision/outcome and work-unit/checkpoint contracts; cumulative context metrics; offline instruction/tool-profile diagnostics | Accurate private records, replay, disclosed omissions, required-input and budget-reset negative fixtures |
 | G1 — complete | Recorded conversation/review and sealed plan-reading experiment; bounded task lifecycle, author compaction, checkpoint continuation, work-unit-owned profiles and pressure indicators | No early reveal, revision invalidation, cancel/resume; fresh-context continuation detects changed tree/tests and preserves outstanding work and aggregate budgets |
-| G2 — default two-provider profile qualified | Retain exact live review qualifications; qualify other profiles separately | Signed owner review, provider quorum, spending and cancellation evidence for each exact qualified profile |
-| G3 | Affordable independent utility study, including matched session-policy comparisons after G1 | Feasible preregistered spend/sample design; protected holdout; completion, missed-evidence/stale-state errors, cumulative input, latency and whole-task cost; quality gates before savings claims |
-| G4 | Independent test derivation/binding and bounded correction | Execution/VCS/E2 gates, creator approval, complete test-package freeze, final tests and independent review |
+| G2 — exact profiles qualified; production launch separately gated | Maintain the qualified private live read-only critic/judge paths; require exact launch admission for any target call | The private Luna profile at commit `3b32f14` has three qualifying `accept` slots and accepted reconstruction. The separate [owner-operated G2 closeout](G2_OWNER_OPERATED_CONTRACT.md) records a signed Terra/Sonnet/Opus two-provider campaign and admitted launch for its frozen profile. Neither is general activation. |
+| G3 — planning boundaries implemented; all study execution deferred until production | Prepare an affordable real-task utility study and, if useful, the narrow objective-oracle protocol; do not enroll or run either before product launch | Documented launch and actual ordinary production operation plus a separately approved, feasible preregistered sample/spend design, protected holdout and real owner-task outcomes; quality gates before savings claims; broad ordinary-task qualification remains open |
+| G4 — offline foundations, Git integration, coding-child broker, final whole-suite and independent-review gates implemented | First isolated qualification has signed custody, paired controls, authenticated *seeded* VCS/E2 provenance and two independently approved failed-candidate receipts. Both failures trace to one missing half-up term; Joshua's single-operator triage and zero-spend cycle-1 admission verify. One separately granted contained offline dispatch produced a replay-verified, agent-authored deterministic proposal without provider spend. Separately signed isolated Git integration, renewed binding/provenance, a passing corrected candidate and separately granted passing final creator/reviewer whole suites replay-verify; the original branch is untouched. Independent review remains open. Provider use is impossible under this cycle and needs a fresh authorized chain | Actual separately approved provider child, authenticated critic quorum, renewed correction chain, passing final creator/reviewer suites on a real child and independent review |
 | G5/G6 | Qualified simplification, then brokered routing | Paired quality/damage/cost gates; real signer/witness operations and atomic one-use dispatch |
-| G7 | Optional transfer, output-budget and bandit research | Additional benefit and a separately reviewed statistical/activation protocol |
+| G7 | Advanced adaptive methods | Additional benefit and a separately reviewed statistical/activation protocol for transfer, output-budget routing, bandits or within-cohort adaptation |
 
-**Anthropic G2 status, 2026-09-27:** the
-[owner operated G2 contract and closeout](G2_OWNER_OPERATED_CONTRACT.md) record
-three accepted, signed live campaign slots and one separately signed, admitted
-Sonnet 5 critic / Opus 5.5 judge launch. The final launch settled at $0.050520
-with no unresolved entries. Earlier failed campaign and launch attempts remain
-retained and conservatively counted under Joshua Myers's $1 total cap. This
-qualifies only the focused, explicit one-provider profile. A separate mixed
-Terra/Sonnet/Opus campaign and live launch qualified the default two-provider
-quorum for its exact focused profile, with a $0.349244 new total charge and no
-unresolved entries. The earlier
-[operator route](ANTHROPIC_CONFORMANCE_CLOSEOUT.md) remains separate evidence.
+The [G5 paired whole-task preregistration protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+records the comparison and analysis rules that can be fixed before outcomes. Its
+study-specific numeric thresholds, sampling design, independent groups, labels,
+splits and feasibility calculation remain unset; no G5 study is sealed or qualified.
+
+**Continuous production study, 2026-09-25 — planned:** [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+adds three separately gated levels after the applicable provider and execution
+boundaries: (1) owner-scoped live measurement of a fixed policy, (2) bounded
+randomized production comparisons among already-qualified policies, and (3)
+recurring calibration on mature prior-window evidence with a fresh future holdout
+and independent promotion for each immutable policy version. The independent
+grading rubric stays fixed across levels and cohorts. These levels add no runtime
+authority today. Each cohort needs its own prospective manifest, feasible
+sample/spend design, durable assignment record, owner isolation, safety monitor,
+and tested stop/rollback path. Newly fitted policies stay shadow-only until G5
+qualification; within-cohort adaptive selection needs the separate G7/R4 gate.
+See [ADR 0009](adr/0009-continuous-production-evaluation.md) for the decision and
+operational consequences.
+
+**Study timing, 2026-09-28:** Joshua directed that no studies begin or continue until
+Mos Eisley is in production. [ADR-0011](adr/0011-defer-studies-until-production.md)
+defers G3, G5, the narrow oracle proposal and all continuous production cohorts.
+Before launch, source audits, protocol drafting, fixture tests and product
+qualification remain engineering preparation only. No case enrollment, study
+assignment or outcome-bearing study run is authorized; launch alone will not
+authorize one. Capabilities dependent on G3/G5 evidence remain gated.
+
+Joshua's 2026-09-27 [real-outcome criterion](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+requires mature, verified outcomes of actual owner-authorized tasks for any
+production effectiveness, harm or savings decision. Fixture, oracle and benchmark
+results stay in preproduction calibration or diagnostics; no production outcome
+cohort is present. The fixed-policy measurement, bounded live comparison and
+recurring promotion levels remain planned and separately gated.
 
 G1 can proceed alongside G2. Keep lookup/cascade experiments offline until
 qualified; retain fixed measurement components and full initial judging. Do not
 remove reviewers based on overlap or learn correctness from judge/test proxies.
+The G3 statistical-method reviewer is now Joshua Myers under the disclosed
+owner-conducted exception in [ADR-0008](adr/0008-g3-owner-statistical-review.md).
+His actual review remains pending; independent label grading and all other G3
+gates remain required.
+
+The [single-human objective-oracle direction](adr/0010-g3-single-human-oracle-study.md)
+is approved for planning only; execution waits for product production launch.
+No source, oracle, revised verifier, signed labels, cohort or study spend is
+approved by that decision. Its possible claim is limited to the audited
+oracle-verifiable frame.
+That study cannot stand in for the real-task production outcome criterion.
+The [Juliet source audit](G3_JULIET_SOURCE_AUDIT.md) verified the public archive
+and identified answer leakage, related cases and oracle limitations; no study
+cases or labels have been admitted from it.
+The [SWE-rebench V2 full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified all 32,079 source identifiers and repeated one public oracle with
+independent-parser and wrong-repair controls. Rights, leakage-safe task views,
+broader oracle validity, dependence and six-arm feasibility still deny G3
+source enrollment. The public identifier manifest grants no holdout authority.
+The [bounded candidate frame](G3_SWE_REBENCH_CANDIDATE_FRAME.md) now freezes
+four issue-only task packets from a deterministic 12-row inspection batch,
+with original-issue and base-license checks. The subsequent
+[execution-view audit](G3_SWE_REBENCH_EXECUTION_VIEW_AUDIT.md) verified four
+pinned base trees and isolated workspaces. Policy-bot passed three fresh
+offline base/gold/wrong whole-suite rounds; carapace, osv-scanner and revive
+failed their declared whole-suite oracles. Rights, historical exposure,
+dependence, six-arm feasibility and owner method review remain open; none of
+the four is enrolled or production evidence.
+
 All work retains the user-owned data, no-history-retrieval, containment and spending
 contracts. §26.4 provides dependencies and §26.5 the negative acceptance matrix.
+
+**G4 first offline slice, 2026-09-24 — immutable blind package freezer
+implemented:** the `g4-freeze-reviewer-test-package` boundary binds exact plan,
+interface, rubric and creator-approval reference identities to every declared test,
+fixture, input, expected value, parameter, oracle and collection setting. It embeds
+the package bytes in a canonical content-addressed artifact, rejects unsafe filesystem
+aliases, unselected tests, vacuous execution counts and undeclared skip/xfail markers,
+and grants no execution, implementation-binding, write, VCS, credential, network,
+provider, correction or acceptance authority. Replay verification does not extract
+or execute the package. Static marker checks and self-described blindness are not
+semantic or independence proofs; authenticated derivation, isolated execution/count
+receipts, known-good/known-bad controls and bounded correction remain open. See
+[the package contract](G4_REVIEWER_TEST_PACKAGE.md) and
+[verification record](G4_REVIEWER_TEST_PACKAGE_VERIFICATION.md).
+
+**G4 second offline slice, 2026-09-24 — allowlisted implementation binding
+implemented:** an immutable record now binds the canonical reviewer package before
+and after inspection to a complete regular-file inventory under declared source
+roots, exact dependency lock/build metadata, source-revision claim and a declarative
+direct-symbol adapter. All reviewer Python files must use the exact synthetic adapter
+exports; direct target-package imports, wrappers, monkeypatches, substitution and
+result interception fail closed. This slice neither executes nor attests Git,
+dependency completeness, dynamic Python behavior or acceptance. The isolated runner,
+observed counts, known controls and trusted VCS/E2 gate remain open. See
+[the binding contract](G4_IMPLEMENTATION_BINDING.md) and
+[verification record](G4_IMPLEMENTATION_BINDING_VERIFICATION.md).
+
+**G4 third offline slice, 2026-09-24 — isolated execution, exact counts and known
+controls implemented:** one canonical request now binds a frozen reviewer package,
+immutable implementation binding, exact container image, role and deadline. The
+product path sends only bound source/resource bytes over stdin to the existing
+no-mount, no-network container and has no host fallback. A clean isolated child
+generates the direct-import adapter, records exact counts and ordered test-ID digests,
+and detects changed material. Private receipts revalidate current inputs after the
+run. Paired controls require distinct implementation trees, identical package/
+adapter/image/collection identities, a successful known-good and an assertion-only
+known-bad failure. Candidate execution, repository/VCS writes, correction and
+acceptance remain false. Trusted VCS/E2, authenticated custody, candidate dispatch,
+bounded correction and final review remain open. See
+[the execution contract](G4_ISOLATED_TEST_EXECUTION.md),
+[verification record](G4_ISOLATED_TEST_EXECUTION_VERIFICATION.md) and
+[threat model](G4_ISOLATED_TEST_EXECUTION_THREAT_MODEL.md).
+
+**G4 fourth offline slice, 2026-09-24 — authenticated custody and trusted VCS/E2
+provenance implemented:** domain-separated Ed25519 artifacts bind the exact creator
+approval, blind reviewer-package custody, bounded child assignment/result and
+read-only Git claim. Schema 1 separates human keys; ADR-0005 schema 2 records one
+shared human operator without claiming independence, while the child key remains
+distinct. The fixed-argv Git broker reconstructs exact base/child/final ancestry,
+full-index binary patch, owned changed paths, complete bound blobs and clean
+worktree, then rechecks `HEAD`. The final canonical record also binds the existing
+known-good/known-bad controls. Physical identity/key custody, trusted external time,
+candidate/correction dispatch, final whole-suite execution and independent review
+remain open. See [the authenticated provenance contract](G4_AUTHENTICATED_PROVENANCE.md),
+[verification record](G4_AUTHENTICATED_PROVENANCE_VERIFICATION.md) and
+[threat model](G4_AUTHENTICATED_PROVENANCE_THREAT_MODEL.md).
+
+**G4 fifth offline slice, 2026-09-24 — candidate execution admission and dispatch
+implemented:** a separate domain-signed creator approval binds one exact candidate
+request, authenticated provenance, control record, source revision, repository and
+immutable image within a bounded local-clock window. Preflight replays the complete
+lineage and current Git; dispatch replays it again, exclusively spends the approval
+in a private persistent controller store, executes only through the existing
+no-mount offline container and rechecks bound inputs/Git. Failed candidate tests
+produce non-accepting receipts. The generic isolated runner rejects candidate
+requests without this gate. This is not coding-child dispatch, correction, final
+whole-suite testing or independent review, and no production use is approved. See
+[the candidate execution contract](G4_CANDIDATE_EXECUTION.md),
+[verification record](G4_CANDIDATE_EXECUTION_VERIFICATION.md) and
+[threat model](G4_CANDIDATE_EXECUTION_THREAT_MODEL.md).
+
+**G4 sixth offline slice, 2026-09-24 — bounded correction evidence gate
+implemented:** schema-2 isolated observations retain exact failed-test IDs. Two
+separately approved candidate receipts must reproduce matching assertion failures
+on one unchanged source/package/image. An enrolled judge signs a full-ID triage,
+and the creator signs one exact path/budget/deadline-bounded cycle. An exclusive
+private claim and stored completion carry at most two cycles and conservative
+aggregate allowances across resume. Completion requires a renewed full custody,
+Git and candidate chain with unchanged approved plan/creator-test digests, reviewer test bytes,
+adapter and static dependencies. It grants no coding-child or provider dispatch,
+repository/VCS write, final-review bypass or acceptance. Critic-quorum evidence
+is only hash-bound here, not authenticated; actual correction execution, measured
+spend and final independent review remain open. The clean installed-wheel smoke
+passed 1,832 tests, but that does not grant production authority. See
+[the correction contract](G4_BOUNDED_CORRECTION.md) and
+[verification record](G4_BOUNDED_CORRECTION_VERIFICATION.md).
+
+**G4 seventh offline slice, 2026-09-24 — contained correction-child proposal
+dispatch implemented:** a separately creator-signed order names the exact claimed
+cycle, source revision, immutable image, child key, approved plan, brief, criteria, existing owned
+source files, a read-only creator-test byte view and deadline. A task/cycle-unique private claim is spent before the
+offline proposal source runs. The enrolled child signs the proposal; the host and
+immutable no-mount container validate scope, byte changes and reported allowance,
+then Git is replayed. The retained receipt contains the offer and signed proposal,
+but applies nothing to the host and grants no provider, repository/VCS write or
+acceptance authority. The callback and usage report remain trusted, not measured
+production evidence. A clean locked installed-wheel smoke passed 1,834 tests;
+the sandboxed aggregate source run did not pass. See
+[the dispatch contract](G4_CORRECTION_CHILD_DISPATCH.md) and
+[verification record](G4_CORRECTION_CHILD_DISPATCH_VERIFICATION.md).
+
+**G4 eighth offline slice, 2026-09-24 — isolated correction write and Git
+integration implemented:** a separate creator-signed exact grant and one-use
+task/cycle claim gate the signed proposal's approved changed paths. The trusted
+broker rejects checkout-unsafe trees, creates a new private detached worktree
+outside the repository, overwrites only existing owned files, and makes one
+local commit. It checks the exact parent, paths, bytes, patch, clean worktree
+and unchanged original checkout; an enrolled VCS signer may attest the replayable
+record. It does not call a provider, merge/push, run final suites or approve the
+code. At that slice, the production broker, renewed chain, final whole-suite and
+independent review were still open. See [the integration contract](G4_CORRECTION_INTEGRATION.md) and
+[verification record](G4_CORRECTION_INTEGRATION_VERIFICATION.md).
+
+**G4 ninth slice, 2026-09-24 — separately authorized production coding-child
+broker implemented offline:** a new creator signature binds the exact frozen
+offer, OpenAI request/model/effort, policy, ledger, child and immutable image.
+The shared ledger reserves conservatively before one isolated, tool-free provider
+attempt, then checks provider usage and settles or retains exposure. Only a valid
+bounded proposal is signed by the enrolled child runtime; private response/audit
+records replay against the existing correction dispatch receipt. No live call was
+made to implement this slice, and no provider dispatch is authorized merely by
+having code present. Actual separately approved live exercise, renewed correction
+evidence, whole-suite execution, critic quorum and independent acceptance remain
+open. See [the broker contract](G4_PRODUCTION_CODING_CHILD_BROKER.md) and
+[verification record](G4_PRODUCTION_CODING_CHILD_BROKER_VERIFICATION.md).
+
+**G4 tenth slice, 2026-09-24 — final creator/reviewer whole-suite gate implemented
+offline:** a separate creator signature binds a passing authenticated candidate,
+the complete protected creator-test Git bytes and frozen reviewer package, two
+exact requests, code revision and immutable image. One private claim precedes
+separate isolated whole-suite runs; exact counts, ordered reviewer-test identities
+and post-run Git replay determine a non-accepting result. The creator path accepts
+direct implementation imports without weakening the reviewer adapter boundary.
+Only fixture runs used a fake Docker transport; no production candidate or live
+provider call ran. Actual passing final suites, renewed correction evidence,
+critic quorum, independent review and any applicable G3 quality gate remain open.
+See [the final-suite contract](G4_FINAL_WHOLE_SUITES.md) and
+[verification record](G4_FINAL_WHOLE_SUITES_VERIFICATION.md).
+
+**G4 eleventh slice, 2026-09-24 — offline independent-review evidence gate
+implemented:** a creator-signed exact-subject roster and domain-signed critics/judge
+are replayed against approved plan bytes, complete base-to-final Git diff and a
+passing final-suite receipt. Two-family quorum, source citations, all critic
+artifact hashes and deterministic verdict rules fail closed. This authenticates
+enrolled attestors, not real provider lineage or independent human review; it
+does not grant acceptance or any live call. External accountable review, actual
+provider/child/final-suite exercises, renewed correction evidence and applicable
+G3 quality gates remain open. See [the independent-review contract](G4_INDEPENDENT_REVIEW.md)
+and [verification record](G4_INDEPENDENT_REVIEW_VERIFICATION.md).
+
+**G4 first qualification preparation, 2026-09-25:** the owner approved the
+corrected gate-code commit `752c350` in conversation. A separate local
+`linux/arm64` image was built and checked from that clean source, and an isolated
+target base with draft plan, protected creator tests, blind reviewer-test draft
+and source-level known-good/known-bad checks was prepared. The owner approved
+the exact draft plan and creator tests in chat with a $10 cap and a
+2026-09-26 23:59 Eastern deadline. Joshua subsequently signed the exact creator
+approval and separate reviewer custody under single-operator self-review mode.
+The reviewer package was frozen with the signed approval as an exact reference
+and replay-verified. The original collection settings failed before a receipt;
+the corrected v2 package and separately signed v2 custody now bind the same
+reviewer test bytes. Distinct fixture bindings and paired no-network known
+controls have replay-verified: five good passes versus two known-bad assertion
+failures. Joshua then signed a zero-spend seeded assignment; a disclosed
+assistant-authored partial child fixture and separate host handoff form three
+distinct target commits, and the task-scoped fixture key signed the seeded
+result. Joshua signed the exact read-only Git claim; the assembled offline
+record replay-verified against the current clean target and paired controls.
+This does not qualify a real initial-child run. Joshua separately signed the
+first exact one-use candidate grant. Its no-network dispatch consumed the
+claim and produced replay-verified receipt `6d08b811…`. A separate exact
+grant and distinct claim produced second receipt `43c2e9d8…`; both replayed
+against the same clean bound source and each ran 5/5 tests with the same two
+assertion failures and zero errors. The correction-gate pair validator accepted
+the matching failure IDs. Offline source-level review found one omitted half-up
+term in the bound source and classified both IDs as implementation defects
+against the signed plan. Joshua's single-operator signed triage `aa87ff09…`
+covers both reproduced IDs and binds the disclosed agent-authored,
+non-independent critic review. Its signature verifies against the enrolled key,
+but it grants no correction dispatch or acceptance authority. No real
+child/provider call, two-family critic result or final-suite run exists. The
+[preparation packet](G4_QUALIFICATION_PREPARATION_2026-09-25.md) fixes the
+identities and the ordered preflight; it grants no live or release authority.
+Joshua then signed exact zero-provider-spend cycle-1 approval `07e21f2c…`;
+one private claim and canonical admission `ad4fb9e9…` replay-verified against
+both spent candidate claims and current target Git. No child dispatch or
+repository write was authorized.
+Joshua then signed exact offline correction-child dispatch grant `da0f4a2e…`.
+The pinned controller's read-only offer preview `418e0181…` checked the
+protected creator-test byte view and current Git. No dispatch claim, child
+proposal, provider use or host write followed from signing alone.
+Under a later explicit request, one contained offline dispatch consumed its
+one-use claim. Receipt `d3c30c12…` and child-signed proposal `31a7aa29…`
+replay-verified against the grant, admission and current clean Git. The
+proposal was a disclosed deterministic, agent-authored fixture, not a provider
+child. It changed only the in-memory owned source bytes to add the half-up
+term; the no-network worker accepted the scoped proposal and removed its
+container. No provider call, host repository write, integration, final-suite
+pass or acceptance occurred. The claim cannot be reused.
+Joshua separately signed exact isolated integration grant `90a794b7…` for
+only the child-signed replacement of `src/quote_lab/price.py`. One private
+claim was consumed before Git wrote detached commit `0cc8419`, directly atop
+the signed source `6f2551d`; the original target branch stayed clean and
+unmoved. Canonical record `54d8a705…` and Joshua-signed VCS attestation
+`f50a4cea…` replay-verified against the complete upstream chain, exact patch,
+worktree and Git blobs. No provider call, final-suite pass, independent review,
+branch merge/push or acceptance follows. The integration claim cannot be reused.
+For detached correction revision `0cc8419`, the pinned binder replay-verified
+new binding `964f53fe…` against the unchanged frozen package and the corrected
+source bytes. Trusted read-only Git claim `e291e6b4…` reconstructed complete
+blobs and retained the disclosed seeded-child ancestry. Joshua signed the
+renewed VCS claim `fb0ed525…`; authenticated provenance `7f6bee4c…` assembled
+and replayed against current clean Git. It matches the signed integration
+record's commit and tree. This is not a real provider-child result, a final-suite
+result or acceptance. A separate creator-signed approval `36cc69a1…` admitted
+one offline candidate run on the corrected detached revision. Its receipt
+`3736d1b0…` replay-verified against the third claim and unchanged clean Git:
+all five frozen reviewer tests executed and passed, with zero skips/errors and
+worker cleanup `removed`. This passing candidate receipt is prerequisite test
+evidence for a separately approved final whole-suite run. Joshua signed that
+exact offline grant `dba1f401…`. One final-store claim preceded separate creator
+and reviewer runs in the pinned image; each executed 5/5 with zero
+failures/errors/skips. Combined receipt `a2771933…` replay-verified against
+complete protected creator Git bytes, frozen reviewer identity, current clean
+source and the claim; both containers were removed. This remains an expressly
+seeded initial-child exercise, not an actual provider-child result, independent
+review or acceptance. The next boundary is a separate review of the exact plan,
+full diff and passing final-suite receipt.
+
+**G3 start, 2026-09-21 — fixed-matrix feasibility preflight implemented:** the
+offline `eval-feasibility` boundary binds an exact candidate grid, quality gate,
+comparison strata, repetitions, route-specific worst-case costs and case/assignment/
+spend ceilings. It computes the least expensive best-case clean/defective evidence
+under the existing group-mean Hoeffding/Bonferroni design before packet construction
+or provider spend. It reproduces §26.3's result that the example's clean half alone
+needs 1,732 groups per profile/split, 13,856 cases and 249,408 assignments, while the
+complete clean-plus-defective lower bound needs 27,712 cases and 498,816 assignments.
+The content-addressed report denies execution, promotion and routing authority. A
+passing lower bound is not an approved study: real signed labels, a production policy
+seal, protected holdout custody and the matched session-policy outcome report remain
+open. See [evaluation](EVALUATION.md) and the
+[G3 verification record](G3_FEASIBILITY_VERIFICATION.md).
+
+**G3 study-design boundary, 2026-09-21 — implemented, empirical inputs open:**
+metadata-only Ed25519 label claims now require two distinct enrolled grader keys and
+exact agreement before eligibility. Disagreements and unknown selection or label-
+observation probabilities remain explicit exclusions. The context policy fixes the
+existing baseline, the full bounded-context candidate, every single-component
+ablation, all eight required outcomes, complete cost scope and baseline retention on
+inconclusive results. Neither command accepts a dataset or session path, and every
+artifact denies execution and promotion authority. No real signed G3 catalog, trust
+policy or reviewed arm/resource identities are present in the repository; the current
+production eligible-label count is therefore zero, not a fixture-derived claim. See
+[G3 context-study policy](G3_CONTEXT_STUDY.md).
+
+**G2 live-path evidence, updated 2026-09-24 — qualification complete; production
+launch separately gated:** a freshly approved standalone campaign at `b3357aa` carried one frozen
+deadline-composition brief through three native strict-schema Luna/low critics with
+threshold two and one conditional judge. One critic was retained as
+`invalid_evidence`; two valid empty critiques preserved quorum without retry, and the
+judge returned `accept`. The signed observation and complete standalone bundle replay
+successfully, all 24,032 micro-USD settled locally, and all four workers were removed.
+This closes the missing successful end-to-end V-007 example.
+
+A later wholly fresh campaign bound to commit `0010970a` and production image
+`sha256:25fd33683fbe4418c3f290e55e61b8ee623b224821ecc02e689f2944dacd9504`
+completed all three precommitted slots with authenticated observations, accepted
+campaign reconstruction, 30,995 micro-USD in settled local charges and complete
+worker cleanup. Its review verdicts were `reject`, `revise`, `reject` and identified
+an overbroad 30-minute preparation window plus ambiguous revision wording. Those
+findings were accepted and corrected offline by restoring the 10-minute ordinary
+default and requiring a sealed `formal_campaign` scope for 30 minutes. A fresh
+`6d079ca` campaign then stopped terminally after slot 1 identified implicit deferred-
+judge scope inheritance. Exact commit `9300de46bc67bcbfeccdee061599130cceae8d17`
+binds and rechecks that scope and hardens the formal-campaign test window. It is now
+rebuilt and verified as Linux/arm64 image
+`sha256:c7f634464887b534de8ee6b803c52c3fe65afb665b0314db2e9385c77e16b990`.
+Its fresh campaign stopped in slot 1 before judge dispatch because critic execution
+and the manual judge ceremony shared one controller wall clock. The offline
+correction now binds a fixed formal-only judge-approval grace, preserves the active
+execution remainder and settles an exact unused judge allowance on graceful terminal
+exit. Commit `2ed7f11b19cc7cf470c722207a40219f87f88b97` and image
+`sha256:d95f18387072025dbc80a8e815f9dcf9b6a4a64ec0176bfdad8c8e141850f46a`
+then completed a wholly fresh three-slot campaign with accepted evidence, 82,475
+micro-USD in settled local charges and all 12 workers removed, but all three code
+verdicts rejected. Offline reassessment found two genuine defects among 13 correlated
+upheld claims: standard schema-1 paths incorrectly received formal cleanup, and
+inspection did not require formal scope for the cleanup marker. Claims that transfer
+breaks terminal recording, the approved grace violates the wall contract, or
+unrelated ledger rows satisfy cleanup were rejected against executable behavior.
+The correction now restores standard hold/schema-1 behavior and requires an exact
+formal schema-2 start/envelope for cleanup attribution. Commit
+`24704aa6fc4aadba2dcec79b8f83bae44f01a02d` and production image
+`sha256:57f1d71b1ca14d5bf077262fae86b258ea4bbb07a2fba20c52ba3e07a3281200`
+then completed a wholly fresh three-slot campaign with accepted authenticated evidence,
+71,309 micro-USD in settled charges, all 12 workers removed and zero retries. All
+three code verdicts rejected on nine correlated versions of one claim: that a
+schema-2 controller could have non-formal preparation scope and retire the allowance.
+Offline source reassessment rejected that counterexample as unreachable through the
+supported controller or production-live APIs: authorization schema is derived from
+the immutable envelope scope, preview validation enforces the equivalence, and live
+conformance refuses unbound formal execution. Joshua Myers formally accepted that
+disposition on 2026-09-23 and directed a wholly fresh campaign without a readability-only
+code change. The retained verdicts remain unchanged, and the new direction grants no
+financial, credential, dispatch or launch authority without its exact separate ceremony.
+That later campaign at `326dafe` completed all three authenticated slots, settled
+63,461 micro-USD, retained zero unresolved entries and removed all 12 workers, but its
+`revise`/`reject`/`reject` verdicts did not qualify the subject. Offline source
+reassessment rejected the mutable-binding claim (the binding inherits the frozen
+scalar base contract), rejected a separate campaign-ID requirement (the independent
+seal digest is the content-addressed identity), and identified existing post-start
+seal-tamper terminal coverage. It accepted one narrower evidence gap: no focused
+terminal cleanup regression directly asserts denial for a start before sealing or at/
+after the earliest committed expiry. Direct regressions now close that gap: both
+boundaries preserve the exact held allowance, record no retirement and make no judge
+call. Repository gates are complete; commit and exact-image rebuild precede any new campaign
+ceremony; no retry or live authority follows from the operational acceptance.
+The boundary-test correction was committed as `3b32f1426ce067696307c3ea4a96ef61ea583411`
+and rebuilt as production image
+`sha256:3f67fa22ae6ede838269a292ad507e6441d6a5d084fbf5a2c6077ea125be8653`.
+A wholly fresh campaign bound to those exact artifacts then completed all three fixed
+slots with `accept` verdicts and no findings or required changes. Slot 2 retained one
+`invalid_evidence` critic while its two valid critics preserved the precommitted
+quorum without retry. Fresh reconstruction accepted all three signed observations;
+32,226 micro-USD settled locally, every ledger is unblocked with zero unresolved
+entries, and all 12 workers were removed. This satisfies plan §26.4's G2 live
+read-only qualification exit. It does not create a production launch decision, and
+this work does not reuse the time-bounded campaign as dispatch authority; any target
+live call still requires a separate current launch ceremony and ledger.
+Every campaign remains evidence only for its exact artifact and is not launch authority.
+See [the standalone record](LIVE_REVIEW_DEADLINE_RETEST_2026-09-21.md)
+and [the formal campaign record](LIVE_REVIEW_FORMAL_QUALIFICATION_2026-09-21.md), plus
+[the cleanup-scope claim reassessment](REVIEW_CLEANUP_SCOPE_CLAIM_REASSESSMENT.md) and
+[the binding-claims reassessment](REVIEW_CLEANUP_BINDING_CLAIMS_REASSESSMENT.md), and
+[the accepted corrected qualification](LIVE_REVIEW_CLEANUP_BOUNDARY_QUALIFICATION_2026-09-24.md).
 
 **Session-shape adoption, updated 2026-09-21 — G0/G1 implemented:** implement
 [plan §6.7](mos-eisley-plan.md#67-bounded-tasks-and-milestone-context-lifecycle)
@@ -170,15 +556,7 @@ loading and telemetry adapters remain planned.
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
    registry, deterministic effort resolution, byte budgets and boundary journal.
-3. **Implemented — live read-only review:** The explicit one-provider Anthropic
-   Sonnet 5 / Opus 5.5 profile passed its owner-signed three-slot campaign and
-   separately admitted live launch on 2026-09-27; see the
-   [G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-g2-scope-2026-09-27).
-   The default two-provider quorum also passed a separate owner-signed
-   Terra/Sonnet/Opus three-slot campaign and admitted live launch; see the
-   [mixed G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-default-two-provider-scope-2026-09-27).
-   The earlier work below is
-   retained as an implementation history. OpenAI Responses adapter and explicit
+3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
    and contract tests. Shared local cross-process spending admission is implemented.
@@ -277,13 +655,14 @@ loading and telemetry adapters remain planned.
    [Repeated-probe acceptance](REVIEW_CONFORMANCE_ACCEPTANCE.md) now requires all
    three precommitted slots, exact role/runtime/quorum profiles, fresh observer and
    runtime verification, distinct responses/workers and complete dedicated-ledger
-   accounting. Commitment custody, independently authorized live attempts and a
-   reviewed launch-admission decision remain outstanding.
+   accounting. The selected schema-1 separated or schema-2 single-operator contract,
+   authorized live attempts and a reviewed launch-admission decision remain outstanding.
    The [offline campaign ceremony](REVIEW_CAMPAIGN_CEREMONY.md) now previews exact
    three-attempt bundles, seals private commitments after empty-ledger and unused-path
    checks, and freshly reviews separately pinned evidence submissions. Independent
    custody, authorized live attempts and launch admission still require actual
-   operator execution and review; the ceremony grants no dispatch authority.
+   operator execution and review under the declared operator mode; the ceremony grants
+   no dispatch authority.
    [Campaign dispatch binding](REVIEW_CAMPAIGN_DISPATCH.md) now restricts an owned
    probe to its exact sealed slot at approval and credential/provider use, including
    current policy/runtime/path checks and campaign deadline caps. It preserves the
@@ -291,7 +670,7 @@ loading and telemetry adapters remain planned.
    [Owned campaign sequencing](REVIEW_CAMPAIGN_RUNNER.md) now invokes the three bound
    probes in order and requires freshly verified observer evidence before the next
    invocation. Missing evidence, failures and cancellation stop future attempts;
-   actual independent custody, live assessment and launch admission remain required.
+   actual declared custody, live assessment and launch admission remain required.
    [Offline observer handoff](REVIEW_OBSERVER_HANDOFF.md) now checks pinned completions,
    historical phase signatures and independently selected runtime records, producing
    an explicitly unsigned proposal for assessment without credentials or signing keys.
@@ -301,10 +680,12 @@ loading and telemetry adapters remain planned.
    [Launch conformance checks](REVIEW_LAUNCH_CONFORMANCE.md) now compare a fresh guided
    launch preview with freshly verified campaign evidence and exact role/quorum/runtime
    scope. A separately reviewed launch-admission decision remains required.
-   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that separate
-   signed decision in the owning library flow, freshly checking campaign evidence,
-   policy and guidance at approvals and credential/provider use. Real independent
-   custody, live campaign assessment and a production decision remain outstanding;
+   [Exact launch admission](REVIEW_LAUNCH_ADMISSION.md) now enforces that signed
+   decision in the owning library flow, freshly checking campaign evidence, policy and
+   guidance at approvals and credential/provider use. Schema 1 preserves separated
+   human roles; explicit schema-2 single-operator mode permits one shared signer while
+   recording that no independent human review occurred. An exact three-slot live
+   qualification campaign now passes; a production decision remains outstanding;
    there is no public live-launch CLI or automatic activation.
    A first [recorded conversation terminal](CONVERSATIONS.md) now implements
    contextual follow-ups, visible progress, queued follow-up messages, cancellation,

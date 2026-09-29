@@ -1,0 +1,121 @@
+# G3 baseline/ablation policy and label eligibility
+
+Status: offline sealing and metadata-only inventory boundary implemented. No real
+study label catalog has been supplied, and no study execution is authorized.
+[ADR-0011](adr/0011-defer-studies-until-production.md) additionally defers every
+study until Mos Eisley is in production; the current tools and audits are
+engineering preparation only.
+
+## Approved narrow study direction
+
+[ADR-0010](adr/0010-g3-single-human-oracle-study.md) records Joshua Myers's
+approval to design a separate prospective objective-oracle study with him as the
+only human. This is a planning direction, not a label or policy seal. The current
+catalog still requires two distinct enrolled grader identities/keys, and its seal
+still requires random ordinary-task audits in both splits. An objective-oracle
+study needs a reviewed source, protocol and verifier/schema amendment before any
+case can be called eligible under the new design. Its claim is limited to the
+audited oracle-verifiable frame and cannot be reported as the original broad G3
+ordinary-task qualification.
+Production acceptance and optimization use [observed real-task outcomes](PRODUCTION_OUTCOME_ACCEPTANCE.md)
+after the applicable product launch gates. An oracle benchmark can help check a
+measurement mechanism during engineering preparation but cannot establish
+production completion, harm or savings or constitute a prelaunch study.
+
+Joshua authorized a [source-level audit of NIST Juliet C/C++ 1.3](G3_JULIET_SOURCE_AUDIT.md).
+Its checksum is verified, but its case annotations and known limitations do not
+yet supply an objective oracle or independent groups for a confirmatory cohort.
+The subsequent [oracle case-source qualification](G3_ORACLE_CASE_SOURCE_QUALIFICATION.md)
+replayed one SWE-rebench V2 repository task with a discriminating test oracle.
+The subsequent [full-release audit](G3_SWE_REBENCH_FULL_SOURCE_AUDIT.md)
+verified all 32,079 public source identifiers and repeated one case's oracle
+with wrong-repair and independent-parser controls. The release remains
+unqualified for G3. A later [bounded source screen](G3_SWE_REBENCH_CANDIDATE_FRAME.md)
+froze four issue-only packets from a 12-row audit batch and checked their
+original issue text and base-commit license files. That closes only the
+row-derived projection for these four candidates. Base-workspace leakage,
+complete case rights, oracle controls, eligible inventory, dependence and
+feasibility remain open. None of these audits created signed labels or a cohort.
+
+## Statistical-method review assignment
+
+Joshua Myers may perform the G3 statistical-method review under
+[ADR-0008](adr/0008-g3-owner-statistical-review.md) despite being the study owner.
+The resulting record must identify that owner overlap, the exact protocol and
+scorer, method authorship, outcome-access boundary, reproduced feasibility and
+inference checks, findings and signed disposition. This is owner-conducted review;
+it is not independent human judgment from the study owner. The designation alone
+is not a completed review or a study seal. Two distinct label graders, holdout
+custody, and all other G3 and later promotion requirements remain separate.
+
+## Frozen comparison design
+
+`BaselineAblationPolicy` pre-registers one available baseline that preserves the
+existing selection policy, one available full candidate containing bounded work
+units, explicit checkpoints, narrow tool views and task profiles, and exactly one
+leave-one-component-out ablation for each candidate component. An ablation that is
+not yet executable remains in the family as `unavailable` with a reason; it cannot
+silently disappear after results are known.
+
+Every policy binds exact model-route, rubric, quality-gate, resource-plan,
+implementation and label-inventory digests, plus the assignment seed and escaped-
+defect follow-up window. It fixes these rules before held-out evaluation:
+
+- matched cases with balanced arm order;
+- completion, missed evidence, stale-state error, verifier disagreement, harmful
+  action, cumulative input, latency and whole-task cost as one complete outcome family;
+- exclusion and reporting, never imputation, for missing labels;
+- one held-out evaluation after sealing;
+- every stage, child, retry, repair and abandoned task in total cost; and
+- retention of the baseline when the result is inconclusive.
+
+Its seal is content addressed and explicitly denies study execution, promotion and
+activation authority.
+
+## Independently graded label inventory
+
+The inventory command accepts only an `IndependentLabelCatalog` and a separately
+supplied `GradingTrustPolicy`. Each opaque case digest needs two Ed25519-signed claims from
+distinct enrolled identities and keys. A claim contains case and independence-group
+identities, split, clean/defective class, finding count, source/sampling frame,
+reviewed sampling-manifest digest, selection probability, label-observation probability
+and rubric identity. It cannot
+contain a brief, expected-finding text, transcript, model response or session outcome.
+
+Case and independence-group references are SHA-256 digests, not session names; joining
+them to private cases requires a separately controlled mapping. Both graders must agree
+on all decision metadata. A disagreement remains visible but ineligible. Unknown
+selection or label-observation probability is also ineligible;
+the inventory does not impute either value. Eligible independence groups may not
+cross calibration and holdout. The seal additionally requires clean and defective
+labels plus a random ordinary-task audit in both splits.
+
+Distinct valid keys authenticate exact claims; they do not prove physical grader
+independence or representative sampling. Those remain accountable study-owner and
+independent-review responsibilities.
+
+```sh
+uv run --frozen mos eval-inventory-labels \
+  --catalog private/label-catalog.json \
+  --grading-trust-policy private/label-trust-policy.json \
+  --output private/eligible-label-inventory.json
+
+uv run --frozen mos eval-seal-context-policy \
+  --policy private/context-policy.json \
+  --catalog private/label-catalog.json \
+  --grading-trust-policy private/label-trust-policy.json \
+  --label-inventory private/eligible-label-inventory.json \
+  --output private/sealed-context-policy.json
+```
+
+Both outputs are written privately. Neither command reads an evaluation dataset or
+session store, and neither accepts a holdout-session path.
+
+## Current production inventory
+
+Repository and tracked-artifact inspection on 2026-09-21 found no production
+`IndependentLabelCatalog`, no enrolled G3 label-grading trust policy and no sealed
+G3 context-study policy. Therefore the truthful current production inventory is zero
+verified eligible labels and zero sealed executable arms. Synthetic unit-test claims
+exercise the contracts only; they are not empirical evidence. Supplying real private
+signed claims and reviewed arm/resource digests is the next external input.
