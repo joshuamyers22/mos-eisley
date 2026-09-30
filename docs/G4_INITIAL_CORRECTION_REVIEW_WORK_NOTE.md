@@ -71,3 +71,55 @@ confirmation `g4-q4-deps12-connected-review-authority-1`. The enrolled creator
 signature is required by ADR-0012 and the existing review contract. No review
 observations, final creator review decision, quality-applicability decision or
 creator acceptance exist for this new subject yet.
+
+## First live review: invalid citations
+
+Joshua signed the prospective amendment
+`8be2af31ec398832c1e4b0474f7a24427ef7254eb0d24b219b694d6a42ac5771`
+and authority `4a693b8e491aaa037b710d6cb740c6b875fa8853d08f6595018aabf3d82d8f52`.
+Both separate live grants were verified and consumed. Anthropic returned six
+findings, five citation-valid and one quoting constraints while declaring spec.
+OpenAI returned two findings whose quotes declared constraints, but paraphrased
+plan text by removing line breaks; neither exact quote appears in any source.
+Neither call produced an accepted critic observation. Do not rewrite the returned
+citations, omit invalid findings to salvage a review, or reuse either spent grant.
+
+Both retained grants, claims, request/response hashes, authorization/admission/
+outcome records, reservations and settled ledger entries replayed successfully.
+Anthropic charged 64,736 micro-USD; OpenAI charged 3,903 micro-USD. Total 68,639;
+no unresolved entry and ledger not blocked. All original artifacts remain private
+and immutable. These invalid responses are neither an accepted review nor an
+authenticated code-defect adjudication.
+
+OpenAI also identified that the packet omitted the complete signed approvals for
+the two failed initial candidates. Prepare a version-two packet exposing both
+approvals and ADR-0012's exact scope, explicitly distinguishing current review
+from downstream acceptance. Keep the original subject builder available for the
+historical packet. Freeze fresh personas with explicit source selection and exact
+newline-preserving quote instructions; do not preselect a favorable verdict.
+This changes the review subject and roster requests, so fresh owner review and
+amendment signatures are required before fresh per-call grants.
+
+Use the same USD 0.25 ledger, preserving both settled failed calls. A new Anthropic
+25,000-input/3,900-output envelope reserves 139,000 micro-USD; each OpenAI critic
+and judge reserves 20,916. Prior charges plus these three worst-case holds total
+249,471 micro-USD, within the existing ceiling. No new call occurs in remediation.
+
+The fresh subject SHA-256 is
+`4b5a5b43b036932b818058608c25168ce7116da406eead794580e126f17ebd97`;
+its evidence packet is 29,195 characters. Connected lineage is unchanged at
+`fb2700e64f2e7a32e9604cc72485b4ecbda787ae21ec22ad5ef4e11869c840a1`.
+Fresh Anthropic request:
+`c0730f0e818570cdba651af80d112d2534c5ad6d91dc595bbe2e79d7a07b122a`.
+Fresh OpenAI request:
+`211364807eb6d56b587072081efe29fea0144995489d41e4d3a55b56bf94ae86`.
+Full real-chain preparation passed. Both complete failed-candidate authorities
+appear with verified canonical hashes, distinct approval/request IDs, and the
+same source/binding/control identities. The ADR document is included by exact
+bytes and digest. Two focused tests, Ruff and Pyright passed after the change.
+
+Next required signature: `/Users/josh/g4-deps12-connected-review2-sign sign`,
+confirmation `g4-q4-deps12-connected-review-authority-2`. The clean controller
+revision is pinned separately in the fresh private review store. Attempt-one
+inputs, owner signatures, spent grants, responses and charges remain untouched.
+Neither critic observation is eligible for judge adjudication or acceptance.

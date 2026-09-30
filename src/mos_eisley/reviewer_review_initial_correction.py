@@ -102,6 +102,8 @@ def build_initial_correction_review_subject(
     final: G4FinalWholeSuiteReceipt,
     inputs: G4InitialCorrectionFinalInputs,
     approved_plan_path: Path,
+    *,
+    review_amendment_document_path: Path | None = None,
 ) -> G4InitialCorrectionReviewBundle:
     """Replay evidence before exposing its exact plan, diff and signed decisions."""
     verify_initial_correction_final_receipt(final, inputs)
@@ -165,7 +167,7 @@ def build_initial_correction_review_subject(
     )
     # Include signed decisions in full; bulky dispatch/source and measured receipts
     # are represented by verified hashes and exact observations, not raw responses.
-    artifacts = (
+    artifacts: tuple[tuple[str, Contract], ...] = (
         ("provenance_policy", initial.policy),
         ("creator_approval", initial.creator),
         ("reviewer_custody", initial.custody),
@@ -177,6 +179,11 @@ def build_initial_correction_review_subject(
         ("corrected_candidate_authority", inputs.candidate.approval),
         ("final_suite_authority", final.approval),
     )
+    if review_amendment_document_path is not None:
+        artifacts += (
+            ("first_failed_candidate_authority", correction.first.approval),
+            ("reproduced_failed_candidate_authority", correction.reproduction.approval),
+        )
     lines = [
         "Connected initial-child-to-correction qualification evidence, version 1.",
         "The full signed chain, private claims, provider audits/spend, Git and "
@@ -191,6 +198,31 @@ def build_initial_correction_review_subject(
     for name, artifact in artifacts:
         payload = canonical_bytes(artifact)
         lines.extend((f"[{name}] sha256={digest(payload)}", payload.decode()))
+    if review_amendment_document_path is not None:
+        amendment_document = read_bounded(
+            review_amendment_document_path, REVIEW_PLAN_BYTES
+        )
+        try:
+            document_text = amendment_document.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("review amendment document must be UTF-8") from None
+        if not document_text:
+            raise ValueError("review amendment document must be nonempty")
+        lines.extend(
+            (
+                "[prospective_formal_review_document] sha256="
+                + digest(amendment_document),
+                document_text,
+                "This document states the proposed exact review governance. "
+                "The owner must sign the prospective amendment and exact new "
+                "subject/roster after freezing and before critic calls. "
+                "That signature and live grants are checked by the controller. "
+                "This current review assesses the completed implementation and "
+                "its prerequisite evidence; its own later verdict, the judge "
+                "decision, quality applicability and creator acceptance are "
+                "not asserted complete and are not prerequisites of themselves.",
+            )
+        )
     summary = {
         "lineage": lineage.model_dump(mode="json"),
         "controls_validated": initial.controls.controls_validated,
@@ -355,7 +387,12 @@ def assess_initial_correction_single_operator_review(
     Live provider audits and spend must additionally replay before formal gate
     completion. This record alone retains provider-operation and acceptance false.
     """
-    bundle = build_initial_correction_review_subject(final, inputs, approved_plan_path)
+    bundle = build_initial_correction_review_subject(
+        final,
+        inputs,
+        approved_plan_path,
+        review_amendment_document_path=amendment_document_path,
+    )
     document = read_bounded(amendment_document_path, REVIEW_PLAN_BYTES)
     verify_connected_review_amendment(amendment, authority, bundle, digest(document))
     if not critics or any(
