@@ -2,12 +2,14 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
 import test_project_guidance_review as guidance_fixture
 import test_review_launch_preview as launch_fixture
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
@@ -34,6 +36,18 @@ from mos_eisley.providers.recorded import RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.review_live_cli import ReviewLiveCompletion
 from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
+from mos_eisley.run.operator_review_probe import OperatorReviewIdentity
+from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
+from mos_eisley.run.review_conformance_authorization import (
+    ReviewConformanceAuthorityPolicy,
+    review_conformance_signer,
+)
+from mos_eisley.run.review_launch_authorization import (
+    ReviewLaunchAuthorityPolicy,
+    ReviewLaunchDecision,
+    ReviewLaunchScope,
+    sign_review_launch_decision,
+)
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
 
@@ -316,9 +330,10 @@ class LiveSelectionTests(TestCase):
 
     def test_live_child_command_uses_exact_argument_files(self) -> None:
         selection, _ = self.selection()
-        command = selection.command()
+        command = selection.command("4" * 64)
         self.assertEqual(command[3], "review-live")
         self.assertEqual(command[command.index("--config") + 1], str(selection.config))
+        self.assertEqual(command[-2:], ["--selection-sha256", "4" * 64])
         self.assertEqual(
             command[command.index("--completion-output") + 1],
             str(selection.completion_output),
@@ -346,14 +361,109 @@ class LiveSelectionTests(TestCase):
         selection.review_dir.mkdir()
         raw = canonical_bytes(retained)
         (selection.review_dir / "review-result.json").write_bytes(raw)
+        key = Ed25519PrivateKey.generate()
+        signer = review_conformance_signer("owner", key.public_key())
+        now = datetime.now(UTC)
+        phase_policy = ReviewConformanceAuthorityPolicy(
+            schema_version=2,
+            operator_mode="single_operator",
+            policy_id="conversation-phase",
+            authorities=(signer,),
+            observers=(signer,),
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(minutes=5),
+            max_authorization_seconds=600,
+            max_reserved_microusd=1000,
+        )
+        launch_policy = ReviewLaunchAuthorityPolicy(
+            schema_version=2,
+            operator_mode="single_operator",
+            policy_id="conversation-launch",
+            reviewers=(signer,),
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(minutes=5),
+            max_decision_seconds=600,
+            max_reserved_microusd=1000,
+        )
+        selection.authority_policy.write_bytes(canonical_bytes(phase_policy))
+        selection.launch_authority_policy.write_bytes(canonical_bytes(launch_policy))
+        selection.identity.write_bytes(
+            canonical_bytes(
+                OperatorReviewIdentity(
+                    author_provider="openai",
+                    author_model="gpt-6",
+                    author_artifact_sha256=digest(packet.brief.diff.encode()),
+                    max_total_microusd=1000,
+                )
+            )
+        )
+        scope = ReviewLaunchScope(
+            schema_version=2,
+            operator_mode="single_operator",
+            launch_authority_policy_sha256=launch_policy.sha256,
+            phase_authority_policy_sha256=phase_policy.sha256,
+            configuration_sha256=digest(canonical_bytes(self.configuration)),
+            critic_preview_sha256="a" * 64,
+            seal_sha256=packet.campaign_seal_sha256,
+            evidence_file_sha256=packet.campaign_evidence_sha256,
+            runtime=ReviewConformanceRuntime(
+                sdk_version="synthetic", image_id=selection.image_id
+            ),
+            ledger_path=str(selection.spend_ledger.resolve()),
+            artifact_directory=str(selection.review_dir.resolve()),
+            max_reserved_microusd=100,
+            owner_total_cap_microusd=1000,
+            campaign_charged_microusd=0,
+            expires_at=now + timedelta(minutes=5),
+        )
+
+        def sign(selected: ReviewLaunchScope):
+            return sign_review_launch_decision(
+                ReviewLaunchDecision(
+                    schema_version=2,
+                    operator_mode="single_operator",
+                    scope=selected,
+                    issued_at=now,
+                    valid_until=now + timedelta(minutes=1),
+                    commitment_custody_reviewed=True,
+                    credentialed_campaign_reviewed=True,
+                    single_operator_self_review_risk_accepted=True,
+                ),
+                "owner",
+                key,
+            )
+
+        signed = sign(scope)
+        (selection.review_dir / "launch-admission.json").write_bytes(
+            canonical_bytes(signed)
+        )
         completion = ReviewLiveCompletion(
             review_dir=str(selection.review_dir.resolve()),
             result_sha256=digest(raw),
             brief_id=packet.brief.brief_id,
-            launch_decision_sha256="f" * 64,
+            launch_decision_sha256=digest(canonical_bytes(signed)),
+            prepared_sha256=packet.prepared_sha256,
+            selection_sha256=packet.manifest_sha256,
         )
         selection.completion_output.write_bytes(canonical_bytes(completion))
         self.assertEqual(load_live_result(selection, packet), result)
+        wrong = sign(scope.model_copy(update={"seal_sha256": "9" * 64}))
+        (selection.review_dir / "launch-admission.json").write_bytes(
+            canonical_bytes(wrong)
+        )
+        selection.completion_output.write_bytes(
+            canonical_bytes(
+                completion.model_copy(
+                    update={"launch_decision_sha256": digest(canonical_bytes(wrong))}
+                )
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "launch differs"):
+            load_live_result(selection, packet)
+        (selection.review_dir / "launch-admission.json").write_bytes(
+            canonical_bytes(signed)
+        )
+        selection.completion_output.write_bytes(canonical_bytes(completion))
         (selection.review_dir / "review-result.json").write_bytes(raw + b" ")
         with self.assertRaisesRegex(ValueError, "completion differs"):
             load_live_result(selection, packet)

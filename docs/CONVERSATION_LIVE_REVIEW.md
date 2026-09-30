@@ -26,9 +26,10 @@ the terminal to that command so the owner can inspect the exact launch scope,
 provide a separately signed launch decision, and provide signed phase decisions
 and local approvals. The existing live-review admission flow checks current
 guidance, campaign evidence, provider credentials, spending and containment. A
-successful child writes a private completion receipt; the conversation checks it
-against the retained result and frozen brief before publishing the summary and
-result in session history.
+successful child writes a private completion receipt. The conversation checks the
+receipt's selection and prepared hashes, the retained result and brief, and the
+retained signed launch admission against the selected configuration, campaign,
+evidence, image, ledger and output directory before publishing the result.
 
 The conversation never saves a credential, signer key, approval file, operating
 path, or permission to run the next call. An interrupted or cancelled attempt is

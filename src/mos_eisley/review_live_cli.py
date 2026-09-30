@@ -54,12 +54,14 @@ from mos_eisley.run.store import private_write
 
 
 class ReviewLiveCompletion(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     mode: Literal["review_live_completion"] = "review_live_completion"
     review_dir: str
     result_sha256: Digest
     brief_id: Digest
     launch_decision_sha256: Digest
+    prepared_sha256: Digest
+    selection_sha256: Digest | None = None
 
 
 def add_arguments(command: argparse.ArgumentParser) -> None:
@@ -87,6 +89,7 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--launch-scope-output", type=Path)
     command.add_argument("--phase-scope-dir", type=Path)
     command.add_argument("--completion-output", type=Path)
+    command.add_argument("--selection-sha256")
 
 
 def _campaign_charge(args: argparse.Namespace) -> int:
@@ -296,6 +299,8 @@ async def _run(args: argparse.Namespace) -> int:
                     launch_decision_sha256=digest(
                         canonical_bytes(probe.launch_decision)
                     ),
+                    prepared_sha256=prepared.sha256,
+                    selection_sha256=cast(str | None, args.selection_sha256),
                 )
             ),
         )

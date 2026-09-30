@@ -18,6 +18,7 @@ from mos_eisley.core.models import (
     Contract,
     Digest,
     ReviewResult,
+    canonical_bytes,
     digest,
 )
 from mos_eisley.project_guidance_review import (
@@ -26,11 +27,20 @@ from mos_eisley.project_guidance_review import (
 )
 from mos_eisley.review_live_cli import ReviewLiveCompletion
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.operator_review_probe import OperatorReviewIdentity
 from mos_eisley.run.process import MAX_WIRE_BYTES
 from mos_eisley.run.review_campaign import CAMPAIGN_BYTES, read_campaign_seal
+from mos_eisley.run.review_conformance_authorization import (
+    ReviewConformanceAuthorityPolicy,
+)
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     decode_launch_configuration,
+)
+from mos_eisley.run.review_launch_authorization import (
+    ReviewLaunchAuthorityPolicy,
+    SignedReviewLaunchDecision,
+    verify_review_launch_decision,
 )
 from mos_eisley.run.review_verdict import RetainedReviewResult
 
@@ -79,7 +89,7 @@ class LiveReviewSelection(Contract):
             raise ValueError("live review output paths must be distinct")
         return self
 
-    def command(self) -> list[str]:
+    def command(self, selection_sha256: Digest | None = None) -> list[str]:
         args = [
             sys.executable,
             "-c",
@@ -92,6 +102,8 @@ class LiveReviewSelection(Contract):
             value = getattr(self, name)
             if value is not None:
                 args.extend(("--" + name.replace("_", "-"), str(value)))
+        if selection_sha256 is not None:
+            args.extend(("--selection-sha256", selection_sha256))
         return args
 
 
@@ -166,7 +178,7 @@ async def run_selected_live_review(
         if output.exists() or output.is_symlink():
             raise ValueError("live review output path was already used")
 
-    process = await asyncio.create_subprocess_exec(*selection.command())
+    process = await asyncio.create_subprocess_exec(*selection.command(manifest_sha256))
     try:
         status = await process.wait()
     except asyncio.CancelledError:
@@ -211,17 +223,68 @@ def load_live_result(
     packet: ConversationLiveReviewPacket,
 ) -> ReviewResult:
     """Read only the exact successful child receipt and its retained result."""
-    completion = ReviewLiveCompletion.model_validate_json(
-        read_bounded(selection.completion_output, 4096)
-    )
+    completion_raw = read_bounded(selection.completion_output, 4096)
+    completion = ReviewLiveCompletion.model_validate_json(completion_raw)
     raw = read_bounded(selection.review_dir / "review-result.json", MAX_WIRE_BYTES)
     if (
-        completion.review_dir != str(selection.review_dir.resolve())
+        completion_raw != canonical_bytes(completion)
+        or completion.review_dir != str(selection.review_dir.resolve())
         or completion.result_sha256 != digest(raw)
         or completion.brief_id != packet.brief.brief_id
+        or completion.prepared_sha256 != packet.prepared_sha256
+        or completion.selection_sha256 != packet.manifest_sha256
+        or selection.expected_config_sha256 != packet.configuration_sha256
+        or selection.expected_prepared_sha256 != packet.prepared_sha256
+        or selection.expected_seal_sha256 != packet.campaign_seal_sha256
+        or selection.expected_evidence_sha256 != packet.campaign_evidence_sha256
     ):
         raise ValueError("live review completion differs from frozen selection")
+    config_raw = read_bounded(selection.config, CONFIGURATION_BYTES)
+    prepared_raw = read_bounded(selection.prepared, REVIEW_GUIDANCE_BYTES)
+    evidence_raw = read_bounded(selection.evidence, CAMPAIGN_BYTES)
+    prepared = decode_prepared_review(prepared_raw)
+    if (
+        digest(config_raw) != packet.configuration_sha256
+        or digest(prepared_raw) != packet.prepared_sha256
+        or digest(evidence_raw) != packet.campaign_evidence_sha256
+        or prepared.brief != packet.brief
+    ):
+        raise ValueError("live review inputs differ from frozen selection")
+    signed_raw = read_bounded(selection.review_dir / "launch-admission.json", 16_384)
+    signed = SignedReviewLaunchDecision.model_validate_json(signed_raw)
+    launch_policy = ReviewLaunchAuthorityPolicy.model_validate_json(
+        read_bounded(selection.launch_authority_policy, 65_536)
+    )
+    phase_policy = ReviewConformanceAuthorityPolicy.model_validate_json(
+        read_bounded(selection.authority_policy, 65_536)
+    )
+    identity = OperatorReviewIdentity.model_validate_json(
+        read_bounded(selection.identity, 4096)
+    )
+    scope = signed.decision.scope
+    if (
+        signed_raw != canonical_bytes(signed)
+        or digest(signed_raw) != completion.launch_decision_sha256
+        or scope.configuration_sha256
+        != digest(canonical_bytes(decode_launch_configuration(config_raw)))
+        or scope.phase_authority_policy_sha256 != phase_policy.sha256
+        or scope.seal_sha256 != packet.campaign_seal_sha256
+        or scope.evidence_file_sha256 != packet.campaign_evidence_sha256
+        or scope.runtime.image_id != selection.image_id
+        or scope.ledger_path != str(selection.spend_ledger.resolve())
+        or scope.artifact_directory != str(selection.review_dir.resolve())
+        or scope.owner_total_cap_microusd != identity.max_total_microusd
+    ):
+        raise ValueError("live review launch differs from frozen selection")
+    verify_review_launch_decision(
+        signed, launch_policy, scope, signed.decision.issued_at
+    )
     retained = RetainedReviewResult.model_validate_json(raw)
-    if retained.result.verdict.brief_id != packet.brief.brief_id:
+    if (
+        raw != canonical_bytes(retained)
+        or retained.result.verdict.brief_id != packet.brief.brief_id
+        or retained.result.judge_request is None
+        or retained.result.judge_request.brief != packet.brief
+    ):
         raise ValueError("retained live review differs from frozen brief")
     return retained.result
