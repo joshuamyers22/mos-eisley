@@ -304,9 +304,7 @@ def run_command(args: argparse.Namespace) -> int:
         key_path = cast(Path, args.key_file)
         key_loaders = {"anthropic": lambda: load_review_key(key_path, "anthropic")}
         if openai_key_path is not None:
-            key_loaders["openai"] = lambda: load_review_key(
-                openai_key_path, "openai"
-            )
+            key_loaders["openai"] = lambda: load_review_key(openai_key_path, "openai")
         prepared = decode_prepared_review(
             read_bounded(cast(Path, args.prepared), REVIEW_GUIDANCE_BYTES)
         )

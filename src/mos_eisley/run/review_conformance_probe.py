@@ -265,7 +265,9 @@ class BrokeredReviewConformanceProbe:
             raise ValueError("review probe requires one preparation scope")
         preparation_scope = next(iter(preparation_scopes))
         self._extended_preparation_unbound = (
-            preparation_scope == "formal_campaign" and campaign is None
+            preparation_scope == "formal_campaign"
+            and campaign is None
+            and launch is None
         )
         if campaign is not None and preparation_scope != "formal_campaign":
             raise ValueError(
