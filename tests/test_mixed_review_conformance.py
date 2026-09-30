@@ -210,6 +210,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             )
 
         lifecycles: list[Path] = []
+        exchange_timeouts: list[float] = []
 
         async def exchange(
             container: OfflineContainer,
@@ -218,6 +219,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             handler: ExchangeHandler,
             timeout: float,
         ) -> bytes:
+            exchange_timeouts.append(timeout)
             directory = self.base.root / f"mixed-lifecycle-{len(lifecycles)}"
             directory.mkdir(mode=0o700)
             lease = CleanupLease(
@@ -285,7 +287,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             BrokeredReviewConformanceProbe(
                 envelope,
                 self.base.reviewer,
-                ReviewPolicy(),
+                ReviewPolicy(timeout_seconds=60),
                 ScriptedUser(("approve", "approve")),
                 critic_containers=containers[:2],
                 judge_container=containers[2],
@@ -296,7 +298,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
         probe = BrokeredReviewConformanceProbe(
             envelope,
             self.base.reviewer,
-            ReviewPolicy(),
+            ReviewPolicy(timeout_seconds=60),
             ScriptedUser(("approve", "approve")),
             critic_containers=containers[:2],
             judge_container=containers[2],
@@ -304,6 +306,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             load_authorization=load,
             load_api_key=anthropic_loader,
             load_api_keys={"openai": openai_loader, "anthropic": anthropic_loader},
+            total_seconds=600,
             operator_identity=OperatorReviewIdentity(
                 author_provider="openai",
                 author_model="gpt-6",
@@ -327,6 +330,7 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
         self.assertEqual((openai.counts, openai.calls), (1, 1))
         self.assertEqual((anthropic.counts, anthropic.calls), (1, 1))
         self.assertEqual((judge.counts, judge.calls), (1, 1))
+        self.assertEqual(exchange_timeouts, [120.0, 120.0, 120.0])
         self.assertEqual(openai_loader.call_count, 2)
         self.assertEqual(anthropic_loader.call_count, 4)
         self.assertEqual(self.base.ledger.snapshot().unresolved_entries, 0)
