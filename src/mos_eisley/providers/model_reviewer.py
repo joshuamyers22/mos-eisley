@@ -80,7 +80,9 @@ def _system(
         "quote supports a claim, return no findings."
         if result is Critique
         else "Adjudicate the supplied findings against the brief. Return only "
-        "supplied finding IDs in upheld; do not invent or duplicate IDs."
+        "supplied finding IDs in upheld; do not invent or duplicate IDs. "
+        "Write a nonempty rationale explaining the decision, including why "
+        "no findings were upheld when upheld is empty."
     )
     if result is Critique and citation_contract == 2:
         role += (
