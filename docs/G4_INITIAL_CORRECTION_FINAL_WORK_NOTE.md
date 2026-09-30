@@ -38,5 +38,12 @@ reviewer package contains 16. Preparation ran neither suite. Exact hashes:
 
 Real-chain preparation and preflight passed. The focused deadline/store/request
 substitution test, Ruff and Pyright passed. The identifier prefix was shortened
-to fit the 80-character contract while retaining the full store SHA-256. The
-creator signature is pending. No final whole-suite execution occurred.
+to fit the 80-character contract while retaining the full store SHA-256.
+
+The owner signed
+`/Users/josh/.mos-eisley-g4-distinct-deps-2026-09-30/signed-deps12-final-whole-suite-approval-1.json`.
+Its artifact SHA-256 is
+`58fc2f4824ea456b513b8fab2245ac35340b2c73e2887df701166f15006a3667`.
+The signature and complete read-only preflight passed. The file is owner-private
+mode 0600. Its authority window is September 30, 2026 22:23:43 UTC through
+October 1, 2026 00:23:43 UTC. No final whole-suite execution occurred.
