@@ -79,10 +79,11 @@ def _system(
         "paraphrase, ellipsis, or text absent from the named source. If no exact "
         "quote supports a claim, return no findings."
         if result is Critique
-        else "Adjudicate the supplied findings against the brief. Return only "
-        "supplied finding IDs in upheld; do not invent or duplicate IDs. "
-        "Write a nonempty rationale explaining the decision, including why "
-        "no findings were upheld when upheld is empty."
+        else "Adjudicate each supplied finding against the brief and its exact "
+        "evidence. Return only supplied finding IDs in upheld; do not invent "
+        "or duplicate IDs. Write a substantive rationale explaining why each "
+        "finding was upheld or declined. If upheld is empty, explain why none "
+        "is supported. Never return empty or placeholder rationale text."
     )
     if result is Critique and citation_contract == 2:
         role += (
@@ -322,4 +323,9 @@ class ModelReviewer:
             raise ValueError("review response omitted required fields")
         if type(value["schema_version"]) is not int or value["schema_version"] != 1:
             raise ValueError("review response has an invalid schema version")
-        return result.model_validate_json(raw)
+        parsed = result.model_validate_json(raw)
+        if isinstance(parsed, JudgeDecision):
+            rationale = parsed.rationale.strip().casefold().strip(".! ")
+            if rationale in {"placeholder", "n/a", "none", "no rationale", "tbd"}:
+                raise ValueError("judge rationale is a placeholder")
+        return parsed
