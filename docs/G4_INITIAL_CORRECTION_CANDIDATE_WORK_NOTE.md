@@ -45,3 +45,21 @@ Artifact SHA-256:
 The signature and full preflight replay passed; the file is owner-private mode
 0600. Its authority window is September 30, 2026 22:02:02 UTC through October 1,
 2026 00:02:02 UTC. No corrected candidate test run occurred.
+
+## Authorized execution
+
+The owner requested consuming this exact grant and running the frozen candidate
+tests. Add a durable private claim before isolated execution, save the exact
+reviewer receipt, and replay the full chain and unchanged Git afterward. Stop on
+claim reuse, expiry, incomplete execution, or changed state; do not retry the
+candidate or grant broader final-suite or acceptance authority.
+
+The broker consumed the exact signed grant and ran the frozen reviewer candidate
+job once. All 16 collected tests executed; there were zero failures, zero errors
+and no failed test IDs. The receipt is
+`/Users/josh/.mos-eisley-g4-distinct-deps-2026-09-30/deps12-final-candidate-receipt-1.json`,
+SHA-256 `51c9c2ae70b6b6f6075c21a9ff7f821be6fe3354322fdacab6e732838c7b9454`.
+The private claim, exact request and execution receipt, correction chain and
+unchanged Git replayed successfully. Focused duplicate-claim and claim-substitution
+regressions, Ruff and Pyright passed. No provider call, Git write, final whole-suite
+run or G4 acceptance occurred. Fresh final whole-suite authority is the next gate.

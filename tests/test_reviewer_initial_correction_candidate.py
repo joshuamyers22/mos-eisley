@@ -1,15 +1,21 @@
 """Correction test authority cannot be substituted or broadened."""
 
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import unittest
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mos_eisley.core.models import digest
 from mos_eisley.reviewer_initial_correction_candidate import (
     G4InitialCorrectionCandidateApproval,
+    _claim,
+    _verify_claim,
     sign_initial_correction_candidate_approval,
 )
 from mos_eisley.reviewer_provenance import (
@@ -52,6 +58,15 @@ class CorrectionCandidateAuthorityTests(unittest.TestCase):
         signed = sign_initial_correction_candidate_approval(
             approval, "creator", keys[0]
         )
+        with TemporaryDirectory() as temporary:
+            store = Path(temporary)
+            _claim(store, signed)
+            _verify_claim(store, signed)
+            with self.assertRaises(FileExistsError):
+                _claim(store, signed)
+            (store / (signed.artifact_sha256 + ".claim")).write_bytes(b"substituted")
+            with self.assertRaises(ValueError):
+                _verify_claim(store, signed)
         verify_provenance_signature(
             approval, signed.signature, policy, "creator", DOMAIN
         )

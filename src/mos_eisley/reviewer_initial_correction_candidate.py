@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import os
+import stat
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -41,8 +42,11 @@ from mos_eisley.reviewer_provenance import (
 )
 from mos_eisley.reviewer_test_execution import (
     ContainerImageId,
+    ImmutableReviewerTestExecutionReceipt,
     ReviewerTestExecutionRequest,
     build_isolated_reviewer_test_job,
+    execute_isolated_reviewer_tests_in_trusted_host,
+    verify_execution_receipt,
 )
 
 _DOMAIN = b"mos-eisley/g4-initial-correction-candidate-approval/v1\x00"
@@ -93,6 +97,50 @@ class SignedG4InitialCorrectionCandidateApproval(Contract):
 
     @property
     def artifact_sha256(self) -> str:
+        return digest(canonical_bytes(self))
+
+
+class G4InitialCorrectionCandidateReceipt(Contract):
+    schema_version: Literal[1] = 1
+    kind: Literal["g4_initial_correction_candidate_receipt"] = (
+        "g4_initial_correction_candidate_receipt"
+    )
+    approval: SignedG4InitialCorrectionCandidateApproval
+    request: ReviewerTestExecutionRequest
+    execution: ImmutableReviewerTestExecutionReceipt
+    ran_at: datetime
+    candidate_tests_passed: bool
+    original_source_unchanged: Literal[True] = True
+    initial_integrated_source_unchanged: Literal[True] = True
+    corrected_source_unchanged: Literal[True] = True
+    final_suite_authorized: Literal[False] = False
+    acceptance_authorized: Literal[False] = False
+
+    @field_validator("ran_at")
+    @classmethod
+    def utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() != timedelta(0):
+            raise ValueError("correction candidate receipt requires explicit UTC")
+        return value
+
+    @model_validator(mode="after")
+    def exact_result(self) -> Self:
+        if (
+            self.approval.approval.request_sha256 != self.request.request_sha256
+            or self.execution.request != self.request
+            or self.candidate_tests_passed != self.execution.role_expectation_satisfied
+            or not self.approval.approval.issued_at
+            <= self.ran_at
+            < self.approval.approval.expires_at
+            or len(canonical_bytes(self)) > 2_000_000
+        ):
+            raise ValueError(
+                "correction candidate receipt differs from exact execution"
+            )
+        return self
+
+    @property
+    def receipt_sha256(self) -> str:
         return digest(canonical_bytes(self))
 
 
@@ -244,4 +292,95 @@ def preflight_initial_correction_candidate(
         raise ValueError("correction candidate grant differs from exact signed inputs")
     build_isolated_reviewer_test_job(
         request, inputs.binding, chain.package_path, inputs.candidate_root
+    )
+
+
+def _claim(store: Path, signed: SignedG4InitialCorrectionCandidateApproval) -> None:
+    fd = open_private_dispatch_store(store)
+    try:
+        claim_fd = os.open(
+            signed.artifact_sha256 + ".claim",
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=fd,
+        )
+        with os.fdopen(claim_fd, "wb") as stream:
+            stream.write(canonical_bytes(signed))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _verify_claim(
+    store: Path, signed: SignedG4InitialCorrectionCandidateApproval
+) -> None:
+    fd = open_private_dispatch_store(store)
+    try:
+        claim_fd = os.open(
+            signed.artifact_sha256 + ".claim", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd
+        )
+        with os.fdopen(claim_fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or stream.read(16_385) != canonical_bytes(signed)
+            ):
+                raise ValueError("correction candidate claim differs or is not private")
+    finally:
+        os.close(fd)
+
+
+def run_initial_correction_candidate(
+    signed: SignedG4InitialCorrectionCandidateApproval,
+    request: ReviewerTestExecutionRequest,
+    inputs: G4InitialCorrectionCandidateInputs,
+) -> G4InitialCorrectionCandidateReceipt:
+    """Spend one exact grant and execute its frozen reviewer job once offline."""
+    preflight_initial_correction_candidate(signed, request, inputs)
+    started = datetime.now(UTC)
+    if not signed.approval.issued_at <= started or (
+        started + timedelta(seconds=request.timeout_seconds)
+        >= signed.approval.expires_at
+    ):
+        raise ValueError("correction candidate grant lacks remaining execution time")
+    _claim(inputs.candidate_store, signed)
+    chain = inputs.first_inputs
+    execution = execute_isolated_reviewer_tests_in_trusted_host(
+        request,
+        inputs.binding,
+        chain.package_path,
+        inputs.candidate_root,
+        chain.container,
+    )
+    verify_execution_receipt(
+        execution, request, inputs.binding, chain.package_path, inputs.candidate_root
+    )
+    replay_initial_correction_candidate_inputs(inputs)
+    return G4InitialCorrectionCandidateReceipt(
+        approval=signed,
+        request=request,
+        execution=execution,
+        ran_at=started,
+        candidate_tests_passed=execution.role_expectation_satisfied,
+    )
+
+
+def verify_initial_correction_candidate_receipt(
+    receipt: G4InitialCorrectionCandidateReceipt,
+    inputs: G4InitialCorrectionCandidateInputs,
+) -> None:
+    preflight_initial_correction_candidate(
+        receipt.approval, receipt.request, inputs, now=receipt.ran_at
+    )
+    _verify_claim(inputs.candidate_store, receipt.approval)
+    verify_execution_receipt(
+        receipt.execution,
+        receipt.request,
+        inputs.binding,
+        inputs.first_inputs.package_path,
+        inputs.candidate_root,
     )
