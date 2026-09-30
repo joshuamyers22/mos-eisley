@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from mos_eisley.core.models import (
     Brief,
     Contract,
+    Digest,
     ReviewPolicy,
     ReviewResult,
     canonical_bytes,
@@ -52,6 +53,37 @@ class ConversationReviewPacket(Contract):
         return self
 
 
+class ConversationLiveReviewPacket(Contract):
+    """A frozen brief and non-secret identities for one separately admitted launch.
+
+    Operating paths, credentials and signatures are supplied afresh by the host.
+    Saving this packet never grants authority to dispatch a provider call.
+    """
+
+    schema_version: Literal[1] = 1
+    mode: Literal["live_conversation_review"] = "live_conversation_review"
+    brief: Brief
+    prepared_sha256: Digest
+    configuration_sha256: Digest
+    campaign_seal_sha256: Digest
+    campaign_evidence_sha256: Digest
+    manifest_sha256: Digest
+    guidance_review: PreparedGuidanceReview
+
+    @model_validator(mode="after")
+    def bound_inputs(self) -> Self:
+        if (
+            self.guidance_review.brief != self.brief
+            or self.guidance_review.sha256 != self.prepared_sha256
+            or len(canonical_bytes(self)) > MAX_REVIEW_PACKET_BYTES
+        ):
+            raise ValueError("live conversation review requires one bounded brief")
+        return self
+
+
+ReviewPacket = ConversationReviewPacket | ConversationLiveReviewPacket
+
+
 async def run_conversation_review(
     packet: ConversationReviewPacket,
     *,
@@ -83,11 +115,12 @@ async def run_conversation_review(
     return result
 
 
-def review_summary(result: ReviewResult) -> str:
+def review_summary(result: ReviewResult, *, live: bool = False) -> str:
     """A labelled, bounded view; the complete result stays in the private snapshot."""
     verdict = result.verdict
     lines = [
-        f"Recorded review for brief {verdict.brief_id}: {verdict.decision}.",
+        f"{'Live' if live else 'Recorded'} review for brief "
+        f"{verdict.brief_id}: {verdict.decision}.",
         f"Rationale: {verdict.rationale[:600]}",
         f"Required changes: {len(verdict.required_changes)}. "
         f"Findings: {len(verdict.findings)}.",
@@ -105,6 +138,13 @@ def review_summary(result: ReviewResult) -> str:
     lines.append(
         "This summary shows at most five findings and short excerpts. "
         "The complete review is retained in the snapshot and JSON events. "
-        "Recorded evidence does not establish live review quality or authorize changes."
+        + (
+            "This exact launch does not authorize later calls or changes."
+            if live
+            else (
+                "Recorded evidence does not establish live review quality "
+                "or authorize changes."
+            )
+        )
     )
     return "\n".join(lines)

@@ -1,10 +1,10 @@
-"""Bounded, text-only recorded conversations with explicit continuation."""
+"""Bounded conversations with recorded chat and explicit review boundaries."""
 
 from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Generic, Protocol
 from uuid import uuid4
@@ -42,8 +42,10 @@ from mos_eisley.conversation_request_admission import (
     record_admission,
 )
 from mos_eisley.conversation_review import (
+    MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
-    ConversationReviewPacket,
+    ConversationLiveReviewPacket,
+    ReviewPacket,
     review_summary,
     run_conversation_review,
 )
@@ -84,7 +86,12 @@ from mos_eisley.core.agent import (
     run_agent,
 )
 from mos_eisley.core.budget import Budget, resolve_budget
-from mos_eisley.core.models import canonical_bytes, canonical_fingerprint, digest
+from mos_eisley.core.models import (
+    ReviewResult,
+    canonical_bytes,
+    canonical_fingerprint,
+    digest,
+)
 from mos_eisley.core.ports import ModelClient, ToolDispatcher
 from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
@@ -216,7 +223,7 @@ class ConversationController(Generic[StateT]):
     """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
-    only recorded clients. Live providers require a separate spending/transfer gate.
+    recorded chat clients; live review has a separate signed launch and spend gate.
     """
 
     def __init__(
@@ -226,7 +233,10 @@ class ConversationController(Generic[StateT]):
         save: Callable[[StateT], StateT | None],
         *,
         validate_memory: Callable[[], None] | None = None,
-        validate_review: Callable[[ConversationReviewPacket], None] | None = None,
+        validate_review: Callable[[ReviewPacket], None] | None = None,
+        run_live_review: (
+            Callable[[ConversationLiveReviewPacket], Awaitable[ReviewResult]] | None
+        ) = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -302,6 +312,7 @@ class ConversationController(Generic[StateT]):
         self.save = save
         self.validate_memory = validate_memory
         self.validate_review = validate_review
+        self.run_live_review = run_live_review
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
@@ -797,12 +808,17 @@ class ConversationController(Generic[StateT]):
             raise ValueError("steering requires an active chat request")
         self.submit(text)
 
-    def submit_review(self, packet: ConversationReviewPacket) -> None:
-        packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+    def submit_review(self, packet: ReviewPacket) -> None:
+        packet = type(packet).model_validate_json(packet.model_dump_json())
+        if (
+            isinstance(packet, ConversationLiveReviewPacket)
+            and self.run_live_review is None
+        ):
+            raise ValueError("live review requires current launch inputs")
         self._check_review_guidance(packet)
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
 
-    def _check_review_guidance(self, packet: ConversationReviewPacket) -> None:
+    def _check_review_guidance(self, packet: ReviewPacket) -> None:
         guidance = packet.guidance_review
         if guidance is None:
             return
@@ -857,6 +873,11 @@ class ConversationController(Generic[StateT]):
         is_review = entry.is_review
         if entry.review_packet is not None:
             self._check_review_guidance(entry.review_packet)
+            if (
+                isinstance(entry.review_packet, ConversationLiveReviewPacket)
+                and self.run_live_review is None
+            ):
+                raise ValueError("queued live review requires current launch inputs")
         if not is_review and self.state.retained_cassette is not None:
             entry = entry.model_copy(
                 update={
@@ -1050,22 +1071,38 @@ class ConversationController(Generic[StateT]):
             try:
                 if entry.review_packet is not None:
                     packet = entry.review_packet
-                    review_result = (
-                        await run_conversation_review(
-                            packet,
-                            validate_guidance=lambda: self._check_review_guidance(
-                                packet
-                            ),
+                    if isinstance(packet, ConversationLiveReviewPacket):
+                        assert self.run_live_review is not None
+                        review_result = await self.run_live_review(packet)
+                        if review_result.verdict.brief_id != packet.brief.brief_id:
+                            raise ValueError(
+                                "live review result differs from frozen brief"
+                            )
+                        self._check_review_guidance(packet)
+                    else:
+                        review_result = (
+                            await run_conversation_review(
+                                packet,
+                                validate_guidance=lambda: self._check_review_guidance(
+                                    packet
+                                ),
+                            )
+                            if packet.guidance_review is not None
+                            else await run_conversation_review(packet)
                         )
-                        if packet.guidance_review is not None
-                        else await run_conversation_review(packet)
-                    )
+                    if len(canonical_bytes(review_result)) > MAX_REVIEW_RESULT_BYTES:
+                        raise ValueError(
+                            "conversation review result exceeds byte limit"
+                        )
                     completed = ConversationEntry(
                         text=entry.text,
                         status="failed"
                         if review_result.verdict.decision == "infrastructure_error"
                         else "completed",
-                        answer=review_summary(review_result),
+                        answer=review_summary(
+                            review_result,
+                            live=isinstance(packet, ConversationLiveReviewPacket),
+                        ),
                         review_packet=entry.review_packet,
                         review_result=review_result,
                     )
@@ -1107,7 +1144,7 @@ class ConversationController(Generic[StateT]):
             except asyncio.CancelledError:
                 replace(entry.model_copy(update={"status": "cancelled"}))
                 raise
-            except (AgentFailure, ValueError):
+            except (AgentFailure, ValueError, OSError):
                 replace(entry.model_copy(update={"status": "failed"}))
                 raise
             replace(completed)
