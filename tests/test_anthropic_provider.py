@@ -140,6 +140,14 @@ class AnthropicTranslationTests(TestCase):
         judge_format = judge_config["format"]
         assert isinstance(judge_format, dict)
         self.assertEqual(judge_format["type"], "json_schema")
+        judge_schema = judge_format["schema"]
+        assert isinstance(judge_schema, dict)
+        judge_fields = judge_schema["properties"]
+        assert isinstance(judge_fields, dict)
+        self.assertEqual(
+            judge_fields["rationale"],
+            {"type": "string", "pattern": r"^[\s\S]+$"},
+        )
 
     def test_thinking_tool_result_round_trip_preserves_signed_native_block(
         self,
