@@ -40,7 +40,16 @@ The owner signed the exact grant at
 Its SHA-256 is
 `cd639ec385aa460084fea09f87dfd0332f2225319bf25c4c9ebca7db3f583248`.
 The read-only `status` verifier replayed the correction chain and signature
-successfully. The focused authority tests, Ruff, and Pyright passed. No
-integration worktree, Git write, task test, provider call, or G4 acceptance
-occurred. A one-use integration broker and separately signed VCS record are
-still needed to consume this authority.
+successfully. The focused authority tests, Ruff, and Pyright passed.
+
+## One-use integration
+
+The broker consumed the grant with an owner-private one-use claim and committed
+the exact correction to a detached worktree. Its parent is
+`9bece145bdcd8047e19393fc39ae27f8ad09a45c`; its commit is
+`e90c3bbe3c795bb4788f2454c5fc9ba221ad7663`. The unsigned integration
+record SHA-256 is
+`21c480ba5f6d8a6fdd01bb6e6ed2288e1c9c844e778aef3e3df9731d2cb97bc1`.
+Replay found only `src/dependency_lab/order.py` changed, matching the signed
+proposal bytes. The original checkout stayed clean. The separate VCS signature
+is pending. No task test, provider call, or G4 acceptance occurred.
