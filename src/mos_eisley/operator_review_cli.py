@@ -45,6 +45,7 @@ from mos_eisley.run.review_conformance_authorization import (
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
 from mos_eisley.run.review_controller import ControllerCriticPreview
 from mos_eisley.run.review_controller_inspection import inspect_review_controller
+from mos_eisley.run.review_credentials import load_review_key
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     decode_launch_configuration,
@@ -65,6 +66,7 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--spend-ledger", type=Path, required=True)
     command.add_argument("--review-dir", type=Path, required=True)
     command.add_argument("--key-file", type=Path, required=True)
+    command.add_argument("--openai-key-file", type=Path)
     command.add_argument("--image-id", required=True)
     command.add_argument("--docker", type=Path)
     command.add_argument("--campaign-dir", type=Path)
@@ -72,6 +74,7 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--campaign-slot", type=int, choices=(0, 1, 2))
     command.add_argument("--authority-policy", type=Path)
     command.add_argument("--completion-output", type=Path)
+    command.add_argument("--phase-scope-dir", type=Path)
     command.add_argument("--previous-evidence", type=Path)
     command.add_argument("--expected-previous-evidence-sha256")
 
@@ -163,6 +166,8 @@ def run_command(args: argparse.Namespace) -> int:
             raise ValueError(
                 "signed campaign requires all campaign and authority options"
             )
+        if args.phase_scope_dir is not None and not signed:
+            raise ValueError("phase scope export requires a signed campaign")
         if not signed and (
             args.previous_evidence is not None
             or args.expected_previous_evidence_sha256 is not None
@@ -251,6 +256,14 @@ def run_command(args: argparse.Namespace) -> int:
         async def load_authorization(
             scope: ReviewConformanceScope,
         ) -> SignedReviewConformanceAuthorization | None:
+            if args.phase_scope_dir is not None:
+                write_campaign_export(
+                    cast(Path, args.campaign_dir),
+                    cast(str, args.expected_seal_sha256),
+                    cast(Path, args.phase_scope_dir)
+                    / f"slot-{cast(int, args.campaign_slot)}-{scope.phase}-scope.json",
+                    canonical_bytes(scope),
+                )
             print(
                 json.dumps(
                     {
@@ -281,6 +294,19 @@ def run_command(args: argparse.Namespace) -> int:
         configuration = decode_launch_configuration(
             read_bounded(cast(Path, args.config), CONFIGURATION_BYTES)
         )
+        providers = {
+            *(critic.critic.provider for critic in configuration.critics),
+            configuration.judge_provider,
+        }
+        openai_key_path = cast(Path | None, args.openai_key_file)
+        if signed and "openai" in providers and openai_key_path is None:
+            raise ValueError("signed OpenAI campaign requires --openai-key-file")
+        key_path = cast(Path, args.key_file)
+        key_loaders = {"anthropic": lambda: load_review_key(key_path, "anthropic")}
+        if openai_key_path is not None:
+            key_loaders["openai"] = lambda: load_review_key(
+                openai_key_path, "openai"
+            )
         prepared = decode_prepared_review(
             read_bounded(cast(Path, args.prepared), REVIEW_GUIDANCE_BYTES)
         )
@@ -317,7 +343,6 @@ def run_command(args: argparse.Namespace) -> int:
         judge_container = OfflineContainer(
             executable, cast(str, args.image_id), lifecycle_root
         )
-        key_path = cast(Path, args.key_file)
         if signed:
             campaign = ReviewCampaignBinding(
                 campaign_directory=str(cast(Path, args.campaign_dir).resolve()),
@@ -334,6 +359,7 @@ def run_command(args: argparse.Namespace) -> int:
                 authority_policy=current_authority,
                 load_authorization=load_authorization,
                 load_api_key=lambda: load_anthropic_key(key_path),
+                load_api_keys=key_loaders,
                 total_seconds=configuration.total_seconds,
                 campaign=campaign,
                 operator_identity=identity,

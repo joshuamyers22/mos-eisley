@@ -1,10 +1,9 @@
 # Operator-authorized three-model review
 
 **G2 amendment, 2026-09-27:** The [owner-operated G2 contract](G2_OWNER_OPERATED_CONTRACT.md)
-records the signed one-provider and default two-provider qualifications. For the
-mixed-provider signed launch, `mos review-live` requires a separate private
-OpenAI credential file through `--openai-key-file`; `mos operator-review` remains
-the Anthropic operator route described below. Joshua Myers holds the enrolled
+records the signed one-provider and default two-provider qualifications. Mixed-provider
+signed campaign slots and launches require a separate private OpenAI credential file
+through `--openai-key-file`. Joshua Myers holds the enrolled
 owner roles under that contract, with separate signed records for each role.
 
 `mos operator-review` runs one guided, read-only Anthropic critic/judge review with
@@ -91,6 +90,9 @@ conformance. The older signed campaign gate retains its separate meaning.
 The same command can run a slot from a separately sealed three-attempt campaign.
 Supply `--campaign-dir`, `--expected-seal-sha256`, `--campaign-slot`,
 `--authority-policy` and `--completion-output` together with the options above.
+For a mixed-provider campaign, also supply `--openai-key-file` with the private
+OpenAI credential. `--phase-scope-dir` exports each exact signable phase scope to
+fresh private files outside the seal and run directories.
 It restores the sealed attempt identities only after recomputing the current
 requests, guidance, policies, ledger and complete critic preview. A changed or
 expired preview stops before credential access.
