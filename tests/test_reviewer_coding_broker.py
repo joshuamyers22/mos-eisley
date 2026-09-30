@@ -26,6 +26,7 @@ from mos_eisley.reviewer_coding_broker import (
     ProductionCodingChildBroker,
     _parse_model_proposal,
     coding_child_request,
+    coding_child_source_text_request,
     sign_production_coding_child_approval,
     verify_production_coding_child_receipt,
 )
@@ -220,7 +221,14 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
                 '"unresolved_issue_count":1}'
             )
 
-    def _setup(self, root: Path, *, invalid: bool = False, fail_send: bool = False):
+    def _setup(
+        self,
+        root: Path,
+        *,
+        invalid: bool = False,
+        fail_send: bool = False,
+        source_text: bool = False,
+    ):
         now = datetime.now(UTC)
         keys = [Ed25519PrivateKey.generate() for _ in range(4)]
         creator, reviewer, vcs, child = keys
@@ -357,7 +365,11 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
             max_output_tokens=128,
         )
         ledger = SpendLedger.create(root / "ledger.sqlite", 5000)
-        request = coding_child_request(offer, MODEL, "low", 128)
+        request = (
+            coding_child_source_text_request(offer, MODEL, "low", 128)
+            if source_text
+            else coding_child_request(offer, MODEL, "low", 128)
+        )
         approval = sign_production_coding_child_approval(
             G4ProductionCodingChildApproval(
                 approval_id="production-one",
@@ -385,6 +397,7 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
             b"def demo(x): return x + 1\n",
             invalid=invalid,
             fail_send=fail_send,
+            source_text=source_text,
         )
         container = OfflineContainer(Path("/usr/bin/docker"), IMAGE, root / "life")
         broker = ProductionCodingChildBroker(
@@ -465,6 +478,43 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
                 )
             with self.assertRaisesRegex(ValueError, "already spent"):
                 asyncio.run(broker.generate(offer))
+
+    def test_exact_source_text_request_is_measured_and_replayable(self) -> None:
+        with TemporaryDirectory() as temporary:
+            broker, offer, order, admission, policy, ledger, transport, container, _ = (
+                self._setup(Path(temporary), source_text=True)
+            )
+
+            async def exchange(
+                arguments: tuple[str, ...],
+                payload: bytes,
+                handler: ExchangeHandler,
+                timeout: float,
+            ) -> bytes:
+                self.assertEqual(arguments, ("-m", "mos_eisley.run.broker_worker"))
+                response = await handler(payload)
+                return canonical_bytes(BrokerAck(response_sha256=digest(response)))
+
+            with patch.object(container, "exchange_async", side_effect=exchange):
+                signed = asyncio.run(broker.generate(offer))
+            self.assertEqual(
+                signed.proposal.replacements[0].content, transport.proposed
+            )
+            self.assertEqual(ledger.snapshot().charged_microusd, 150)
+            assert broker.receipt is not None
+            dispatch = G4CorrectionChildDispatchReceipt(
+                approval=order,
+                correction_admission_sha256=admission.admission_sha256,
+                offer=offer,
+                signed_proposal=signed,
+                execution=validate_correction_child_job(
+                    G4CorrectionChildJob(offer=offer, signed_proposal=signed)
+                ),
+                dispatched_at=datetime.now(UTC),
+            )
+            verify_production_coding_child_receipt(
+                broker.receipt, dispatch, policy, ledger, Path(temporary) / "run"
+            )
 
     def test_wrong_binding_denies_before_reservation(self) -> None:
         with TemporaryDirectory() as temporary:

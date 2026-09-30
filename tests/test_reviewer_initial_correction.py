@@ -31,6 +31,7 @@ from mos_eisley.reviewer_initial_candidate import (
 from mos_eisley.reviewer_initial_correction import (
     G4InitialCorrectionCycleAdmission,
     admit_initial_correction_cycle,
+    verify_initial_correction_cycle_admission,
 )
 from mos_eisley.reviewer_provenance import G4ProvenanceTrustPolicy, provenance_signer
 
@@ -282,6 +283,26 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
                 )
                 with self.assertRaisesRegex(ValueError, "scope or budget"):
                     invoke(signed_grant=over_budget)
+                verify_initial_correction_cycle_admission(
+                    admission,
+                    first=first,
+                    reproduction=second,
+                    first_inputs=first_inputs,
+                    reproduction_inputs=second_inputs,
+                    review_policy=review_policy,
+                    correction_store=claim_store,
+                )
+                next(claim_store.iterdir()).write_bytes(b"changed claim")
+                with self.assertRaisesRegex(ValueError, "claim differs"):
+                    verify_initial_correction_cycle_admission(
+                        admission,
+                        first=first,
+                        reproduction=second,
+                        first_inputs=first_inputs,
+                        reproduction_inputs=second_inputs,
+                        review_policy=review_policy,
+                        correction_store=claim_store,
+                    )
 
 
 if __name__ == "__main__":

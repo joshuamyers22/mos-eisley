@@ -1,7 +1,7 @@
 """Admit a reproduced failed initial candidate to one bounded correction cycle.
 
 This bridge does not convert paid initial-child evidence into legacy Git-child
-provenance. Its admission type has no downstream dispatch authority.
+provenance. Its admission type grants no dispatch authority by itself.
 """
 
 # pyright: reportPrivateUsage=false
@@ -9,6 +9,7 @@ provenance. Its admission type has no downstream dispatch authority.
 from __future__ import annotations
 
 import os
+import stat
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Self
@@ -174,7 +175,7 @@ def _write_initial_claim(
         os.close(fd)
 
 
-def admit_initial_correction_cycle(
+def _evaluate_initial_correction_cycle(
     *,
     first: G4InitialCandidateReceipt,
     reproduction: G4InitialCandidateReceipt,
@@ -186,7 +187,7 @@ def admit_initial_correction_cycle(
     correction_store: Path,
     now: datetime | None = None,
 ) -> G4InitialCorrectionCycleAdmission:
-    """Replay both signed initial receipts, adjudicate, and claim cycle one once."""
+    """Replay exact evidence and construct a cycle-one decision without a write."""
     current = _utc(now if now is not None else datetime.now(UTC))
     root = first_inputs.original_root.resolve()
     integrated = first_inputs.integrated_root.resolve()
@@ -293,5 +294,88 @@ def admit_initial_correction_cycle(
         source_revision=integration.integrated_revision,
         admitted_at=current,
     )
+    return admission
+
+
+def admit_initial_correction_cycle(
+    *,
+    first: G4InitialCandidateReceipt,
+    reproduction: G4InitialCandidateReceipt,
+    first_inputs: G4InitialCandidateInputs,
+    reproduction_inputs: G4InitialCandidateInputs,
+    triage: SignedG4CorrectionTriage,
+    approval: SignedG4CorrectionCycleApproval,
+    review_policy: G4CorrectionReviewPolicy,
+    correction_store: Path,
+    now: datetime | None = None,
+) -> G4InitialCorrectionCycleAdmission:
+    """Replay both signed initial receipts, adjudicate, and claim cycle one once."""
+    admission = _evaluate_initial_correction_cycle(
+        first=first,
+        reproduction=reproduction,
+        first_inputs=first_inputs,
+        reproduction_inputs=reproduction_inputs,
+        triage=triage,
+        approval=approval,
+        review_policy=review_policy,
+        correction_store=correction_store,
+        now=now,
+    )
     _write_initial_claim(correction_store, admission)
     return admission
+
+
+def verify_initial_correction_cycle_claim(
+    store: Path, admission: G4InitialCorrectionCycleAdmission
+) -> None:
+    """Verify the owner-private durable claim for this exact admission."""
+    fd = open_private_dispatch_store(store)
+    try:
+        claim_fd = os.open(
+            _claim_name(
+                admission.approval.approval.task_id,
+                admission.approval.approval.cycle,
+            ),
+            os.O_RDONLY | os.O_NOFOLLOW,
+            dir_fd=fd,
+        )
+        with os.fdopen(claim_fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+            ):
+                raise ValueError("initial correction claim is not private")
+            actual = stream.read(MAX_RECORD_BYTES + 1)
+        if actual != canonical_bytes(admission):
+            raise ValueError("initial correction claim differs from admission")
+    finally:
+        os.close(fd)
+
+
+def verify_initial_correction_cycle_admission(
+    admission: G4InitialCorrectionCycleAdmission,
+    *,
+    first: G4InitialCandidateReceipt,
+    reproduction: G4InitialCandidateReceipt,
+    first_inputs: G4InitialCandidateInputs,
+    reproduction_inputs: G4InitialCandidateInputs,
+    review_policy: G4CorrectionReviewPolicy,
+    correction_store: Path,
+) -> None:
+    """Replay the signed historical decision, current Git and its one-use claim."""
+    expected = _evaluate_initial_correction_cycle(
+        first=first,
+        reproduction=reproduction,
+        first_inputs=first_inputs,
+        reproduction_inputs=reproduction_inputs,
+        triage=admission.triage,
+        approval=admission.approval,
+        review_policy=review_policy,
+        correction_store=correction_store,
+        now=admission.admitted_at,
+    )
+    if expected != admission:
+        raise ValueError("initial correction admission differs from replay")
+    verify_initial_correction_cycle_claim(correction_store, admission)
