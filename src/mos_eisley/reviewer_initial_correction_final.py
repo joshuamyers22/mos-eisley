@@ -5,18 +5,25 @@
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import Contract, canonical_bytes, digest
 from mos_eisley.reviewer_candidate_execution import open_private_dispatch_store
 from mos_eisley.reviewer_correction_dispatch import _read_repository_file
 from mos_eisley.reviewer_final_suites import (
     _APPROVAL_DOMAIN,
+    FINAL_SUITE_ARTIFACT_BYTES,
     G4FinalWholeSuiteApproval,
+    G4FinalWholeSuiteReceipt,
     SignedG4FinalWholeSuiteApproval,
+    _claim,
+    _verify_claim,
     build_isolated_creator_test_job,
+    execute_isolated_creator_tests_in_trusted_host,
+    verify_creator_test_execution_receipt,
 )
 from mos_eisley.reviewer_initial_correction_candidate import (
     G4InitialCorrectionCandidateInputs,
@@ -25,8 +32,11 @@ from mos_eisley.reviewer_initial_correction_candidate import (
 )
 from mos_eisley.reviewer_provenance import _git, verify_provenance_signature
 from mos_eisley.reviewer_test_execution import (
+    ImmutableReviewerTestExecutionReceipt,
     ReviewerTestExecutionRequest,
     build_isolated_reviewer_test_job,
+    execute_isolated_reviewer_tests_in_trusted_host,
+    verify_execution_receipt,
 )
 from mos_eisley.reviewer_test_package import (
     FROZEN_PACKAGE_BYTES,
@@ -119,6 +129,20 @@ def _verify_creator_package(inputs: G4InitialCorrectionFinalInputs) -> None:
                 )
 
 
+def _verify_creator_collection(package: FrozenReviewerTestPackage) -> None:
+    """Check discovery importability without importing or executing task tests."""
+    collection = package.payload.manifest.collection
+    directory = PurePosixPath(collection.start_directory)
+    top = PurePosixPath(collection.top_level_directory)
+    paths = {item.declaration.path for item in package.payload.files}
+    while directory != top:
+        if (directory / "__init__.py").as_posix() not in paths:
+            raise ValueError(
+                "creator discovery requires an initializer outside its frozen inventory"
+            )
+        directory = directory.parent
+
+
 def replay_initial_correction_final_inputs(
     inputs: G4InitialCorrectionFinalInputs,
 ) -> None:
@@ -158,6 +182,7 @@ def replay_initial_correction_final_inputs(
     ):
         raise ValueError("final creator package file changed")
     _verify_creator_package(inputs)
+    _verify_creator_collection(inputs.creator_package)
     if (
         inputs.creator_request.role != "candidate"
         or inputs.reviewer_request.role != "candidate"
@@ -208,3 +233,167 @@ def preflight_initial_correction_final(
         raise ValueError(
             "final whole-suite authority differs from exact correction inputs"
         )
+
+
+def _reviewer_identities(
+    candidate: G4InitialCorrectionCandidateReceipt,
+    execution: ImmutableReviewerTestExecutionReceipt,
+) -> None:
+    before = candidate.execution.observation
+    after = execution.observation
+    if (
+        before.collected_test_ids_sha256 != after.collected_test_ids_sha256
+        or before.started_test_ids_sha256 != after.started_test_ids_sha256
+        or before.executed_test_ids_sha256 != after.executed_test_ids_sha256
+    ):
+        raise ValueError(
+            "final correction reviewer suite executed different test identities"
+        )
+
+
+def _save_stage(store: Path, name: str, receipt: Contract) -> None:
+    fd = open_private_dispatch_store(store)
+    try:
+        output_fd = os.open(
+            name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd
+        )
+        with os.fdopen(output_fd, "wb") as stream:
+            stream.write(canonical_bytes(receipt))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _verify_stage(store: Path, name: str, receipt: Contract) -> None:
+    fd = open_private_dispatch_store(store)
+    try:
+        input_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+        with os.fdopen(input_fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or stream.read(FINAL_SUITE_ARTIFACT_BYTES + 1)
+                != canonical_bytes(receipt)
+            ):
+                raise ValueError(
+                    "retained final suite execution differs or is not private"
+                )
+    finally:
+        os.close(fd)
+
+
+def run_initial_correction_final(
+    signed: SignedG4FinalWholeSuiteApproval,
+    inputs: G4InitialCorrectionFinalInputs,
+) -> G4FinalWholeSuiteReceipt:
+    """Consume one grant and execute both exact offline jobs separately."""
+    preflight_initial_correction_final(signed, inputs)
+    started = datetime.now(UTC)
+    required_seconds = (
+        inputs.creator_request.timeout_seconds + inputs.reviewer_request.timeout_seconds
+    )
+    if not signed.approval.issued_at <= started or (
+        started + timedelta(seconds=required_seconds) >= signed.approval.expires_at
+    ):
+        raise ValueError("final suite grant lacks remaining execution time")
+    _claim(inputs.final_store, inputs.candidate.receipt_sha256, signed)
+    context = inputs.chain
+    chain = context.first_inputs
+    creator = execute_isolated_creator_tests_in_trusted_host(
+        inputs.creator_request,
+        context.binding,
+        inputs.creator_package_path,
+        chain.package_path,
+        context.candidate_root,
+        chain.container,
+    )
+    verify_creator_test_execution_receipt(
+        creator,
+        context.binding,
+        inputs.creator_package_path,
+        chain.package_path,
+        context.candidate_root,
+    )
+    _save_stage(
+        inputs.final_store, inputs.candidate.receipt_sha256 + ".creator.json", creator
+    )
+    if (
+        datetime.now(UTC) + timedelta(seconds=inputs.reviewer_request.timeout_seconds)
+        >= signed.approval.expires_at
+    ):
+        raise ValueError("final suite grant expired before reviewer execution")
+    reviewer = execute_isolated_reviewer_tests_in_trusted_host(
+        inputs.reviewer_request,
+        context.binding,
+        chain.package_path,
+        context.candidate_root,
+        chain.container,
+    )
+    verify_execution_receipt(
+        reviewer,
+        inputs.reviewer_request,
+        context.binding,
+        chain.package_path,
+        context.candidate_root,
+    )
+    _save_stage(
+        inputs.final_store, inputs.candidate.receipt_sha256 + ".reviewer.json", reviewer
+    )
+    _reviewer_identities(inputs.candidate, reviewer)
+    preflight_initial_correction_final(signed, inputs, now=started)
+    return G4FinalWholeSuiteReceipt(
+        approval=signed,
+        candidate_receipt_sha256=inputs.candidate.receipt_sha256,
+        source_revision=signed.approval.source_revision,
+        creator_execution=creator,
+        reviewer_execution=reviewer,
+        started_at=started,
+        final_suites_passed=(
+            creator.role_expectation_satisfied and reviewer.role_expectation_satisfied
+        ),
+    )
+
+
+def verify_initial_correction_final_receipt(
+    receipt: G4FinalWholeSuiteReceipt,
+    inputs: G4InitialCorrectionFinalInputs,
+) -> None:
+    """Replay the exact private claim, both measured receipts and unchanged Git."""
+    if (
+        receipt.creator_execution.request != inputs.creator_request
+        or receipt.reviewer_execution.request != inputs.reviewer_request
+    ):
+        raise ValueError("final suite receipt differs from frozen execution requests")
+    preflight_initial_correction_final(receipt.approval, inputs, now=receipt.started_at)
+    _verify_claim(inputs.final_store, inputs.candidate.receipt_sha256, receipt.approval)
+    _verify_stage(
+        inputs.final_store,
+        inputs.candidate.receipt_sha256 + ".creator.json",
+        receipt.creator_execution,
+    )
+    _verify_stage(
+        inputs.final_store,
+        inputs.candidate.receipt_sha256 + ".reviewer.json",
+        receipt.reviewer_execution,
+    )
+    context = inputs.chain
+    chain = context.first_inputs
+    verify_creator_test_execution_receipt(
+        receipt.creator_execution,
+        context.binding,
+        inputs.creator_package_path,
+        chain.package_path,
+        context.candidate_root,
+    )
+    verify_execution_receipt(
+        receipt.reviewer_execution,
+        inputs.reviewer_request,
+        context.binding,
+        chain.package_path,
+        context.candidate_root,
+    )
+    _reviewer_identities(inputs.candidate, receipt.reviewer_execution)

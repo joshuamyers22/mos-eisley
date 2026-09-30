@@ -47,3 +47,60 @@ Its artifact SHA-256 is
 The signature and complete read-only preflight passed. The file is owner-private
 mode 0600. Its authority window is September 30, 2026 22:23:43 UTC through
 October 1, 2026 00:23:43 UTC. No final whole-suite execution occurred.
+
+## Authorized execution
+
+The owner requested consuming the exact signed authority and running both frozen
+final suites. Persist a candidate-keyed claim before the creator job; then run
+the creator and reviewer jobs separately, compare reviewer test identities with
+the passing candidate, and replay both receipts and unchanged Git. Reject claim
+reuse or inadequate remaining time. No retry or acceptance follows from this run.
+
+### First pair startup failure
+
+Attempt one durably consumed its grant but the creator worker failed without
+returning an execution receipt. The reviewer worker was not reached. No final
+pair receipt exists, so no success or measured creator counts are claimed. The
+cleanup lifecycle records show the attempted container was removed.
+
+A separate offline diagnostic decoded the exact job without running tests and
+inspected the pinned worker and stdlib loader. The frozen creator package has
+only `tests/test_order.py`; discovery used start `tests`, top `.` and requires
+`tests/__init__.py`, which is absent. This establishes a discovery configuration
+defect. A new preflight check rejects missing package initializers without
+importing task tests. The focused regression covers both the rejected original
+configuration and a valid top `tests` configuration.
+
+Preserve the spent first claim and all frozen inputs. Prepare distinct second
+pair inputs/requests/store with creator discovery top `tests`; all creator test
+bytes and the original blind reviewer package remain unchanged. The revised
+creator package and jobs need a fresh owner signature before either suite runs.
+
+### Second pair completed
+
+The owner signed the revised pair authority with artifact SHA-256
+`03891cb38ab829d73171a578d6ac8711ee63fdfd80823c54eb14575349a7e0c0`.
+Its window is September 30, 2026 22:38:11 UTC through October 1, 2026
+00:38:11 UTC. Signature and full chain preflight passed. The revised creator
+package SHA-256 is
+`d8a39c33ead2a0ebd7dae498ddb4689f11c944850eb88a483d4d0fedb99d4977`.
+Creator test bytes and blind reviewer package were unchanged.
+
+The broker consumed the fresh claim at September 30, 2026 22:42:19 UTC and
+completed both frozen suites. All 13 creator and 16 reviewer tests were
+collected, started and executed, with zero failures, errors or skips. Reviewer
+test identities match the passing corrected candidate. Individual stage receipts
+are retained before subsequent work, using owner-private, exclusive writes;
+verification rejects overwritten or substituted stage evidence.
+
+The final pair receipt is
+`/Users/josh/.mos-eisley-g4-distinct-deps-2026-09-30/deps12-final-whole-suite-receipt-2.json`,
+SHA-256 `c46955a60e252037ea3e002640e1e31caeea928d19c9866c0a79b49998dc9ec8`.
+The runner verified the claim, both retained stage receipts, measured results,
+exact requests, full correction provenance and unchanged task Git after execution.
+Claim, stage and pair files are mode 0600. The first spent grant remains intact.
+No provider call, task Git write, independent-review approval or G4 acceptance
+occurred. Independent review and acceptance remain outstanding.
+
+The three focused controller tests, Ruff formatting/lint and Pyright passed.
+The combined repository publication gate remains required before publishing.
