@@ -27,6 +27,7 @@ from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.duplex import ExchangeHandler
 from mos_eisley.run.isolation import OfflineContainer
+from mos_eisley.run.operator_review_probe import OperatorReviewIdentity
 from mos_eisley.run.review_broker import PreparedReviewCall, PreparedReviewEnvelope
 from mos_eisley.run.review_conformance_admission import review_sdk_version
 from mos_eisley.run.review_conformance_authorization import (
@@ -303,6 +304,14 @@ class MixedReviewConformanceTests(GuidedBrokerFixture, IsolatedAsyncioTestCase):
             load_authorization=load,
             load_api_key=anthropic_loader,
             load_api_keys={"openai": openai_loader, "anthropic": anthropic_loader},
+            operator_identity=OperatorReviewIdentity(
+                author_provider="openai",
+                author_model="gpt-6",
+                author_artifact_sha256=digest(
+                    self.base.request.brief.diff.encode("utf-8")
+                ),
+                max_total_microusd=20_000,
+            ),
         )
         result = await probe.run()
         assert result is not None

@@ -277,7 +277,10 @@ class BrokeredReviewConformanceProbe:
             raise ValueError("review probe requires a distinct worker for every critic")
         if operator_identity is not None:
             identity = validate_operator_review_identity(
-                operator_identity, envelope, reviewer
+                operator_identity,
+                envelope,
+                reviewer,
+                allow_mixed_providers=True,
             )
             if campaign is not None:
                 bundle, _ = read_campaign_seal(
