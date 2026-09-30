@@ -51,5 +51,14 @@ the exact correction to a detached worktree. Its parent is
 record SHA-256 is
 `21c480ba5f6d8a6fdd01bb6e6ed2288e1c9c844e778aef3e3df9731d2cb97bc1`.
 Replay found only `src/dependency_lab/order.py` changed, matching the signed
-proposal bytes. The original checkout stayed clean. The separate VCS signature
-is pending. No task test, provider call, or G4 acceptance occurred.
+proposal bytes. The original checkout stayed clean.
+
+The owner signed
+`/Users/josh/.mos-eisley-g4-distinct-deps-2026-09-30/signed-deps12-correction-integration-record-1.json`.
+Its signed artifact SHA-256 is
+`eab5b585dee492540a937c2e34a2359bec1be850527835eaaa2ec046be9decaf`.
+The VCS signature, exact Git parent/tree/patch and proposal bytes, one-use claim,
+and correction chain replayed successfully. The signed record remains historical
+evidence after the write grant expires; replay uses the recorded integration time
+and verifies current Git bytes. No task test, provider call, or G4 acceptance
+occurred. Fresh final-candidate test authority is the next gate.
