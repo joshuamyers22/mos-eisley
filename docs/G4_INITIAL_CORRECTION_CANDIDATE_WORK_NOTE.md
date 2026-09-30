@@ -36,5 +36,12 @@ The fresh binding, request and job SHA-256 values are respectively:
 - `dedcfff255c1822ceb46c1b20ccc7594fa8d5305350a8d85d12b5c7512b36494`
 
 Read-only real-chain preparation and approval preflight passed. Focused signature
-and authority-scope regressions, Ruff and Pyright passed. The owner signature is
-pending. No corrected candidate test run occurred.
+and authority-scope regressions, Ruff and Pyright passed.
+
+The owner signed
+`/Users/josh/.mos-eisley-g4-distinct-deps-2026-09-30/signed-deps12-final-candidate-approval-1.json`.
+Artifact SHA-256:
+`1c39bdbbf9226d852f1ed25139c06ff1c410ea3c2b638adc8f7726a77161e2f8`.
+The signature and full preflight replay passed; the file is owner-private mode
+0600. Its authority window is September 30, 2026 22:02:02 UTC through October 1,
+2026 00:02:02 UTC. No corrected candidate test run occurred.
