@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import cast
@@ -14,6 +14,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mos_eisley.core.models import digest
 from mos_eisley.providers.anthropic_review import AnthropicReviewHTTPTransport
+from mos_eisley.reviewer_plan_test_approval import (
+    prepare_creator_plan_test_approval,
+    sign_creator_plan_test_approval,
+    verify_creator_plan_test_approval,
+)
 from mos_eisley.reviewer_plan_test_judge import (
     PlanTestCriticAuditInput,
     SignedG4PlanTestJudgeLiveGrant,
@@ -164,3 +169,77 @@ class PlanTestJudgeTests(unittest.TestCase):
                 call()
             self.assertEqual((transport.counts, transport.calls), (1, 1))
             self.assertFalse(ledger.snapshot().unresolved_entries)
+            issued = datetime.now(UTC)
+            approval = prepare_creator_plan_test_approval(
+                approval_id="creator-approval",
+                packet=f.fixture.packet,
+                policy=f.policy,
+                authority=f.authority,
+                judge=signed,
+                critics=critics,
+                spend=spend,
+                ledger=ledger,
+                claims=claims,
+                run=claims / "judge-1",
+                issued=issued,
+            )
+            approved = sign_creator_plan_test_approval(approval, f.fixture.key)
+            verify_creator_plan_test_approval(
+                approved,
+                packet=f.fixture.packet,
+                policy=f.policy,
+                authority=f.authority,
+                judge=signed,
+                critics=critics,
+                spend=spend,
+                ledger=ledger,
+                claims=claims,
+                run=claims / "judge-1",
+                now=issued,
+            )
+            self.assertFalse(approval.coding_delegation_authorized)
+            with self.assertRaises(ValueError):
+                verify_creator_plan_test_approval(
+                    sign_creator_plan_test_approval(
+                        approval, Ed25519PrivateKey.generate()
+                    ),
+                    packet=f.fixture.packet,
+                    policy=f.policy,
+                    authority=f.authority,
+                    judge=signed,
+                    critics=critics,
+                    spend=spend,
+                    ledger=ledger,
+                    claims=claims,
+                    run=claims / "judge-1",
+                    now=issued,
+                )
+            with self.assertRaises(ValueError):
+                prepare_creator_plan_test_approval(
+                    approval_id="creator-approval",
+                    packet=f.fixture.packet,
+                    policy=f.policy,
+                    authority=f.authority,
+                    judge=signed,
+                    critics=critics,
+                    spend=spend,
+                    ledger=ledger,
+                    claims=claims,
+                    run=claims / "judge-1",
+                    issued=f.now,
+                )
+            changed = f.fixture.packet.model_copy(update={"plan": "Changed plan"})
+            with self.assertRaises(ValueError):
+                verify_creator_plan_test_approval(
+                    approved,
+                    packet=changed,
+                    policy=f.policy,
+                    authority=f.authority,
+                    judge=signed,
+                    critics=critics,
+                    spend=spend,
+                    ledger=ledger,
+                    claims=claims,
+                    run=claims / "judge-1",
+                    now=issued,
+                )

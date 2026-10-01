@@ -121,3 +121,28 @@ and duplicate dispatch rejection before provider I/O. Ruff and Pyright pass for
 the changed core modules and tests. No task implementation tests or provider
 requests were run during this preparation; full repository check/publication
 remains separate.
+
+## Judge replay and prospective creator plan/test approval
+
+Judge observation `6925a4639248f8bb2a7399529a7fbe4a92e95f504532747f0e58c8f71a2e02a5`
+passed full retained-audit replay. Its settled charge is 1,185 micro-USD; the
+shared ledger has three settled entries totaling 30,571 micro-USD, no unresolved
+entries and no block. The deterministic verdict is accept with one upheld low
+finding and no required changes. Preserve the exact finding and rationale.
+The frozen creator tests already accept 86399999ms (eight digits, below the
+aggregate ceiling) and 86400000ms at the inclusive ceiling. This observation
+does not edit or override the judge record. Do not change the frozen packet.
+
+Prepare a domain-separated creator decision over the exact packet, review
+authority, judge grant/observation and verdict. Replay both critics and the judge
+before preparing or verifying it. Only an accept verdict with no required
+changes is eligible. The owner acknowledges all retained findings and the sole
+human review arrangement. Approval applies to this plan and these creator tests;
+coding delegation, provider dispatch, spending and task acceptance remain false.
+
+The seven focused plan-review test methods pass with additional creator-approval
+checks: authentic exact decision, wrong owner key, changed frozen plan and
+approval before the judge observation. Ruff and Pyright pass. The signing helper
+will preflight full retained audits and owner-reported judge grant, observation
+and 1,185 micro-USD settlement before presenting the exact creator approval.
+No owner signature or task coding delegation has occurred during preparation.
