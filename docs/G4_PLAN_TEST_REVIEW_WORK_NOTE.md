@@ -292,3 +292,27 @@ and measured child execution, alongside all other signed prerequisites. Full
 upstream dispatch replay remains mandatory. Historical initial-only packets are
 unchanged. The plan and complete Git patch remain full review inputs. Focused
 regression, Ruff and Pyright pass; no enlarged wire bound or filtered finding.
+
+## Final-review count-only reconciliation and renewal
+
+Anthropic count exceeded the 17,500-token input envelope before generation. Its
+original violation receipt retained 109,000 micro-USD; the count itself was not
+retained. OpenAI made no admitted call and has no claim or ledger entry. Joshua
+signed exact count-only zero disposition 5b318bb5; the existing narrow ledger
+operation settled that entry to zero, retaining its original receipt and a
+separate reconciliation audit. No generation call or token-count value is inferred
+from absent data. Both critic grants and final-review authority expired before
+the disposition was returned; renew prospectively for the same frozen subject.
+
+Before renewal retain the returned Anthropic count, request/reservation/ledger
+identities and count-stage status before any generation attempt. On count
+overflow also retain that count in the violation receipt; no automatic release,
+retry or authority extension. Test no generation on overflow and exact count
+retention. Use fresh 32,000-input-token policy within existing qualified ceiling,
+same output bound/body, and retained 250,000-micro-USD ledger. Selected existing
+Python, verification and authorization threat-model guidance. Full make check
+remains required before publication; no provider call during repair/preparation.
+
+Fourteen Anthropic transport tests pass, including zero generation requests and
+exact count/ledger retention on input overflow. Ruff and Pyright pass. Historical
+count data and old receipts remain untouched; the repair applies prospectively.

@@ -355,6 +355,17 @@ class AnthropicSpendTests(unittest.IsolatedAsyncioTestCase):
                 await controller.create_response(_payload())
             self.assertEqual(fixture.calls, 0)
             self.assertTrue(ledger.snapshot().blocked)
+            observation = json.loads(
+                (Path(temp) / "attempt/token-count-observation.json").read_bytes()
+            )
+            self.assertEqual(observation["counted_input_tokens"], 16_001)
+            self.assertEqual(observation["held_input_tokens"], 16_000)
+            self.assertFalse(observation["generation_started_at_observation"])
+            self.assertEqual(observation["ledger_id"], ledger.policy.ledger_id)
+            receipt = json.loads(
+                (Path(temp) / "attempt/spend-receipt.json").read_bytes()
+            )
+            self.assertEqual(receipt["input_tokens"], 16_001)
 
     async def test_grant_expiring_after_count_prevents_generation(self) -> None:
         with TemporaryDirectory() as temp:
