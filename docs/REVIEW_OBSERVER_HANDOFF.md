@@ -1,5 +1,10 @@
 # Offline observer handoff preview
 
+**G2 amendment, 2026-09-26:** [owner operated custody](G2_OWNER_OPERATED_CONTRACT.md)
+allows Joshua Myers to assess and sign with the enrolled observer role key. The
+schema-2 unsigned preview reports `requires_owner_assessment: true`; historical
+references below to independent human attestation are superseded.
+
 `review-campaign-observation-preview` verifies a retained campaign completion and
 explicitly selected runtime evidence, then prepares an unsigned observation proposal.
 It does not load provider credentials or signing keys, dispatch calls, or authenticate
@@ -54,7 +59,7 @@ attest, including credentialed exchange, local approvals, current guidance, boun
 SDK transport and isolated-worker cleanup. Those proposed statements are not established
 independent facts merely because local records pass verification. The wrapper reports
 `observer_authenticated: false`, `signature_created: false` and
-`requires_independent_attestation: true`; it is not a signed observation or an
+`requires_owner_assessment: true`; it is not a signed observation or an
 acceptance receipt. No key-loading or signing option is provided.
 
 An enrolled independent observer must assess the actual runtime, custody and claims

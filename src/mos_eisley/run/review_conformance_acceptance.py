@@ -41,7 +41,7 @@ from mos_eisley.run.spend_ledger import SpendLedger
 
 
 class ReviewRoleProfile(Contract):
-    provider: Literal["openai"] = "openai"
+    provider: Literal["openai", "anthropic"] = "openai"
     model: Identifier
     effort: Effort
     system_sha256: Digest
@@ -58,12 +58,13 @@ def review_role_profile(
 ) -> ReviewRoleProfile:
     request = ModelRequest.model_validate_json(canonical_bytes(request))
     if (
-        request.provider != "openai"
+        request.provider not in ("openai", "anthropic")
         or request.tools
         or request.max_output_tokens is None
     ):
-        raise ValueError("review acceptance requires bounded tool-free OpenAI roles")
+        raise ValueError("review acceptance requires bounded tool-free roles")
     return ReviewRoleProfile(
+        provider=request.provider,
         model=request.model,
         effort=request.effort,
         system_sha256=digest(request.system.encode()),
@@ -131,9 +132,10 @@ class ReviewAcceptancePolicy(Contract):
             or self.judge.critic_sha256 is not None
         ):
             raise ValueError("review acceptance role identities are inconsistent")
-        if (
-            self.review_policy.min_critics > len(self.critics)
-            or self.review_policy.min_providers > 1
+        if self.review_policy.min_critics > len(
+            self.critics
+        ) or self.review_policy.min_providers > len(
+            {item.provider for item in self.critics}
         ):
             raise ValueError(
                 "review acceptance profile cannot meet the selected quorum"
@@ -239,7 +241,16 @@ def evaluate_review_conformance(
             or any(
                 item.authorization.scope.sdk_version != policy.runtime.sdk_version
                 or item.authorization.scope.image_id != policy.runtime.image_id
-                for item in attempt.authorizations
+                or item.authorization.scope.provider
+                != (
+                    "mixed"
+                    if index == 0
+                    and len({role.provider for role in policy.critics}) > 1
+                    else policy.critics[0].provider
+                    if index == 0
+                    else policy.judge.provider
+                )
+                for index, item in enumerate(attempt.authorizations)
             )
             or attempt.start.started_at < policy.committed_at
             or (now - signed.observation.observed_at).total_seconds()

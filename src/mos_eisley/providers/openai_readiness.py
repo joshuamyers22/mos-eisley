@@ -131,6 +131,11 @@ class SDKOpenAIModelMetadataTransport:
         except OpenAIError as error:
             failure_kind = safe_openai_failure_kind(error)
             failure_detail = _safe_readiness_failure_detail(error)
+        except Exception:
+            # SDK releases can surface a transport callback exception directly.
+            # Keep the receipt coarse and never retain the callback's message.
+            failure_kind = "transport_error"
+            failure_detail = "unknown_transport_error"
         else:
             if result.object != "model" or result.id != model:
                 raise ProviderError(

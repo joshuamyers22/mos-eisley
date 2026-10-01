@@ -1,0 +1,131 @@
+{
+  "authority": "source screening only; no enrollment, assignment, sampling, label, split, or oracle claim",
+  "inspected_rows": [
+    {
+      "base_commit": "2e2d8b2cecf52041ba9308db24576f3b0513c176",
+      "instance_id": "vaskoz__dailycodingproblem-go-178",
+      "license_metadata": "MIT",
+      "repo": "vaskoz/dailycodingproblem-go",
+      "review_reason": "synthetic coding exercise",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "50198ce97a3c9173cbdd84d7d729fc0ceb5c4242",
+      "instance_id": "rsteube__carapace-273",
+      "license_blob_sha1_at_base": "298f0e2665e512a7d5053faf2ce4793c281efe6a",
+      "license_metadata": "Apache-2.0",
+      "license_path_at_base": "LICENSE.txt",
+      "original_issue_url": "https://github.com/rsteube/carapace/issues/251",
+      "packet_path": "docs/g3_candidate_task_views_v1/packet-001.json",
+      "packet_sha256": "41172916672303c00f51c052ff38a3d8f8ce4f3b9e1032e43d6b725e68074645",
+      "repo": "rsteube/carapace",
+      "review_reason": "original issue text verified",
+      "review_status": "candidate",
+      "source_statement_sha256": "bc280e2ef62c6ce93403dfd0187bb39c609697779534d156a6dfce8dbad089cf"
+    },
+    {
+      "base_commit": "071f5c7ec0f520ab9be82529c08e83fc726b4910",
+      "instance_id": "corneliusweig__ketall-98",
+      "license_metadata": "Apache-2.0",
+      "repo": "corneliusweig/ketall",
+      "review_reason": "external screenshot and cluster context",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "ec752e0f51f740e9efe2e94a28946de51d58bfcd",
+      "instance_id": "swaggest__rest-126",
+      "license_metadata": "MIT",
+      "repo": "swaggest/rest",
+      "review_reason": "mutable master branch links",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "ddf502f0677f072c10afc7b3d238095dddfdf975",
+      "instance_id": "palantir__policy-bot-220",
+      "license_blob_sha1_at_base": "8dada3edaf50dbc082c9a125058f25def75e625a",
+      "license_metadata": "Apache-2.0",
+      "license_path_at_base": "LICENSE",
+      "original_issue_url": "https://github.com/palantir/policy-bot/issues/168",
+      "packet_path": "docs/g3_candidate_task_views_v1/packet-002.json",
+      "packet_sha256": "fb780d1633e31232dd569e0a0df2fe463614aa3c6999a728f57e3a8527d47f61",
+      "repo": "palantir/policy-bot",
+      "review_reason": "original issue text verified",
+      "review_status": "candidate",
+      "source_statement_sha256": "19703e002825f07e5d12348eb7338cf8357d4efe047b9820c8bc5f5b6b025baa"
+    },
+    {
+      "base_commit": "bf987eddd29034deb4d729d9370f99b1126f10cb",
+      "instance_id": "google__osv-scanner-16",
+      "license_blob_sha1_at_base": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "license_metadata": "Apache-2.0",
+      "license_path_at_base": "LICENSE",
+      "original_issue_url": "https://github.com/google/osv-scanner/issues/7",
+      "packet_path": "docs/g3_candidate_task_views_v1/packet-003.json",
+      "packet_sha256": "92a412c4c23a63d69d09f4b5cc50f10d9d2ba567c5b3ac24f2fb2f248f79cd01",
+      "repo": "google/osv-scanner",
+      "review_reason": "original issue text verified",
+      "review_status": "candidate",
+      "source_statement_sha256": "3bfa07ee858d7ae053830a307c574c47d161497796ebc6f33857094da498d0fe"
+    },
+    {
+      "base_commit": "44230462e749c3063910202987ab4b61447c09c6",
+      "instance_id": "apache__camel-k-808",
+      "license_metadata": "Apache-2.0",
+      "repo": "apache/camel-k",
+      "review_reason": "solution cause and PR discussion in issue",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "14428cd8e72132155ec2f0f13c4eb93ffe620f7c",
+      "instance_id": "mitchellh__mapstructure-194",
+      "license_metadata": "MIT",
+      "repo": "mitchellh/mapstructure",
+      "review_reason": "explicit fix and tests in issue",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "d344a144377374da1f542ea57c2a4bea3704c5db",
+      "instance_id": "zegl__kube-score-294",
+      "license_metadata": "MIT",
+      "repo": "zegl/kube-score",
+      "review_reason": "external documentation dependency",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "2e74690f5ec73e6707606fd92bca02f7f17c452f",
+      "instance_id": "d5__tengo-221",
+      "license_metadata": "MIT",
+      "repo": "d5/tengo",
+      "review_reason": "linked implementation branch",
+      "review_status": "defer"
+    },
+    {
+      "base_commit": "639d12bb4f9b36b0f60d61ae1841ebc39ec52f14",
+      "instance_id": "mgechev__revive-665",
+      "license_blob_sha1_at_base": "c617c7e0126bc1228a5064487aea14f10535cc2c",
+      "license_metadata": "MIT",
+      "license_path_at_base": "LICENSE",
+      "original_issue_url": "https://github.com/mgechev/revive/issues/664",
+      "packet_path": "docs/g3_candidate_task_views_v1/packet-004.json",
+      "packet_sha256": "abdf603e2fac1bc3e19600b1cf5269a9ef40b621be5408dc92f67fdaa9d03857",
+      "repo": "mgechev/revive",
+      "review_reason": "original issue text verified",
+      "review_status": "candidate",
+      "source_statement_sha256": "9eefdca33bb320afec707e565032d22fbceaf925c5d4b1ed43875b1664d22d28"
+    },
+    {
+      "base_commit": "8cb519c584f228c0813ba62dd3ab50d5786272e6",
+      "instance_id": "magefile__mage-61",
+      "license_metadata": "Apache-2.0",
+      "repo": "magefile/mage",
+      "review_reason": "linked source and ambiguous desired behavior",
+      "review_status": "defer"
+    }
+  ],
+  "inspection_rule": "sha256(instance_id) ascending; first row per repository name; cap 12",
+  "schema_version": "g3-public-source-screen-v1",
+  "screened_repository_name_count": 107,
+  "screened_row_count": 453,
+  "source_bytes": 428839266,
+  "source_sha256": "0e0bf9355f892ad74ae98d4e1c404f39fd6654a8e351ee3e6ab162e4a64cd3ad"
+}

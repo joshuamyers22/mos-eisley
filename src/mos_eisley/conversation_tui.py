@@ -1,4 +1,4 @@
-"""Full-screen recorded conversation; execution stays in the shared terminal."""
+"""Full-screen conversation; execution stays in the shared terminal."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ from mos_eisley.conversation_input import (
 )
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_remember import memory_phrase_command
-from mos_eisley.conversation_review import ConversationReviewPacket
+from mos_eisley.conversation_review import ConversationLiveReviewPacket, ReviewPacket
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
@@ -121,7 +121,7 @@ class ConversationTUI:
     def __init__(
         self,
         controller: RuntimeConversationController,
-        review_packet: ConversationReviewPacket | None = None,
+        review_packet: ReviewPacket | None = None,
         *,
         welcome: str = "",
         initial_prompt: str | None = None,
@@ -377,8 +377,13 @@ class ConversationTUI:
         abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
         root = self.project_location.root_label()
         root = root if len(root) <= 70 else "…" + root[-69:]
+        mode = (
+            "recorded chat / live review"
+            if isinstance(self.review_packet, ConversationLiveReviewPacket)
+            else "recorded"
+        )
         return display_text(
-            f"Mos Eisley • recorded • {state.session_name or '(unnamed)'} • "
+            f"Mos Eisley • {mode} • {state.session_name or '(unnamed)'} • "
             f"{state.session_id[:8]} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full paths\n"
             f"Project root: {root}"

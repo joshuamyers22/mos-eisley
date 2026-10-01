@@ -95,6 +95,8 @@ critic and does not permit a retry.
 `review-launch-preview` continues to report live launch unavailable. No credentialed
 probe was run as part of this implementation; all provider responses in validation
 are synthetic.
+Synthetic review-path fixtures cover both OpenAI and Anthropic. The standalone
+[Anthropic integration probe](ANTHROPIC_PROVIDER.md) has a separate evidence scope.
 
 ## Verification
 

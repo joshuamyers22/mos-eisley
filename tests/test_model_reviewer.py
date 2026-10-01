@@ -343,6 +343,18 @@ class ModelReviewerTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ProviderError):
                 await self.reviewer.judge(JudgeRequest(brief=self.brief, findings=()))
 
+    async def test_judge_placeholder_rationale_is_rejected(self) -> None:
+        for rationale in ("placeholder", "PLACEHOLDER.", "n/a"):
+            with self.subTest(rationale=rationale):
+                raw = json.dumps(
+                    {"schema_version": 1, "upheld": [], "rationale": rationale}
+                )
+                self.client.reply = lambda _, raw=raw: response(raw)
+                with self.assertRaises(ProviderError):
+                    await self.reviewer.judge(
+                        JudgeRequest(brief=self.brief, findings=())
+                    )
+
     def test_retained_decoders_normalize_excessive_json_nesting(self) -> None:
         registry = self.registry.model_copy(
             update={

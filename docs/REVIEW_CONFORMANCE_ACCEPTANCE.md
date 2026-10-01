@@ -35,10 +35,13 @@ attempt authority policy and signed observation must use the same mode; mixed-mo
 campaigns fail closed. Single-operator acceptance authenticates one accountable
 signer but does not establish independent human observation or custody.
 
-The OpenAI-only evaluator preserves the explicitly selected review policy. It rejects
-a profile that cannot meet that policy, including two-provider quorum. Acceptance of
-an explicitly selected one-provider experiment does not establish conformance for
-the default two-provider review policy or for other models, effort levels or images.
+The evaluator preserves the explicitly selected review policy and checks that
+the committed critic roster can meet its provider quorum. Acceptance of an
+explicitly selected one-provider experiment does not establish conformance for
+the default two-provider policy or other models, effort levels or images. The
+[owner-operated G2 closeout](G2_OWNER_OPERATED_CONTRACT.md) records one exact
+two-provider profile; single-operator custody does not imply independent human
+observation.
 
 ## Fresh verification
 

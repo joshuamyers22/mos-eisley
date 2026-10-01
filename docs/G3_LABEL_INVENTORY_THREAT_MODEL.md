@@ -3,7 +3,9 @@
 ## Scope and ownership
 
 - System/version: schema-1 G3 context-study contracts
-- Owner and reviewers: Josh Myers; independent statistical/data review required
+- Owner and statistical-method reviewer: Joshua Myers under the disclosed
+  owner-conducted G3 exception in [ADR-0008](adr/0008-g3-owner-statistical-review.md);
+  independent label graders remain required
 - Date and review trigger: 2026-09-21; revisit for schema, custody, rubric, sampling,
   signer or holdout-access changes
 - In scope: offline signature verification, metadata eligibility, policy-arm sealing
@@ -32,6 +34,7 @@
 | Abuse case | Preconditions | Impact | Prevent/detect/respond controls | Evidence | Residual risk |
 |---|---|---|---|---|---|
 | One person impersonates two graders | Operator controls enrolled keys | False independence | Distinct IDs/keys required; accountable trust-policy review | Negative tests | Key separation cannot prove physical independence |
+| Owner reviews his own statistical study | Owner also holds the G3 statistical-review role | Method defect or optimistic claim escapes human challenge | Disclose overlap; bind review to exact methods and pre-outcome evidence; reproduce calculations; retain blocking findings; require separate reviewer for owner-authored methods | Signed G3 review record, if later supplied | No independent human judgment from the owner; review remains pending |
 | Label or case is changed after grading | Mutable source | Wrong ground truth | Sign canonical claim bound to case/rubric digests | Tamper test | Digest does not prove source quality or custody |
 | Held-out session leaks into inventory | Broad input contract | Tuning/leakage | Strict extra-forbid metadata schema; opaque case/group digests; no dataset/session CLI argument | Schema and CLI inspection | A signer or custodian can learn information outside this software |
 | Selective labels disappear | Operator omits hard/unlabeled cases | Biased study | Catalog is content addressed; exclusions retained; probabilities required | Missing-probability tests | Completeness of the upstream sampling frame needs independent audit |
@@ -43,8 +46,9 @@
 ## Decisions
 
 - Accepted risks with owner and expiry: physical identity, upstream sampling-frame
-  completeness and holdout custody remain owner-controlled claims until the empirical
-  study receives independent review.
+  completeness, holdout custody and owner-conducted statistical review require
+  explicit assessment before any empirical claim. ADR-0008 does not establish
+  independent human statistical judgment or discharge the pending review.
 - Required tests and monitoring: signature/tamper, distinct-key, disagreement,
   unknown-probability, cross-split group, missing-label-class, arm-completeness,
   provenance and private-output tests.

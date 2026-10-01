@@ -30,7 +30,8 @@ from mos_eisley.conversation_request_admission import (
 from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
-    ConversationReviewPacket,
+    ConversationLiveReviewPacket,
+    ReviewPacket,
     review_summary,
 )
 from mos_eisley.core.agent import AgentUsage
@@ -69,7 +70,7 @@ class ConversationEntry(Contract):
     steering_for: Annotated[int | None, Field(ge=0, le=15)] = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    review_packet: ConversationReviewPacket | None = Field(
+    review_packet: ReviewPacket | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     review_result: ReviewResult | None = Field(
@@ -124,7 +125,13 @@ class ConversationEntry(Contract):
                 if (
                     self.status != expected_status
                     or result.verdict.brief_id != self.review_packet.brief.brief_id
-                    or self.answer != review_summary(result)
+                    or self.answer
+                    != review_summary(
+                        result,
+                        live=isinstance(
+                            self.review_packet, ConversationLiveReviewPacket
+                        ),
+                    )
                     or len(canonical_bytes(result)) > MAX_REVIEW_RESULT_BYTES
                 ):
                     raise ValueError("review result does not match its entry")
@@ -227,7 +234,11 @@ class ArchivedConversationEntry(Contract):
             digest(canonical_bytes(self.review_result)) != refs.get("review_result")
             or len(canonical_bytes(self.review_result)) > MAX_REVIEW_RESULT_BYTES
             or self.review_result.verdict.brief_id != self.review_brief_id
-            or review_summary(self.review_result) != self.answer
+            or self.answer
+            not in {
+                review_summary(self.review_result),
+                review_summary(self.review_result, live=True),
+            }
         ):
             raise ValueError("invalid cached review result")
         return self

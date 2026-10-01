@@ -1,5 +1,12 @@
 # Exact review launch admission
 
+**G2 amendment, 2026-09-26:** [owner operated custody](G2_OWNER_OPERATED_CONTRACT.md)
+supersedes this document's requirement for separate humans. Distinct role keys and
+exact signatures remain. The schema-2 launch decision records owner assessment;
+`mos review-live` now exposes this library path for one admitted Anthropic launch.
+The historical independent-human and no-public-CLI statements below describe the
+earlier contract.
+
 An owning host can now pass `ReviewLaunchAdmissionInputs` to
 `BrokeredReviewConformanceProbe(..., launch=...)` to require a signed decision under
 an explicit operator mode for one exact review launch. This is a library gate. The public preview
