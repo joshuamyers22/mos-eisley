@@ -1,0 +1,62 @@
+# G4 pre-delegation plan and creator-test review
+
+- Status: preparing exact owner review authority; no coding delegation
+- Owner and sole human: Joshua Myers
+- Task: duration-literal configuration parser, distinct from earlier tasks
+- Risk: high for review authority; bounded pure parser for the target task
+- Guidance: Python engineering and agentic verification guides; templates/ADR.md,
+  templates/THREAT_MODEL.md, templates/WORK_NOTE.md; roadmap item 7 and revised loop L1
+
+## Objective and invariants
+
+Freeze the exact new task plan and executable creator tests, obtain critic review
+and judge adjudication, then Joshua's approval of the exact accepted revisions
+before coding delegation. Use a dedicated pre-delegation packet and signing
+domain; do not synthesize a final-suite subject or reuse previous task authority.
+Changed plan, tests, base tree, roster or authority requires fresh review. Findings
+must cite exact frozen bytes; retain all findings and judge their exact IDs.
+
+Preparation grants no paid call, coding child, source integration, task acceptance,
+merge, release or full G4 milestone approval. Separate owner transfer/spending
+grants and hidden local API prompts are required for each actual provider call.
+Joshua remains the sole human, with concentrated-authority risk disclosed. The
+previous dependency-task sole-human amendment is not transferable authority.
+
+## Threats, resource ceiling and stopping rules
+
+Scope substitution and retrospective review fail through task/base/plan/test
+hashes and stage-specific contracts. Domain-separated owner signature prevents
+cross-stage replay. Exact two-provider critic roster and judge request identities
+prevent omitted findings or replacement personas. A non-accept or invalid citation
+blocks approval. Bounded private canonical files, clean Git and pinned controller
+prevent unintended byte substitution; enrolled-key verification rejects other
+signers. Local host/clock/key custody remain trusted. No sampling data is accessed.
+
+A prospective review envelope of USD 0.25 is proposed; it grants no reservation
+or provider dispatch. Fresh per-call grants must fit the exact shared ceiling and
+qualified transport budgets. No retry of a consumed grant. Freeze only one task
+revision now; stop at the concrete owner review-authority signature after focused
+identity/signature/changed-byte/chronology checks and preflight. Publication requires
+make check for the combined batch, which is separate from local preparation.
+
+## Frozen draft and verification
+
+Fresh target base: `da640383dd06266a38a2d2be22a83873ac997a76`.
+Packet SHA-256: `2aa6c575ac37f67f2d4ba52605e0dae1374da08cb5e92f7e6ab3abbadcdba28e`.
+Plan SHA-256: `549ca32dcc9368e3dd1ff1b93ac795c03577e8235a9df9b68c4b87935315f2ca`.
+Creator tests SHA-256: `4f23f74d119d4928283d121796b02b26fd4c0c0df1c3c3bdc5ec56b26ae234cc`.
+The 17 creator test methods parse and compile; their bytes match the protected
+copy and committed clean target base. Target implementation remains a stub.
+No task implementation tests, provider calls or coding delegation occurred.
+
+Four focused review-authority tests passed, including changed plan/test/base/task
+identity, changed persona, wrong key, expired/future authority, duplicate test
+paths, forbidden approval/dispatch flags and cross-stage signature replay. Ruff
+and Pyright passed. The signed review authority will bind both complete critic
+requests and the intended judge profile; its USD 0.25 ceiling is a proposal only.
+Actual calls need fresh per-call grants; subsequent judge acceptance and creator
+approval precede any child authorization. No broad G4 acceptance is claimed.
+
+Next owner signature: `/Users/josh/g4-duration13-plan-review-sign sign`,
+confirmation `g4-q4-duration13-plan-test-review-authority-1`. Preparation must
+preflight at the new clean controller pin before presenting this command.
