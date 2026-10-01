@@ -11,7 +11,7 @@
 | API key | Confidentiality | Read from `OPENAI_API_KEY` at launch; never saved in the session, ledger, or artifacts. Fixed API endpoint, no environment proxies, no SDK retries. |
 | Conversation text and memory | Explicit transfer | `--live-openai --allow-data-transfer` plus current policy, ledger and private artifact root are required. Token counting and generation both transfer admitted text. |
 | Provider and pricing identity | Exact resume | Session stores model, effort, policy hash, ledger ID and artifact root. A mismatch fails before a turn starts. |
-| Aggregate spend | Bounded local admission | Existing `BudgetedOpenAITransport` writes a reservation and uses the shared ledger before generation. Unknown outcomes retain exposure. |
+| Aggregate spend | Bounded local admission | Live chat requires a schema-2 policy that prices cache writes conservatively. Existing `BudgetedOpenAITransport` writes a reservation and uses the shared ledger before generation. Unknown outcomes retain exposure. |
 | Saved turn state | No duplicate call | Controller persists running and consumes the attempt before awaiting the provider. Resume marks a running turn interrupted; only queued turns may run. |
 
 | Abuse case | Control and evidence | Residual risk |

@@ -41,6 +41,8 @@ class LiveChatRuntime:
         policy.check_current()
         if policy.provider != "openai" or policy.model != identity.model:
             raise ValueError("live chat spending policy model mismatch")
+        if policy.schema_version != 2:
+            raise ValueError("live chat requires a schema-2 spending policy")
         if policy.policy_sha256 != identity.spend_policy_sha256:
             raise ValueError("live chat spending policy changed")
         if ledger.policy.ledger_id != identity.spend_ledger_id:

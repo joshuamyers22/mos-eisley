@@ -2474,6 +2474,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         spend_policy.check_current()
         if spend_policy.provider != "openai":
             raise ValueError("live chat requires an OpenAI spending policy")
+        if spend_policy.schema_version != 2:
+            raise ValueError("live chat requires a schema-2 spending policy")
         spend_ledger = SpendLedger(args.spend_ledger)
         if spend_ledger.snapshot().blocked:
             raise ValueError("shared spending ledger is blocked")

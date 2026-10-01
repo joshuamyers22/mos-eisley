@@ -10,7 +10,7 @@ and in-session provider switching are not enabled.
 
 ## Live OpenAI conversation
 
-Use a current reviewed [OpenAI spending policy](OPENAI_SPENDING.md), an existing
+Use a current reviewed schema-2 [OpenAI spending policy](OPENAI_SPENDING.md), an existing
 [shared spending ledger](SHARED_SPENDING.md), and an existing owner-only artifacts
 directory. Set `OPENAI_API_KEY` in the local environment. For example:
 

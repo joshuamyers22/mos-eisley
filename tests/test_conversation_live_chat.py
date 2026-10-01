@@ -79,7 +79,11 @@ class CountedAnswerTransport:
                     "content": [{"type": "output_text", "text": "Live answer"}],
                 },
             ],
-            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "input_tokens_details": {"cache_write_tokens": 0},
+            },
         }
 
 
@@ -90,11 +94,13 @@ class LiveConversationTests(IsolatedAsyncioTestCase):
             artifacts = root / "artifacts"
             artifacts.mkdir(mode=0o700)
             policy = SpendPolicy(
+                schema_version=2,
                 model="gpt-5.6-luna",
                 pricing_source="offline test rates",
                 valid_from=datetime.now(UTC) - timedelta(minutes=1),
                 valid_until=datetime.now(UTC) + timedelta(minutes=5),
                 input_microusd_per_million=1_000_000,
+                cache_write_microusd_per_million=1_000_000,
                 output_microusd_per_million=1_000_000,
                 max_cost_microusd=200,
                 max_output_tokens=128,
@@ -154,16 +160,44 @@ class LiveConversationTests(IsolatedAsyncioTestCase):
             self.assertEqual(resumed.returncode, 0, resumed.stderr)
             self.assertEqual(ledger.snapshot().entries, 0)
 
+            legacy_path = root / "legacy-policy.json"
+            legacy_path.write_bytes(
+                canonical_bytes(
+                    policy.model_copy(
+                        update={
+                            "schema_version": 1,
+                            "cache_write_microusd_per_million": None,
+                        }
+                    )
+                )
+            )
+            legacy_args = list(args)
+            legacy_args[legacy_args.index(str(policy_path))] = str(legacy_path)
+            rejected = subprocess.run(
+                legacy_args,
+                input="",
+                text=True,
+                capture_output=True,
+                cwd=root,
+                env={**os.environ, "HOME": str(root), "OPENAI_API_KEY": "offline-key"},
+                timeout=15,
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("input or artifact validation failed", rejected.stderr)
+            self.assertEqual(ledger.snapshot().entries, 0)
+
     async def test_runtime_reserves_before_dispatch_and_records_receipt(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             root.chmod(0o700)
             policy = SpendPolicy(
+                schema_version=2,
                 model="gpt-5.6-luna",
                 pricing_source="offline test rates",
                 valid_from=datetime.now(UTC) - timedelta(minutes=1),
                 valid_until=datetime.now(UTC) + timedelta(minutes=5),
                 input_microusd_per_million=1_000_000,
+                cache_write_microusd_per_million=1_000_000,
                 output_microusd_per_million=1_000_000,
                 max_cost_microusd=5_000,
                 max_output_tokens=4_096,
@@ -178,6 +212,14 @@ class LiveConversationTests(IsolatedAsyncioTestCase):
                 artifacts_root=str(root.resolve()),
             )
             runtime = LiveChatRuntime(identity, policy, ledger, "offline-key", "a" * 32)
+            legacy = policy.model_copy(
+                update={
+                    "schema_version": 1,
+                    "cache_write_microusd_per_million": None,
+                }
+            )
+            with self.assertRaisesRegex(ValueError, "schema-2 spending policy"):
+                LiveChatRuntime(identity, legacy, ledger, "offline-key", "a" * 32)
             transport = CountedAnswerTransport()
             config = conversation_config(
                 (Turn(role="user", blocks=(TextBlock(text="Question"),)),),
