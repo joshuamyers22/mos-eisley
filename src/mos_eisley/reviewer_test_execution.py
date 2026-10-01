@@ -36,7 +36,7 @@ MAX_TEST_ID_BYTES = 1_000_000
 
 ExecutionRole = Literal["candidate", "known_good", "known_bad"]
 ContainerImageId = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
-EncodedImplementationFile = Annotated[str, Field(min_length=4, max_length=2_666_668)]
+EncodedImplementationFile = Annotated[str, Field(max_length=2_666_668)]
 Count = Annotated[int, Field(ge=0, le=10_000)]
 
 

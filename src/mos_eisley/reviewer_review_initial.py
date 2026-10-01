@@ -59,6 +59,10 @@ class G4InitialReviewLineageRecord(Contract):
         return digest(canonical_bytes(self))
 
 
+class G4MetadataReviewLineageRecord(G4InitialReviewLineageRecord):
+    signed_metadata_record_sha256: Digest
+
+
 @dataclass(frozen=True)
 class _GitProvenanceView:
     base_revision: str
@@ -101,10 +105,22 @@ def _verified_evidence_packet(
         ("signed_reviewer_custody", chain.custody),
         ("signed_child_assignment", chain.assignment),
         ("signed_child_dispatch_approval", chain.dispatch.approval),
-        ("signed_child_dispatch_receipt", chain.dispatch),
+        *(
+            (
+                ("signed_child_proposal", chain.dispatch.signed_proposal),
+                ("child_execution", chain.dispatch.execution),
+            )
+            if chain.signed_metadata is not None
+            else (("signed_child_dispatch_receipt", chain.dispatch),)
+        ),
         ("signed_integration_record", chain.signed_integration),
         ("signed_candidate_approval", inputs.candidate.approval),
         ("signed_final_suite_approval", final_receipt.approval),
+        *(
+            (("signed_creator_metadata_record", chain.signed_metadata),)
+            if chain.signed_metadata is not None
+            else ()
+        ),
     )
     lines = [
         "G4 initial-child qualification evidence, version 2.",
@@ -118,6 +134,15 @@ def _verified_evidence_packet(
         "judge observations and the creator's review decision follow this "
         "subject; they cannot be evidence inside their own input.",
     ]
+    if chain.signed_metadata is not None:
+        lines.append(
+            "Metadata-descendant packet: the replayed dispatch receipt's nested "
+            "offer repeats the plan, protected tests and supplied baseline source. "
+            "Its exact receipt/offer identities appear below; the separately signed "
+            "proposal, dispatch approval and measured child execution remain here. "
+            "The signed creator metadata record preserves the initial integration "
+            "as parent and authorizes only the dependency declaration addition."
+        )
     for name, artifact in artifacts:
         payload = canonical_bytes(artifact)
         lines.append(f"[{name}] sha256={digest(payload)}")
@@ -147,6 +172,12 @@ def _verified_evidence_packet(
         "final_suites_passed": final_receipt.final_suites_passed,
         "production_child_receipt_sha256": chain.production.receipt_sha256,
     }
+    if chain.signed_metadata is not None:
+        summary.update(
+            child_dispatch_receipt_sha256=chain.dispatch.receipt_sha256,
+            initial_offer_sha256=chain.dispatch.offer.offer_sha256,
+            signed_metadata_record_sha256=chain.signed_metadata.artifact_sha256,
+        )
     lines.append("[verified_outcomes_and_bindings]")
     lines.append(json.dumps(summary, separators=(",", ":"), sort_keys=True))
     result = "\n".join(lines)
@@ -177,6 +208,8 @@ def build_initial_review_subject(
         raise ValueError("review plan differs from signed creator approval")
     base = chain.assignment.assignment.base_revision
     source = chain.signed_integration.record.integrated_revision
+    if chain.signed_metadata is not None:
+        source = chain.signed_metadata.record.revision
     patch = _git(
         chain.git_executable,
         root,
@@ -212,6 +245,11 @@ def build_initial_review_subject(
         base_revision=base,
         source_revision=source,
     )
+    if chain.signed_metadata is not None:
+        lineage = G4MetadataReviewLineageRecord.model_validate(
+            lineage.model_dump()
+            | {"signed_metadata_record_sha256": chain.signed_metadata.artifact_sha256}
+        )
     constraints = _verified_evidence_packet(final_receipt, inputs, lineage)
     subject = G4ReviewSubject(
         provenance_sha256=lineage.record_sha256,

@@ -13,6 +13,12 @@ e800043af4061dcdc39d6fe6fdb4b38236c8c932:.gitleaksignore:generic-api-key:1
 # False positive: a typed Ed25519 signing-key function parameter, with no value.
 # Limit the exception to this exact historical finding.
 3f7437276504e1f2a8d19586068e51a4fcc5a402:src/mos_eisley/run/review_conformance_observation.py:generic-api-key:299
+# False positives: typed Ed25519 signing-key parameters contain no credential value.
+# Each exception is limited to the finding in its introducing commit.
+b0b5455adb8849c95dbea3b3fa3a038d15794563:src/mos_eisley/reviewer_creator_metadata.py:generic-api-key:107
+25b4590c4f2776a07893226f1b92e71aa2c00ca8:src/mos_eisley/reviewer_plan_test_live.py:generic-api-key:220
+8ca04d32ed34d705f479ae982bd4ae69eb1644ed:src/mos_eisley/reviewer_plan_test_judge.py:generic-api-key:253
+04c6507349364db21cf6feadea1d34c1a76c23b8:src/mos_eisley/reviewer_plan_test_review.py:generic-api-key:152
 # Historical false positives in roadmap status prose; no credential value.
 6d079cadf2a57da54acf445b6c364ad7aad50bd4:docs/ROADMAP.md:generic-api-key:21
 681da9f2fbfc51ef231fa60630a23d2439010cc0:docs/ROADMAP.md:generic-api-key:21

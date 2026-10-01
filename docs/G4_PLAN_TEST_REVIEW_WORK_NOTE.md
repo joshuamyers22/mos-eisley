@@ -1,0 +1,357 @@
+# G4 pre-delegation plan and creator-test review
+
+- Status: preparing exact owner review authority; no coding delegation
+- Owner and sole human: Joshua Myers
+- Task: duration-literal configuration parser, distinct from earlier tasks
+- Risk: high for review authority; bounded pure parser for the target task
+- Guidance: Python engineering and agentic verification guides; templates/ADR.md,
+  templates/THREAT_MODEL.md, templates/WORK_NOTE.md; roadmap item 7 and revised loop L1
+
+## Objective and invariants
+
+Freeze the exact new task plan and executable creator tests, obtain critic review
+and judge adjudication, then Joshua's approval of the exact accepted revisions
+before coding delegation. Use a dedicated pre-delegation packet and signing
+domain; do not synthesize a final-suite subject or reuse previous task authority.
+Changed plan, tests, base tree, roster or authority requires fresh review. Findings
+must cite exact frozen bytes; retain all findings and judge their exact IDs.
+
+Preparation grants no paid call, coding child, source integration, task acceptance,
+merge, release or full G4 milestone approval. Separate owner transfer/spending
+grants and hidden local API prompts are required for each actual provider call.
+Joshua remains the sole human, with concentrated-authority risk disclosed. The
+previous dependency-task sole-human amendment is not transferable authority.
+
+## Threats, resource ceiling and stopping rules
+
+Scope substitution and retrospective review fail through task/base/plan/test
+hashes and stage-specific contracts. Domain-separated owner signature prevents
+cross-stage replay. Exact two-provider critic roster and judge request identities
+prevent omitted findings or replacement personas. A non-accept or invalid citation
+blocks approval. Bounded private canonical files, clean Git and pinned controller
+prevent unintended byte substitution; enrolled-key verification rejects other
+signers. Local host/clock/key custody remain trusted. No sampling data is accessed.
+
+A prospective review envelope of USD 0.25 is proposed; it grants no reservation
+or provider dispatch. Fresh per-call grants must fit the exact shared ceiling and
+qualified transport budgets. No retry of a consumed grant. Freeze only one task
+revision now; stop at the concrete owner review-authority signature after focused
+identity/signature/changed-byte/chronology checks and preflight. Publication requires
+make check for the combined batch, which is separate from local preparation.
+
+## Frozen draft and verification
+
+Fresh target base: `da640383dd06266a38a2d2be22a83873ac997a76`.
+Packet SHA-256: `2aa6c575ac37f67f2d4ba52605e0dae1374da08cb5e92f7e6ab3abbadcdba28e`.
+Plan SHA-256: `549ca32dcc9368e3dd1ff1b93ac795c03577e8235a9df9b68c4b87935315f2ca`.
+Creator tests SHA-256: `4f23f74d119d4928283d121796b02b26fd4c0c0df1c3c3bdc5ec56b26ae234cc`.
+The 17 creator test methods parse and compile; their bytes match the protected
+copy and committed clean target base. Target implementation remains a stub.
+No task implementation tests, provider calls or coding delegation occurred.
+
+Four focused review-authority tests passed, including changed plan/test/base/task
+identity, changed persona, wrong key, expired/future authority, duplicate test
+paths, forbidden approval/dispatch flags and cross-stage signature replay. Ruff
+and Pyright passed. The signed review authority will bind both complete critic
+requests and the intended judge profile; its USD 0.25 ceiling is a proposal only.
+Actual calls need fresh per-call grants; subsequent judge acceptance and creator
+approval precede any child authorization. No broad G4 acceptance is claimed.
+
+Next owner signature: `/Users/josh/g4-duration13-plan-review-sign sign`,
+confirmation `g4-q4-duration13-plan-test-review-authority-1`. Preparation must
+preflight at the new clean controller pin before presenting this command.
+
+## Dedicated live critic authority
+
+Owner review authority `e7a8ff60b9ac482784d44d4948ad7bbcd5ce2ebdc80d910935f3676b9824f809`
+verified. Prepare stage-specific one-use signed live grants without adapting
+this pre-delegation packet into a final-suite implementation subject. Reuse the
+qualified bounded Anthropic/OpenAI transports and shared transactional ledger.
+Anthropic reserves 109,000 micro-USD (17,500 input / 3,900 output); OpenAI reserves
+20,916 (64,000 input / 4,096 output). Later judge authorization is separate.
+One count and one generation, no retry, exact provider payload and request
+hashes, domain signatures, grant-expiry and original reservation replay remain
+required. Tests must demonstrate duplicate-use rejection before provider I/O,
+wrong packet/authority/signer/spending scope rejection and invalid-citation
+retention with actual settlement. No API key is read during preparation.
+
+Six affected focused tests passed with both providers' synthetic count/generation
+responses, settlements and one-use replays; changed packet, wrong owner key,
+changed per-call spending envelope and wider ledger ceilings reject. An invalid
+OpenAI citation preserves raw response and settled audit without an observation.
+Ruff and Pyright passed. Anthropic's 109,000 micro-USD envelope uses 17,500 input
+tokens at the conservative cache-write rate and 3,900 output tokens; qualification
+transport retention is reused without rewriting an already saved response.
+No real provider call occurred. Freeze exact live request bodies and preflight
+both signers at the next clean live-controller revision before owner signatures.
+
+## Critic observations and separate judge preparation
+
+Anthropic returned observation
+`0dc144a2b8d15f265a0897e467c0d5d99ab01b243c06e35eaf98bad5d59e2d9e`,
+three low-impact cited findings, settled at 27,366 micro-USD. Full retained
+response, broker audit chain, owner grant, private claim, frozen request and
+measured settlement replayed. OpenAI returned observation
+`6ed114de4abe23c63c085df80d0cb1e2ef6391905041310ffafb29ccbd45c2af`,
+settled at 2,020 micro-USD; full replay is required before judge preparation.
+The ledger holds two settled entries, 29,386 micro-USD total, none unresolved.
+
+Implement a reusable bounded private critic-audit replay and a separately signed
+plan-stage judge grant. Every judge preflight reconstructs both observations
+from exact retained provider responses and authenticates grants, claims, body
+bytes, audit hashes, citations, chronology and ledger entries. Preserve all
+findings for deterministic adjudication; a no-findings critic stays in quorum.
+The judge reserves at most 20,916 micro-USD under the same USD 0.25 ceiling, with
+one count and one generation and no retry. Tests must reject tampered retained
+response/audit evidence, altered critic identities, wrong owner signature and
+duplicate judge use before provider I/O. Approval and delegation stay false until
+separate creator approval of an accepted exact plan/test revision.
+
+The dedicated plan-stage judge grant now binds both full critic audits, their
+owner-reported observation hashes, the frozen packet, exact judge request/body,
+spending policy and shared ledger. All three returned findings remain in the
+judge request. Neither this grant nor a judge verdict approves the plan/tests,
+authorizes coding delegation or accepts the task. A separate creator decision
+remains necessary. The broker uses an exclusive private claim and transactional
+hold before one count and one generation request, with no retry.
+
+Seven focused plan-review tests pass, including paid-response audit replay,
+wrong signer, reversed critic pair, modified retained response, exact settlement,
+and duplicate dispatch rejection before provider I/O. Ruff and Pyright pass for
+the changed core modules and tests. No task implementation tests or provider
+requests were run during this preparation; full repository check/publication
+remains separate.
+
+## Judge replay and prospective creator plan/test approval
+
+Judge observation `6925a4639248f8bb2a7399529a7fbe4a92e95f504532747f0e58c8f71a2e02a5`
+passed full retained-audit replay. Its settled charge is 1,185 micro-USD; the
+shared ledger has three settled entries totaling 30,571 micro-USD, no unresolved
+entries and no block. The deterministic verdict is accept with one upheld low
+finding and no required changes. Preserve the exact finding and rationale.
+The frozen creator tests already accept 86399999ms (eight digits, below the
+aggregate ceiling) and 86400000ms at the inclusive ceiling. This observation
+does not edit or override the judge record. Do not change the frozen packet.
+
+Prepare a domain-separated creator decision over the exact packet, review
+authority, judge grant/observation and verdict. Replay both critics and the judge
+before preparing or verifying it. Only an accept verdict with no required
+changes is eligible. The owner acknowledges all retained findings and the sole
+human review arrangement. Approval applies to this plan and these creator tests;
+coding delegation, provider dispatch, spending and task acceptance remain false.
+
+The seven focused plan-review test methods pass with additional creator-approval
+checks: authentic exact decision, wrong owner key, changed frozen plan and
+approval before the judge observation. Ruff and Pyright pass. The signing helper
+will preflight full retained audits and owner-reported judge grant, observation
+and 1,185 micro-USD settlement before presenting the exact creator approval.
+No owner signature or task coding delegation has occurred during preparation.
+
+## Duration reviewer controls and subtest outcome defect
+
+Creator provenance `083ffaf8f92bdf3c6aa0857753da6d27da1dd89bc96eeb9cc3ecfd0280129656`,
+package `255888544cf666b9baba17395fd252837f3acaa7291cade0ab51884bebfcf2d0`,
+and custody `c2c3ebb3605826aa7cf6f4ebcd87f40d7a0fd0cb8aee8f88c0f72848abe23af6`
+verified. The frozen suite contains 18 methods. Known-good runs complete; the
+known-bad worker fails before an observation because subtest failure IDs differ
+from collected parent method IDs. Diagnostics used the same isolated image;
+none is counted as an authoritative passing control receipt. Cleanup records
+retain removed containers. No provider call or child delegation occurred.
+
+Selected Python engineering and bounded verification guidance plus the existing
+G4 isolated-count threat boundary. Fix counting at the test-method granularity
+already used by collection/started/executed fields: attribute subtest failures to
+the parent, report one terminal failure/error per method, retain error precedence
+if a method encounters both. Preserve the frozen suite and all authority bytes.
+Test real stdlib child execution with multiple failed subtests and mixed outcomes.
+Build an offline derivative of the existing image with only the fixed worker;
+use the new immutable image identity for fresh control bindings/receipts and
+later owner signatures. No host fallback, network, enlarged resource bound or
+candidate authorization is permitted by this repair.
+
+Ten focused isolated-execution tests pass after the repair, including a real
+clean child process with four failed subtests attributed to one executed parent,
+and mixed subtest outcomes classified as one error rather than double-counted.
+Ruff and Pyright pass. An offline derivative image was built from the verified
+local base with only reviewer_test_child.py replaced; its immutable Docker ID is
+sha256:18ef1e11982fd593e95e1e57eb557de736466834f271c02fa73406b51c87b171.
+Its non-root user and absence of implicit volumes were inspected. Earlier image,
+bindings and failed lifecycle history remain retained. Authoritative controls
+must run as revision 2 on this image; no control pass is claimed by this note.
+Full make check remains required before publishing the combined branch batch.
+
+## Prospective creator metadata amendment
+
+The signed initial VCS record replayed successfully, but the approved baseline
+omitted a dependency lock, so the existing initial-candidate binding cannot be
+prepared. Do not mutate or re-sign the child integration record, add files under
+its consumed grant, or claim its candidate gate accepts a different commit.
+
+Prepare a distinct creator authority for exactly one new requirements.lock file
+containing the standard-library-only declaration, in a new detached worktree
+whose parent is the signed initial commit. Bind the creator/custody/VCS artifact
+hashes, policy, source tree and private destination store. Domain-separate the
+signature, reject changes to plan/tests/child bytes and preserve original Git.
+One exclusive claim precedes Git mutation; a failure leaves the claim consumed.
+Replay the exact added blob, sole parent, full changed-path list, patch hash and
+clean tree; the resulting record grants no candidate test or acceptance. A new
+VCS attestation and amended candidate authority must be prepared afterward.
+Selected Python engineering and agentic verification guides, threat model and
+work-note templates. Test real Git mutation, duplicate-use rejection, wrong
+signer, changed declaration, expired grant, source drift and record tampering.
+Do not run task tests or provider calls under the metadata amendment.
+
+The focused real-Git test passes, including one-use consumption, original-source
+preservation, expired/altered authority rejection and metadata/VCS signature
+boundaries. Ruff and Pyright pass. Owner authorization remains pending; no task
+metadata commit or candidate execution has occurred. Full make check remains
+required before publishing the combined branch batch.
+
+## Candidate authority after metadata amendment
+
+Prepare fresh candidate authority for the attested metadata descendant without
+rewriting historical integration evidence. Add an explicit metadata-record hash
+and distinct signature domain; replay the original integration and the signed
+metadata record before accepting the descendant binding. Preserve existing
+initial-candidate serialization and grants. Verify exact descendant revision,
+metadata hash, chronology, controls and request; reject a legacy grant for a
+metadata candidate. No candidate execution before owner signature. Selected
+existing Python, verification and authorization threat-model guidance. Focused
+checks cover the new signature domain, changed metadata/revision and legacy
+authority rejection; existing candidate and metadata tests remain required.
+
+Focused candidate and real-Git metadata tests pass; Ruff and Pyright pass. The
+new prospective grant uses a distinct signature domain while historical grants
+retain their exact serialization. Candidate preparation replays both VCS records
+and the frozen control receipts; it does not execute candidate tests. Full make
+check remains required before publication of the combined branch batch.
+
+Preparation exposed an unrelated host job-schema defect: empty approved Python
+package initializers encode as an empty base64 string, rejected by a four-byte
+minimum. Remove that minimum only; canonical base64, exact byte length and hash
+remain mandatory. The existing stdlib container worker already accepts and
+checks empty material, so no image or control change is needed. Add empty-source
+and mismatched-digest regression coverage; preserve every signed source byte.
+
+The binding declaration also required positive byte length. Allow zero only for
+Python implementation source; metadata/resource declarations remain nonempty.
+Eleven execution and eight binding tests pass; Ruff and Pyright pass. The frozen
+container worker's existing decoder validates zero-byte content and digest.
+
+Candidate grant 9b3e0045 was consumed, but the image's outer controller still
+installed the old Pydantic validators. It failed before an observation; no test
+pass or conformance failure is inferred. The host-only repair was insufficient.
+Retain the claim and removed-container lifecycle. Build an offline derivative
+with the two repaired validator modules and revalidate known controls there.
+Fresh candidate authority must bind the new image/controls; original paid-child
+replay continues on its historical image. Add an explicit initial-container
+input so no historical dispatch image is rewritten. No retry of consumed grant.
+
+## Final whole suites for the metadata descendant
+
+Candidate-2 receipt c6d1badb passed 18 reviewer methods with no skips/failures or
+errors. Prepare two distinct final requests for the exact amended revision and
+repaired image, after replaying that candidate's claim/receipt and both VCS
+records. Final provenance binds the signed metadata record, which retains the
+original integration hash; historical initial-only authority is unchanged.
+Protect all 17 creator methods using their original exact Git bytes, and retain
+the original 18-method blind package. Use a separate owner grant and private
+one-use store. No final execution, provider call or acceptance before signature.
+Selected existing Python, verification and authorization threat-model guidance.
+
+Final authority regression passes: original revision or original-only provenance
+cannot authorize a metadata descendant; historical initial-only inputs retain
+their existing behavior. Ruff and Pyright pass. No final suite has run. Full
+make check remains required before publication of the combined branch batch.
+
+## Final duration critic/judge review preparation
+
+Final pair receipt cff0a7d6 passed all 17 creator and 18 reviewer methods without
+skips/failures/errors. Build review from exact approved plan and complete
+base-to-amended Git patch, including the separately signed metadata amendment
+and VCS record. Preserve initial-only lineage serialization; a metadata lineage
+adds its exact signed record hash. Rebuild/replay all upstream evidence before
+freezing two provider-specific citation-bound requests. Joshua is sole human;
+single-operator authority discloses that risk and grants no live spending,
+review decision, creator acceptance or independent-human proof. Each critic and
+judge needs fresh exact transfer/spend authority. Separate creator acceptance
+follows replayed observations, adjudication and owner decision. Selected Python,
+verification, adversarial review and authorization threat-model guidance. No
+provider call or acceptance during preparation; full make check before publication.
+
+Focused subject regression passes: the full diff targets the amended revision,
+lineage retains the original integration hash plus the metadata signature hash,
+historical lineage remains unchanged, and failed final suites prevent review.
+Ruff and Pyright pass. Actual task replay/freeze remains a separate preparation
+step before owner authorization.
+
+Actual packet exceeded Brief's 32,000-character ceiling because the dispatch
+receipt embeds the full plan/tests/baseline offer. For metadata subjects retain
+the exact receipt/offer hashes plus complete signed proposal, dispatch approval
+and measured child execution, alongside all other signed prerequisites. Full
+upstream dispatch replay remains mandatory. Historical initial-only packets are
+unchanged. The plan and complete Git patch remain full review inputs. Focused
+regression, Ruff and Pyright pass; no enlarged wire bound or filtered finding.
+
+## Final-review count-only reconciliation and renewal
+
+Anthropic count exceeded the 17,500-token input envelope before generation. Its
+original violation receipt retained 109,000 micro-USD; the count itself was not
+retained. OpenAI made no admitted call and has no claim or ledger entry. Joshua
+signed exact count-only zero disposition 5b318bb5; the existing narrow ledger
+operation settled that entry to zero, retaining its original receipt and a
+separate reconciliation audit. No generation call or token-count value is inferred
+from absent data. Both critic grants and final-review authority expired before
+the disposition was returned; renew prospectively for the same frozen subject.
+
+Before renewal retain the returned Anthropic count, request/reservation/ledger
+identities and count-stage status before any generation attempt. On count
+overflow also retain that count in the violation receipt; no automatic release,
+retry or authority extension. Test no generation on overflow and exact count
+retention. Use fresh 32,000-input-token policy within existing qualified ceiling,
+same output bound/body, and retained 250,000-micro-USD ledger. Selected existing
+Python, verification and authorization threat-model guidance. Full make check
+remains required before publication; no provider call during repair/preparation.
+
+Fourteen Anthropic transport tests pass, including zero generation requests and
+exact count/ledger retention on input overflow. Ruff and Pyright pass. Historical
+count data and old receipts remain untouched; the repair applies prospectively.
+
+## Duration task creator acceptance and independent-review hold
+
+Renewed final subject 2c6171e6 retained amended commit
+bf35cceabeaa7db10c074f077344b97507198b87 and unchanged final suites: 17 creator
+and 18 reviewer methods passed. Anthropic observation f7aaf976 and OpenAI
+observation af7f1b60 replayed against their exact grants, claims, retained provider
+responses, citations and settled spend receipts. The renewed Anthropic count
+observation retained 20,094 input tokens before generation. Judge observation
+20ce45bf accepted with none of five findings upheld and no required changes.
+Successful final review charges totaled 63,985 micro-USD; the original count-only
+entry remained settled at zero under its separate signed disposition.
+
+Owner decision 159ea263 and replayed review record a50c8199 passed the
+single-operator review checks. Separate creator acceptance
+7d611859f163157cce0946726a7fe9e52639e75e34373494df9576db1339ff0d was
+verified against the frozen evidence. Its scope is one real duration initial-child
+task; it claims no connected correction qualification, empirical study,
+representative savings, formal independent review or full G4 milestone acceptance.
+
+The owner subsequently reported a review by Ron Mexico, but supplied no signed
+artifact for verification, then explicitly placed formal independent review on
+hold. Its gate remains open. Private provider payloads, blind tests, signing keys
+and task artifacts remain outside Git. Publication of the controller changes
+still requires the repository's combined make check gate.
+
+Publication verification ran make check over 2,598 tests. The sandboxed run had
+31 localhost socket permission errors. The run with required permissions resolved
+those errors but had six transient review-conformance failures; all six passed
+in a focused coverage-appending rerun (26 seconds). Four existing tests were
+skipped. Lint, formatting and Pyright passed; aggregate coverage was 87%. The
+single uninterrupted make check run is not recorded as passing. Export, build
+and package smoke checks are recorded separately below.
+
+Export verification and sdist/wheel builds passed. The installed-wheel smoke
+suite passed all 1,908 tests (1,389 seconds) after allowing network access for
+hash-pinned dependency installation. Formal independent review remains on hold;
+publication of this branch supplies controller code and status documentation,
+without changing the signed task's acceptance scope.

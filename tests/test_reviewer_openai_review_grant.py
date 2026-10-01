@@ -27,7 +27,7 @@ from mos_eisley.reviewer_openai_review_grant import (
     sign_openai_critic_grant,
     verify_openai_critic_grant,
 )
-from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 
 
 class _FixedDateTime(datetime):
@@ -74,7 +74,7 @@ class _CountedTransport:
 
 
 class G4OpenAIGrantTests(unittest.TestCase):
-    def _case(self, root: Path) -> dict[str, Any]:
+    def _case(self, root: Path, ceiling: int = 10_000_000) -> dict[str, Any]:
         common, values = single_fixture.G4SingleOperatorReviewTests()._case(root)
         subject, provenance, authority, _, _, _ = values
         spec = authority.authority.critics[1]
@@ -93,7 +93,7 @@ class G4OpenAIGrantTests(unittest.TestCase):
             max_input_tokens=64_000,
             max_output_tokens=4096,
         )
-        ledger = SpendLedger.create(root / "review-ledger.sqlite", 10_000_000)
+        ledger = SpendLedger.create(root / "review-ledger.sqlite", ceiling)
         with patch("mos_eisley.providers.openai_spend.datetime", _FixedDateTime):
             grant, payload, reservation = prepare_openai_critic_grant(
                 grant_id="g4-q1-openai-critic-live-1",
@@ -133,6 +133,31 @@ class G4OpenAIGrantTests(unittest.TestCase):
                 ledger=case["ledger"],
                 now=kwargs.get("now", NOW + timedelta(minutes=11)),
             )
+
+    def test_settled_grant_replays_without_restoring_unused_allowance(self) -> None:
+        with TemporaryDirectory() as temp:
+            case = self._case(Path(temp), ceiling=20_916)
+            grant, ledger = case["grant"], case["ledger"]
+            entry = LedgerEntry(
+                entry_id=grant.ledger_entry_id,
+                reservation_sha256=grant.reservation_sha256,
+                reserved_microusd=grant.reserved_microusd,
+            )
+            ledger.reserve(entry)
+            ledger.settle(
+                LedgerSettlement(
+                    entry_id=entry.entry_id,
+                    reservation_sha256=entry.reservation_sha256,
+                    status="settled",
+                    charged_microusd=entry.reserved_microusd - 1,
+                )
+            )
+            before = ledger.snapshot()
+            _, _, replay = self._verify(case)
+            self.assertEqual(replay, entry)
+            self.assertEqual(ledger.snapshot(), before)
+            with self.assertRaises(ValueError):
+                ledger.reserve(replay)
 
     def test_exact_grant_verifies_with_bounded_price_and_payload(self) -> None:
         with TemporaryDirectory() as temp:

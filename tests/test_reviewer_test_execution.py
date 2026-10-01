@@ -26,6 +26,7 @@ from mos_eisley.reviewer_implementation_binding import (
     create_implementation_binding_record,
 )
 from mos_eisley.reviewer_test_execution import (
+    ExecutionImplementationFile,
     ExecutionRole,
     ImmutableReviewerTestExecutionReceipt,
     IsolatedReviewerTestJob,
@@ -56,6 +57,30 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import bounded_process
 
 IMAGE = "sha256:" + "a" * 64
+
+
+class EmptyImplementationFileTests(unittest.TestCase):
+    def test_empty_source_still_requires_exact_declaration(self) -> None:
+        declaration = ImplementationFileDeclaration(
+            path="src/demo/__init__.py",
+            kind="implementation_source",
+            media_type="text/x-python",
+            content_sha256=digest(b""),
+            bytes=0,
+        )
+        self.assertEqual(
+            ExecutionImplementationFile(
+                declaration=declaration, content_base64=""
+            ).content,
+            b"",
+        )
+        with self.assertRaises(ValidationError):
+            ExecutionImplementationFile(
+                declaration=declaration.model_copy(
+                    update={"content_sha256": digest(b"other")}
+                ),
+                content_base64="",
+            )
 
 
 class ReviewerTestExecutionTests(unittest.TestCase):
@@ -317,6 +342,69 @@ class ReviewerTestExecutionTests(unittest.TestCase):
             self.assertFalse(control.candidate_execution_authorized)
             self.assertFalse(control.correction_authorized)
             self.assertFalse(control.acceptance_authorized)
+
+    def test_failed_subtests_count_the_executed_parent_once(self) -> None:
+        source = b"""import unittest
+from mos_eisley_reviewer_adapter import add
+class Checks(unittest.TestCase):
+    def test_failures(self):
+        for value in range(4):
+            with self.subTest(value=value):
+                self.assertEqual(add(value, 1), value + 1)
+    def test_passes(self):
+        self.assertEqual(add(1, 0), 1)
+"""
+        with TemporaryDirectory() as directory:
+            package = self._package(expected_collected=2, source_override=source)
+            binding, package_path, root = self._binding(
+                Path(directory),
+                package,
+                name="subtest",
+                implementation=b"def add(a, b):\n    return a - b\n",
+            )
+            receipt = self._receipt(
+                self._request(binding, "known_bad", "subtest"),
+                binding,
+                package_path,
+                root,
+            )
+            self.assertTrue(receipt.role_expectation_satisfied)
+            self.assertEqual(receipt.observation.executed_tests, 2)
+            self.assertEqual(receipt.observation.failures, 1)
+            self.assertEqual(receipt.observation.errors, 0)
+            self.assertEqual(
+                receipt.observation.failed_test_ids,
+                ("tests.test_add.Checks.test_failures",),
+            )
+
+    def test_subtest_errors_take_precedence_without_double_counting(self) -> None:
+        source = b"""import unittest
+from mos_eisley_reviewer_adapter import add
+class Checks(unittest.TestCase):
+    def test_mixed(self):
+        with self.subTest(part='failure'):
+            self.assertEqual(add(1, 1), 3)
+        with self.subTest(part='error'):
+            raise ValueError('broken fixture')
+        with self.subTest(part='later failure'):
+            self.assertEqual(add(2, 2), 5)
+"""
+        with TemporaryDirectory() as directory:
+            package = self._package(source_override=source)
+            binding, path, root = self._binding(
+                Path(directory),
+                package,
+                name="mixed",
+                implementation=b"def add(a, b):\n    return a + b\n",
+            )
+            job = build_isolated_reviewer_test_job(
+                self._request(binding, "known_bad", "mixed"), binding, path, root
+            )
+            observed = self._observe(job)
+            self.assertEqual(observed.executed_tests, 1)
+            self.assertEqual(observed.failures, 0)
+            self.assertEqual(observed.errors, 1)
+            self.assertFalse(observed.suite_successful)
 
     def test_clean_child_prefers_materialized_same_name_package(self) -> None:
         with TemporaryDirectory() as directory:

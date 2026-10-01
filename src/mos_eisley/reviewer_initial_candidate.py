@@ -17,6 +17,11 @@ from pydantic import field_validator, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.reviewer_candidate_execution import open_private_dispatch_store
+from mos_eisley.reviewer_creator_metadata import (
+    SignedG4CreatorMetadataRecord,
+    verify_creator_metadata_record,
+    verify_creator_metadata_record_signature,
+)
 from mos_eisley.reviewer_implementation_binding import (
     ImmutableImplementationBindingRecord,
     verify_implementation_binding_record,
@@ -53,6 +58,7 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.spend_ledger import SpendLedger
 
 _DOMAIN = b"mos-eisley/g4-initial-candidate-approval/v1\x00"
+_METADATA_DOMAIN = b"mos-eisley/g4-metadata-candidate-approval/v1\x00"
 
 
 def _utc(value: datetime) -> datetime:
@@ -93,8 +99,12 @@ class G4InitialCandidateApproval(Contract):
         return self
 
 
+class G4MetadataCandidateApproval(G4InitialCandidateApproval):
+    signed_metadata_record_sha256: Digest
+
+
 class SignedG4InitialCandidateApproval(Contract):
-    approval: G4InitialCandidateApproval
+    approval: G4MetadataCandidateApproval | G4InitialCandidateApproval
     signature: G4ArtifactSignature
 
     @property
@@ -111,7 +121,14 @@ def sign_initial_candidate_approval(
             signer_id=signer_id,
             public_key_sha256=digest(key.public_key().public_bytes_raw()),
             signature_base64=base64.b64encode(
-                key.sign(_DOMAIN + canonical_bytes(approval))
+                key.sign(
+                    (
+                        _METADATA_DOMAIN
+                        if isinstance(approval, G4MetadataCandidateApproval)
+                        else _DOMAIN
+                    )
+                    + canonical_bytes(approval)
+                )
             ).decode("ascii"),
         ),
     )
@@ -180,6 +197,9 @@ class G4InitialCandidateInputs:
     approved_plan: str
     brief: str
     acceptance_criteria: str
+    signed_metadata: SignedG4CreatorMetadataRecord | None = None
+    metadata_store: Path | None = None
+    initial_container: OfflineContainer | None = None
 
 
 def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
@@ -190,9 +210,31 @@ def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
     store = inputs.candidate_store.resolve(strict=True)
     fd = open_private_dispatch_store(store)
     os.close(fd)
+    parent = (inputs.integration_store / integrated.worktree_name).resolve(strict=True)
+    expected_root = parent
+    revision = integrated.integrated_revision
+    if inputs.signed_metadata is not None:
+        if inputs.metadata_store is None:
+            raise ValueError("metadata candidate lacks its amendment store")
+        verify_creator_metadata_record_signature(inputs.signed_metadata, inputs.policy)
+        verify_creator_metadata_record(
+            inputs.signed_metadata.record,
+            policy=inputs.policy,
+            creator=inputs.creator,
+            custody=inputs.custody,
+            vcs=inputs.signed_integration,
+            parent_root=parent,
+            store=inputs.metadata_store,
+            git=inputs.git_executable,
+        )
+        expected_root = (
+            inputs.metadata_store / inputs.signed_metadata.record.worktree_name
+        ).resolve(strict=True)
+        revision = inputs.signed_metadata.record.revision
+    elif inputs.metadata_store is not None:
+        raise ValueError("metadata store requires signed metadata evidence")
     if (
-        root
-        != (inputs.integration_store / integrated.worktree_name).resolve(strict=True)
+        root != expected_root
         or root == original
         or any(
             path.resolve().is_relative_to(root)
@@ -202,6 +244,11 @@ def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
                 inputs.dispatch_store,
                 inputs.production_store,
                 inputs.integration_store,
+                *(
+                    (inputs.metadata_store,)
+                    if inputs.metadata_store is not None
+                    else ()
+                ),
             )
         )
     ):
@@ -220,7 +267,7 @@ def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
         approved_plan=inputs.approved_plan,
         brief=inputs.brief,
         acceptance_criteria=inputs.acceptance_criteria,
-        container=inputs.container,
+        container=inputs.initial_container or inputs.container,
         dispatch_store=inputs.dispatch_store,
         production_store=inputs.production_store,
         ledger=inputs.ledger,
@@ -228,14 +275,12 @@ def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
     )
     verify_implementation_binding_record(inputs.binding, inputs.package_path, root)
     if (
-        inputs.binding.payload.manifest.source_revision
-        != integrated.integrated_revision
+        inputs.binding.payload.manifest.source_revision != revision
         or inputs.binding.payload.frozen_reviewer_test_package_sha256
         != inputs.package.frozen_package_sha256
         or inputs.binding.payload.adapter_sha256 != inputs.controls.adapter_sha256
         or inputs.controls.container_image_id != inputs.container.image_id
-        or _git_text(inputs.git_executable, root, ["rev-parse", "HEAD"])
-        != integrated.integrated_revision
+        or _git_text(inputs.git_executable, root, ["rev-parse", "HEAD"]) != revision
         or _git(
             inputs.git_executable,
             root,
@@ -268,8 +313,24 @@ def preflight_initial_candidate(
     current = _utc(now if now is not None else datetime.now(UTC))
     replay_initial_candidate_inputs(inputs)
     grant = approval.approval
+    metadata = getattr(inputs, "signed_metadata", None)
+    revision = inputs.signed_integration.record.integrated_revision
+    if metadata is not None:
+        revision = metadata.record.revision
+        if (
+            not isinstance(grant, G4MetadataCandidateApproval)
+            or grant.signed_metadata_record_sha256 != metadata.artifact_sha256
+            or grant.issued_at < metadata.record.amended_at
+        ):
+            raise ValueError("metadata candidate grant differs from signed amendment")
+    elif isinstance(grant, G4MetadataCandidateApproval):
+        raise ValueError("metadata candidate grant lacks signed amendment")
     verify_provenance_signature(
-        grant, approval.signature, inputs.policy, "creator", _DOMAIN
+        grant,
+        approval.signature,
+        inputs.policy,
+        "creator",
+        _METADATA_DOMAIN if isinstance(grant, G4MetadataCandidateApproval) else _DOMAIN,
     )
     integrated = inputs.signed_integration.record
     if (
@@ -285,7 +346,7 @@ def preflight_initial_candidate(
         or grant.binding_record_sha256 != inputs.binding.binding_record_sha256
         or grant.known_control_record_sha256 != inputs.controls.control_record_sha256
         or grant.request_sha256 != request.request_sha256
-        or grant.integrated_revision != integrated.integrated_revision
+        or grant.integrated_revision != revision
         or grant.container_image_id != inputs.container.image_id
         or request.container_image_id != inputs.container.image_id
         or request.binding_record_sha256 != inputs.binding.binding_record_sha256

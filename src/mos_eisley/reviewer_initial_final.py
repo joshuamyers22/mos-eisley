@@ -148,10 +148,14 @@ def preflight_initial_final(
     ):
         raise ValueError("final-suite authority outside candidate or policy window")
     integrated = chain.signed_integration.record.integrated_revision
+    provenance_sha256 = digest(canonical_bytes(chain.signed_integration))
+    if chain.signed_metadata is not None:
+        integrated = chain.signed_metadata.record.revision
+        provenance_sha256 = chain.signed_metadata.artifact_sha256
     if (
         not grant.suite_id.startswith("g4-q3-real-initial-final-")
         or grant.policy_sha256 != chain.policy.policy_sha256
-        or grant.provenance_sha256 != digest(canonical_bytes(chain.signed_integration))
+        or grant.provenance_sha256 != provenance_sha256
         or grant.candidate_receipt_sha256 != inputs.candidate.receipt_sha256
         or grant.source_revision != integrated
         or grant.creator_test_suite_sha256

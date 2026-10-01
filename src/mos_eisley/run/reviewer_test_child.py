@@ -13,11 +13,15 @@ import sys
 import unittest
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
+from types import TracebackType
 from typing import cast
 
 MAX_WIRE_BYTES = 16_000_000
 MAX_OUTPUT_BYTES = 65_536
 MAX_TEST_ID_BYTES = 1_000_000
+TestError = (
+    tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
+)
 
 
 def _canonical(value: object) -> bytes:
@@ -125,6 +129,34 @@ class _CountingResult(unittest.TestResult):
     def startTest(self, test: unittest.case.TestCase) -> None:
         self._append(self.started_ids, test)
         super().startTest(test)
+
+    def addFailure(self, test: unittest.case.TestCase, err: TestError) -> None:
+        identifier = test.id()
+        if any(item.id() == identifier for item, _ in self.errors + self.failures):
+            return
+        super().addFailure(test, err)
+
+    def addError(self, test: unittest.case.TestCase, err: TestError) -> None:
+        identifier = test.id()
+        self.failures[:] = [
+            item for item in self.failures if item[0].id() != identifier
+        ]
+        if not any(item.id() == identifier for item, _ in self.errors):
+            super().addError(test, err)
+
+    def addSubTest(
+        self,
+        test: unittest.case.TestCase,
+        subtest: unittest.case.TestCase,
+        err: TestError | None,
+    ) -> None:
+        # Collection and execution count methods, so classify their parent once.
+        del subtest
+        if err is not None:
+            if isinstance(err[1], test.failureException):
+                self.addFailure(test, err)
+            else:
+                self.addError(test, err)
 
     def addSkip(self, test: unittest.case.TestCase, reason: str) -> None:
         self._append(self.skipped_ids, test)

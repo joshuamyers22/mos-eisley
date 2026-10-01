@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Annotated, Literal, Protocol
 
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.anthropic_review import (
     MAX_ANTHROPIC_RESPONSE_BYTES,
@@ -31,6 +31,19 @@ class AnthropicCountedTransport(Protocol):
     async def create_response(
         self, payload: dict[str, JsonValue]
     ) -> dict[str, JsonValue]: ...
+
+
+class AnthropicReviewCountObservation(Contract):
+    kind: Literal["anthropic_review_count_observation"] = (
+        "anthropic_review_count_observation"
+    )
+    request_sha256: Digest
+    reservation_sha256: Digest
+    ledger_id: Digest
+    ledger_entry_id: Digest
+    counted_input_tokens: Annotated[int, Field(ge=0)]
+    held_input_tokens: Annotated[int, Field(ge=0)]
+    generation_started_at_observation: Literal[False] = False
 
 
 def prepare_anthropic_reservation(
@@ -162,9 +175,25 @@ class PreReservedAnthropicReviewTransport:
                 reservation_sha256, "uncertain", self.reservation.reserved_microusd
             )
             raise
+        private_write(
+            self.directory / "token-count-observation.json",
+            canonical_bytes(
+                AnthropicReviewCountObservation(
+                    request_sha256=spending_request_sha256(request),
+                    reservation_sha256=reservation_sha256,
+                    ledger_id=self.ledger.policy.ledger_id,
+                    ledger_entry_id=self.ledger_entry_id,
+                    counted_input_tokens=counted,
+                    held_input_tokens=self.reservation.input_tokens,
+                )
+            ),
+        )
         if counted > self.reservation.input_tokens:
             self._receipt(
-                reservation_sha256, "violation", self.reservation.reserved_microusd
+                reservation_sha256,
+                "violation",
+                self.reservation.reserved_microusd,
+                input_tokens=counted,
             )
             raise ProviderError("Anthropic input count exceeded the held envelope")
         self.policy.check_current()
