@@ -237,3 +237,12 @@ The binding declaration also required positive byte length. Allow zero only for
 Python implementation source; metadata/resource declarations remain nonempty.
 Eleven execution and eight binding tests pass; Ruff and Pyright pass. The frozen
 container worker's existing decoder validates zero-byte content and digest.
+
+Candidate grant 9b3e0045 was consumed, but the image's outer controller still
+installed the old Pydantic validators. It failed before an observation; no test
+pass or conformance failure is inferred. The host-only repair was insufficient.
+Retain the claim and removed-container lifecycle. Build an offline derivative
+with the two repaired validator modules and revalidate known controls there.
+Fresh candidate authority must bind the new image/controls; original paid-child
+replay continues on its historical image. Add an explicit initial-container
+input so no historical dispatch image is rewritten. No retry of consumed grant.

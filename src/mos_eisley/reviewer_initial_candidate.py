@@ -199,6 +199,7 @@ class G4InitialCandidateInputs:
     acceptance_criteria: str
     signed_metadata: SignedG4CreatorMetadataRecord | None = None
     metadata_store: Path | None = None
+    initial_container: OfflineContainer | None = None
 
 
 def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
@@ -266,7 +267,7 @@ def replay_initial_candidate_inputs(inputs: G4InitialCandidateInputs) -> None:
         approved_plan=inputs.approved_plan,
         brief=inputs.brief,
         acceptance_criteria=inputs.acceptance_criteria,
-        container=inputs.container,
+        container=inputs.initial_container or inputs.container,
         dispatch_store=inputs.dispatch_store,
         production_store=inputs.production_store,
         ledger=inputs.ledger,
