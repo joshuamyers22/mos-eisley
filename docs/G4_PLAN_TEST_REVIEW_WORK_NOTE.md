@@ -179,3 +179,30 @@ Its non-root user and absence of implicit volumes were inspected. Earlier image,
 bindings and failed lifecycle history remain retained. Authoritative controls
 must run as revision 2 on this image; no control pass is claimed by this note.
 Full make check remains required before publishing the combined branch batch.
+
+## Prospective creator metadata amendment
+
+The signed initial VCS record replayed successfully, but the approved baseline
+omitted a dependency lock, so the existing initial-candidate binding cannot be
+prepared. Do not mutate or re-sign the child integration record, add files under
+its consumed grant, or claim its candidate gate accepts a different commit.
+
+Prepare a distinct creator authority for exactly one new requirements.lock file
+containing the standard-library-only declaration, in a new detached worktree
+whose parent is the signed initial commit. Bind the creator/custody/VCS artifact
+hashes, policy, source tree and private destination store. Domain-separate the
+signature, reject changes to plan/tests/child bytes and preserve original Git.
+One exclusive claim precedes Git mutation; a failure leaves the claim consumed.
+Replay the exact added blob, sole parent, full changed-path list, patch hash and
+clean tree; the resulting record grants no candidate test or acceptance. A new
+VCS attestation and amended candidate authority must be prepared afterward.
+Selected Python engineering and agentic verification guides, threat model and
+work-note templates. Test real Git mutation, duplicate-use rejection, wrong
+signer, changed declaration, expired grant, source drift and record tampering.
+Do not run task tests or provider calls under the metadata amendment.
+
+The focused real-Git test passes, including one-use consumption, original-source
+preservation, expired/altered authority rejection and metadata/VCS signature
+boundaries. Ruff and Pyright pass. Owner authorization remains pending; no task
+metadata commit or candidate execution has occurred. Full make check remains
+required before publishing the combined branch batch.
