@@ -25,6 +25,23 @@ verifies the judge key and signature but does not itself authenticate the critic
 artifact or prove citation aptness or human independence. Those remain accountable
 review obligations; in `single_operator` mode independence is expressly false.
 
+### Real initial-child candidate receipts
+
+`reviewer_initial_correction.admit_initial_correction_cycle` accepts two genuine
+`G4InitialCandidateReceipt` records from a paid initial-child task. It replays
+each receipt against its own one-use claim, signed child and integration chain,
+frozen reviewer package, binding, controls, settled ledger and clean Git. The
+two runs must be separately approved, ordered, and have matching assertion
+failures on identical source and tests. Signed judge triage and creator cycle-one
+approval then undergo the same defect, scope, deadline and aggregate allowance
+checks. The gate writes a private claim in the existing task/cycle namespace.
+
+This path returns the distinct `g4_initial_correction_cycle_admission` kind.
+The legacy correction-child dispatch and completion commands do not accept it;
+an initial-child correction run needs separate dispatch authority and an
+explicit compatible workflow. It grants no provider, Git, child-dispatch,
+final-suite or acceptance authority.
+
 ## Bounded cycle
 
 The creator signs a separate domain-separated cycle approval binding the exact
