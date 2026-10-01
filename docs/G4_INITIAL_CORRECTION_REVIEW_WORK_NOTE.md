@@ -1,6 +1,6 @@
 # Connected initial-child correction review and acceptance
 
-- Status: preparing exact owner authority; review and acceptance are pending
+- Status: task review and creator acceptance verified; sole-human evidence amendment awaiting owner signature
 - Owner and sole human: Joshua Myers
 - Scope: dependency-ordering commit `e90c3bbe3c795bb4788f2454c5fc9ba221ad7663`
 - Risk: high; governance, provider transfer and spending boundaries
@@ -176,3 +176,22 @@ The separate judge preflight preserves all five Anthropic findings and the empty
 OpenAI findings, exact observations, subject, authority and prospective amendment.
 The judge may reserve at most 20,916 micro-USD, with no retry. Its owner signature,
 provider observation, final review decision and creator acceptance remain pending.
+
+## Sole-human evidence requirement amendment
+
+The owner review decision `22e28b5f7bd72b8e31bafec1d38d91a9fd5c99f499cfab93a56771201564eb4a`,
+review record `8eabb326728428d33c755264bc1790578739d06804cb0d6e5ec9677da7a34a96`,
+quality scope `05b05a47ec18665ef0bbf63d4413c46388d2dc150c462af59a1f076b57e2f32e`,
+and creator acceptance `278a9e22d48318a05f7a12bf96a66dc636d0ff9f5efa66021a92e691c1a0ce44`
+were verified against the full connected task and live review audits. All five
+review calls settled at 144,703 micro-USD, without unresolved entries.
+
+Joshua requested an amendment allowing one human to prove human-review evidence.
+Selected guidance: templates/ADR.md, templates/THREAT_MODEL.md and templates/WORK_NOTE.md.
+ADR-0013 creates a scoped sole-human evidence requirement with separate truthful
+human-review and independence fields. Preserve ADR-0012 and every signed artifact
+unchanged. Require a new enrolled-owner signature over the new document and exact
+accepted evidence, effective after acceptance. Scope substitution, wrong signer,
+backdating and relabeling machine reviewers as humans fail closed. Concentrated
+owner authority remains the disclosed residual risk. No paid calls or ledger
+changes; stop after concrete preflight at the required owner signature.
