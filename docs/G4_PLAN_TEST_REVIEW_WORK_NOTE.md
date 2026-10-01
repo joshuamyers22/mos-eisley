@@ -84,3 +84,40 @@ tokens at the conservative cache-write rate and 3,900 output tokens; qualificati
 transport retention is reused without rewriting an already saved response.
 No real provider call occurred. Freeze exact live request bodies and preflight
 both signers at the next clean live-controller revision before owner signatures.
+
+## Critic observations and separate judge preparation
+
+Anthropic returned observation
+`0dc144a2b8d15f265a0897e467c0d5d99ab01b243c06e35eaf98bad5d59e2d9e`,
+three low-impact cited findings, settled at 27,366 micro-USD. Full retained
+response, broker audit chain, owner grant, private claim, frozen request and
+measured settlement replayed. OpenAI returned observation
+`6ed114de4abe23c63c085df80d0cb1e2ef6391905041310ffafb29ccbd45c2af`,
+settled at 2,020 micro-USD; full replay is required before judge preparation.
+The ledger holds two settled entries, 29,386 micro-USD total, none unresolved.
+
+Implement a reusable bounded private critic-audit replay and a separately signed
+plan-stage judge grant. Every judge preflight reconstructs both observations
+from exact retained provider responses and authenticates grants, claims, body
+bytes, audit hashes, citations, chronology and ledger entries. Preserve all
+findings for deterministic adjudication; a no-findings critic stays in quorum.
+The judge reserves at most 20,916 micro-USD under the same USD 0.25 ceiling, with
+one count and one generation and no retry. Tests must reject tampered retained
+response/audit evidence, altered critic identities, wrong owner signature and
+duplicate judge use before provider I/O. Approval and delegation stay false until
+separate creator approval of an accepted exact plan/test revision.
+
+The dedicated plan-stage judge grant now binds both full critic audits, their
+owner-reported observation hashes, the frozen packet, exact judge request/body,
+spending policy and shared ledger. All three returned findings remain in the
+judge request. Neither this grant nor a judge verdict approves the plan/tests,
+authorizes coding delegation or accepts the task. A separate creator decision
+remains necessary. The broker uses an exclusive private claim and transactional
+hold before one count and one generation request, with no retry.
+
+Seven focused plan-review tests pass, including paid-response audit replay,
+wrong signer, reversed critic pair, modified retained response, exact settlement,
+and duplicate dispatch rejection before provider I/O. Ruff and Pyright pass for
+the changed core modules and tests. No task implementation tests or provider
+requests were run during this preparation; full repository check/publication
+remains separate.

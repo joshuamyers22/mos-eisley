@@ -1,4 +1,4 @@
-"""Separately authorized, one-use critics over a pre-delegation plan/test packet."""
+"""One-use judge authority over two replayed pre-delegation judge audits."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import base64
 import contextlib
 import json
 import os
-import stat
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal, cast
@@ -18,24 +18,15 @@ from pydantic import JsonValue, field_validator, model_validator
 
 from mos_eisley.core.models import (
     Contract,
-    CriticResult,
-    Critique,
     Digest,
     Identifier,
+    JudgeRequest,
     canonical_bytes,
     digest,
 )
 from mos_eisley.core.ports import ModelClient, ProviderError
 from mos_eisley.core.registry import openai_registry
-from mos_eisley.providers.anthropic_review import (
-    AnthropicReviewHTTPTransport,
-    critic_payload,
-    payload_bytes,
-)
-from mos_eisley.providers.anthropic_review_spend import (
-    PreReservedAnthropicReviewTransport,
-    prepare_anthropic_reservation,
-)
+from mos_eisley.providers.anthropic_review import payload_bytes
 from mos_eisley.providers.model_reviewer import ModelReviewer
 from mos_eisley.providers.openai_responses import request_payload, response_from_payload
 from mos_eisley.providers.openai_spend import (
@@ -46,12 +37,17 @@ from mos_eisley.providers.openai_spend import (
     SpendReservation,
     prepare_full_reservation,
 )
-from mos_eisley.review.citations import validate_evidence
+from mos_eisley.review.pipeline import judge_findings, judge_verdict
 from mos_eisley.reviewer_candidate_execution import open_private_dispatch_store
+from mos_eisley.reviewer_plan_test_live import (
+    SignedG4PlanTestCriticLiveGrant,
+    private_review_bytes,
+    verify_plan_test_critic_audit,
+)
 from mos_eisley.reviewer_plan_test_review import (
     G4PlanTestReviewPacket,
     SignedG4PlanTestReviewAuthority,
-    plan_test_requests,
+    plan_test_brief,
     verify_plan_test_authority,
 )
 from mos_eisley.reviewer_provenance import (
@@ -60,7 +56,7 @@ from mos_eisley.reviewer_provenance import (
     verify_provenance_signature,
 )
 from mos_eisley.reviewer_review_spend import verify_review_reservation
-from mos_eisley.reviewer_single_operator_review import G4SingleOperatorCriticObservation
+from mos_eisley.reviewer_single_operator_review import G4SingleOperatorJudgeObservation
 from mos_eisley.run.broker_audit import (
     BrokerAdmission,
     BrokerAudit,
@@ -71,37 +67,25 @@ from mos_eisley.run.broker_wire import BrokerReply
 from mos_eisley.run.spend_ledger import LedgerEntry, SpendLedger
 from mos_eisley.run.store import private_write
 
-DOMAIN = b"mos-eisley/g4-plan-test-critic-live-grant/v1\x00"
-Provider = Literal["anthropic", "openai"]
+DOMAIN = b"mos-eisley/g4-plan-test-judge-live-grant/v1\x00"
 
 
-def private_review_bytes(path: Path) -> bytes:
-    info = path.lstat()
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or info.st_uid != os.getuid()
-        or stat.S_IMODE(info.st_mode) != 0o600
-        or info.st_size > 1_000_000
-    ):
-        raise ValueError("review artifact must be bounded and owner-private")
-    return path.read_bytes()
-
-
-class G4PlanTestCriticLiveGrant(Contract):
+class G4PlanTestJudgeLiveGrant(Contract):
     schema_version: Literal[1] = 1
-    kind: Literal["g4_pre_delegation_plan_test_critic_live_grant"] = (
-        "g4_pre_delegation_plan_test_critic_live_grant"
+    kind: Literal["g4_pre_delegation_plan_test_judge_live_grant"] = (
+        "g4_pre_delegation_plan_test_judge_live_grant"
     )
     grant_id: Identifier
-    provider: Provider
+    provider: Literal["openai"] = "openai"
+    critic_observation_sha256: tuple[Digest, Digest]
     packet_sha256: Digest
     review_authority_sha256: Digest
     provenance_policy_sha256: Digest
-    critic_request_sha256: Digest
+    judge_request_sha256: Digest
     provider_request_sha256: Digest
     spend_policy_sha256: Digest
     reservation_sha256: Digest
-    reserved_microusd: Literal[109_000, 20_916]
+    reserved_microusd: Literal[20_916]
     ledger_id: Digest
     ledger_policy_sha256: Digest
     ledger_entry_id: Digest
@@ -121,18 +105,18 @@ class G4PlanTestCriticLiveGrant(Contract):
     @classmethod
     def utc(cls, value: datetime) -> datetime:
         if value.tzinfo is None or value.utcoffset() != timedelta(0):
-            raise ValueError("critic grant timestamps require UTC")
+            raise ValueError("judge grant timestamps require UTC")
         return value
 
     @model_validator(mode="after")
-    def window(self) -> G4PlanTestCriticLiveGrant:
+    def window(self) -> G4PlanTestJudgeLiveGrant:
         if not self.issued_at < self.expires_at <= self.issued_at + timedelta(hours=1):
-            raise ValueError("critic grant exceeds one hour")
+            raise ValueError("judge grant exceeds one hour")
         return self
 
 
-class SignedG4PlanTestCriticLiveGrant(Contract):
-    grant: G4PlanTestCriticLiveGrant
+class SignedG4PlanTestJudgeLiveGrant(Contract):
+    grant: G4PlanTestJudgeLiveGrant
     signature: G4ArtifactSignature
 
     @property
@@ -140,93 +124,122 @@ class SignedG4PlanTestCriticLiveGrant(Contract):
         return digest(canonical_bytes(self))
 
 
-class G4PlanTestCriticAudit(BrokerAuthorization):
+class G4PlanTestJudgeAudit(BrokerAuthorization):
     schema_version: Literal[1] = 1
-    mode: Literal["g4_plan_test_critic"] = "g4_plan_test_critic"
+    mode: Literal["g4_plan_test_judge"] = "g4_plan_test_judge"
     grant_sha256: Digest
     packet_sha256: Digest
     review_authority_sha256: Digest
-    critic_request_sha256: Digest
+    judge_request_sha256: Digest
 
 
-def prepare_plan_test_critic_grant(
+@dataclass(frozen=True)
+class PlanTestCriticAuditInput:
+    signed: SignedG4PlanTestCriticLiveGrant
+    spend: SpendPolicy
+    claims: Path
+    run: Path
+
+
+def verified_plan_test_judge_request(
     *,
-    grant_id: str,
-    provider: Provider,
     packet: G4PlanTestReviewPacket,
     policy: G4ProvenanceTrustPolicy,
     authority: SignedG4PlanTestReviewAuthority,
+    ledger: SpendLedger,
+    critics: tuple[PlanTestCriticAuditInput, PlanTestCriticAuditInput],
+) -> tuple[JudgeRequest, tuple[str, str]]:
+    if tuple(item.signed.grant.provider for item in critics) != ("anthropic", "openai"):
+        raise ValueError("judge requires both authorized critics in roster order")
+    observations = tuple(
+        verify_plan_test_critic_audit(
+            item.signed,
+            packet=packet,
+            policy=policy,
+            authority=authority,
+            spend=item.spend,
+            ledger=ledger,
+            claims=item.claims,
+            run=item.run,
+        )
+        for item in critics
+    )
+    if any(item.result.status != "completed" for item in observations):
+        raise ValueError("judge requires two completed critics")
+    request = JudgeRequest(
+        brief=plan_test_brief(packet),
+        findings=judge_findings(tuple(item.result for item in observations)),
+    )
+    return request, (observations[0].artifact_sha256, observations[1].artifact_sha256)
+
+
+def prepare_plan_test_judge_grant(
+    *,
+    grant_id: str,
+    packet: G4PlanTestReviewPacket,
+    policy: G4ProvenanceTrustPolicy,
+    authority: SignedG4PlanTestReviewAuthority,
+    critics: tuple[PlanTestCriticAuditInput, PlanTestCriticAuditInput],
     spend: SpendPolicy,
     ledger: SpendLedger,
     entry_id: str,
     issued: datetime,
     expires: datetime,
-) -> tuple[G4PlanTestCriticLiveGrant, dict[str, JsonValue], SpendReservation]:
+) -> tuple[G4PlanTestJudgeLiveGrant, dict[str, JsonValue], SpendReservation]:
     verify_plan_test_authority(authority, packet, policy, now=issued)
-    index = 0 if provider == "anthropic" else 1
-    spec = authority.authority.critics[index]
-    request = plan_test_requests(packet, authority.authority.critics)[index]
+    request, observations = verified_plan_test_judge_request(
+        packet=packet,
+        policy=policy,
+        authority=authority,
+        ledger=ledger,
+        critics=critics,
+    )
     if (
-        provider != spec.provider
+        authority.authority.judge_provider != "openai"
+        or authority.authority.judge_model != "gpt-5.6-luna"
         or spend.schema_version != 2
-        or spend.model != spec.model
+        or spend.model != "gpt-5.6-luna"
         or spend.service_tier != "default"
+        or spend.pricing_source
+        != "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+        or spend.input_microusd_per_million != 200_000
+        or spend.cache_write_microusd_per_million != 250_000
+        or spend.output_microusd_per_million != 1_200_000
+        or spend.max_input_tokens != 64_000
+        or spend.max_output_tokens != 4096
+        or spend.max_cost_microusd != 50_000
         or ledger.policy.ceiling_microusd
         != authority.authority.proposed_review_ceiling_microusd
         or not spend.valid_from <= issued < expires <= spend.valid_until
         or expires > authority.authority.expires_at
     ):
-        raise ValueError("critic spending or provider differs from authority")
+        raise ValueError("plan judge spending envelope differs from authority")
     spend.check_current(issued)
-    if provider == "anthropic":
-        if (
-            spend.pricing_source
-            != "https://platform.claude.com/docs/en/about-claude/pricing"
-            or spend.input_microusd_per_million != 2_000_000
-            or spend.cache_write_microusd_per_million != 4_000_000
-            or spend.output_microusd_per_million != 10_000_000
-            or spend.max_input_tokens != 17_500
-            or spend.max_output_tokens != 3900
-            or spend.max_cost_microusd != 200_000
-        ):
-            raise ValueError("Anthropic plan-review envelope changed")
-        body = critic_payload(request, spec.model, spend.max_output_tokens)
-        reservation = prepare_anthropic_reservation(body, spend)
-    else:
-        if (
-            spend.pricing_source
-            != "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
-            or spend.input_microusd_per_million != 200_000
-            or spend.cache_write_microusd_per_million != 250_000
-            or spend.output_microusd_per_million != 1_200_000
-            or spend.max_input_tokens != 64_000
-            or spend.max_output_tokens != 4096
-            or spend.max_cost_microusd != 50_000
-        ):
-            raise ValueError("OpenAI plan-review envelope changed")
-        reviewer = ModelReviewer(
-            cast(ModelClient, None),
-            openai_registry(),
-            judge_provider="openai",
-            judge_model="gpt-5.6-luna",
-            effort="low",
-        )
-        body = request_payload(reviewer.critic_request(spec, request))
-        body["service_tier"] = "default"
-        body["parallel_tool_calls"] = False
-        reservation = prepare_full_reservation(body, spend)
+    reviewer = ModelReviewer(
+        cast(ModelClient, None),
+        openai_registry(),
+        judge_provider="openai",
+        judge_model="gpt-5.6-luna",
+        effort="low",
+    )
+    body = request_payload(reviewer.judge_request(request))
+    body["service_tier"] = "default"
+    body["parallel_tool_calls"] = False
+    reservation = prepare_full_reservation(body, spend)
+    if reservation.reserved_microusd != 20_916:
+        raise ValueError("plan judge reservation changed")
     verify_review_reservation(ledger, entry_id, reservation)
-    grant = G4PlanTestCriticLiveGrant(
+    grant = G4PlanTestJudgeLiveGrant(
         grant_id=grant_id,
-        provider=provider,
+        critic_observation_sha256=observations,
         packet_sha256=packet.packet_sha256,
         review_authority_sha256=authority.artifact_sha256,
         provenance_policy_sha256=policy.policy_sha256,
-        critic_request_sha256=digest(canonical_bytes(request)),
+        judge_request_sha256=digest(canonical_bytes(request)),
         provider_request_sha256=digest(payload_bytes(body)),
         spend_policy_sha256=spend.policy_sha256,
         reservation_sha256=digest(canonical_bytes(reservation)),
-        reserved_microusd=cast(Literal[109_000, 20_916], reservation.reserved_microusd),
+        reserved_microusd=20_916,
         ledger_id=ledger.policy.ledger_id,
         ledger_policy_sha256=digest(canonical_bytes(ledger.policy)),
         ledger_entry_id=entry_id,
@@ -236,10 +249,10 @@ def prepare_plan_test_critic_grant(
     return grant, body, reservation
 
 
-def sign_plan_test_critic_grant(
-    grant: G4PlanTestCriticLiveGrant, key: Ed25519PrivateKey
-) -> SignedG4PlanTestCriticLiveGrant:
-    return SignedG4PlanTestCriticLiveGrant(
+def sign_plan_test_judge_grant(
+    grant: G4PlanTestJudgeLiveGrant, key: Ed25519PrivateKey
+) -> SignedG4PlanTestJudgeLiveGrant:
+    return SignedG4PlanTestJudgeLiveGrant(
         grant=grant,
         signature=G4ArtifactSignature(
             signer_id="joshua-myers",
@@ -251,12 +264,13 @@ def sign_plan_test_critic_grant(
     )
 
 
-def verify_plan_test_critic_grant(
-    signed: SignedG4PlanTestCriticLiveGrant,
+def verify_plan_test_judge_grant(
+    signed: SignedG4PlanTestJudgeLiveGrant,
     *,
     packet: G4PlanTestReviewPacket,
     policy: G4ProvenanceTrustPolicy,
     authority: SignedG4PlanTestReviewAuthority,
+    critics: tuple[PlanTestCriticAuditInput, PlanTestCriticAuditInput],
     spend: SpendPolicy,
     ledger: SpendLedger,
     now: datetime,
@@ -268,14 +282,14 @@ def verify_plan_test_critic_grant(
         signer.signer_id != authority.signature.signer_id
         or signer.public_key_sha256 != authority.signature.public_key_sha256
     ):
-        raise ValueError("live critic signer differs from review owner")
+        raise ValueError("live judge signer differs from review owner")
     grant = signed.grant
-    expected, body, reservation = prepare_plan_test_critic_grant(
+    expected, body, reservation = prepare_plan_test_judge_grant(
         grant_id=grant.grant_id,
-        provider=grant.provider,
         packet=packet,
         policy=policy,
         authority=authority,
+        critics=critics,
         spend=spend,
         ledger=ledger,
         entry_id=grant.ledger_entry_id,
@@ -283,7 +297,7 @@ def verify_plan_test_critic_grant(
         expires=grant.expires_at,
     )
     if grant != expected or not grant.issued_at <= now < grant.expires_at:
-        raise ValueError("live plan-review critic grant changed or expired")
+        raise ValueError("live plan-review judge grant changed or expired")
     return (
         body,
         reservation,
@@ -295,30 +309,32 @@ def verify_plan_test_critic_grant(
     )
 
 
-async def run_plan_test_critic_once(
-    signed: SignedG4PlanTestCriticLiveGrant,
+async def run_plan_test_judge_once(
+    signed: SignedG4PlanTestJudgeLiveGrant,
     *,
     packet: G4PlanTestReviewPacket,
     policy: G4ProvenanceTrustPolicy,
     authority: SignedG4PlanTestReviewAuthority,
+    critics: tuple[PlanTestCriticAuditInput, PlanTestCriticAuditInput],
     spend: SpendPolicy,
     ledger: SpendLedger,
     claims: Path,
     run: Path,
-    transport: CountedTransport | AnthropicReviewHTTPTransport,
-) -> G4SingleOperatorCriticObservation:
-    body, reservation, entry = verify_plan_test_critic_grant(
+    transport: CountedTransport,
+) -> G4SingleOperatorJudgeObservation:
+    body, reservation, entry = verify_plan_test_judge_grant(
         signed,
         packet=packet,
         policy=policy,
         authority=authority,
+        critics=critics,
         spend=spend,
         ledger=ledger,
         now=datetime.now(UTC),
     )
     spend.check_current()
     if run.parent.resolve() != claims.resolve():
-        raise ValueError("critic run must be inside its private claim store")
+        raise ValueError("judge run must be inside its private claim store")
     fd = open_private_dispatch_store(claims)
     try:
         claim = os.open(
@@ -335,12 +351,16 @@ async def run_plan_test_critic_once(
     finally:
         os.close(fd)
     ledger.reserve(entry)
-    index = 0 if signed.grant.provider == "anthropic" else 1
-    spec = authority.authority.critics[index]
-    request = plan_test_requests(packet, authority.authority.critics)[index]
+    request, _ = verified_plan_test_judge_request(
+        packet=packet,
+        policy=policy,
+        authority=authority,
+        ledger=ledger,
+        critics=critics,
+    )
     audit = BrokerAudit(
         run,
-        G4PlanTestCriticAudit(
+        G4PlanTestJudgeAudit(
             provider_request_sha256=signed.grant.provider_request_sha256,
             spend_policy_sha256=spend.policy_sha256,
             ledger_id=ledger.policy.ledger_id,
@@ -348,7 +368,7 @@ async def run_plan_test_critic_once(
             grant_sha256=signed.artifact_sha256,
             packet_sha256=packet.packet_sha256,
             review_authority_sha256=authority.artifact_sha256,
-            critic_request_sha256=digest(canonical_bytes(request)),
+            judge_request_sha256=digest(canonical_bytes(request)),
         ),
     )
     for name, blob in (
@@ -359,26 +379,9 @@ async def run_plan_test_critic_once(
     ):
         private_write(run / name, blob)
     audit.admit()
-    controller: PreReservedAnthropicReviewTransport | PreReservedOpenAITransport
-    if signed.grant.provider == "anthropic":
-        controller = PreReservedAnthropicReviewTransport(
-            cast(AnthropicReviewHTTPTransport, transport),
-            spend,
-            run,
-            ledger,
-            reservation,
-            entry,
-            signed.grant.expires_at,
-        )
-    else:
-        controller = PreReservedOpenAITransport(
-            cast(CountedTransport, transport),
-            spend,
-            run,
-            ledger,
-            reservation,
-            entry,
-        )
+    controller = PreReservedOpenAITransport(
+        transport, spend, run, ledger, reservation, entry
+    )
     started = time.monotonic()
     try:
         async with asyncio.timeout(120):
@@ -402,73 +405,52 @@ async def run_plan_test_critic_once(
     response_bytes = payload_bytes(response)
     if response_path.exists() or response_path.is_symlink():
         if response_path.is_symlink() or response_path.read_bytes() != response_bytes:
-            raise ProviderError("retained critic response differs from transport")
+            raise ProviderError("retained judge response differs from transport")
     else:
         private_write(response_path, response_bytes)
-    try:
-        if signed.grant.provider == "anthropic":
-            content = response.get("content")
-            if (
-                response.get("type") != "message"
-                or response.get("role") != "assistant"
-                or response.get("stop_reason") != "end_turn"
-                or not isinstance(content, list)
-                or len(content) != 1
-                or not isinstance(content[0], dict)
-                or content[0].get("type") != "text"
-                or not isinstance(content[0].get("text"), str)
-            ):
-                raise ValueError(
-                    "Anthropic response was not a complete JSON text block"
-                )
-            critique = Critique.model_validate_json(cast(str, content[0]["text"]))
-        else:
-            reviewer = ModelReviewer(
-                cast(ModelClient, None),
-                openai_registry(),
-                judge_provider="openai",
-                judge_model="gpt-5.6-luna",
-                effort="low",
-            )
-            critique = reviewer.parse_critique(
-                spec, request, response_from_payload(response)
-            )
-        validate_evidence(request, critique.findings)
-    except (ValueError, ProviderError):
-        raise ProviderError(
-            "plan/test critic returned invalid citation evidence"
-        ) from None
-    observation = G4SingleOperatorCriticObservation(
-        result=CriticResult(critic=spec, status="completed", critique=critique),
+    reviewer = ModelReviewer(
+        cast(ModelClient, None),
+        openai_registry(),
+        judge_provider="openai",
+        judge_model="gpt-5.6-luna",
+        effort="low",
+    )
+    decision = reviewer.parse_judge(request, response_from_payload(response))
+    judge_verdict(request, decision)
+    observation = G4SingleOperatorJudgeObservation(
+        provider="openai",
+        model="gpt-5.6-luna",
+        decision=decision,
         request_sha256=digest(canonical_bytes(request)),
         response_sha256=digest(payload_bytes(response)),
         audit_sha256=digest((run / "outcome.json").read_bytes()),
         observed_at=datetime.now(UTC),
-        full_subject_review_claimed=True,
     )
-    private_write(run / "critic-observation.json", canonical_bytes(observation))
+    private_write(run / "judge-observation.json", canonical_bytes(observation))
     return observation
 
 
-def verify_plan_test_critic_audit(
-    signed: SignedG4PlanTestCriticLiveGrant,
+def verify_plan_test_judge_audit(
+    signed: SignedG4PlanTestJudgeLiveGrant,
     *,
     packet: G4PlanTestReviewPacket,
     policy: G4ProvenanceTrustPolicy,
     authority: SignedG4PlanTestReviewAuthority,
+    critics: tuple[PlanTestCriticAuditInput, PlanTestCriticAuditInput],
     spend: SpendPolicy,
     ledger: SpendLedger,
     claims: Path,
     run: Path,
-) -> G4SingleOperatorCriticObservation:
+) -> G4SingleOperatorJudgeObservation:
     """Replay the full response, claim, measured settlement and broker chain."""
     if run.parent.resolve() != claims.resolve():
-        raise ValueError("critic audit lies outside its claim store")
-    body, reservation, entry = verify_plan_test_critic_grant(
+        raise ValueError("judge audit lies outside its claim store")
+    body, reservation, entry = verify_plan_test_judge_grant(
         signed,
         packet=packet,
         policy=policy,
         authority=authority,
+        critics=critics,
         spend=spend,
         ledger=ledger,
         now=signed.grant.issued_at,
@@ -476,7 +458,7 @@ def verify_plan_test_critic_audit(
     files = {
         name: private_review_bytes(run / name)
         for name in (
-            "critic-observation.json",
+            "judge-observation.json",
             "authorization.json",
             "admission.json",
             "outcome.json",
@@ -489,16 +471,16 @@ def verify_plan_test_critic_audit(
             "signed-grant.json",
         )
     }
-    observation = G4SingleOperatorCriticObservation.model_validate_json(
-        files["critic-observation.json"]
+    observation = G4SingleOperatorJudgeObservation.model_validate_json(
+        files["judge-observation.json"]
     )
-    audit = G4PlanTestCriticAudit.model_validate_json(files["authorization.json"])
+    audit = G4PlanTestJudgeAudit.model_validate_json(files["authorization.json"])
     admission = BrokerAdmission.model_validate_json(files["admission.json"])
     outcome = BrokerOutcome.model_validate_json(files["outcome.json"])
     receipt = SpendReceipt.model_validate_json(files["spend-receipt.json"])
     held = SpendReservation.model_validate_json(files["spend-reservation.json"])
     for name, value in (
-        ("critic-observation.json", observation),
+        ("judge-observation.json", observation),
         ("authorization.json", audit),
         ("admission.json", admission),
         ("outcome.json", outcome),
@@ -506,43 +488,31 @@ def verify_plan_test_critic_audit(
         ("spend-reservation.json", held),
     ):
         if files[name] != canonical_bytes(value):
-            raise ValueError("critic audit contains noncanonical evidence")
+            raise ValueError("judge audit contains noncanonical evidence")
     response = cast(dict[str, JsonValue], json.loads(files["provider-response.json"]))
-    index = 0 if signed.grant.provider == "anthropic" else 1
-    spec = authority.authority.critics[index]
-    request = plan_test_requests(packet, authority.authority.critics)[index]
-    if signed.grant.provider == "anthropic":
-        content = response.get("content")
-        if (
-            response.get("type") != "message"
-            or response.get("role") != "assistant"
-            or response.get("stop_reason") != "end_turn"
-            or not isinstance(content, list)
-            or len(content) != 1
-            or not isinstance(content[0], dict)
-            or content[0].get("type") != "text"
-            or not isinstance(content[0].get("text"), str)
-        ):
-            raise ValueError("retained Anthropic critic is incomplete")
-        critique = Critique.model_validate_json(cast(str, content[0]["text"]))
-    else:
-        reviewer = ModelReviewer(
-            cast(ModelClient, None),
-            openai_registry(),
-            judge_provider="openai",
-            judge_model="gpt-5.6-luna",
-            effort="low",
-        )
-        critique = reviewer.parse_critique(
-            spec, request, response_from_payload(response)
-        )
-    validate_evidence(request, critique.findings)
+    request, _ = verified_plan_test_judge_request(
+        packet=packet,
+        policy=policy,
+        authority=authority,
+        ledger=ledger,
+        critics=critics,
+    )
+    reviewer = ModelReviewer(
+        cast(ModelClient, None),
+        openai_registry(),
+        judge_provider="openai",
+        judge_model="gpt-5.6-luna",
+        effort="low",
+    )
+    decision = reviewer.parse_judge(request, response_from_payload(response))
+    judge_verdict(request, decision)
     status = ledger.entry_status(entry.entry_id)
     if (
         private_review_bytes(claims / f"{signed.artifact_sha256}.claim")
         != canonical_bytes(signed)
-        or observation.result
-        != CriticResult(critic=spec, status="completed", critique=critique)
+        or observation.decision != decision
+        or observation.provider != "openai"
+        or observation.model != "gpt-5.6-luna"
         or observation.request_sha256 != digest(canonical_bytes(request))
         or observation.response_sha256 != digest(files["provider-response.json"])
         or files["provider-response.json"] != payload_bytes(response)
@@ -550,7 +520,7 @@ def verify_plan_test_critic_audit(
         or audit.grant_sha256 != signed.artifact_sha256
         or audit.packet_sha256 != packet.packet_sha256
         or audit.review_authority_sha256 != authority.artifact_sha256
-        or audit.critic_request_sha256 != digest(canonical_bytes(request))
+        or audit.judge_request_sha256 != digest(canonical_bytes(request))
         or audit.provider_request_sha256 != signed.grant.provider_request_sha256
         or audit.spend_policy_sha256 != spend.policy_sha256
         or audit.ledger_id != ledger.policy.ledger_id
@@ -585,5 +555,5 @@ def verify_plan_test_critic_audit(
         <= observation.observed_at
         < signed.grant.expires_at
     ):
-        raise ValueError("critic observation differs from its full retained audit")
+        raise ValueError("judge observation differs from its full retained audit")
     return observation

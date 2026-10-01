@@ -23,6 +23,7 @@ from mos_eisley.reviewer_plan_test_live import (
     prepare_plan_test_critic_grant,
     run_plan_test_critic_once,
     sign_plan_test_critic_grant,
+    verify_plan_test_critic_audit,
     verify_plan_test_critic_grant,
 )
 from mos_eisley.reviewer_plan_test_review import sign_plan_test_authority
@@ -185,6 +186,32 @@ class PlanTestLiveTests(unittest.TestCase):
                 assert status is not None
                 self.assertEqual(status.status, "settled")
                 self.assertEqual(status.charged_microusd, spend.cost(123, 20, 0))
+                replay = verify_plan_test_critic_audit(
+                    signed,
+                    packet=self.fixture.packet,
+                    policy=self.policy,
+                    authority=self.authority,
+                    spend=spend,
+                    ledger=ledger,
+                    claims=claims,
+                    run=run,
+                )
+                self.assertEqual(replay, observation)
+                response_path = run / "provider-response.json"
+                original_response = response_path.read_bytes()
+                response_path.write_bytes(b"{}")
+                with self.assertRaises((ValueError, ProviderError)):
+                    verify_plan_test_critic_audit(
+                        signed,
+                        packet=self.fixture.packet,
+                        policy=self.policy,
+                        authority=self.authority,
+                        spend=spend,
+                        ledger=ledger,
+                        claims=claims,
+                        run=run,
+                    )
+                response_path.write_bytes(original_response)
                 with self.assertRaises(FileExistsError):
                     asyncio.run(
                         run_plan_test_critic_once(
