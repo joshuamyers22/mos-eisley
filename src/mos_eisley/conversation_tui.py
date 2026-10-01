@@ -378,7 +378,9 @@ class ConversationTUI:
         root = self.project_location.root_label()
         root = root if len(root) <= 70 else "…" + root[-69:]
         mode = (
-            "recorded chat / live review"
+            "live OpenAI chat"
+            if state.mode == "openai_live_conversation"
+            else "recorded chat / live review"
             if isinstance(self.review_packet, ConversationLiveReviewPacket)
             else "recorded"
         )
@@ -420,11 +422,25 @@ class ConversationTUI:
             else "pressure "
             f"{pressure.latest_request.request_usage_basis_points / 100:.1f}%"
         )
+        live = state.live_chat
+        model = (
+            f"openai/{live.model} • {live.effort}"
+            if live is not None
+            else "fixture/tool-reviewer-v1 • high"
+        )
+        attempts = (
+            f"{state.exchanges_consumed} attempts"
+            if live is not None
+            else (
+                f"{state.exchanges_consumed}/"
+                f"{len(self.controller.cassette.exchanges)} attempts"
+            )
+        )
+        unit = "tokens" if live is not None else "recorded bytes"
         return (
-            f" fixture/tool-reviewer-v1 • high • tools off • {phase} • "
-            f"{queued} queued • {state.exchanges_consumed}/"
-            f"{len(self.controller.cassette.exchanges)} attempts • "
-            f"{pending}{usage} recorded bytes • {pressure_text} • "
+            f" {model} • tools off • {phase} • "
+            f"{queued} queued • {attempts} • "
+            f"{pending}{usage} {unit} • {pressure_text} • "
             f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
             f"{pressure.repeated_reads_since_boundary} repeated reads "
         )

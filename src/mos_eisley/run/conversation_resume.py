@@ -17,6 +17,7 @@ from mos_eisley.conversation_pressure import (
     ContextPressureBoundary,
     ContextPressurePolicy,
 )
+from mos_eisley.conversation_state import LiveChatIdentity
 from mos_eisley.core.models import Contract, Digest, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint
 from mos_eisley.run.conversation_sqlite import (
@@ -34,7 +35,12 @@ MAX_RESUME_INSPECTION_BYTES = 512_000
 
 class ResumeHeader(Contract):
     schema_version: Literal[1] = 1
-    mode: Literal["recorded_conversation"] = "recorded_conversation"
+    mode: Literal["recorded_conversation", "openai_live_conversation"] = (
+        "recorded_conversation"
+    )
+    live_chat: LiveChatIdentity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     session_id: SessionID
     owner_uid: Annotated[int, Field(ge=0)]
     workspace: Annotated[str, Field(min_length=1, max_length=4096)]
@@ -170,7 +176,13 @@ def inspect_sqlite_resume(
         except ValueError:
             raise ValueError("invalid resume header schema") from None
         if (
-            header.session_id != sid
+            (header.mode == "openai_live_conversation")
+            != (header.live_chat is not None)
+            or (
+                header.live_chat is not None
+                and (header.builtin_recording or "retained_cassette" in packed.refs)
+            )
+            or header.session_id != sid
             or header.owner_uid != index.owner_uid
             or header.workspace != index.workspace
             or header.revision != summary.revision

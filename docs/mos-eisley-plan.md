@@ -1638,10 +1638,10 @@ session in that workspace without requiring cassette/storage flags. Initial
 literal prompts now use `mos chat "PROMPT"`, `mos -- "PROMPT"`, or session launch
 options followed by a prompt. [User-defined session names and a resume picker](CONVERSATION_NAMES.md)
 now support optional labels, rename/clear controls, filtering and explicit selection
-for duplicate names. Live authentication/setup remains planned. The default preview
-needs no credentials or network connection.
-The full product contract below remains the target; live conversation/review,
-mid-request interruption and advanced terminal controls are not yet available.
+for duplicate names. Explicit, spend-controlled OpenAI text turns are available in
+the TUI; the default preview needs no credentials or network connection.
+The full product contract below remains the target; repository tools and broader
+provider switching are not yet available in live conversation.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain

@@ -34,8 +34,9 @@ class ConversationMemoryRuntime:
         self.proposals = MemoryProposals(store, controller)
         self.factory = factory
         self.ignore_memory = ignore_memory
-        self.builtin = controller.state.builtin_recording or (
-            controller.cassette == factory(controller.state.memory)
+        self.builtin = controller.state.mode == "recorded_conversation" and (
+            controller.state.builtin_recording
+            or controller.cassette == factory(controller.state.memory)
         )
 
     def command(self, line: str) -> dict[str, object]:
@@ -81,6 +82,17 @@ class ConversationMemoryRuntime:
                 "Correct its storage or use /memory off."
             ) from None
         builtin = self.builtin and replacement is None
+        if self.controller.state.mode == "openai_live_conversation":
+            if replacement is not None:
+                raise MemoryRefreshError("live chat cannot select a recording")
+            self.controller.refresh_memory(
+                memory,
+                self.factory(memory),
+                disabled=disabled,
+                builtin=False,
+                snapshot_max_bytes=snapshot_max_bytes,
+            )
+            return
         if replacement is None:
             if not builtin:
                 raise MemoryRefreshError(
