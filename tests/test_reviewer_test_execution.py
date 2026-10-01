@@ -26,6 +26,7 @@ from mos_eisley.reviewer_implementation_binding import (
     create_implementation_binding_record,
 )
 from mos_eisley.reviewer_test_execution import (
+    ExecutionImplementationFile,
     ExecutionRole,
     ImmutableReviewerTestExecutionReceipt,
     IsolatedReviewerTestJob,
@@ -56,6 +57,30 @@ from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import bounded_process
 
 IMAGE = "sha256:" + "a" * 64
+
+
+class EmptyImplementationFileTests(unittest.TestCase):
+    def test_empty_source_still_requires_exact_declaration(self) -> None:
+        declaration = ImplementationFileDeclaration(
+            path="src/demo/__init__.py",
+            kind="implementation_source",
+            media_type="text/x-python",
+            content_sha256=digest(b""),
+            bytes=0,
+        )
+        self.assertEqual(
+            ExecutionImplementationFile(
+                declaration=declaration, content_base64=""
+            ).content,
+            b"",
+        )
+        with self.assertRaises(ValidationError):
+            ExecutionImplementationFile(
+                declaration=declaration.model_copy(
+                    update={"content_sha256": digest(b"other")}
+                ),
+                content_base64="",
+            )
 
 
 class ReviewerTestExecutionTests(unittest.TestCase):

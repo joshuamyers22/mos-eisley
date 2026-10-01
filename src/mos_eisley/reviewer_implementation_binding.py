@@ -66,7 +66,7 @@ class ImplementationFileDeclaration(Contract):
     kind: BindingFileKind
     media_type: BindingMediaType
     content_sha256: Digest
-    bytes: Annotated[int, Field(ge=1, le=IMPLEMENTATION_FILE_BYTES)]
+    bytes: Annotated[int, Field(ge=0, le=IMPLEMENTATION_FILE_BYTES)]
 
     @field_validator("path")
     @classmethod
@@ -75,6 +75,8 @@ class ImplementationFileDeclaration(Contract):
 
     @model_validator(mode="after")
     def coherent_type(self) -> Self:
+        if self.bytes == 0 and self.kind != "implementation_source":
+            raise ValueError("only Python source declarations may be empty")
         is_python = self.path.endswith(".py")
         if is_python != (self.kind == "implementation_source"):
             raise ValueError("Python files must be declared implementation sources")

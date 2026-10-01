@@ -225,3 +225,15 @@ new prospective grant uses a distinct signature domain while historical grants
 retain their exact serialization. Candidate preparation replays both VCS records
 and the frozen control receipts; it does not execute candidate tests. Full make
 check remains required before publication of the combined branch batch.
+
+Preparation exposed an unrelated host job-schema defect: empty approved Python
+package initializers encode as an empty base64 string, rejected by a four-byte
+minimum. Remove that minimum only; canonical base64, exact byte length and hash
+remain mandatory. The existing stdlib container worker already accepts and
+checks empty material, so no image or control change is needed. Add empty-source
+and mismatched-digest regression coverage; preserve every signed source byte.
+
+The binding declaration also required positive byte length. Allow zero only for
+Python implementation source; metadata/resource declarations remain nonempty.
+Eleven execution and eight binding tests pass; Ruff and Pyright pass. The frozen
+container worker's existing decoder validates zero-byte content and digest.
