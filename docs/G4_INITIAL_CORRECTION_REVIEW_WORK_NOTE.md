@@ -155,3 +155,24 @@ request must include every returned finding and both pinned critic hashes. Its
 preflight must reconstruct each critique from the retained provider response and
 verify the full authorization/admission/outcome chain, original reservation,
 private one-use claim, measured settlement and chronology before owner signing.
+
+## Historical clock replay and judge readiness
+
+Both fresh critic observations passed complete retained-response reconstruction,
+exact citation validation, signed grant and private claim checks, broker audit
+chain checks, measured settlement and chronology. Total review charges are
+140,908 micro-USD, leaving 109,092 under the unchanged 250,000 ceiling.
+
+After midnight UTC, the task-local initial integration input loader incorrectly
+checked the expired September 30 coding spend policy against the current clock.
+Read-only receipt replay now supplies the recorded initial dispatch time to the
+policy check; ordinary live input callers retain the current-time default. The
+receipt and production audit are subsequently verified by the existing full
+chain. No historical policy, signature, dispatch time or settled charge changes.
+The complete connected-chain and both critic audit reconstruction succeeded
+after this task-local helper correction; no task tests or provider calls ran.
+
+The separate judge preflight preserves all five Anthropic findings and the empty
+OpenAI findings, exact observations, subject, authority and prospective amendment.
+The judge may reserve at most 20,916 micro-USD, with no retry. Its owner signature,
+provider observation, final review decision and creator acceptance remain pending.
