@@ -4,7 +4,7 @@
 - Candidate: PR #252, code commit `c29c1f5`; original reviewed code was `caafb300ab7dc81ef7f22c9e7e0a45a3e025bc8b`
 - Scope: `mos chat --live-openai` and exact-session resume; no provider call or release authorization
 - Reviewer: Codex engineering assessment for Joshua Myers's accountable decision
-- Status: corrected candidate verified; owner decision pending
+- Status: owner accepted corrected implementation controls
 - Selected guidance: `docs/ADVERSARIAL_REVIEW_PLAYBOOK.md`,
   `templates/ADVERSARIAL_CODE_ARCHITECTURE_REVIEW.md`,
   `docs/AGENTIC_VERIFICATION_GUIDE.md`, and `templates/THREAT_MODEL.md`
@@ -61,6 +61,9 @@ loopback socket binding was denied. The elevated `make check` on code commit
 
 ## Owner decision
 
-Joshua Myers accepted the original implementation assessment on 2026-10-01.
-Because the schema-2 guard changes the reviewed code, acceptance of the corrected
-candidate is pending. Acceptance covers the implementation controls above only.
+Joshua Myers accepted the original implementation assessment on 2026-10-01 and,
+after reviewing the schema-2 correction and this record, replied **“Accept
+corrected review”** for code commit `c29c1f5` on 2026-10-01. Acceptance covers
+the implementation controls and stated limits above only. A particular spending
+policy, ledger ceiling, provider call, G2 campaign, merge and release each retain
+their separate gates.

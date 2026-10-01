@@ -1,6 +1,6 @@
 # Work Note: Live conversation in the TUI
 
-- Status: draft PR open for accountable review
+- Status: owner security/spending review accepted; draft PR open
 - Owner: Joshua Myers
 - Started (UTC): 2026-10-01
 - Last updated (UTC): 2026-10-01
@@ -33,12 +33,13 @@ review, and production release decision remain separate gates.
 | 2026-10-01 | test | Elevated `make check` passed: 2,642 tests, 86% coverage, export, build, and 1,918 installed-package smoke tests. The later SQLite header and live response byte-reserve corrections passed 40 affected tests, lint, types, and build. | Local quality gate log and focused commands |
 | 2026-10-01 | review | Security/spending trace found that new live sessions admitted schema-1 policies without conservative cache-write pricing. The CLI and runtime now require schema 2; 42 focused tests pass. The owner accepted the earlier assessment, and the corrected candidate awaits an exact decision. | [Review record](LIVE_CONVERSATION_TUI_SECURITY_SPENDING_REVIEW.md) |
 | 2026-10-01 | test | Corrected code commit `c29c1f5` passed elevated `make check`: 2,642 source tests (four skips), 86% coverage, build, and 1,918 installed-wheel tests. A sandboxed attempt failed only in local HTTP fixture socket binding. | Full local quality gate log |
+| 2026-10-01 | owner decision | Joshua Myers accepted the corrected security/spending implementation review for code commit `c29c1f5`, including its documented limits. This grants no particular spend, provider dispatch, merge or release authority. | [Review record](LIVE_CONVERSATION_TUI_SECURITY_SPENDING_REVIEW.md) |
 
 ## Handoff
 
-- Current state: implementation and offline quality gates pass; the corrected
-  security/spending review awaits Joshua's exact-candidate decision, and live
-  provider validation remains open.
-- Next action: record the owner decision on code commit `c29c1f5`, then conduct
-  exact-candidate live validation under a separate approved spend scope.
+- Current state: implementation, offline quality gates and accountable owner
+  security/spending review are complete for code commit `c29c1f5`. Live provider
+  validation remains open.
+- Next action: conduct exact-candidate live validation under a separate approved
+  spend scope.
 - Provider calls made by this work: none.
