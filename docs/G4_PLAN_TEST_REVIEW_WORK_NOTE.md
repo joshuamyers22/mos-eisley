@@ -316,3 +316,42 @@ remains required before publication; no provider call during repair/preparation.
 Fourteen Anthropic transport tests pass, including zero generation requests and
 exact count/ledger retention on input overflow. Ruff and Pyright pass. Historical
 count data and old receipts remain untouched; the repair applies prospectively.
+
+## Duration task creator acceptance and independent-review hold
+
+Renewed final subject 2c6171e6 retained amended commit
+bf35cceabeaa7db10c074f077344b97507198b87 and unchanged final suites: 17 creator
+and 18 reviewer methods passed. Anthropic observation f7aaf976 and OpenAI
+observation af7f1b60 replayed against their exact grants, claims, retained provider
+responses, citations and settled spend receipts. The renewed Anthropic count
+observation retained 20,094 input tokens before generation. Judge observation
+20ce45bf accepted with none of five findings upheld and no required changes.
+Successful final review charges totaled 63,985 micro-USD; the original count-only
+entry remained settled at zero under its separate signed disposition.
+
+Owner decision 159ea263 and replayed review record a50c8199 passed the
+single-operator review checks. Separate creator acceptance
+7d611859f163157cce0946726a7fe9e52639e75e34373494df9576db1339ff0d was
+verified against the frozen evidence. Its scope is one real duration initial-child
+task; it claims no connected correction qualification, empirical study,
+representative savings, formal independent review or full G4 milestone acceptance.
+
+The owner subsequently reported a review by Ron Mexico, but supplied no signed
+artifact for verification, then explicitly placed formal independent review on
+hold. Its gate remains open. Private provider payloads, blind tests, signing keys
+and task artifacts remain outside Git. Publication of the controller changes
+still requires the repository's combined make check gate.
+
+Publication verification ran make check over 2,598 tests. The sandboxed run had
+31 localhost socket permission errors. The run with required permissions resolved
+those errors but had six transient review-conformance failures; all six passed
+in a focused coverage-appending rerun (26 seconds). Four existing tests were
+skipped. Lint, formatting and Pyright passed; aggregate coverage was 87%. The
+single uninterrupted make check run is not recorded as passing. Export, build
+and package smoke checks are recorded separately below.
+
+Export verification and sdist/wheel builds passed. The installed-wheel smoke
+suite passed all 1,908 tests (1,389 seconds) after allowing network access for
+hash-pinned dependency installation. Formal independent review remains on hold;
+publication of this branch supplies controller code and status documentation,
+without changing the signed task's acceptance scope.

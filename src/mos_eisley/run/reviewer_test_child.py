@@ -20,8 +20,7 @@ MAX_WIRE_BYTES = 16_000_000
 MAX_OUTPUT_BYTES = 65_536
 MAX_TEST_ID_BYTES = 1_000_000
 TestError = (
-    tuple[type[BaseException], BaseException, TracebackType]
-    | tuple[None, None, None]
+    tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
 )
 
 
