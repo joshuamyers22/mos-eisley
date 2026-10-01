@@ -43,6 +43,7 @@ from mos_eisley.reviewer_provenance import (
     G4ArtifactSignature,
     verify_provenance_signature,
 )
+from mos_eisley.reviewer_review_spend import verify_review_reservation
 from mos_eisley.reviewer_single_operator_review import (
     G4SingleOperatorCriticObservation,
     SignedG4SingleOperatorReviewAuthority,
@@ -203,8 +204,7 @@ def prepare_anthropic_critic_grant(
         raise ValueError("Anthropic call differs from signed G4 review lineage")
     payload = critic_payload(request, spec.model, spend_policy.max_output_tokens)
     reservation = prepare_anthropic_reservation(payload, spend_policy)
-    if reservation.reserved_microusd > ledger.snapshot().available_microusd:
-        raise ValueError("shared review spending allowance is unavailable")
+    verify_review_reservation(ledger, ledger_entry_id, reservation)
     grant = G4AnthropicCriticLiveGrant(
         grant_id=grant_id,
         provenance_policy_sha256=provenance.policy.policy_sha256,

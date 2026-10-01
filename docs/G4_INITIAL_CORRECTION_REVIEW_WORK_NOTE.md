@@ -123,3 +123,35 @@ confirmation `g4-q4-deps12-connected-review-authority-2`. The clean controller
 revision is pinned separately in the fresh private review store. Attempt-one
 inputs, owner signatures, spent grants, responses and charges remain untouched.
 Neither critic observation is eligible for judge adjudication or acceptance.
+
+## Fresh critics and retained-reservation replay
+
+The fresh Anthropic and OpenAI observations are
+`0a3cd711ead1f6ef40ebdfc6c73a8fc3a081e793510163054e92df0ef5f0be8e`
+and `0f570489161e3eeaeaf7a19af22754eded517da3e810b0b2cb3489b74a936f0f`.
+Anthropic has five low-impact findings (including positive confirmations);
+OpenAI has no findings. Preserve all findings for the separately authorized judge.
+No signed verdict or acceptance exists yet.
+
+Audit preparation revealed that critic grant reconstruction rechecked current
+unused funds even for an exact settled reservation. Current unused balance is
+109,092 micro-USD, below the already consumed Anthropic hold of 139,000; this
+incorrectly prevents historical metadata replay. The repair accepts an existing
+entry only when its original reservation digest and reserved amount match
+exactly. New entries still require available funds and an unblocked ledger.
+Actual dispatch still calls transactional `ledger.reserve` before any provider
+operation, rejecting duplicate IDs and budget overruns. Existing unresolved or
+violation entries remain metadata and cannot count as settled successful audits.
+No ledger mutation, ceiling increase, refund or fresh provider call is part of
+this verifier fix. Test exact replay after settlement and exhaustion, conflicting
+reservation rejection, and denial of another funded send before judge preparation.
+
+The twelve affected Anthropic/OpenAI grant tests and one reservation conflict/
+duplicate/exhaustion regression passed; Ruff and Pyright passed. The repair does
+not change any provider payload, request, frozen subject, reservation or owner
+signature. Preserve the original authority controller pin and create a separate
+audit-controller pin for replay and the future judge grant. The exact judge
+request must include every returned finding and both pinned critic hashes. Its
+preflight must reconstruct each critique from the retained provider response and
+verify the full authorization/admission/outcome chain, original reservation,
+private one-use claim, measured settlement and chronology before owner signing.
