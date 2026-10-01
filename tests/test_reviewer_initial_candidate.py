@@ -14,10 +14,12 @@ from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from mos_eisley.core.models import digest
+from mos_eisley.core.models import Contract, canonical_bytes, digest
 from mos_eisley.reviewer_initial_candidate import (
     G4InitialCandidateApproval,
     G4InitialCandidateInputs,
+    G4MetadataCandidateApproval,
+    SignedG4InitialCandidateApproval,
     _claim,
     _verify_claim,
     preflight_initial_candidate,
@@ -92,6 +94,12 @@ class InitialCandidateApprovalTests(unittest.TestCase):
                 owner,
             )
             wrong_key = sign_initial_candidate_approval(body, "owner", foreign)
+
+            def exact_bytes(value: object) -> bytes:
+                if value is fake.signed_integration:
+                    return b"signed integration"
+                return canonical_bytes(cast(Contract, value))
+
             with (
                 patch(
                     "mos_eisley.reviewer_initial_candidate.replay_initial_candidate_inputs"
@@ -101,7 +109,7 @@ class InitialCandidateApprovalTests(unittest.TestCase):
                 ),
                 patch(
                     "mos_eisley.reviewer_initial_candidate.canonical_bytes",
-                    return_value=b"signed integration",
+                    side_effect=exact_bytes,
                 ),
             ):
                 preflight_initial_candidate(signed, request, inputs, now=now)
@@ -109,6 +117,63 @@ class InitialCandidateApprovalTests(unittest.TestCase):
                     preflight_initial_candidate(changed, request, inputs, now=now)
                 with self.assertRaisesRegex(ValueError, "not enrolled"):
                     preflight_initial_candidate(wrong_key, request, inputs, now=now)
+                fake.signed_metadata = SimpleNamespace(
+                    artifact_sha256=digest(b"metadata"),
+                    record=SimpleNamespace(
+                        revision="b" * 40, amended_at=now - timedelta(seconds=30)
+                    ),
+                )
+                metadata_body = G4MetadataCandidateApproval.model_validate(
+                    body.model_dump()
+                    | {
+                        "integrated_revision": "b" * 40,
+                        "signed_metadata_record_sha256": digest(b"metadata"),
+                    }
+                )
+                metadata_signed = sign_initial_candidate_approval(
+                    metadata_body, "owner", owner
+                )
+                decoded = SignedG4InitialCandidateApproval.model_validate_json(
+                    metadata_signed.model_dump_json()
+                )
+                self.assertIsInstance(decoded.approval, G4MetadataCandidateApproval)
+                preflight_initial_candidate(decoded, request, inputs, now=now)
+                with self.assertRaisesRegex(ValueError, "invalid G4 creator signature"):
+                    preflight_initial_candidate(
+                        metadata_signed.model_copy(
+                            update={"signature": signed.signature}
+                        ),
+                        request,
+                        inputs,
+                        now=now,
+                    )
+                with self.assertRaisesRegex(ValueError, "signed amendment"):
+                    preflight_initial_candidate(signed, request, inputs, now=now)
+                altered = sign_initial_candidate_approval(
+                    metadata_body.model_copy(
+                        update={"signed_metadata_record_sha256": digest(b"other")}
+                    ),
+                    "owner",
+                    owner,
+                )
+                with self.assertRaisesRegex(ValueError, "signed amendment"):
+                    preflight_initial_candidate(altered, request, inputs, now=now)
+                with self.assertRaisesRegex(ValueError, "exact inputs"):
+                    preflight_initial_candidate(
+                        sign_initial_candidate_approval(
+                            metadata_body.model_copy(
+                                update={"integrated_revision": revision}
+                            ),
+                            "owner",
+                            owner,
+                        ),
+                        request,
+                        inputs,
+                        now=now,
+                    )
+                fake.signed_metadata = None
+                with self.assertRaisesRegex(ValueError, "lacks signed amendment"):
+                    preflight_initial_candidate(decoded, request, inputs, now=now)
             store = Path(temporary) / "claims"
             store.mkdir(mode=0o700)
             _claim(store, signed)

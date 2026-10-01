@@ -206,3 +206,22 @@ preservation, expired/altered authority rejection and metadata/VCS signature
 boundaries. Ruff and Pyright pass. Owner authorization remains pending; no task
 metadata commit or candidate execution has occurred. Full make check remains
 required before publishing the combined branch batch.
+
+## Candidate authority after metadata amendment
+
+Prepare fresh candidate authority for the attested metadata descendant without
+rewriting historical integration evidence. Add an explicit metadata-record hash
+and distinct signature domain; replay the original integration and the signed
+metadata record before accepting the descendant binding. Preserve existing
+initial-candidate serialization and grants. Verify exact descendant revision,
+metadata hash, chronology, controls and request; reject a legacy grant for a
+metadata candidate. No candidate execution before owner signature. Selected
+existing Python, verification and authorization threat-model guidance. Focused
+checks cover the new signature domain, changed metadata/revision and legacy
+authority rejection; existing candidate and metadata tests remain required.
+
+Focused candidate and real-Git metadata tests pass; Ruff and Pyright pass. The
+new prospective grant uses a distinct signature domain while historical grants
+retain their exact serialization. Candidate preparation replays both VCS records
+and the frozen control receipts; it does not execute candidate tests. Full make
+check remains required before publication of the combined branch batch.
