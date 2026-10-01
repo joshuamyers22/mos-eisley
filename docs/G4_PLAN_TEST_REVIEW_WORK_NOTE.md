@@ -246,3 +246,20 @@ with the two repaired validator modules and revalidate known controls there.
 Fresh candidate authority must bind the new image/controls; original paid-child
 replay continues on its historical image. Add an explicit initial-container
 input so no historical dispatch image is rewritten. No retry of consumed grant.
+
+## Final whole suites for the metadata descendant
+
+Candidate-2 receipt c6d1badb passed 18 reviewer methods with no skips/failures or
+errors. Prepare two distinct final requests for the exact amended revision and
+repaired image, after replaying that candidate's claim/receipt and both VCS
+records. Final provenance binds the signed metadata record, which retains the
+original integration hash; historical initial-only authority is unchanged.
+Protect all 17 creator methods using their original exact Git bytes, and retain
+the original 18-method blind package. Use a separate owner grant and private
+one-use store. No final execution, provider call or acceptance before signature.
+Selected existing Python, verification and authorization threat-model guidance.
+
+Final authority regression passes: original revision or original-only provenance
+cannot authorize a metadata descendant; historical initial-only inputs retain
+their existing behavior. Ruff and Pyright pass. No final suite has run. Full
+make check remains required before publication of the combined branch batch.
