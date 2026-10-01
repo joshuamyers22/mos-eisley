@@ -146,3 +146,36 @@ approval before the judge observation. Ruff and Pyright pass. The signing helper
 will preflight full retained audits and owner-reported judge grant, observation
 and 1,185 micro-USD settlement before presenting the exact creator approval.
 No owner signature or task coding delegation has occurred during preparation.
+
+## Duration reviewer controls and subtest outcome defect
+
+Creator provenance `083ffaf8f92bdf3c6aa0857753da6d27da1dd89bc96eeb9cc3ecfd0280129656`,
+package `255888544cf666b9baba17395fd252837f3acaa7291cade0ab51884bebfcf2d0`,
+and custody `c2c3ebb3605826aa7cf6f4ebcd87f40d7a0fd0cb8aee8f88c0f72848abe23af6`
+verified. The frozen suite contains 18 methods. Known-good runs complete; the
+known-bad worker fails before an observation because subtest failure IDs differ
+from collected parent method IDs. Diagnostics used the same isolated image;
+none is counted as an authoritative passing control receipt. Cleanup records
+retain removed containers. No provider call or child delegation occurred.
+
+Selected Python engineering and bounded verification guidance plus the existing
+G4 isolated-count threat boundary. Fix counting at the test-method granularity
+already used by collection/started/executed fields: attribute subtest failures to
+the parent, report one terminal failure/error per method, retain error precedence
+if a method encounters both. Preserve the frozen suite and all authority bytes.
+Test real stdlib child execution with multiple failed subtests and mixed outcomes.
+Build an offline derivative of the existing image with only the fixed worker;
+use the new immutable image identity for fresh control bindings/receipts and
+later owner signatures. No host fallback, network, enlarged resource bound or
+candidate authorization is permitted by this repair.
+
+Ten focused isolated-execution tests pass after the repair, including a real
+clean child process with four failed subtests attributed to one executed parent,
+and mixed subtest outcomes classified as one error rather than double-counted.
+Ruff and Pyright pass. An offline derivative image was built from the verified
+local base with only reviewer_test_child.py replaced; its immutable Docker ID is
+sha256:18ef1e11982fd593e95e1e57eb557de736466834f271c02fa73406b51c87b171.
+Its non-root user and absence of implicit volumes were inspected. Earlier image,
+bindings and failed lifecycle history remain retained. Authoritative controls
+must run as revision 2 on this image; no control pass is claimed by this note.
+Full make check remains required before publishing the combined branch batch.
