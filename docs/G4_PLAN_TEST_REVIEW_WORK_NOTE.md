@@ -60,3 +60,27 @@ approval precede any child authorization. No broad G4 acceptance is claimed.
 Next owner signature: `/Users/josh/g4-duration13-plan-review-sign sign`,
 confirmation `g4-q4-duration13-plan-test-review-authority-1`. Preparation must
 preflight at the new clean controller pin before presenting this command.
+
+## Dedicated live critic authority
+
+Owner review authority `e7a8ff60b9ac482784d44d4948ad7bbcd5ce2ebdc80d910935f3676b9824f809`
+verified. Prepare stage-specific one-use signed live grants without adapting
+this pre-delegation packet into a final-suite implementation subject. Reuse the
+qualified bounded Anthropic/OpenAI transports and shared transactional ledger.
+Anthropic reserves 109,000 micro-USD (17,500 input / 3,900 output); OpenAI reserves
+20,916 (64,000 input / 4,096 output). Later judge authorization is separate.
+One count and one generation, no retry, exact provider payload and request
+hashes, domain signatures, grant-expiry and original reservation replay remain
+required. Tests must demonstrate duplicate-use rejection before provider I/O,
+wrong packet/authority/signer/spending scope rejection and invalid-citation
+retention with actual settlement. No API key is read during preparation.
+
+Six affected focused tests passed with both providers' synthetic count/generation
+responses, settlements and one-use replays; changed packet, wrong owner key,
+changed per-call spending envelope and wider ledger ceilings reject. An invalid
+OpenAI citation preserves raw response and settled audit without an observation.
+Ruff and Pyright passed. Anthropic's 109,000 micro-USD envelope uses 17,500 input
+tokens at the conservative cache-write rate and 3,900 output tokens; qualification
+transport retention is reused without rewriting an already saved response.
+No real provider call occurred. Freeze exact live request bodies and preflight
+both signers at the next clean live-controller revision before owner signatures.
