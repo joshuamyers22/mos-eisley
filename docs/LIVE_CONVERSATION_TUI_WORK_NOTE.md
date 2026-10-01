@@ -1,11 +1,11 @@
 # Work Note: Live conversation in the TUI
 
-- Status: ready for accountable review
+- Status: draft PR open for accountable review
 - Owner: Joshua Myers
 - Started (UTC): 2026-10-01
 - Last updated (UTC): 2026-10-01
 - Review by: before v1 G2 release
-- Related plan: [§16.0](mos-eisley-plan.md)
+- Related plan: [§16.0](mos-eisley-plan.md); [PR #252](https://github.com/joshuamyers22/mos-eisley/pull/252)
 
 ## Objective and completion evidence
 
@@ -36,5 +36,6 @@ review, and production release decision remain separate gates.
 
 - Current state: implementation and offline quality gates pass; accountable
   security/spending review and an exact live provider validation remain open.
-- Next action: open the draft PR for review.
+- Next action: owner security/spending review, then exact-candidate live validation
+  under a separate approved spend scope.
 - Provider calls made by this work: none.
