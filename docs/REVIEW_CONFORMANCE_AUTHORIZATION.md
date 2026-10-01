@@ -19,12 +19,14 @@ observer with the same identity and key. The policy fixes its validity window,
 maximum authorization lifetime (at most 600 seconds) and reservation ceiling.
 
 `review_conformance_scope` derives the signed scope from the trusted previews. It
-requires guided OpenAI requests and binds:
+requires guided, provider-bound OpenAI or Anthropic requests; a two-provider
+critic phase is marked `mixed`, while the judge phase binds its selected provider.
+It binds:
 
 - The full canonical critic preview and controller authorization hashes.
 - The exact phase preview, selected guidance, ledger and ledger policy.
-- SDK version, immutable worker image ID, OpenAI Responses endpoint, zero automatic
-  retries and disabled provider storage.
+- Installed SDK versions for selected providers, immutable worker image ID,
+  selected provider API family, zero automatic retries and disabled provider storage.
 - The reservation ceiling and expiry. Critics reserve the complete envelope;
   judge authorization binds the controller start and existing judge allowance,
   with zero additional reservation.

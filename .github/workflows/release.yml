@@ -6,20 +6,38 @@ permissions:
   actions: read
   contents: write
 jobs:
-  release:
+  gitleaks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
-      - run: uv sync --frozen --dev
       - name: Verify release tag
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: uv run python tools/verify_release.py --tag "$RELEASE_TAG"
-      - run: make check audit build
+        run: uv run --no-project --python 3.12 python tools/verify_release.py --tag "$RELEASE_TAG" --main-ref refs/remotes/origin/main
+      - run: uv sync --frozen --dev
+      - run: make check audit
       - run: make container
       - uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
@@ -28,6 +46,11 @@ jobs:
           output-file: ./dist/release-sbom.cdx.json
           format: cyclonedx-json
           upload-artifact: false
+      - name: Record release commit
+        run: git rev-parse HEAD > dist/SOURCE_COMMIT
+      - name: Checksum release artifacts
+        working-directory: dist
+        run: sha256sum *.whl *.tar.gz release-sbom.cdx.json SOURCE_COMMIT > SHA256SUMS
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           generate_release_notes: true

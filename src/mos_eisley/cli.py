@@ -19,9 +19,12 @@ from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from mos_eisley import (
+    anthropic_probe_cli,
+    operator_review_cli,
     review_campaign_cli,
     review_launch_cli,
     review_launch_conformance_cli,
+    review_live_cli,
     review_observer_cli,
     review_submission_cli,
     reviewer_candidate_execution_cli,
@@ -674,6 +677,15 @@ def parser() -> argparse.ArgumentParser:
     )
     verify_openai_canary.add_argument("--run-dir", type=Path, required=True)
     verify_openai_canary.add_argument("--spend-ledger", type=Path, required=True)
+    anthropic_probe = subcommands.add_parser(
+        "anthropic-probe",
+        help="Run one budgeted, synthetic Claude Messages credentialed probe",
+    )
+    anthropic_probe.add_argument("--spend-policy", type=Path, required=True)
+    anthropic_probe.add_argument("--spend-ledger", type=Path, required=True)
+    anthropic_probe.add_argument("--key-file", type=Path, required=True)
+    anthropic_probe.add_argument("--output-dir", type=Path, required=True)
+    anthropic_probe.add_argument("--allow-data-transfer", action="store_true")
     ledger_create = subcommands.add_parser(
         "spend-ledger-create", help="Create a new local spending scope; never overwrite"
     )
@@ -729,10 +741,22 @@ def parser() -> argparse.ArgumentParser:
         help="Preview explicit review configuration without live launch authority",
     )
     review_launch_cli.add_arguments(launch_preview)
+    operator_review_cli.add_arguments(
+        subcommands.add_parser(
+            "operator-review",
+            help="Run one locally approved Anthropic critic/judge review",
+        )
+    )
     review_launch_conformance_cli.add_arguments(
         subcommands.add_parser(
             "review-launch-conformance-check",
             help="Check fresh campaign evidence against a proposed launch profile",
+        )
+    )
+    review_live_cli.add_arguments(
+        subcommands.add_parser(
+            "review-live",
+            help="Run one signed Anthropic review after campaign acceptance",
         )
     )
     for name in (
@@ -8180,6 +8204,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "g4-verify-independent-review",
             "g4-assemble-single-operator-review",
             "g4-verify-single-operator-review",
+            "anthropic-probe",
+            "operator-review",
+            "review-live",
         ):
             return {
                 "broker-audit-status": _broker_audit_status_command,
@@ -8249,6 +8276,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "g4-verify-single-operator-review": (
                     reviewer_single_operator_review_cli.run_command
                 ),
+                "anthropic-probe": anthropic_probe_cli.run_command,
+                "operator-review": operator_review_cli.run_command,
+                "review-live": review_live_cli.run_command,
             }[args.command](args)
         if args.command in ("spend-ledger-create", "spend-ledger-status"):
             ledger = (
