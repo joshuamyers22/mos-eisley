@@ -284,3 +284,11 @@ lineage retains the original integration hash plus the metadata signature hash,
 historical lineage remains unchanged, and failed final suites prevent review.
 Ruff and Pyright pass. Actual task replay/freeze remains a separate preparation
 step before owner authorization.
+
+Actual packet exceeded Brief's 32,000-character ceiling because the dispatch
+receipt embeds the full plan/tests/baseline offer. For metadata subjects retain
+the exact receipt/offer hashes plus complete signed proposal, dispatch approval
+and measured child execution, alongside all other signed prerequisites. Full
+upstream dispatch replay remains mandatory. Historical initial-only packets are
+unchanged. The plan and complete Git patch remain full review inputs. Focused
+regression, Ruff and Pyright pass; no enlarged wire bound or filtered finding.

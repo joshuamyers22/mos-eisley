@@ -105,7 +105,14 @@ def _verified_evidence_packet(
         ("signed_reviewer_custody", chain.custody),
         ("signed_child_assignment", chain.assignment),
         ("signed_child_dispatch_approval", chain.dispatch.approval),
-        ("signed_child_dispatch_receipt", chain.dispatch),
+        *(
+            (
+                ("signed_child_proposal", chain.dispatch.signed_proposal),
+                ("child_execution", chain.dispatch.execution),
+            )
+            if chain.signed_metadata is not None
+            else (("signed_child_dispatch_receipt", chain.dispatch),)
+        ),
         ("signed_integration_record", chain.signed_integration),
         ("signed_candidate_approval", inputs.candidate.approval),
         ("signed_final_suite_approval", final_receipt.approval),
@@ -127,6 +134,15 @@ def _verified_evidence_packet(
         "judge observations and the creator's review decision follow this "
         "subject; they cannot be evidence inside their own input.",
     ]
+    if chain.signed_metadata is not None:
+        lines.append(
+            "Metadata-descendant packet: the replayed dispatch receipt's nested "
+            "offer repeats the plan, protected tests and supplied baseline source. "
+            "Its exact receipt/offer identities appear below; the separately signed "
+            "proposal, dispatch approval and measured child execution remain here. "
+            "The signed creator metadata record preserves the initial integration "
+            "as parent and authorizes only the dependency declaration addition."
+        )
     for name, artifact in artifacts:
         payload = canonical_bytes(artifact)
         lines.append(f"[{name}] sha256={digest(payload)}")
@@ -156,6 +172,12 @@ def _verified_evidence_packet(
         "final_suites_passed": final_receipt.final_suites_passed,
         "production_child_receipt_sha256": chain.production.receipt_sha256,
     }
+    if chain.signed_metadata is not None:
+        summary.update(
+            child_dispatch_receipt_sha256=chain.dispatch.receipt_sha256,
+            initial_offer_sha256=chain.dispatch.offer.offer_sha256,
+            signed_metadata_record_sha256=chain.signed_metadata.artifact_sha256,
+        )
     lines.append("[verified_outcomes_and_bindings]")
     lines.append(json.dumps(summary, separators=(",", ":"), sort_keys=True))
     result = "\n".join(lines)
