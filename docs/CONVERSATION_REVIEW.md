@@ -3,7 +3,9 @@
 An explicit `/review` or `Review this change.` now runs the existing recorded
 critic/judge workflow and returns its result to the conversation. Ordinary chat
 does not automatically invoke a panel. This remains a recorded-provider preview;
-it does not inspect a repository, generate live reviews or make changes.
+it does not inspect a repository or make changes. The separately configured
+[live review path](CONVERSATION_LIVE_REVIEW.md) uses the same triggers with a
+frozen prepared brief and a fresh signed launch.
 
 ## Try the round-trip
 

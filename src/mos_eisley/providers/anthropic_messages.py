@@ -280,7 +280,7 @@ def review_json_format(kind: str) -> dict[str, JsonValue]:
             "properties": {
                 "schema_version": {"type": "integer", "const": 1},
                 "upheld": {"type": "array", "items": {"type": "string"}},
-                "rationale": {"type": "string"},
+                "rationale": {"type": "string", "pattern": r"^[\s\S]+$"},
             },
             "required": ["schema_version", "upheld", "rationale"],
             "additionalProperties": False,

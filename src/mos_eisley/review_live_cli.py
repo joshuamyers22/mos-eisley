@@ -9,9 +9,9 @@ import shutil
 import sqlite3
 import sys
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.operator_review_cli import read_line
 from mos_eisley.project_guidance_review import (
     REVIEW_GUIDANCE_BYTES,
@@ -50,6 +50,18 @@ from mos_eisley.run.review_launch_authorization import (
     SignedReviewLaunchDecision,
 )
 from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.run.store import private_write
+
+
+class ReviewLiveCompletion(Contract):
+    schema_version: Literal[2] = 2
+    mode: Literal["review_live_completion"] = "review_live_completion"
+    review_dir: str
+    result_sha256: Digest
+    brief_id: Digest
+    launch_decision_sha256: Digest
+    prepared_sha256: Digest
+    selection_sha256: Digest | None = None
 
 
 def add_arguments(command: argparse.ArgumentParser) -> None:
@@ -76,6 +88,8 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--launch-authority-policy", type=Path, required=True)
     command.add_argument("--launch-scope-output", type=Path)
     command.add_argument("--phase-scope-dir", type=Path)
+    command.add_argument("--completion-output", type=Path)
+    command.add_argument("--selection-sha256")
 
 
 def _campaign_charge(args: argparse.Namespace) -> int:
@@ -93,6 +107,13 @@ def check_owner_total_cap(
 
 
 async def _run(args: argparse.Namespace) -> int:
+    completion_output = cast(Path | None, args.completion_output)
+    if completion_output is not None and (
+        completion_output.exists()
+        or completion_output.is_symlink()
+        or not completion_output.parent.is_dir()
+    ):
+        raise ValueError("completion output must be a new private file")
     config_raw = read_bounded(cast(Path, args.config), CONFIGURATION_BYTES)
     evidence_raw = read_bounded(cast(Path, args.evidence), CAMPAIGN_BYTES)
     if (
@@ -265,6 +286,24 @@ async def _run(args: argparse.Namespace) -> int:
     decision_path = Path(answer)
     result = await probe.run()
     snapshot = ledger.snapshot()
+    if result is not None and completion_output is not None:
+        if probe.launch_decision is None:
+            raise ValueError("completed review has no admitted launch decision")
+        private_write(
+            completion_output,
+            canonical_bytes(
+                ReviewLiveCompletion(
+                    review_dir=str(review_dir.resolve()),
+                    result_sha256=digest(canonical_bytes(result)),
+                    brief_id=result.result.verdict.brief_id,
+                    launch_decision_sha256=digest(
+                        canonical_bytes(probe.launch_decision)
+                    ),
+                    prepared_sha256=prepared.sha256,
+                    selection_sha256=cast(str | None, args.selection_sha256),
+                )
+            ),
+        )
     print(
         json.dumps(
             {

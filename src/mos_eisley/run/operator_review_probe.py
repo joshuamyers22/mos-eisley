@@ -65,6 +65,8 @@ def validate_operator_review_identity(
     identity: OperatorReviewIdentity,
     envelope: PreparedReviewEnvelope,
     reviewer: ModelReviewer,
+    *,
+    allow_mixed_providers: bool = False,
 ) -> OperatorReviewIdentity:
     """Bind the operator's three-model declaration to either review executor."""
     identity = OperatorReviewIdentity.model_validate_json(canonical_bytes(identity))
@@ -88,12 +90,15 @@ def validate_operator_review_identity(
         *critic_models,
         (judge.provider, judge.model),
     }
+    allowed_providers = (
+        {"openai", "anthropic"} if allow_mixed_providers else {"anthropic"}
+    )
     if (
         len(critic_models) != len(envelope.critics)
         or len(identities) != len(envelope.critics) + 2
-        or any(provider != "anthropic" for provider, _ in critic_models)
-        or judge.provider != "anthropic"
-        or envelope.envelope.judge.spend_policy.provider != "anthropic"
+        or any(provider not in allowed_providers for provider, _ in critic_models)
+        or judge.provider not in allowed_providers
+        or envelope.envelope.judge.spend_policy.provider != judge.provider
         or envelope.envelope.judge.spend_policy.model != judge.model
     ):
         raise ValueError(

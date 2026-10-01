@@ -265,7 +265,9 @@ class BrokeredReviewConformanceProbe:
             raise ValueError("review probe requires one preparation scope")
         preparation_scope = next(iter(preparation_scopes))
         self._extended_preparation_unbound = (
-            preparation_scope == "formal_campaign" and campaign is None
+            preparation_scope == "formal_campaign"
+            and campaign is None
+            and launch is None
         )
         if campaign is not None and preparation_scope != "formal_campaign":
             raise ValueError(
@@ -277,7 +279,10 @@ class BrokeredReviewConformanceProbe:
             raise ValueError("review probe requires a distinct worker for every critic")
         if operator_identity is not None:
             identity = validate_operator_review_identity(
-                operator_identity, envelope, reviewer
+                operator_identity,
+                envelope,
+                reviewer,
+                allow_mixed_providers=True,
             )
             if campaign is not None:
                 bundle, _ = read_campaign_seal(

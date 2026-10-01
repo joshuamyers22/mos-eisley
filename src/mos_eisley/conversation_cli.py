@@ -1,4 +1,4 @@
-"""Line-oriented recorded conversation preview; renderer owns no execution tools."""
+"""Conversation terminal; renderer owns no review or tool authority."""
 
 from __future__ import annotations
 
@@ -62,6 +62,11 @@ from mos_eisley.conversation_limits import (
     context_byte_limit,
     snapshot_byte_limit,
 )
+from mos_eisley.conversation_live_review import (
+    packet_for_selection,
+    read_selection,
+    run_selected_live_review,
+)
 from mos_eisley.conversation_memory import (
     MEMORY_CHANGED_MESSAGE,
     RECORD_BYTES,
@@ -107,7 +112,9 @@ from mos_eisley.conversation_review import (
     MAX_REVIEW_PACKET_BYTES,
     REVIEW_FOLLOWUP,
     REVIEW_PROMPT,
+    ConversationLiveReviewPacket,
     ConversationReviewPacket,
+    ReviewPacket,
     review_summary,
     run_conversation_review,
 )
@@ -119,7 +126,7 @@ from mos_eisley.conversation_switch import (
 )
 from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
 from mos_eisley.core.budget import resolve_budget
-from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.core.models import ReviewResult, canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.demo import demo_inputs
@@ -184,6 +191,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--review-packet",
+        "--live-review-selection",
         "--review-guidance-policy",
         "--expected-review-policy-sha256",
         "--review-guidance-storage",
@@ -835,6 +843,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 help="Queued UTF-8 text bytes this launch (4000–512000; default 64000)",
             )
             command.add_argument("--review-packet", type=Path)
+            command.add_argument("--live-review-selection", type=Path)
             command.add_argument("--review-guidance-policy", type=Path)
             command.add_argument("--expected-review-policy-sha256")
             command.add_argument(
@@ -846,7 +855,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             display.add_argument(
                 "--tui",
                 action="store_true",
-                help="Open the full-screen recorded terminal",
+                help="Open the full-screen conversation terminal",
             )
             display.add_argument(
                 "--plain", action="store_true", help="Use line-oriented terminal input"
@@ -936,7 +945,7 @@ async def terminal(
     controller: RuntimeConversationController,
     queue: ConversationInputQueue,
     emit: Callable[[dict[str, object]], None],
-    review_packet: ConversationReviewPacket | None = None,
+    review_packet: ReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
@@ -973,7 +982,10 @@ async def terminal(
             emit(
                 {
                     "type": "conversation.unavailable",
-                    "text": ("Review requires an explicit --review-packet at startup."),
+                    "text": (
+                        "Review requires an explicit --review-packet or "
+                        "--live-review-selection at startup."
+                    ),
                 }
             )
             return False
@@ -1493,7 +1505,7 @@ async def terminal(
 async def _run_terminal(
     controller: RuntimeConversationController,
     emit: Callable[[dict[str, object]], None],
-    review_packet: ConversationReviewPacket | None = None,
+    review_packet: ReviewPacket | None = None,
     refresh_memory: Callable[[bool], None] | None = None,
     *,
     initial_prompt: str | None = None,
@@ -2161,6 +2173,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             or args.pending_text_max_bytes is not None
             or args.cassette is not None
             or args.review_packet is not None
+            or args.live_review_selection is not None
             or args.review_guidance_policy is not None
             or args.expected_review_policy_sha256 is not None
             or args.no_memory
@@ -2396,20 +2409,47 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     explicit_cassette = (
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
-    review_packet = (
+    if args.review_packet is not None and args.live_review_selection is not None:
+        raise ValueError("select recorded or live review, not both")
+    live_selection = None
+    live_selection_sha256 = None
+    if args.live_review_selection is not None:
+        if args.plain or args.json or not sys.stdin.isatty() or not sys.stdout.isatty():
+            raise ValueError(
+                "live conversation review requires the interactive terminal"
+            )
+        live_selection, live_selection_sha256 = read_selection(
+            args.live_review_selection, args.workspace
+        )
+    review_packet: ReviewPacket | None = (
         ConversationReviewPacket.model_validate_json(
             read_bounded(args.review_packet, MAX_REVIEW_PACKET_BYTES)
         )
         if args.review_packet is not None
-        else None
+        else (
+            packet_for_selection(live_selection, live_selection_sha256)
+            if live_selection is not None and live_selection_sha256 is not None
+            else None
+        )
     )
     from mos_eisley.conversation_guidance_review import review_guidance_validator
 
+    if live_selection is not None and (
+        args.review_guidance_policy is not None
+        or args.expected_review_policy_sha256 is not None
+    ):
+        raise ValueError("live review selects its guidance policy in the manifest")
     validate_review = review_guidance_validator(
         args.workspace,
-        args.review_guidance_storage,
-        args.review_guidance_policy,
-        args.expected_review_policy_sha256,
+        live_selection.guidance_storage
+        if live_selection is not None
+        else args.review_guidance_storage,
+        live_selection.guidance_policy
+        if live_selection is not None
+        else args.review_guidance_policy,
+        live_selection.expected_guidance_policy_sha256
+        if live_selection is not None
+        else args.expected_review_policy_sha256,
     )
     if review_packet is not None and review_packet.guidance_review is not None:
         if validate_review is None:
@@ -2546,6 +2586,18 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         )
         controller.validate_memory = memory_runtime.check
         controller.validate_review = validate_review
+        if live_selection is not None:
+            from prompt_toolkit.application import in_terminal
+
+            async def launch_live_review(
+                packet: ConversationLiveReviewPacket,
+            ) -> ReviewResult:
+                async with in_terminal():
+                    return await run_selected_live_review(
+                        packet, args.live_review_selection, args.workspace
+                    )
+
+            controller.run_live_review = launch_live_review
         if selected_refresh:
             replacement = (
                 None
@@ -2584,8 +2636,12 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 "text": (
                     f"Session {session_id} "
                     f"({controller.state.session_name or 'unnamed'}). "
-                    "Recorded preview. "
-                    "Commands: /compose, /send, /discard, "
+                    + (
+                        "Recorded chat; live review selected. "
+                        if live_selection is not None
+                        else "Recorded preview. "
+                    )
+                    + "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
@@ -2595,7 +2651,12 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 ),
             }
         )
-        welcome = "Recorded preview: live conversations are not connected yet.\n" + (
+        welcome = (
+            "Recorded chat with an explicitly selected live review; "
+            "live chat is not connected yet.\n"
+            if live_selection is not None
+            else "Recorded preview: live conversations are not connected yet.\n"
+        ) + (
             "Try these messages in order:\n" + "\n".join(DEMO_PROMPTS)
             if memory_runtime.builtin
             else "Use the messages expected by your selected recording."

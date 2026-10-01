@@ -19,7 +19,9 @@ A terminal opens the [interactive screen](CONVERSATION_TUI.md) automatically;
 `mos resume <session-id>` explicitly restores that conversation in the same
 workspace. `mos sessions`, `mos resume --last` and `mos session-delete` provide
 navigation for the selected workspace and manual retention. This preview uses
-request-bound recorded responses: it does not generate arbitrary answers or call a live provider. Every recorded response
+request-bound recorded chat responses: it does not generate arbitrary answers. An
+[explicit live review selection](CONVERSATION_LIVE_REVIEW.md) can invoke a live
+provider for `/review` under the separate signed launch ceremony. Every recorded response
 must match the hash of the full current request, including prior completed turns.
 
 ## Try it
@@ -330,7 +332,7 @@ compaction, SQLite indexing and remote adapters remain future work.
 
 This is the first recorded conversation milestone in plan §16.0. The plain `mos`
 entry point still displays command usage. Live conversation,
-live review, repository execution, shared `exec` routing,
+automatic repository review, repository execution, shared `exec` routing,
 and advanced terminal features remain open. The existing MCP and analysis commands are
 independent of this preview.
 

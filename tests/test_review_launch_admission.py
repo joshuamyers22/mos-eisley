@@ -144,6 +144,18 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
 
 
 class LaunchAdmissionTests(LaunchAdmissionFixture):
+    async def test_formal_campaign_preparation_runs_under_signed_launch(self):
+        self.fixture.call = self.fixture.prepare(preparation_scope="formal_campaign")
+        self.fixture.review = self.fixture.envelope()
+        self.fixture.base.fake.directory = self.fixture.critic_directory()
+        probe = self.probe()
+        self.authorize(probe)
+
+        result = await probe.run()
+
+        self.assertIsNotNone(result)
+        self.assertEqual(len(probe.approval_ui.authorizations), 2)
+
     async def test_owner_total_cap_includes_campaign_and_full_launch_allowance(self):
         campaign_charged = sum(
             fixture.base.ledger.snapshot().charged_microusd for fixture in self.fixtures
