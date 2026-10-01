@@ -263,3 +263,24 @@ Final authority regression passes: original revision or original-only provenance
 cannot authorize a metadata descendant; historical initial-only inputs retain
 their existing behavior. Ruff and Pyright pass. No final suite has run. Full
 make check remains required before publication of the combined branch batch.
+
+## Final duration critic/judge review preparation
+
+Final pair receipt cff0a7d6 passed all 17 creator and 18 reviewer methods without
+skips/failures/errors. Build review from exact approved plan and complete
+base-to-amended Git patch, including the separately signed metadata amendment
+and VCS record. Preserve initial-only lineage serialization; a metadata lineage
+adds its exact signed record hash. Rebuild/replay all upstream evidence before
+freezing two provider-specific citation-bound requests. Joshua is sole human;
+single-operator authority discloses that risk and grants no live spending,
+review decision, creator acceptance or independent-human proof. Each critic and
+judge needs fresh exact transfer/spend authority. Separate creator acceptance
+follows replayed observations, adjudication and owner decision. Selected Python,
+verification, adversarial review and authorization threat-model guidance. No
+provider call or acceptance during preparation; full make check before publication.
+
+Focused subject regression passes: the full diff targets the amended revision,
+lineage retains the original integration hash plus the metadata signature hash,
+historical lineage remains unchanged, and failed final suites prevent review.
+Ruff and Pyright pass. Actual task replay/freeze remains a separate preparation
+step before owner authorization.

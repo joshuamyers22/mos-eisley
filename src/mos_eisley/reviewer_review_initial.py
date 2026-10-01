@@ -59,6 +59,10 @@ class G4InitialReviewLineageRecord(Contract):
         return digest(canonical_bytes(self))
 
 
+class G4MetadataReviewLineageRecord(G4InitialReviewLineageRecord):
+    signed_metadata_record_sha256: Digest
+
+
 @dataclass(frozen=True)
 class _GitProvenanceView:
     base_revision: str
@@ -105,6 +109,11 @@ def _verified_evidence_packet(
         ("signed_integration_record", chain.signed_integration),
         ("signed_candidate_approval", inputs.candidate.approval),
         ("signed_final_suite_approval", final_receipt.approval),
+        *(
+            (("signed_creator_metadata_record", chain.signed_metadata),)
+            if chain.signed_metadata is not None
+            else ()
+        ),
     )
     lines = [
         "G4 initial-child qualification evidence, version 2.",
@@ -177,6 +186,8 @@ def build_initial_review_subject(
         raise ValueError("review plan differs from signed creator approval")
     base = chain.assignment.assignment.base_revision
     source = chain.signed_integration.record.integrated_revision
+    if chain.signed_metadata is not None:
+        source = chain.signed_metadata.record.revision
     patch = _git(
         chain.git_executable,
         root,
@@ -212,6 +223,11 @@ def build_initial_review_subject(
         base_revision=base,
         source_revision=source,
     )
+    if chain.signed_metadata is not None:
+        lineage = G4MetadataReviewLineageRecord.model_validate(
+            lineage.model_dump()
+            | {"signed_metadata_record_sha256": chain.signed_metadata.artifact_sha256}
+        )
     constraints = _verified_evidence_packet(final_receipt, inputs, lineage)
     subject = G4ReviewSubject(
         provenance_sha256=lineage.record_sha256,
