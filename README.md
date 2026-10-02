@@ -39,8 +39,9 @@ uv run --frozen mos -- "Remember that the fixture boundary is ten."
 
 The welcome screen shows the workspace and supported preview messages. Sessions
 save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
-`--storage PATH` overrides storage. Live conversation is still pending. See the
-[terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+`--storage PATH` overrides storage. Explicit, spend-controlled OpenAI chat is
+available in the same TUI; see the [terminal guide](docs/CONVERSATION_TUI.md)
+for launch and resume options.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 

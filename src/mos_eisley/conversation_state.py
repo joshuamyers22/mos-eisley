@@ -45,6 +45,7 @@ from mos_eisley.core.models import (
     canonical_fingerprint,
     digest,
 )
+from mos_eisley.core.protocol import Effort
 from mos_eisley.providers.agent_recorded import AgentCassette
 from mos_eisley.task_state import TaskCheckpointHead, TaskContinuationClaim
 
@@ -265,9 +266,23 @@ EntryT = TypeVar(
 )
 
 
+class LiveChatIdentity(Contract):
+    model: Identifier
+    effort: Effort
+    max_output_tokens: Annotated[int, Field(gt=0, le=8192)]
+    spend_policy_sha256: Digest
+    spend_ledger_id: Digest
+    artifacts_root: Annotated[str, Field(min_length=1, max_length=4096)]
+
+
 class ConversationState(Contract, Generic[EntryT]):
     schema_version: Literal[1] = 1
-    mode: Literal["recorded_conversation"] = "recorded_conversation"
+    mode: Literal["recorded_conversation", "openai_live_conversation"] = (
+        "recorded_conversation"
+    )
+    live_chat: LiveChatIdentity | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     session_id: SessionID
     session_name: SessionName | None = Field(
         default=None, exclude_if=lambda value: value is None
@@ -330,6 +345,12 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        if (self.mode == "openai_live_conversation") != (self.live_chat is not None):
+            raise ValueError("live conversation requires its saved provider identity")
+        if self.live_chat is not None and (
+            self.retained_cassette is not None or self.builtin_recording
+        ):
+            raise ValueError("live conversation cannot retain a recording")
         selected_memory_workspace = self.effective_memory_workspace
         validate_author_compactions(
             self.author_compactions,

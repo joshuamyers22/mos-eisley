@@ -4,8 +4,37 @@ Mos Eisley's primary interface is an ongoing terminal conversation. Bare `mos`,
 `mos chat` and `mos resume` open a full-screen transcript and editable composer when
 both input and output are terminals. This is the first implementation of the
 terminal interaction requested in plan §16.0, with Codex and Claude Code as the
-interaction references. It uses recorded responses; arbitrary live answers,
-repository tools and provider/model switching are not enabled by this screen.
+interaction references. Recorded responses remain the default. Explicit live
+OpenAI text turns use the same saved transcript and controls. Repository tools
+and in-session provider switching are not enabled.
+
+## Live OpenAI conversation
+
+Use a current reviewed schema-2 [OpenAI spending policy](OPENAI_SPENDING.md), an existing
+[shared spending ledger](SHARED_SPENDING.md), and an existing owner-only artifacts
+directory. Set `OPENAI_API_KEY` in the local environment. For example:
+
+```sh
+mkdir -m 700 "$HOME/.mos-eisley-live-chat"
+mos chat --live-openai --allow-data-transfer \
+  --spend-policy /private/path/spend-policy.json \
+  --spend-ledger /private/path/spending.sqlite \
+  --live-artifacts "$HOME/.mos-eisley-live-chat"
+```
+
+This launch sends each submitted text turn and its admitted conversation history
+to the policy's OpenAI model. It performs no repository tool calls. Token counting
+also transfers the request text. The existing ledger limits aggregate reserved
+spend; the policy limits each response. No turn runs on opening a session. A queued
+turn needs a send or explicit continue, as in recorded mode. Ctrl-C or `/stop`
+cancels an active turn; its reserved exposure can remain uncertain, and the saved
+attempt is never replayed automatically.
+
+Resume with `mos resume SESSION_ID` (or `--last`) and the same live flags, current
+policy, ledger, effort, and artifacts root. The saved session checks their exact
+identities. An expired or changed policy requires a new live session. The
+recorded preview stays the default for launches without `--live-openai`.
+Live requests still use the existing 16-message session limit and context budget.
 
 ## Start a conversation
 
@@ -94,8 +123,9 @@ remain informational; unknown commands still fail instead of becoming prompts.
 Launch options may follow `mos` directly; use `mos chat --help` for their full list.
 
 The startup reference is [Codex's documented project-directory launch](https://learn.chatgpt.com/docs/codex/cli),
-checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
-authentication remains future work; this is not complete Codex feature parity.
+checked 2026-09-09. Mos now matches the no-subcommand terminal entry point.
+Live OpenAI chat requires explicit local credentials and spending inputs; this is
+not complete Codex feature parity.
 
 The persistent header now shows the working directory and active user/project memory
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory

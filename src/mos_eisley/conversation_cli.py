@@ -62,6 +62,7 @@ from mos_eisley.conversation_limits import (
     context_byte_limit,
     snapshot_byte_limit,
 )
+from mos_eisley.conversation_live_chat import LiveChatRuntime, private_artifacts_root
 from mos_eisley.conversation_live_review import (
     packet_for_selection,
     read_selection,
@@ -118,7 +119,7 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
-from mos_eisley.conversation_state import WorkingConversationState
+from mos_eisley.conversation_state import LiveChatIdentity, WorkingConversationState
 from mos_eisley.conversation_switch import (
     DirectoryHandoff,
     fresh_directory_arguments,
@@ -133,6 +134,7 @@ from mos_eisley.demo import demo_inputs
 from mos_eisley.memory_cli import add_command as add_memory_command
 from mos_eisley.memory_cli import add_memory_options
 from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
+from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.conversation_artifacts import (
     DEFAULT_ARTIFACT_BYTES,
     read_sqlite_artifact,
@@ -173,6 +175,7 @@ from mos_eisley.run.conversation_store import (
 from mos_eisley.run.conversation_transcript import read_sqlite_transcript
 from mos_eisley.run.conversation_transfer import transfer_conversation
 from mos_eisley.run.files import read_bounded
+from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
 
@@ -190,6 +193,12 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--workspace",
         "--storage",
         "--cassette",
+        "--live-openai",
+        "--allow-data-transfer",
+        "--live-effort",
+        "--spend-policy",
+        "--spend-ledger",
+        "--live-artifacts",
         "--review-packet",
         "--live-review-selection",
         "--review-guidance-policy",
@@ -806,6 +815,37 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
+            command.add_argument(
+                "--live-openai",
+                action="store_true",
+                help="Use explicit spend-controlled OpenAI text chat",
+            )
+            command.add_argument(
+                "--allow-data-transfer",
+                action="store_true",
+                help="Permit submitted text, history and memory in provider requests",
+            )
+            command.add_argument(
+                "--live-effort",
+                choices=("none", "low", "medium", "high"),
+                default="medium",
+                help="Reasoning effort for the live policy model (default: medium)",
+            )
+            command.add_argument(
+                "--spend-policy",
+                type=Path,
+                help="Current reviewed OpenAI pricing and per-response cap",
+            )
+            command.add_argument(
+                "--spend-ledger",
+                type=Path,
+                help="Existing shared aggregate spending ledger",
+            )
+            command.add_argument(
+                "--live-artifacts",
+                type=Path,
+                help="Existing owner-only directory for per-turn spend receipts",
+            )
             command.add_argument(
                 "--choose-directory",
                 action="store_true",
@@ -2409,6 +2449,51 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     explicit_cassette = (
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
+    live_identity = None
+    spend_policy = None
+    spend_ledger = None
+    if args.live_openai:
+        if (
+            not args.allow_data_transfer
+            or args.spend_policy is None
+            or args.spend_ledger is None
+            or args.live_artifacts is None
+        ):
+            raise ValueError(
+                "live chat requires --allow-data-transfer, --spend-policy, "
+                "--spend-ledger and --live-artifacts"
+            )
+        if (
+            explicit_cassette is not None
+            or getattr(args, "refresh_cassette", None) is not None
+        ):
+            raise ValueError("live chat cannot use a recording")
+        spend_policy = SpendPolicy.model_validate_json(
+            read_bounded(args.spend_policy, 64_000)
+        )
+        spend_policy.check_current()
+        if spend_policy.provider != "openai":
+            raise ValueError("live chat requires an OpenAI spending policy")
+        if spend_policy.schema_version != 2:
+            raise ValueError("live chat requires a schema-2 spending policy")
+        spend_ledger = SpendLedger(args.spend_ledger)
+        if spend_ledger.snapshot().blocked:
+            raise ValueError("shared spending ledger is blocked")
+        live_identity = LiveChatIdentity(
+            model=spend_policy.model,
+            effort=args.live_effort,
+            max_output_tokens=spend_policy.max_output_tokens,
+            spend_policy_sha256=spend_policy.policy_sha256,
+            spend_ledger_id=spend_ledger.policy.ledger_id,
+            artifacts_root=str(private_artifacts_root(args.live_artifacts)),
+        )
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise ValueError("OPENAI_API_KEY is required for live chat")
+    elif args.allow_data_transfer or any(
+        value is not None
+        for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+    ):
+        raise ValueError("live chat spending options require --live-openai")
     if args.review_packet is not None and args.live_review_selection is not None:
         raise ValueError("select recorded or live review, not both")
     live_selection = None
@@ -2475,6 +2560,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             snapshot_max_bytes=args.session_max_bytes,
             context_max_bytes=args.context_max_bytes,
             input_limits=input_limits,
+            live_chat=live_identity,
         )
         if args.name is not None:
             fresh = fresh.model_copy(update={"session_name": args.name})
@@ -2552,10 +2638,32 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if args.command == "resume":
             memory = None if ignore_memory else memory_store.load()
         cassette = (
-            explicit_cassette
+            demo_cassette(memory=state.memory)
+            if state.mode == "openai_live_conversation"
+            else explicit_cassette
             or state.retained_cassette
             or demo_cassette(memory=state.memory)
         )
+        if (
+            state.mode == "openai_live_conversation"
+            and state.live_chat != live_identity
+        ):
+            raise ValueError(
+                "resume requires the exact live provider, policy, ledger "
+                "and artifacts root"
+            )
+        if state.mode == "recorded_conversation" and live_identity is not None:
+            raise ValueError("recorded conversation cannot resume as live chat")
+        live_runner = None
+        if live_identity is not None:
+            assert spend_policy is not None and spend_ledger is not None
+            live_runner = LiveChatRuntime(
+                live_identity,
+                spend_policy,
+                spend_ledger,
+                os.environ["OPENAI_API_KEY"],
+                state.session_id,
+            ).run
         if state.memory != memory and not selected_refresh:
             print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
             return 2
@@ -2569,6 +2677,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 load_entry=store.load_working_entry,
                 input_limits=input_limits,
                 pending_limits=pending_limits,
+                run_live_chat=live_runner,
             )
         else:
             controller = ConversationController(
@@ -2577,6 +2686,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 store.save,
                 input_limits=input_limits,
                 pending_limits=pending_limits,
+                run_live_chat=live_runner,
             )
         memory_runtime = ConversationMemoryRuntime(
             controller,
@@ -2639,6 +2749,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     + (
                         "Recorded chat; live review selected. "
                         if live_selection is not None
+                        else "Live OpenAI chat. "
+                        if live_identity is not None
                         else "Recorded preview. "
                     )
                     + "Commands: /compose, /send, /discard, "
@@ -2652,13 +2764,16 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             }
         )
         welcome = (
-            "Recorded chat with an explicitly selected live review; "
-            "live chat is not connected yet.\n"
+            "Recorded chat with an explicitly selected live review.\n"
             if live_selection is not None
+            else "Live OpenAI conversation with the selected spending policy.\n"
+            if live_identity is not None
             else "Recorded preview: live conversations are not connected yet.\n"
         ) + (
             "Try these messages in order:\n" + "\n".join(DEMO_PROMPTS)
-            if memory_runtime.builtin
+            if memory_runtime.builtin and live_identity is None
+            else "Type a message to start a live conversation."
+            if live_identity is not None
             else "Use the messages expected by your selected recording."
         )
         welcome += (

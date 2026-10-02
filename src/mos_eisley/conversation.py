@@ -51,6 +51,7 @@ from mos_eisley.conversation_review import (
 )
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
+    LiveChatIdentity,
     RuntimeConversationState,
     WorkingConversationState,
     validate_runtime_state,
@@ -81,11 +82,12 @@ from mos_eisley.conversation_task_profile import (
 from mos_eisley.core.agent import (
     AgentConfig,
     AgentFailure,
+    AgentResult,
     build_request,
     check_request_budget,
     run_agent,
 )
-from mos_eisley.core.budget import Budget, resolve_budget
+from mos_eisley.core.budget import Budget, BudgetPolicy, resolve_budget
 from mos_eisley.core.models import (
     ReviewResult,
     canonical_bytes,
@@ -93,8 +95,8 @@ from mos_eisley.core.models import (
     digest,
 )
 from mos_eisley.core.ports import ModelClient, ToolDispatcher
-from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
-from mos_eisley.core.registry import fixture_registry
+from mos_eisley.core.protocol import ModelRequest, ReasoningBlock, TextBlock, Turn
+from mos_eisley.core.registry import fixture_registry, openai_registry
 from mos_eisley.providers.agent_recorded import AgentCassette, RecordedAgentClient
 from mos_eisley.run.task_checkpoint_store import (
     CheckpointClosureError,
@@ -120,15 +122,28 @@ def conversation_config(
     *,
     task_system: str = "",
     tools_enabled: bool = False,
+    live_chat: LiveChatIdentity | None = None,
 ) -> AgentConfig:
+    live_budget = None
+    if live_chat is not None:
+        output_bytes = min(64_000, max(8_000, live_chat.max_output_tokens * 8))
+        live_budget = BudgetPolicy(
+            session_cap_bytes=256_000,
+            reserve_low_bytes=output_bytes,
+            reserve_medium_bytes=output_bytes,
+            reserve_high_bytes=output_bytes,
+            response_envelope_bytes=128_000,
+            max_output_tokens=live_chat.max_output_tokens,
+        )
     return AgentConfig(
-        provider="fixture",
-        model="tool-reviewer-v1",
-        effort="high",
+        provider="openai" if live_chat is not None else "fixture",
+        model=live_chat.model if live_chat is not None else "tool-reviewer-v1",
+        effort=live_chat.effort if live_chat is not None else "high",
         system=conversation_base_system(memory) + memory_system(memory) + task_system,
         initial_turns=turns,
         max_iterations=8 if tools_enabled else 1,
         max_tool_calls=32 if tools_enabled else 0,
+        budget=live_budget or BudgetPolicy(),
     )
 
 
@@ -143,8 +158,9 @@ def conversation_base_system(memory: ConversationMemory | None) -> str:
 def prepare_conversation_request(
     config: AgentConfig, dispatcher: ToolDispatcher | None = None
 ) -> tuple[ModelRequest, Budget]:
-    """Build the complete fixture request and resolve its local byte budget."""
-    resolved = fixture_registry().resolve(config.provider, config.model, config.effort)
+    """Build the complete request and resolve its local budget."""
+    registry = openai_registry() if config.provider == "openai" else fixture_registry()
+    resolved = registry.resolve(config.provider, config.model, config.effort)
     budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
     request = build_request(
         config,
@@ -237,6 +253,8 @@ class ConversationController(Generic[StateT]):
         run_live_review: (
             Callable[[ConversationLiveReviewPacket], Awaitable[ReviewResult]] | None
         ) = None,
+        run_live_chat: Callable[[AgentConfig, int], Awaitable[AgentResult]]
+        | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -257,8 +275,12 @@ class ConversationController(Generic[StateT]):
             input_limits.admit_size("retained_cassette", recording.bytes)
         if recording.sha256 != state.cassette_sha256:
             raise ValueError("resume requires the exact recorded cassette")
-        if state.exchanges_consumed > len(cassette.exchanges):
+        if state.mode == "recorded_conversation" and state.exchanges_consumed > len(
+            cassette.exchanges
+        ):
             raise ValueError("cassette does not cover saved attempts")
+        if state.mode == "openai_live_conversation" and run_live_chat is None:
+            raise ValueError("live conversation requires an explicit live runner")
         if task_scope is None and (
             resolve_task_profile is not None
             or tool_dispatcher is not None
@@ -313,6 +335,7 @@ class ConversationController(Generic[StateT]):
         self.validate_memory = validate_memory
         self.validate_review = validate_review
         self.run_live_review = run_live_review
+        self.run_live_chat = run_live_chat
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
@@ -353,6 +376,7 @@ class ConversationController(Generic[StateT]):
         context_max_bytes: int | None = None,
         input_limits: ActiveInputLimits | None = None,
         context_pressure_policy: ContextPressurePolicy | None = None,
+        live_chat: LiveChatIdentity | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -362,6 +386,10 @@ class ConversationController(Generic[StateT]):
         if input_limits is not None:
             input_limits.admit_size("retained_cassette", recording.bytes)
         return ConversationState(
+            mode="openai_live_conversation"
+            if live_chat is not None
+            else "recorded_conversation",
+            live_chat=live_chat,
             session_id=uuid4().hex,
             owner_uid=os.getuid(),
             workspace=str(workspace.resolve(strict=True)),
@@ -392,6 +420,8 @@ class ConversationController(Generic[StateT]):
                 memory_project_root=self.state.memory_project_root,
                 memory_project_mapping=self.state.memory_project_mapping,
                 cassette_sha256=self.state.cassette_sha256,
+                mode=self.state.mode,
+                live_chat=self.state.live_chat,
                 revision=self.state.revision + 1,
                 exchanges_consumed=(
                     self.state.exchanges_consumed if consumed is None else consumed
@@ -444,7 +474,7 @@ class ConversationController(Generic[StateT]):
         except ActiveInputLimitError as error:
             raise MemoryRefreshError(str(error)) from None
         consumed = self.state.exchanges_consumed
-        if (
+        if self.state.mode == "recorded_conversation" and (
             len(cassette.exchanges) < consumed
             or cassette.exchanges[:consumed] != self.cassette.exchanges[:consumed]
         ):
@@ -481,8 +511,14 @@ class ConversationController(Generic[StateT]):
                     entries=entries,
                     memory=memory,
                     memory_disabled=disabled,
-                    retained_cassette=cassette,
+                    retained_cassette=(
+                        None
+                        if self.state.mode == "openai_live_conversation"
+                        else cassette
+                    ),
                     cassette_sha256=recording.sha256,
+                    mode=self.state.mode,
+                    live_chat=self.state.live_chat,
                     builtin_recording=builtin,
                     context_max_bytes=self.state.context_max_bytes,
                     task_checkpoint=self.state.task_checkpoint,
@@ -886,7 +922,11 @@ class ConversationController(Generic[StateT]):
                     )
                 }
             )
-        if not is_review and consumed >= len(self.cassette.exchanges):
+        if (
+            not is_review
+            and self.state.mode == "recorded_conversation"
+            and consumed >= len(self.cassette.exchanges)
+        ):
             raise ValueError("recorded conversation has no remaining exchange")
         # Select and admit the exact immutable context before persisting running
         # or burning an attempt. The config is reused after dispatch admission.
@@ -952,6 +992,11 @@ class ConversationController(Generic[StateT]):
                     request_dispatcher = ScopedToolDispatcher(
                         self.tool_dispatcher, admitted_profile.selected_tools
                     )
+            if (
+                self.state.mode == "openai_live_conversation"
+                and request_dispatcher.definitions
+            ):
+                raise ValueError("live chat does not enable tools")
             classification = classify_context(
                 self.state.memory,
                 profile,
@@ -978,6 +1023,7 @@ class ConversationController(Generic[StateT]):
                 self.state.memory,
                 task_system=task_system,
                 tools_enabled=bool(request_dispatcher.definitions),
+                live_chat=self.state.live_chat,
             )
             context_size = admit_context(
                 config.system, config.initial_turns, self.state.context_byte_limit
@@ -1108,22 +1154,31 @@ class ConversationController(Generic[StateT]):
                     )
                 else:
                     assert config is not None
-                    recorded = RecordedAgentClient(
-                        AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
-                    )
-                    result = await run_agent(
-                        config,
-                        fixture_registry(),
-                        recorded if client is None else client,
-                        request_dispatcher,
-                    )
+                    if self.state.mode == "openai_live_conversation":
+                        assert self.run_live_chat is not None
+                        result = await self.run_live_chat(config, consumed)
+                    else:
+                        recorded = RecordedAgentClient(
+                            AgentCassette(
+                                exchanges=(self.cassette.exchanges[consumed],)
+                            )
+                        )
+                        result = await run_agent(
+                            config,
+                            fixture_registry(),
+                            recorded if client is None else client,
+                            request_dispatcher,
+                        )
                     if any(
-                        not isinstance(block, TextBlock)
+                        not isinstance(
+                            block,
+                            (TextBlock, ReasoningBlock)
+                            if self.state.mode == "openai_live_conversation"
+                            else TextBlock,
+                        )
                         for block in result.turns[-1].blocks
                     ):
-                        raise AgentFailure(
-                            "conversation preview requires text responses"
-                        )
+                        raise AgentFailure("conversation requires text responses")
                     pressure_activity = measure_pressure_activity(
                         result.turns, self.context_pressure_policy
                     )
