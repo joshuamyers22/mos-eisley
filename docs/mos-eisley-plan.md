@@ -2457,6 +2457,10 @@ and workspace/path policy, plus bounded prompt attachments. Diff reads must disa
 external diff/textconv helpers and use the existing trusted Git configuration.
 Panel operations do not stage, revert, commit or expand tool authority.
 
+The bounded read-only Git and workspace path foundation is implemented in
+`conversation_git.py`; see [its contract and threat model](CONVERSATION_DIFF_GIT_FOUNDATION.md).
+The panel, refresh orchestration and prompt attachments remain to be built.
+
 Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
 and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized
 inputs; stale selections and attachments; request rejection and retry; directory
