@@ -2459,7 +2459,10 @@ Panel operations do not stage, revert, commit or expand tool authority.
 
 The bounded read-only Git and workspace path foundation is implemented in
 `conversation_git.py`; see [its contract and threat model](CONVERSATION_DIFF_GIT_FOUNDATION.md).
-The panel, refresh orchestration and prompt attachments remain to be built.
+The panel now provides `/diff` toggle, keyboard focus and file navigation,
+bounded staged/unstaged patch display, background refresh, and selected-line
+prompt attachments with frozen source bytes, composer preview, stale-source
+rejection, and request admission provenance; see [the panel work note](CONVERSATION_DIFF_PANEL_WORK_NOTE.md).
 
 Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
 and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized
