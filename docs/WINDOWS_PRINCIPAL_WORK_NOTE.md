@@ -83,7 +83,7 @@ Logs stay outside Git at `/private/tmp/mos-windows-principal-static.log`,
 `/private/tmp/mos-windows-principal-wheel.log` and
 `/private/tmp/mos-windows-principal-final-check.log`. Documentation links and the
 required native CI dependency were checked; the final diff is whitespace-clean.
-No code changes followed the frozen gate; documentation closeout gets link/diff
+No principal-code changes followed the frozen gate; documentation closeout gets link/diff
 checks rather than another unchanged full run. Existing identity selectors,
 consumers, serializers and storage policy are unchanged from 9285c56.
 
@@ -98,3 +98,26 @@ candidate version/architecture results must be recorded before admission.
 The next implementation slice is
 local-NTFS opened-file identity. Native qualification must precede selector
 admission; migration/adoption remains a separately reviewed batch.
+
+## Publication integration
+
+Implementation commit 05ffa13 records the locally verified principal batch. Parent
+PR #264 merged before publication. The branch incorporates GitHub `main` at
+b3546f9, including dependency/Anthropic transport PR #265 and its diff-render
+fixture repair. The merge was conflict-free; principal runtime and tests remain
+byte-identical to 05ffa13.
+
+On the integrated tree, lint, formatting, strict typing, runtime-export verification
+and source/wheel builds passed with the new locked dependencies. Focused source
+checks collected 55 platform tests (51 passed, four actual Windows cases skipped),
+11 Anthropic provider tests and four conversation diff acceptance tests (all passed).
+A fresh wheel-only environment again collected 55 platform tests with 51 passed
+and four native skips. Logs are `/private/tmp/mos-windows-principal-main-static.log`,
+`/private/tmp/mos-windows-principal-main-tests.log` and
+`/private/tmp/mos-windows-principal-main-wheel.log`.
+
+The full combined `make check` result above applies to 05ffa13 before integration.
+A second full suite was not run after integrating main; the affected checks passed.
+Remote Ubuntu full-source/package and native Windows source/wheel qualification
+remain pending CI. This publication preparation does not admit the public Windows
+selector or grant native qualification, merge, release or storage authority.
