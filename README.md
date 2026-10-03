@@ -46,6 +46,8 @@ save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Explicit, spend-controlled OpenAI chat is
 available in the same TUI; see the [terminal guide](docs/CONVERSATION_TUI.md)
 for launch and resume options.
+The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
+panes and reattachment to a running conversation.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 

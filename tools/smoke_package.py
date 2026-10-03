@@ -170,6 +170,7 @@ def main() -> int:
             "test_conversation_composer.py",
             "test_conversation_steering.py",
             "test_conversation_tui.py",
+            "test_conversation_tmux.py",
             "test_conversation_startup.py",
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",
