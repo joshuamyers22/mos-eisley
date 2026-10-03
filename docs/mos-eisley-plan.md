@@ -4678,6 +4678,17 @@ raw-network attempts, resource exhaustion, Git hooks/configuration, and migratio
 unaltered version 0.1.0 artifacts. Tests run on native Windows and local NTFS; mocks
 may supplement but cannot replace that evidence.
 
+**First extracted batch — bounded regular-file reader:** the existing
+`run.files.read_bounded` API now delegates through an inert, explicitly selected
+platform boundary. macOS/Linux retain final-symlink and special-file safeguards;
+invalid limits fail before I/O. Unqualified platforms, including native Windows,
+refuse reads without loading the POSIX adapter. Source and installed-wheel tests
+and a scoped Windows wheel import/refusal CI job cover this foundation. Native
+reading, full CLI importability and all remaining §27.2 contracts stay open. See
+[the contract](BOUNDED_FILE_READER_CONTRACT.md) and
+[verification record](BOUNDED_READER_WORK_NOTE.md); actual Windows execution is
+pending CI, and this batch does not qualify native support.
+
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
 Deliver the native port in this dependency order: invariant-based platform contracts;
