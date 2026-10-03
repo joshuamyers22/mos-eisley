@@ -37,6 +37,10 @@ from mos_eisley.conversation_context_preview import (
     pressure_status,
     preview_context,
 )
+from mos_eisley.conversation_diff_attachment import (
+    DiffAttachment,
+    DiffAttachmentError,
+)
 from mos_eisley.conversation_directory import (
     DirectorySelection,
     DirectorySelectionError,
@@ -1050,7 +1054,12 @@ async def terminal(
         render()
         return True
 
-    def submit_text(text: str, *, require_active: bool = False) -> bool:
+    def submit_text(
+        text: str,
+        *,
+        require_active: bool = False,
+        attachments: tuple[DiffAttachment, ...] = (),
+    ) -> bool:
         if not text.strip() or len(text) > 8000 or text.count("\n") >= 256:
             emit(
                 {
@@ -1077,9 +1086,12 @@ async def terminal(
             if require_active:
                 controller.steer(text)
             else:
-                controller.submit(text)
+                controller.submit(text, attachments=attachments)
         except PendingTextBudgetError as error:
             reject_pending(error)
+            return False
+        except DiffAttachmentError as error:
+            emit({"type": "conversation.unavailable", "text": str(error)})
             return False
         render()
         return True
@@ -1285,9 +1297,15 @@ async def terminal(
                         continue
                     try:
                         command = (
-                            None if line.literal else submission_command(line.text)
+                            None
+                            if line.literal or line.attachments
+                            else submission_command(line.text)
                         )
-                        remembered = None if line.literal else remember(line.text)
+                        remembered = (
+                            None
+                            if line.literal or line.attachments
+                            else remember(line.text)
+                        )
                         if remembered is not None:
                             # Saving is a local control, never a queued model turn.
                             if not line.accepted.done():
@@ -1301,6 +1319,7 @@ async def terminal(
                             )
                         elif command == "review" or (
                             not line.literal
+                            and not line.attachments
                             and len(line.text) <= 8000
                             and line.text.count("\n") < 256
                             and line.text.strip().casefold().rstrip(".")
@@ -1308,7 +1327,9 @@ async def terminal(
                         ):
                             accepted = submit_review()
                         else:
-                            accepted = submit_text(line.text)
+                            accepted = submit_text(
+                                line.text, attachments=line.attachments
+                            )
                         if not line.accepted.done():
                             line.accepted.set_result(accepted)
                         enabled = enabled or accepted

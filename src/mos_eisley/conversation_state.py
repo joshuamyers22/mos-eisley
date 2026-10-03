@@ -9,6 +9,12 @@ from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     validate_author_compactions,
 )
+from mos_eisley.conversation_diff_attachment import (
+    MAX_ATTACHMENTS,
+    DiffAttachment,
+    attachment_fingerprint,
+    attachment_payload,
+)
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
@@ -59,6 +65,9 @@ class ConversationMemoryContext(Contract):
 
 class ConversationEntry(Contract):
     text: Text
+    diff_attachments: Annotated[
+        tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
+    ] = Field(default=(), exclude_if=lambda value: not value)
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -95,6 +104,16 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.diff_attachments and (
+            self.is_review
+            or not self.text.endswith(attachment_payload(self.diff_attachments))
+        ):
+            raise ValueError("diff attachments differ from the saved message")
+        if self.request_admission is not None and (
+            self.request_admission.diff_attachment_sha256
+            != attachment_fingerprint(self.diff_attachments)
+        ):
+            raise ValueError("request admission differs from diff attachments")
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -158,6 +177,9 @@ class ArchivedConversationEntry(Contract):
     """
 
     text: Text
+    diff_attachments: Annotated[
+        tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
+    ] = Field(default=(), exclude_if=lambda value: not value)
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -193,6 +215,16 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.diff_attachments and (
+            self.is_review
+            or not self.text.endswith(attachment_payload(self.diff_attachments))
+        ):
+            raise ValueError("archived diff attachments differ from the message")
+        if self.request_admission is not None and (
+            self.request_admission.diff_attachment_sha256
+            != attachment_fingerprint(self.diff_attachments)
+        ):
+            raise ValueError("archived admission differs from diff attachments")
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -226,6 +258,7 @@ class ArchivedConversationEntry(Contract):
         else:
             ConversationEntry(
                 text=self.text,
+                diff_attachments=self.diff_attachments,
                 status=self.status,
                 answer=self.answer,
                 usage=self.usage,
@@ -249,6 +282,7 @@ class ArchivedConversationEntry(Contract):
             mode="json",
             include={
                 "text",
+                "diff_attachments",
                 "status",
                 "answer",
                 "usage",
@@ -406,6 +440,11 @@ class ConversationState(Contract, Generic[EntryT]):
         targets: set[int] = set()
         admitted_exchanges: set[int] = set()
         for index, entry in enumerate(self.entries):
+            if any(
+                attachment.workspace != self.workspace
+                for attachment in entry.diff_attachments
+            ):
+                raise ValueError("diff attachment differs from conversation workspace")
             if (admission := entry.request_admission) is not None:
                 if (
                     admission.selection.message_index != index
