@@ -493,6 +493,14 @@ contract tests and a required Windows import/refusal job are provided; actual na
 CI evidence is pending. Windows reading and the remaining platform contracts are
 still unimplemented.
 
+The next bounded §27.2 batch is now
+[defined](PLATFORM_IDENTITY_CONTRACTS.md): tagged UID/SID principal and full-width
+opened-file identity values, strict context/handle semantics, and a source/wheel
+plus native acceptance matrix. Implement additive pure values/POSIX queries with
+Windows refusal first, then native read-only adapters; schema migration and
+private-storage adoption follow separate review. No identity adapter or migrated
+writer is delivered by this definition.
+
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
 notes, Update now, Remind me later and Skip this version. Deliver a verified release

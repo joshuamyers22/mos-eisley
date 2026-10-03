@@ -4649,6 +4649,19 @@ reading, full CLI importability and all remaining §27.2 contracts stay open. Se
 [verification record](BOUNDED_READER_WORK_NOTE.md); actual Windows execution is
 pending CI, and this batch does not qualify native support.
 
+**Next defined batch — principal and opened-file identity:**
+[the contracts](PLATFORM_IDENTITY_CONTRACTS.md) and
+[proposed ADR-0014](adr/0014-platform-identity-contracts.md) distinguish real POSIX
+UIDs from complete Windows SIDs, and device/inode identity from complete Windows
+volume/file IDs. Narrow queries inspect current OS identity and borrowed open
+references; identifier equality does not enforce private permissions, DACLs,
+content integrity or cross-host ownership. Implement pure types/POSIX queries and
+explicit Windows refusal first, then qualify native read-only adapters. Existing
+callers, artifact bytes/hashes and schemas stay unchanged until a separately
+reviewed migration. The acceptance matrix includes source/wheel evidence, real
+native queries, context refusal and handle cleanup. This batch is **defined, not
+implemented**; it does not advance native support or storage authority.
+
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
 Deliver the native port in this dependency order: invariant-based platform contracts;
