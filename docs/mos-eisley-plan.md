@@ -4551,6 +4551,13 @@ or capability-separation requirements elsewhere in this plan.
 
 ### 27.1 Version 0.1.0 — supported WSL2 deployment
 
+**Preparation, 2026-10-03:** [setup and qualification runbook](WSL2_QUALIFICATION.md)
+and the installed `python -m mos_eisley.wsl2_preflight` read-only diagnostic prepare
+the actual runner. The diagnostic rejects unrecognized kernels, unqualified mount
+types and public/foreign private directories; it does not enforce runtime
+admission, prove Linux containment or grant platform support. Host provenance,
+exact installed-artifact checks and the acceptance gates below remain required.
+
 WSL2 runs the Linux build and Linux backend inside a real WSL2 distribution. It is
 a supported Windows-host deployment, not a claim that Mos Eisley runs as a native
 Windows process. WSL1, native PowerShell/cmd execution, Windows host credentials,
