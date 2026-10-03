@@ -486,6 +486,16 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
+**WSL2 qualification preparation, 2026-10-03:** the
+[runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
+wheel installation, upgrade/diagnostics/uninstall, and retained qualification
+evidence. The installed `python -m mos_eisley.wsl2_preflight` diagnostic checks
+recognized kernel metadata, resolved ext4 candidate mounts, non-root ownership and
+private selected storage directories without reading their contents. Unit fixtures
+and installed-wheel tests verify its rejection behavior; it grants no runtime
+execution, containment, credential-store or platform-support authority. Actual
+Windows-hosted WSL2 and all applicable §27.1 qualification gates remain pending.
+
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
 notes, Update now, Remind me later and Skip this version. Deliver a verified release

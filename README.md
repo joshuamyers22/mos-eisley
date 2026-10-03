@@ -28,6 +28,10 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
 
+Windows-hosted WSL2 qualification is being prepared; see the
+[setup and verification runbook](docs/WSL2_QUALIFICATION.md). Actual WSL2 support
+remains pending the platform gates in plan §27.1.
+
 Start the interactive recorded conversation from your project directory:
 
 ```sh
