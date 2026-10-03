@@ -3,6 +3,8 @@
 from typing import cast
 from unittest import IsolatedAsyncioTestCase, TestCase
 
+import httpx2
+from anthropic import AsyncAnthropic
 from pydantic import JsonValue
 
 from mos_eisley.core.models import Brief, CriticRequest, CriticSpec, Critique
@@ -18,6 +20,11 @@ from mos_eisley.core.protocol import (
     Turn,
 )
 from mos_eisley.core.registry import default_registry
+from mos_eisley.providers.anthropic_http import (
+    AnthropicResponseLimitError,
+    BoundedAnthropicHttpClient,
+)
+from mos_eisley.providers.anthropic_live import EphemeralAnthropicTransport
 from mos_eisley.providers.anthropic_messages import (
     AnthropicMessagesClient,
     request_payload,
@@ -66,6 +73,55 @@ def _response(
             "cache_creation_input_tokens": 2,
         },
     }
+
+
+class AnthropicSDKClientTests(IsolatedAsyncioTestCase):
+    async def test_ephemeral_sdk_accepts_bounded_httpx2_client(self) -> None:
+        transport = EphemeralAnthropicTransport("test-key", 5)
+        async with transport._client() as sdk:  # pyright: ignore[reportPrivateUsage]
+            self.assertIsInstance(sdk._client, BoundedAnthropicHttpClient)  # pyright: ignore[reportPrivateUsage]
+            self.assertIsInstance(sdk._client, httpx2.AsyncClient)  # pyright: ignore[reportPrivateUsage]
+            self.assertEqual(sdk.max_retries, 0)
+
+    async def test_bounded_client_refuses_oversized_response(self) -> None:
+        async with BoundedAnthropicHttpClient(
+            response_limit=1024,
+            transport=httpx2.MockTransport(
+                lambda request: httpx2.Response(200, content=b"x" * 1025)
+            ),
+        ) as client:
+            with self.assertRaises(AnthropicResponseLimitError):
+                await client.get("https://api.anthropic.com/test")
+
+    async def test_sdk_message_uses_bounded_client_once(self) -> None:
+        requests: list[httpx2.Request] = []
+
+        def respond(request: httpx2.Request) -> httpx2.Response:
+            requests.append(request)
+            return httpx2.Response(
+                200,
+                json=_response([{"type": "text", "text": "ok"}], "end_turn"),
+            )
+
+        async with (
+            BoundedAnthropicHttpClient(
+                transport=httpx2.MockTransport(respond),
+                trust_env=False,
+                follow_redirects=False,
+            ) as bounded,
+            AsyncAnthropic(
+                api_key="test-key", max_retries=0, http_client=bounded
+            ) as sdk,
+        ):
+            message = await sdk.messages.create(
+                model="claude-sonnet-5",
+                max_tokens=8,
+                messages=[{"role": "user", "content": "ping"}],
+            )
+        self.assertEqual(message.id, "msg_test")
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0].url.host, "api.anthropic.com")
+        self.assertEqual(requests[0].headers["accept-encoding"], "identity")
 
 
 class AnthropicTranslationTests(TestCase):

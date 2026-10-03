@@ -68,14 +68,24 @@ class DiffAcceptanceTests(IsolatedAsyncioTestCase):
                 await until(lambda: ui.diff_patch is not None)
                 ui.app.layout.focus(ui.diff_content)
                 ui.app.invalidate()
-                await until(lambda: ui.diff_content.window.render_info is not None)
-                info = ui.diff_content.window.render_info
-                assert info is not None
                 data = ui.diff_content.text
                 removed = next(
                     i for i, line in enumerate(data.splitlines()) if line == "-before"
                 )
                 added = removed + 1
+
+                # A render_info object can precede the patch's screen map.
+                # Wait for both coordinates before sending actual mouse events.
+                def patch_coordinates_ready() -> bool:
+                    info = ui.diff_content.window.render_info
+                    return info is not None and (
+                        (removed, 0) in info._rowcol_to_yx  # pyright: ignore[reportPrivateUsage]
+                        and (added, len("+after")) in info._rowcol_to_yx  # pyright: ignore[reportPrivateUsage]
+                    )
+
+                await until(patch_coordinates_ready)
+                info = ui.diff_content.window.render_info
+                assert info is not None
                 # The renderer's exact screen map is needed to exercise mouse input.
                 start_y, start_x = info._rowcol_to_yx[removed, 0]  # pyright: ignore[reportPrivateUsage]
                 end_y, end_x = info._rowcol_to_yx[added, len("+after")]  # pyright: ignore[reportPrivateUsage]
