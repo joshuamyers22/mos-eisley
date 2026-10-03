@@ -47,8 +47,15 @@ verification and wheel/sdist builds. The full source and installed-wheel runs
 took approximately 37 and 25 minutes respectively; no correction was needed after
 the passing focused checks. Documentation-only follow-ups received link and diff
 checks.
-Ubuntu CI and actual WSL2 evidence remain pending. The original checkout's
+Passing Ubuntu CI and actual WSL2 evidence remain pending. The original checkout's
 uncommitted plan amendment remains untouched.
+
+Ubuntu 24.04 CI with tmux 3.4 exposed an exit-status publication race in three
+tests: `pane_dead` became `1` before `pane_dead_status` was available. The test
+now waits for the status and still requires exit code `0`; it does not change
+the application exit path or relax the success assertion. All four focused real
+tmux tests passed again on macOS 15.1 with tmux 3.7c. Ubuntu source and wheel
+CI must pass on this correction before merge.
 
 The guide, tests and required CI wiring complete this implementation slice;
 all-platform qualification remains open. Durable retrieval was added to

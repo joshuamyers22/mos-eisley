@@ -159,6 +159,16 @@ class TmuxCompatibilityTests(TestCase):
                 == "1"
             )
         )
+        # tmux may close the pane PTY before it reaps the child and publishes
+        # pane_dead_status (observed with tmux 3.4 on Ubuntu CI).
+        self.wait_for(
+            lambda: (
+                self.tmux(
+                    "display-message", "-p", "-t", self.pane, "#{pane_dead_status}"
+                )
+                != ""
+            )
+        )
         self.assertEqual(
             self.tmux("display-message", "-p", "-t", self.pane, "#{pane_dead_status}"),
             "0",
