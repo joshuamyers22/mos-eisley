@@ -49,4 +49,4 @@ admission and refusal behavior are asserted in the in-process checks.
 ## Exit
 
 - Stop rule reached: all blocking rubric rows pass on the exact acceptance branch. The earlier sandbox socket errors and intermittent review fixture errors remain documented above; the final full run passed without changes to the tested source.
-- Accountable owner security decision: pending; this technical verification grants no merge or release authority.
+- Accountable owner security decision: accepted for the trusted local owner-operated scope with conditions on 2026-10-03 UTC; see `CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`. This technical verification and security acceptance grant no merge or release authority.
