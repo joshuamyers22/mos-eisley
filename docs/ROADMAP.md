@@ -486,6 +486,13 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
+The first native-platform extraction is the
+[bounded-reader contract](BOUNDED_FILE_READER_CONTRACT.md): an unchanged public
+wrapper, qualified POSIX adapter and explicit native Windows refusal. Source/wheel
+contract tests and a required Windows import/refusal job are provided; actual native
+CI evidence is pending. Windows reading and the remaining platform contracts are
+still unimplemented.
+
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
 notes, Update now, Remind me later and Skip this version. Deliver a verified release
