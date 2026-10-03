@@ -1,7 +1,8 @@
 # Principal and opened-file identity contracts
 
-Status: defined for implementation; adapters and adoption are not implemented by
-this document. Owner: Josh Myers. Scope: the next bounded batch under
+Status: tagged values and additive POSIX queries implemented; native queries and
+consumer/schema adoption remain pending. Local verification is recorded in
+[the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md). Owner: Josh Myers. Scope: the next bounded batch under
 [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support),
 after the [bounded-reader extraction](BOUNDED_FILE_READER_CONTRACT.md).
 [ADR-0014](adr/0014-platform-identity-contracts.md) records the proposed design.
@@ -21,12 +22,12 @@ inspection from authorization. A matching identifier alone proves neither privat
 access nor content integrity. Keep permissions/DACLs, object type, hardlink policy,
 namespace admission, locking, durable writes and snapshot verification at their
 existing storage boundaries. There is no migration or cross-platform resume in
-this definition task.
+this additive slice.
 
 ## Value types and equality
 
 Use immutable, strictly validated standard-library value objects. The following
-names and fields are the proposed runtime API, not new persisted schemas. Tagged
+names and fields are the runtime API, not new persisted schemas. Tagged
 variants form discriminated unions; no optional UID/SID bag, implicit conversion,
 Pydantic/storage dependency, or universal platform service locator is needed.
 
@@ -45,7 +46,8 @@ fields and extra fields are rejected by any explicit future decoder; there is no
 best-effort reconstruction. Plain value construction performs no OS calls.
 
 Binary SID equality avoids account-name lookup and textual alias normalization.
-Native acquisition must validate with `IsValidSid`, obtain the exact length, copy
+Future native acquisition must first prove the SID header/body lie in the owned
+buffer, then validate with `IsValidSid`, obtain the exact length, copy
 into bounded owned bytes, then release native storage. The portable validator must
 check the same structural bounds without dereferencing an untrusted pointer.
 The implementation tests must fix revision/count/length boundaries against native
@@ -76,7 +78,7 @@ describes file-ID lifetime limitations.
 ## Narrow query APIs
 
 ```python
-# Proposed signatures; implementation is a separate batch.
+# Implemented POSIX queries; Windows/unknown platforms explicitly refuse.
 def current_principal() -> PrincipalIdentity: ...
 def file_identity(opened: PosixDescriptor | WindowsHandle) -> FileIdentity: ...
 ```
@@ -177,7 +179,8 @@ identity material or authority-bearing OS handle belongs in routine telemetry.
 
 ## Legacy boundary and subsequent migration
 
-The initial implementation adds inert modules and tests only. Existing call sites,
+The additive POSIX implementation adds inert modules, tests and scoped wheel/CI
+coverage only; it does not adopt the APIs into existing callers. Existing call sites,
 `owner_uid`, SQLite metadata schema, `device`/`inode` receipt dictionaries,
 canonical serialization, workspace keys, apply hashes and snapshot hashes stay
 unchanged. Do not serialize these new objects into an existing schema or coerce a
@@ -192,7 +195,10 @@ This contract cannot supply cross-host authentication or migration authority.
 
 ## Acceptance matrix for implementation
 
-These tests are required future evidence, not tests executed by this definition.
+I-01–I-05 and additive compatibility checks are exercised by the POSIX slice;
+[the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) records
+actual results. I-06–I-08 remain future native-adapter qualification, and actual
+Windows import/refusal CI evidence remains pending publication.
 
 | ID | Evidence | Blocking threshold |
 |---|---|---|
@@ -228,9 +234,37 @@ against an independent native query, not the adapter being tested.
    adapters qualify and migration acceptance is frozen. No broader storage replacement
    or reader fallback belongs to these identity PRs.
 
-Proposed footprint for step 2: `platform/identity.py`, `platform/posix_identity.py`,
+Implementation footprint for the POSIX slice: `platform/identity.py`, `platform/posix_identity.py`,
 an isolated `tests/test_platform_identity.py`, wheel smoke inclusion and scoped CI
 updates. Add a Windows adapter only in step 3. New modules should use the standard
 library and depend on no CLI/store; avoid changing the stable bounded-reader API.
 Rollback before adoption removes these additive modules/tests/jobs without touching
 retained data. No automatic rebinding, dispatch or execution authority is added.
+
+## POSIX slice usage
+
+```python
+from mos_eisley.platform.identity import (
+    PosixDescriptor,
+    current_principal,
+    file_identity,
+)
+
+principal = current_principal()  # Fresh real UID; unequal effective UID refuses.
+# Borrow an already admitted, live file/directory descriptor from the caller:
+identity = file_identity(PosixDescriptor(fd))
+```
+
+The caller retains ownership of `fd`. The query performs one fstat, never reads,
+opens a path, closes the descriptor or changes its offset/inheritance. References
+must be instances of the exact defined borrowed-reference classes; arbitrary ints
+and reference subclasses are not an alternative query interface. Value/reference
+reprs omit payloads. No decoder, persisted envelope or existing consumer migration
+is introduced. Pure binary SID construction validates structure, not account
+existence or token provenance; native validation/query qualification remains open.
+
+The existing scoped `windows-files` wheel job also selects portable identity value
+and import/refusal tests, without selecting POSIX tests. It now executes fourteen
+common tests across reader and identity contracts; this does not qualify Windows
+identity queries, native reading or the full CLI. On macOS/Linux the isolated helper
+runs thirty reader/identity tests; the main wheel smoke includes all identity tests.

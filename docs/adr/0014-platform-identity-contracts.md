@@ -60,3 +60,11 @@ This ADR is a design definition, not implementation evidence or release approval
 Reconsider if safe scope binding cannot be established, required targets lack the
 full identity API, native context cannot be admitted, or consumer adoption requires
 changing retained evidence before migration acceptance is frozen.
+
+## Additive implementation status
+
+The [POSIX slice](../PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) implements the
+pure tagged values, borrowed references and lazy POSIX queries, with explicit
+native refusal. Existing consumers and schemas remain unchanged. The ADR remains
+proposed for native admission and later adoption; this local implementation does
+not stand in for accountable native qualification or migration approval.

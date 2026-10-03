@@ -493,13 +493,15 @@ contract tests and a required Windows import/refusal job are provided; actual na
 CI evidence is pending. Windows reading and the remaining platform contracts are
 still unimplemented.
 
-The next bounded §27.2 batch is now
-[defined](PLATFORM_IDENTITY_CONTRACTS.md): tagged UID/SID principal and full-width
-opened-file identity values, strict context/handle semantics, and a source/wheel
-plus native acceptance matrix. Implement additive pure values/POSIX queries with
-Windows refusal first, then native read-only adapters; schema migration and
-private-storage adoption follow separate review. No identity adapter or migrated
-writer is delivered by this definition.
+The next bounded §27.2 slice now implements
+[tagged identity values and POSIX queries](PLATFORM_IDENTITY_CONTRACTS.md): immutable
+UID/SID and full-width opened-object values, strict borrowed references, lazy
+real-UID/fstat queries and explicit Windows refusal. Twenty isolated identity tests
+are included in source/wheel smoke, and the scoped native job includes portable
+values/import/refusal. Existing callers, schemas and ownership checks are intact.
+[Verification](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) distinguishes local
+evidence from pending native CI. Native read-only identity adapters, migration and
+private-storage adoption remain separate batches.
 
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release

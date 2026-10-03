@@ -37,7 +37,8 @@ jobs:
           version: "0.12.5"
       - run: uv sync --frozen --dev
       - run: uv run --frozen python -m hatchling build
-      - run: uv run --frozen python tools/smoke_platform_files.py --require-native-windows
+      - name: Verify installed file and identity contracts on native Windows
+        run: uv run --frozen python tools/smoke_platform_files.py --require-native-windows
   quality:
     needs: [source, package, windows-files]
     if: ${{ always() }}
