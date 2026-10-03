@@ -510,6 +510,15 @@ packaging requirement, separate from G2; distribution names/endpoints and clean
 installed-package checks must pass before advertising commands. See
 [plan §29](mos-eisley-plan.md#29-codex-style-installation-and-first-launch).
 
+**External tmux workspace, 2026-10-02:** the optional
+[guide](CONVERSATION_TMUX.md) and real tmux compatibility tests cover the existing
+conversation interface alongside user-operated shells/watchers. Source and
+installed-wheel CI require tmux. Platform qualification records must distinguish
+macOS, Ubuntu CI and actual Windows-hosted WSL2; guide/test delivery alone does not
+qualify every platform. This work can precede embedded terminals and does not
+change execution authority or the Windows/update/install prerequisites. See
+[plan §16.0.5](mos-eisley-plan.md#1605-optional-external-tmux-workspace).
+
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
 qualified, add named workspace/worktree-bound terminal panes that continue running
