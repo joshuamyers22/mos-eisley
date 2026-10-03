@@ -28,6 +28,13 @@ history is now linked from §§17.7 and 25. Future updates keep current contract
 open gates here, implementation status in the roadmap, and execution history in
 the linked records.
 
+**Tmux integration, 2026-10-02 — planned:** §16.0.5 adds optional external tmux
+compatibility for the existing conversation interface. §§30.4–30.5 order the
+terminal lifecycle, portable backend evaluation and tmux-inspired navigation work.
+External compatibility can precede the embedded-terminal phase; embedded tmux
+integration retains §§27–29 prerequisites. Tmux remains optional and supplies no
+new execution, recovery or model authority.
+
 **Version 2 scope, 2026-09-25:** §31 records the accepted additions from the
 [Claude Code feature survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
 The 2026-09-27 Claude Managed Agents survey adds recovery and credential-boundary
@@ -2251,6 +2258,33 @@ to G4 / Author-VCS (original M6), after trusted Git and applicable containment g
 coordinate the session selector with the v1 diff panel (§16.4.1). This feature adds
 no new dependency to the G2 live read-only review exit gate. WSL2 and native Windows
 qualification follow §27.
+
+### 16.0.5 Optional external tmux workspace
+
+**User-directed addition, 2026-10-02 — planned:** first qualify the existing Mos
+conversation interface inside a user-operated tmux session on macOS, Linux and
+WSL2. Document a minimal workspace with Mos alongside a shell, test watcher or
+server, plus explicit detach and reattach instructions. Reuse the current TUI and
+controller; do not introduce a second session store, automatically start sibling
+commands, adopt existing panes, or modify the user's tmux configuration. Native
+Windows retains its ordinary supported terminal path.
+
+Explain that external tmux reattachment reconnects to the same running Mos
+process. Detaching its client may preserve that process; `/quit`, controller
+failure and machine restart require the existing save/resume or §31.4 recovery
+contract. When Mos is still running, reattach to its pane rather than opening a
+competing controller for the same saved conversation. Commands in sibling panes
+remain user-operated and are not automatically sandboxed, observed or attributed
+to Mos. No sibling output enters model context without an explicit attachment.
+
+Acceptance: exercise an installed Mos in a real tmux session, retaining the
+composer draft and queued work across client detach/reattach, resizing split and
+zoomed panes, Unicode and bracketed paste, scrolling, cancellation, and clean
+alternate-screen exit. Verify workspace identity, exclusive session ownership,
+literal pasted slash commands and behavior when the tmux server is lost. Record
+tested tmux versions and terminal capabilities; tmux absence must leave ordinary
+Mos launch usable. This optional compatibility slice adds no prerequisite to
+live-provider gates or native Windows delivery.
 
 ### 16.1 Commands
 
@@ -4659,9 +4693,9 @@ command, hide the pane, continue chatting or switch sessions, and return to the
 same live terminal. This is a user-facing process surface, not a new model tool or
 an authority shortcut.
 
-Begin this phase only after native Windows parity in §27, guided updates and safe
-restart in §28, and the supported installation journeys in §29 are qualified on
-the advertised platforms. The terminal must reuse those platform process,
+Begin this embedded-terminal phase only after native Windows parity in §27,
+guided updates and safe restart in §28, and the supported installation journeys
+in §29 are qualified on the advertised platforms. The terminal must reuse those platform process,
 credential, storage, update and recovery contracts rather than introducing a
 POSIX-only lifecycle after Windows support has shipped.
 
@@ -4743,12 +4777,23 @@ POSIX-only lifecycle after Windows support has shipped.
 
 ### 30.4 Delivery and acceptance
 
-Deliver the process-supervisor and terminal identity contracts first, then the
-single-pane emulator, multiple named/background terminals, chat attachments and
-cross-session navigation. Add model-mediated terminal input only as a separately
-gated capability after the user-only terminal lifecycle is proven. Desktop pop-out
-windows, remote terminal hosting and multi-user terminal sharing remain outside
-this phase.
+Deliver the following dependency-ordered slices. External tmux compatibility in
+§16.0.5 can land first without moving embedded terminals ahead of §§27–29.
+
+| Order | Smallest useful slice | Dependency and acceptance evidence |
+|---:|---|---|
+| 1 | External tmux workspace documentation and compatibility | Existing conversation interface; real installed-package detach/reattach, resize, paste and exclusive-controller checks in §16.0.5 |
+| 2 | Terminal identity, supervisor and lifecycle contract | §§27–29 qualified; immutable owner/conversation/worktree bindings, bounded output and resources, verified descendant cleanup, and distinct hide/detach/interrupt/terminate semantics |
+| 3 | Bounded backend comparison and selection | Slice 2; compare tmux control mode with direct PTY on the same macOS/Linux/WSL2 workload, retain ConPTY on native Windows, and record measured tradeoffs and a supported-version matrix under §30.5 |
+| 4 | One embedded terminal with safe live reattachment | Selected qualified backend; preserve drafts, diff selection and task state, enforce input/output bounds, reconcile process identity after UI disconnect and report lost/uncertain processes honestly |
+| 5 | Multiple named/background terminals and navigation | Slice 4; terminal picker, previous-terminal switch, split/resize/zoom controls and deduplicated running/exited/failed notices without stealing composer focus |
+| 6 | Immutable output attachments and worktree-linked navigation | Slices 4–5 and §16.0.4 identity support; bounded digested selections, explicit omissions and provenance, exact worktree targeting and cleanup/update coordination |
+
+Keep terminal navigation and process identity in Mos so the same user-facing
+features work across qualified backends. Add model-mediated terminal input only
+as a separately gated capability after the user-only lifecycle is proven. Desktop
+pop-out windows, remote terminal hosting and multi-user terminal sharing remain
+outside this phase.
 
 Acceptance requires packaged-installation tests on qualified macOS, Linux, WSL2 and
 native Windows targets. Cover interactive shells, REPLs, test watchers and local
@@ -4760,6 +4805,59 @@ identity; denied filesystem/network/credential access; cross-user and cross-term
 isolation; attachment integrity and omissions; and continued chat, steering, diff
 navigation and cancellation while terminals run. Platform mocks may supplement but
 cannot replace real PTY and ConPTY evidence.
+
+### 30.5 Optional tmux backend and adoption gate
+
+Evaluate tmux as an optional terminal backend on macOS, Linux and WSL2 behind the
+platform contract established in slice 2. Use its command/output control protocol
+rather than scraping an interactive tmux display. The current renderer uses
+prompt-toolkit; a tmux backend must not require a renderer rewrite. Native Windows
+uses the qualified ConPTY implementation. A missing or incompatible tmux version
+leaves the direct backend available where qualified; failure of a selected live
+backend reports lost/uncertain state instead of silently relaunching commands.
+
+- Keep Mos terminal identity authoritative. Bind each immutable terminal ID to a
+  verified server instance, tmux session/pane IDs, supervisor identity and exact
+  workspace/worktree. Revalidate on attachment; names, indexes, socket paths or
+  reused PIDs alone cannot identify a previous process. Server loss or restart
+  invalidates stale mappings. Tmux history does not replace session records or
+  §31.4 controller recovery, and commands are never automatically respawned.
+- Use private Mos-managed sockets and reviewed configuration, separate from the
+  user's existing tmux server. Launch with an allowlisted environment and prevent
+  attachment-time environment updates from importing credentials or sockets.
+  Partition servers by execution profile and isolation needs; sibling terminals
+  must not gain access to the control socket, other spools or terminal authority.
+  Private socket permissions alone do not isolate processes under the same user.
+- Keep policy, authorization, resource accounting and complete descendant
+  supervision in Mos's trusted execution boundary. Tmux multiplexing is not a
+  sandbox or proof of process-tree cleanup. Qualify server placement and lifetime
+  against containment, cancellation, detached-process discovery and updater rules;
+  reject any profile for which the backend cannot uphold §30.3.
+- Parse framed replies and asynchronous output with bounded buffers, explicit
+  escaping and flow control; reconcile retained screen state after interruptions.
+  Track dropped/omitted output. Use reviewed argument/protocol encoding and never
+  interpolate terminal names or model text into tmux command strings. Screen
+  captures and retained exited panes are display aids, not complete command logs,
+  command success evidence or immutable attachments. Mos owns the bounded spool,
+  exit attribution and §30.2 attachment digest/provenance contract.
+
+Use the production template's improvement-plan structure for the comparison:
+declare workloads, thresholds, owner, supported versions, resource ceiling and
+stop/rollback conditions before implementation. Compare reattachment success and
+latency, output loss, UI responsiveness under floods, CPU/memory use, descendant
+cleanup failures and implementation/packaging cost against the direct backend.
+Emit only bounded metadata under §17.5; no terminal content or command arguments
+enter operational telemetry. Supplement ordinary behavior checks with disconnect,
+server crash, stale identity, credential inheritance, cross-terminal access and
+update failure cases. Record the decision in an ADR; adopt tmux only when measured
+benefits justify the dependency and every applicable invariant passes. Otherwise
+retain the direct backend and deliver the same navigation features. Neither
+outcome adds tmux to the production template's required dependencies.
+
+Implementation references: [tmux manual](https://man.openbsd.org/tmux) and
+[control-mode documentation](https://github.com/tmux/tmux/wiki/Control-Mode).
+Verify behavior against the selected release rather than assuming the latest
+manual's options exist on every supported installation.
 
 ---
 
