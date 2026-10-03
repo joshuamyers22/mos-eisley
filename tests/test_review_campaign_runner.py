@@ -206,7 +206,7 @@ class CampaignRunnerTests(CampaignRunnerFixture):
             (
                 critic_authorization.valid_until - critic_authorization.issued_at
             ).total_seconds(),
-            60.0,
+            float(self.fixtures[0].policy.max_authorization_seconds),
         )
         self.assertLess(
             judge_authorization.valid_until,
@@ -216,7 +216,7 @@ class CampaignRunnerTests(CampaignRunnerFixture):
             (
                 judge_authorization.valid_until - judge_authorization.issued_at
             ).total_seconds(),
-            60.0,
+            float(self.fixtures[0].policy.max_authorization_seconds),
         )
         self.assert_future_unused(1)
 

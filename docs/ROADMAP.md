@@ -493,6 +493,16 @@ contract tests and a required Windows import/refusal job are provided; actual na
 CI evidence is pending. Windows reading and the remaining platform contracts are
 still unimplemented.
 
+**WSL2 qualification preparation, 2026-10-03:** the
+[runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
+wheel installation, upgrade/diagnostics/uninstall, and retained qualification
+evidence. The installed `python -m mos_eisley.wsl2_preflight` diagnostic checks
+recognized kernel metadata, resolved ext4 candidate mounts, non-root ownership and
+private selected storage directories without reading their contents. Unit fixtures
+and installed-wheel tests verify its rejection behavior; it grants no runtime
+execution, containment, credential-store or platform-support authority. Actual
+Windows-hosted WSL2 and all applicable §27.1 qualification gates remain pending.
+
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
 notes, Update now, Remind me later and Skip this version. Deliver a verified release
@@ -516,6 +526,15 @@ routes share release artifacts and §28's update flow. This is a finished-produc
 packaging requirement, separate from G2; distribution names/endpoints and clean
 installed-package checks must pass before advertising commands. See
 [plan §29](mos-eisley-plan.md#29-codex-style-installation-and-first-launch).
+
+**External tmux workspace, 2026-10-02:** the optional
+[guide](CONVERSATION_TMUX.md) and real tmux compatibility tests cover the existing
+conversation interface alongside user-operated shells/watchers. Source and
+installed-wheel CI require tmux. Platform qualification records must distinguish
+macOS, Ubuntu CI and actual Windows-hosted WSL2; guide/test delivery alone does not
+qualify every platform. This work can precede embedded terminals and does not
+change execution authority or the Windows/update/install prerequisites. See
+[plan §16.0.5](mos-eisley-plan.md#1605-optional-external-tmux-workspace).
 
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
