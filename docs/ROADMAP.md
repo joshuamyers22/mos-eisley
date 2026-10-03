@@ -165,6 +165,17 @@ catalog limits, and stale-selection rechecks; see plan §31.6.
 They depend on the applicable v1 conversation, review, read and policy gates. They
 do not change v1 scope, grant new authority or advance an implementation gate.
 
+**Codex feature-survey additions, 2026-10-03 — planned:** deliver direct review
+scope presets and revision-bound findings in the diff panel first, then explicit
+planning and durable goals, followed by conversation forks/side chats and
+implementation-agent inspection. [Plan §§31.7–31.13](mos-eisley-plan.md#317-direct-review-scope-selection)
+define acceptance and dependency order. Reuse the trusted Git/read broker,
+critic/judge pipeline, task/checkpoint ledgers, recovery and child controller;
+preserve structural blindness and current release gates. These are post-v1
+requirements, not shipped commands or new execution/publication authority.
+Optional Codex development reviews remain advisory and do not replace CI or
+required independent review.
+
 **Version 3 Managed Agents interoperability — planned:**
 [plan §32](mos-eisley-plan.md#32-version-3-managed-agent-interoperability) permits
 an optional Claude Managed Agents client to use the qualified narrow outward MCP

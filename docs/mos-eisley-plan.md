@@ -36,6 +36,14 @@ requirements to §31 and a scoped v3 interoperability direction in §32. The
 post-v1 product requirements and do not change the v1 release gates or claim
 current availability.
 
+**Codex feature survey, 2026-10-03 — planned:** §§31.7–31.12 add direct review
+scope selection, findings in the diff panel, explicit planning, durable goals,
+conversation forks and side chats, and implementation-agent inspection. Deliver
+review scope and findings first, then planning and goals, with each slice subject
+to its existing capability gates. These extend the current controllers and do not
+change v1 release scope or claim implementation. §31.13 records optional Codex
+review support for developing Mos Eisley itself.
+
 **G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
 perform the phase authorizer, observer and launch reviewer roles for G2. The
 [owner operated contract](G2_OWNER_OPERATED_CONTRACT.md) supersedes earlier G2
@@ -2359,6 +2367,11 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 /status /context /compact /clear /new /model /effort
 /approvals /sandbox /diff /review /init
 ```
+
+The post-v1 additions in §§31.7–31.12 extend `/review` and `/diff` and add planned
+`/plan`, `/goal`, `/fork`, `/side`, and `/agent` (`/subagents` alias) controls.
+Expose commands only with truthful capability status; a preview must not imply
+that live review, writes, background continuation or child dispatch is available.
 
 `Alt+,` / `Alt+.` steps effort down/up mid-session. Persistent status line: model, effort, sandbox mode, live token count against budget.
 
@@ -4761,6 +4774,10 @@ survey where they strengthen existing Mos Eisley contracts.
 Requirement 31.6 draws on
 [`robertmartin8/resume`'s title-first search](https://github.com/robertmartin8/resume/blob/42da916ca9c59cc7a92db72c407af83527d82222/src/search.rs)
 while retaining Mos Eisley's owner-scoped, metadata-only picker.
+Requirements 31.7–31.12 are user-directed additions from the 2026-10-03 Codex
+survey, using the official [review documentation](https://learn.chatgpt.com/docs/code-review)
+and [command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
+as interaction references. Their semantics below are Mos Eisley product decisions.
 They belong to version 2 after the applicable v1 conversation, live-review,
 bounded-read, storage and policy gates have passed. Version 2 here denotes a
 product phase, not a storage/schema version or a claim that §27's 0.1.1 release
@@ -4886,6 +4903,173 @@ limit behave predictably. A rename, deletion, replacement or active-session chan
 between search and Enter cannot resume a stale selection. Two-owner and
 two-workspace fixtures prove no cross-scope result or transcript-content read;
 JSON and SQLite catalogs produce the same ranking for equivalent metadata.
+
+### 31.7 Direct review scope selection
+
+Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
+presets for uncommitted changes, comparison against a base branch, an exact commit,
+or explicitly selected files/ranges with review criteria. Uncommitted scope includes
+staged, unstaged and permitted untracked inputs with their status distinguished.
+Branch comparison resolves and pins the merge base and head; commit review pins
+the commit and comparison parent, requiring an explicit parent for ambiguous merge
+commits. Explicit file review labels its comparison basis or absence of a diff.
+Reject ambiguous target combinations rather than silently choosing a scope.
+
+Use the existing trusted Git/read broker to materialize exact source bytes and
+the scoped brief, with workspace identity, revisions, digests and omissions.
+Apply §31.1's launch preview and revalidation, then dispatch the existing isolated
+critic/judge workflow. Custom criteria cannot broaden read policy or introduce
+conversation history into critic context. Review authorization needs no second
+confirmation and never authorizes edits or posting. Preserve prepared-packet
+compatibility and visibly distinguish recorded fixtures from qualified live review.
+
+Acceptance: cover unborn HEAD, detached HEAD, missing bases, merge commits,
+renames, binary/oversized inputs, untracked files, concurrent edits and workspace
+switches. TUI, plain and JSON paths produce the same frozen brief and omission
+set; stale sources cannot pass admission. Git external diff/textconv helpers stay
+disabled. Review leaves the checkout unchanged and retains existing quorum,
+spend, cancellation and blindness checks.
+
+### 31.8 Findings in the diff panel
+
+Extend §16.4.1's diff panel with ranked findings linked to exact file/range and
+review revision. Show category, impact, critic finding, judge disposition,
+source-bound evidence and proposed correction, preserving the full retained
+report behind bounded views. Support keyboard navigation from a finding to its
+diff and explicit line-specific feedback attached to a follow-up request. Keep
+historical review findings separate from the latest live diff and label findings
+as stale when source revisions change; disappearance from a diff is not resolution.
+
+An explicit request to fix selected findings enters the existing creator-led
+plan/test, implementation and bounded correction workflow under current policy.
+Selecting a finding or opening evidence alone does not authorize a write. Track
+finding IDs, correction revisions and final review dispositions; creator claims
+of a fix do not replace required verification or independent review. New revisions
+invalidate affected acceptance while retaining task budgets and review counters.
+
+Acceptance: exercise stale line mappings, renames/deletions, partial views,
+multiple review runs, rejected follow-up submission, resize and resumed sessions.
+TUI, plain and JSON expose equivalent finding identities and dispositions. A
+refresh preserves drafts/selection, and no stale finding is marked resolved or
+used as final acceptance without evidence bound to the corrected revision.
+
+### 31.9 Explicit planning mode
+
+Add `/plan` and equivalent mode selection for investigating requirements and
+proposing an implementation before coding begins. Persist and display the mode;
+use only permitted read-only exploration, bounded clarifications and a plan with
+scope, assumptions, interfaces, proposed subtasks, verification and resource
+ceilings. Ordinary planning does not automatically launch a paid review panel.
+Distinguish an exploratory draft from the frozen creator plan/test package in
+§15.7. Planning mode does not authorize writes, implementation children or posting.
+
+An explicit implementation request exits planning and enters the existing
+creator-led workflow, including plan/test freeze, critic/judge review and creator
+approval before coding-child dispatch. Do not add a routine human confirmation
+where the request already authorizes implementation. Mode changes cannot bypass
+policy or revive stale approvals; queued changes apply at a recorded safe boundary.
+
+Acceptance: planning produces no repository writes or coding dispatch; clarify
+and revise cycles preserve intent and budget. Resume retains the selected mode.
+Changing a reviewed plan or tests invalidates dependent approval, and an explicit
+implementation request follows §15.7 through verification without extra permission
+prompts unless an actual policy boundary requires one.
+
+### 31.10 Durable goals
+
+Add `/goal` controls to create, inspect, edit, pause, resume and clear an explicit
+user objective through §6.7's task/checkpoint controller. Record success criteria,
+verification requirements, remaining work, aggregate spend/time ceilings and
+stopping conditions. Show goal progress and remaining budget while accepting
+steering. Activate only on an explicit goal request; ordinary questions and short
+reviews keep their direct-answer behavior. A goal may continue already-authorized
+work across turns within qualified execution and recovery capabilities.
+
+Completion requires the declared verification and no outstanding required work.
+Budget exhaustion, an unresolved blocker, cancellation and explicit pause are
+distinct visible states. Resume revalidates policy, revisions and capabilities;
+it cannot reset ledgers, repeat uncertain effects or restore expired grants.
+Editing a goal preserves its history and invalidates affected plan/test approvals.
+Clearing removes the active objective without deleting required private evidence.
+Goal persistence does not imply unattended scheduling or authority to publish.
+
+Acceptance: cover steering during work, concurrent updates, restart, changed
+workspace/tests, budget exhaustion and uncertain dispatch. A completed status
+requires revision-bound verification; no repeated continuation manufactures a new
+budget, loses unfinished obligations or dispatches after pause/cancellation.
+
+### 31.11 Conversation forks and side chats
+
+Add `/fork` to explicitly branch an owner-authorized conversation at a selected
+retained boundary. Record parent, source revision and branch identity; copy only
+the selected permitted context and artifact references. A fork does not undo
+filesystem effects. Revalidate the current checkout, and offer an isolated worktree
+only through §16.0.4's qualified broker and explicit workspace binding. A fork
+continuing the same task retains that task's aggregate obligations, spend and
+attempt counters; creating a separately authorized task cannot erase old exposure.
+Policy grants and uncertain operations are never cloned as executable authority.
+
+Add `/side` for a bounded read-only question without interrupting the active task
+or automatically inserting its answer into the main model context. Select context
+explicitly, account for side-call usage under the applicable budget, and let the
+user attach an identified answer back to the main conversation. Keep side content
+transient by default under the existing storage/retention contract; do not create
+an ambient memory cache. Explain any durable minimum operational metadata.
+Fork and side contexts are conversational aids, never independent critic contexts.
+
+Acceptance: preserve main-task steering and drafts; reject cross-owner selection,
+stale branch points and unsupported worktree creation. Exercise cancellation,
+restart, concurrent forks, task-budget reuse and expired grants. Side answers
+enter the main request only through explicit attachment with provenance; neither
+feature leaks creator history or peer findings into critic/judge packets.
+
+### 31.12 Implementation-agent inspection
+
+Add `/agent` with `/subagents` as an alias and equivalent plain/JSON inspection
+of creator-authorized implementation children. Show assignment, parent/task ID,
+model/effort, workspace/worktree, state, bounded usage/spend, verification status
+and unresolved work. Inspect retained reports and permitted evidence through the
+existing controller. Inspection alone does not spawn, resume, reassign or broaden
+a child; explicit steering/cancellation remains subject to the original assignment,
+plan/test approval and task budget. The creator retains final integration ownership.
+
+Keep independent review visibility rules intact. During blinded review, show only
+permitted operational status; creator and peers cannot inspect sealed readings or
+critic findings before the protocol's reveal/adjudication boundary. Distinguish
+implementation-agent reports from independent review evidence and disclose missing
+or partial output. Use existing owner-scoped records rather than a second registry.
+
+Acceptance: cover mixed implementation/review activity, completed/failed/cancelled
+children, stale assignments, concurrent inspection and resume. Inspection does not
+change agent state or spend; cross-owner reads and premature review reveal fail
+closed, and cancellation/steering cannot bypass frozen plan/test authorization.
+
+### 31.13 Delivery order and optional development review
+
+| Order | Addition | Required existing substrate |
+|---:|---|---|
+| 1 | Review scope presets (§31.7) | Trusted Git/read broker, frozen briefs, §31.1 preview and applicable live-review qualification |
+| 2 | Findings in the diff panel (§31.8) | §16.4.1 diff panel, revision-bound findings and correction/verification gates |
+| 3 | Planning mode (§31.9) | Conversation mode state, read policy and §15.7 creator workflow |
+| 4 | Durable goals (§31.10) | §6.7 task/checkpoints, aggregate ledgers and §31.4 recovery for advertised restart behavior |
+| 5 | Forks and side chats (§31.11) | Owner-scoped history, explicit context selection and qualified worktree lifecycle where selected |
+| 6 | Implementation-agent inspection (§31.12) | Qualified child controller, retained reports and enforced review visibility boundaries |
+
+Deliver these as post-v1 slices without weakening or delaying existing release
+gates. Current context controls, worktrees, attachments, MCP, typed lifecycle
+events, structured final output and scriptable execution keep their existing
+requirements; this survey does not create duplicate architecture for them.
+
+For developing Mos Eisley itself, optionally run one Codex review on a completed
+bounded batch using `codex review --uncommitted`, `--base <branch>` or
+`--commit <SHA>`. Add concise repository-specific Code Review Rules to applicable
+`AGENTS.md` files for blindness, stale approval, budget continuity and credential
+boundaries when adopting that workflow. Review output is advisory development
+evidence, not a substitute for Mos Eisley's required independent reviews or CI.
+The [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github)
+can support explicitly configured PR reviews, but this plan addition does not
+enable automatic reviews, authorize comments or transfer private run artifacts.
+Keep §12's publisher/data boundaries and §31.3's verdict-aware CI contract.
 
 ## 32. Version 3 managed-agent interoperability
 
