@@ -4,6 +4,7 @@ from typing import cast
 from unittest import IsolatedAsyncioTestCase, TestCase
 
 import httpx2
+from anthropic import AsyncAnthropic
 from pydantic import JsonValue
 
 from mos_eisley.core.models import Brief, CriticRequest, CriticSpec, Critique
@@ -91,6 +92,36 @@ class AnthropicSDKClientTests(IsolatedAsyncioTestCase):
         ) as client:
             with self.assertRaises(AnthropicResponseLimitError):
                 await client.get("https://api.anthropic.com/test")
+
+    async def test_sdk_message_uses_bounded_client_once(self) -> None:
+        requests: list[httpx2.Request] = []
+
+        def respond(request: httpx2.Request) -> httpx2.Response:
+            requests.append(request)
+            return httpx2.Response(
+                200,
+                json=_response([{"type": "text", "text": "ok"}], "end_turn"),
+            )
+
+        async with (
+            BoundedAnthropicHttpClient(
+                transport=httpx2.MockTransport(respond),
+                trust_env=False,
+                follow_redirects=False,
+            ) as bounded,
+            AsyncAnthropic(
+                api_key="test-key", max_retries=0, http_client=bounded
+            ) as sdk,
+        ):
+            message = await sdk.messages.create(
+                model="claude-sonnet-5",
+                max_tokens=8,
+                messages=[{"role": "user", "content": "ping"}],
+            )
+        self.assertEqual(message.id, "msg_test")
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0].url.host, "api.anthropic.com")
+        self.assertEqual(requests[0].headers["accept-encoding"], "identity")
 
 
 class AnthropicTranslationTests(TestCase):
