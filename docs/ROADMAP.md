@@ -142,6 +142,18 @@ input and model authority. This is post-Windows product work, not part of the
 initial TUI or G2 live-review gate. See
 [plan §30](mos-eisley-plan.md#30-post-windows-embedded-terminal-emulator).
 
+**External tmux compatibility, 2026-10-03 — local macOS slice complete:** the
+[workspace guide](TMUX_COMPATIBILITY.md) documents an optional user-operated
+workspace and explicit detach/reattach versus durable resume. The installed-wheel
+[smoke check](../tools/smoke_tmux.py) exercises real attached PTY clients under tmux
+3.7c on macOS 15.1 arm64: drafts/paused queues, exclusive controller locking,
+split/resize/zoom, Unicode, transcript navigation, literal slash paste,
+queued-work cancellation, terminal restoration, server-loss resume and ordinary
+launch without tmux on PATH. Linux and actual Windows-hosted WSL2 runs remain
+pending; plan §16.0.5 is not fully qualified across its target platforms. No runtime
+Mos change or embedded backend is introduced, and §§27–29 remain prerequisites
+for the embedded-terminal phase.
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -165,14 +177,21 @@ catalog limits, and stale-selection rechecks; see plan §31.6.
 They depend on the applicable v1 conversation, review, read and policy gates. They
 do not change v1 scope, grant new authority or advance an implementation gate.
 
-**Codex feature-survey additions, 2026-10-03 — planned:** deliver direct review
+**Review scope prerequisites, 2026-10-03 — local recorded slice implemented:**
+[Bounded Git acquisition](GIT_REVIEW_SCOPES.md) and explicit `/review` presets
+support uncommitted, base-branch and commit targets with frozen briefs and stale
+input rejection. Requires an explicit POSIX repository root; live review,
+file/range presets, full managed-worktree gates and Linux/Windows-hosted WSL2
+qualification remain pending.
+
+**Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit
 planning and durable goals, followed by conversation forks/side chats and
 implementation-agent inspection. [Plan §§31.7–31.13](mos-eisley-plan.md#317-direct-review-scope-selection)
 define acceptance and dependency order. Reuse the trusted Git/read broker,
 critic/judge pipeline, task/checkpoint ledgers, recovery and child controller;
 preserve structural blindness and current release gates. These are post-v1
-requirements, not shipped commands or new execution/publication authority.
+requirements; the local recorded slice above grants no new execution/publication authority.
 Optional Codex development reviews remain advisory and do not replace CI or
 required independent review.
 

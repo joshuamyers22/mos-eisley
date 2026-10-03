@@ -803,6 +803,13 @@ class ConversationController(Generic[StateT]):
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
 
     def _check_review_guidance(self, packet: ConversationReviewPacket) -> None:
+        if packet.git_scope is not None and (
+            packet.git_scope.workspace != self.state.workspace
+            or packet.git_scope.owner_uid != self.state.owner_uid
+        ):
+            raise ValueError(
+                "Git review requires this session's exact owner/workspace."
+            )
         guidance = packet.guidance_review
         if guidance is None:
             return
@@ -857,6 +864,16 @@ class ConversationController(Generic[StateT]):
         is_review = entry.is_review
         if entry.review_packet is not None:
             self._check_review_guidance(entry.review_packet)
+            if entry.review_packet.git_scope is not None:
+                from mos_eisley.git_review import revalidate_git_scope
+
+                self._busy = True
+                try:
+                    await asyncio.to_thread(
+                        revalidate_git_scope, entry.review_packet.git_scope
+                    )
+                finally:
+                    self._busy = False
         if not is_review and self.state.retained_cassette is not None:
             entry = entry.model_copy(
                 update={

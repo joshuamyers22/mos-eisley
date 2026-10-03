@@ -3,7 +3,9 @@
 An explicit `/review` or `Review this change.` now runs the existing recorded
 critic/judge workflow and returns its result to the conversation. Ordinary chat
 does not automatically invoke a panel. This remains a recorded-provider preview;
-it does not inspect a repository, generate live reviews or make changes.
+it does not generate live reviews or make changes. Explicit
+[/review scope commands](GIT_REVIEW_SCOPES.md) can now acquire a bounded Git brief;
+dispatch still requires a recording matching that exact brief.
 
 ## Try the round-trip
 

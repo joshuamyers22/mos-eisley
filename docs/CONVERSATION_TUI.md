@@ -5,7 +5,9 @@ Mos Eisley's primary interface is an ongoing terminal conversation. Bare `mos`,
 both input and output are terminals. This is the first implementation of the
 terminal interaction requested in plan §16.0, with Codex and Claude Code as the
 interaction references. It uses recorded responses; arbitrary live answers,
-repository tools and provider/model switching are not enabled by this screen.
+provider/model switching are not enabled by this screen. Explicit
+[/review scope presets](GIT_REVIEW_SCOPES.md) provide bounded local Git acquisition
+and require a matching recorded packet to dispatch a review.
 
 ## Start a conversation
 
@@ -85,6 +87,11 @@ replacement recording is used unless you supply a cassette. Missing, invalid or 
 fail; they never fall back to the built-in preview. The built-in recording is
 request-bound too, so arbitrary prompts cannot receive live answers. No setup
 files, credentials or network connections are needed to open the default preview.
+
+For a conversation beside a user-operated shell or watcher, see the
+[external tmux workspace guide](TMUX_COMPATIBILITY.md). Reattach to the same running
+Mos pane to preserve its unsent draft; durable `mos resume` is the recovery path
+after process loss. Tmux is optional and does not enable additional tools.
 
 `--plain` keeps the line-oriented interface. Pipes, redirected input, and `--json`
 also use that interface automatically. `--tui` explicitly requires terminal

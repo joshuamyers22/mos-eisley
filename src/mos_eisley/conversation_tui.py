@@ -171,6 +171,7 @@ class ConversationTUI:
         self.memory_report: str | None = None
         self.directory_visible = False
         self.context_preview: tuple[int, str] | None = None
+        self.review_scope_preview: str | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
@@ -484,6 +485,11 @@ class ConversationTUI:
             parts.append(
                 self.project_location.describe(state.effective_memory_workspace)
             )
+        if self.review_scope_preview is not None:
+            parts.append(
+                "Selected review scope (rerun /review to refresh)\n"
+                + self.review_scope_preview
+            )
         if self.context_preview is not None:
             revision, preview = self.context_preview
             parts.append(
@@ -584,6 +590,14 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.review_scope":
+            self.review_scope_preview = str(event["text"])
+            self.context_preview = None
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice("Frozen Git review scope shown.")
+            self.refresh()
+            return
         if event["type"] in {
             "conversation.context",
             "conversation.context_admission",

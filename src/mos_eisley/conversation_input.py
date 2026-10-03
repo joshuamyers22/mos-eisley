@@ -7,7 +7,7 @@ from typing import Literal, Protocol
 
 def submission_command(text: str) -> Literal["review", "steer"] | None:
     """Recognize typed submission commands; callers keep pasted text literal."""
-    if text == "/review":
+    if text == "/review" or text.startswith("/review "):
         return "review"
     if text == "/steer" or text.startswith("/steer "):
         return "steer"

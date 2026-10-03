@@ -968,7 +968,65 @@ async def terminal(
             return False
         return True
 
-    def submit_review() -> bool:
+    async def submit_review(command: str = "/review") -> bool:
+        packet = review_packet
+        if command.startswith("/review "):
+            from mos_eisley.git_review import freeze_git_scope
+            from mos_eisley.git_review_cli import parse_review_selection
+
+            try:
+                selection = parse_review_selection(command)
+                scope = await asyncio.to_thread(
+                    freeze_git_scope, Path(controller.state.workspace), selection
+                )
+                preview = scope.preview()
+                preview["roles"] = (
+                    [
+                        recording.critic.model_dump(mode="json")
+                        for recording in packet.cassette.critics
+                    ]
+                    if packet is not None
+                    else []
+                )
+                preview["policy"] = (
+                    None if packet is None else packet.policy.model_dump(mode="json")
+                )
+                emit(
+                    {
+                        "type": "conversation.review_scope",
+                        **preview,
+                        "text": scope.preview_text()
+                        + (
+                            "\nRecorded roles: "
+                            + ", ".join(
+                                f"{r.critic.provider}/{r.critic.model}: "
+                                f"{r.critic.persona}"
+                                for r in packet.cassette.critics
+                            )
+                            + f"\nPolicy: {packet.policy.model_dump_json()}"
+                            if packet is not None
+                            else "\nRecorded roles: none configured."
+                        ),
+                    }
+                )
+                if packet is not None:
+                    if packet.brief != scope.brief() or not scope.complete:
+                        raise ValueError(
+                            "The recording does not match this complete "
+                            "frozen Git brief."
+                        )
+                    packet = ConversationReviewPacket.model_validate(
+                        {
+                            **packet.model_dump(),
+                            "git_scope": scope,
+                            "schema_version": 4
+                            if packet.guidance_review is not None
+                            else 3,
+                        }
+                    )
+            except (OSError, ValueError) as error:
+                emit({"type": "conversation.unavailable", "text": str(error)})
+                return False
         if review_packet is None:
             emit(
                 {
@@ -980,7 +1038,8 @@ async def terminal(
         if not has_capacity():
             return False
         try:
-            controller.submit_review(review_packet)
+            assert packet is not None
+            controller.submit_review(packet)
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
@@ -1254,7 +1313,9 @@ async def terminal(
                             and line.text.strip().casefold().rstrip(".")
                             == "review this change"
                         ):
-                            accepted = submit_review()
+                            accepted = await submit_review(
+                                line.text if command == "review" else "/review"
+                            )
                         else:
                             accepted = submit_text(line.text)
                         if not line.accepted.done():
@@ -1456,11 +1517,18 @@ async def terminal(
                         line.removeprefix("/steer").lstrip(), require_active=True
                     ):
                         enabled = True
-                elif line.strip().casefold().rstrip(".") in {
+                elif line.startswith("/review ") or line.strip().casefold().rstrip(
+                    "."
+                ) in {
                     "/review",
                     "review this change",
                 }:
-                    enabled = submit_review() or enabled
+                    enabled = (
+                        await submit_review(
+                            line if line.startswith("/review ") else "/review"
+                        )
+                        or enabled
+                    )
                 elif line.strip():
                     if line.startswith("/"):
                         emit(

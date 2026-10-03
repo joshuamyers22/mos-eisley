@@ -38,6 +38,12 @@ The welcome screen shows the workspace and supported preview messages. Sessions
 save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Live conversation is still pending. See the
 [terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+An optional [external tmux workspace](docs/TMUX_COMPATIBILITY.md) keeps Mos beside
+a user-operated shell or watcher, with detach/reattach to the same running process.
+Local macOS compatibility is checked; Linux and Windows-hosted WSL2 qualification
+remain pending. Tmux is not required for ordinary Mos launch.
+Explicit [Git review scopes](docs/GIT_REVIEW_SCOPES.md) freeze uncommitted,
+base-branch or commit changes for `/review`; live review remains pending.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 

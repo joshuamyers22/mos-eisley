@@ -2261,6 +2261,11 @@ qualification follow §27.
 
 ### 16.0.5 Optional external tmux workspace
 
+The [external workspace guide](TMUX_COMPATIBILITY.md) and installed-wheel
+[compatibility check](../tools/smoke_tmux.py) supply this slice's usage and evidence.
+The roadmap records local qualification and remaining platform runs; embedded
+terminal/backend adoption remains separate under §30.
+
 **User-directed addition, 2026-10-02 — planned:** first qualify the existing Mos
 conversation interface inside a user-operated tmux session on macOS, Linux and
 WSL2. Document a minimal workspace with Mos alongside a shell, test watcher or
@@ -5003,6 +5008,14 @@ two-workspace fixtures prove no cross-scope result or transcript-content read;
 JSON and SQLite catalogs produce the same ranking for equivalent metadata.
 
 ### 31.7 Direct review scope selection
+
+**Implementation status, 2026-10-03:** the initial
+[local Git/read prerequisite and recorded `/review` connection](GIT_REVIEW_SCOPES.md)
+support uncommitted, base-branch and exact-commit presets, frozen scope digests,
+omission previews and revalidation before dispatch and result publication.
+Explicit POSIX repository roots only. File/range selection, live-review preview,
+managed-worktree qualification and Linux/Windows-hosted WSL2 evidence remain open;
+this slice does not satisfy those gates.
 
 Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
 presets for uncommitted changes, comparison against a base branch, an exact commit,
