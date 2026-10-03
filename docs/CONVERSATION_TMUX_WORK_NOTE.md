@@ -50,12 +50,14 @@ checks.
 Passing Ubuntu CI and actual WSL2 evidence remain pending. The original checkout's
 uncommitted plan amendment remains untouched.
 
-Ubuntu 24.04 CI with tmux 3.4 exposed an exit-status publication race in three
-tests: `pane_dead` became `1` before `pane_dead_status` was available. The test
-now waits for the status and still requires exit code `0`; it does not change
-the application exit path or relax the success assertion. All four focused real
-tmux tests passed again on macOS 15.1 with tmux 3.7c. Ubuntu source and wheel
-CI must pass on this correction before merge.
+Ubuntu 24.04 CI with tmux 3.4 left `pane_dead_status` empty in three clean-exit
+checks even after waiting for it. The fixture now writes the launched application's
+exit code to its private temporary directory through a shell wrapper, then waits
+for pane death and requires that recorded code to be `0`. Saved state and terminal
+restoration remain separate assertions; no application runtime code changed.
+All four focused tests passed in an Ubuntu 24.04 container with tmux 3.4 from an
+installed package. Ubuntu source and wheel CI must pass on this correction before
+merge.
 
 The guide, tests and required CI wiring complete this implementation slice;
 all-platform qualification remains open. Durable retrieval was added to

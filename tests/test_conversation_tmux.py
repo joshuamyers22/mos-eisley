@@ -35,6 +35,7 @@ class TmuxCompatibilityTests(TestCase):
         self.root = Path(temporary.name).resolve()
         self.socket = self.root / "socket"
         self.storage = self.root / "sessions"
+        self.exit_status = self.root / "exit-status"
         self.cassette = self.root / "cassette.json"
         self.cassette.write_bytes(canonical_bytes(demo_cassette()))
         assert mos_eisley.__file__ is not None
@@ -101,6 +102,14 @@ class TmuxCompatibilityTests(TestCase):
             str(self.root),
             "--no-memory",
         ]
+        # Record the application exit status independently of tmux's pane format:
+        # tmux 3.4 may leave pane_dead_status empty for this command on Ubuntu.
+        launched = (
+            shlex.join(command)
+            + "; code=$?; printf '%s\\n' \"$code\" > "
+            + shlex.quote(str(self.exit_status))
+            + '; exit "$code"'
+        )
         self.pane = self.tmux(
             "new-session",
             "-d",
@@ -115,7 +124,7 @@ class TmuxCompatibilityTests(TestCase):
             "-P",
             "-F",
             "#{pane_id}",
-            "exec " + shlex.join(command),
+            launched,
         )
         self.assertTrue(self.pane.startswith("%"), "tmux server did not create a pane")
         self.tmux("set-window-option", "-t", self.pane, "remain-on-exit", "on")
@@ -159,20 +168,8 @@ class TmuxCompatibilityTests(TestCase):
                 == "1"
             )
         )
-        # tmux may close the pane PTY before it reaps the child and publishes
-        # pane_dead_status (observed with tmux 3.4 on Ubuntu CI).
-        self.wait_for(
-            lambda: (
-                self.tmux(
-                    "display-message", "-p", "-t", self.pane, "#{pane_dead_status}"
-                )
-                != ""
-            )
-        )
-        self.assertEqual(
-            self.tmux("display-message", "-p", "-t", self.pane, "#{pane_dead_status}"),
-            "0",
-        )
+        self.wait_for(lambda: self.exit_status.exists())
+        self.assertEqual(self.exit_status.read_text().strip(), "0")
         self.assertIn("conversation.saved", self.screen())
         self.assertEqual(
             self.tmux("display-message", "-p", "-t", self.pane, "#{alternate_on}"),
