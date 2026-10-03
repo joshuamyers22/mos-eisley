@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mos_eisley.conversation_diff_attachment import patch_lines
 from mos_eisley.conversation_git import (
     Change,
     ChangeKind,
@@ -93,10 +94,9 @@ def patch_text(patch: Patch | None, item: DiffItem | None, limit_index: int) -> 
         return "Untracked path only. Content preview requires a separate read policy."
     if patch is None:
         return "Loading bounded patch…"
-    text = patch.data.decode("utf-8", errors="replace")
-    lines = text.splitlines(keepends=True)
+    lines = patch_lines(patch.data)
     limit = RENDER_LINE_LIMITS[limit_index]
-    shown = "".join(lines[:limit])
+    shown = b"".join(lines[:limit]).decode("utf-8", errors="replace")
     if len(lines) > limit:
         shown += (
             f"\n[Partial view: {len(lines) - limit} lines omitted. "

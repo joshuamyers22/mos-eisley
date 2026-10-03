@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
+from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
@@ -84,6 +85,102 @@ class DiffPresentationTests(TestCase):
 
 
 class DiffTUITests(IsolatedAsyncioTestCase):
+    async def test_selected_line_attach_stale_reject_and_remove(self) -> None:
+        with TemporaryDirectory() as directory, create_pipe_input() as input:
+            root = Path(directory)
+            command(root, "init", "-q")
+            command(root, "config", "user.email", "test@example.invalid")
+            command(root, "config", "user.name", "Test")
+            (root / "one.txt").write_text("before\n")
+            command(root, "add", ".")
+            command(root, "commit", "-qm", "base")
+            (root / "one.txt").write_text("after\n")
+            cassette = demo_cassette()
+            chat = ConversationController(
+                ConversationController.fresh(root, cassette), cassette, lambda _: None
+            )
+            ui = ConversationTUI(chat, input=input, output=DummyOutput())
+            task = asyncio.create_task(ui.run())
+            try:
+                async with asyncio.timeout(3):
+                    while not ui.app.is_running:
+                        await asyncio.sleep(0.01)
+                input.send_text("/diff\r")
+                async with asyncio.timeout(8):
+                    while ui.diff_patch is None:
+                        await asyncio.sleep(0.02)
+                content = ui.diff_content.text
+                line = next(
+                    index
+                    for index, text in enumerate(content.splitlines())
+                    if text == "+after"
+                )
+                position = len("\n".join(content.splitlines()[:line])) + (
+                    1 if line else 0
+                )
+                ui.app.layout.focus(ui.diff_content)
+                ui.diff_content.buffer.set_document(
+                    Document(content, position), bypass_readonly=True
+                )
+                input.send_text("\x1b[24~")  # xterm F12
+                async with asyncio.timeout(3):
+                    while not ui.diff_attachments:
+                        await asyncio.sleep(0.01)
+                attachment = ui.diff_attachments[0]
+                self.assertEqual(attachment.excerpt, "+after\n")
+                self.assertIn("one.txt", ui.attachment_preview())
+                self.assertIn("current", ui.attachment_preview())
+                ui.diff_attachments.extend((attachment, attachment))
+                self.assertEqual(len(ui.attachment_preview().splitlines()), 8)
+                ui.diff_attachments[:] = [attachment]
+                ui.app.layout.focus(ui.editor_control)
+                ui.editor.insert_text("Explain this line")
+                (root / "one.txt").write_text("newer\n")
+                ui.send()
+                async with asyncio.timeout(5):
+                    while ui.sending:
+                        await asyncio.sleep(0.01)
+                self.assertEqual(ui.editor.text, "Explain this line")
+                self.assertEqual(ui.diff_attachments, [attachment])
+                self.assertEqual(chat.state.entries, ())
+                self.assertIn("changed", ui.attachment_preview())
+                input.send_text("\x18")  # Ctrl-X
+                async with asyncio.timeout(3):
+                    while ui.diff_attachments:
+                        await asyncio.sleep(0.01)
+                self.assertEqual(ui.editor.text, "Explain this line")
+                async with asyncio.timeout(8):
+                    while b"+newer" not in getattr(ui.diff_patch, "data", b""):
+                        await asyncio.sleep(0.02)
+                content = ui.diff_content.text
+                line = next(
+                    index
+                    for index, text in enumerate(content.splitlines())
+                    if text == "+newer"
+                )
+                position = len("\n".join(content.splitlines()[:line])) + (
+                    1 if line else 0
+                )
+                ui.app.layout.focus(ui.diff_content)
+                ui.diff_content.buffer.set_document(
+                    Document(content, position), bypass_readonly=True
+                )
+                input.send_text("\x1b[24~")
+                async with asyncio.timeout(3):
+                    while not ui.diff_attachments:
+                        await asyncio.sleep(0.01)
+                ui.send()
+                async with asyncio.timeout(8):
+                    while not chat.state.entries or ui.diff_attachments:
+                        await asyncio.sleep(0.02)
+                self.assertEqual(ui.editor.text, "")
+                self.assertEqual(
+                    chat.state.entries[0].diff_attachments[0].excerpt, "+newer\n"
+                )
+            finally:
+                input.send_text("\x04")
+                await asyncio.wait_for(task, 4)
+
     async def test_slow_read_does_not_block_editor_and_closed_generation_is_discarded(
         self,
     ) -> None:
