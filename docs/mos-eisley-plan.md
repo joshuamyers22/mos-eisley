@@ -4689,6 +4689,21 @@ reading, full CLI importability and all remaining §27.2 contracts stay open. Se
 [verification record](BOUNDED_READER_WORK_NOTE.md); actual Windows execution is
 pending CI, and this batch does not qualify native support.
 
+**Next batch — additive principal and opened-file identity slice implemented:**
+[the contracts](PLATFORM_IDENTITY_CONTRACTS.md) and
+[proposed ADR-0014](adr/0014-platform-identity-contracts.md) now have strict tagged
+UID/SID and device/inode versus full-width volume/file-ID values, distinct borrowed
+reference types, lazy real-UID/fstat queries and explicit Windows/unknown-platform
+refusal. The POSIX query refuses real/effective UID mismatch, preserves caller
+reference lifetime/offset and does no path opening. Identifier equality remains
+contextual metadata, not permissions, DACLs, integrity or cross-host ownership.
+Existing consumers, artifact bytes/hashes and schemas are unchanged. Isolated
+source/wheel tests and the scoped Windows import/refusal job cover this additive
+slice; [the implementation record](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md)
+reports actual verification. Native token/handle adapters, local-NTFS qualification,
+accountable boundary review and separate schema migration remain open. This does
+not advance native support or storage authority.
+
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
 Deliver the native port in this dependency order: invariant-based platform contracts;

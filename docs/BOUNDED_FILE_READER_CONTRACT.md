@@ -49,8 +49,8 @@ are necessary for these standard-library-only modules. The helper verifies the
 module comes from the new environment and removes inherited `PYTHONPATH`.
 
 CI's `windows-files` job runs that helper with `--require-native-windows` on
-`windows-latest`, selecting the four common import/validation/selection tests
-without POSIX skips. The flag refuses execution on another platform; this job is
+`windows-latest`, selecting the four common reader import/validation/selection tests
+and ten portable identity value/import/refusal tests without POSIX skips. The flag refuses execution on another platform; this job is
 required by the aggregate `quality` check alongside the Ubuntu source/wheel gates.
 Actual Windows evidence remains pending until CI runs on a published branch.
 Local simulated refusal is supplementary evidence, not native qualification.

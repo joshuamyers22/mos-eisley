@@ -1,4 +1,4 @@
-"""Exercise only the bounded-reader contract from an installed wheel."""
+"""Exercise isolated file/identity contracts from an installed wheel."""
 
 import argparse
 import os
@@ -28,9 +28,8 @@ def main() -> int:
         )
         # These isolated modules depend only on the standard library. Avoid CLI
         # import and avoid qualifying unrelated runtime/platform contracts.
-        shutil.copyfile(
-            repository / "tests/test_platform_files.py", root / "test_platform_files.py"
-        )
+        for name in ("test_platform_files.py", "test_platform_identity.py"):
+            shutil.copyfile(repository / "tests" / name, root / name)
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)
         subprocess.run(
@@ -42,16 +41,24 @@ def main() -> int:
                 "import mos_eisley.platform.files as files; "
                 "location = pathlib.Path(files.__file__); "
                 "assert location.is_relative_to(pathlib.Path(sys.prefix)); "
-                "assert 'mos_eisley.platform.posix_files' not in sys.modules",
+                "assert 'mos_eisley.platform.posix_files' not in sys.modules; "
+                "import mos_eisley.platform.identity as identity; "
+                "location = pathlib.Path(identity.__file__); "
+                "assert location.is_relative_to(pathlib.Path(sys.prefix)); "
+                "assert 'mos_eisley.platform.posix_identity' not in sys.modules",
             ],
             cwd=root,
             env=environment,
             check=True,
         )
         selection = (
-            ["test_platform_files.PlatformFileContractTests"]
+            [
+                "test_platform_files.PlatformFileContractTests",
+                "test_platform_identity.IdentityValueTests",
+                "test_platform_identity.IdentityContractTests",
+            ]
             if args.require_native_windows
-            else ["discover", "-s", str(root), "-p", "test_platform_files.py"]
+            else ["discover", "-s", str(root), "-p", "test_platform_*.py"]
         )
         subprocess.run(
             [str(python), "-m", "unittest", *selection, "-v"],

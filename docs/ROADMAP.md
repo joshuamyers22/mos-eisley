@@ -493,6 +493,16 @@ contract tests and a required Windows import/refusal job are provided; actual na
 CI evidence is pending. Windows reading and the remaining platform contracts are
 still unimplemented.
 
+The next bounded §27.2 slice now implements
+[tagged identity values and POSIX queries](PLATFORM_IDENTITY_CONTRACTS.md): immutable
+UID/SID and full-width opened-object values, strict borrowed references, lazy
+real-UID/fstat queries and explicit Windows refusal. Twenty isolated identity tests
+are included in source/wheel smoke, and the scoped native job includes portable
+values/import/refusal. Existing callers, schemas and ownership checks are intact.
+[Verification](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) distinguishes local
+evidence from pending native CI. Native read-only identity adapters, migration and
+private-storage adoption remain separate batches.
+
 **WSL2 qualification preparation, 2026-10-03:** the
 [runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
 wheel installation, upgrade/diagnostics/uninstall, and retained qualification
