@@ -7,6 +7,11 @@ of [the defined identity contracts](PLATFORM_IDENTITY_CONTRACTS.md), native adap
 admission, or consumer/schema adoption. This is design preparation; accountable
 boundary review and native qualification remain pending.
 
+The [candidate principal implementation](WINDOWS_PRINCIPAL_WORK_NOTE.md) now adds
+direct native TokenUser acquisition, with source/wheel fault and qualification
+tests. The common Windows selector remains closed pending actual native evidence
+and accountable admission. Native file identity and storage policy remain open.
+
 In scope: identifier inputs, OS token/descriptor observations, native query buffers
 and borrowed/temporary handle lifetime. Out of scope: implementing DACLs, secure
 namespace opens, writes/locking/durability, migration, provider calls or execution.
@@ -57,3 +62,27 @@ Before adoption, rollback removes additive modules and CI/tests without rewritin
 artifacts. After adoption, migration/recovery dependencies must be reviewed in the
 following schema batch. These records contain no credentials, retained private
 payloads or new dispatch authority.
+
+## Candidate principal controls
+
+Only the guarded direct qualification entry point loads `kernel32.dll` and
+`advapi32.dll`, using `LOAD_LIBRARY_SEARCH_SYSTEM32` and explicit pointer-sized
+HANDLE/fixed-width DWORD/BOOL signatures. DLL bindings are initialized once under
+a lock and retained for process lifetime; tokens, buffers, contexts and identifiers
+are never cached. Candidate coverage is 64-bit AMD64
+Windows build 17763+; versions/architectures absent from actual native evidence
+are not qualified by this guard alone.
+
+Thread tokens are inspected with query-only rights and OpenAsSelf; presence
+refuses, and errors other than ERROR_NO_TOKEN refuse without process fallback.
+The precondition is checked again before returning the copied SID. The adapter
+never impersonates, reverts context, changes privileges or logs identifiers.
+Native impersonation fixtures run in disposable child processes with cleanup.
+
+TokenUser sizing requires an insufficient-buffer response, caps each allocation
+at 64 KiB, and allows at most two data queries. Returned structure/header/body
+bounds precede any SID validation; IsValidSid/GetLengthSid inspect an owned bounded
+copy. Temporary thread/process handles close even on malformed buffers, query
+errors, allocation failures and final-context refusal. Cleanup failures refuse
+rather than returning a successful observation. Fault tests supplement native
+SID-oracle and handle-count tests; they do not qualify the API on macOS.

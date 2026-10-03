@@ -164,6 +164,7 @@ def main() -> int:
         for name in (
             "test_platform_files.py",
             "test_platform_identity.py",
+            "test_platform_windows_principal.py",
             "test_wsl2_preflight.py",
             "test_conversation.py",
             "test_conversation_navigation.py",

@@ -503,6 +503,15 @@ values/import/refusal. Existing callers, schemas and ownership checks are intact
 evidence from pending native CI. Native read-only identity adapters, migration and
 private-storage adoption remain separate batches.
 
+The [candidate Windows principal adapter](WINDOWS_PRINCIPAL_WORK_NOTE.md) is the
+next implemented sub-batch: bounded process TokenUser SID queries with
+impersonation refusal and owned-token cleanup, portable faults and native
+oracle/impersonation/handle-count tests from source and wheels. Candidate coverage
+is 64-bit AMD64 Windows build 17763+; actual native qualification and accountable
+selector admission remain pending, so the common Windows selector stays closed.
+Local-NTFS file identity is next; migration and private-storage adoption follow
+qualification.
+
 **WSL2 qualification preparation, 2026-10-03:** the
 [runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
 wheel installation, upgrade/diagnostics/uninstall, and retained qualification

@@ -4704,6 +4704,16 @@ reports actual verification. Native token/handle adapters, local-NTFS qualificat
 accountable boundary review and separate schema migration remain open. This does
 not advance native support or storage authority.
 
+**Native principal sub-batch — candidate adapter implemented:**
+[the Windows principal record](WINDOWS_PRINCIPAL_WORK_NOTE.md) covers direct
+process TokenUser SID queries on 64-bit AMD64 Windows build 17763+, query-only
+token access, refusal of thread tokens before/after acquisition, bounded SID
+buffers and temporary-handle cleanup. Source/wheel CI now includes actual native
+SID-oracle, impersonation-refusal and handle-count tests as well as portable fault
+tests. Native qualification remains pending execution and accountable review;
+the common Windows selector continues to refuse. Local-NTFS opened-file identity
+is the next sub-batch. No existing consumer/schema/storage policy is adopted.
+
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
 Deliver the native port in this dependency order: invariant-based platform contracts;
