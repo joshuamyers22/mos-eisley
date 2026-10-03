@@ -3,6 +3,7 @@
 from typing import cast
 from unittest import IsolatedAsyncioTestCase, TestCase
 
+import httpx2
 from pydantic import JsonValue
 
 from mos_eisley.core.models import Brief, CriticRequest, CriticSpec, Critique
@@ -18,6 +19,11 @@ from mos_eisley.core.protocol import (
     Turn,
 )
 from mos_eisley.core.registry import default_registry
+from mos_eisley.providers.anthropic_http import (
+    AnthropicResponseLimitError,
+    BoundedAnthropicHttpClient,
+)
+from mos_eisley.providers.anthropic_live import EphemeralAnthropicTransport
 from mos_eisley.providers.anthropic_messages import (
     AnthropicMessagesClient,
     request_payload,
@@ -66,6 +72,25 @@ def _response(
             "cache_creation_input_tokens": 2,
         },
     }
+
+
+class AnthropicSDKClientTests(IsolatedAsyncioTestCase):
+    async def test_ephemeral_sdk_accepts_bounded_httpx2_client(self) -> None:
+        transport = EphemeralAnthropicTransport("test-key", 5)
+        async with transport._client() as sdk:  # pyright: ignore[reportPrivateUsage]
+            self.assertIsInstance(sdk._client, BoundedAnthropicHttpClient)  # pyright: ignore[reportPrivateUsage]
+            self.assertIsInstance(sdk._client, httpx2.AsyncClient)  # pyright: ignore[reportPrivateUsage]
+            self.assertEqual(sdk.max_retries, 0)
+
+    async def test_bounded_client_refuses_oversized_response(self) -> None:
+        async with BoundedAnthropicHttpClient(
+            response_limit=1024,
+            transport=httpx2.MockTransport(
+                lambda request: httpx2.Response(200, content=b"x" * 1025)
+            ),
+        ) as client:
+            with self.assertRaises(AnthropicResponseLimitError):
+                await client.get("https://api.anthropic.com/test")
 
 
 class AnthropicTranslationTests(TestCase):
