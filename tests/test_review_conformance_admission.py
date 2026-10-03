@@ -46,8 +46,11 @@ class ReviewConformanceFixture(GuidedBrokerFixture):
         self.controller = BrokeredReviewController(
             self.review,
             self.base.reviewer,
-            ReviewPolicy(min_critics=1, min_providers=1),
-            total_seconds=30,
+            ReviewPolicy(min_critics=1, min_providers=1, timeout_seconds=60),
+            # Whole-suite coverage and child-process scheduling can consume much
+            # more wall time than the synthetic exchange itself. Keep this fixture
+            # away from the deadline boundary; expiry tests set their own clocks.
+            total_seconds=120,
         )
         self.preview = self.controller.preview
         self.directory = Path(self.review.envelope.artifact_directory)
@@ -71,7 +74,7 @@ class ReviewConformanceFixture(GuidedBrokerFixture):
                 review_conformance_signer("observer", self.observer_key.public_key()),
             ),
             valid_from=self.timestamp - timedelta(minutes=1),
-            valid_until=self.timestamp + timedelta(minutes=5),
+            valid_until=self.timestamp + timedelta(minutes=15),
             max_authorization_seconds=60,
             max_reserved_microusd=1000,
         )

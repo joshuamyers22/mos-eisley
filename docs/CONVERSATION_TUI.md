@@ -8,6 +8,9 @@ interaction references. Recorded responses remain the default. Explicit live
 OpenAI text turns use the same saved transcript and controls. Repository tools
 and in-session provider switching are not enabled.
 
+Use the [external tmux workspace guide](CONVERSATION_TMUX.md) to run Mos beside
+shells or watchers and detach/reattach to the same running process.
+
 ## Live OpenAI conversation
 
 Use a current reviewed schema-2 [OpenAI spending policy](OPENAI_SPENDING.md), an existing

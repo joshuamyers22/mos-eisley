@@ -28,6 +28,10 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
 
+Windows-hosted WSL2 qualification is being prepared; see the
+[setup and verification runbook](docs/WSL2_QUALIFICATION.md). Actual WSL2 support
+remains pending the platform gates in plan §27.1.
+
 Start the interactive recorded conversation from your project directory:
 
 ```sh
@@ -42,6 +46,8 @@ save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
 `--storage PATH` overrides storage. Explicit, spend-controlled OpenAI chat is
 available in the same TUI; see the [terminal guide](docs/CONVERSATION_TUI.md)
 for launch and resume options.
+The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
+panes and reattachment to a running conversation.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 

@@ -1,6 +1,6 @@
 # Bounded-reader platform extraction
 
-Status: local implementation verified, native CI pending. Started: 2026-10-03.
+Status: local implementation and integration checks passed; native CI pending. Started: 2026-10-03.
 Owner: repository maintainer. Base: a1cb38b, initially clean
 `refactor/platform-bounded-read` worktree. Review before merging.
 
@@ -65,12 +65,14 @@ other platform boundaries and CLI support remain open. Accountable review remain
 required before native qualification or release.
 
 Documentation links and `git diff --check` passed. Earlier plan/survey worktrees
-retain their existing local edits. This batch is recorded on `refactor/platform-bounded-read`; no push, PR or release
-was performed. Disposable
-check output stays outside Git in `/private/tmp/mos-platform-files-check.log`.
+retain their existing local edits. PR #258 integrates the pending tmux head, which
+contains current main; the combined platform, tmux and WSL2 focused suite passed
+24 tests, and lint and strict typing passed. Final-head CI remains required before
+merge. Disposable check output stays outside Git in
+`/private/tmp/mos-platform-files-check.log`.
 The durable contract is recorded in [the guide](BOUNDED_FILE_READER_CONTRACT.md),
 plan §27.2, ROADMAP and the evidence-linked platform memory entry.
 
-Next smallest action: publish this committed batch for Ubuntu and native Windows
-CI and review. No publication or release approval is implied by these local
+Next smallest action: review final-head Ubuntu and native Windows CI after PR #254
+merges. No release or native-platform qualification is implied by these local
 results.

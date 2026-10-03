@@ -21,7 +21,6 @@ from mos_eisley.core.models import (
     Evidence,
     Finding,
     JudgeDecision,
-    ReviewPolicy,
     canonical_bytes,
 )
 from mos_eisley.providers.openai_http import BoundedOpenAIHttpClient
@@ -31,6 +30,7 @@ from mos_eisley.providers.openai_spend import count_payload
 from mos_eisley.review.citations import citation_bound_request
 from mos_eisley.run.review_campaign_dispatch import ReviewCampaignBinding
 from mos_eisley.run.review_conformance_admission import ReviewConformanceRuntime
+from mos_eisley.run.review_conformance_authorization import ReviewConformanceScope
 from mos_eisley.run.review_conformance_probe import BrokeredReviewConformanceProbe
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
 
@@ -38,6 +38,8 @@ from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
 class ReviewProbeFixture(ReviewConformanceFixture):
     def setUp(self) -> None:
         super().setUp()
+        self.policy = self.policy.model_copy(update={"max_authorization_seconds": 300})
+        self.authorization_lifetime_seconds = 300
         self.key_loader = Mock(return_value="synthetic-test-key")
 
         def transport(*_: object) -> FakeTransport:
@@ -54,6 +56,11 @@ class ReviewProbeFixture(ReviewConformanceFixture):
             )
         )
 
+    async def load_certificate(self, scope: ReviewConformanceScope):
+        return self.certificate(
+            scope, lifetime_seconds=self.authorization_lifetime_seconds
+        )
+
     def probe(
         self,
         user: ScriptedUser | None = None,
@@ -63,13 +70,14 @@ class ReviewProbeFixture(ReviewConformanceFixture):
         probe = BrokeredReviewConformanceProbe(
             self.review,
             self.base.reviewer,
-            ReviewPolicy(min_critics=1, min_providers=1),
+            self.controller.authorization.policy,
             ScriptedUser(("approve", "approve")) if user is None else user,
             critic_containers=(self.base.container,),
             judge_container=self.base.container,
             authority_policy=lambda: self.policy,
             load_authorization=self.load_certificate,
             load_api_key=self.key_loader,
+            total_seconds=self.controller.authorization.total_seconds,
             campaign=campaign,
         )
         self.controller = probe.controller
@@ -251,6 +259,8 @@ class ReviewProbeTests(ReviewProbeFixture, IsolatedAsyncioTestCase):
         self.assertEqual(self.base.fake.calls, [])
 
     async def test_expiry_after_count_blocks_generation(self):
+        self.authorization_lifetime_seconds = 20
+
         async def expired(_payload: dict[str, JsonValue]) -> int:
             # The dispatch adapter uses the real clock, independently of signed data.
             self.clock.return_value = self.timestamp + timedelta(seconds=21)

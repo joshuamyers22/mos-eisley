@@ -65,8 +65,30 @@ rebinding, migrated schema or cross-host replay has been tested or authorized.
   `/private/tmp/mos-platform-identity-check.log` and focused logs in the same folder.
 - Contract, plan, roadmap and the existing platform memory key reflect this additive
   implementation; ADR-0014 remains proposed for native qualification/adoption.
-- This batch is recorded on `feat/platform-identity-posix`, based on the identity
-  definition commit 23a8b0a and reader PR #258. No push, PR, merge or release was
-  performed. Parent publication/rebase and required remote CI must be resolved
-  before merging. Next step: publish and review this bounded batch; native
-  read-only identity adapters are the next implementation slice.
+- Implementation commit 3ea4858 records this batch on
+  `feat/platform-identity-posix`, based on the identity definition commit 23a8b0a
+  and reader PR #258. Publication preparation is recorded below; required remote
+  CI and review remain prerequisites to merging. Native read-only identity
+  adapters are the next implementation slice.
+
+## Publication integration
+
+Reader PR #258 merged before publication. The branch incorporates GitHub `main`
+at 736daeb, including tmux/WSL2 preparation, conversation diff/Git work and
+Hatchling 1.32.4. Roadmap and wheel-test-list conflicts were resolved by retaining
+both sets of additions. Identity runtime modules and identity tests remain
+byte-identical to 3ea4858.
+
+On this combined tree, lint, formatting, strict typing, runtime-export verification
+and both package builds passed. Focused source tests passed: 30 platform, 10 WSL2,
+4 tmux with `MOS_REQUIRE_TMUX=1`, 15 conversation diff and 13 conversation Git
+tests, totaling 72. A fresh wheel-only environment passed all 30 reader/identity
+tests. Logs are `/private/tmp/mos-identity-main-integration.log` and
+`/private/tmp/mos-identity-main-focused.log`.
+
+The full `make check` result above applies to the original implementation recorded
+in 3ea4858, before this integration. A second full local suite was not run;
+the affected integration checks passed. Ubuntu source/package gates and the
+native Windows portable/refusal gate remain pending remote CI. This preparation
+does not establish native identity-query qualification, release approval or
+consumer/schema adoption.
