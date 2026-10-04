@@ -385,4 +385,6 @@ build and 181 installed-wheel tests. All 287 local documentation targets resolve
 
 Explicit [loop controls](CONVERSATION_SCHEDULING.md#explicit-controls) persist
 bounded recorded schedules under a working durable goal. `/loop` inspects state,
-remaining limits and unresolved exposure; active timer driving remains gated.
+remaining limits and unresolved exposure. Timers drive the shared queue only
+while a qualified recorded session is active; cold resume requires explicit
+revalidation.

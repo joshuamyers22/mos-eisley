@@ -1155,7 +1155,9 @@ class ConversationTUI:
             self.context_command = "/loop status"
             self.memory_visible = self.directory_visible = False
             self.memory_report = None
-            self.set_notice("Loop report shown; active timer driving unavailable.")
+            self.set_notice(
+                "Loop report shown; timers require an active recorded session."
+            )
             self.refresh()
             return
         if event["type"] == "conversation.agents":

@@ -287,7 +287,7 @@ class LoopTests(IsolatedAsyncioTestCase):
                             loops[-1]["schedules"][0]["record"]["state"]["status"],
                             "cancelled",
                         )
-                        self.assertTrue(all(not e["automatic_dispatch"] for e in loops))
+                        self.assertTrue(all(e["automatic_dispatch"] for e in loops))
                     else:
                         self.assertIn("watch: active", result.stdout)
                         self.assertIn("watch: cancelled", result.stdout)

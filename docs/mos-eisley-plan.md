@@ -5384,6 +5384,22 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Active-session recorded timer driving, 2026-10-04 — implemented:**
+One timer owner wakes the existing plain/JSON/TUI controller queue with bounded
+monotonic waits and current-clock deadlines. Timers admit one intent at safe
+boundaries, coalesce missed intervals and honor bounded dynamic cadence. Waiting
+user input wins before admission and again before dispatch; author/side/diff work,
+goal evaluation, queues and composition defer timers. Scope, expiry, request and
+resource guards remain authoritative, including retained skipped exposure across
+schedules and ordinary author turns. Unsafe clocks, scope/validation failures,
+stopped goals and uncertain operations cannot cause retries or pause bypass.
+EOF/quit/handoff/cancellation stop the waiter and persist clean pauses before
+releasing ownership; restart requires guarded resume without replay or budget
+reset. Recorded CLI timer completion is tested on snapshot and SQLite, alongside
+races, lost acknowledgements and TUI draft preservation. Production handler
+timeouts/qualification and authenticated external ingress follow; no paid/live
+provider, tool, daemon or closed-session execution is enabled by this slice.
+
 **Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
 Shared plain/JSON/TUI controls create schedules with explicit task, fixed or bounded
 dynamic cadence, expiry, maximum fires and resource limits through the durable
@@ -5392,8 +5408,8 @@ recorded policy and selected goal. Inspection shows state, remaining schedule/ta
 limits, cadence history and unresolved operation exposure without mutation.
 Cancellation retains charges; guarded resume revalidates scope, queue boundaries,
 expiry and uncertainty without resetting budgets. Command and draft-preservation
-tests cover both stores, cold restart and failed persistence. Creation/resume
-start no work; qualified active-session timer driving is the next delivery slice.
+tests cover both stores, cold restart and failed persistence. Creation/resume start no immediate call; active-session recorded timer driving is
+implemented above.
 
 **Durable recorded storage/admission, 2026-10-04 — implemented:**
 The existing snapshot/SQLite session header now persists bounded schedules and
@@ -5404,8 +5420,8 @@ the queued wakeup atomically while retaining exposure. Queued cold-resume work i
 known undispatched and skipped; running work retains goal/schedule uncertainty
 without replay. Concurrent controls, writer/resume exclusion, cancellation and
 lost admission/running acknowledgements have recorded boundary tests.
-Active timers, trusted handler qualification and external ingress remain gated;
-this slice does not enable live/background dispatch.
+Production handlers and external ingress remain gated;
+this storage slice does not enable live/background dispatch.
 
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
 [Scheduling assessment and fixtures](CONVERSATION_SCHEDULING.md) reuse the existing
@@ -5417,8 +5433,9 @@ before queue admission; lost acknowledgements remain uncertain without replay or
 refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
 timer/event admission path at that point. Durable recorded persistence and dispatch
-priority and explicit `/loop` controls are now implemented above. Trusted handlers and
-external/background adapters remain required; no live scheduling is claimed.
+priority, explicit `/loop` controls and active recorded timers are implemented
+above. Production handlers and external/background adapters remain required;
+no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit
 session-scoped `/loop` controls and equivalent plain/JSON creation, inspection

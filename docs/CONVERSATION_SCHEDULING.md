@@ -1,18 +1,20 @@
 # Session scheduling and explicit loop controls
 
 This covers §31.15's inert fixtures, recorded durable controller admission and
-explicit plain/JSON/TUI controls.
+explicit plain/JSON/TUI controls and active-session recorded timer driving.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
-controls themselves. Ordinary durable goals do not activate scheduling. Active
-timer/event adapters remain later work.
+controls themselves. Ordinary durable goals do not activate scheduling. The active
+recorded timer adapter owns wakeups only while the session terminal is open;
+production handlers and external event adapters remain later work.
 
 ## Explicit controls
 
 Plain, JSON and TUI terminals share one command handler. Creation requires a
 selected working durable goal and explicit limits within its frozen ceiling and
-deadline. It starts no model call, queue entry or timer. A bounded example:
+deadline. Creation starts no immediate model call or queue entry; the active
+session driver waits for the cadence deadline. A bounded example:
 
 ```text
 /goal new Inspect committed CI results
@@ -38,13 +40,16 @@ input/output allowances to 1–1,000,000 bytes, further constrained by the goal.
 Attempts equal maximum fires; paid spend, corrections and reviews have zero
 allowance. Fixed cadence is the default. For dynamic cadence, supply
 `"cadence":"dynamic"` and explicit `minimum_interval_seconds` and
-`maximum_interval_seconds`. The durable host API retains bounded cadence changes.
+`maximum_interval_seconds`. The trusted `set_schedule_cadence` host API revalidates scope and retains bounded
+cadence changes; terminal/model text cannot change cadence implicitly.
 
 The CLI derives owner/session/workspace, observed revision, goal definition and
 recorded policy bindings; command JSON cannot provide authority or event sources.
 Its read-only workspace observer uses the trusted Git broker for supported Git
 workspaces and stable owned-directory identity for other directories. The policy
-pins the recorded cassette and goal definition. This recorded text-only slice
+pins the recorded cassette, goal definition and active-session recorded timer
+capability. Schedules made under the earlier non-driving policy do not migrate
+implicitly: their mismatched policy prevents resume/admission. This recorded text-only slice
 grants no tools or paid execution. An API controller without a qualified observer
 rejects creation and resume, but can still inspect or cancel retained schedules.
 
@@ -59,8 +64,48 @@ remain in the editor. Pasted commands and multiline submissions stay literal.
 Resume requires a working goal, current bindings, a safe queue boundary and
 remaining budgets/lifetime. Cancelled, expired, exhausted, blocked or uncertain
 work cannot be reopened by the command. Cold restart pauses clean schedules and
-requires explicit revalidation. Neither creation nor resume connects a timer.
-There is no `/loop run`, `fire` or external event command.
+requires explicit revalidation. Resume restarts the interval from the current
+validated clock; it discards old pending timer notifications and does not replay
+missed or uncertain work. There is no `/loop run`, `fire` or external event command.
+
+## Active-session recorded timer driving
+
+One `ActiveSessionTimers` owner serves the shared plain/JSON/TUI terminal. A
+monotonic async waiter wakes that existing owner at the nearest retained deadline,
+checking the wall clock at most one second apart. It never starts a separate
+provider worker. The timer owner requires the trusted schedule observer and
+recorded scope; live task controllers and missing observers cannot drive timers.
+The JSON report's `automatic_dispatch` flag describes current qualified terminal
+ownership, while each fixture record continues to grant no execution authority.
+
+The owner lets the input reader expose waiting user controls before either
+admission or dispatch. After an atomic admission it yields another input boundary:
+user steering can retire that queued intent before it starts. Side/diff work, author
+turns, goal evaluation/reservations, queued user work and plain composition defer
+timers without repeatedly writing due records. TUI editor drafts remain unsent and
+are preserved across timer reports and author rendering.
+
+At an idle boundary, timers admit at most one recorded intent per owner turn,
+ordered by deadline and ID. Missed intervals coalesce into one fire, and the next
+deadline advances from the observed time. Multiple schedules share the same queue,
+so no task dispatch overlaps. Every admission and dispatch retains the existing
+owner/workspace/revision/policy/goal, expiry, exact request and resource guards.
+Known undispatched holds are included in the shared goal budget for other schedules
+and ordinary author turns, without double charging the intent being dispatched.
+Inherited fork allowances include the same known holds and appear in inspection.
+Input/context/scope rejection pauses or blocks the schedule rather than retrying
+each interval; lost persistence acknowledgements remain fatal and restart-safe.
+Backwards or nonfinite clocks pause work for explicit revalidation. Exhausted,
+expired, cancelled and uncertain records have no active waiter.
+
+EOF, quit, directory handoff and cancellation release the waiter. Clean active
+schedules pause before controller ownership is released; queued intents become
+known skipped entries with conservative charges retained. Already running work
+uses the existing cancellation/result accounting. Closed sessions start no timers,
+and cold resume requires `/loop resume ID` after revalidation. A replacement timer
+owner cannot enter while shutdown is persisting. No paid/provider-network calls,
+tools, daemon, closed-session work or external event ingress are enabled by this
+recorded qualification.
 
 ## Durable-goal and queue assessment
 
@@ -74,7 +119,8 @@ these records. Terminal resume displays pending work and requires explicit input
 before dispatching it.
 
 The recorded controller now has explicit trusted host admission APIs, described
-below. Active timer/event adapters are not connected. Existing goal jobs record
+below. The active-session recorded timer adapter is connected; production event
+adapters are not connected. Existing goal jobs record
 check-ins and committed results but do not authenticate external notifications or
 schedule wakeups. Goal completion still requires qualified evidence/semantic
 adapters. Neither the child inspection port nor the stopped review inventory is a
@@ -195,10 +241,19 @@ reports, retained exposure, both storage backends, guarded restart/resume,
 uncertain operations, stale revisions/policies, fatal persistence failures,
 literal paste and TUI draft preservation.
 
-Remaining work includes qualified active-session timer driving, bounded trusted handler timeouts and external ingress authentication.
+`tests/test_conversation_schedule_driver.py` exercises bounded wall/monotonic
+waiting, fixed/dynamic cadence, missed intervals, expiry/resource caps, busy
+sessions, input priority before and after admission, cancel/stop/EOF, composition
+and editor preservation, owner exclusion, unsafe clocks and bindings, failed
+pre-dispatch validation, lost acknowledgements, clean/uncertain restart and no
+replay. Real CLI subprocesses consume an exact recorded timer request on both
+storage backends. Package smoke coverage includes the driver.
+
+Remaining work includes bounded trusted handler timeouts and external ingress
+authentication.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
-exact receipts against qualified controllers. Live event ingress and active-session
-timers retain the applicable background, execution, MCP, network, credential and
-owner-isolation gates. This slice promises no daemon or work while a session is
+exact receipts against qualified controllers. Live event ingress and production
+handlers retain the applicable background, execution, MCP, network, credential
+and owner-isolation gates. This slice promises no daemon or work while a session is
 closed.

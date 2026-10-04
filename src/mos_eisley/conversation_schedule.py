@@ -654,5 +654,6 @@ def resume_schedule(
         status="active",
         aggregate_exposure=aggregate,
         next_due_at=now + state.effective_interval_seconds,
-        reason="Explicitly revalidated inert fixture; no dispatch authorized.",
+        pending_timer=False,
+        reason="Explicitly revalidated; qualified host owns subsequent admission.",
     )

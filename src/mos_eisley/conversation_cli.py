@@ -964,6 +964,7 @@ async def terminal(
     from mos_eisley.conversation_diff_commands import DiffCommands
     from mos_eisley.conversation_goal_commands import goal_command
     from mos_eisley.conversation_loop_commands import loop_command
+    from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
 
     diff_commands = DiffCommands(controller, emit)
     branch_commands = BranchCommands(controller, emit)
@@ -1338,10 +1339,29 @@ async def terminal(
     diff_task: asyncio.Task[str | None] | None = None
     diff_submission: ConversationSubmission | None = None
     eof = False
+    timer_wait: asyncio.Task[None] | None = None
+    timers = ActiveSessionTimers(controller, emit)
     try:
+        timers.open()
         while True:
+            # Let the input reader expose already waiting steering before timers
+            # admit or dispatch. An admission gets another input boundary below.
+            await asyncio.sleep(0)
+            input_ready = incoming is not None and incoming.done()
+            timer_busy = (
+                active is not None
+                or branch_task is not None
+                or diff_task is not None
+                or composer.active
+                or eof
+            )
+            if not input_ready and timers.tick(busy=timer_busy):
+                enabled = True
+                render()
+                continue
             if (
                 enabled
+                and not input_ready
                 and active is None
                 and any(
                     entry.status == "queued" and controller.can_dispatch(entry)
@@ -1359,6 +1379,7 @@ async def terminal(
                 | asyncio.Task[bool]
                 | asyncio.Task[str | None]
                 | asyncio.Task[str]
+                | asyncio.Task[None]
             ] = set()
             if incoming is not None:
                 pending.add(incoming)
@@ -1368,9 +1389,20 @@ async def terminal(
                 pending.add(diff_task)
             if branch_task is not None:
                 pending.add(branch_task)
+            delay = timers.delay(busy=timer_busy)
+            if delay is not None:
+                timer_wait = asyncio.create_task(asyncio.sleep(delay))
+                pending.add(timer_wait)
             if not pending:
                 return
             done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            if timer_wait is not None:
+                timer_wait.cancel()
+                with suppress(asyncio.CancelledError):
+                    await timer_wait
+                timer_wait = None
+            if incoming is not None and incoming.done():
+                done.add(incoming)
             if branch_task in done:
                 assert branch_task is not None
                 try:
@@ -1413,6 +1445,9 @@ async def terminal(
                 try:
                     active.result()
                 except (AgentFailure, ValueError) as exc:
+                    if controller.persistence_broken:
+                        raise
+                    timers.pause("Owner turn failed; explicit loop resume required.")
                     enabled = False
                     message = "Recorded request failed; continuation is paused."
                     if isinstance(exc, MemoryChangedError):
@@ -1568,6 +1603,7 @@ async def terminal(
                     incoming = next_input()
                     continue
                 if line is None:
+                    timers.close()
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
@@ -1602,6 +1638,7 @@ async def terminal(
                             await diff_task
                         diff_task = None
                     if diff_submission is not None:
+                        assert isinstance(diff_submission, ConversationSubmission)
                         diff_submission.accepted.cancel()
                         diff_submission = None
                     discard_draft("Unsent draft discarded.")
@@ -1901,11 +1938,12 @@ async def terminal(
         discard_draft("Session closed; unsent draft discarded.")
         if branch_submission is not None:
             branch_submission.accepted.cancel()
-        for task in (active, incoming, diff_task, branch_task):
+        for task in (timer_wait, active, incoming, diff_task, branch_task):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
+        timers.close()
         render()
 
 

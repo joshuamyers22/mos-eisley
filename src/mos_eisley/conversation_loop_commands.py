@@ -9,6 +9,10 @@ from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_branch_controller import observe_branch_workspace
 from mos_eisley.conversation_goal import merge_ledger
 from mos_eisley.conversation_schedule import InertScheduleSpec, ScheduleBinding
+from mos_eisley.conversation_schedule_controller import (
+    scheduled_branch_exposure,
+    scheduled_goal_exposure,
+)
 from mos_eisley.core.models import (
     Contract,
     Digest,
@@ -24,7 +28,7 @@ HELP = (
     "/loop resume ID. Creation JSON requires schedule_id, task_id, prompt, "
     "interval_seconds, expires_in_seconds, maximum_fires, input_bytes, output_bytes. "
     "cadence defaults to fixed; dynamic requires minimum_interval_seconds and "
-    "maximum_interval_seconds. No automatic timer driving is connected."
+    "maximum_interval_seconds. Timers run only in an active recorded session."
 )
 
 
@@ -66,7 +70,7 @@ class RecordedLoopPolicy(Contract):
     mode: Literal["recorded_text_only"] = "recorded_text_only"
     cassette_sha256: Digest
     goal_definition_sha256: Digest
-    automatic_dispatch: Literal[False] = False
+    automatic_dispatch: Literal[True] = True
     external_ingress: Literal[False] = False
     paid_calls: Literal[False] = False
 
@@ -162,9 +166,7 @@ def loop_status(
     if selected is not None and not records:
         raise ValueError("Schedule is not retained in this session.")
     now = controller.goal_clock()
-    lines = [
-        "Loop schedules. Active timer driving is unavailable; no automatic dispatch."
-    ]
+    lines = ["Loop schedules. Recorded timers run only in an active qualified session."]
     items: list[dict[str, object]] = []
     if not records:
         lines.append(
@@ -174,7 +176,9 @@ def loop_status(
         state, spec = record.state, record.state.spec
         ledger = state.ledger
         goal = next(g for g in snapshot.goals if g.goal_id == spec.binding.goal_id)
-        aggregate = merge_ledger(state.aggregate_exposure, goal.ledger)
+        aggregate = merge_ledger(
+            state.aggregate_exposure, scheduled_goal_exposure(snapshot, goal.goal_id)
+        )
         remaining = {
             key: max(0, getattr(spec.ceiling, key) - getattr(ledger, key))
             for key in ResourceCeiling.model_fields
@@ -193,6 +197,17 @@ def loop_status(
             for b, f in zip(record.queue_bindings, state.fires, strict=True)
             if f.state in {"reserved", "uncertain"}
         ]
+        branch_remaining = None
+        if snapshot.branch_budget is not None:
+            branch_exposure = scheduled_branch_exposure(snapshot)
+            branch_remaining = {
+                key: max(
+                    0,
+                    getattr(snapshot.branch_budget.ceiling, key)
+                    - getattr(branch_exposure, key),
+                )
+                for key in ResourceCeiling.model_fields
+            }
         expiry_remaining = max(0.0, spec.expires_at - now)
         items.append(
             {
@@ -203,6 +218,7 @@ def loop_status(
                 "expires_in_seconds": expiry_remaining,
                 "unresolved": unresolved,
                 "goal_status": goal.status,
+                "branch_remaining": branch_remaining,
             }
         )
         lines.extend(
@@ -236,6 +252,12 @@ def loop_status(
                 f"{state.pending_events}; reason: {state.reason}",
             )
         )
+        if branch_remaining is not None:
+            lines.append(
+                f"Fork remaining input {branch_remaining['input_bytes']} bytes; "
+                f"output {branch_remaining['output_bytes']} bytes; "
+                f"attempts {branch_remaining['attempts']}."
+            )
         if not expiry_remaining:
             lines.append("Expired by current clock; dispatch is prohibited.")
         for item in unresolved:
@@ -247,7 +269,11 @@ def loop_status(
         "type": "conversation.loop",
         "revision": snapshot.revision,
         "schedules": items,
-        "automatic_dispatch": False,
+        "automatic_dispatch": (
+            controller.schedule_timer_active
+            and controller.schedule_observer is not None
+            and controller.task_scope is None
+        ),
     }
     if as_json:
         import json

@@ -13,6 +13,7 @@ from mos_eisley.conversation_schedule import (
     ScheduleQueueBinding,
     StoredSchedule,
     WakeupGate,
+    change_cadence,
     complete_wakeup,
     create_inert_schedule,
     observe_local_event,
@@ -25,17 +26,112 @@ from mos_eisley.conversation_schedule import (
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     ConversationEntry,
+    RuntimeConversationState,
     validate_runtime_state,
 )
 from mos_eisley.core.models import digest
 from mos_eisley.task_state import ResourceCeiling, ResourceLedger
 
 
+def _with_schedule_holds(
+    state: RuntimeConversationState,
+    ledger: ResourceLedger,
+    *,
+    goal_id: str | None = None,
+    exclude_position: int | None = None,
+) -> ResourceLedger:
+    totals = {key: getattr(ledger, key) for key in ResourceLedger.model_fields}
+    for record in state.schedules:
+        if goal_id is not None and record.state.spec.binding.goal_id != goal_id:
+            continue
+        for fire, link in zip(record.state.fires, record.queue_bindings, strict=True):
+            if link.message_position == exclude_position:
+                continue
+            if fire.state == "skipped" or (
+                fire.state == "reserved"
+                and state.entries[link.message_position].status == "queued"
+            ):
+                for key in totals:
+                    totals[key] += getattr(fire.reserved, key)
+    return ResourceLedger.model_validate(totals)
+
+
+def scheduled_goal_exposure(
+    state: RuntimeConversationState,
+    goal_id: str,
+    *,
+    exclude_position: int | None = None,
+) -> ResourceLedger:
+    """Add known undispatched holds which never entered the goal's author ledger."""
+    goal = next(g for g in state.goals if g.goal_id == goal_id)
+    return _with_schedule_holds(
+        state, goal.ledger, goal_id=goal_id, exclude_position=exclude_position
+    )
+
+
+def scheduled_branch_exposure(
+    state: RuntimeConversationState, *, exclude_position: int | None = None
+) -> ResourceLedger:
+    if state.branch_budget is None:
+        raise ValueError("No branch allowance is retained.")
+    return _with_schedule_holds(
+        state, state.branch_budget.ledger, exclude_position=exclude_position
+    )
+
+
 class ConversationScheduleController(ConversationBranchController[StateT]):
     schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None
     schedule_event_validator: Callable[[LocalWakeupEvent], None] | None
+    _schedule_timer_owner: object | None
+    schedule_timer_active: bool
     _schedule_lock: RLock
     pending_limits: PendingTextLimits | None
+
+    def claim_schedule_timers(self, owner: object) -> None:
+        """One terminal owns timer wakeups; this claim grants no live execution."""
+        with self._schedule_lock:
+            if self._schedule_timer_owner is not None:
+                raise ValueError("This controller already has an active timer owner.")
+            self._schedule_timer_owner = owner
+            self.schedule_timer_active = (
+                self.schedule_observer is not None and self.task_scope is None
+            )
+
+    def owns_schedule_timers(self, owner: object) -> bool:
+        return self._schedule_timer_owner is owner and self.schedule_timer_active
+
+    def release_schedule_timers(self, owner: object) -> bool:
+        """Pause under the ownership lock before permitting a replacement driver."""
+        with self._schedule_lock:
+            if self._schedule_timer_owner is not owner:
+                return False
+            driving = self.schedule_timer_active
+            self.schedule_timer_active = False
+            try:
+                if driving and not self._broken:
+                    for record in self.state.schedules:
+                        if record.state.status == "active":
+                            self.pause_schedule(
+                                record.state.spec.schedule_id,
+                                expected_revision=self.state.revision,
+                                reason=(
+                                    "Active session closed; "
+                                    "explicit loop resume required."
+                                ),
+                            )
+            finally:
+                self._schedule_timer_owner = None
+            return True
+
+    @property
+    def schedule_timer_idle(self) -> bool:
+        goal = self.current_goal
+        return (
+            not self._busy
+            and not self._side_busy
+            and not any(e.status in {"queued", "running"} for e in self.state.entries)
+            and (goal is None or not goal.reservations and not goal.evaluating_sha256)
+        )
 
     def _schedule_record(self, schedule_id: str) -> StoredSchedule:
         record = next(
@@ -80,7 +176,11 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         return WakeupGate(
             binding=binding,
             goal_status="paused" if goal is None else goal.status,
-            aggregate_ledger=ResourceLedger() if goal is None else goal.ledger,
+            aggregate_ledger=(
+                ResourceLedger()
+                if goal is None
+                else scheduled_goal_exposure(self.state, goal.goal_id)
+            ),
             aggregate_ceiling=spec.ceiling if goal is None else goal.definition.ceiling,
             safe_boundary=not self._busy
             and not self._side_busy
@@ -229,7 +329,9 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     from mos_eisley.conversation_branch_controller import reserve
 
                     reserve(
-                        self.state.branch_budget,
+                        self.state.branch_budget.model_copy(
+                            update={"ledger": scheduled_branch_exposure(self.state)}
+                        ),
                         BranchReservation(
                             operation_id=f"author-{len(entries)}",
                             input_bytes=preview.request.bytes,
@@ -310,6 +412,59 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
             )
             updated, entries = self._retire_queued_schedule(
                 updated, self.state.entries, "Cancelled before dispatch."
+            )
+            self._schedule_commit(
+                tuple(updated if s == record else s for s in self.state.schedules),
+                expected_revision=expected_revision,
+                entries=entries,
+            )
+
+    def set_schedule_cadence(
+        self, schedule_id: str, interval_seconds: int, *, expected_revision: int
+    ) -> None:
+        """Trusted host changes only a frozen dynamic schedule's bounded cadence."""
+        with self._schedule_lock:
+            record = self._schedule_record(schedule_id)
+            gate = self._schedule_gate(record)
+            if (
+                gate.binding != record.state.spec.binding
+                or gate.goal_status != "working"
+                or gate.aggregate_ledger.uncertain_effects
+            ):
+                raise ValueError("Cadence change requires the current working scope.")
+            updated = record.model_copy(
+                update={
+                    "state": change_cadence(
+                        record.state, interval_seconds, now=self.goal_clock()
+                    )
+                }
+            )
+            if self._schedule_gate(record).binding != gate.binding:
+                raise ValueError("Schedule inputs changed during cadence adjustment.")
+            self._schedule_commit(
+                tuple(updated if s == record else s for s in self.state.schedules),
+                expected_revision=expected_revision,
+            )
+
+    def pause_schedule(
+        self, schedule_id: str, *, expected_revision: int, reason: str
+    ) -> None:
+        """Host suspension retains running/uncertain work and all exposure."""
+        with self._schedule_lock:
+            if self.state.revision != expected_revision:
+                raise ValueError("Schedule suspension source revision is stale.")
+            record = self._schedule_record(schedule_id)
+            if record.state.status != "active":
+                return
+            updated = record.model_copy(
+                update={
+                    "state": record.state.model_copy(
+                        update={"status": "paused", "reason": reason}
+                    )
+                }
+            )
+            updated, entries = self._retire_queued_schedule(
+                updated, self.state.entries, reason
             )
             self._schedule_commit(
                 tuple(updated if s == record else s for s in self.state.schedules),

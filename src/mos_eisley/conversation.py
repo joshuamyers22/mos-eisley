@@ -74,7 +74,11 @@ from mos_eisley.conversation_schedule import (
     LocalWakeupEvent,
     ScheduleBinding,
 )
-from mos_eisley.conversation_schedule_controller import ConversationScheduleController
+from mos_eisley.conversation_schedule_controller import (
+    ConversationScheduleController,
+    scheduled_branch_exposure,
+    scheduled_goal_exposure,
+)
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     RuntimeConversationState,
@@ -346,6 +350,8 @@ class ConversationController(ConversationScheduleController[StateT]):
         self.child_inspection = child_inspection
         self.schedule_observer = schedule_observer
         self.schedule_event_validator = schedule_event_validator
+        self.schedule_timer_active = False
+        self._schedule_timer_owner: object | None = None
         self._schedule_lock = RLock()
         self.observe_branch_workspace = branch_workspace_observer
         self._side_busy = False
@@ -1198,7 +1204,13 @@ class ConversationController(ConversationScheduleController[StateT]):
                 from mos_eisley.conversation_branch_controller import reserve
 
                 reserve(
-                    self.state.branch_budget,
+                    self.state.branch_budget.model_copy(
+                        update={
+                            "ledger": scheduled_branch_exposure(
+                                self.state, exclude_position=index
+                            )
+                        }
+                    ),
                     BranchReservation(
                         operation_id=f"author-{index}",
                         input_bytes=request_size,
@@ -1207,7 +1219,13 @@ class ConversationController(ConversationScheduleController[StateT]):
                 )
             goal = self.goal_for_entry(entry)
             if goal is not None and exhausted(
-                goal,
+                goal.model_copy(
+                    update={
+                        "ledger": scheduled_goal_exposure(
+                            self.state, goal.goal_id, exclude_position=index
+                        )
+                    }
+                ),
                 self.goal_clock(),
                 input_bytes=request_size,
                 output_bytes=budget.output_reserve,
