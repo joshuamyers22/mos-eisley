@@ -38,16 +38,47 @@ DEFAULT_CRITERIA = "Review correctness, security and missing edge-case tests."
 Reference = Annotated[str, Field(min_length=1, max_length=256)]
 
 
+class GitReviewTarget(Contract):
+    path: Annotated[str, Field(min_length=1, max_length=4096)]
+    start: Annotated[int, Field(ge=1)] | None = None
+    end: Annotated[int, Field(ge=1)] | None = None
+
+    @model_validator(mode="after")
+    def valid_target(self) -> Self:
+        _safe_path(self.path)
+        if (self.start is None) != (self.end is None):
+            raise ValueError("A line range requires both start and end.")
+        if self.start is not None and self.end is not None and self.start > self.end:
+            raise ValueError("Line ranges require START <= END.")
+        return self
+
+
 class GitReviewSelection(Contract):
-    kind: Literal["uncommitted", "base", "commit"]
+    kind: Literal["uncommitted", "base", "commit", "files"]
     reference: Reference | None = None
     parent: Annotated[int, Field(ge=1, le=16)] | None = None
     criteria: Annotated[str, Field(min_length=1, max_length=4000)] = DEFAULT_CRITERIA
+    targets: Annotated[tuple[GitReviewTarget, ...], Field(max_length=MAX_FILES)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
 
     @model_validator(mode="after")
     def valid_selection(self) -> Self:
-        if (self.kind == "uncommitted") != (self.reference is None):
+        if (self.kind in {"uncommitted", "files"}) != (self.reference is None):
             raise ValueError("Select exactly one uncommitted, base or commit target.")
+        if self.kind == "files" and not self.targets:
+            raise ValueError("Source-only review requires --file or --range.")
+        targets = tuple(sorted(self.targets, key=lambda t: (t.path, t.start or 0)))
+        for previous, current in zip(targets, targets[1:], strict=False):
+            if previous.path == current.path and (
+                previous.end is None
+                or current.start is None
+                or previous.end >= current.start
+            ):
+                raise ValueError(
+                    "Duplicate, overlapping or whole-file/range targets are ambiguous."
+                )
+        object.__setattr__(self, "targets", targets)
         if self.parent is not None and self.kind != "commit":
             raise ValueError("A comparison parent is only valid for commit review.")
         if self.reference is not None and (
@@ -126,6 +157,20 @@ class GitReviewScope(Contract):
                 f"Basis: {self.selection.kind}; head={self.head}; "
                 f"base={self.base}; target={self.target}. "
                 "Incomplete scopes cannot authorize acceptance."
+            )
+            + (
+                " Review is limited to explicitly selected files/ranges; "
+                "it cannot establish acceptance outside that selection. "
+                "Range comparisons slice the same line coordinates independently "
+                "in each version; they are excerpt comparisons, "
+                "not complete file diffs."
+                if self.selection.targets
+                else ""
+            )
+            + (
+                " Source-only review has no comparison diff."
+                if self.selection.kind == "files"
+                else ""
             ),
         )
 
@@ -138,6 +183,10 @@ class GitReviewScope(Contract):
             "base": self.base,
             "target": self.target,
             "complete": self.complete,
+            "comparison_basis": "source-only; no diff"
+            if self.selection.kind == "files"
+            else self.selection.kind,
+            "selection_limited": bool(self.selection.targets),
             "files": [
                 file.model_dump(mode="json", exclude={"patch"}) for file in self.files
             ],
@@ -154,19 +203,31 @@ class GitReviewScope(Contract):
             f"Criteria: {self.selection.criteria}",
             f"Files: {len(self.files)}; complete={self.complete}",
         ]
-        for file in self.files:
-            status = (
-                ", ".join(
-                    name
-                    for name, enabled in (
-                        ("staged", file.staged),
-                        ("unstaged", file.unstaged),
-                        ("untracked", file.untracked),
-                    )
-                    if enabled
+        if self.selection.targets:
+            lines.append(
+                "Selection: "
+                + ", ".join(
+                    json.dumps(t.path)
+                    + (f":{t.start}-{t.end}" if t.start else " (whole file)")
+                    for t in self.selection.targets
                 )
-                or "committed"
             )
+            lines.append(
+                "Source-only snapshot; no comparison diff."
+                if self.selection.kind == "files"
+                else "Selected scope only; ranges compare the same coordinates "
+                "in each version."
+            )
+        for file in self.files:
+            status = ", ".join(
+                name
+                for name, enabled in (
+                    ("staged", file.staged),
+                    ("unstaged", file.unstaged),
+                    ("untracked", file.untracked),
+                )
+                if enabled
+            ) or ("source-only" if self.selection.kind == "files" else "committed")
             lines.append(f"{json.dumps(file.path)}: {status}; omission={file.omission}")
             lines.append(
                 f"  hashes before/index/after: {file.before_sha256} / "
@@ -449,6 +510,8 @@ class GitReadBroker:
         head = self._resolve("HEAD", optional=True)
         base = head
         target = head
+        if selection.kind == "files":
+            base = target = None
         if selection.kind == "base":
             assert selection.reference is not None
             requested = self._resolve(selection.reference)
@@ -524,6 +587,10 @@ class GitReadBroker:
                 for name in set(before) | set(index)
                 if before.get(name) != index.get(name)
             )
+        if selection.targets:
+            # Select before opening blobs or working files. Paths are literal,
+            # not shell globs or Git pathspecs; unchanged inputs are permitted.
+            names = sorted({item.path for item in selection.targets})
         files: list[GitReviewFile] = []
         for name in names:
             parts = _safe_path(name)
@@ -542,7 +609,7 @@ class GitReadBroker:
             else:
                 try:
                     old, middle = self._blob(previous), self._blob(staged)
-                    if selection.kind == "uncommitted":
+                    if selection.kind in {"uncommitted", "files"}:
                         try:
                             new = _read_file(
                                 self.root_fd, name, MAX_FILE_BYTES, modes=working_modes
@@ -557,17 +624,23 @@ class GitReadBroker:
                         new = middle
                 except OverflowError:
                     omission = "oversized"
+            if omission is None and selection.targets and old is None and new is None:
+                raise ValueError(
+                    "An explicitly selected file is missing from the review basis."
+                )
             if (
                 omission is None
                 and old == middle == new
                 and previous == staged
                 and name not in working_changes
+                and not selection.targets
             ):
                 continue
             if (
                 omission is not None
                 and previous == staged
                 and selection.kind != "uncommitted"
+                and not selection.targets
             ):
                 continue
             patch = ""
@@ -599,6 +672,22 @@ class GitReadBroker:
                             + "[unstaged]\n"
                             + _patch(name, middle, new)
                         )
+                    if selection.targets:
+                        from mos_eisley.git_review_excerpt import selected_patch
+
+                        patch = selected_patch(
+                            name,
+                            old,
+                            middle,
+                            new,
+                            tuple(t for t in selection.targets if t.path == name),
+                            kind=selection.kind,
+                            mode_patch=patch
+                            if patch.startswith(
+                                ("Mode/presence change:", "Working tree mode changed:")
+                            )
+                            else "",
+                        )
                 except UnicodeError:
                     omission = "binary"
             files.append(
@@ -607,14 +696,20 @@ class GitReadBroker:
                     staged=previous != staged,
                     unstaged=selection.kind == "uncommitted"
                     and (middle != new or name in working_changes),
-                    untracked=name in untracked,
+                    untracked=name in untracked
+                    or (
+                        bool(selection.targets)
+                        and selection.kind == "uncommitted"
+                        and staged is None
+                        and new is not None
+                    ),
                     before_sha256=None if old is None else digest(old),
                     index_sha256=None if middle is None else digest(middle),
                     after_sha256=None if new is None else digest(new),
                     before_mode=None if previous is None else previous[0],
                     index_mode=None if staged is None else staged[0],
                     after_mode=(working_modes[0] if working_modes else None)
-                    if selection.kind == "uncommitted"
+                    if selection.kind in {"uncommitted", "files"}
                     else (None if staged is None else staged[0]),
                     omission=omission,
                     patch=patch,

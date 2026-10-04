@@ -9,6 +9,8 @@ Windows-hosted WSL2 qualification remain pending.
 mos review-scope --workspace /path/to/repository --uncommitted
 mos review-scope --workspace /path/to/repository --base main
 mos review-scope --workspace /path/to/repository --commit COMMIT_ID
+mos review-scope --workspace /path/to/repository --file src/example.py
+mos review-scope --workspace /path/to/repository --uncommitted --range src/example.py:10-20
 ```
 
 Uncommitted review includes staged changes, unstaged changes and untracked files
@@ -35,6 +37,8 @@ Start a conversation with its explicit chat cassette and optional
 /review --uncommitted
 /review --base main
 /review --commit COMMIT_ID --parent 1
+/review --file src/example.py --file tests/test_example.py
+/review --uncommitted --range src/example.py:10-20 --criteria "Check error handling."
 ```
 
 Each command acquires and displays the scope. Without a packet, this is a preview
@@ -71,6 +75,41 @@ Binary, oversized and protected
 disclosed without including their contents. Untracked files ignored by Git are
 outside this preset. Diffs use raw blobs and bounded UTF-8 files, without filters.
 
+## Explicit files and line ranges
+
+Repeat `--file PATH` for whole files or `--range PATH:START-END` for disjoint
+intervals. Paths are literal and relative to the workspace root. Quote spaces;
+globs and Git pathspecs are never expanded. The range parser splits at the last
+colon; `--file` selects names literally even when they end in a range-like suffix.
+
+Without a comparison preset, selectors review a working-tree source snapshot with
+**no comparison diff**, including unchanged or explicitly selected ignored files.
+With `--uncommitted`, `--base` or `--commit`, they restrict that comparison before
+any file/blob content is opened. Missing files, directories, traversal paths,
+duplicate files, overlapping intervals and mixing whole-file and interval
+selection for the same path are rejected.
+
+Coordinates are one-based, inclusive LF records, preserving CRLF and Unicode text.
+A range must exist completely in the target source: the working file for
+source-only/uncommitted review, the target commit for base/commit review, or the
+before version for a deleted file. Comparison ranges slice the **same numeric
+coordinates independently in each version**; they do not follow moved lines.
+Shorter comparison versions are explicitly labeled as clipped; absent versions
+use an empty side. These are excerpt comparisons, not complete-file diffs. Staged
+and unstaged excerpt differences remain separate, and diff headers retain original
+line numbers. If no selected difference exists, the selected source is shown with
+a no-diff label.
+
+Only selected excerpts enter the brief; other lines and files are excluded.
+Acceptance is limited to the selection. The reader still bounds and hashes the
+entire selected file/blob, so edits outside a selected interval invalidate its
+scope. Unselected working-file edits do not invalidate a file-only scope; pinned
+HEAD, configuration and identity changes still do. A short interval in an oversized
+file does not bypass the per-file limit or protected paths. Targets persist in the
+existing scope/packet contracts; old packets without targets retain their canonical
+bytes. Plain, JSON and TUI paths share acquisition and dispatch, and pasted
+selectors remain literal conversation input.
+
 Limits are 64 changed files, 16 KB per file/blob, 64 KB for the serialized scope,
 512 KB for each Git command's combined output, five seconds per command and
 twenty seconds per acquisition. Acquisition must agree across two capture passes;
@@ -79,8 +118,8 @@ changes fail closed rather than yielding a partial successful review.
 This is a local prerequisite, not kernel containment or full managed-worktree
 qualification. Git metadata is trusted to remain under the owner's control during
 acquisition; this does not defend against malicious concurrent rewrites by the
-same owner. Linked worktrees, repository discovery from subdirectories, explicit
-file/range presets, paid live dispatch and external posting remain future work.
+same owner. Linked worktrees, repository discovery from subdirectories, paid live
+dispatch and external posting remain future work.
 
 Tests use synthetic repositories and recordings to cover scope semantics,
 helper suppression, unsafe reads, stale inputs, isolated dispatch and persistence.

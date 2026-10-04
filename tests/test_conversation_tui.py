@@ -316,6 +316,7 @@ class TUITests(IsolatedAsyncioTestCase):
             "/quit",
             "/review",
             "/review --uncommitted",
+            "/review --range pricing.py:1-1",
             "/context",
             "/context 0",
             "/steer retained text",

@@ -179,9 +179,10 @@ do not change v1 scope, grant new authority or advance an implementation gate.
 
 **Review scope prerequisites, 2026-10-03 — local recorded slice implemented:**
 [Bounded Git acquisition](GIT_REVIEW_SCOPES.md) and explicit `/review` presets
-support uncommitted, base-branch and commit targets with frozen briefs and stale
+support uncommitted, base-branch, commit and explicit file/range targets with frozen
+briefs and stale
 input rejection. Requires an explicit POSIX repository root; live review,
-file/range presets, full managed-worktree gates and Linux/Windows-hosted WSL2
+full managed-worktree gates and Linux/Windows-hosted WSL2
 qualification remain pending.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review

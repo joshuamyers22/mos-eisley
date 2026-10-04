@@ -5011,9 +5011,15 @@ JSON and SQLite catalogs produce the same ranking for equivalent metadata.
 
 **Implementation status, 2026-10-03:** the initial
 [local Git/read prerequisite and recorded `/review` connection](GIT_REVIEW_SCOPES.md)
-support uncommitted, base-branch and exact-commit presets, frozen scope digests,
+support uncommitted, base-branch, exact-commit and explicit file/range presets,
+frozen scope digests,
 omission previews and revalidation before dispatch and result publication.
-Explicit POSIX repository roots only. File/range selection, live-review preview,
+Source-only selections label the absence of a diff; comparison intervals use the
+same numeric coordinates independently in each version and retain original line
+numbers, staged/unstaged separation and selection-limited acceptance. Selected
+files are fully hashed for stale detection; unselected content is excluded from
+the brief. TUI, plain and JSON share selectors and persisted target contracts.
+Explicit POSIX repository roots only. Live-review preview,
 managed-worktree qualification and Linux/Windows-hosted WSL2 evidence remain open;
 this slice does not satisfy those gates.
 

@@ -43,7 +43,8 @@ a user-operated shell or watcher, with detach/reattach to the same running proce
 Local macOS compatibility is checked; Linux and Windows-hosted WSL2 qualification
 remain pending. Tmux is not required for ordinary Mos launch.
 Explicit [Git review scopes](docs/GIT_REVIEW_SCOPES.md) freeze uncommitted,
-base-branch or commit changes for `/review`; live review remains pending.
+base-branch or commit changes, whole files and line ranges for `/review`;
+source-only selections label the absence of a diff. Live review remains pending.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 
