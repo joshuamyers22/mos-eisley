@@ -354,3 +354,13 @@ legacy codecs/writers and public Windows refusal remain unchanged.
 wire checks and selected frozen legacy fixtures. Namespace enrollment, durable
 artifact versions, migration, qualified storage and accountable admission remain
 separate work. Codec acceptance does not qualify the native adapters.
+
+## Namespace/storage admission prerequisite
+
+The [defined namespace/storage contract](NAMESPACE_STORAGE_CONTRACT.md) specifies
+one immutable bounded namespace record and an owned read-only lease over an
+already-open directory. Identity values remain metadata; owner/private-storage
+checks cannot mint enrolled trust without independently protected root/key custody.
+ACL inspection, secure relative child opens, resource/lifetime bounds and explicit
+qualification supplement these identity primitives. No existing consumer, writer
+or public Windows selector is admitted by this definition.

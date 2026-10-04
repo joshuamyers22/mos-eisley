@@ -53,3 +53,7 @@ standalone pure wire forms and selected synthetic legacy fixtures. It does not
 enroll namespaces, change retained records, admit native selectors or implement
 rebinding/storage authority. The ADR remains proposed for accountable design review
 and subsequent adoption.
+
+The subsequent [ADR-0016](0016-namespace-record-storage-admission.md) freezes the
+smallest namespace-record/read-only storage prerequisite. Its definition keeps
+protected enrollment, production writes and selector admission gated.

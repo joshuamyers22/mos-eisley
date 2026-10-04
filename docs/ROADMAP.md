@@ -527,6 +527,14 @@ follow separately. This is documentation completion, with
 [verification](IDENTITY_MIGRATION_WORK_NOTE.md); runtime adoption, native admission
 and accountable review remain pending.
 
+The [namespace/storage contract](NAMESPACE_STORAGE_CONTRACT.md) now freezes a
+minimal protected-record definition and read-only admission boundary, distinguishing
+metadata/private-storage observations from enrolled authority. Its next independent
+code slice is a pure namespace codec with fixtures, followed by root/child admission
+and target ACL/relative-open qualification. Protected custody, locking, publication
+and recovery still precede enrollment writes. [The definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
+claims no writer or public Windows selector admission.
+
 **WSL2 qualification preparation, 2026-10-03:** the
 [runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
 wheel installation, upgrade/diagnostics/uninstall, and retained qualification

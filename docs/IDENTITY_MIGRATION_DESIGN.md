@@ -41,6 +41,11 @@ rules. File identity, path, content digest and timestamps remain separate fields
 
 ## Establishing namespace and owner scope
 
+The [namespace-record and storage-admission contract](NAMESPACE_STORAGE_CONTRACT.md)
+now freezes the exact record, separate trust states and read-only prerequisites.
+It is a definition; enrollment/storage implementations and writer admission remain
+pending.
+
 A namespace is an explicitly enrolled local principal-comparison context, not a
 machine name, environment variable, SID display name or volume serial. Its protected
 version-1 record contains `kind="identity-namespace"`, `schema_version=1`, a random
@@ -221,7 +226,10 @@ Implement in this dependency order:
    principal/file/owner-binding contracts, strict decoding and
    selected legacy golden fixtures. No namespace enrollment, writers or consumers;
    M-02/03/05/06. Can proceed while adapter CI/review runs.
-2. **Namespace enrollment and storage prerequisites.** Qualify principal/file
+2. **Namespace enrollment and storage prerequisites — contract defined.**
+   The [contract](NAMESPACE_STORAGE_CONTRACT.md) orders pure namespace codecs,
+   read-only root/child admission, native qualification and protected custody/write
+   primitives. Qualify principal/file
    selectors through accountable review, then protected namespace records, private
    create/open/lock/durability APIs. M-04/09/10/16; native Windows storage remains
    blocked until its separate contracts pass.
