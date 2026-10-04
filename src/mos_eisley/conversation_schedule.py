@@ -10,7 +10,12 @@ from __future__ import annotations
 import math
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import (
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from mos_eisley.conversation_goal import GoalStatus, merge_ledger
 from mos_eisley.core.models import (
@@ -38,6 +43,12 @@ class ScheduleBinding(Contract):
     task_id: Identifier
 
 
+class LocalSourcePin(Contract):
+    source_id: Identifier
+    kind: Literal["local_test", "local_child"]
+    authorization_sha256: Digest
+
+
 class InertScheduleSpec(Contract):
     schedule_id: Identifier
     binding: ScheduleBinding
@@ -50,6 +61,7 @@ class InertScheduleSpec(Contract):
     maximum_fires: Annotated[int, Field(ge=1, le=16)]
     ceiling: ResourceCeiling
     local_sources: Annotated[tuple[Identifier, ...], Field(max_length=4)] = ()
+    local_source_pins: Annotated[tuple[LocalSourcePin, ...], Field(max_length=4)] = ()
 
     @model_validator(mode="after")
     def bounded_spec(self) -> Self:
@@ -69,11 +81,23 @@ class InertScheduleSpec(Contract):
             raise ValueError("Fixed cadence must have equal interval bounds.")
         if len(set(self.local_sources)) != len(self.local_sources):
             raise ValueError("Local fixture source IDs must be unique.")
+        if (
+            self.local_source_pins
+            and tuple(p.source_id for p in self.local_source_pins) != self.local_sources
+        ):
+            raise ValueError("Qualified source pins must match the frozen allowlist.")
         if self.maximum_fires > self.ceiling.attempts or self.ceiling.cost_microusd:
             raise ValueError(
                 "Inert schedules require bounded attempts and zero paid allowance."
             )
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        value: dict[str, object] = handler(self)
+        if not self.local_source_pins:
+            value.pop("local_source_pins", None)
+        return value
 
     @property
     def sha256(self) -> str:

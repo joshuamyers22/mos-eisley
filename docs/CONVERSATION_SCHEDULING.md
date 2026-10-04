@@ -1,13 +1,15 @@
 # Session scheduling and explicit loop controls
 
 This covers §31.15's inert fixtures, recorded durable controller admission and
-explicit plain/JSON/TUI controls and active-session recorded timer driving.
+explicit plain/JSON/TUI controls, active-session recorded timer driving and
+qualified bounded local-result handlers.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
 controls themselves. Ordinary durable goals do not activate scheduling. The active
 recorded timer adapter owns wakeups only while the session terminal is open;
-production handlers and external event adapters remain later work.
+trusted local reads are bounded; authenticated external event adapters remain
+later work.
 
 ## Explicit controls
 
@@ -119,13 +121,85 @@ these records. Terminal resume displays pending work and requires explicit input
 before dispatching it.
 
 The recorded controller now has explicit trusted host admission APIs, described
-below. The active-session recorded timer adapter is connected; production event
-adapters are not connected. Existing goal jobs record
-check-ins and committed results but do not authenticate external notifications or
-schedule wakeups. Goal completion still requires qualified evidence/semantic
-adapters. Neither the child inspection port nor the stopped review inventory is a
-qualified implementation-child event source. Live background/execution/MCP gates
-remain required.
+below. The active-session recorded timer adapter and qualified local-result
+adapters are connected. Goal jobs retain controller-owned commit revisions, and
+the existing child inspection port supplies authorized retained implementation
+reports. Neither authenticates external notifications. Goal completion still
+requires qualified evidence/semantic adapters; result notifications do not
+prove completion or grant integration authority. The stopped review inventory
+remains outside this source boundary. Live background/execution/MCP gates remain
+required.
+
+## Trusted handler qualification and bounded timeouts
+
+Assessment found synchronous observer/validator calls without whole-operation
+read deadlines, and no adapter connecting retained results to schedule admission.
+`ScheduleReads` now bounds read operations with a monotonic deadline: two seconds
+by default, explicitly configurable by the trusted host up to ten seconds.
+Creation, admission, polling, registration, cadence changes, resume and dispatch
+revalidation share their deadline across nested reads; the owner checks that
+it remains valid before committing. Cancellation invalidates the active read
+operation. Exceptions produce bounded generic rejection messages without callback
+payloads or paths; failed timer handling pauses for explicit revalidation.
+Persistence failures retain the existing fatal recovery behavior.
+
+Only one read worker may run per controller. Timeout/cancellation discards its
+late result and quarantines the lane. Python cannot forcibly stop an arbitrary
+thread: an abandoned read may finish later, but cannot admit work through its
+returned result. No replacement reader starts while it runs. Explicit reset/resume
+requires an idle controller and a finished reader, and preserves all counters,
+charges and uncertain exposure. Host callbacks must remain read-only and must
+not dispatch providers/tools or modify controller/store state. This deadline
+wrapper is a qualification boundary for trusted readers, not containment for
+untrusted executable code or a guarantee that their underlying I/O is killed.
+
+Trusted hosts create local sources with `LocalResultAuthorization`, freeze the
+resulting `authorization.pin` in `InertScheduleSpec.local_source_pins` alongside
+its source allowlist, and call `register_schedule_source` with the current session
+revision. The pin includes source kind, the entire owner/session/task/workspace/
+revision/policy/goal binding and explicit result target identities. Registration
+changes no durable state or spend. It is unavailable to command/model text.
+At restart the host must register the exact authorized source again before
+resume or dispatch; retained pins do not manufacture access credentials.
+
+`CommittedChildResults` wraps the existing `ChildInspectionSource`. It checks the
+frozen implementation assignment digest, parent task, workspace and currentness
+before requesting a report. The existing controller verifies the retained report
+reference and guards concurrent revision changes. Review children are rejected
+before any sealed report read. Completed, failed and cancelled children may notify
+only with an available complete retained report; missing/partial output cannot
+wake the queue. These notifications grant no success or integration approval.
+
+`CommittedTestResults` wraps durable `GoalJob` records and a trusted artifact
+lookup. `report_goal_job` stamps terminal retained results with the acknowledged
+parent commit revision; caller-supplied revisions and replacement results are
+rejected. The adapter verifies registered operations, the current goal definition,
+artifact digest, an executed nonempty `GoalTestReceipt`, result consistency and
+explicit execution workspace/input hashes. Those execution hashes are separate
+from session workspace identity. Legacy unstamped jobs emit no notifications:
+no commit sequence is inferred or migrated. Empty optional fields are omitted
+from old spec/job serialization to preserve frozen hashes and operation IDs.
+
+`poll_schedule_sources` reads bounded batches and admits at most one metadata
+notification per idle owner turn. The active terminal checks sources at its
+bounded one-second wake boundary, without model polling. A working goal can wake
+before the cadence deadline. A waiting goal can retain result metadata but cannot
+dispatch until the existing goal controller independently permits work; it never
+implicitly resumes a stopped goal. Input, side/diff work and queued/running work
+retain priority. Source batches cap at 16 events and 32,000 metadata bytes; each
+result caps at 4096 bytes with payload omitted. Durable sequence cursors, 16 recent
+IDs and a 64-event lifetime ceiling bound duplicate/out-of-order/flood handling.
+Duplicates do not reread qualified artifacts, enqueue work or reserve exposure.
+
+Both session stores preserve metadata cursors separately from the atomic
+intent/queue commit. Lost acknowledgements stop the owner; recovery retains
+cursor progress, skipped/uncertain intent identities and charges without replay
+or budget reset. Tests cover stale bindings/assignments, source substitution,
+failed/cancelled children, invalid and legacy test receipts, handler failure,
+deadlines/cancellation, late completion, bounded floods, dispatch rejection,
+user steering and metadata/queue acknowledgement loss on snapshot and SQLite.
+Authenticated external ingress, live/paid tools/providers and closed-session
+execution remain separate qualification work.
 
 ## Fixture behavior
 
@@ -182,8 +256,9 @@ observes current owner/session/workspace, revision, policy and goal bindings.
 an explicit expected session revision. Creation preserves existing task exposure
 and cannot enlarge its lifetime/ceilings. Admission is a synchronous host tick,
 not a timer task. Local event admission additionally requires a trusted
-`schedule_event_validator` for committed-result provenance; neither a declared
-source ID nor an event payload grants authority. Task-scoped live scheduling is
+`schedule_event_validator` for legacy fixture provenance, or a registered
+qualified source matching the schedule’s durable authorization pin; neither a
+declared source ID nor an event payload grants authority. Task-scoped live scheduling is
 still rejected.
 
 The optional `schedules` header field retains bounded `StoredSchedule` records
@@ -249,11 +324,16 @@ pre-dispatch validation, lost acknowledgements, clean/uncertain restart and no
 replay. Real CLI subprocesses consume an exact recorded timer request on both
 storage backends. Package smoke coverage includes the driver.
 
-Remaining work includes bounded trusted handler timeouts and external ingress
-authentication.
+`tests/test_conversation_schedule_handlers.py` and
+`tests/test_conversation_schedule_sources.py` qualify bounded reads and committed
+local notifications, including cancellation, hung handlers, late completion,
+stale sources, floods and lost acknowledgements. Package smoke includes both.
+
+Remaining work includes authenticated external ingress and live/paid execution
+adapters.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
-exact receipts against qualified controllers. Live event ingress and production
+exact receipts against qualified controllers. External event ingress and live/paid
 handlers retain the applicable background, execution, MCP, network, credential
 and owner-isolation gates. This slice promises no daemon or work while a session is
 closed.

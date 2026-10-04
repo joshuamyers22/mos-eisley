@@ -79,6 +79,7 @@ from mos_eisley.conversation_schedule_controller import (
     scheduled_branch_exposure,
     scheduled_goal_exposure,
 )
+from mos_eisley.conversation_schedule_handlers import ScheduleReads
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     RuntimeConversationState,
@@ -263,6 +264,7 @@ class ConversationController(ConversationScheduleController[StateT]):
         child_inspection: ChildInspectionSource | None = None,
         schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None = None,
         schedule_event_validator: Callable[[LocalWakeupEvent], None] | None = None,
+        schedule_handler_timeout: float = 2.0,
         branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
         goal_evaluator: GoalEvaluator | None = None,
         goal_evaluator_timeout: float = 2.0,
@@ -348,6 +350,8 @@ class ConversationController(ConversationScheduleController[StateT]):
         self._side_provider_task = None
         self.publish_fork = publish_fork
         self.child_inspection = child_inspection
+        self.schedule_reads = ScheduleReads(schedule_handler_timeout)
+        self.schedule_sources = {}
         self.schedule_observer = schedule_observer
         self.schedule_event_validator = schedule_event_validator
         self.schedule_timer_active = False

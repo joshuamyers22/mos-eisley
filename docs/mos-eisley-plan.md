@@ -5384,6 +5384,30 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Trusted local handler qualification and bounded timeouts, 2026-10-04 — implemented:**
+Read-only schedule observers, event validators and local source readers now use
+shared whole-operation monotonic deadlines and cancellation checks before owner
+commits. One worker per controller bounds reader concurrency; timeout/cancellation
+discards late outcomes and quarantines the lane until it has finished and an idle
+explicit reset/resume is allowed. Python cannot kill an arbitrary blocked reader;
+callbacks remain trusted read-only ports, and the wrapper grants no execution
+containment. Known handler failures pause work; lost persistence acknowledgements
+remain fatal without replay or refund.
+Qualified host adapters connect committed local test receipts and retained
+implementation-child reports to the existing active-session queue. Durable source
+pins freeze full scope and explicit operation/execution or child-assignment
+identities; restart requires exact trusted registration. Sealed review reports,
+stale assignments and incomplete output cannot wake work. Controller-owned test
+commit revisions are immutable; legacy unstamped results are not inferred.
+Bounded batches, one metadata notification per owner turn, durable duplicate
+cursors and lifetime event ceilings limit floods. Waiting goals retain metadata
+without dispatch or implicit resume. Snapshot/SQLite tests cover stale bindings,
+failed/cancelled children, malformed receipts, hung/failed/cancelled handlers,
+late completion, steering priority and metadata/queue acknowledgement loss without
+budget resets or uncertain-operation replay. See
+[qualified local sources and deadline limits](CONVERSATION_SCHEDULING.md#trusted-handler-qualification-and-bounded-timeouts).
+Authenticated external ingress and live/paid execution qualification follow.
+
 **Active-session recorded timer driving, 2026-10-04 — implemented:**
 One timer owner wakes the existing plain/JSON/TUI controller queue with bounded
 monotonic waits and current-clock deadlines. Timers admit one intent at safe
@@ -5396,8 +5420,8 @@ stopped goals and uncertain operations cannot cause retries or pause bypass.
 EOF/quit/handoff/cancellation stop the waiter and persist clean pauses before
 releasing ownership; restart requires guarded resume without replay or budget
 reset. Recorded CLI timer completion is tested on snapshot and SQLite, alongside
-races, lost acknowledgements and TUI draft preservation. Production handler
-timeouts/qualification and authenticated external ingress follow; no paid/live
+races, lost acknowledgements and TUI draft preservation. Trusted local handler
+qualification is implemented above; authenticated external ingress follows; no paid/live
 provider, tool, daemon or closed-session execution is enabled by this slice.
 
 **Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
@@ -5420,7 +5444,7 @@ the queued wakeup atomically while retaining exposure. Queued cold-resume work i
 known undispatched and skipped; running work retains goal/schedule uncertainty
 without replay. Concurrent controls, writer/resume exclusion, cancellation and
 lost admission/running acknowledgements have recorded boundary tests.
-Production handlers and external ingress remain gated;
+Trusted local handlers are qualified above; external ingress remains gated;
 this storage slice does not enable live/background dispatch.
 
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
@@ -5434,7 +5458,8 @@ refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
 timer/event admission path at that point. Durable recorded persistence and dispatch
 priority, explicit `/loop` controls and active recorded timers are implemented
-above. Production handlers and external/background adapters remain required;
+above. Trusted local handlers are qualified above; external/background adapters
+remain required;
 no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit

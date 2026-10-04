@@ -466,6 +466,7 @@ class ConversationGoalController(Generic[StateT]):
             update={
                 "next_checkin_at": self.goal_clock() + job.checkin_seconds,
                 "definition_sha256": goal.definition.sha256,
+                "committed_revision": None,
             }
         )
         updated = goal.model_copy(
@@ -488,6 +489,23 @@ class ConversationGoalController(Generic[StateT]):
         if goal is None or goal.definition.sha256 != expected_definition:
             raise ValueError("Background result belongs to an obsolete goal.")
         report = GoalJob.model_validate_json(report.model_dump_json())
+        old = next(
+            (j for j in goal.jobs if j.operation_id == report.operation_id), None
+        )
+        if old is None:
+            raise ValueError("Unregistered result operation.")
+        if report.committed_revision not in {None, old.committed_revision}:
+            raise ValueError("Result commit revision is controller-owned.")
+        report = report.model_copy(
+            update={
+                "committed_revision": (
+                    old.committed_revision or self.state.revision + 1
+                    if report.state in {"passed", "failed"}
+                    and report.result_sha256 is not None
+                    else None
+                )
+            }
+        )
         updated = apply_job_report(goal, report, self.goal_clock())
         if updated == goal:
             return

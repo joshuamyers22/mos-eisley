@@ -1964,6 +1964,7 @@ async def _run_terminal(
 
     def interrupt() -> None:
         nonlocal stop
+        controller.schedule_reads.cancel()
         # Drop the reader's pending paste as well as the queued input on Ctrl-C.
         stop()
         stop = _input_reader(sys.stdin.fileno(), queue)

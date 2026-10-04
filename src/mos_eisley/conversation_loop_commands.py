@@ -144,7 +144,7 @@ def _create(
             review_rounds=0,
         ),
     )
-    binding = controller.schedule_observer(spec)
+    binding = controller.read_schedule_binding(spec)
     spec = spec.model_copy(update={"binding": binding})
     controller.add_schedule(spec, expected_revision=revision)
     return spec.schedule_id
@@ -304,9 +304,10 @@ def loop_command(
         selected = None
         as_json = False
         if action == "create" and payload is not None:
-            selected = _create(
-                controller, LoopCreate.model_validate_json(payload), revision
-            )
+            with controller.schedule_reads.operation():
+                selected = _create(
+                    controller, LoopCreate.model_validate_json(payload), revision
+                )
         elif (
             action in {"cancel", "resume"}
             and payload is not None

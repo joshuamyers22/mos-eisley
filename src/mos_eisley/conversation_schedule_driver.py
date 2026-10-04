@@ -49,6 +49,12 @@ class ActiveSessionTimers:
         now = self.controller.goal_clock()
         if not math.isfinite(now) or now < 0:
             return 0
+        goal = self.controller.current_goal
+        if goal is not None and goal.status == "waiting":
+            return min(
+                self.poll_seconds,
+                max(0, min(s.state.spec.expires_at for s in records) - now),
+            )
         return min(
             self.poll_seconds,
             max(
@@ -92,7 +98,10 @@ class ActiveSessionTimers:
             goal = chat.current_goal
             if (
                 goal is None
-                or goal.status != "working"
+                or goal.status
+                not in (
+                    {"working", "waiting"} if spec.local_source_pins else {"working"}
+                )
                 or goal.goal_id != spec.binding.goal_id
                 or goal.definition.sha256 != spec.binding.goal_definition_sha256
             ):
@@ -105,6 +114,33 @@ class ActiveSessionTimers:
             if busy:
                 continue
             safe = chat.schedule_timer_idle
+            if not safe:
+                continue
+            if spec.local_source_pins and now < spec.expires_at:
+                try:
+                    changed = (
+                        chat.poll_schedule_sources(
+                            spec.schedule_id, expected_revision=chat.state.revision
+                        )
+                        or changed
+                    )
+                    record = next(
+                        s
+                        for s in chat.state.schedules
+                        if s.state.spec.schedule_id == spec.schedule_id
+                    )
+                    state = record.state
+                except (ValueError, OSError):
+                    if chat.persistence_broken:
+                        raise
+                    self._pause(
+                        spec.schedule_id,
+                        "Local handler rejected; check scope before explicit resume.",
+                    )
+                    changed = True
+                    continue
+            if goal.status == "waiting" and now < spec.expires_at:
+                continue
             if not (
                 now >= spec.expires_at
                 or now >= state.next_due_at
