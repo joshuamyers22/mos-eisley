@@ -29,7 +29,9 @@ class BranchCommands:
     ):
         self.controller, self.emit = controller, emit
 
-    async def execute(self, line: str) -> Literal["accepted", "queued", "rejected"]:
+    async def execute(
+        self, line: str, *, on_side_started: Callable[[], None] | None = None
+    ) -> Literal["accepted", "queued", "rejected"]:
         try:
             if len(line) > 8000 or line.count("\n") >= 256:
                 raise ValueError("Branch controls exceed ordinary input limits.")
@@ -93,6 +95,7 @@ class BranchCommands:
                         args[2],
                         positions(args[1]),
                         expected_revision=self.controller.state.revision,
+                        on_started=on_side_started,
                     )
                     self.emit(
                         {

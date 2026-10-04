@@ -24,8 +24,6 @@ def submission_command(
     | None
 ):
     """Recognize typed submission commands; callers keep pasted text literal."""
-    if text == "/side cancel":
-        return None
     if text.split(maxsplit=1)[:1] in (["/agent"], ["/subagents"]):
         return "agent_inspection"
     if text.split(maxsplit=1)[:1] in (["/fork"], ["/side"]):

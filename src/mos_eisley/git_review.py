@@ -449,11 +449,21 @@ class GitReadBroker:
                 raise ValueError("Git read failed for the selected local repository.")
             return b"" if code else bytes(buffers[process.stdout.fileno()])
         finally:
-            if process.poll() is None:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=2)
-            process.stdout.close()
-            process.stderr.close()
+            try:
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass  # The process exited between poll and kill.
+                    except PermissionError:
+                        # Some hosts disallow group signals even for a child.
+                        # Git helpers are disabled by this broker; kill and reap
+                        # the directly owned process rather than hiding failure.
+                        process.kill()
+                    process.wait(timeout=2)
+            finally:
+                process.stdout.close()
+                process.stderr.close()
 
     def _resolve(self, reference: str, *, optional: bool = False) -> str | None:
         result = self._git(

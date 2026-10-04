@@ -580,6 +580,7 @@ class ConversationBranchController(ConversationGoalController[StateT]):
         *,
         expected_revision: int,
         client: ModelClient | None = None,
+        on_started: Callable[[], None] | None = None,
     ) -> SideAnswer:
         from mos_eisley.conversation import (
             conversation_config,
@@ -646,6 +647,8 @@ class ConversationBranchController(ConversationGoalController[StateT]):
         )
         self._side_busy = True
         try:
+            if on_started is not None:
+                on_started()
             recorded = RecordedAgentClient(
                 AgentCassette(exchanges=(self.cassette.exchanges[consumed],))
             )

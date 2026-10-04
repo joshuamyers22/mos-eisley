@@ -1332,6 +1332,14 @@ async def terminal(
     active: asyncio.Task[bool] | None = None
     branch_task: asyncio.Task[str] | None = None
     branch_submission: ConversationSubmission | None = None
+
+    def side_started() -> None:
+        nonlocal branch_submission
+        if branch_submission is not None:
+            if not branch_submission.accepted.done():
+                branch_submission.accepted.set_result(True)
+            branch_submission = None
+
     diff_task: asyncio.Task[str | None] | None = None
     diff_submission: ConversationSubmission | None = None
     eof = False
@@ -1463,9 +1471,23 @@ async def terminal(
                             incoming = next_input()
                             continue
                         if command == "branch_control":
+                            if line.text == "/side cancel":
+                                if branch_task is not None:
+                                    branch_task.cancel()
+                                    with suppress(asyncio.CancelledError):
+                                        await branch_task
+                                    branch_task = None
+                                if branch_submission is not None:
+                                    branch_submission.accepted.cancel()
+                                    branch_submission = None
+                                line.accepted.set_result(True)
+                                incoming = next_input()
+                                continue
                             if branch_task is None:
                                 branch_task = asyncio.create_task(
-                                    branch_commands.execute(line.text)
+                                    branch_commands.execute(
+                                        line.text, on_side_started=side_started
+                                    )
                                 )
                                 branch_submission = line
                             else:
