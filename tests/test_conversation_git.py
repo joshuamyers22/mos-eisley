@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event, Thread
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -16,6 +17,7 @@ from mos_eisley.conversation_git import (
     GitState,
     GitWorkspaceReader,
 )
+from mos_eisley.conversation_git_isolation import isolated_command
 
 
 class GitWorkspaceTests(TestCase):
@@ -156,6 +158,58 @@ class GitWorkspaceTests(TestCase):
             b"+after", reader.patch(snapshot, "tracked.txt", DiffBasis.UNSTAGED).data
         )
         self.assertFalse(marker.exists())
+
+    def test_concurrent_config_rewrite_cannot_execute_new_helper(self) -> None:
+        self.commit("tracked.txt")
+        (self.root / "tracked.txt").write_text("changed\n")
+        marker = self.base / "helper-executed"
+        helper = self.base / "helper.sh"
+        helper.write_text(f"#!/bin/sh\nprintf ran > '{marker}'\ncat\n")
+        helper.chmod(0o700)
+        reader = self.reader()
+        baseline = reader.snapshot()
+        scanned = Event()
+        rewritten = Event()
+        raced_command: list[str] = []
+
+        def before_launch(executable: Path, arguments: list[str]) -> list[str]:
+            if (
+                "diff" in arguments
+                and "--no-color" in arguments
+                and not scanned.is_set()
+            ):
+                raced_command.extend(arguments)
+                scanned.set()
+                if not rewritten.wait(5):
+                    raise AssertionError("Git configuration rewrite did not finish")
+            return isolated_command(executable, arguments)
+
+        def rewrite() -> None:
+            if not scanned.wait(5):
+                return
+            self.run_git("config", "filter.raced.clean", str(helper))
+            (self.root / ".gitattributes").write_text("*.txt filter=raced\n")
+            rewritten.set()
+
+        worker = Thread(target=rewrite)
+        worker.start()
+        try:
+            with (
+                patch(
+                    "mos_eisley.conversation_git.isolated_command",
+                    side_effect=before_launch,
+                ),
+                self.assertRaises(GitReadError),
+            ):
+                reader.patch(baseline, "tracked.txt", DiffBasis.UNSTAGED)
+        finally:
+            worker.join(timeout=5)
+        self.assertTrue(rewritten.is_set())
+        self.assertFalse(marker.exists())
+        # Run the exact raced argv without the OS boundary. The helper must
+        # execute, proving the confined read encountered a real exploit path.
+        self.run_git(*raced_command)
+        self.assertTrue(marker.exists())
 
     def test_snapshot_and_patch_leave_index_untouched(self) -> None:
         self.commit("tracked.txt")

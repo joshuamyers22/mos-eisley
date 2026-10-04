@@ -2489,6 +2489,9 @@ The panel now provides `/diff` toggle, keyboard focus and file navigation,
 bounded staged/unstaged patch display, background refresh, and selected-line
 prompt attachments with frozen source bytes, composer preview, stale-source
 rejection, and request admission provenance; see [the panel work note](CONVERSATION_DIFF_PANEL_WORK_NOTE.md).
+The later [attachment authority follow-up](CONVERSATION_DIFF_ATTACHMENT_AUTHORITY_WORK_NOTE.md)
+adds a scrollable exact-excerpt and destination review before an attached chat
+message is queued, with a second explicit send and a draft-preserving cancel.
 
 Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
 and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized

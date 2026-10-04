@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 
@@ -197,6 +198,9 @@ class ConversationTUI:
         self.diff_generation = 0
         self.diff_task: asyncio.Task[None] | None = None
         self.diff_wakeup = asyncio.Event()
+        self.diff_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="mos-diff"
+        )
         self.diff_snapshot: GitSnapshot | None = None
         self.diff_items: tuple[DiffItem, ...] = ()
         self.diff_selected = 0
@@ -205,6 +209,9 @@ class ConversationTUI:
         self.diff_loading = False
         self.diff_limit_index = 0
         self.diff_attachments: list[DiffAttachment] = []
+        self.attachment_send_review: (
+            tuple[str, tuple[DiffAttachment, ...], str] | None
+        ) = None
         self.context_preview: tuple[int, str] | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
@@ -212,6 +219,9 @@ class ConversationTUI:
         self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
         self.diff_files = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
         self.diff_content = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.attachment_review = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=True
+        )
         self.editor_control = BufferControl(buffer=self.editor)
         keys = KeyBindings()
 
@@ -250,10 +260,20 @@ class ConversationTUI:
             if not self.sending:
                 self.editor.clear()
                 self.diff_attachments.clear()
+                self.attachment_send_review = None
+                self.app.layout.focus(self.editor_control)
                 self.restart_diff_poll()
                 self.set_notice("Unsent draft discarded.")
 
         def focus(event: KeyPressEvent) -> None:
+            if self.attachment_send_review is not None:
+                targets: list[BufferControl | TextArea] = [
+                    self.editor_control,
+                    self.attachment_review,
+                ]
+                target = 0 if self.app.layout.has_focus(self.attachment_review) else 1
+                self.app.layout.focus(targets[target])
+                return
             targets: list[BufferControl | TextArea] = [self.editor_control]
             if not self.diff_visible or self.app.output.get_size().columns >= 110:
                 targets.append(self.transcript)
@@ -270,6 +290,10 @@ class ConversationTUI:
             self.app.layout.focus(targets[(current + 1) % len(targets)])
 
         def previous_page(event: KeyPressEvent) -> None:
+            if self.attachment_send_review is not None:
+                self.app.layout.focus(self.attachment_review)
+                self.attachment_review.buffer.cursor_up(count=10)
+                return
             if self.diff_visible and self.app.layout.has_focus(self.diff_content):
                 self.diff_content.buffer.cursor_up(count=10)
                 return
@@ -287,6 +311,10 @@ class ConversationTUI:
                 self.transcript.buffer.cursor_up(count=10)
 
         def next_page(event: KeyPressEvent) -> None:
+            if self.attachment_send_review is not None:
+                self.app.layout.focus(self.attachment_review)
+                self.attachment_review.buffer.cursor_down(count=10)
+                return
             if self.diff_visible and self.app.layout.has_focus(self.diff_content):
                 self.diff_content.buffer.cursor_down(count=10)
                 return
@@ -367,10 +395,17 @@ class ConversationTUI:
                 return
             if self.diff_attachments:
                 self.diff_attachments.pop()
+                self.cancel_attachment_review()
                 self.restart_diff_poll()
                 self.set_notice("Latest diff excerpt removed from the draft.")
             else:
                 self.set_notice("No diff excerpt is attached.")
+
+        def confirm_attachment_send(event: KeyPressEvent) -> None:
+            self.send(literal=True)
+
+        def cancel_attachment_send(event: KeyPressEvent) -> None:
+            self.cancel_attachment_review()
 
         def extend_diff_up(event: KeyPressEvent) -> None:
             if self.diff_content.buffer.selection_state is None:
@@ -386,6 +421,15 @@ class ConversationTUI:
             "enter",
             filter=Condition(lambda: self.app.layout.has_focus(self.editor_control)),
         )(send)
+        keys.add(
+            "enter",
+            filter=Condition(
+                lambda: (
+                    self.attachment_send_review is not None
+                    and self.app.layout.has_focus(self.attachment_review)
+                )
+            ),
+        )(confirm_attachment_send)
         keys.add("escape", "enter")(newline)
         keys.add("c-j")(newline)
         keys.add("c-s")(literal_send)
@@ -394,6 +438,9 @@ class ConversationTUI:
         keys.add(Keys.SIGINT)(stop)
         keys.add("c-d")(quit_session)
         keys.add("c-u")(clear)
+        keys.add(
+            "c-g", filter=Condition(lambda: self.attachment_send_review is not None)
+        )(cancel_attachment_send)
         keys.add("tab")(focus)
         keys.add("pageup")(previous_page)
         keys.add("pagedown")(next_page)
@@ -439,8 +486,11 @@ class ConversationTUI:
                             ),
                             filter=Condition(
                                 lambda: (
-                                    not self.diff_visible
-                                    or self.app.output.get_size().columns >= 110
+                                    self.attachment_send_review is None
+                                    and (
+                                        not self.diff_visible
+                                        or self.app.output.get_size().columns >= 110
+                                    )
                                 )
                             ),
                         ),
@@ -457,7 +507,21 @@ class ConversationTUI:
                                     ),
                                 ]
                             ),
-                            filter=Condition(lambda: self.diff_visible),
+                            filter=Condition(
+                                lambda: (
+                                    self.attachment_send_review is None
+                                    and self.diff_visible
+                                )
+                            ),
+                        ),
+                        ConditionalContainer(
+                            Frame(
+                                self.attachment_review,
+                                title="Diff send review • Enter queue • Ctrl-G back",
+                            ),
+                            filter=Condition(
+                                lambda: self.attachment_send_review is not None
+                            ),
                         ),
                     ],
                     padding=1,
@@ -515,16 +579,68 @@ class ConversationTUI:
 
     def restart_diff_poll(self) -> None:
         self.diff_generation += 1
-        if self.diff_task is not None:
-            self.diff_task.cancel()
-            self.diff_task = None
-        if self.diff_visible or self.diff_attachments:
-            self.diff_wakeup.set()
-            self.diff_task = asyncio.create_task(self.poll_diff(self.diff_generation))
+        self.diff_wakeup.set()
+        if (self.diff_visible or self.diff_attachments) and (
+            self.diff_task is None or self.diff_task.done()
+        ):
+            self.diff_task = asyncio.create_task(self.poll_diff())
         self.app.invalidate()
 
+    def attachment_destination(self) -> str:
+        session = self.controller.state.session_id
+        live = self.controller.state.live_chat
+        if live is None:
+            mode = "Recorded local chat (fixture; no live provider)"
+            return f"{mode} • session {session}"
+        return (
+            f"OpenAI live chat • model {live.model} • effort {live.effort} "
+            f"• session {session}"
+        )
+
+    def attachment_send_preview(
+        self,
+        text: str,
+        attachments: tuple[DiffAttachment, ...],
+        destination: str,
+    ) -> str:
+        lines = [
+            f"Destination: {destination}",
+            "Queues one chat message. Diff text is untrusted source data.",
+            "No Git edit, tool, review, provider choice, or new spend authority.",
+            "Live dispatch still requires its separately selected policy and cap.",
+            "",
+            "Message (exact JSON string; escapes show controls and line endings):",
+            json.dumps(text, ensure_ascii=True),
+            "",
+            "Frozen diff excerpts sent with that message:",
+        ]
+        for index, item in enumerate(attachments, 1):
+            lines.extend(
+                (
+                    f"{index}. workspace "
+                    + json.dumps(item.workspace, ensure_ascii=True),
+                    "   path "
+                    + json.dumps(item.path, ensure_ascii=True)
+                    + f" • {item.basis.value}",
+                    f"   snapshot {item.snapshot_digest}",
+                    "   excerpt (exact JSON string):",
+                    "   " + json.dumps(item.excerpt, ensure_ascii=True),
+                    "",
+                )
+            )
+        return display_text("\n".join(lines))
+
+    def cancel_attachment_review(self) -> None:
+        if self.attachment_send_review is None:
+            return
+        self.attachment_send_review = None
+        self.app.layout.focus(self.editor_control)
+        self.set_notice("Diff send review cancelled; draft and excerpts retained.")
+
     def attachment_preview(self) -> str:
-        lines = ["Diff excerpts • F12 attach selected lines • Ctrl-X removes latest"]
+        lines = [
+            "Diff excerpts • Enter reviews bytes/destination • Ctrl-X removes latest"
+        ]
         if self.diff_attachments:
             lines.append("Workspace: " + self.diff_attachments[0].workspace)
         for index, item in enumerate(self.diff_attachments, 1):
@@ -667,21 +783,27 @@ class ConversationTUI:
             )
         self.app.invalidate()
 
-    async def poll_diff(self, generation: int) -> None:
-        workspace = Path(self.controller.state.workspace)
+    def _read_diff_snapshot(
+        self, workspace: Path
+    ) -> tuple[GitWorkspaceReader, GitSnapshot]:
+        selection = DirectorySelection.inspect(workspace)
+        reader = GitWorkspaceReader(selection, self.git_executable)
+        return reader, reader.snapshot()
+
+    async def poll_diff(self) -> None:
         try:
-            while self._diff_current(generation, workspace):
+            while (self.diff_visible or self.diff_attachments) and (
+                self.directory_target is None
+            ):
+                generation = self.diff_generation
+                workspace = Path(self.controller.state.workspace)
                 self.diff_wakeup.clear()
                 try:
-                    selection = await asyncio.to_thread(
-                        DirectorySelection.inspect, workspace
+                    reader, snapshot = await asyncio.get_running_loop().run_in_executor(
+                        self.diff_executor, self._read_diff_snapshot, workspace
                     )
-                    reader = await asyncio.to_thread(
-                        GitWorkspaceReader, selection, self.git_executable
-                    )
-                    snapshot = await asyncio.to_thread(reader.snapshot)
                     if not self._diff_current(generation, workspace):
-                        return
+                        continue
                     previous = (
                         self.diff_items[self.diff_selected].key
                         if self.diff_items
@@ -720,18 +842,23 @@ class ConversationTUI:
                     self.render_diff()
                     if self.diff_visible and selected is not None:
                         item = selected
-                        if item.basis is not None and self.diff_patch is None:
-                            patch = await asyncio.to_thread(
-                                reader.patch, snapshot, item.change.path, item.basis
+                        basis = item.basis
+                        if basis is not None and self.diff_patch is None:
+                            patch = await asyncio.get_running_loop().run_in_executor(
+                                self.diff_executor,
+                                reader.patch,
+                                snapshot,
+                                item.change.path,
+                                basis,
                             )
                             if not self._diff_current(generation, workspace):
-                                return
+                                continue
                             if self.diff_items[self.diff_selected].key == item.key:
                                 self.diff_patch = patch
                                 self.render_diff()
                 except (GitReadError, DirectorySelectionError) as error:
                     if not self._diff_current(generation, workspace):
-                        return
+                        continue
                     self.diff_error = str(error)
                     self.diff_loading = False
                     self.render_diff()
@@ -739,6 +866,9 @@ class ConversationTUI:
                     await asyncio.wait_for(self.diff_wakeup.wait(), timeout=2.0)
         except asyncio.CancelledError:
             return
+        finally:
+            if self.diff_task is asyncio.current_task():
+                self.diff_task = None
 
     def _diff_current(self, generation: int, workspace: Path) -> bool:
         return (
@@ -1086,6 +1216,8 @@ class ConversationTUI:
             self.sending = False
             self.editor.clear()
             self.diff_attachments.clear()
+            self.attachment_send_review = None
+            self.app.layout.focus(self.editor_control)
             self.restart_diff_poll()
             while not self.queue.empty():
                 item = self.queue.get_nowait()
@@ -1145,6 +1277,27 @@ class ConversationTUI:
                 self.set_notice(str(error))
                 return
             literal = True
+            destination = self.attachment_destination()
+            review = (text, attachments, destination)
+            if self.attachment_send_review != review:
+                self.attachment_send_review = review
+                self.attachment_review.buffer.set_document(
+                    Document(
+                        self.attachment_send_preview(text, attachments, destination),
+                        0,
+                    ),
+                    bypass_readonly=True,
+                )
+                self.app.layout.focus(self.attachment_review)
+                self.set_notice(
+                    "Review exact diff excerpts and destination. "
+                    "Enter queues; Ctrl-G returns to draft."
+                )
+                return
+            self.attachment_send_review = None
+            self.app.layout.focus(self.editor_control)
+        else:
+            self.attachment_send_review = None
         self.sending = True
         self.submission = asyncio.create_task(self.submit(text, literal, attachments))
 
@@ -1170,7 +1323,12 @@ class ConversationTUI:
                     return snapshot, tuple(patch.digest for patch in patches)
 
                 try:
-                    snapshot, patch_digests = await asyncio.to_thread(current_source)
+                    (
+                        snapshot,
+                        patch_digests,
+                    ) = await asyncio.get_running_loop().run_in_executor(
+                        self.diff_executor, current_source
+                    )
                 except (GitReadError, DirectorySelectionError):
                     self.set_notice(
                         "Could not verify diff excerpts. "
@@ -1259,9 +1417,7 @@ class ConversationTUI:
             self.directory_target = selected
             self.diff_generation += 1
             self.diff_visible = False
-            if self.diff_task is not None:
-                self.diff_task.cancel()
-                self.diff_task = None
+            self.diff_wakeup.set()
             self.set_notice(
                 "Switching directory. This session and its queue remain saved."
             )
@@ -1319,7 +1475,9 @@ class ConversationTUI:
                 *([self.submission] if self.submission is not None else []),
                 return_exceptions=True,
             )
+            self.diff_executor.shutdown(wait=False, cancel_futures=True)
             self.editor.clear()
             self.diff_attachments.clear()
+            self.attachment_send_review = None
             if self.history:
                 await self.history.shutdown()

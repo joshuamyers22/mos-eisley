@@ -43,3 +43,21 @@ The accountable owner accepted the exact stacked candidate for the trusted local
 owner-operated scope on 2026-10-03 UTC, with hardening conditions recorded in
 `CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`. The security decision does not
 approve merge, release, provider use, or spending.
+
+## Attachment authority follow-up candidate
+
+The later `feat/diff-attachment-authority` candidate adds a scrollable confirmation
+view before an attached message enters the queue. It shows the destination mode,
+provider/model where applicable, session, complete frozen excerpts as JSON strings,
+and the draft message. A second send is bound to that draft, attachment tuple and
+destination. Ctrl-G returns to the unchanged draft; a changed draft requires a new
+view. Existing send-time Git verification can still refuse a stale source.
+
+An adversarial source-instruction test places a request for review, tool use and
+paid-provider escalation inside a diff excerpt. The resulting ordinary recorded
+chat request has no tools or structured review output, keeps the attack in a user
+text block and keeps the untrusted-source rule in the system text. This test checks
+code-enforced authority separation; it cannot prove that a model will interpret
+all untrusted text correctly. The confirmation view adds no provider or spending
+authority. Accountable review of this exact candidate remains separate from the
+historical owner decision above.
