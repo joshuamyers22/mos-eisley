@@ -137,6 +137,9 @@ class DiffTUITests(IsolatedAsyncioTestCase):
                 ui.editor.insert_text("Explain this line")
                 (root / "one.txt").write_text("newer\n")
                 ui.send()
+                self.assertIsNotNone(ui.attachment_send_review)
+                self.assertEqual(chat.state.entries, ())
+                ui.send(literal=True)
                 async with asyncio.timeout(5):
                     while ui.sending:
                         await asyncio.sleep(0.01)
@@ -170,6 +173,8 @@ class DiffTUITests(IsolatedAsyncioTestCase):
                     while not ui.diff_attachments:
                         await asyncio.sleep(0.01)
                 ui.send()
+                self.assertIsNotNone(ui.attachment_send_review)
+                ui.send(literal=True)
                 async with asyncio.timeout(8):
                     while not chat.state.entries or ui.diff_attachments:
                         await asyncio.sleep(0.02)

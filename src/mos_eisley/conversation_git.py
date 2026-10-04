@@ -11,6 +11,11 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 from mos_eisley.conversation_directory import DirectorySelection
+from mos_eisley.conversation_git_isolation import (
+    GitIsolationUnavailable,
+    executable_for_host,
+    isolated_command,
+)
 from mos_eisley.run.process import bounded_process
 
 MAX_INVENTORY_BYTES = 1_000_000
@@ -193,7 +198,7 @@ class GitWorkspaceReader:
         if not git_executable.is_absolute():
             raise GitReadError("Choose an absolute trusted Git executable.")
         try:
-            executable = git_executable.resolve(strict=True)
+            executable = executable_for_host(git_executable).resolve(strict=True)
             if not executable.is_file() or not os.access(executable, os.X_OK):
                 raise OSError("Git executable unavailable")
         except (OSError, RuntimeError):
@@ -205,6 +210,7 @@ class GitWorkspaceReader:
         self.git_dir: DirectorySelection | None = None
         self.prefix = ""
         selection.verify()
+        self._probe_isolation()
         try:
             root_text = self._scalar(["rev-parse", "--show-toplevel"])
             git_dir_text = self._scalar(["rev-parse", "--absolute-git-dir"])
@@ -255,7 +261,7 @@ class GitWorkspaceReader:
         command.extend(arguments)
         try:
             return bounded_process(
-                command,
+                isolated_command(self.git, command[1:]),
                 timeout=GIT_DEADLINE_SECONDS,
                 limit=limit,
                 environment={
@@ -268,6 +274,7 @@ class GitWorkspaceReader:
                     "GIT_NO_LAZY_FETCH": "1",
                     "GIT_PAGER": "cat",
                     "GIT_ATTR_NOSYSTEM": "1",
+                    "PYTHONDONTWRITEBYTECODE": "1",
                 },
                 cwd=self.root.path if self.root is not None else self.selection.path,
             )
@@ -275,6 +282,20 @@ class GitWorkspaceReader:
             raise GitReadError(
                 "Git read failed or exceeded its resource limit."
             ) from None
+
+    def _probe_isolation(self) -> None:
+        try:
+            version = bounded_process(
+                isolated_command(self.git, ["--version"]),
+                timeout=GIT_DEADLINE_SECONDS,
+                limit=512,
+                environment={"LC_ALL": "C", "PYTHONDONTWRITEBYTECODE": "1"},
+                cwd=self.selection.path,
+            )
+            if not version.startswith(b"git version "):
+                raise ValueError("unexpected Git version response")
+        except (GitIsolationUnavailable, OSError, ValueError):
+            raise GitReadError("OS Git isolation is unavailable.") from None
 
     def _helper_config_keys(self) -> tuple[str, ...]:
         """Override configured file transformers before porcelain reads."""
