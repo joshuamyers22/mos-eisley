@@ -1,6 +1,6 @@
 # Pure namespace-record codec verification
 
-Status: codec implementation complete; publication and accountable admission pending. Owner: Josh Myers. Date: 2026-10-04.
+Status: codec implementation and full gate complete; GitHub CI and accountable admission pending. Owner: Josh Myers. Date: 2026-10-04.
 Branch: `feat/namespace-record-codec`. Base: contract commit `3c994c0`.
 
 Objective: implement only the immutable version-1 namespace metadata value and
@@ -28,7 +28,8 @@ N-03 decoded/copied metadata cannot supply an enrollment context (storage and
 protected-anchor checks remain future work); N-14 existing identity and legacy
 fixtures unchanged. Required evidence: focused source regressions, lint/format and
 typing, clean dependency-free installed-wheel tests and diff readback. Full
-`make check` is required before publication; no publication is requested here.
+`make check` is required before publication. Publication was subsequently authorized
+after the implementation commits.
 Ceiling: three correction passes and two hours active implementation. Stop after
 the focused and artifact evidence passes; no repeated full suite without a new
 failure or code change. Native storage/enrollment qualification remains pending.
@@ -72,10 +73,29 @@ Verification on macOS, Python 3.12.14:
 
 N-01/02 and metadata-only N-03/N-14 have focused executable evidence. Protected
 anchor, copied-store/root/key proof, native storage/enrollment tests and accountable
-review remain pending. The full combined `make check` gate has not run for this
-branch and is required before publication. The contract documents were committed
-separately as `3c994c0`; this implementation is the second local batch. No push or
-PR is requested.
+review remain pending. The contract documents were committed separately as
+`3c994c0`; the implementation is `cc3ee8b`.
+
+## Full gate and publication preparation
+
+The full combined `make check` completed with exit status zero on 2026-10-04 at
+implementation revision `cc3ee8b`. Source: **2,795 tests in 2,431.534 seconds**, OK
+with **12 skips**; aggregate coverage **86%**. Fresh installed package: **2,040
+tests in 1,594.556 seconds**, OK with **eight native Windows skips**. Ruff lint,
+format, Pyright, locked export verification and Hatchling wheel/sdist build passed.
+The interrupted sandbox attempt is excluded: a localhost-bind probe returned
+`PermissionError`, so only this task's gate processes were stopped and the full
+gate restarted with the required access. The completed run is the publication
+check; no code changed after it. Disposable output stays outside Git at
+`/private/tmp/mos-namespace-record-make-check-native-access.log`.
+
+Current `origin/main` (`b3546f9`) is already an ancestor. Prerequisite PR #270
+(identity wire codecs), #268 (file identity) and #266 (principal identity) remain
+open at publication preparation. This branch retains that dependency chain and
+targets `main`; its comparison will include prerequisite commits until they merge.
+The user authorized push and PR creation after the full gate. Actual Ubuntu and
+native Windows source/wheel CI and accountable review remain required; local skips
+do not admit Windows selectors, storage or enrollment.
 
 Next smallest slice: read-only POSIX admission of an already-open root, including
 actual descriptor ACL/mount eligibility, owned non-inheritable lease lifetime and
