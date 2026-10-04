@@ -212,7 +212,18 @@ states across restart. Shared terminal controls expose decisions and missing wor
 The shipped recorded terminal cannot certify repository completion without qualified
 execution-evidence and semantic adapters. Live background execution, retries,
 unattended continuation and scheduling remain gated. Forks/side chats (§31.11)
-follow this slice in §31.13's feature sequence.
+follow this slice and are now implemented below.
+
+**Forks and side chats, 2026-10-04 — recorded controller slice implemented:**
+[/fork and /side](CONVERSATION_BRANCHES.md) select completed owner-scoped context,
+retain source provenance and task exposure, and reserve disjoint fork allowances
+before private JSON/SQLite publication. Side requests share budgets without
+interrupting the author or injecting answers into main context; content remains
+transient until explicit attachment. Bounded deadlines, conservative restart and
+exact-request reconciliation prevent replay or budget resets. TUI/plain/JSON share
+inspection and controls while retaining drafts and steering. Live provider/task/child
+integration and isolated worktrees remain qualified-gate work. Implementation-agent
+inspection (§31.12) is next in §31.13's feature sequence.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit

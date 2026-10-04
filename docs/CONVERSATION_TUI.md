@@ -9,6 +9,10 @@ provider/model switching are not enabled by this screen. Explicit
 [/review scope presets](GIT_REVIEW_SCOPES.md) provide bounded local Git acquisition
 and require a matching recorded packet to dispatch a review.
 
+Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected conversation
+branches and bounded side questions. Side answers stay transient until attached;
+reports preserve the editor draft and show provenance and shared budgets.
+
 Use [/goal](CONVERSATION_GOALS.md) to create, steer, pause and inspect durable
 objectives. The status pane and shared report show budgets, blockers and missing
 verification; goal state cannot certify work without trusted evidence adapters.

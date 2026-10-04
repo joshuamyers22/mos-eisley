@@ -9,6 +9,7 @@ from mos_eisley.conversation import (
     conversation_config,
     prepare_conversation_request,
 )
+from mos_eisley.conversation_branch import branch_system
 from mos_eisley.conversation_compaction import compaction_system
 from mos_eisley.conversation_context import (
     ContextSelection,
@@ -174,6 +175,9 @@ def preview_context(
                 (g for g in state.goals if g.goal_id == state.entries[index].goal_id),
                 None,
             )
+        )
+        + branch_system(
+            None if state.fork_origin is None else state.fork_origin.context
         ),
     )
     fingerprint = canonical_fingerprint(

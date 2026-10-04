@@ -18,10 +18,15 @@ def submission_command(
         "implement",
         "goal_run",
         "goal_control",
+        "branch_control",
     ]
     | None
 ):
     """Recognize typed submission commands; callers keep pasted text literal."""
+    if text == "/side cancel":
+        return None
+    if text.split(maxsplit=1)[:1] in (["/fork"], ["/side"]):
+        return "branch_control"
     if text.startswith("/goal run "):
         return "goal_run"
     if text == "/goal" or text.startswith("/goal "):

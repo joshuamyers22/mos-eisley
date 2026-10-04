@@ -109,6 +109,9 @@ class ConversationGoalController(Generic[StateT]):
             )
         )
 
+    def _goal_initial_ledger(self) -> ResourceLedger:
+        return ResourceLedger()
+
     def create_goal(self, definition: GoalDefinition) -> DurableGoal:
         definition = GoalDefinition.model_validate_json(definition.model_dump_json())
         if self.current_goal is not None:
@@ -130,7 +133,7 @@ class ConversationGoalController(Generic[StateT]):
             for old in self.state.goals
         ):
             raise ValueError("A new goal cannot enlarge retained task ceilings.")
-        ledger = ResourceLedger()
+        ledger = self._goal_initial_ledger()
         for old in self.state.goals:
             ledger = merge_ledger(ledger, old.ledger)
         goal = DurableGoal(

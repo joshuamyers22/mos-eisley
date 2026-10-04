@@ -5257,6 +5257,19 @@ Mos retains revision-bound verification and cumulative budget continuity.
 
 ### 31.11 Conversation forks and side chats
 
+**2026-10-04 — recorded controller slice implemented:**
+[/fork and /side](CONVERSATION_BRANCHES.md) explicitly select completed owner-scoped
+context, preserve parent/source/branch identity and frozen artifact provenance,
+and use disjoint parent-reserved allowances with retained task obligations and
+exposure. JSON/SQLite publish private forks without cloned memory, task tools,
+checkpoint claims or review grants. Side calls remain transient until explicit
+attachment, with receipt-only persistence and bounded cancellation/recovery.
+Current workspace observations gate fork dispatch; explicit revalidation preserves
+historical provenance. Shared TUI/plain/JSON controls retain steering and drafts.
+Live task/provider/child integrations and isolated worktrees retain existing gates;
+this implements item 5 after durable goals in §31.13. The following requirements
+remain authoritative for qualified integrations.
+
 Add `/fork` to explicitly branch an owner-authorized conversation at a selected
 retained boundary. Record parent, source revision and branch identity; copy only
 the selected permitted context and artifact references. A fork does not undo

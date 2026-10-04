@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Literal, Protocol
 from uuid import uuid4
 
+from mos_eisley.conversation_branch import branch_system
+from mos_eisley.conversation_branch_controller import (
+    ConversationBranchController,
+    observe_branch_workspace,
+)
 from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     AuthorCompactionDraft,
@@ -29,7 +34,7 @@ from mos_eisley.conversation_goal import (
     guard_goal_checkpoint,
     merge_ledger,
 )
-from mos_eisley.conversation_goal_controller import ConversationGoalController, StateT
+from mos_eisley.conversation_goal_controller import StateT
 from mos_eisley.conversation_goal_evaluation import GoalEvaluator, GoalSemanticVerdict
 from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
 from mos_eisley.conversation_memory import (
@@ -224,7 +229,7 @@ def _pressure_boundary_position(state: RuntimeConversationState) -> int:
     )
 
 
-class ConversationController(ConversationGoalController[StateT]):
+class ConversationController(ConversationBranchController[StateT]):
     """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
@@ -237,6 +242,9 @@ class ConversationController(ConversationGoalController[StateT]):
         cassette: AgentCassette,
         save: Callable[[StateT], StateT | None],
         *,
+        side_timeout: float = 2.0,
+        publish_fork: Callable[[ConversationState], None] | None = None,
+        branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
         goal_evaluator: GoalEvaluator | None = None,
         goal_evaluator_timeout: float = 2.0,
         observe_goal_evidence: Callable[[DurableGoal], GoalEvidence | None]
@@ -315,6 +323,14 @@ class ConversationController(ConversationGoalController[StateT]):
             and context_pressure_policy != state.context_pressure_policy
         ):
             raise ValueError("context-pressure policy differs from saved session")
+        if not 0 < side_timeout <= 10:
+            raise ValueError("Side timeout must be positive and at most ten seconds.")
+        self.side_timeout = side_timeout
+        self._side_provider_task = None
+        self.publish_fork = publish_fork
+        self.observe_branch_workspace = branch_workspace_observer
+        self._side_busy = False
+        self._side_answers = {}
         self.state = state
         self.cassette = cassette
         self.save = save
@@ -356,6 +372,7 @@ class ConversationController(ConversationGoalController[StateT]):
             )
 
         self.recover_goal_evaluations()
+        self.recover_branches()
 
     @staticmethod
     def fresh(
@@ -406,6 +423,10 @@ class ConversationController(ConversationGoalController[StateT]):
                 interaction_mode=self.state.interaction_mode
                 if interaction_mode is None
                 else interaction_mode,
+                fork_origin=self.state.fork_origin,
+                branch_budget=self._branch_transitions(entries),
+                forks=self.state.forks,
+                sides=self.state.sides,
                 goals=self._goal_transitions(entries),
                 active_goal_id=self.state.active_goal_id,
                 session_id=self.state.session_id,
@@ -497,6 +518,10 @@ class ConversationController(ConversationGoalController[StateT]):
                     session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
                     workspace=self.state.workspace,
+                    fork_origin=self.state.fork_origin,
+                    branch_budget=self.state.branch_budget,
+                    forks=self.state.forks,
+                    sides=self.state.sides,
                     goals=self.state.goals,
                     active_goal_id=self.state.active_goal_id,
                     interaction_mode=self.state.interaction_mode,
@@ -904,6 +929,11 @@ class ConversationController(ConversationGoalController[StateT]):
         self.submit(text)
 
     def submit_review(self, packet: ConversationReviewPacket) -> None:
+        if self.state.fork_origin is not None:
+            raise ValueError(
+                "Forks have no inherited review allowance; "
+                "use the qualified review controller."
+            )
         packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
         self._check_review_guidance(packet)
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
@@ -1028,7 +1058,8 @@ class ConversationController(ConversationGoalController[StateT]):
                 profile = self.resolve_task_profile(index)
             if (
                 (
-                    entry.interaction_mode == "plan"
+                    self.state.fork_origin is not None
+                    or entry.interaction_mode == "plan"
                     or entry.implementation_request
                     or entry.goal_id is not None
                 )
@@ -1093,6 +1124,11 @@ class ConversationController(ConversationGoalController[StateT]):
                 + profile_suffix
                 + planning_system(entry.interaction_mode, entry.implementation_request)
                 + goal_system(self.goal_for_entry(entry))
+                + branch_system(
+                    None
+                    if self.state.fork_origin is None
+                    else self.state.fork_origin.context
+                )
             )
             config = conversation_config(
                 projected.turns,
@@ -1105,6 +1141,27 @@ class ConversationController(ConversationGoalController[StateT]):
             )
             request, budget = prepare_conversation_request(config, request_dispatcher)
             request_size = check_request_budget(request, budget)
+            if self.state.fork_origin is not None and self.observe_branch_workspace(
+                self.state.workspace
+            ) != (
+                self.state.fork_origin.admitted_workspace_sha256
+                or self.state.fork_origin.context.workspace_sha256
+            ):
+                raise ValueError(
+                    "Fork workspace changed; use /fork revalidate before dispatch."
+                )
+            if self.state.branch_budget is not None:
+                from mos_eisley.conversation_branch import BranchReservation
+                from mos_eisley.conversation_branch_controller import reserve
+
+                reserve(
+                    self.state.branch_budget,
+                    BranchReservation(
+                        operation_id=f"author-{index}",
+                        input_bytes=request_size,
+                        output_bytes=budget.output_reserve,
+                    ),
+                )
             goal = self.goal_for_entry(entry)
             if goal is not None and exhausted(
                 goal,
