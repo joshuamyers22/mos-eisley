@@ -51,6 +51,15 @@ to its existing capability gates. These extend the current controllers and do no
 change v1 release scope or claim implementation. §31.13 records optional Codex
 review support for developing Mos Eisley itself.
 
+**Claude Code autonomy survey, 2026-10-03 — planned:** §31.10 adds explicit
+completion evaluation, measurable progress, background-work awareness and bounded
+error recovery to durable goals. §31.14 adds work-unit completion checks; §31.15
+adds later session-scoped scheduling and event-driven wakeups. Reuse the existing
+controllers, verification, review and aggregate ledgers. Completion and progress
+checks take priority within the goal slice; scheduling follows qualified goal and
+recovery foundations. These requirements do not change v1 scope or grant current
+unattended execution or publication authority.
+
 **G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
 perform the phase authorizer, observer and launch reviewer roles for G2. The
 [owner operated contract](G2_OWNER_OPERATED_CONTRACT.md) supersedes earlier G2
@@ -5110,10 +5119,97 @@ Editing a goal preserves its history and invalidates affected plan/test approval
 Clearing removes the active objective without deleting required private evidence.
 Goal persistence does not imply unattended scheduling or authority to publish.
 
+#### 31.10.1 Completion evaluation at turn boundaries
+
+When the author ends a goal turn, the trusted controller checks the current goal
+revision, outstanding obligations, required verification and independent review
+dispositions before returning control or admitting another turn. A provider's
+`end_turn` ends a turn, not the objective. Record the decision, evidence references,
+remaining budget and concrete missing requirements; feed those requirements into
+the next authorized turn. Revalidate queued steering and goal edits before dispatch.
+
+Use deterministic checks for mechanical conditions such as test/build outcomes,
+executed-test counts and revision identity. For semantic criteria, use a bounded,
+separately invoked evaluator with a schema-validated result and reason. Give it
+only the frozen criteria and permitted evidence views, with provenance and
+omissions. Author claims and transcript summaries cannot substitute for required
+execution receipts or independent review. This completion evaluator does not
+constitute a blind critic or judge and cannot waive their dispositions, rewrite
+criteria or enlarge authority. Missing, stale, failed or unavailable evidence
+leaves completion unproven. An evaluator's claim that a condition is impossible
+records a blocker and rationale rather than clearing the objective or proving
+failure by itself.
+
+Reserve and account for evaluator calls under the existing aggregate task ledger;
+do not launch a full paid review panel after every turn. Reuse valid checks for
+unchanged inputs and invalidate affected evidence on revision changes. Controller
+guards remain authoritative over model verdicts. Show the latest completion
+decision and missing requirements in TUI, plain and JSON modes.
+
+#### 31.10.2 Measurable progress and stalled work
+
+Record progress from completed obligations, newly verified evidence and changed
+failure causes against the active goal revision. Tool calls, repeated prose and
+elapsed turns alone do not establish progress. Declare bounded no-progress and
+repeated-failure thresholds before running, alongside turn, time and spend
+ceilings; persist their counters across restart and continuation. When a threshold
+is reached, stop automatic continuation, preserve the objective and outstanding
+work, and expose the exact blocker and attempted remedies. Distinguish stalled
+work from explicit user pause, cancellation and budget exhaustion. Further
+continuation requires explicit steering/resume or a verified change resolving the
+blocker under the existing policy; it cannot silently reset counters or budgets.
+
+#### 31.10.3 Background-work awareness
+
+Represent working, waiting for required child/test/tool results and blocked states
+separately. Do not declare completion while required background work remains
+unresolved, and do not repeatedly call an evaluator merely because the author is
+waiting. Persist the required operation IDs and result dependencies through the
+existing child/execution controller. A committed result can trigger one authorized
+continuation at a safe turn boundary; duplicate or late results cannot reopen a
+completed, paused or cancelled goal. Optional background work does not block
+completion unless the declared criteria require it.
+
+Provide bounded check-ins for required jobs that stop reporting progress, using
+controller-observed status and permitted output rather than model guesses.
+Declare intervals, backoff and maximum check-ins; charge any model work to the
+task budget. Surface progressing, stuck, failed and uncertain jobs separately.
+Check-ins cannot bypass pause/cancellation, relaunch an uncertain command or
+broaden a child's assignment. Advertise this behavior only after the corresponding
+background controller is qualified; embedded terminals retain §30's prerequisites.
+
+#### 31.10.4 Goal error recovery
+
+Classify transient provider/connection failures, exhausted usage or credit limits,
+authentication/configuration failures and uncertain effects explicitly. Retry
+only operations known to be retryable under §§14 and 31.4, with bounded attempts,
+backoff and jitter. A lost response to a paid call or possible write remains
+uncertain until reconciled; a transient transport error alone does not authorize
+redispatch. Preserve exposure, retry counters and aggregate budgets across resume.
+Exhausted limits or failures requiring user action stop dispatch and retain the
+goal with the cause and next required action visible. Automatic resumption after
+a known limit reset requires an explicitly authorized bounded policy, fresh
+admission and §31.15's wakeup capability. No failure is completion, and no recovery
+restores expired grants or silently drops unfinished obligations.
+
 Acceptance: cover steering during work, concurrent updates, restart, changed
 workspace/tests, budget exhaustion and uncertain dispatch. A completed status
 requires revision-bound verification; no repeated continuation manufactures a new
 budget, loses unfinished obligations or dispatches after pause/cancellation.
+Also cover false author/evaluator completion claims, missing and stale evidence,
+evaluator timeout or malformed output, repeated tool activity without progress,
+failure loops, required versus optional running work, duplicate/late results,
+lost background reports and check-in exhaustion. Inject retryable failures,
+authentication failures and exhausted limits; demonstrate no repeated uncertain
+write/paid call, reset accounting or accidental automatic resume. TUI, plain and
+JSON expose equivalent decisions, blockers and budgets. Implement completion and
+progress checks first within this slice, then qualified background and recovery
+behavior.
+
+Interaction reference: Claude Code's
+[`/goal` documentation](https://code.claude.com/docs/en/goal). Its transcript-only
+evaluation and reset accounting baselines on resume are not Mos requirements;
+Mos retains revision-bound verification and cumulative budget continuity.
 
 ### 31.11 Conversation forks and side chats
 
@@ -5171,6 +5267,11 @@ closed, and cancellation/steering cannot bypass frozen plan/test authorization.
 | 4 | Durable goals (§31.10) | §6.7 task/checkpoints, aggregate ledgers and §31.4 recovery for advertised restart behavior |
 | 5 | Forks and side chats (§31.11) | Owner-scoped history, explicit context selection and qualified worktree lifecycle where selected |
 | 6 | Implementation-agent inspection (§31.12) | Qualified child controller, retained reports and enforced review visibility boundaries |
+| 7 | Session scheduling and event-driven wakeups (§31.15) | Qualified durable goals, §31.4 recovery, §14.1 trusted handlers and applicable background/MCP/execution gates |
+
+Work-unit completion checks (§31.14) accompany the goal and child-controller
+slices rather than forming a second pipeline. Preserve planning before goals;
+prioritize completion evaluation and progress detection within the goal slice.
 
 Deliver these as post-v1 slices without weakening or delaying existing release
 gates. Current context controls, worktrees, attachments, MCP, typed lifecycle
@@ -5187,6 +5288,71 @@ The [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github
 can support explicitly configured PR reviews, but this plan addition does not
 enable automatic reviews, authorize comments or transfer private run artifacts.
 Keep §12's publisher/data boundaries and §31.3's verdict-aware CI contract.
+
+### 31.14 Work-unit and child completion checks
+
+Apply §31.10.1's completion pattern at §6.7 work-unit closure and acceptance of
+§14.2 implementation-child reports. Use the existing typed lifecycle handlers and
+controller guards to check the declared obligations, required tests and evidence
+identities before a unit is marked complete or dependent work is released. A
+child reporting done is a claim; retain the report while recording unmet checks
+and returning concrete feedback to the creator. The creator owns integration and
+any further child assignment under the approved plan/test revisions. Unit closure
+cannot replace task-level verification or final independent review.
+
+Reuse trusted, bounded handlers under §14.1; project text cannot install an
+arbitrary executable completion hook. Define ordering, timeout and failure behavior
+so a missing, failed or vetoing check leaves closure unproven with a visible reason.
+Retain failed attempts and consumed resources under the same task ledger.
+
+Acceptance: premature reports, stale tests/revisions, empty test collection,
+handler failure, duplicate reports and resumed units cannot release dependent
+work or mark completion without valid evidence. Correction feedback preserves
+assignment scope, creator ownership, review blindness and aggregate limits.
+Reference: Claude Code's
+[`TaskCompleted` hooks](https://code.claude.com/docs/en/hooks#taskcompleted).
+
+### 31.15 Later session-scoped scheduling and event-driven wakeups
+
+After the durable goal and recovery foundations are qualified, add explicit
+session-scoped `/loop` controls and equivalent plain/JSON creation, inspection
+and cancellation for bounded CI monitoring, PR maintenance and reminders. Define
+the selected prompt/task, owner, workspace/revision binding, fixed interval or
+bounded dynamic interval, expiry, maximum fires, resource ceilings and stop rules.
+Show the effective cadence and changes to it. A goal advances toward a completion
+condition; a loop wakes on a schedule. Neither implicitly enables the other.
+No bare command starts open-ended cleanup or new initiatives without explicit
+scope. Scheduling creation itself does not dispatch a paid call or tool operation.
+
+Use one existing controller queue for timers and permitted incoming events. Admit
+wakeups only at safe turn boundaries, prioritize user steering, coalesce duplicate
+notifications and prevent overlapping dispatch for the same task. Record stable
+event/operation IDs and bounded replay protection. Expired or cancelled schedules
+cannot fire; missed intervals do not create an unbounded catch-up queue. Resume
+revalidates schedule identity, expiry, policy, workspace, goals and remaining
+budgets without resetting exposure or replaying uncertain effects. This initial
+capability requires an active qualified session; it promises neither a daemon nor
+cloud execution while the session is closed.
+
+Prefer qualified event-driven CI/build/child notifications to repeated model
+polling when available. Bind authenticated sources to the owner and permitted
+task/workspace, cap event size/rate and disclose omitted payloads. External event
+content is untrusted evidence, not user steering, an approval or permission to
+publish. Revalidate any revision-bound assertion through the existing broker;
+events cannot enter sealed critic/judge contexts or expose private artifacts to
+senders. External ingress requires its own qualified adapter and applicable MCP,
+network, credential and owner-isolation gates. Local committed child/test results
+can supply wakeups without adding external ingress.
+
+Acceptance: fixed/dynamic intervals, expiry, cancellation, restart, clock changes,
+duplicate/out-of-order events, event floods, stale revisions, busy sessions and
+lost acknowledgments produce bounded, inspectable behavior. Prove no overlapping
+task dispatch, cross-owner wakeup, pause bypass, budget reset, repeated uncertain
+operation or unauthorized outward action. Test inert timer/event fixtures before
+credentialed integrations. Keep ordinary session goals usable without scheduling.
+References: Claude Code's
+[`/loop` and scheduling documentation](https://code.claude.com/docs/en/scheduled-tasks)
+and [channels documentation](https://code.claude.com/docs/en/channels).
 
 ## 32. Version 3 managed-agent interoperability
 

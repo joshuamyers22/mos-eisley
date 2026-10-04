@@ -196,6 +196,20 @@ requirements; the local recorded slice above grants no new execution/publication
 Optional Codex development reviews remain advisory and do not replace CI or
 required independent review.
 
+**Claude Code autonomy-survey additions, 2026-10-03 — planned:** strengthen
+[durable goals (§31.10)](mos-eisley-plan.md#3110-durable-goals) with controller
+completion gates, evidence-based evaluation, measurable progress/stall detection,
+required-background-work states and bounded error recovery. Completion and progress
+checks lead the goal slice; revision-bound verification, structural review
+blindness and cumulative budgets remain authoritative. Add
+[work-unit/child completion checks (§31.14)](mos-eisley-plan.md#3114-work-unit-and-child-completion-checks)
+through existing trusted lifecycle handlers. Deliver
+[session scheduling and event-driven wakeups (§31.15)](mos-eisley-plan.md#3115-later-session-scoped-scheduling-and-event-driven-wakeups)
+after qualified goal/recovery foundations and the existing feature sequence, with
+explicit scope, expiry, cancellation, deduplication and fresh admission. External
+events require qualified owner/source and ingress boundaries. These are post-v1
+requirements, not implementation or unattended/publication authority claims.
+
 **Version 3 Managed Agents interoperability — planned:**
 [plan §32](mos-eisley-plan.md#32-version-3-managed-agent-interoperability) permits
 an optional Claude Managed Agents client to use the qualified narrow outward MCP
