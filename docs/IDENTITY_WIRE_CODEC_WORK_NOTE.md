@@ -98,3 +98,20 @@ were needed. Disposable combined log:
 `/private/tmp/mos-identity-wire-make-check.log`. Only documentation recording this
 result changed after the successful gate; whitespace/reference checks were repeated
 before committing. No push, pull request or merge is part of this commit request.
+
+## PR publication and exact secret-scan finding — 2026-10-04
+
+PR #270 targets main and depends on still-open adapter PRs #268/#266. Fetched main
+`b3546f9` is already an ancestor; no integration/code change was needed. GitHub's
+8.24.3 secret scan reported one `generic-api-key` finding at the introducing commit
+`6079b3f`, `tests/test_identity_legacy_fixtures.py:34`: the frozen `OAUTH_SHA` fixture
+digest. It is SHA-256 of the literal synthetic UID/resource/issuer/client/account/
+scopes binding, using reserved `.invalid` endpoints, not credential material.
+The literal digest is verified by the existing fixture and controller tests.
+
+Following existing repository practice, `.gitleaksignore` adds only the exact
+commit/file/rule/line fingerprint. No rule, path or future finding is exempted.
+Only scanner metadata and this verification record changed after the full gate;
+affected synthetic fixture/hash checks were rerun. The follow-up scan result is
+tracked on PR #270; full source/package/native CI and accountable review
+remain separate publication/admission gates.
