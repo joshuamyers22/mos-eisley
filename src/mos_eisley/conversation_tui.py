@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 
@@ -197,6 +198,9 @@ class ConversationTUI:
         self.diff_generation = 0
         self.diff_task: asyncio.Task[None] | None = None
         self.diff_wakeup = asyncio.Event()
+        self.diff_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="mos-diff"
+        )
         self.diff_snapshot: GitSnapshot | None = None
         self.diff_items: tuple[DiffItem, ...] = ()
         self.diff_selected = 0
@@ -515,12 +519,11 @@ class ConversationTUI:
 
     def restart_diff_poll(self) -> None:
         self.diff_generation += 1
-        if self.diff_task is not None:
-            self.diff_task.cancel()
-            self.diff_task = None
-        if self.diff_visible or self.diff_attachments:
-            self.diff_wakeup.set()
-            self.diff_task = asyncio.create_task(self.poll_diff(self.diff_generation))
+        self.diff_wakeup.set()
+        if (self.diff_visible or self.diff_attachments) and (
+            self.diff_task is None or self.diff_task.done()
+        ):
+            self.diff_task = asyncio.create_task(self.poll_diff())
         self.app.invalidate()
 
     def attachment_preview(self) -> str:
@@ -667,21 +670,27 @@ class ConversationTUI:
             )
         self.app.invalidate()
 
-    async def poll_diff(self, generation: int) -> None:
-        workspace = Path(self.controller.state.workspace)
+    def _read_diff_snapshot(
+        self, workspace: Path
+    ) -> tuple[GitWorkspaceReader, GitSnapshot]:
+        selection = DirectorySelection.inspect(workspace)
+        reader = GitWorkspaceReader(selection, self.git_executable)
+        return reader, reader.snapshot()
+
+    async def poll_diff(self) -> None:
         try:
-            while self._diff_current(generation, workspace):
+            while (self.diff_visible or self.diff_attachments) and (
+                self.directory_target is None
+            ):
+                generation = self.diff_generation
+                workspace = Path(self.controller.state.workspace)
                 self.diff_wakeup.clear()
                 try:
-                    selection = await asyncio.to_thread(
-                        DirectorySelection.inspect, workspace
+                    reader, snapshot = await asyncio.get_running_loop().run_in_executor(
+                        self.diff_executor, self._read_diff_snapshot, workspace
                     )
-                    reader = await asyncio.to_thread(
-                        GitWorkspaceReader, selection, self.git_executable
-                    )
-                    snapshot = await asyncio.to_thread(reader.snapshot)
                     if not self._diff_current(generation, workspace):
-                        return
+                        continue
                     previous = (
                         self.diff_items[self.diff_selected].key
                         if self.diff_items
@@ -720,18 +729,23 @@ class ConversationTUI:
                     self.render_diff()
                     if self.diff_visible and selected is not None:
                         item = selected
-                        if item.basis is not None and self.diff_patch is None:
-                            patch = await asyncio.to_thread(
-                                reader.patch, snapshot, item.change.path, item.basis
+                        basis = item.basis
+                        if basis is not None and self.diff_patch is None:
+                            patch = await asyncio.get_running_loop().run_in_executor(
+                                self.diff_executor,
+                                reader.patch,
+                                snapshot,
+                                item.change.path,
+                                basis,
                             )
                             if not self._diff_current(generation, workspace):
-                                return
+                                continue
                             if self.diff_items[self.diff_selected].key == item.key:
                                 self.diff_patch = patch
                                 self.render_diff()
                 except (GitReadError, DirectorySelectionError) as error:
                     if not self._diff_current(generation, workspace):
-                        return
+                        continue
                     self.diff_error = str(error)
                     self.diff_loading = False
                     self.render_diff()
@@ -739,6 +753,9 @@ class ConversationTUI:
                     await asyncio.wait_for(self.diff_wakeup.wait(), timeout=2.0)
         except asyncio.CancelledError:
             return
+        finally:
+            if self.diff_task is asyncio.current_task():
+                self.diff_task = None
 
     def _diff_current(self, generation: int, workspace: Path) -> bool:
         return (
@@ -1170,7 +1187,12 @@ class ConversationTUI:
                     return snapshot, tuple(patch.digest for patch in patches)
 
                 try:
-                    snapshot, patch_digests = await asyncio.to_thread(current_source)
+                    (
+                        snapshot,
+                        patch_digests,
+                    ) = await asyncio.get_running_loop().run_in_executor(
+                        self.diff_executor, current_source
+                    )
                 except (GitReadError, DirectorySelectionError):
                     self.set_notice(
                         "Could not verify diff excerpts. "
@@ -1259,9 +1281,7 @@ class ConversationTUI:
             self.directory_target = selected
             self.diff_generation += 1
             self.diff_visible = False
-            if self.diff_task is not None:
-                self.diff_task.cancel()
-                self.diff_task = None
+            self.diff_wakeup.set()
             self.set_notice(
                 "Switching directory. This session and its queue remain saved."
             )
@@ -1319,6 +1339,7 @@ class ConversationTUI:
                 *([self.submission] if self.submission is not None else []),
                 return_exceptions=True,
             )
+            self.diff_executor.shutdown(wait=False, cancel_futures=True)
             self.editor.clear()
             self.diff_attachments.clear()
             if self.history:
