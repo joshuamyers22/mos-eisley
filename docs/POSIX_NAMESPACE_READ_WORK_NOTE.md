@@ -1,6 +1,6 @@
 # Secure POSIX namespace record reads
 
-Status: candidate implementation complete; native CI/accountable admission and publication gate pending. Owner: Josh Myers. Date: 2026-10-04.
+Status: candidate implementation and full publication gate complete; reader CI and accountable admission pending. Owner: Josh Myers. Date: 2026-10-04.
 Branch: `feat/posix-namespace-read`; baseline `9122242`, dependent on PR #273.
 
 Implement the fixed-child read in [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support)
@@ -96,8 +96,23 @@ No remaining observed candidate blocker. Stop rule: affected native source/wheel
 fault, lint/type and artifact checks passed. Linux reader execution, other exact
 target candidates and accountable root/read admission remain pending. Public
 storage admission, public record reads, Windows selectors, enrollment/custody,
-consumer adoption and writers stay closed. Full `make check` remains required
-before publication. Local commit is authorized; push/PR remain pending.
+consumer adoption and writers stay closed. The full publication gate below
+supersedes the earlier focused-only verification; push and PR are now authorized.
+
+## Publication verification
+
+Full `make check` passed with exit zero against implementation `99e6196`:
+**2,842 source tests in 2,367.187 seconds**, 12 skips, **86% coverage**;
+**2,096 fresh-wheel tests in 1,503.382 seconds**, eight skips. Ruff lint/format,
+Pyright, runtime export verification and frozen wheel/sdist builds also passed.
+Disposable output remains outside Git; native Windows skips grant no admission.
+
+PR #273 remains open with all reported checks successful. Refreshed `main`
+(`9822de6`) is already an ancestor of this branch; no integration commit is needed.
+The reader PR targets `main` and includes prerequisite commits until they merge.
+The verification-record commit changes documentation only. Linux reader CI and
+accountable root/read admission remain pending; neither publication nor green
+candidate checks enable public selectors, enrollment or writers.
 
 Next: qualify/review the POSIX root/read candidates and define the smallest native
 Windows admission/read candidate after its identity prerequisite review. Protected
