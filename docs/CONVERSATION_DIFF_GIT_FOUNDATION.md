@@ -31,6 +31,14 @@ fsmonitor disabled, lazy fetch disabled, and external diff/textconv disabled. It
 reads effective local
 configuration under a 128 KB cap and overrides up to 64 configured clean, process,
 smudge, external diff and textconv helper keys before every status/diff command.
+The follow-on [process isolation hardening](CONVERSATION_DIFF_GIT_ISOLATION_WORK_NOTE.md)
+wraps every command in an OS boundary: macOS Seatbelt denies network operations and
+child processes while permitting only the trusted Git executable; Linux uses an
+isolated installed-package launcher that applies `no_new_privs` and a seccomp filter
+denying child creation, socket I/O and io_uring before replacing itself with Git.
+The reader probes the boundary before classifying a directory as non-Git and
+refuses when it cannot be enforced. These controls do not turn Git output into
+trusted instructions or make the filesystem snapshot atomic.
 This can make a filter-managed file appear modified against its normalized index
 content; the panel must label the safe raw comparison rather than imply the
 configured filter was applied. Local Git config remains data, so the explicit
@@ -80,7 +88,7 @@ transaction: a malicious same-user process can race changes between checks.
 
 | Abuse case | Control | Test / residual risk |
 |---|---|---|
-| Repository config runs a helper | Fixed Git argv and environment; disable fsmonitor, external diff, textconv, filters and hooks | Hostile helper fixture. A same-user config rewrite between scan and Git read remains possible without an OS process sandbox. |
+| Repository config runs a helper | Fixed Git argv and environment; disable fsmonitor, external diff, textconv, filters and hooks; require OS child-process and network denial for every Git call | Static helper and concurrent config-rewrite fixtures. Same-user mutation of trusted application/Git bytes remains outside this boundary. |
 | Selected workspace is replaced | Bind device/inode for selected, root and Git dir; verify before and after reads | Directory replacement test. A same-user race between checks remains possible. |
 | Git output names another workspace | Literal root-relative pathspec, path admission and scoped rename handling | Subdirectory crossing-rename test. |
 | Untracked path is a symlink or special file | This foundation returns only its admitted path and never opens untracked content | Symlink listing test. Content preview remains blocked on a separate read policy. |
