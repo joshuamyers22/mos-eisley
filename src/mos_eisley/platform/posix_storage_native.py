@@ -99,6 +99,7 @@ class NativeRootQueries:
             "/usr/lib/libSystem.B.dylib" if self._host == "darwin" else None,
             use_errno=True,
         )
+        self._library = library
         self._statfs = _function(
             library,
             "fstatfs$INODE64"
@@ -170,3 +171,20 @@ class NativeRootQueries:
             if name == b"system.posix_acl_default":
                 raise StorageAdmissionError("directory has a default ACL")
             validate_linux_base_acl(buffer.raw[:size], mode)
+
+    def read_once(self, fd: int, count: int) -> bytes:
+        """One bounded native read, including EINTR in the caller's attempt cap."""
+        if not 0 < count <= 4097:
+            raise ValueError("invalid namespace read capacity")
+        read = _function(
+            self._library, "read", [ctypes.c_int, ctypes.c_void_p, ctypes.c_size_t]
+        )
+        read.restype = ctypes.c_ssize_t
+        buffer = ctypes.create_string_buffer(count)
+        ctypes.set_errno(0)
+        size = read(fd, buffer, count)
+        if size == -1 and ctypes.get_errno() == errno.EINTR:
+            raise InterruptedError("namespace read interrupted")
+        if not 0 <= size <= count:
+            raise StorageAdmissionError("namespace native read failed")
+        return buffer.raw[:size]
