@@ -1,6 +1,6 @@
 # Read-only POSIX root-admission candidate
 
-Status: candidate implementation complete; Linux/native admission and publication pending. Owner: Josh Myers. Date: 2026-10-04.
+Status: candidate implementation and full publication gate complete; native CI and accountable admission pending. Owner: Josh Myers. Date: 2026-10-04.
 Branch: `feat/posix-root-admission`; baseline `74acdd8`, dependent on PR #272.
 
 Objective: implement direct candidate admission of an already-open POSIX directory
@@ -109,10 +109,30 @@ Verification, macOS **15.1 / 24B83**, arm64, Python **3.12.14**, local APFS:
   inert public refusal. Full package smoke also copies the new tests and C fixture.
   These CI jobs are prepared, not run or admitted here.
 
+Publication verification, 2026-10-04:
+
+- Full `make check` passed with exit zero against implementation `3c2f98d`:
+  **2,813 source tests in 2,383.618 seconds**, 12 skips, **86% coverage**;
+  **2,058 fresh-wheel tests in 1,674.840 seconds**, eight skips. Ruff lint/format,
+  Pyright, export verification and wheel/sdist builds also passed. Native Windows
+  skips grant no qualification. Disposable logs remain outside Git.
+- Current `main` advanced during the gate to `9822de6`. Integration commit
+  `ce8cdc8` preserves both branches' package-smoke tests in the sole conflict.
+  Post-integration source checks passed: **19 conversation-diff tests** in
+  27.068 seconds, **16 Git/isolation tests** in 18.009 seconds, and **119 platform
+  tests** in 1.092 seconds (eight native Windows skips). Ruff lint/format, Pyright,
+  export verification and rebuilt wheel/sdist passed again.
+- Fresh-wheel integration smoke passed the existing demo/replay, analysis and
+  stdio/HTTP MCP setup, then **161 affected platform, legacy, diff and Git tests**
+  in 43.772 seconds (eight native Windows skips). The temporary test selection
+  used the integrated package-smoke harness; the tracked full suite is unchanged.
+
 N-04/05/06 and the root portions of N-07/09/14/15 have focused native macOS and
 portable fault evidence. Linux execution, other OS/build/architecture candidates,
-accountable boundary admission and the full combined `make check` gate remain
-pending before publication. No commit, push or PR was requested for this slice.
+and accountable boundary admission remain pending. The user authorized push and a
+PR against `main` after the full gate. PR #272 remains open; prerequisite commits
+are included until it merges. Publication does not enable public selectors,
+enrollment or writers.
 
 Next: complete target qualification/review for root admission, then implement
 secure fixed-child namespace reads under the owned lease with fresh entry/content
