@@ -2,6 +2,7 @@
 
 import asyncio
 import fcntl
+import json
 import os
 import pty
 import re
@@ -25,7 +26,9 @@ from prompt_toolkit.output import DummyOutput
 from mos_eisley.conversation import ConversationController
 from mos_eisley.conversation_cli import demo_cassette
 from mos_eisley.conversation_git import GitSnapshot, GitState
+from mos_eisley.conversation_state import LiveChatIdentity
 from mos_eisley.conversation_tui import ConversationTUI
+from mos_eisley.core.agent import AgentConfig, AgentResult
 
 GIT = Path("/usr/bin/git")
 
@@ -53,6 +56,130 @@ async def until(predicate: Callable[[], bool], timeout: float = 8) -> None:
 
 
 class DiffAcceptanceTests(IsolatedAsyncioTestCase):
+    async def test_live_destination_is_shown_without_dispatch_on_first_send(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, create_pipe_input() as input:
+            root = changed_workspace(Path(directory) / "source")
+            cassette = demo_cassette()
+            identity = LiveChatIdentity(
+                model="gpt-5.6-luna",
+                effort="medium",
+                max_output_tokens=128,
+                spend_policy_sha256="1" * 64,
+                spend_ledger_id="2" * 64,
+                artifacts_root=str(root),
+            )
+            dispatched = False
+
+            async def run_live(_config: AgentConfig, _attempt: int) -> AgentResult:
+                nonlocal dispatched
+                dispatched = True
+                raise AssertionError("attachment preview must not dispatch")
+
+            chat = ConversationController(
+                ConversationController.fresh(root, cassette, live_chat=identity),
+                cassette,
+                lambda _: None,
+                run_live_chat=run_live,
+            )
+            ui = ConversationTUI(chat, input=input, output=DummyOutput())
+            task = asyncio.create_task(ui.run())
+            try:
+                await until(lambda: ui.app.is_running)
+                input.send_text("/diff\r")
+                await until(lambda: ui.diff_patch is not None)
+                ui.app.layout.focus(ui.diff_content)
+                ui.diff_content.buffer.cursor_position = ui.diff_content.text.index(
+                    "+after"
+                )
+                input.send_text("\x1b[24~")
+                await until(lambda: bool(ui.diff_attachments))
+                ui.app.layout.focus(ui.editor_control)
+                ui.editor.insert_text("Explain")
+                input.send_text("\r")
+                await until(lambda: ui.attachment_send_review is not None)
+                self.assertIn(
+                    "OpenAI live chat • model gpt-5.6-luna • effort medium",
+                    ui.attachment_review.text,
+                )
+                self.assertIn(
+                    "separately selected policy and cap", ui.attachment_review.text
+                )
+                self.assertFalse(dispatched)
+                self.assertEqual(chat.state.entries, ())
+            finally:
+                input.send_text("\x04")
+                await asyncio.wait_for(task, 5)
+
+    async def test_send_reviews_exact_destination_and_rebinds_draft(self) -> None:
+        with TemporaryDirectory() as directory, create_pipe_input() as input:
+            root = changed_workspace(Path(directory) / "source")
+            cassette = demo_cassette()
+            chat = ConversationController(
+                ConversationController.fresh(root, cassette), cassette, lambda _: None
+            )
+            ui = ConversationTUI(chat, input=input, output=DummyOutput())
+            task = asyncio.create_task(ui.run())
+            try:
+                await until(lambda: ui.app.is_running)
+                input.send_text("/diff\r")
+                await until(lambda: ui.diff_patch is not None)
+                ui.app.layout.focus(ui.diff_content)
+                ui.diff_content.buffer.cursor_position = ui.diff_content.text.index(
+                    "+after"
+                )
+                input.send_text("\x1b[24~")
+                await until(lambda: bool(ui.diff_attachments))
+                frozen = ui.diff_attachments[0]
+                ui.app.layout.focus(ui.editor_control)
+                ui.editor.insert_text("Explain this line")
+                input.send_text("\r")
+                await until(lambda: ui.attachment_send_review is not None)
+                self.assertEqual(chat.state.entries, ())
+                self.assertIn("Recorded local chat", ui.attachment_review.text)
+                self.assertIn("No Git edit, tool, review", ui.attachment_review.text)
+                self.assertIn(
+                    json.dumps(frozen.excerpt, ensure_ascii=True),
+                    ui.attachment_review.text,
+                )
+                self.assertTrue(ui.app.layout.has_focus(ui.attachment_review))
+
+                input.send_text("\x07")  # Ctrl-G cancels without discarding.
+                await until(lambda: ui.attachment_send_review is None)
+                self.assertEqual(ui.editor.text, "Explain this line")
+                self.assertEqual(ui.diff_attachments, [frozen])
+                self.assertEqual(chat.state.entries, ())
+
+                input.send_text("\r")
+                await until(lambda: ui.attachment_send_review is not None)
+                input.send_text("\t")
+                await until(lambda: ui.app.layout.has_focus(ui.editor_control))
+                ui.editor.insert_text(" please")
+                input.send_text("\r")
+                await until(
+                    lambda: (
+                        ui.attachment_send_review is not None
+                        and ui.attachment_send_review[0] == "Explain this line please"
+                    )
+                )
+                self.assertEqual(chat.state.entries, ())
+                self.assertIn(
+                    json.dumps("Explain this line please"),
+                    ui.attachment_review.text,
+                )
+                input.send_text("\r")
+                await until(
+                    lambda: bool(chat.state.entries) and not ui.diff_attachments
+                )
+                self.assertEqual(chat.state.entries[0].diff_attachments, (frozen,))
+                self.assertTrue(
+                    chat.state.entries[0].text.startswith("Explain this line please")
+                )
+            finally:
+                input.send_text("\x04")
+                await asyncio.wait_for(task, 5)
+
     async def test_mouse_range_selects_exact_hunk_lines(self) -> None:
         with TemporaryDirectory() as directory, create_pipe_input() as input:
             root = changed_workspace(Path(directory) / "source")
@@ -137,6 +264,8 @@ class DiffAcceptanceTests(IsolatedAsyncioTestCase):
                 self.assertEqual(frozen.excerpt, "+after\n")
                 self.assertIn("changed", ui.attachment_preview())
                 ui.send()
+                self.assertIsNotNone(ui.attachment_send_review)
+                ui.send(literal=True)
                 await until(lambda: not ui.sending)
                 self.assertEqual(chat.state.entries, ())
                 self.assertEqual(ui.editor.text, "Explain")

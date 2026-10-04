@@ -33,6 +33,12 @@ No release-blocking defect was found within the owner-operated local scope above
 2. **Availability improvement:** use one dedicated, coalescing Git read worker per TUI. Keep at most one operation running and one latest refresh request pending; canceled generations discard results, but do not create another concurrent read. Add a rapid-toggle test that measures the maximum active read count and checks the latest workspace result.
 3. **Attachment and model safety:** keep the frozen bytes and send-time verification, show the owner the exact excerpt and destination at send, and enforce edit/review/spend authority in code outside the model's interpretation of the excerpt. Add an adversarial source-instruction test to the conversation policy suite. For a workspace with an untrusted concurrent writer, use an immutable captured source or require explicit reattachment after a detected change.
 
+The [attachment authority follow-up](CONVERSATION_DIFF_ATTACHMENT_AUTHORITY_WORK_NOTE.md)
+implements the send-time view and adversarial policy test on a later stacked
+candidate. This is technical evidence for condition 3, pending exact-candidate
+accountable review; it does not expand the accepted local trust scope. The
+untrusted-concurrent-writer limit in condition 3 remains.
+
 These are recommendations for later work. The owner decision below concerns the exact current candidate and scope, not an assumption that these improvements already exist.
 
 ## Verification and limits
