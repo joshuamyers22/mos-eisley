@@ -20,10 +20,13 @@ def submission_command(
         "goal_control",
         "branch_control",
         "agent_inspection",
+        "loop_control",
     ]
     | None
 ):
     """Recognize typed submission commands; callers keep pasted text literal."""
+    if text.split(maxsplit=1)[:1] == ["/loop"]:
+        return "loop_control"
     if text == "/side cancel":
         return None
     if text.split(maxsplit=1)[:1] in (["/agent"], ["/subagents"]):

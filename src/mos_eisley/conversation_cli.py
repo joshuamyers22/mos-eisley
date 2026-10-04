@@ -963,6 +963,7 @@ async def terminal(
     from mos_eisley.conversation_diff import attachment_suffix
     from mos_eisley.conversation_diff_commands import DiffCommands
     from mos_eisley.conversation_goal_commands import goal_command
+    from mos_eisley.conversation_loop_commands import loop_command
 
     diff_commands = DiffCommands(controller, emit)
     branch_commands = BranchCommands(controller, emit)
@@ -1325,6 +1326,8 @@ async def terminal(
         mode_control("/plan status")
     if controller.current_goal is not None:
         goal_command(controller, "/goal status", emit)
+    if controller.state.schedules:
+        loop_command(controller, "/loop status", emit)
     enabled = False  # Resume displays pending input; only explicit input starts work.
     if initial_prompt is not None:
         enabled = submit_text(initial_prompt)
@@ -1455,6 +1458,11 @@ async def terminal(
                             continue
                         if not line.literal and mode_control(line.text):
                             line.accepted.set_result(True)
+                            incoming = next_input()
+                            continue
+                        if command == "loop_control":
+                            result = loop_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
                             incoming = next_input()
                             continue
                         if command == "agent_inspection":
@@ -1631,6 +1639,8 @@ async def terminal(
                             submit_text(line.removeprefix("/goal run").lstrip())
                             or enabled
                         )
+                elif submission_command(line) == "loop_control":
+                    loop_command(controller, line, emit)
                 elif submission_command(line) == "agent_inspection":
                     agent_command(controller, line, emit)
                 elif submission_command(line) == "branch_control":
@@ -1872,7 +1882,7 @@ async def terminal(
                                     "/plan [on|off|status|TEXT], "
                                     "/mode plan|conversation, "
                                     "/implement TEXT, /goal [ACTION], /fork, /side, "
-                                    "/agent, /subagents, "
+                                    "/agent, /subagents, /loop, "
                                     "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
@@ -2948,6 +2958,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 pending_limits=pending_limits,
             )
 
+        from mos_eisley.conversation_loop_commands import recorded_loop_observer
+
+        controller.schedule_observer = recorded_loop_observer(controller)
+
         def publish_fork(child: ConversationState) -> None:
             with store_type(
                 args.storage, child.session_id, Path(child.workspace), create=True
@@ -3004,7 +3018,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
-                    "/fork, /side, /agent, /subagents, "
+                    "/fork, /side, /agent, /subagents, /loop, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
                     + project_location.describe(

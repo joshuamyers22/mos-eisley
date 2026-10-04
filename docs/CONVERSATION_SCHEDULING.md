@@ -1,11 +1,66 @@
-# Inert session scheduling qualification
+# Session scheduling and explicit loop controls
 
-This covers §31.15's inert fixtures and recorded durable controller admission.
+This covers §31.15's inert fixtures, recorded durable controller admission and
+explicit plain/JSON/TUI controls.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
-controls. Ordinary durable goals do not activate scheduling. `/loop` and production
+controls themselves. Ordinary durable goals do not activate scheduling. Active
 timer/event adapters remain later work.
+
+## Explicit controls
+
+Plain, JSON and TUI terminals share one command handler. Creation requires a
+selected working durable goal and explicit limits within its frozen ceiling and
+deadline. It starts no model call, queue entry or timer. A bounded example:
+
+```text
+/goal new Inspect committed CI results
+/loop create {"schedule_id":"ci-watch","task_id":"ci","prompt":"Inspect committed CI results","interval_seconds":60,"expires_in_seconds":300,"maximum_fires":2,"input_bytes":32000,"output_bytes":24000}
+/loop status ci-watch
+/loop status ci-watch --json
+/loop cancel ci-watch
+```
+
+| Command | Effect |
+| --- | --- |
+| `/loop` or `/loop status [ID]` | Inspect all schedules or one retained schedule without changing state or spend. |
+| `/loop status [ID] --json` or `/loop --json` | Emit the same structured report as JSON. |
+| `/loop create JSON` | Persist a bounded recorded schedule with explicit task, cadence, expiry and resource limits. |
+| `/loop cancel ID` | Stop future admission and retire queued intents while retaining charges and unresolved exposure. |
+| `/loop resume ID` | Revalidate an eligible paused schedule without resetting limits or dispatching work. |
+| `/loop help` | Show creation fields and command syntax. |
+
+Creation requires `schedule_id`, `task_id`, `prompt`, `interval_seconds`,
+`expires_in_seconds`, `maximum_fires`, `input_bytes` and `output_bytes`.
+Intervals and lifetime are bounded to 1–86,400 seconds, fires to 1–16, and
+input/output allowances to 1–1,000,000 bytes, further constrained by the goal.
+Attempts equal maximum fires; paid spend, corrections and reviews have zero
+allowance. Fixed cadence is the default. For dynamic cadence, supply
+`"cadence":"dynamic"` and explicit `minimum_interval_seconds` and
+`maximum_interval_seconds`. The durable host API retains bounded cadence changes.
+
+The CLI derives owner/session/workspace, observed revision, goal definition and
+recorded policy bindings; command JSON cannot provide authority or event sources.
+Its read-only workspace observer uses the trusted Git broker for supported Git
+workspaces and stable owned-directory identity for other directories. The policy
+pins the recorded cassette and goal definition. This recorded text-only slice
+grants no tools or paid execution. An API controller without a qualified observer
+rejects creation and resume, but can still inspect or cancel retained schedules.
+
+Inspection includes effective cadence/history, expiry, fire counts, remaining
+schedule and aggregate task budgets, pending notifications, stop reasons, and
+reserved/uncertain operation IDs with their queue states. Reports capture one
+immutable session revision. Clock-expired records are visibly ineligible without
+an inspection write. JSON terminal events retain structured schedule records for
+every successful control. TUI reports preserve drafts; rejected typed commands
+remain in the editor. Pasted commands and multiline submissions stay literal.
+
+Resume requires a working goal, current bindings, a safe queue boundary and
+remaining budgets/lifetime. Cancelled, expired, exhausted, blocked or uncertain
+work cannot be reopened by the command. Cold restart pauses clean schedules and
+requires explicit revalidation. Neither creation nor resume connects a timer.
+There is no `/loop run`, `fire` or external event command.
 
 ## Durable-goal and queue assessment
 
@@ -134,8 +189,13 @@ resume, retained charges, concurrent host admission/cancellation, competing stor
 owners, committed-source validation and SQLite archived history. Recorded fixture
 clients provide results; no live provider or credential is used.
 
-Remaining work includes `/loop` plain/JSON/TUI controls, qualified active-session
-timer driving, bounded trusted handler timeouts and external ingress authentication.
+`tests/test_conversation_loop.py` covers explicit creation, strict authority/limit
+validation, shared command routing and acknowledgements, read-only plain/JSON
+reports, retained exposure, both storage backends, guarded restart/resume,
+uncertain operations, stale revisions/policies, fatal persistence failures,
+literal paste and TUI draft preservation.
+
+Remaining work includes qualified active-session timer driving, bounded trusted handler timeouts and external ingress authentication.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
 exact receipts against qualified controllers. Live event ingress and active-session

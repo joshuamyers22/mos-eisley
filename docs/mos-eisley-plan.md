@@ -5384,6 +5384,17 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
+Shared plain/JSON/TUI controls create schedules with explicit task, fixed or bounded
+dynamic cadence, expiry, maximum fires and resource limits through the durable
+controller APIs. CLI-owned read-only observation binds the workspace/revision,
+recorded policy and selected goal. Inspection shows state, remaining schedule/task
+limits, cadence history and unresolved operation exposure without mutation.
+Cancellation retains charges; guarded resume revalidates scope, queue boundaries,
+expiry and uncertainty without resetting budgets. Command and draft-preservation
+tests cover both stores, cold restart and failed persistence. Creation/resume
+start no work; qualified active-session timer driving is the next delivery slice.
+
 **Durable recorded storage/admission, 2026-10-04 — implemented:**
 The existing snapshot/SQLite session header now persists bounded schedules and
 exact operation-to-queue bindings in one revision update. Trusted host APIs require
@@ -5392,8 +5403,8 @@ Dispatch revalidates binding, expiry and request identity. Later user input skip
 the queued wakeup atomically while retaining exposure. Queued cold-resume work is
 known undispatched and skipped; running work retains goal/schedule uncertainty
 without replay. Concurrent controls, writer/resume exclusion, cancellation and
-lost admission/running acknowledgements have recorded boundary tests. `/loop`,
-active timers, trusted handler qualification and external ingress remain gated;
+lost admission/running acknowledgements have recorded boundary tests.
+Active timers, trusted handler qualification and external ingress remain gated;
 this slice does not enable live/background dispatch.
 
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
@@ -5406,7 +5417,7 @@ before queue admission; lost acknowledgements remain uncertain without replay or
 refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
 timer/event admission path at that point. Durable recorded persistence and dispatch
-priority are now implemented above. `/loop`, trusted production handlers and
+priority and explicit `/loop` controls are now implemented above. Trusted handlers and
 external/background adapters remain required; no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit
