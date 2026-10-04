@@ -5384,6 +5384,24 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Remote TLS transport, 2026-10-04 — local fixture slice implemented and qualified:**
+[Local mutual TLS qualification](CONVERSATION_SCHEDULING.md#local-mutual-tls-transport-qualification)
+connects one narrowly scoped TLS 1.3 adapter through the active session owner,
+signed ingress and native credential lifecycle. A frozen host policy binds exact
+CA/server/client certificate pins, listener address, narrow peer networks and
+limits to the credential grant; inbound authority is separate from outbound MCP.
+Strict mutual TLS, certificate validity and bounded host revocation checks precede
+owner commit alongside bearer, source and trusted broker revalidation. Accepted
+sockets count before negotiation, with handshake/request deadlines, bounded
+connections/queues and cancellation. Generic responses expose no private artifacts.
+Local PKI/socket fixtures qualify invalid/expired certificates, unsafe material,
+revocation/rotation, cross-owner claims, peer filtering/floods, hung/cancelled reads,
+disconnects, terminal dispatch and lost acknowledgements on snapshot/SQLite.
+Restart retains rates and queued/running exposure without replay or budget reset.
+Actual credentialed remote deployment still requires host trust/revocation and
+network-exposure qualification. Other-platform vaults, MCP service deployments
+and live/paid execution remain gated; no daemon or closed-session work is added.
+
 **Native credential-vault qualification, 2026-10-04 — macOS slice implemented and qualified:**
 [Native macOS credential lifecycle](CONVERSATION_SCHEDULING.md#native-macos-credential-vault-qualification)
 adds explicit host provisioning, bounded lookup, read-only inspection, scope-frozen

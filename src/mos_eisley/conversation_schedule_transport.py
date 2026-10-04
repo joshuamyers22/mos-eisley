@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from typing import Annotated, Literal, Protocol, cast
 
@@ -48,6 +49,9 @@ class IngressTransportGrant(Contract):
     credential_id: Identifier
     credential_sha256: Digest
     not_after: Annotated[float, Field(ge=0)]
+    transport_authorization_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @property
     def account(self) -> str:
@@ -69,8 +73,15 @@ class ConnectedSocket(Protocol):
 
 class Delivery:
     def __init__(
-        self, packet: bytes, token: str, deadline: float, peer: socket.socket
+        self,
+        packet: bytes,
+        token: str,
+        deadline: float,
+        peer: socket.socket,
+        *,
+        check_authorization: Callable[[], None] | None = None,
     ) -> None:
+        self.check_authorization = check_authorization
         self.peer = peer
         self.packet = packet
         self.token = SecretStr(token)
@@ -82,6 +93,8 @@ class Delivery:
             raise ValueError("Ingress transport unavailable.")
         # asyncio cannot deliver EOF while the owner waits on a trusted read.
         # A non-consuming kernel check catches that disconnect before commit.
+        if self.check_authorization is not None:
+            self.check_authorization()
         try:
             self.peer.recv(1, socket.MSG_PEEK)
         except BlockingIOError:
@@ -105,7 +118,7 @@ class LoopbackEventTransport:
         self.settings = LoopbackIngressSettings.model_validate_json(
             canonical_bytes(settings)
         )
-        self.backend = backend  # Native backend is selected only on explicit open.
+        self.backend: CredentialBackend | None = backend  # Selected on explicit open.
         self.queue: asyncio.Queue[Delivery] = asyncio.Queue(
             maxsize=settings.queue_limit
         )
@@ -116,7 +129,12 @@ class LoopbackEventTransport:
         self.closed = False
         self._attempts: tuple[float, ...] = ()
 
+    def _transport_scope(self) -> None:
+        if self.grant.transport_authorization_sha256 is not None:
+            raise ValueError("Ingress transport unavailable.")
+
     def _scope(self) -> None:
+        self._transport_scope()
         chat, grant = self.controller, self.grant
         now = chat.goal_clock()
         if (
@@ -226,6 +244,18 @@ class LoopbackEventTransport:
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
 
+    @property
+    def http_host(self) -> str:
+        return f"127.0.0.1:{self.port}"
+
+    def _delivery(
+        self, packet: bytes, token: str, deadline: float, writer: asyncio.StreamWriter
+    ) -> Delivery:
+        connection = cast(ConnectedSocket, writer.get_extra_info("socket"))
+        peer = connection.dup()
+        peer.setblocking(False)
+        return Delivery(packet, token, deadline, peer)
+
     async def _connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
@@ -255,7 +285,7 @@ class LoopbackEventTransport:
                         raise ValueError("Invalid frame")
                     headers[key] = value.strip()
                 if (
-                    headers.get("host") != f"127.0.0.1:{self.port}"
+                    headers.get("host") != self.http_host
                     or headers.get("content-type") != "application/json"
                     or not re.fullmatch(
                         r"[1-9][0-9]{0,4}", headers.get("content-length", "")
@@ -269,11 +299,8 @@ class LoopbackEventTransport:
                 if size > MAX_PACKET_BYTES:
                     raise ValueError("Invalid frame")
                 packet = await reader.readexactly(size)
-                connection = cast(ConnectedSocket, writer.get_extra_info("socket"))
-                peer = connection.dup()
-                peer.setblocking(False)
-                delivery = Delivery(
-                    packet, headers["authorization"][7:], deadline, peer
+                delivery = self._delivery(
+                    packet, headers["authorization"][7:], deadline, writer
                 )
                 self.queue.put_nowait(delivery)
                 self.ready.set()

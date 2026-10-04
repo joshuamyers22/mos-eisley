@@ -355,6 +355,84 @@ qualification is covered separately below; remote TLS or MCP service deployments
 and live/paid execution remain separate qualification. This slice
 provides no public listener, daemon or closed-session execution.
 
+## Local mutual TLS transport qualification
+
+`TLSEventTransport` connects one signed ingress source through the same active
+plain/JSON/TUI session owner and native credential lifecycle as the loopback
+adapter. The first slice uses disposable local PKI and real localhost TLS sockets;
+credentialed remote deployment remains a separate qualification. Outbound MCP
+network/OAuth grants do not authorize an inbound listener or its credentials.
+
+Trusted host code supplies `TLSIngressSettings`, a matching transport grant,
+and a required read-only `validate_certificates(settings)` revocation callback.
+The settings pin a single self-signed CA, directly issued server certificate and
+client leaf certificate by DER SHA-256; absolute certificate/key paths; exact
+server name; literal unicast IPv4 listener; at most four explicit peer networks
+(each /24 or narrower); and connection, queue and timeout limits. Loopback is the
+default. Non-loopback binding or peers require explicit `allow_remote_bind=True`
+host authorization. Wildcard addresses, DNS listener resolution and forwarded
+identity headers cannot widen this scope. Deployment must qualify firewall,
+network exposure and the host revocation port before enabling a remote address.
+
+Set `IngressTransportGrant.transport_authorization_sha256` to
+`settings.authorization_sha256` **before** provisioning that grant through
+`NativeIngressVault`, then pass the adapter as `terminal(...,
+ingress_transport=adapter)`. The hash covers the entire frozen listener/trust
+policy and is part of the native credential account. Ordinary loopback grants
+omit this optional field and retain their existing canonical hashes/accounts.
+A TLS-bound grant is rejected by the plaintext loopback adapter, preventing a
+transport downgrade. Certificate or policy rotation requires an explicit new grant and attachment;
+bearer rotation retains the exact scope through the existing vault API. No
+project/model text, sender request or proxy can install trust or choose a route.
+
+The adapter requires TLS 1.3, mutual certificate validation against only the
+pinned CA, strict chain checks, `http/1.1` ALPN and the pinned client leaf. TLS
+session tickets are disabled. Startup checks CA/server signatures, certificate
+validity, server SAN and key match, and certificate purposes. Captured owner-owned
+regular files must be singly linked, bounded to 64 KiB and not writable by other
+users; private keys require mode 0600. Symlinks are rejected. The TLS context loads
+validated captured bytes through disposable private files, avoiding a mutable
+path reread. No default public CA roots, client-selected trust or automatic
+network OCSP/CRL fetches are used.
+
+A verified client must additionally present the exact native bearer credential
+and signed source envelope. Certificate expiry and host revocation are checked
+at startup and through the bounded trusted read lane before owner commit,
+including duplicate requests. Vault revocation, source binding, trusted broker
+revision checks and dispatch gates remain authoritative. TLS socket tasks read
+frames and await owner acknowledgements; they cannot mutate schedules or execute
+work. The same terminal loop preserves user steering and draft handling.
+
+Accepted sockets count toward the 1–4 connection bound **before** TLS negotiation.
+The listener has a matching bounded backlog and admits at most 16 connection
+attempts per second. Accept/reject iterations yield to terminal/user steering.
+Handshakes have a 0.05–10 second deadline (default 2); requests
+have the existing whole-operation 0.05–30 second deadline (default 5), shortened
+by trusted-read limits. Headers, bodies and the 1–4 frame queue retain loopback
+bounds. Shutdown/response cleanup is bounded; cancellation closes stalled
+handshakes and uncommitted deliveries. Hung certificate/vault reads quarantine
+one read lane, and abandoned results cannot commit. Each connection carries one
+request; additional peer traffic while awaiting acknowledgement fails closed.
+
+Unverified TLS peers receive only a connection close/TLS protocol failure.
+Verified peers receive the same fixed `received`/`unavailable` responses as
+loopback, without private diagnostics or artifacts. A pre-commit disconnect
+(including during a synchronous trusted read) prevents admission. Post-commit
+acknowledgement loss retains metadata, duplicate/rate charges and queued/running
+exposure; restart cannot replay work or reset budgets. Certificates, credentials
+and listeners must be explicitly reattached after guarded resume.
+
+`tests/test_conversation_schedule_tls.py` qualifies certificate trust/pins,
+missing/invalid/expired certificates and server material, private-key permissions,
+owner/source routing, all certificate revocations, native lifecycle credential
+rotation/revocation, handshake/request bounds, peer filtering, floods, queue
+limits, hung/cancelled reads, disconnects, terminal dispatch/EOF, lost sender/store
+acknowledgements and retained restart exposure on snapshot/SQLite. The fixture
+uses `NativeIngressVault` with a synthetic credential backend; actual macOS
+Keychain lifecycle qualification remains separately documented below. Package
+smoke includes the TLS fixtures. No remote deployment, daemon or live/paid
+execution is claimed.
+
 ## Native macOS credential-vault qualification
 
 `NativeIngressVault` supplies the default native credential port for the loopback
