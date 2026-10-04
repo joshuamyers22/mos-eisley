@@ -176,3 +176,11 @@ No new accepted privacy exception is granted. Supply-chain trust and qualificati
 policy remain in the trusted composition boundary; untrusted serialized records
 cannot select a weaker adapter/policy. Recovery preserves published evidence and
 refuses conflicting roots/keys rather than silently deleting or reenrolling.
+
+The [POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) implements the root
+portion of these controls: descriptor ACL/mount checks, fresh owner/protection
+observations and bounded owned non-inheritable leases. Atomic duplication avoids
+a fork inheritance window; close uncertainty disables acquisition without retry.
+A 64-lease process cap bounds retained ownership. Public storage selection remains
+closed. Native macOS source/wheel ACL/ABI evidence does not qualify Linux, secure
+child reads, physical host scope, protected custody or write durability.

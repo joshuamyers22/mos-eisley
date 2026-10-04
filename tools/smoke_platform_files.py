@@ -31,12 +31,19 @@ def main() -> int:
         for name in (
             "test_platform_files.py",
             "test_platform_identity.py",
+            "test_platform_storage.py",
             "test_platform_identity_wire.py",
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
             "test_platform_windows_file_identity.py",
         ):
             shutil.copyfile(repository / "tests" / name, root / name)
+        fixtures = root / "fixtures"
+        fixtures.mkdir()
+        shutil.copyfile(
+            repository / "tests/fixtures/posix_root_abi.c",
+            fixtures / "posix_root_abi.c",
+        )
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)
         import_check = """
@@ -72,6 +79,7 @@ for module in (files, identity, wire, candidate, file_candidate):
         selection = (
             [
                 "test_platform_files.PlatformFileContractTests",
+                "test_platform_storage.PlatformStorageContractTests",
                 "test_platform_identity.IdentityValueTests",
                 "test_platform_identity_wire.IdentityWireTests",
                 "test_platform_identity_wire.NamespaceRecordWireTests",
