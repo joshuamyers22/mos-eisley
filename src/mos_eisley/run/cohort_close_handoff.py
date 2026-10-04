@@ -100,9 +100,8 @@ class OfflineR4TriggerReproduction(Contract):
 
     @model_validator(mode="after")
     def consistent_status(self) -> Self:
-        if (
-            (self.status == "reproduced") == bool(self.reasons)
-            or self.reasons != tuple(sorted(set(self.reasons)))
+        if (self.status == "reproduced") == bool(self.reasons) or self.reasons != tuple(
+            sorted(set(self.reasons))
         ):
             raise ValueError("R4 trigger reproduction status and reasons conflict")
         return self

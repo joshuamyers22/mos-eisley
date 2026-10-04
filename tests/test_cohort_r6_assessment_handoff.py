@@ -229,8 +229,7 @@ class CohortR6AssessmentHandoffTests(TestCase):
         self.assertIn("r5_reproduction_missing", missing.reasons)
         wrong_receipt = self.reproduction.model_copy(
             update={
-                "reproduced_at": self.reproduction.reproduced_at
-                + timedelta(seconds=1)
+                "reproduced_at": self.reproduction.reproduced_at + timedelta(seconds=1)
             }
         )
         substituted = self.validate_reproduced(reproduction=wrong_receipt)

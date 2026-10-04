@@ -632,12 +632,8 @@ class RoutingQualificationTests(TestCase):
                     fault_id=fault,
                     expected_status=status,  # type: ignore[arg-type]
                     expected_state_sha256=sha(f"oracle:{case}:{fault}"),
-                    max_claims=1
-                    if (case, fault) in REQUIRED_CLAIM_FAULTS
-                    else 0,
-                    max_intents=1
-                    if (case, fault) in REQUIRED_INTENT_FAULTS
-                    else 0,
+                    max_claims=1 if (case, fault) in REQUIRED_CLAIM_FAULTS else 0,
+                    max_intents=1 if (case, fault) in REQUIRED_INTENT_FAULTS else 0,
                     max_transport_entries=1 if status == "one_entry" else 0,
                     min_retained_exposure_microusd=(
                         self.packet.scope.request_maximum_microusd
@@ -961,18 +957,14 @@ class RoutingQualificationTests(TestCase):
             {"check_method": "independent_source_read"},
             {"checker_role": "security"},
         ):
-            audited = next(
-                ref for ref in handoff.references if ref.source_id == "q.Q1"
-            )
+            audited = next(ref for ref in handoff.references if ref.source_id == "q.Q1")
             changed = audited.model_copy(update=update)
             references = tuple(
                 changed if ref.source_id == "q.Q1" else ref
                 for ref in handoff.references
             )
             altered = handoff.model_copy(update={"references": references})
-            self.assertIn(
-                "source_binding_mismatch", self.source_assessment(altered)[1]
-            )
+            self.assertIn("source_binding_mismatch", self.source_assessment(altered)[1])
 
     def test_source_handoff_denies_wrong_packet_and_expired_window(self) -> None:
         handoff = self.source_handoff()
@@ -1057,9 +1049,16 @@ class RoutingQualificationTests(TestCase):
                 sys.executable,
                 "-m",
                 "mos_eisley.run.routing_source_handoff",
-                *(str(root / f"{name}.json") for name in (
-                    "packet", "qualification", "protocol", "index", "handoff"
-                )),
+                *(
+                    str(root / f"{name}.json")
+                    for name in (
+                        "packet",
+                        "qualification",
+                        "protocol",
+                        "index",
+                        "handoff",
+                    )
+                ),
                 "--now",
                 self.now.isoformat(),
                 "--inspection-protocol-sha256",
@@ -1275,9 +1274,7 @@ class RoutingQualificationTests(TestCase):
         self.assertIn(
             "readiness_binding_mismatch", self.decision_assessment(changed, handoff)[1]
         )
-        open_finding = original.model_copy(
-            update={"unresolved_findings": ("G605-05",)}
-        )
+        open_finding = original.model_copy(update={"unresolved_findings": ("G605-05",)})
         self.assertIn(
             "unresolved_findings", self.decision_assessment(open_finding, handoff)[1]
         )
@@ -1354,10 +1351,19 @@ class RoutingQualificationTests(TestCase):
                 sys.executable,
                 "-m",
                 "mos_eisley.run.routing_decision_readiness",
-                *(str(root / f"{name}.json") for name in (
-                    "packet", "evidence", "protocol", "index",
-                    "handoff", "trust", "reviews", "readiness",
-                )),
+                *(
+                    str(root / f"{name}.json")
+                    for name in (
+                        "packet",
+                        "evidence",
+                        "protocol",
+                        "index",
+                        "handoff",
+                        "trust",
+                        "reviews",
+                        "readiness",
+                    )
+                ),
                 "--inspection-protocol-sha256",
                 handoff.inspection_protocol_sha256,
                 "--reviewer-roster-sha256",

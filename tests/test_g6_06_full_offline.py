@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import stat
+import subprocess
 import sys
 import unittest
 from contextlib import redirect_stdout
@@ -70,7 +71,21 @@ class FullOfflineRunnerTests(TestCase):
             "tests/test_cohort_r6_assessment_handoff.py",
         ):
             self.assertIn(relative, BOUND_SOURCE_PATHS)
-        verify_bound_module_origins(PROJECT_ROOT)
+        # The verifier rejects unrelated imported local modules; isolate it from
+        # modules loaded by other tests in the full suite.
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from tools.g6_06_full_offline import PROJECT_ROOT, "
+                "verify_bound_module_origins; "
+                "verify_bound_module_origins(PROJECT_ROOT)",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
         with self.assertRaisesRegex(ValueError, "origin mismatch"):
             verify_bound_module_origins(PROJECT_ROOT.parent)
 
@@ -88,12 +103,8 @@ class FullOfflineRunnerTests(TestCase):
                 ("tests.dependency", "tests.entry", "tests.leaf"),
             )
             (package / "new_leaf.py").write_text("VALUE = 2\n")
-            (package / "dependency.py").write_text(
-                "from tests import leaf, new_leaf\n"
-            )
-            self.assertIn(
-                "tests.new_leaf", discover_local_source_modules(root, seeds)
-            )
+            (package / "dependency.py").write_text("from tests import leaf, new_leaf\n")
+            self.assertIn("tests.new_leaf", discover_local_source_modules(root, seeds))
 
     def test_dynamic_local_import_outside_closure_is_rejected(self) -> None:
         module = ModuleType("tools.synthetic_unbound")

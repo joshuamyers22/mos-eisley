@@ -87,13 +87,21 @@ The proposed offline call boundary is:
 
 ```python
 def claim_with_budget(
-    *, attempt: WitnessedAttempt, expected_control: AnchoredRoutingControl,
-    current_preflight: RoutingRuntimePreflight, now: datetime,
+    *,
+    attempt: WitnessedAttempt,
+    expected_control: AnchoredRoutingControl,
+    current_preflight: RoutingRuntimePreflight,
+    now: datetime,
 ) -> WitnessedAdmissionReceipt: ...
 
+
 def read_current() -> WitnessedState: ...
-def settle_exact(*, receipt: WitnessedAdmissionReceipt,
-                 charged_microusd: int, status: SettlementStatus) -> None: ...
+def settle_exact(
+    *,
+    receipt: WitnessedAdmissionReceipt,
+    charged_microusd: int,
+    status: SettlementStatus,
+) -> None: ...
 ```
 
 The broker must rebuild the full preflight from independently supplied sources

@@ -73,32 +73,42 @@ class CohortR3AttemptTests(TestCase):
         cases: tuple[tuple[str, dict[str, object]], ...] = (
             (
                 "expired_readiness",
-                {"readiness": self.r2.readiness.model_copy(
-                    update={"valid_until": self.fixture.now}
-                )},
+                {
+                    "readiness": self.r2.readiness.model_copy(
+                        update={"valid_until": self.fixture.now}
+                    )
+                },
             ),
             (
                 "rejected_inspection",
-                {"readiness": self.r2.readiness.model_copy(update={
-                    "source_inspections": (
-                        self.r2.readiness.source_inspections[0].model_copy(
-                            update={"status": "reject"}
-                        ),
-                        *self.r2.readiness.source_inspections[1:],
+                {
+                    "readiness": self.r2.readiness.model_copy(
+                        update={
+                            "source_inspections": (
+                                self.r2.readiness.source_inspections[0].model_copy(
+                                    update={"status": "reject"}
+                                ),
+                                *self.r2.readiness.source_inspections[1:],
+                            )
+                        }
                     )
-                })},
+                },
             ),
             ("rejected_q7", {"reviews": q.reviews(decision="reject")}),
             (
                 "changed_source_handoff",
-                {"source_handoff": self.r2.source_handoff.model_copy(update={
-                    "references": (
-                        self.r2.source_handoff.references[0].model_copy(
-                            update={"status": "unavailable"}
-                        ),
-                        *self.r2.source_handoff.references[1:],
+                {
+                    "source_handoff": self.r2.source_handoff.model_copy(
+                        update={
+                            "references": (
+                                self.r2.source_handoff.references[0].model_copy(
+                                    update={"status": "unavailable"}
+                                ),
+                                *self.r2.source_handoff.references[1:],
+                            )
+                        }
                     )
-                })},
+                },
             ),
             (
                 "changed_frozen_root",
@@ -106,11 +116,19 @@ class CohortR3AttemptTests(TestCase):
             ),
             (
                 "changed_cohort_roster",
-                {"qualification_packet": q.packet.model_copy(update={
-                    "scope": q.packet.scope.model_copy(update={
-                        "task_enrollment_sha256": digest(b"different-roster")
-                    })
-                })},
+                {
+                    "qualification_packet": q.packet.model_copy(
+                        update={
+                            "scope": q.packet.scope.model_copy(
+                                update={
+                                    "task_enrollment_sha256": digest(
+                                        b"different-roster"
+                                    )
+                                }
+                            )
+                        }
+                    )
+                },
             ),
             ("owner_decision_missing", {"owner_decision": None}),
         )

@@ -122,9 +122,7 @@ def discover_local_source_modules(
             elif isinstance(node, ast.ImportFrom):
                 base = node.module or ""
                 if node.level:
-                    base = importlib.util.resolve_name(
-                        "." * node.level + base, package
-                    )
+                    base = importlib.util.resolve_name("." * node.level + base, package)
                 if base:
                     candidates.append(base)
                     candidates.extend(
@@ -246,9 +244,7 @@ def make_index(
     results: tuple[R0SuiteResult, ...],
     source_stable: bool,
 ) -> FullOfflineResultIndex:
-    passing = source_stable and all(
-        item.status == "synthetic_pass" for item in results
-    )
+    passing = source_stable and all(item.status == "synthetic_pass" for item in results)
     return FullOfflineResultIndex(
         generated_at=datetime.now(UTC),
         source_files=files,

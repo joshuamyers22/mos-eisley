@@ -104,9 +104,7 @@ class CohortR2EntryTests(TestCase):
             proposed_at=self.now,
         )
 
-    def make_owner_go_sha256(
-        self, fixture: cohort_module.CohortControllerTests
-    ) -> str:
+    def make_owner_go_sha256(self, fixture: cohort_module.CohortControllerTests) -> str:
         now = fixture.now
         budget = fixture.base.budget_policy
         manifest = fixture.manifest
@@ -341,20 +339,28 @@ class CohortR2EntryTests(TestCase):
         q = self.qualification
         cases = (
             (
-                {"readiness": self.readiness.model_copy(update={
-                    "valid_until": self.now,
-                })},
+                {
+                    "readiness": self.readiness.model_copy(
+                        update={
+                            "valid_until": self.now,
+                        }
+                    )
+                },
                 "g6_05_readiness_invalid",
             ),
             (
-                {"readiness": self.readiness.model_copy(update={
-                    "source_inspections": (
-                        self.readiness.source_inspections[0].model_copy(
-                            update={"status": "reject"}
-                        ),
-                        *self.readiness.source_inspections[1:],
+                {
+                    "readiness": self.readiness.model_copy(
+                        update={
+                            "source_inspections": (
+                                self.readiness.source_inspections[0].model_copy(
+                                    update={"status": "reject"}
+                                ),
+                                *self.readiness.source_inspections[1:],
+                            )
+                        }
                     )
-                })},
+                },
                 "g6_05_readiness_invalid",
             ),
             (
@@ -362,24 +368,32 @@ class CohortR2EntryTests(TestCase):
                 "g6_05_readiness_invalid",
             ),
             (
-                {"source_handoff": self.source_handoff.model_copy(update={
-                    "references": (
-                        self.source_handoff.references[0].model_copy(
-                            update={"status": "unavailable"}
-                        ),
-                        *self.source_handoff.references[1:],
+                {
+                    "source_handoff": self.source_handoff.model_copy(
+                        update={
+                            "references": (
+                                self.source_handoff.references[0].model_copy(
+                                    update={"status": "unavailable"}
+                                ),
+                                *self.source_handoff.references[1:],
+                            )
+                        }
                     )
-                })},
+                },
                 "g6_05_readiness_invalid",
             ),
             (
-                {"qualification_evidence": q.evidence.model_copy(update={
-                    "route_observations": (
-                        q.evidence.route_observations[0].model_copy(
-                            update={"valid_until": self.now}
-                        ),
+                {
+                    "qualification_evidence": q.evidence.model_copy(
+                        update={
+                            "route_observations": (
+                                q.evidence.route_observations[0].model_copy(
+                                    update={"valid_until": self.now}
+                                ),
+                            )
+                        }
                     )
-                })},
+                },
                 "g6_05_readiness_invalid",
             ),
             (
@@ -395,9 +409,15 @@ class CohortR2EntryTests(TestCase):
                 "g6_05_readiness_invalid",
             ),
             (
-                {"owner_anchor": self.owner_anchor.model_copy(update={
-                    "decision_readiness_sha256": digest(b"wrong-frozen-readiness")
-                })},
+                {
+                    "owner_anchor": self.owner_anchor.model_copy(
+                        update={
+                            "decision_readiness_sha256": digest(
+                                b"wrong-frozen-readiness"
+                            )
+                        }
+                    )
+                },
                 "g6_05_readiness_owner_binding_mismatch",
             ),
             (
@@ -415,29 +435,33 @@ class CohortR2EntryTests(TestCase):
 
     def test_end_to_end_qualified_scope_and_decision_time_deny(self) -> None:
         q = self.qualification
-        narrower = q.packet.model_copy(update={
-            "scope": q.packet.scope.model_copy(update={"max_tasks": 1})
-        })
+        narrower = q.packet.model_copy(
+            update={"scope": q.packet.scope.model_copy(update={"max_tasks": 1})}
+        )
         result = self.validate_end_to_end(qualification_packet=narrower)
         self.assertIn("g6_05_qualified_scope_mismatch", result.reasons)
         self.assertIn("g6_05_qualified_cohort_mismatch", result.reasons)
-        changed_roster = q.packet.model_copy(update={
-            "scope": q.packet.scope.model_copy(update={
-                "task_enrollment_sha256": digest(b"other-roster")
-            })
-        })
+        changed_roster = q.packet.model_copy(
+            update={
+                "scope": q.packet.scope.model_copy(
+                    update={"task_enrollment_sha256": digest(b"other-roster")}
+                )
+            }
+        )
         result = self.validate_end_to_end(qualification_packet=changed_roster)
         self.assertIn("g6_05_qualified_cohort_mismatch", result.reasons)
-        changed_policy = q.packet.model_copy(update={
-            "candidate": q.packet.candidate.model_copy(update={
-                "candidate_policy_sha256": digest(b"other-policy")
-            })
-        })
+        changed_policy = q.packet.model_copy(
+            update={
+                "candidate": q.packet.candidate.model_copy(
+                    update={"candidate_policy_sha256": digest(b"other-policy")}
+                )
+            }
+        )
         result = self.validate_end_to_end(qualification_packet=changed_policy)
         self.assertIn("g6_05_qualified_scope_mismatch", result.reasons)
-        earlier = self.owner_decision.decision.model_copy(update={
-            "issued_at": self.readiness.assembled_at - timedelta(seconds=1)
-        })
+        earlier = self.owner_decision.decision.model_copy(
+            update={"issued_at": self.readiness.assembled_at - timedelta(seconds=1)}
+        )
         resigned = sign_synthetic_g605_owner_decision(
             earlier, self.owner_decision_key.private_bytes_raw()
         )
@@ -724,9 +748,7 @@ class CohortR2EntryTests(TestCase):
             self.validate_joined(packet=changed_packet).reasons,
         )
         narrower = sign_synthetic_g605_owner_decision(
-            self.owner_decision.decision.model_copy(
-                update={"max_assignments": 1}
-            ),
+            self.owner_decision.decision.model_copy(update={"max_assignments": 1}),
             self.owner_decision_key.private_bytes_raw(),
         )
         result = self.validate_joined(owner_decision=narrower)

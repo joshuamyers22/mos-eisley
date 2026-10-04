@@ -489,8 +489,7 @@ def validate_offline_qualification_packet(
         or evidence.drill_summary.crash_cases_run != drill_index.crash_cases_run
         or evidence.drill_summary.synthetic_admissions
         != drill_index.synthetic_admissions
-        or evidence.drill_summary.paid_provider_calls
-        != drill_index.paid_provider_calls
+        or evidence.drill_summary.paid_provider_calls != drill_index.paid_provider_calls
         or evidence.drill_summary.measured_max_stop_latency_ms
         != drill_index.measured_max_stop_latency_ms
         or evidence.drill_summary.measured_max_alert_latency_ms

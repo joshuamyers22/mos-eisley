@@ -57,12 +57,8 @@ class HostDrillIndexTests(TestCase):
                     fault_id=fault,
                     expected_status=status,  # type: ignore[arg-type]
                     expected_state_sha256=sha(f"oracle:{case}:{fault}"),
-                    max_claims=1
-                    if (case, fault) in REQUIRED_CLAIM_FAULTS
-                    else 0,
-                    max_intents=1
-                    if (case, fault) in REQUIRED_INTENT_FAULTS
-                    else 0,
+                    max_claims=1 if (case, fault) in REQUIRED_CLAIM_FAULTS else 0,
+                    max_intents=1 if (case, fault) in REQUIRED_INTENT_FAULTS else 0,
                     max_transport_entries=1 if status == "one_entry" else 0,
                     min_retained_exposure_microusd=500
                     if (case, fault) in REQUIRED_FULL_EXPOSURE_FAULTS

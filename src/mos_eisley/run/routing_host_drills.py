@@ -416,8 +416,7 @@ def validate_inert_host_drill_index(
             or (key in NO_CHECKPOINT_ADVANCE_FAULTS and checkpoint_advance != 0)
             or (
                 key in REQUIRED_FULL_EXPOSURE_FAULTS
-                and item.retained_exposure_microusd
-                < protocol.request_maximum_microusd
+                and item.retained_exposure_microusd < protocol.request_maximum_microusd
             )
         ):
             reasons.add("state_invariant_failed")
@@ -472,8 +471,7 @@ def validate_joined_inert_host_drill_index(
         or protocol.target_host_id != packet.runtime.target_host_id
         or protocol.witness_deployment_id != packet.witness.deployment_id
         or protocol.test_protocol_sha256 != packet.verification.test_protocol_sha256
-        or protocol.request_maximum_microusd
-        != packet.scope.request_maximum_microusd
+        or protocol.request_maximum_microusd != packet.scope.request_maximum_microusd
     ):
         reasons.add("qualification_packet_binding_mismatch")
     if (
