@@ -175,6 +175,8 @@ def main() -> int:
             "test_conversation_diff.py",
             "test_conversation_planning.py",
             "test_conversation_goal.py",
+            "test_conversation_branch_boundaries.py",
+            "test_conversation_branch.py",
             "test_conversation_startup.py",
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",

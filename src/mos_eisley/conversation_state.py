@@ -5,6 +5,12 @@ from typing import Annotated, Generic, Literal, Self
 from pydantic import Field, model_validator
 from typing_extensions import TypeVar
 
+from mos_eisley.conversation_branch import (
+    BranchBudget,
+    ForkOrigin,
+    ForkReceipt,
+    SideReceipt,
+)
 from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     validate_author_compactions,
@@ -321,6 +327,16 @@ EntryT = TypeVar(
 
 
 class ConversationState(Contract, Generic[EntryT]):
+    fork_origin: ForkOrigin | None = Field(default=None, exclude_if=lambda v: v is None)
+    branch_budget: BranchBudget | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    forks: Annotated[tuple[ForkReceipt, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    sides: Annotated[tuple[SideReceipt, ...], Field(max_length=16)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
     goals: Annotated[tuple[DurableGoal, ...], Field(max_length=8)] = Field(
         default=(), exclude_if=lambda v: not v
     )
@@ -394,6 +410,23 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        if self.fork_origin is not None and (
+            self.fork_origin.context.owner_uid != self.owner_uid
+            or self.fork_origin.context.workspace != self.workspace
+            or self.branch_budget is None
+            or self.task_continuation is not None
+            or self.task_checkpoint is not None
+        ):
+            raise ValueError(
+                "Forks require exact owner/workspace, "
+                "allowance and no executable checkpoint."
+            )
+        for values in (
+            tuple(f.branch_id for f in self.forks),
+            tuple(s.side_id for s in self.sides),
+        ):
+            if len(set(values)) != len(values):
+                raise ValueError("Branch operation identities must be unique.")
         goals = {g.goal_id: g for g in self.goals}
         if len(goals) != len(self.goals) or any(
             g.owner_uid != self.owner_uid or g.workspace != self.workspace
@@ -555,7 +588,15 @@ class ConversationState(Contract, Generic[EntryT]):
             and (index in targets or entry.request_admission is not None)
             for index, entry in enumerate(self.entries)
         )
-        if not dispatched <= self.exchanges_consumed <= len(started):
+        inherited = (
+            0 if self.fork_origin is None else self.fork_origin.inherited_exchanges
+        )
+        side_count = len(self.sides)
+        if (
+            not dispatched + inherited + side_count
+            <= self.exchanges_consumed
+            <= len(started) + inherited + side_count
+        ):
             raise ValueError("invalid conversation exchange count")
         if sum(entry.status == "running" for entry in self.entries) > 1:
             raise ValueError("only one message may be running")

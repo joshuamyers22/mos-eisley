@@ -1150,6 +1150,21 @@ class ConversationTUI:
             self.set_notice(f"Context report toggled. {command} shows or hides it.")
             self.refresh()
             return
+        if event["type"] in {
+            "conversation.fork",
+            "conversation.side",
+            "conversation.branches",
+        }:
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/side status"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice(
+                "Fork/side report shown; context enters the author "
+                "only by explicit selection."
+            )
+            self.refresh()
+            return
         if event["type"] == "conversation.goal":
             self.context_preview = (self.controller.state.revision, str(event["text"]))
             self.context_command = "/goal status"

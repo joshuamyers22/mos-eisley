@@ -958,11 +958,13 @@ async def terminal(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    from mos_eisley.conversation_branch_commands import BranchCommands
     from mos_eisley.conversation_diff import attachment_suffix
     from mos_eisley.conversation_diff_commands import DiffCommands
     from mos_eisley.conversation_goal_commands import goal_command
 
     diff_commands = DiffCommands(controller, emit)
+    branch_commands = BranchCommands(controller, emit)
 
     def discard_draft(reason: str) -> None:
         if composer.active:
@@ -1325,6 +1327,16 @@ async def terminal(
         enabled = submit_text(initial_prompt)
     incoming: asyncio.Task[ConversationInput] | None = next_input()
     active: asyncio.Task[bool] | None = None
+    branch_task: asyncio.Task[str] | None = None
+    branch_submission: ConversationSubmission | None = None
+
+    def side_started() -> None:
+        nonlocal branch_submission
+        if branch_submission is not None:
+            if not branch_submission.accepted.done():
+                branch_submission.accepted.set_result(True)
+            branch_submission = None
+
     diff_task: asyncio.Task[str | None] | None = None
     diff_submission: ConversationSubmission | None = None
     eof = False
@@ -1339,7 +1351,7 @@ async def terminal(
                 )
             ):
                 active = asyncio.create_task(controller.step(on_started=render))
-            if eof and active is None and diff_task is None:
+            if eof and active is None and diff_task is None and branch_task is None:
                 return
             if incoming is None and active is not None:
                 # Keep accepting Ctrl-C while finishing work after stdin closes.
@@ -1348,6 +1360,7 @@ async def terminal(
                 asyncio.Task[ConversationInput]
                 | asyncio.Task[bool]
                 | asyncio.Task[str | None]
+                | asyncio.Task[str]
             ] = set()
             if incoming is not None:
                 pending.add(incoming)
@@ -1355,9 +1368,26 @@ async def terminal(
                 pending.add(active)
             if diff_task is not None:
                 pending.add(diff_task)
+            if branch_task is not None:
+                pending.add(branch_task)
             if not pending:
                 return
             done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            if branch_task in done:
+                assert branch_task is not None
+                try:
+                    result = branch_task.result()
+                except asyncio.CancelledError:
+                    result = "rejected"
+                if result == "queued":
+                    enabled = True
+                if (
+                    branch_submission is not None
+                    and not branch_submission.accepted.done()
+                ):
+                    branch_submission.accepted.set_result(result != "rejected")
+                branch_task = None
+                branch_submission = None
             if diff_task in done:
                 assert diff_task is not None
                 accepted = False
@@ -1430,6 +1460,37 @@ async def terminal(
                             continue
                         if not line.literal and mode_control(line.text):
                             line.accepted.set_result(True)
+                            incoming = next_input()
+                            continue
+                        if command == "branch_control":
+                            if line.text == "/side cancel":
+                                if branch_task is not None:
+                                    branch_task.cancel()
+                                    with suppress(asyncio.CancelledError):
+                                        await branch_task
+                                    branch_task = None
+                                if branch_submission is not None:
+                                    branch_submission.accepted.cancel()
+                                    branch_submission = None
+                                line.accepted.set_result(True)
+                                incoming = next_input()
+                                continue
+                            if branch_task is None:
+                                branch_task = asyncio.create_task(
+                                    branch_commands.execute(
+                                        line.text, on_side_started=side_started
+                                    )
+                                )
+                                branch_submission = line
+                            else:
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "A side/fork control is running; "
+                                        "draft retained.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
                             incoming = next_input()
                             continue
                         if command == "goal_control":
@@ -1516,7 +1577,31 @@ async def terminal(
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
-                if line in {"/stop", "/quit"}:
+                if line == "/side cancel":
+                    if branch_task is not None:
+                        branch_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await branch_task
+                        branch_task = None
+                        if branch_submission is not None:
+                            branch_submission.accepted.cancel()
+                            branch_submission = None
+                    emit(
+                        {
+                            "type": "conversation.side",
+                            "text": "Side call stopped; "
+                            "any uncertain exposure remains reserved.",
+                        }
+                    )
+                elif line in {"/stop", "/quit"}:
+                    if branch_task is not None:
+                        branch_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await branch_task
+                        branch_task = None
+                    if branch_submission is not None:
+                        branch_submission.accepted.cancel()
+                        branch_submission = None
                     if diff_task is not None:
                         diff_task.cancel()
                         with suppress(asyncio.CancelledError):
@@ -1559,6 +1644,17 @@ async def terminal(
                         enabled = (
                             submit_text(line.removeprefix("/goal run").lstrip())
                             or enabled
+                        )
+                elif submission_command(line) == "branch_control":
+                    if branch_task is None:
+                        branch_task = asyncio.create_task(branch_commands.execute(line))
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "A side/fork control is running; "
+                                "retry when complete.",
+                            }
                         )
                 elif goal_command(controller, line, emit):
                     pass
@@ -1804,7 +1900,9 @@ async def terminal(
         if diff_submission is not None:
             diff_submission.accepted.cancel()
         discard_draft("Session closed; unsent draft discarded.")
-        for task in (active, incoming, diff_task):
+        if branch_submission is not None:
+            branch_submission.accepted.cancel()
+        for task in (active, incoming, diff_task, branch_task):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -2860,6 +2958,14 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 input_limits=input_limits,
                 pending_limits=pending_limits,
             )
+
+        def publish_fork(child: ConversationState) -> None:
+            with store_type(
+                args.storage, child.session_id, Path(child.workspace), create=True
+            ) as child_store:
+                child_store.save(child)
+
+        controller.publish_fork = publish_fork
         memory_runtime = ConversationMemoryRuntime(
             controller,
             memory_store,

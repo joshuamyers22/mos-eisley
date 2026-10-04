@@ -17,6 +17,10 @@ Use [/plan](CONVERSATION_PLANNING.md) for read-only planning and `/implement TEX
 for an explicit creator-workflow handoff. The status bar shows the selected mode;
 admitted messages retain their own mode through queueing and resume.
 
+Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected author
+context. Forks save separate sessions; side answers remain transient until
+`/side attach ID`. `/side cancel` stops the side call while main work continues.
+
 ## Start a conversation
 
 Open your project directory and run:

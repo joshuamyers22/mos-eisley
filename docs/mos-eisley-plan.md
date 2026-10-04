@@ -5257,6 +5257,12 @@ Mos retains revision-bound verification and cumulative budget continuity.
 
 ### 31.11 Conversation forks and side chats
 
+Recorded conversational slice implemented 2026-10-04:
+[controls and qualification boundaries](CONVERSATION_BRANCHES.md). Owner/revision
+selection, lineage, private publication, disjoint allowances, transient side calls,
+explicit attachment and restart/cancellation accounting are implemented. Live
+task-controller integration and managed worktree creation remain gated.
+
 Add `/fork` to explicitly branch an owner-authorized conversation at a selected
 retained boundary. Record parent, source revision and branch identity; copy only
 the selected permitted context and artifact references. A fork does not undo

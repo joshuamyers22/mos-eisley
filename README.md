@@ -49,6 +49,8 @@ source-only selections label the absence of a diff. Live review remains pending.
 mode selection and explicit `/implement TEXT` handoffs in recorded conversations.
 [Durable goals](docs/CONVERSATION_GOALS.md) add `/goal` controls, retained budgets,
 completion guards and visible progress/blockers through the recorded controller.
+[Conversation forks and side chats](docs/CONVERSATION_BRANCHES.md) add selected
+author context, reserved branch allowances and explicitly attached side answers.
 
 The [live diff panel](docs/CONVERSATION_DIFF.md) opens with `/diff` or F10, supports
 frozen source attachments, and links retained review findings to historical source.
