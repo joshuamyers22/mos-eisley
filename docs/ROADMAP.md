@@ -229,11 +229,38 @@ inspection (§31.12) follows; its interface is implemented below.
 [/agent and /subagents](CONVERSATION_AGENTS.md) provide shared plain/JSON/TUI
 inspection of authorized controller projections and digest-bound retained reports.
 Owner/parent/workspace checks, stale assignments, concurrent revisions and sealed
-review boundaries fail closed without changing state/spend. No qualified
-implementation-child controller exists yet; the shipped terminal reports the absent
-source and the production connection remains gated on §14.2 execution/VCS/E2
-qualification. Session scheduling (§31.15) follows in §31.13's sequence, with its
+review boundaries fail closed without changing state/spend. An explicit local recorded read-only child host now supplies retained
+controller records and committed reports; writable implementation children and
+production connection remain gated on §14.2 execution/VCS/E2 qualification. Session scheduling (§31.15) follows in §31.13's sequence, with its
 own prerequisites still required.
+
+**Session scheduling, 2026-10-04 — inert qualification fixtures implemented:**
+[Durable-goal/queue assessment](CONVERSATION_SCHEDULING.md) and explicit-clock/local
+event fixtures cover bounded cadence, expiry, fire/resource limits, steering
+priority, duplicate coalescing and conservative restart. The test-only host bridge
+uses the existing queue and goal budgets; exact request-bound reservations survive
+lost acknowledgements without replay or refund. Real snapshot/SQLite recovery keeps
+goal uncertainty. Durable recorded admission follows below.
+
+**Durable schedule storage/admission, 2026-10-04 — recorded controller implemented:**
+[Scheduling records](CONVERSATION_SCHEDULING.md) persist intents and queue entries
+atomically through existing snapshot/SQLite stores. Trusted host APIs enforce
+revision/scope bindings and task limits; dispatch revalidates the exact request and
+late user input supersedes queued wakeups. Cancellation and cold recovery retain
+charges and uncertainty without replay. Tests cover concurrent controls, store-owner
+exclusion, lost acknowledgements and archived SQLite state. `/loop` and active recorded timers are now implemented below; writable/live
+execution, external trusted handlers and ingress remain gated.
+
+**Active recorded timers and local child connection, 2026-10-04 — implemented:**
+[Local background qualification](LOCAL_BACKGROUND_QUALIFICATION.md) adds one active
+terminal timer owner, bounded waiters, user-priority queue admission, explicit
+resume after host loss and durable shutdown. Trusted host APIs run an explicitly
+approved fresh read-only child through the existing offline container, reserve
+parent resources before dispatch and retain required jobs/reports in the existing
+session stores. `/agent` reads current reports; selected exact committed child
+results can wake the same queue without injecting report content. Recorded source,
+wheel and real Docker probes qualify this narrow local route. Paid providers,
+writable execution/VCS/E2, external ingress and other platform evidence remain gated.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit

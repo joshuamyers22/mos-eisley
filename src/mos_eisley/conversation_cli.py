@@ -963,6 +963,8 @@ async def terminal(
     from mos_eisley.conversation_diff import attachment_suffix
     from mos_eisley.conversation_diff_commands import DiffCommands
     from mos_eisley.conversation_goal_commands import goal_command
+    from mos_eisley.conversation_loop_commands import loop_command
+    from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
 
     diff_commands = DiffCommands(controller, emit)
     branch_commands = BranchCommands(controller, emit)
@@ -1325,6 +1327,8 @@ async def terminal(
         mode_control("/plan status")
     if controller.current_goal is not None:
         goal_command(controller, "/goal status", emit)
+    if controller.state.schedules:
+        loop_command(controller, "/loop status", emit)
     enabled = False  # Resume displays pending input; only explicit input starts work.
     if initial_prompt is not None:
         enabled = submit_text(initial_prompt)
@@ -1343,10 +1347,30 @@ async def terminal(
     diff_task: asyncio.Task[str | None] | None = None
     diff_submission: ConversationSubmission | None = None
     eof = False
+    timer_wait: asyncio.Task[None] | None = None
+    timers = ActiveSessionTimers(controller, emit)
     try:
+        timers.open()
         while True:
+            # Let the input reader expose already waiting steering before timers
+            # admit or dispatch. An admission gets another input boundary below.
+            await asyncio.sleep(0)
+            current_input: asyncio.Task[ConversationInput] | None = incoming
+            input_ready: bool = current_input is not None and current_input.done()
+            timer_busy = (
+                active is not None
+                or branch_task is not None
+                or diff_task is not None
+                or composer.active
+                or eof
+            )
+            if not input_ready and timers.tick(busy=timer_busy):
+                enabled = True
+                render()
+                continue
             if (
                 enabled
+                and not input_ready
                 and active is None
                 and any(
                     entry.status == "queued" and controller.can_dispatch(entry)
@@ -1364,6 +1388,7 @@ async def terminal(
                 | asyncio.Task[bool]
                 | asyncio.Task[str | None]
                 | asyncio.Task[str]
+                | asyncio.Task[None]
             ] = set()
             if incoming is not None:
                 pending.add(incoming)
@@ -1373,9 +1398,20 @@ async def terminal(
                 pending.add(diff_task)
             if branch_task is not None:
                 pending.add(branch_task)
+            delay = timers.delay(busy=timer_busy)
+            if delay is not None:
+                timer_wait = asyncio.create_task(asyncio.sleep(delay))
+                pending.add(timer_wait)
             if not pending:
                 return
             done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            if timer_wait is not None:
+                timer_wait.cancel()
+                with suppress(asyncio.CancelledError):
+                    await timer_wait
+                timer_wait = None
+            if incoming is not None and incoming.done():
+                done.add(incoming)
             if branch_task in done:
                 assert branch_task is not None
                 try:
@@ -1463,6 +1499,11 @@ async def terminal(
                             continue
                         if not line.literal and mode_control(line.text):
                             line.accepted.set_result(True)
+                            incoming = next_input()
+                            continue
+                        if command == "loop_control":
+                            result = loop_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
                             incoming = next_input()
                             continue
                         if command == "agent_inspection":
@@ -1582,6 +1623,7 @@ async def terminal(
                     incoming = next_input()
                     continue
                 if line is None:
+                    timers.close()
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
@@ -1602,6 +1644,7 @@ async def terminal(
                         }
                     )
                 elif line in {"/stop", "/quit"}:
+                    await controller.stop_local_child()
                     if branch_task is not None:
                         branch_task.cancel()
                         with suppress(asyncio.CancelledError):
@@ -1653,6 +1696,8 @@ async def terminal(
                             submit_text(line.removeprefix("/goal run").lstrip())
                             or enabled
                         )
+                elif submission_command(line) == "loop_control":
+                    loop_command(controller, line, emit)
                 elif submission_command(line) == "agent_inspection":
                     agent_command(controller, line, emit)
                 elif submission_command(line) == "branch_control":
@@ -1894,7 +1939,7 @@ async def terminal(
                                     "/plan [on|off|status|TEXT], "
                                     "/mode plan|conversation, "
                                     "/implement TEXT, /goal [ACTION], /fork, /side, "
-                                    "/agent, /subagents, "
+                                    "/agent, /subagents, /loop, "
                                     "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
@@ -1913,11 +1958,13 @@ async def terminal(
         discard_draft("Session closed; unsent draft discarded.")
         if branch_submission is not None:
             branch_submission.accepted.cancel()
-        for task in (active, incoming, diff_task, branch_task):
+        for task in (timer_wait, active, incoming, diff_task, branch_task):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
+        await controller.stop_local_child()
+        timers.close()
         render()
 
 
@@ -2970,6 +3017,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 pending_limits=pending_limits,
             )
 
+        from mos_eisley.conversation_loop_commands import recorded_loop_observer
+
+        controller.schedule_observer = recorded_loop_observer(controller)
+
         def publish_fork(child: ConversationState) -> None:
             with store_type(
                 args.storage, child.session_id, Path(child.workspace), create=True
@@ -3026,7 +3077,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
-                    "/fork, /side, /agent, /subagents, "
+                    "/fork, /side, /agent, /subagents, /loop, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
                     + project_location.describe(

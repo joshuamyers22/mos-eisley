@@ -382,3 +382,7 @@ The full quality gate passed with 799 source tests (three optional integration
 skips), 88% branch-inclusive coverage, lint/format, strict typing, locked export,
 build and 181 installed-wheel tests. All 287 local documentation targets resolved
 (2026-09-09).
+
+Explicit [loop controls](CONVERSATION_SCHEDULING.md#explicit-controls) persist
+bounded recorded schedules under a working durable goal. `/loop` inspects state,
+remaining limits and unresolved exposure; active timer driving remains gated.

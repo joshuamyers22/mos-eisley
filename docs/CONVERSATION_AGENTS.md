@@ -70,3 +70,13 @@ denials, stale assignments, report integrity, failed/cancelled children, partial
 missing output, concurrent report changes, inspection during author activity,
 terminal acknowledgements, editor preservation and unchanged state/spend. Installed
 wheel smoke coverage includes this test module.
+
+## Local recorded child connection
+
+An explicitly configured trusted host can now connect the bounded read-only
+[local child controller](LOCAL_BACKGROUND_QUALIFICATION.md). Its records and reports
+live in the existing owner-scoped session header. `/agent` exposes committed
+reports only while their exact assignment approval remains current; resumed
+records without that adapter expose stale operational metadata. The shipped
+terminal does not install a spawning or approval adapter. This route grants no
+tools, live providers, coding writes, test verification or integration approval.
