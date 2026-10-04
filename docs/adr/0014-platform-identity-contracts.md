@@ -76,3 +76,8 @@ The [candidate local-NTFS file slice](../WINDOWS_FILE_IDENTITY_WORK_NOTE.md) add
 handle-only device/filesystem eligibility and complete FileIdInfo observations.
 Both adapters still need native qualification and accountable selector admission;
 consumer/schema adoption remains open.
+
+[ADR-0015](0015-versioned-identity-migration.md) and the
+[migration design](../IDENTITY_MIGRATION_DESIGN.md) now define the subsequent
+versioned persistence boundary. This is proposed documentation, not implementation
+or admission of those consumers.

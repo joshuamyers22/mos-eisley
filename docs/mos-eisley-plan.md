@@ -4724,6 +4724,23 @@ are selected from source and installed wheels. Native execution, owner-operated
 storage rejection fixtures and accountable review remain pending; public selector
 admission, migration and private-storage adoption follow qualification.
 
+**Migration inventory and design — documentation complete, adoption pending:**
+The [source inventory](IDENTITY_MIGRATION_INVENTORY.md) covers durable and nested
+owners, mapped-directory identities, SQLite metadata/indexes, reviewed maintenance
+plans, navigation selections and implicit OAuth key bindings. The
+[proposed design](IDENTITY_MIGRATION_DESIGN.md) and
+[ADR-0015](adr/0015-versioned-identity-migration.md) define tagged wire forms,
+explicit owner namespaces, family-specific versions, unchanged legacy bytes/hashes,
+authenticated rebinding prerequisites and prepare/publish/recovery acceptance.
+The [inert codec slice](IDENTITY_WIRE_CODEC_WORK_NOTE.md) now adds strict bounded
+standalone wire forms and selected frozen legacy fixtures without consumer/writer
+changes. Continue with qualified namespace/storage
+prerequisites, a single-user-memory read-only preview and same-owner copy/recovery;
+then dependency-closed graphs and SQLite. Cross-namespace rebinding and credentials
+remain separate reviewed batches. No writer, consumer or public selector changes
+are included. [Verification](IDENTITY_MIGRATION_WORK_NOTE.md) records this design
+batch; native qualification and accountable design/adoption review remain open.
+
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
 Deliver the native port in this dependency order: invariant-based platform contracts;

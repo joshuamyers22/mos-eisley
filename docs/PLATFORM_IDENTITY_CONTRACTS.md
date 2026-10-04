@@ -195,11 +195,14 @@ unchanged. Do not serialize these new objects into an existing schema or coerce 
 Windows SID into an integer field. Legacy decoders remain in place and reject
 unsupported cross-platform ownership rather than inventing a mapping.
 
-The following migration batch must enumerate every affected artifact and choose
-versioned host/account binding, legacy decoding and explicit authenticated owner
-rebinding. Original signed/canonical bytes and verification hashes stay verifiable;
-no on-read rewriting or silent replay under a different principal is allowed.
-This contract cannot supply cross-host authentication or migration authority.
+The [migration inventory](IDENTITY_MIGRATION_INVENTORY.md) and
+[proposed migration design](IDENTITY_MIGRATION_DESIGN.md) now enumerate ordinary
+artifact families and define versioned namespace/owner binding, legacy decoding,
+explicit authenticated rebinding prerequisites and recovery acceptance. Original
+signed/canonical bytes and verification hashes stay verifiable; no on-read rewriting
+or silent replay under a different principal is allowed. Migration implementation and
+accountable review remain pending. This primitive cannot supply cross-host
+authentication or migration authority; the design does not admit new selectors.
 
 ## Acceptance matrix for implementation
 
@@ -336,3 +339,18 @@ results. Real remote, removable, non-NTFS and raw-device rejection fixtures rema
 pending owner-operated qualification; missing fixtures do not count as qualified.
 Neither API success nor identifier equality admits secure path opening, DACLs,
 locking, private storage, migration, stable content or subsequent handle lifetime.
+
+## Additive inert wire codecs
+
+[The codec implementation](../src/mos_eisley/platform/identity_wire.py) provides
+strict standalone principal/file/owner-binding and scoped-file bytes as defined in
+the [migration design](IDENTITY_MIGRATION_DESIGN.md). Imports and conversions query
+no OS identity, create no namespace and grant no storage/owner trust. The 4,096-byte
+preparse limit, duplicate-member rejection, canonical encoding, full-width hex
+and immutable metadata apply only to these new wire forms. Existing consumers,
+legacy codecs/writers and public Windows refusal remain unchanged.
+
+[Verification](IDENTITY_WIRE_CODEC_WORK_NOTE.md) records source/fresh-wheel
+wire checks and selected frozen legacy fixtures. Namespace enrollment, durable
+artifact versions, migration, qualified storage and accountable admission remain
+separate work. Codec acceptance does not qualify the native adapters.
