@@ -1,5 +1,9 @@
 # Conversation `/diff` acceptance verification
 
+Current release-candidate addendum: merged `main` commit
+`9822de630bc7b77d146f7edac4604aec6780daa3` (2026-10-04 UTC).
+The earlier sections retain the original panel-candidate verification history.
+
 ## Objective and scope
 
 - Requirement: plan §16.4.1 and the stacked draft panel PR #255, starting at `511fbbf`.
@@ -50,3 +54,49 @@ admission and refusal behavior are asserted in the in-process checks.
 
 - Stop rule reached: all blocking rubric rows pass on the exact acceptance branch. The earlier sandbox socket errors and intermittent review fixture errors remain documented above; the final full run passed without changes to the tested source.
 - Accountable owner security decision: accepted for the trusted local owner-operated scope with conditions on 2026-10-03 UTC; see `CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`. This technical verification and security acceptance grant no merge or release authority.
+
+## Merged-`main` v1 acceptance (2026-10-04 UTC)
+
+**Candidate and authority.** This run checked `main` at
+`9822de630bc7b77d146f7edac4604aec6780daa3` in a clean, detached worktree.
+Its source tree is `0bcc199ed98dbdfef6529fe565416127e86fe272`, identical to
+the reviewed PR #267 head `b225fcf8b9f171a663c62c6817130300037cbb35`
+(`git diff --quiet` passed). The selected guidance for this release-readiness
+pass is `docs/AGENTIC_VERIFICATION_GUIDE.md`,
+`templates/AGENTIC_VERIFICATION_LOOP.md`, `templates/THREAT_MODEL.md`, and
+`docs/ADVERSARIAL_REVIEW_PLAYBOOK.md`. The run used local recorded fixtures and
+disposable Git workspaces; it made no provider request and incurred no provider
+spend. It grants no release decision by itself.
+
+| Suite on exact merged source | Result | Acceptance covered |
+|---|---:|---|
+| `MOS_REQUIRE_TMUX=1 uv run --frozen python -m unittest discover -s tests -p 'test_conversation_diff*.py' -v` | 19 passed | Real PTY open/attach/resize/remove/close, focus and draft preservation; exact mouse-selected lines; rapid refresh and one active reader; directory switch, stale attachment refusal and retry; bound destination/excerpt confirmation; adversarial source instruction stays tool-free user data. |
+| `MOS_REQUIRE_TMUX=1 uv run --frozen python -m unittest discover -s tests -p 'test_conversation_git*.py' -v` | 16 passed | Staged/unstaged/untracked, rename/deletion/binary, unborn and non-Git, oversized/unsafe paths, index nonmutation, hostile helpers, concurrent config/attributes rewrite, child/network denial and fail-closed OS isolation. |
+| `MOS_REQUIRE_TMUX=1 uv run --frozen python -m unittest discover -s tests -p 'test_conversation_tui.py' -v` | 22 passed | Terminal mode restoration, control-byte rendering, rejection and draft retention, cancellation, stop priority and conversation continuity. |
+
+**Environment qualification.** The first Git-suite invocation inside the tool's
+outer sandbox produced 15 `OS Git isolation is unavailable` errors before the
+assertions ran. The same 16 tests were rerun with the required macOS process
+permissions and all passed. That first invocation is not counted as product
+acceptance evidence. No tests were skipped in the three successful focused runs.
+
+**Quality evidence.** PR #267's exact head passed GitHub source, package,
+container, Windows-file, quality and secret-scan checks before merge. Its source
+tree is the merged-`main` tree above, so those checks cover the code tested here.
+The earlier full local `make check` on the final attachment candidate passed
+Ruff, formatting, strict Pyright, 2,724 source tests (4 skipped), export
+verification, wheel build and 1,978 installed-wheel smoke tests. Post-merge
+`main` CI run `37227504789` passed source, package, container, Windows-file
+and quality; its separate secret-scanning run passed. The documentation-only
+release-record branch based on `9822de6` also passed elevated
+`MOS_REQUIRE_TMUX=1 make check`: Ruff, formatting, strict Pyright, 2,724 source
+tests (4 skipped), export verification, wheel build and 1,978 installed-wheel
+smoke tests. No product code changed on that branch.
+
+**Exit.** All plan §16.4.1 behavioral scenarios have passing exact-`main` focused
+evidence. The accountable owner accepted the scoped `/diff` feature release for
+this exact candidate once post-merge CI passed; that condition is satisfied.
+The decision and residual limits are recorded in
+`CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`. This acceptance does not authorize
+provider use or spending, Git mutation, broader workspace trust or whole-product
+release.

@@ -1,5 +1,10 @@
 # Conversation `/diff` panel threat model
 
+The original assessment below describes the stacked PR #255 baseline. The
+merged-`main` hardening disposition for commit `9822de6` is recorded after it;
+the scoped release decision is recorded in
+`CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`.
+
 ## Scope and ownership
 
 - System: full-screen conversation `/diff` panel and selected-line prompt attachments at stacked PR #255 (`511fbbf` baseline).
@@ -44,9 +49,9 @@ owner-operated scope on 2026-10-03 UTC, with hardening conditions recorded in
 `CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md`. The security decision does not
 approve merge, release, provider use, or spending.
 
-## Attachment authority follow-up candidate
+## Merged attachment authority follow-up
 
-The later `feat/diff-attachment-authority` candidate adds a scrollable confirmation
+The merged attachment-authority change adds a scrollable confirmation
 view before an attached message enters the queue. It shows the destination mode,
 provider/model where applicable, session, complete frozen excerpts as JSON strings,
 and the draft message. A second send is bound to that draft, attachment tuple and
@@ -59,5 +64,25 @@ chat request has no tools or structured review output, keeps the attack in a use
 text block and keeps the untrusted-source rule in the system text. This test checks
 code-enforced authority separation; it cannot prove that a model will interpret
 all untrusted text correctly. The confirmation view adds no provider or spending
-authority. Accountable review of this exact candidate remains separate from the
+authority. The exact-`main` release decision remains separate from the
 historical owner decision above.
+
+## Merged-`main` hardening disposition
+
+PR #267 combined the mandatory OS Git process/network boundary, the
+single-worker refresh, and the attachment confirmation above. On supported
+macOS/Linux hosts, Git reads refuse when isolation is unavailable; the
+concurrent configuration/attributes rewrite test demonstrates helper execution
+without confinement and denial with confinement. The coalescing worker keeps at
+most one active read; obsolete generations are discarded. These controls close
+the original helper-execution and overlapping-read findings for the proposed
+trusted local owner-operated scope. The [owner security review](CONVERSATION_DIFF_OWNER_SECURITY_REVIEW.md)
+binds that conclusion to the exact merged source and lists residual limits.
+
+Git reads are still not atomic against same-user filesystem mutation. A trusted
+Git binary or application replaced by an actor with the owner's privileges is
+outside the isolation boundary. A source file can change after final attachment
+verification, although admitted excerpt bytes stay frozen. Untrusted text can
+still affect model interpretation; it cannot grant tool, review, Git-write or
+provider-spend authority through the attachment path. Hosts without a working
+OS boundary fail closed, and native Windows support is not qualified here.
