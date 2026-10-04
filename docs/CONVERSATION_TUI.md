@@ -148,7 +148,7 @@ F4, `/continue`, or a newly submitted message continues it.
 | Ctrl-U | Discard the unsent draft and its undo history. |
 | Ctrl-C | Discard the draft and stop active work and queued messages. |
 | Ctrl-D | Discard the draft, cancel active work, retain queued messages and exit. |
-| Tab | Switch focus between the transcript and composer. |
+| Tab | Cycle focus through composer, transcript and the visible diff pane. |
 | Page Up / Page Down | Focus and scroll the transcript; Tab returns to editing. |
 | F3 | Expand/collapse the latest review's findings and evidence. |
 | F4 | Explicitly continue saved or paused queued work. |
@@ -157,6 +157,9 @@ F4, `/continue`, or a newly submitted message continues it.
 | F7 | Select the next memory or review reference on the saved history page. |
 | F8 | Open/close the selected artifact; only one stays expanded. |
 | F9 | Choose another directory once active work and unsent input are resolved. |
+| F10 | Toggle the [live diff panel](CONVERSATION_DIFF.md), preserving the draft. |
+| F11 in diff | Attach selected frozen source rows to the next author prompt. |
+| F12 | Browse retained review findings and their historical source. |
 
 `/directory switch` opens the same selector, and `/directory switch PATH` selects
 a path relative to this session's workspace. Selection opens a fresh conversation;

@@ -21,6 +21,7 @@ from mos_eisley.conversation_context import (
     admit_context,
     project_context,
 )
+from mos_eisley.conversation_diff import DiffAttachment
 from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
 from mos_eisley.conversation_memory import (
     ConversationMemory,
@@ -757,10 +758,20 @@ class ConversationController(Generic[StateT]):
             ) from None
         return receipt.claim
 
-    def submit(self, text: str) -> None:
+    def submit(
+        self, text: str, *, diff_attachments: tuple[DiffAttachment, ...] = ()
+    ) -> None:
         if not text.strip():
             raise ValueError("message cannot be blank")
-        self._append(ConversationEntry(text=text, steering_for=self.active_chat_index))
+        if any(a.workspace != self.state.workspace for a in diff_attachments):
+            raise ValueError("Source attachments belong to another workspace.")
+        self._append(
+            ConversationEntry(
+                text=text,
+                steering_for=self.active_chat_index,
+                diff_attachments=diff_attachments,
+            )
+        )
 
     def submit_continuation(
         self, text: str, selection: ContinuationSelection
@@ -1110,6 +1121,7 @@ class ConversationController(Generic[StateT]):
                     completed = ConversationEntry(
                         text=entry.text,
                         steering_for=entry.steering_for,
+                        diff_attachments=entry.diff_attachments,
                         memory_context=entry.memory_context,
                         request_admission=entry.request_admission,
                         status="completed",

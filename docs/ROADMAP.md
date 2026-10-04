@@ -185,6 +185,14 @@ input rejection. Requires an explicit POSIX repository root; live review,
 full managed-worktree gates and Linux/Windows-hosted WSL2
 qualification remain pending.
 
+**Live diff and findings, 2026-10-03 — local POSIX slice implemented:**
+[/diff and F10](CONVERSATION_DIFF.md) provide paged staged/unstaged/untracked views,
+coalesced refresh and frozen author attachments. Retained review findings link to
+exact historical source, with stale labels and explicit feedback/fix follow-ups
+through current admission. JSON/SQLite preserve source provenance and correction
+links. Real macOS PTY focus/resize and rejection/resume checks accompany this slice;
+platform, managed-worktree and live execution/review gates remain pending.
+
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit
 planning and durable goals, followed by conversation forks/side chats and
@@ -547,7 +555,10 @@ loading and telemetry adapters remain planned.
    foundations; managed Git operations belong to item 7 / G4 and do not extend G2.
    See [plan §16.0.4](mos-eisley-plan.md#1604-repository-grouped-sessions-and-isolated-worktrees)
    for lifecycle, migration, cleanup and acceptance requirements.
-   **V1 — live full-screen diff panel:** deliver `/diff` beside the conversation
+   **V1 — live full-screen diff panel; local POSIX slice implemented:**
+   `/diff` now shows paged changes and frozen source attachments, with retained
+   findings and explicit follow-ups; see [the guide](CONVERSATION_DIFF.md).
+   Complete applicable platform/workspace qualification for `/diff` beside the conversation
    after the trusted read-only Git and workspace/path boundaries are available,
    alongside item 7's Git-backed coding integration. Show changed files, added/removed
    counts and a live diff; let users attach selected, frozen lines to the next prompt.

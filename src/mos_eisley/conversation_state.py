@@ -9,6 +9,7 @@ from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     validate_author_compactions,
 )
+from mos_eisley.conversation_diff import DiffAttachment, attachment_suffix
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
@@ -57,6 +58,9 @@ class ConversationMemoryContext(Contract):
 
 class ConversationEntry(Contract):
     text: Text
+    diff_attachments: Annotated[tuple[DiffAttachment, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -93,6 +97,11 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.diff_attachments and (
+            self.is_review
+            or not self.text.endswith(attachment_suffix(self.diff_attachments))
+        ):
+            raise ValueError("Source attachments require exact admitted author text.")
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -150,6 +159,9 @@ class ArchivedConversationEntry(Contract):
     """
 
     text: Text
+    diff_attachments: Annotated[tuple[DiffAttachment, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -185,6 +197,11 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.diff_attachments and (
+            self.is_review
+            or not self.text.endswith(attachment_suffix(self.diff_attachments))
+        ):
+            raise ValueError("Archived attachments do not match admitted source text.")
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -222,6 +239,7 @@ class ArchivedConversationEntry(Contract):
                 answer=self.answer,
                 usage=self.usage,
                 steering_for=self.steering_for,
+                diff_attachments=self.diff_attachments,
             )
         if self.review_result is not None and (
             digest(canonical_bytes(self.review_result)) != refs.get("review_result")
@@ -237,6 +255,7 @@ class ArchivedConversationEntry(Contract):
             mode="json",
             include={
                 "text",
+                "diff_attachments",
                 "status",
                 "answer",
                 "usage",
@@ -374,6 +393,10 @@ class ConversationState(Contract, Generic[EntryT]):
         targets: set[int] = set()
         admitted_exchanges: set[int] = set()
         for index, entry in enumerate(self.entries):
+            if any(a.workspace != self.workspace for a in entry.diff_attachments):
+                raise ValueError(
+                    "Saved source attachments belong to another workspace."
+                )
             if (admission := entry.request_admission) is not None:
                 if (
                     admission.selection.message_index != index

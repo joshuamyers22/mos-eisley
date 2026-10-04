@@ -102,7 +102,10 @@ class GitReviewFile(Contract):
     index_mode: str | None = None
     after_mode: str | None = None
     omission: (
-        Literal["protected", "symlink", "submodule", "binary", "oversized"] | None
+        Literal[
+            "protected", "symlink", "submodule", "binary", "oversized", "unavailable"
+        ]
+        | None
     ) = None
     patch: Annotated[str, Field(max_length=MAX_SCOPE_BYTES)] = ""
 
@@ -501,7 +504,38 @@ class GitReadBroker:
             raise OverflowError("Review file exceeds its byte limit.")
         return self._git("cat-file", "blob", item[1])
 
-    def capture(self, selection: GitReviewSelection) -> GitReviewScope:
+    def changed_paths(self) -> tuple[str, ...]:
+        """Bounded metadata catalogue; no source contents or external helpers."""
+        head = self._resolve("HEAD", optional=True)
+        before, index = self._tree(head), self._index()
+        paths = {
+            name
+            for name in set(before) | set(index)
+            if before.get(name) != index.get(name)
+        }
+        for args in (
+            ("ls-files", "--others", "--exclude-standard", "-z"),
+            (
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-renames",
+                "--ignore-submodules=all",
+                "--",
+            ),
+        ):
+            paths.update(
+                p.decode("utf-8") for p in self._git(*args).split(b"\x00") if p
+            )
+        for path in paths:
+            _safe_path(path)
+        return tuple(sorted(paths))
+
+    def capture(
+        self, selection: GitReviewSelection, *, disclose_unavailable: bool = False
+    ) -> GitReviewScope:
         configuration = digest(
             self._git("config", "--local", "--no-includes", "--null", "--list")
         )
@@ -617,9 +651,12 @@ class GitReadBroker:
                         except FileNotFoundError:
                             new = None
                         except OSError:
-                            raise ValueError(
-                                "Review path is linked, special or unavailable."
-                            ) from None
+                            if disclose_unavailable:
+                                omission = "unavailable"
+                            else:
+                                raise ValueError(
+                                    "Review path is linked, special or unavailable."
+                                ) from None
                     else:
                         new = middle
                 except OverflowError:

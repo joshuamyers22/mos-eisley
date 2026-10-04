@@ -17,20 +17,37 @@ from prompt_toolkit.history import DummyHistory
 from prompt_toolkit.input import Input
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.layout import HSplit, Layout, Window
+from prompt_toolkit.layout import ConditionalContainer, HSplit, Layout, VSplit, Window
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.output import Output
+from prompt_toolkit.selection import SelectionState
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import Frame, TextArea
+from pydantic import TypeAdapter
 
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_context_preview import pressure_status
+from mos_eisley.conversation_diff import (
+    MAX_RENDER_LINES,
+    DiffAttachment,
+    DiffRefresh,
+    DiffSnapshot,
+    attach_lines,
+    attachment_sources,
+    file_identity,
+    patch_lines,
+)
 from mos_eisley.conversation_directory import (
     DirectoryPicker,
     DirectorySelection,
     DirectorySelectionError,
+)
+from mos_eisley.conversation_findings import (
+    DiffFinding,
+    hydrate_review_entries,
+    retained_findings,
 )
 from mos_eisley.conversation_history import TranscriptHistory
 from mos_eisley.conversation_input import (
@@ -176,6 +193,23 @@ class ConversationTUI:
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
         self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
+        self.diff_visible = False
+        self.diff_file = 0
+        self.diff_selected_path: str | None = None
+        self.diff_rows_offset = 0
+        self.diff_findings: tuple[DiffFinding, ...] = ()
+        self.diff_finding = 0
+        self.diff_show_findings = False
+        self.diff_evidence: DiffSnapshot | None = None
+        self.diff_evidence_finding: DiffFinding | None = None
+        self.diff_last_file_sha256: str | None = None
+        self.diff_attachments: tuple[DiffAttachment, ...] = ()
+        self.diff_attachment_freshness: dict[str, bool] = {}
+        self.diff_pane = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.diff_refresh = DiffRefresh(
+            self.render_diff, lambda: Path(self.controller.state.workspace)
+        )
+        self.diff_poll: asyncio.Task[None] | None = None
         self.editor_control = BufferControl(buffer=self.editor)
         keys = KeyBindings()
 
@@ -213,16 +247,126 @@ class ConversationTUI:
         def clear(event: KeyPressEvent) -> None:
             if not self.sending:
                 self.editor.clear()
+                self.diff_attachments = ()
                 self.set_notice("Unsent draft discarded.")
 
         def focus(event: KeyPressEvent) -> None:
-            self.app.layout.focus(
-                self.editor_control
-                if self.app.layout.has_focus(self.transcript)
-                else self.transcript
+            targets = [self.editor_control, self.transcript]
+            if self.diff_visible:
+                targets.append(self.diff_pane)
+            current = next(
+                (
+                    i
+                    for i, target in enumerate(targets)
+                    if self.app.layout.has_focus(target)
+                ),
+                0,
             )
+            self.app.layout.focus(targets[(current + 1) % len(targets)])
+
+        def toggle_diff(event: KeyPressEvent) -> None:
+            self.toggle_diff()
+
+        def refresh_diff(event: KeyPressEvent) -> None:
+            self.diff_evidence = self.diff_evidence_finding = None
+            self.diff_show_findings = False
+            self.diff_refresh.request(replace=True)
+
+        def next_file(event: KeyPressEvent) -> None:
+            if self.diff_show_findings and self.diff_findings:
+                self.diff_finding = (self.diff_finding + 1) % len(self.diff_findings)
+                self.render_diff(reset=True)
+                return
+            snapshot = self.diff_refresh.snapshot
+            if snapshot is None:
+                return
+            if self.diff_file + 1 < len(snapshot.scope.files):
+                self.diff_file += 1
+            elif snapshot.next_offset is not None:
+                self.diff_file = 0
+                self.diff_refresh.request(snapshot.next_offset, replace=True)
+            self.diff_rows_offset = 0
+            self.diff_selected_path = None
+            self.diff_show_findings = False
+            self.render_diff(reset=True)
+
+        def previous_file(event: KeyPressEvent) -> None:
+            if self.diff_show_findings and self.diff_findings:
+                self.diff_finding = (self.diff_finding - 1) % len(self.diff_findings)
+                self.render_diff(reset=True)
+                return
+            if self.diff_file:
+                self.diff_file -= 1
+            else:
+                self.diff_refresh.request(0, replace=True)
+            self.diff_rows_offset = 0
+            self.diff_selected_path = None
+            self.diff_show_findings = False
+            self.render_diff(reset=True)
+
+        def expand_diff(event: KeyPressEvent) -> None:
+            snapshot = self.diff_refresh.snapshot
+            if snapshot and snapshot.scope.files:
+                rows = patch_lines(snapshot.scope.files[self.diff_file])
+                self.diff_rows_offset = (
+                    self.diff_rows_offset + MAX_RENDER_LINES
+                ) % max(1, len(rows))
+                self.render_diff(reset=True)
+
+        def attach_diff(event: KeyPressEvent) -> None:
+            if self.sending:
+                self.set_notice(
+                    "Wait for the current submission before attaching source."
+                )
+                return
+            snapshot = self.diff_evidence or self.diff_refresh.snapshot
+            if snapshot is None or not snapshot.scope.files or self.diff_show_findings:
+                self.set_notice("Select source rows in the diff before attaching.")
+                return
+            document = self.diff_pane.buffer.document
+            selection = document.selection
+            start = document.cursor_position_row
+            end = start
+            if selection is not None:
+                other, _ = document.translate_index_to_position(
+                    selection.original_cursor_position
+                )
+                start, end = min(start, other), max(end, other)
+            # The rendered patch begins after five bounded metadata rows.
+            start = start - self.diff_patch_header_rows + self.diff_rows_offset + 1
+            end = end - self.diff_patch_header_rows + self.diff_rows_offset + 1
+            try:
+                if len(self.diff_attachments) >= 4:
+                    raise ValueError("Remove an attachment first (maximum four).")
+                attachment = attach_lines(
+                    snapshot, snapshot.scope.files[self.diff_file].path, start, end
+                )
+            except ValueError as error:
+                self.set_notice(str(error))
+            else:
+                self.diff_attachments += (attachment,)
+                self.set_notice(
+                    "Frozen source attached. Alt-Backspace removes latest attachment."
+                )
+                self.app.invalidate()
+
+        def remove_attachment(event: KeyPressEvent) -> None:
+            self.diff_attachments = self.diff_attachments[:-1]
+            self.app.invalidate()
+
+        def findings(event: KeyPressEvent) -> None:
+            self.control("/diff findings")
+
+        def open_finding(event: KeyPressEvent) -> None:
+            if self.diff_show_findings and self.diff_findings:
+                self.control(
+                    "/diff finding " + self.diff_findings[self.diff_finding].key
+                )
 
         def previous_page(event: KeyPressEvent) -> None:
+            if self.diff_visible and self.app.layout.has_focus(self.diff_pane):
+                self.diff_pane.buffer.cursor_up(count=10)
+                return
             self.app.layout.focus(self.transcript)
             if (
                 self.history
@@ -234,6 +378,9 @@ class ConversationTUI:
                 self.transcript.buffer.cursor_up(count=10)
 
         def next_page(event: KeyPressEvent) -> None:
+            if self.diff_visible and self.app.layout.has_focus(self.diff_pane):
+                self.diff_pane.buffer.cursor_down(count=10)
+                return
             self.app.layout.focus(self.transcript)
             document = self.transcript.buffer.document
             if (
@@ -307,6 +454,55 @@ class ConversationTUI:
         keys.add("f7")(select_artifact)
         keys.add("f8")(expand_artifact)
         keys.add("f9")(directory)
+        keys.add("f10")(toggle_diff)
+        keys.add(
+            "f11",
+            filter=Condition(
+                lambda: self.diff_visible and self.app.layout.has_focus(self.diff_pane)
+            ),
+        )(attach_diff)
+        keys.add("f12")(findings)
+        diff_focus = Condition(
+            lambda: self.diff_visible and self.app.layout.has_focus(self.diff_pane)
+        )
+        keys.add("c-r", filter=diff_focus)(refresh_diff)
+        keys.add("c-n", filter=diff_focus)(next_file)
+        keys.add("c-p", filter=diff_focus)(previous_file)
+        keys.add("c-e", filter=diff_focus)(expand_diff)
+        keys.add("enter", filter=diff_focus)(open_finding)
+        keys.add("escape", "backspace")(remove_attachment)
+
+        wide = Condition(lambda: self.app.output.get_size().columns >= 110)
+        shown = Condition(lambda: self.diff_visible)
+        conversation_frame = Frame(
+            self.transcript,
+            title="Conversation • Tab / PgUp / PgDn • F3 review • F5 history",
+        )
+        diff_frame = Frame(
+            self.diff_pane,
+            title=(
+                "Diff • Ctrl-N/P files • Ctrl-R refresh • Ctrl-E expand "
+                "• F11 attach • F12 findings"
+            ),
+        )
+        body = VSplit(
+            [
+                ConditionalContainer(
+                    conversation_frame,
+                    filter=~shown
+                    | wide
+                    | Condition(lambda: not self.app.layout.has_focus(self.diff_pane)),
+                ),
+                ConditionalContainer(
+                    diff_frame,
+                    filter=shown
+                    & (
+                        wide
+                        | Condition(lambda: self.app.layout.has_focus(self.diff_pane))
+                    ),
+                ),
+            ]
+        )
 
         layout = HSplit(
             [
@@ -315,9 +511,14 @@ class ConversationTUI:
                     height=3,
                     style="class:title",
                 ),
-                Frame(
-                    self.transcript,
-                    title="Conversation • Tab / PgUp / PgDn • F3 review • F5 history",
+                body,
+                ConditionalContainer(
+                    Window(
+                        FormattedTextControl(self.attachment_preview),
+                        height=Dimension(max=5),
+                        wrap_lines=True,
+                    ),
+                    filter=Condition(lambda: bool(self.diff_attachments)),
                 ),
                 Frame(
                     Window(
@@ -353,8 +554,230 @@ class ConversationTUI:
                 {"title": "bold", "status": "reverse", "frame.label": "bold"}
             ),
             min_redraw_interval=0.05,
+            mouse_support=True,
         )
         self.refresh()
+
+    def toggle_diff(self) -> None:
+        self.diff_visible = not self.diff_visible
+        if self.diff_visible:
+            self.app.layout.focus(self.diff_pane)
+            self.diff_refresh.request()
+        else:
+            self.app.layout.focus(self.editor_control)
+        self.app.invalidate()
+
+    def attachment_preview(self) -> str:
+        snapshot = self.diff_refresh.snapshot
+        current = (
+            {}
+            if snapshot is None
+            else {f.path: file_identity(f) for f in snapshot.scope.files}
+        )
+        return display_text(
+            "Source attachments • Alt-Backspace removes latest\n"
+            + "\n".join(
+                f"{i + 1}. {a.describe()} • "
+                + (
+                    "source changed"
+                    if self.diff_attachment_freshness.get(a.excerpt_sha256) is False
+                    or a.path in current
+                    and current[a.path] != a.file_sha256
+                    else "source unchanged at last refresh"
+                    if self.diff_attachment_freshness.get(a.excerpt_sha256) is True
+                    or current.get(a.path) == a.file_sha256
+                    else "source freshness unverified"
+                )
+                for i, a in enumerate(self.diff_attachments)
+            )
+        )
+
+    def render_diff(self, *, reset: bool = False) -> None:
+        snapshot = self.diff_evidence or self.diff_refresh.snapshot
+        before = self.diff_pane.buffer.document
+        selected_file_sha256: str | None = None
+        if self.diff_show_findings:
+            if self.diff_findings:
+                self.diff_finding = min(self.diff_finding, len(self.diff_findings) - 1)
+                selected = self.diff_findings[self.diff_finding]
+                text = (
+                    f"Historical finding {self.diff_finding + 1} "
+                    f"of {len(self.diff_findings)}\n"
+                    "Ctrl-N/P findings • Enter opens evidence/diff "
+                    "• /diff refresh returns to live\n" + selected.describe()
+                )
+            else:
+                text = "No retained findings."
+        elif snapshot is None:
+            text = "Diff unavailable: " + (
+                self.diff_refresh.error or "Loading bounded Git snapshot…"
+            )
+        else:
+            paths = [f.path for f in snapshot.scope.files]
+            if self.diff_selected_path in paths:
+                self.diff_file = paths.index(self.diff_selected_path)
+            self.diff_file = min(self.diff_file, max(0, len(snapshot.scope.files) - 1))
+            self.diff_selected_path = paths[self.diff_file] if paths else None
+            header = [
+                f"Workspace: {snapshot.scope.workspace}",
+                f"Basis: {snapshot.basis_label}",
+                f"Snapshot: {snapshot.scope.scope_id}",
+                f"Files {snapshot.offset + 1 if snapshot.total_files else 0}–"
+                f"{snapshot.offset + len(snapshot.scope.files)} "
+                f"of {snapshot.total_files} "
+                "(renames: deletion/addition)",
+            ]
+            if self.diff_evidence_finding is not None:
+                finding = next(
+                    (
+                        f
+                        for f in self.diff_findings
+                        if f.key == self.diff_evidence_finding.key
+                    ),
+                    self.diff_evidence_finding,
+                )
+                header.insert(
+                    0,
+                    f"Historical finding {finding.key}; stale={finding.stale}; "
+                    "Ctrl-R returns to the live diff.",
+                )
+            for i, file in enumerate(snapshot.scope.files):
+                rows = patch_lines(file)
+                added, removed = (
+                    sum(r.new is not None and r.old is None for r in rows),
+                    sum(r.old is not None and r.new is None for r in rows),
+                )
+                states = ",".join(
+                    s
+                    for s, yes in (
+                        ("staged", file.staged),
+                        ("unstaged", file.unstaged),
+                        ("untracked", file.untracked),
+                    )
+                    if yes
+                )
+                header.append(
+                    f"{'→' if i == self.diff_file else ' '} {i + 1}. "
+                    f"{json.dumps(file.path)} [{states}] +{added} -{removed}"
+                    + (f" • omitted {file.omission}" if file.omission else "")
+                )
+            if not snapshot.scope.files:
+                header.append("No changes.")
+            if snapshot.next_offset is not None:
+                header.append(
+                    f"Partial file list; Ctrl-N loads page {snapshot.next_offset}."
+                )
+            self.diff_patch_header_rows = len(header)
+            if snapshot.scope.files:
+                file = snapshot.scope.files[self.diff_file]
+                selected_file_sha256 = file_identity(file)
+                rows = patch_lines(file)
+                self.diff_rows_offset = min(
+                    self.diff_rows_offset, max(0, len(rows) - 1)
+                )
+                header.extend(
+                    f"{i + 1:4} {r.basis:9} {r.old or '-':>5} "
+                    f"{r.new or '-':>5} | {r.text.rstrip(chr(10))}"
+                    for i, r in enumerate(
+                        rows[
+                            self.diff_rows_offset : self.diff_rows_offset
+                            + MAX_RENDER_LINES
+                        ],
+                        self.diff_rows_offset,
+                    )
+                )
+                if self.diff_rows_offset or len(rows) > MAX_RENDER_LINES:
+                    header.append(
+                        "Partial patch rows; Ctrl-E expands the next bounded chunk."
+                    )
+            text = "\n".join(header)
+        if self.diff_refresh.error and snapshot is not None:
+            text = "STALE: refresh failed: " + self.diff_refresh.error + "\n" + text
+            self.diff_patch_header_rows = getattr(self, "diff_patch_header_rows", 0) + 1
+        text = display_text(text)
+        if text != self.diff_pane.text:
+            # Patch row prefixes retain comparison and source coordinates; anchor
+            # to those when insertions move the file list or hunk headers.
+            def anchor(position: int) -> int:
+                old_row, column = before.translate_index_to_position(position)
+                current_line = before.lines[old_row]
+                if " | " in current_line:
+                    prefix = current_line.split(" | ", 1)[0].split()
+                    if len(prefix) == 4:
+                        for index, line in enumerate(text.splitlines()):
+                            candidate = line.split(" | ", 1)[0].split()
+                            if len(candidate) == 4 and candidate[1:] == prefix[1:]:
+                                return Document(text).translate_row_col_to_index(
+                                    index, min(column, len(line))
+                                )
+                return min(position, len(text))
+
+            cursor = 0 if reset else anchor(before.cursor_position)
+            selection = None
+            if not reset and before.selection is not None:
+                if selected_file_sha256 == self.diff_last_file_sha256:
+                    selection = SelectionState(
+                        anchor(before.selection.original_cursor_position),
+                        before.selection.type,
+                    )
+                else:
+                    self.set_notice(
+                        "Diff source changed; selection cleared. "
+                        "Frozen attachments retained."
+                    )
+            self.diff_pane.buffer.set_document(
+                Document(text, cursor, selection), bypass_readonly=True
+            )
+            self.diff_pane.buffer.selection_state = selection
+        self.diff_last_file_sha256 = selected_file_sha256
+        self.app.invalidate()
+
+    async def poll_diff(self) -> None:
+        while True:
+            await asyncio.sleep(2)
+            if self.diff_visible:
+                self.diff_refresh.request()
+                if self.diff_attachments:
+                    attachments = self.diff_attachments
+                    current = await asyncio.to_thread(attachment_sources, attachments)
+                    if attachments == self.diff_attachments:
+                        self.diff_attachment_freshness = current
+                        self.app.invalidate()
+                if self.diff_findings:
+                    workspace = self.controller.state.workspace
+                    try:
+                        findings = await asyncio.to_thread(
+                            retained_findings,
+                            hydrate_review_entries(
+                                self.controller.state.entries,
+                                self.controller.load_entry,
+                            ),
+                        )
+                    except (OSError, ValueError) as error:
+                        findings = tuple(
+                            f.model_copy(update={"stale": True})
+                            for f in self.diff_findings
+                        )
+                        self.set_notice(
+                            "Findings refresh failed; freshness unverified: "
+                            + str(error)
+                        )
+                    if workspace == self.controller.state.workspace:
+                        selected_key = (
+                            self.diff_findings[self.diff_finding].key
+                            if self.diff_finding < len(self.diff_findings)
+                            else None
+                        )
+                        self.diff_findings = findings
+                        self.diff_finding = next(
+                            (
+                                i
+                                for i, finding in enumerate(findings)
+                                if finding.key == selected_key
+                            ),
+                            0,
+                        )
+                        self.render_diff()
 
     def set_notice(self, text: str) -> None:
         self.notice = text[:400]
@@ -511,7 +934,7 @@ class ConversationTUI:
         )
         position = (
             min(self.transcript.buffer.cursor_position, len(text))
-            if self.app.layout.has_focus(self.transcript)
+            if self.diff_visible or self.app.layout.has_focus(self.transcript)
             else len(text)
         )
         self.transcript.buffer.set_document(
@@ -590,6 +1013,94 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.diff":
+            self.diff_evidence = self.diff_evidence_finding = None
+            self.diff_refresh.snapshot = DiffSnapshot.model_validate_json(
+                json.dumps(event["snapshot"])
+            )
+            self.diff_refresh.error = None
+            self.diff_show_findings = False
+            if event.get("toggle"):
+                self.toggle_diff()
+            else:
+                self.diff_visible = True
+                self.app.layout.focus(self.diff_pane)
+            self.render_diff()
+            return
+        if event["type"] == "conversation.diff_attachments":
+            self.diff_attachments = TypeAdapter(
+                tuple[DiffAttachment, ...]
+            ).validate_json(json.dumps(event["attachments"]))
+            self.set_notice(str(event["text"]))
+            return
+        if event["type"] == "conversation.diff_attachment_sources":
+            self.diff_attachment_freshness = TypeAdapter(dict[str, bool]).validate_json(
+                json.dumps(event["sources"])
+            )
+            self.app.invalidate()
+            return
+        if event["type"] == "conversation.diff_findings":
+            self.diff_findings = TypeAdapter(tuple[DiffFinding, ...]).validate_json(
+                json.dumps(event["findings"])
+            )
+            self.diff_show_findings = self.diff_visible = True
+            self.app.layout.focus(self.diff_pane)
+            self.render_diff(reset=True)
+            return
+        if event["type"] == "conversation.diff_finding":
+            finding = DiffFinding.model_validate_json(json.dumps(event["finding"]))
+            self.diff_findings = (finding,)
+            self.diff_finding = 0
+            self.diff_show_findings = self.diff_visible = True
+            self.app.layout.focus(self.diff_pane)
+            self.render_diff(reset=True)
+            return
+        if event["type"] == "conversation.diff_finding_source":
+            finding = DiffFinding.model_validate_json(json.dumps(event["finding"]))
+            snapshot = DiffSnapshot.model_validate_json(json.dumps(event["snapshot"]))
+            self.diff_evidence, self.diff_evidence_finding = snapshot, finding
+            paths = [f.path for f in snapshot.scope.files]
+            self.diff_selected_path = finding.path if finding.path in paths else None
+            self.diff_file = paths.index(finding.path) if finding.path in paths else 0
+            self.diff_show_findings = False
+            self.diff_rows_offset = 0
+            if finding.path in paths:
+                rows = patch_lines(snapshot.scope.files[self.diff_file])
+                position = next(
+                    (i for i, row in enumerate(rows) if row.new == finding.start),
+                    next(
+                        (i for i, row in enumerate(rows) if row.old == finding.start), 0
+                    ),
+                )
+                self.diff_rows_offset = (
+                    position // MAX_RENDER_LINES
+                ) * MAX_RENDER_LINES
+                self.render_diff(reset=True)
+                document = self.diff_pane.buffer.document
+                row = self.diff_patch_header_rows + position - self.diff_rows_offset
+                self.diff_pane.buffer.cursor_position = (
+                    document.translate_row_col_to_index(row, 0)
+                )
+            else:
+                self.render_diff(reset=True)
+            return
+        if event["type"] == "conversation.diff_lines":
+            snapshot = self.diff_refresh.snapshot
+            if (
+                snapshot is not None
+                and event["snapshot_sha256"] == snapshot.scope.scope_id
+            ):
+                paths = [f.path for f in snapshot.scope.files]
+                path = event["path"]
+                if isinstance(path, str) and path in paths:
+                    self.diff_file = paths.index(path)
+                    self.diff_selected_path = paths[self.diff_file]
+                    offset = event["offset"]
+                    assert type(offset) is int
+                    self.diff_rows_offset = offset
+                    self.diff_show_findings = False
+                    self.render_diff(reset=True)
+            return
         if event["type"] == "conversation.review_scope":
             self.review_scope_preview = str(event["text"])
             self.context_preview = None
@@ -733,9 +1244,14 @@ class ConversationTUI:
     async def submit(self, text: str, literal: bool) -> None:
         accepted: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
         try:
-            self.queue.put_nowait(ConversationSubmission(text, literal, accepted))
+            attachments = self.diff_attachments
+            self.queue.put_nowait(
+                ConversationSubmission(text, literal, accepted, attachments)
+            )
             if await accepted and self.editor.text == text:
                 self.editor.clear()
+                if self.diff_attachments == attachments:
+                    self.diff_attachments = ()
                 if not literal and memory_phrase_command(text) is not None:
                     return
                 self.set_notice(
@@ -751,7 +1267,12 @@ class ConversationTUI:
             self.app.invalidate()
 
     async def switch_directory(self, text: str) -> bool:
-        if self.editor.text or self.sending or not self.queue.empty():
+        if (
+            self.editor.text
+            or self.diff_attachments
+            or self.sending
+            or not self.queue.empty()
+        ):
             self.set_notice(
                 "Handle the unsent draft and pending input before switching."
             )
@@ -797,6 +1318,7 @@ class ConversationTUI:
             self.app.invalidate()
 
     async def run(self) -> None:
+        self.diff_poll = asyncio.create_task(self.poll_diff())
         worker = asyncio.create_task(
             terminal(
                 self.controller,
@@ -807,6 +1329,8 @@ class ConversationTUI:
                 memory_command=self.memory_command,
                 initial_prompt=self.initial_prompt,
                 project_location=self.project_location,
+                source_attachments=lambda: self.diff_attachments,
+                source_snapshot=lambda: self.diff_refresh.snapshot,
                 switch_directory=self.switch_directory
                 if self.allow_directory_switch
                 else None,
@@ -828,13 +1352,15 @@ class ConversationTUI:
                 self.control("/quit", priority=True)
                 await worker
         finally:
-            for task in (worker, screen, self.submission):
+            self.diff_refresh.close()
+            for task in (worker, screen, self.submission, self.diff_poll):
                 if task is not None:
                     task.cancel()
             await asyncio.gather(
                 worker,
                 screen,
                 *([self.submission] if self.submission is not None else []),
+                self.diff_poll,
                 return_exceptions=True,
             )
             self.editor.clear()

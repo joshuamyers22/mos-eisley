@@ -2431,7 +2431,13 @@ the conversation documentation does not report an implementation.
 
 **User direction, 2026-09-12:** include a live `/diff` panel in product v1's
 conversation/TUI workstream. Its acceptance criteria are required for v1 release;
-the feature remains planned. Deliver it after the trusted read-only Git and
+the local POSIX implementation is now available through the
+[live diff and findings guide](CONVERSATION_DIFF.md). It includes bounded,
+coalesced off-loop reads, paged files/patch rows, source attachments retained with
+admitted requests, stale/omitted-source labels and responsive conversation controls.
+Real macOS PTY checks cover draft preservation, focus and 120/80-column resize.
+Linux/Windows-hosted WSL2 and managed-worktree qualification remain open.
+Deliver it after the trusted read-only Git and
 workspace/path boundaries are available, alongside Git-backed coding integration.
 No package version is assigned by this entry. The interaction reference is the
 Claude Code newsletter from Lydia, received 2026-09-12, titled "This week in
@@ -5057,6 +5063,17 @@ disabled. Review leaves the checkout unchanged and retains existing quorum,
 spend, cancellation and blindness checks.
 
 ### 31.8 Findings in the diff panel
+
+**Implementation status, 2026-10-03:** the
+[local diff panel](CONVERSATION_DIFF.md) ranks retained critic findings and judge
+dispositions across review runs, including archived SQLite reports. Exact cited
+source coordinates open historical snapshots; current-source revalidation labels
+stale findings without inferring resolution. Explicit feedback/fix commands bind
+source attachments to finding IDs and review positions, retain correction-request
+links through resume and use existing author admission and task budgets. Rejected
+follow-ups preserve commands and attachments. The current recorded conversation
+does not grant live write/correction, verification, review or publication authority;
+those existing execution and qualification gates remain required.
 
 Extend §16.4.1's diff panel with ranked findings linked to exact file/range and
 review revision. Show category, impact, critic finding, judge disposition,

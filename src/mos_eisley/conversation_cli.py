@@ -37,6 +37,7 @@ from mos_eisley.conversation_context_preview import (
     pressure_status,
     preview_context,
 )
+from mos_eisley.conversation_diff import DiffAttachment, DiffSnapshot
 from mos_eisley.conversation_directory import (
     DirectorySelection,
     DirectorySelectionError,
@@ -943,6 +944,8 @@ async def terminal(
     memory_command: Callable[[str], dict[str, object]] | None = None,
     switch_directory: Callable[[str], Awaitable[bool]] | None = None,
     project_location: ProjectLocation | None = None,
+    source_attachments: Callable[[], tuple[DiffAttachment, ...]] | None = None,
+    source_snapshot: Callable[[], DiffSnapshot | None] | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
     seen: dict[int, str] = {}
@@ -951,6 +954,10 @@ async def terminal(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    from mos_eisley.conversation_diff import attachment_suffix
+    from mos_eisley.conversation_diff_commands import DiffCommands
+
+    diff_commands = DiffCommands(controller, emit)
 
     def discard_draft(reason: str) -> None:
         if composer.active:
@@ -1057,7 +1064,24 @@ async def terminal(
         render()
         return True
 
-    def submit_text(text: str, *, require_active: bool = False) -> bool:
+    def submit_text(
+        text: str,
+        *,
+        require_active: bool = False,
+        attachments: tuple[DiffAttachment, ...] | None = None,
+    ) -> bool:
+        selected_attachments = (
+            diff_commands.attachments if attachments is None else attachments
+        )
+        if selected_attachments and require_active:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Send source attachments as an ordinary follow-up message.",
+                }
+            )
+            return False
+        text += attachment_suffix(selected_attachments)
         if not text.strip() or len(text) > 8000 or text.count("\n") >= 256:
             emit(
                 {
@@ -1084,10 +1108,13 @@ async def terminal(
             if require_active:
                 controller.steer(text)
             else:
-                controller.submit(text)
+                controller.submit(text, diff_attachments=selected_attachments)
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
+        if selected_attachments:
+            diff_commands.attachments = ()
+            diff_commands.emit_attachments()
         render()
         return True
 
@@ -1202,6 +1229,10 @@ async def terminal(
                 }
                 if entry.steering_for is not None:
                     event["steering_for"] = entry.steering_for
+                if entry.diff_attachments:
+                    event["diff_attachments"] = [
+                        a.model_dump(mode="json") for a in entry.diff_attachments
+                    ]
                 if entry.review_brief_id is not None:
                     event["review_brief_id"] = entry.review_brief_id
                 if entry.review_result is not None:
@@ -1235,6 +1266,8 @@ async def terminal(
         enabled = submit_text(initial_prompt)
     incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
     active: asyncio.Task[bool] | None = None
+    diff_task: asyncio.Task[str | None] | None = None
+    diff_submission: ConversationSubmission | None = None
     eof = False
     try:
         while True:
@@ -1244,15 +1277,45 @@ async def terminal(
                 and any(entry.status == "queued" for entry in controller.state.entries)
             ):
                 active = asyncio.create_task(controller.step(on_started=render))
-            if eof and active is None:
+            if eof and active is None and diff_task is None:
                 return
             if incoming is None and active is not None:
                 # Keep accepting Ctrl-C while finishing work after stdin closes.
                 incoming = asyncio.create_task(queue.get())
-            pending = {task for task in (incoming, active) if task is not None}
+            pending: set[
+                asyncio.Task[ConversationInput]
+                | asyncio.Task[bool]
+                | asyncio.Task[str | None]
+            ] = set()
+            if incoming is not None:
+                pending.add(incoming)
+            if active is not None:
+                pending.add(active)
+            if diff_task is not None:
+                pending.add(diff_task)
             if not pending:
                 return
             done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            if diff_task in done:
+                assert diff_task is not None
+                accepted = False
+                try:
+                    followup = diff_task.result()
+                except (OSError, ValueError) as error:
+                    emit({"type": "conversation.unavailable", "text": str(error)})
+                else:
+                    if followup is not None and (
+                        diff_submission is None
+                        or not diff_submission.accepted.cancelled()
+                    ):
+                        # Persistence failures must escape: only selection/input
+                        # errors are recoverable diff notices.
+                        accepted = submit_text(followup)
+                        enabled = accepted or enabled
+                if diff_submission is not None and not diff_submission.accepted.done():
+                    diff_submission.accepted.set_result(accepted)
+                diff_submission = None
+                diff_task = None
             if active in done:
                 assert active is not None
                 try:
@@ -1301,6 +1364,25 @@ async def terminal(
                                 line.accepted.set_result(remembered)
                             incoming = asyncio.create_task(queue.get())
                             continue
+                        if command == "diff_followup":
+                            if diff_task is not None:
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "Diff busy; draft retained.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
+                            else:
+                                diff_commands.attachments = line.diff_attachments
+                                if source_snapshot is not None:
+                                    diff_commands.snapshot = source_snapshot()
+                                diff_task = asyncio.create_task(
+                                    diff_commands.execute(line.text)
+                                )
+                                diff_submission = line
+                            incoming = asyncio.create_task(queue.get())
+                            continue
                         if command == "steer":
                             accepted = submit_text(
                                 line.text.removeprefix("/steer").lstrip(),
@@ -1317,7 +1399,9 @@ async def terminal(
                                 line.text if command == "review" else "/review"
                             )
                         else:
-                            accepted = submit_text(line.text)
+                            accepted = submit_text(
+                                line.text, attachments=line.diff_attachments
+                            )
                         if not line.accepted.done():
                             line.accepted.set_result(accepted)
                         enabled = enabled or accepted
@@ -1331,6 +1415,14 @@ async def terminal(
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
                 if line in {"/stop", "/quit"}:
+                    if diff_task is not None:
+                        diff_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await diff_task
+                        diff_task = None
+                    if diff_submission is not None:
+                        diff_submission.accepted.cancel()
+                        diff_submission = None
                     discard_draft("Unsent draft discarded.")
                     enabled = False
                     if active is not None:
@@ -1472,6 +1564,20 @@ async def terminal(
                                 "text": inspection.describe(),
                             }
                         )
+                elif line == "/diff" or line.startswith("/diff "):
+                    if diff_task is None:
+                        if source_attachments is not None:
+                            diff_commands.attachments = source_attachments()
+                        if source_snapshot is not None:
+                            diff_commands.snapshot = source_snapshot()
+                        diff_task = asyncio.create_task(diff_commands.execute(line))
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Diff read in progress; retry when complete.",
+                            }
+                        )
                 elif line == "/directory":
                     memory_mapping = controller.state.memory_project_mapping
                     emit(
@@ -1509,6 +1615,11 @@ async def terminal(
                             }
                         )
                     else:
+                        if diff_task is not None:
+                            diff_task.cancel()
+                            with suppress(asyncio.CancelledError):
+                                await diff_task
+                            diff_task = None
                         enabled = False
                         if await switch_directory(line):
                             return
@@ -1536,7 +1647,7 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/steer TEXT, /review, "
+                                    "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
                                     "/status, "
@@ -1549,8 +1660,10 @@ async def terminal(
                             enabled = True
                 incoming = asyncio.create_task(queue.get())
     finally:
+        if diff_submission is not None:
+            diff_submission.accepted.cancel()
         discard_draft("Session closed; unsent draft discarded.")
-        for task in (active, incoming):
+        for task in (active, incoming, diff_task):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
