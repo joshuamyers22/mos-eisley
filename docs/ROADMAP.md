@@ -235,6 +235,15 @@ source and the production connection remains gated on §14.2 execution/VCS/E2
 qualification. Session scheduling (§31.15) follows in §31.13's sequence, with its
 own prerequisites still required.
 
+**Session scheduling, 2026-10-04 — inert qualification fixtures implemented:**
+[Durable-goal/queue assessment](CONVERSATION_SCHEDULING.md) and explicit-clock/local
+event fixtures cover bounded cadence, expiry, fire/resource limits, steering
+priority, duplicate coalescing and conservative restart. The test-only host bridge
+uses the existing queue and goal budgets; exact request-bound reservations survive
+lost acknowledgements without replay or refund. Real snapshot/SQLite recovery keeps
+goal uncertainty. `/loop`, atomic runtime schedule admission and qualified trusted
+handlers/background/external ingress remain later work.
+
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit
 planning and durable goals, followed by conversation forks/side chats and
