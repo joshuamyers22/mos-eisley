@@ -5295,6 +5295,19 @@ feature leaks creator history or peer findings into critic/judge packets.
 
 ### 31.12 Implementation-agent inspection
 
+**Inspection interface, 2026-10-04 — implemented; production connection gated:**
+[/agent and /subagents](CONVERSATION_AGENTS.md) share read-only plain/JSON/TUI
+commands, owner/parent/workspace checks, assignment/report digest binding, stale and
+partial output disclosure, and concurrent snapshot validation. Review projections
+contain only operational identity and state; report reads cannot reveal review
+evidence. Inspection leaves conversation state and spend unchanged. The substrate
+assessment found task/checkpoint records and review inventory, but no qualified
+implementation-child controller. The shipped terminal explicitly reports this
+missing source. A trusted controller port reuses future authorized child records
+without a second registry; §14.2 lifecycle/execution/VCS/E2 qualification and its
+production connection remain required. This is not a claim that child execution or
+the complete live §31.12 workflow is qualified.
+
 Add `/agent` with `/subagents` as an alias and equivalent plain/JSON inspection
 of creator-authorized implementation children. Show assignment, parent/task ID,
 model/effort, workspace/worktree, state, bounded usage/spend, verification status

@@ -49,6 +49,8 @@ source-only selections label the absence of a diff. Live review remains pending.
 mode selection and explicit `/implement TEXT` handoffs in recorded conversations.
 [Durable goals](docs/CONVERSATION_GOALS.md) add `/goal` controls, retained budgets,
 completion guards and visible progress/blockers through the recorded controller.
+[Agent inspection](docs/CONVERSATION_AGENTS.md) adds `/agent` and `/subagents`
+with owner-scoped report checks; production connection awaits the qualified child controller.
 [Conversation forks and side chats](docs/CONVERSATION_BRANCHES.md) add `/fork`
 and `/side` with explicit context, retained budgets and transient side answers.
 

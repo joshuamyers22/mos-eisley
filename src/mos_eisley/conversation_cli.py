@@ -958,6 +958,7 @@ async def terminal(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    from mos_eisley.conversation_agent_commands import agent_command
     from mos_eisley.conversation_branch_commands import BranchCommands
     from mos_eisley.conversation_diff import attachment_suffix
     from mos_eisley.conversation_diff_commands import DiffCommands
@@ -1456,6 +1457,11 @@ async def terminal(
                             line.accepted.set_result(True)
                             incoming = next_input()
                             continue
+                        if command == "agent_inspection":
+                            result = agent_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
+                            incoming = next_input()
+                            continue
                         if command == "branch_control":
                             if branch_task is None:
                                 branch_task = asyncio.create_task(
@@ -1625,6 +1631,8 @@ async def terminal(
                             submit_text(line.removeprefix("/goal run").lstrip())
                             or enabled
                         )
+                elif submission_command(line) == "agent_inspection":
+                    agent_command(controller, line, emit)
                 elif submission_command(line) == "branch_control":
                     if branch_task is None:
                         branch_task = asyncio.create_task(branch_commands.execute(line))
@@ -1864,6 +1872,7 @@ async def terminal(
                                     "/plan [on|off|status|TEXT], "
                                     "/mode plan|conversation, "
                                     "/implement TEXT, /goal [ACTION], /fork, /side, "
+                                    "/agent, /subagents, "
                                     "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
@@ -2995,7 +3004,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     "Recorded preview. "
                     "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
-                    "/fork, /side, "
+                    "/fork, /side, /agent, /subagents, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
                     + project_location.describe(

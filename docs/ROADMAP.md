@@ -223,7 +223,17 @@ transient until explicit attachment. Bounded deadlines, conservative restart and
 exact-request reconciliation prevent replay or budget resets. TUI/plain/JSON share
 inspection and controls while retaining drafts and steering. Live provider/task/child
 integration and isolated worktrees remain qualified-gate work. Implementation-agent
-inspection (§31.12) is next in §31.13's feature sequence.
+inspection (§31.12) follows; its interface is implemented below.
+
+**Implementation-agent inspection, 2026-10-04 — interface implemented:**
+[/agent and /subagents](CONVERSATION_AGENTS.md) provide shared plain/JSON/TUI
+inspection of authorized controller projections and digest-bound retained reports.
+Owner/parent/workspace checks, stale assignments, concurrent revisions and sealed
+review boundaries fail closed without changing state/spend. No qualified
+implementation-child controller exists yet; the shipped terminal reports the absent
+source and the production connection remains gated on §14.2 execution/VCS/E2
+qualification. Session scheduling (§31.15) follows in §31.13's sequence, with its
+own prerequisites still required.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit

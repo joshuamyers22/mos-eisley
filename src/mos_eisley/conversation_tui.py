@@ -1150,6 +1150,16 @@ class ConversationTUI:
             self.set_notice(f"Context report toggled. {command} shows or hides it.")
             self.refresh()
             return
+        if event["type"] == "conversation.agents":
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/agent"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice(
+                "Agent inspection shown; creator retains integration ownership."
+            )
+            self.refresh()
+            return
         if event["type"] in {
             "conversation.fork",
             "conversation.side",

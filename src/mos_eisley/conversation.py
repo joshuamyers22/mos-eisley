@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Literal, Protocol
 from uuid import uuid4
 
+from mos_eisley.conversation_agents import (
+    AgentInspection,
+    AgentInspectionScope,
+    ChildInspectionSource,
+    inspect_children,
+)
 from mos_eisley.conversation_branch import branch_system
 from mos_eisley.conversation_branch_controller import (
     ConversationBranchController,
@@ -244,6 +250,7 @@ class ConversationController(ConversationBranchController[StateT]):
         *,
         side_timeout: float = 2.0,
         publish_fork: Callable[[ConversationState], None] | None = None,
+        child_inspection: ChildInspectionSource | None = None,
         branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
         goal_evaluator: GoalEvaluator | None = None,
         goal_evaluator_timeout: float = 2.0,
@@ -328,6 +335,7 @@ class ConversationController(ConversationBranchController[StateT]):
         self.side_timeout = side_timeout
         self._side_provider_task = None
         self.publish_fork = publish_fork
+        self.child_inspection = child_inspection
         self.observe_branch_workspace = branch_workspace_observer
         self._side_busy = False
         self._side_answers = {}
@@ -373,6 +381,20 @@ class ConversationController(ConversationBranchController[StateT]):
 
         self.recover_goal_evaluations()
         self.recover_branches()
+
+    def inspect_agents(self, child_id: str | None = None) -> AgentInspection:
+        """Read authorized child records without author admission or persistence."""
+        if self.child_inspection is None:
+            raise ValueError(
+                "Implementation-agent inspection requires the qualified child "
+                "controller; no inspection source is connected."
+            )
+        scope = AgentInspectionScope(
+            owner_uid=self.state.owner_uid,
+            parent_session_id=self.state.session_id,
+            workspace_sha256=digest(self.state.workspace.encode("utf-8")),
+        )
+        return inspect_children(self.child_inspection, scope, child_id)
 
     @staticmethod
     def fresh(

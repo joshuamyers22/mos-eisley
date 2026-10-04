@@ -9,6 +9,10 @@ provider/model switching are not enabled by this screen. Explicit
 [/review scope presets](GIT_REVIEW_SCOPES.md) provide bounded local Git acquisition
 and require a matching recorded packet to dispatch a review.
 
+Use [/agent and /subagents](CONVERSATION_AGENTS.md) for read-only child inspection
+when the qualified controller source is connected; the shipped terminal reports
+the missing source. Reports appear in the context pane and preserve editor drafts.
+
 Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected conversation
 branches and bounded side questions. Side answers stay transient until attached;
 reports preserve the editor draft and show provenance and shared budgets.
