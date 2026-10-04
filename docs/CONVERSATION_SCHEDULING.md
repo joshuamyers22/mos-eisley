@@ -3,7 +3,7 @@
 This covers §31.15's inert fixtures, recorded durable controller admission and
 explicit plain/JSON/TUI controls, active-session recorded timer driving and
 qualified bounded local-result handlers, inert authenticated external ingress and
-explicit credentialed loopback transport.
+explicit credentialed loopback transport and native macOS credential lifecycle.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
@@ -286,7 +286,8 @@ execution and OAuth/bearer grants do not authorize inbound schedule events.
 The existing HTTP exception permits explicitly selected literal loopback, and
 the credential backend selects native macOS Keychain/Linux Secret Service rather
 than a plaintext fallback. Schedule ingress uses a separate credential namespace;
-it neither shares MCP OAuth tokens nor refreshes/provisions credentials.
+it neither shares MCP OAuth tokens nor refreshes credentials. The explicit
+host lifecycle below provisions only its selected ingress grant.
 
 `LoopbackEventTransport` is the first qualified network adapter. A trusted host
 must explicitly construct `IngressTransportGrant` and
@@ -303,8 +304,8 @@ credential identity/fingerprint and expiry. Provision a cryptographically random
 32-byte token encoded as 64 lowercase hex characters through the host's trusted
 credential workflow. Its native keychain service is
 `mos-eisley.schedule.ingress.v1`; the account is `grant.account`, the canonical
-SHA-256 of the entire grant. Provisioning and sender delivery are outside this
-read-only adapter. Missing/rotated/revoked credentials fail closed; environment
+SHA-256 of the entire grant. The explicit `NativeIngressVault` lifecycle below
+provisions that account; sender delivery remains outside the read-only transport. Missing/rotated/revoked credentials fail closed; environment
 variables and outbound MCP credentials provide no fallback. Opening requires the
 qualified timer owner and current process UID before any vault read or listener.
 Each admitted frame rechecks the vault before signature/broker validation and
@@ -349,10 +350,101 @@ with synthetic tokens and a fixture credential backend on both session stores:
 owner/source isolation, signature rejection, generic responses, revocation during
 validation, rotation, stale revisions, expiry, disconnects, acknowledgement loss,
 queue/connection limits, deadlines, hung/cancelled reads, shutdown, restart and
-shared terminal dispatch. Backend selection is tested without opening the host
-vault. Native keychain provisioning/end-to-end behavior, remote TLS or MCP service
-deployments, and live/paid execution remain separate qualification. This slice
+shared terminal dispatch. Ordinary fixture tests do not open the host vault. Native macOS Keychain
+qualification is covered separately below; remote TLS or MCP service deployments
+and live/paid execution remain separate qualification. This slice
 provides no public listener, daemon or closed-session execution.
+
+## Native macOS credential-vault qualification
+
+`NativeIngressVault` supplies the default native credential port for the loopback
+transport. Its host-only asynchronous lifecycle is explicit:
+
+| API | Result |
+| --- | --- |
+| `provision(grant, SecretStr(token))` | Record pending authority, write and verify the exact native account, then activate its acknowledged operation. |
+| `lookup(grant)` | Bounded lookup returning `SecretStr` only for the exact active grant and fingerprint, or `None` when inactive/missing. |
+| `inspect(grant)` | Read lifecycle metadata and unresolved status without native lookup, mutation or task spending. |
+| `rotate(previous, replacement, SecretStr(token))` | Validate unchanged scope and a new fingerprint, revoke the old grant first, then provision the replacement. |
+| `revoke(grant)` | Persist denial before native deletion and verify absence; an unresolved native deletion remains denied. |
+
+Generate tokens with `secrets.token_hex(32)` in the trusted host and match the
+frozen grant's `credential_sha256`; keep tokens out of shell arguments, logs,
+project/model configuration, session snapshots and reports. The API never
+refreshes OAuth credentials or sends a token to a remote party. Raw backend
+`set_password`/`delete_password` calls on the managed port are denied. Previously
+manually installed accounts need explicit lifecycle provisioning; default native
+lookup does not adopt them or scan the vault. Rotation changes the account digest
+and requires explicit transport reattachment for the replacement grant. It does
+not change the signed-source pin, admitted events or any task/schedule allowance.
+
+Native selection uses the existing macOS Keyring Security.framework backend and
+exact `mos-eisley.schedule.ingress.v1` service/account queries. Inspection of the
+installed backend found that its legacy keychain-path argument is not used in
+those queries. Qualification therefore does not pretend that a temporary path
+isolates native entries: it uses only randomly scoped disposable accounts and
+never enumerates the vault or changes keychain defaults, search lists, lock state
+or access settings. Linux Secret Service and other platforms retain their own
+native qualification gates.
+
+Authority records live in `~/.mos-eisley-ingress-credentials`, or an explicitly
+selected trusted host directory. The directory must be owned by the current
+real/effective UID with mode 0700; files must be singly linked regular owned 0600
+files. Symlinks, unsafe permissions, oversized/malformed records and mismatched
+accounts/owners fail before native access. Atomic replacement and file/directory
+fsync preserve minimal account/UID/operation/status metadata; records contain no
+token, signed packet, payload, report or session transcript. Pending/revoking
+records show unresolved lifecycle work and cannot authorize lookup. Revoked
+records are retained tombstones, not a reason to recreate the same credential.
+
+One daemon mutation lane per vault handle and an owner-checked file lock per
+native account serialize native operations across handles/processes. The caller
+has a whole native-operation monotonic timeout (default 2 seconds, at most 10)
+and asynchronous cancellation. A blocked OS call cannot be killed: its worker
+keeps the native lock until it finishes, while the caller returns with durable
+pending/revoking authority inactive. A revocation marker can supersede a pending
+write without waiting for the OS; late native writes cannot reactivate it. A
+second handle must wait for the old native operation before deleting its result.
+Known completion activates only the exact still-current pending operation; lost
+or superseded outcomes are never automatically adopted or replayed. Inspection
+followed by explicit cleanup revocation and a new grant is the recovery path.
+An acknowledgement lost after the activation record itself committed is visible
+as active on inspection; reprovisioning still rejects the retained account.
+
+Default transport reads require active lifecycle authority before and after
+native lookup; brief shared state locks also reject a busy authority transition.
+A storage failure before a denial record commits reports failure and does not
+claim successful revocation; inspection exposes the retained state. These checks
+run alongside their owner/source checks and final commit guard.
+Transport deadlines/cancellation retain the existing bounded controller read lane.
+Failures and sender acknowledgements remain generic. Revocation observed before
+commit rejects new events and retries without undoing accepted receipts, rolling
+rates, queued/running intent identities or aggregate exposure. Cold restart still
+skips known-undispatched work and retains uncertain running work without a new
+provider call or budget reset.
+
+`tests/test_conversation_schedule_credentials.py` covers lifecycle authority,
+private storage, failed/late writes, cancellation, competing handles, immutable
+scope/namespace, tombstones and lost activation acknowledgement. Package smoke
+includes these tests and the opt-in native suite. Run actual native qualification
+explicitly on macOS:
+
+```sh
+PYTHONPATH=src .venv/bin/python tools/qualify_ingress_keychain.py
+```
+
+That runner fails on unsupported platforms, skipped tests or native failures.
+`tests/test_conversation_schedule_keychain.py` exercises real provisioning,
+lookup, rotation and deletion against disposable native accounts, plus real
+loopback requests and snapshot/SQLite metadata/queue/running acknowledgement
+loss and restart. Controlled faults around real native calls exercise unavailable
+lookups, late writes, deadlines and cancellation; user vault locking/access
+settings are not changed to manufacture failures. Foreign UID claims and changed
+process UID fail before access. Every created account receives explicit cleanup
+revocation and native absence verification. Source and installed-wheel native
+runs must pass independently; ordinary skipped fixture runs are not native
+qualification evidence. Remote deployments and live/paid execution remain later
+work.
 
 ## Fixture behavior
 
@@ -487,8 +579,8 @@ real broker revision checks and durable rate/replay recovery on both stores.
 Package smoke includes the same coverage. The credentialed loopback socket
 fixtures are also included in package smoke.
 
-Remaining work includes remote credentialed transport deployments, native vault
-end-to-end qualification and live/paid execution adapters.
+Remaining work includes remote credentialed transport deployments, other-platform
+native vault qualification and live/paid execution adapters.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
 exact receipts against qualified controllers. External event ingress and live/paid

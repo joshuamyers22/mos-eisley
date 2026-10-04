@@ -5384,6 +5384,27 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Native credential-vault qualification, 2026-10-04 — macOS slice implemented and qualified:**
+[Native macOS credential lifecycle](CONVERSATION_SCHEDULING.md#native-macos-credential-vault-qualification)
+adds explicit host provisioning, bounded lookup, read-only inspection, scope-frozen
+rotation and revocation through macOS Keychain. Default ingress lookup requires
+private owner-scoped lifecycle authority as well as the native token; no raw-token
+adoption, OAuth reuse, vault enumeration or sender-facing credential controls are
+added. Durable pending/revoking denial, retained tombstones, exact-operation
+activation and serialized native locks prevent cancelled/timed-out writes from
+restoring authority. Hung OS calls retain their locks until completion; inspection
+and explicit cleanup replace automatic replay. Tokens remain out of lifecycle
+records, session snapshots, reports and command arguments.
+Explicit disposable-account native tests qualify provisioning/lookup/rotation/
+revocation, foreign owner claims, controlled native failures, deadlines,
+cancellation, lost acknowledgements and restart. Real loopback events on both
+snapshot/SQLite retain metadata, rates and queued/running exposure through native
+revocation without provider replay or budget reset. Actual vault lock/access
+settings remain unchanged; failures are injected around real native calls.
+Private-storage and concurrent-handle fixtures supplement native runs; skipped
+ordinary tests cannot claim native qualification. Other-platform vaults, remote
+TLS/MCP deployments and live/paid execution remain gated.
+
 **Credentialed external transport, 2026-10-04 — first loopback slice qualified:**
 [Credentialed loopback transport](CONVERSATION_SCHEDULING.md#credentialed-loopback-transport-qualification)
 connects one explicitly configured signed source through the active plain/JSON/TUI
@@ -5400,8 +5421,8 @@ Real loopback fixtures with synthetic credentials cover disconnects, revocation,
 rotation, cross-owner claims, stale revisions, overload, hung/cancelled reads,
 shutdown and lost sender/store acknowledgements on snapshot/SQLite without
 replay or budget reset. Native vault selection is tested through a fixture port;
-actual vault provisioning/end-to-end qualification, remote TLS/MCP service
-deployments and live/paid execution remain gated. No daemon or closed-session
+macOS lifecycle/end-to-end qualification is implemented above. Other-platform
+vaults, remote TLS/MCP deployments and live/paid execution remain gated. No daemon or closed-session
 scheduling is claimed.
 
 **Authenticated external ingress, 2026-10-04 — inert adapter implemented; remote transport gated:**

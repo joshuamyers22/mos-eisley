@@ -20,7 +20,7 @@ from mos_eisley.conversation_schedule_ingress import (
     InertExternalIngress,
 )
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
-from mos_eisley.tools.mcp_oauth_store import CredentialBackend, credential_backend
+from mos_eisley.tools.mcp_oauth_store import CredentialBackend
 
 SERVICE = "mos-eisley.schedule.ingress.v1"
 SUCCESS = (
@@ -31,6 +31,13 @@ REJECTED = (
     b"HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n"
     b'Content-Length: 24\r\nConnection: close\r\n\r\n{"status":"unavailable"}'
 )
+
+
+def credential_backend() -> CredentialBackend:
+    # Local import avoids the grant/host-vault cycle; no native lookup on import.
+    from mos_eisley.conversation_schedule_credentials import NativeIngressVault
+
+    return NativeIngressVault()
 
 
 class IngressTransportGrant(Contract):
