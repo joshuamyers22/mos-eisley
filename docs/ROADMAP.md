@@ -193,6 +193,27 @@ through current admission. JSON/SQLite preserve source provenance and correction
 links. Real macOS PTY focus/resize and rejection/resume checks accompany this slice;
 platform, managed-worktree and live execution/review gates remain pending.
 
+**Explicit planning, 2026-10-03 — recorded conversation slice implemented:**
+[/plan](CONVERSATION_PLANNING.md) selects and persists read-only planning with
+immutable per-message modes. Explicit implementation/finding-fix handoffs use the
+creator workflow constraints and existing budgets, without new approval prompts.
+Recorded replay, JSON/SQLite resume and admission/tool boundaries cover this slice;
+live creator execution/approval and platform qualification remain gated. Durable
+goals (§31.10) follow planning in the delivery order; their recorded controller
+slice is now implemented below.
+
+**Durable goals, 2026-10-04 — recorded controller slice implemented:**
+[/goal](CONVERSATION_GOALS.md) adds explicit objectives, retained revisions and
+owner-scoped JSON/SQLite persistence. Completion requires current verification,
+executed-test evidence, required independent review and a bounded separate semantic
+adapter. Progress/stall counters, aggregate reservations, required-job check-ins,
+classified failures and exact-operation reconciliation preserve budgets and stop
+states across restart. Shared terminal controls expose decisions and missing work.
+The shipped recorded terminal cannot certify repository completion without qualified
+execution-evidence and semantic adapters. Live background execution, retries,
+unattended continuation and scheduling remain gated. Forks/side chats (§31.11)
+follow this slice in §31.13's feature sequence.
+
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit
 planning and durable goals, followed by conversation forks/side chats and

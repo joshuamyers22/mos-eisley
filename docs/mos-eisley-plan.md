@@ -5098,6 +5098,19 @@ used as final acceptance without evidence bound to the corrected revision.
 
 ### 31.9 Explicit planning mode
 
+**Implementation status, 2026-10-03 — recorded conversation slice:**
+[/plan and equivalent mode controls](CONVERSATION_PLANNING.md) persist the selected
+mode and freeze it per admitted message. Planning instructions cover the required
+plan contents and count in request/context admission and previews. Task-tool
+dispatch fails closed in planning; trusted read controls remain available. Explicit
+`/implement TEXT` and finding-fix requests atomically exit planning on admission
+and carry the §15.7 creator workflow constraints without routine human confirmation.
+JSON/SQLite resume, archived records, active/queued boundaries, literal drafts and
+rejection/storage failure checks cover this slice. The recorded handoff describes
+the creator workflow; live plan/test approval, child dispatch, write, independent
+review and verification qualification remain existing gates. No approvals or
+authority are created or revived by mode selection.
+
 Add `/plan` and equivalent mode selection for investigating requirements and
 proposing an implementation before coding begins. Persist and display the mode;
 use only permitted read-only exploration, bounded clarifications and a plan with
@@ -5119,6 +5132,20 @@ implementation request follows §15.7 through verification without extra permiss
 prompts unless an actual policy boundary requires one.
 
 ### 31.10 Durable goals
+
+**2026-10-04 — recorded controller slice implemented:**
+[/goal](CONVERSATION_GOALS.md) persists explicit objectives, definition revisions,
+completion decisions, progress/stall counters, aggregate budget reservations,
+required-job dependencies and typed failure/reconciliation evidence in JSON/SQLite.
+Current-revision mechanical verification precedes a bounded separate semantic
+adapter; author claims, stale evidence and missing executed-test counts cannot
+close an objective. Pause, cancellation, edits, duplicate/late results and interrupted
+calls preserve stop states and exposure. TUI/plain/JSON share controls and reports.
+Completion/progress landed before required-job and recovery adapters, following
+§31.13. The shipped recorded terminal has no qualified execution-evidence or live
+semantic adapter: background execution, automatic retries, unattended continuation,
+paid provider wiring and scheduled wakeups retain their existing qualification gates.
+The following requirements remain authoritative for those integrations.
 
 Add `/goal` controls to create, inspect, edit, pause, resume and clear an explicit
 user objective through §6.7's task/checkpoint controller. Record success criteria,

@@ -839,13 +839,23 @@ class ConversationTUI:
             else "pressure "
             f"{pressure.latest_request.request_usage_basis_points / 100:.1f}%"
         )
+        goal = self.controller.current_goal
+        goal_text = (
+            ""
+            if goal is None
+            else (
+                f" • goal {goal.status} • {goal.ledger.attempts}/"
+                f"{goal.definition.ceiling.attempts} goal attempts"
+            )
+        )
         return (
-            f" fixture/tool-reviewer-v1 • high • tools off • {phase} • "
+            f" fixture/tool-reviewer-v1 • high • tools off • "
+            f"{state.interaction_mode} • {phase} • "
             f"{queued} queued • {state.exchanges_consumed}/"
             f"{len(self.controller.cassette.exchanges)} attempts • "
             f"{pending}{usage} recorded bytes • {pressure_text} • "
             f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
-            f"{pressure.repeated_reads_since_boundary} repeated reads "
+            f"{pressure.repeated_reads_since_boundary} repeated reads {goal_text}"
         )
 
     def refresh(self) -> None:
@@ -867,7 +877,8 @@ class ConversationTUI:
             link = (
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
             )
-            parts.append(f"You [{index}] • {entry.status}{link}\n{entry.text}")
+            mode = " • plan" if entry.interaction_mode == "plan" else ""
+            parts.append(f"You [{index}] • {entry.status}{mode}{link}\n{entry.text}")
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")
         if self.details:
@@ -966,7 +977,9 @@ class ConversationTUI:
                     else f" • refines {content.steering_for}"
                 )
                 parts.append(
-                    f"You [{entry.position}] • {content.status}{link}\n{content.text}"
+                    f"You [{entry.position}] • {content.status}"
+                    + (" • plan" if content.interaction_mode == "plan" else "")
+                    + f"{link}\n{content.text}"
                 )
                 if content.answer is not None:
                     parts.append(f"Mos\n{content.answer}")
@@ -1135,6 +1148,14 @@ class ConversationTUI:
             self.memory_visible = self.directory_visible = False
             self.memory_report = None
             self.set_notice(f"Context report toggled. {command} shows or hides it.")
+            self.refresh()
+            return
+        if event["type"] == "conversation.goal":
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/goal status"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice("Goal status shown; /goal status refreshes it.")
             self.refresh()
             return
         if event["type"] in {

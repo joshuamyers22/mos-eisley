@@ -948,6 +948,10 @@ async def terminal(
     source_snapshot: Callable[[], DiffSnapshot | None] | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
+
+    def next_input() -> asyncio.Task[ConversationInput]:
+        return asyncio.create_task(queue.get())
+
     seen: dict[int, str] = {}
     seen_pressure: set[str] = set()
     project_location = project_location or ProjectLocation.inspect(
@@ -956,6 +960,7 @@ async def terminal(
     composer = ConversationComposer()
     from mos_eisley.conversation_diff import attachment_suffix
     from mos_eisley.conversation_diff_commands import DiffCommands
+    from mos_eisley.conversation_goal_commands import goal_command
 
     diff_commands = DiffCommands(controller, emit)
 
@@ -1064,11 +1069,42 @@ async def terminal(
         render()
         return True
 
+    diff_fix_request = False
+
+    def mode_control(line: str) -> bool:
+        selections = {
+            "/plan": "plan",
+            "/plan on": "plan",
+            "/plan off": "conversation",
+            "/mode plan": "plan",
+            "/mode conversation": "conversation",
+        }
+        if line not in selections and line not in {"/plan status", "/mode"}:
+            return False
+        if line in selections:
+            controller.set_interaction_mode(
+                "plan" if selections[line] == "plan" else "conversation"
+            )
+        emit(
+            {
+                "type": "conversation.mode",
+                "interaction_mode": controller.state.interaction_mode,
+                "revision": controller.state.revision,
+                "text": (
+                    f"Mode: {controller.state.interaction_mode}. "
+                    "Applies to new messages; admitted work retains its mode."
+                ),
+            }
+        )
+        return True
+
     def submit_text(
         text: str,
         *,
         require_active: bool = False,
         attachments: tuple[DiffAttachment, ...] | None = None,
+        implementation_request: bool = False,
+        planning_request: bool = False,
     ) -> bool:
         selected_attachments = (
             diff_commands.attachments if attachments is None else attachments
@@ -1108,7 +1144,12 @@ async def terminal(
             if require_active:
                 controller.steer(text)
             else:
-                controller.submit(text, diff_attachments=selected_attachments)
+                controller.submit(
+                    text,
+                    diff_attachments=selected_attachments,
+                    implementation_request=implementation_request,
+                    planning_request=planning_request,
+                )
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
@@ -1217,7 +1258,16 @@ async def terminal(
             return False
         return None if command is None else manage_memory(command)
 
+    seen_goal_revision = -1
+
     def render() -> None:
+        nonlocal seen_goal_revision
+        if (
+            controller.current_goal is not None
+            and seen_goal_revision != controller.state.revision
+        ):
+            seen_goal_revision = controller.state.revision
+            goal_command(controller, "/goal status", emit)
         for index, entry in enumerate(controller.state.entries):
             if seen.get(index) != entry.status:
                 seen[index] = entry.status
@@ -1226,7 +1276,12 @@ async def terminal(
                     "index": index,
                     "text": entry.text,
                     "answer": entry.answer,
+                    "interaction_mode": entry.interaction_mode,
+                    "implementation_request": entry.implementation_request,
                 }
+                if entry.goal_id is not None:
+                    event["goal_id"] = entry.goal_id
+                    event["goal_definition_sha256"] = entry.goal_definition_sha256
                 if entry.steering_for is not None:
                     event["steering_for"] = entry.steering_for
                 if entry.diff_attachments:
@@ -1261,10 +1316,14 @@ async def terminal(
                 )
 
     render()
+    if controller.state.interaction_mode == "plan":
+        mode_control("/plan status")
+    if controller.current_goal is not None:
+        goal_command(controller, "/goal status", emit)
     enabled = False  # Resume displays pending input; only explicit input starts work.
     if initial_prompt is not None:
         enabled = submit_text(initial_prompt)
-    incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
+    incoming: asyncio.Task[ConversationInput] | None = next_input()
     active: asyncio.Task[bool] | None = None
     diff_task: asyncio.Task[str | None] | None = None
     diff_submission: ConversationSubmission | None = None
@@ -1274,14 +1333,17 @@ async def terminal(
             if (
                 enabled
                 and active is None
-                and any(entry.status == "queued" for entry in controller.state.entries)
+                and any(
+                    entry.status == "queued" and controller.can_dispatch(entry)
+                    for entry in controller.state.entries
+                )
             ):
                 active = asyncio.create_task(controller.step(on_started=render))
             if eof and active is None and diff_task is None:
                 return
             if incoming is None and active is not None:
                 # Keep accepting Ctrl-C while finishing work after stdin closes.
-                incoming = asyncio.create_task(queue.get())
+                incoming = next_input()
             pending: set[
                 asyncio.Task[ConversationInput]
                 | asyncio.Task[bool]
@@ -1310,7 +1372,9 @@ async def terminal(
                     ):
                         # Persistence failures must escape: only selection/input
                         # errors are recoverable diff notices.
-                        accepted = submit_text(followup)
+                        accepted = submit_text(
+                            followup, implementation_request=diff_fix_request
+                        )
                         enabled = accepted or enabled
                 if diff_submission is not None and not diff_submission.accepted.done():
                     diff_submission.accepted.set_result(accepted)
@@ -1351,7 +1415,7 @@ async def terminal(
                     raise line
                 if isinstance(line, ConversationSubmission):
                     if line.accepted.cancelled():
-                        incoming = asyncio.create_task(queue.get())
+                        incoming = next_input()
                         continue
                     try:
                         command = (
@@ -1362,7 +1426,37 @@ async def terminal(
                             # Saving is a local control, never a queued model turn.
                             if not line.accepted.done():
                                 line.accepted.set_result(remembered)
-                            incoming = asyncio.create_task(queue.get())
+                            incoming = next_input()
+                            continue
+                        if not line.literal and mode_control(line.text):
+                            line.accepted.set_result(True)
+                            incoming = next_input()
+                            continue
+                        if command == "goal_control":
+                            result = goal_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
+                            incoming = next_input()
+                            continue
+                        if command == "goal_run":
+                            if (
+                                controller.current_goal is None
+                                or controller.current_goal.status != "working"
+                            ):
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "Resume a working goal first.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
+                            else:
+                                accepted = submit_text(
+                                    line.text.removeprefix("/goal run").lstrip(),
+                                    attachments=line.diff_attachments,
+                                )
+                                line.accepted.set_result(accepted)
+                                enabled = enabled or accepted
+                            incoming = next_input()
                             continue
                         if command == "diff_followup":
                             if diff_task is not None:
@@ -1374,6 +1468,7 @@ async def terminal(
                                 )
                                 line.accepted.set_result(False)
                             else:
+                                diff_fix_request = line.text.startswith("/diff fix ")
                                 diff_commands.attachments = line.diff_attachments
                                 if source_snapshot is not None:
                                     diff_commands.snapshot = source_snapshot()
@@ -1381,9 +1476,16 @@ async def terminal(
                                     diff_commands.execute(line.text)
                                 )
                                 diff_submission = line
-                            incoming = asyncio.create_task(queue.get())
+                            incoming = next_input()
                             continue
-                        if command == "steer":
+                        if command in {"plan", "implement"}:
+                            accepted = submit_text(
+                                line.text.removeprefix("/" + command).lstrip(),
+                                attachments=line.diff_attachments,
+                                implementation_request=command == "implement",
+                                planning_request=command == "plan",
+                            )
+                        elif command == "steer":
                             accepted = submit_text(
                                 line.text.removeprefix("/steer").lstrip(),
                                 require_active=True,
@@ -1408,7 +1510,7 @@ async def terminal(
                     except BaseException:
                         line.accepted.cancel()
                         raise
-                    incoming = asyncio.create_task(queue.get())
+                    incoming = next_input()
                     continue
                 if line is None:
                     discard_draft("Input closed; unsent draft discarded.")
@@ -1432,11 +1534,44 @@ async def terminal(
                         active = None
                     if line == "/stop":
                         controller.cancel_queued()
+                        if (
+                            controller.current_goal is not None
+                            and controller.current_goal.status != "completed"
+                        ):
+                            controller.goal_control("cancel")
                     render()
                     if line == "/quit":
                         return
-                elif compose(line):
+                elif compose(line) or mode_control(line):
                     pass
+                elif submission_command(line) == "goal_run":
+                    if (
+                        controller.current_goal is None
+                        or controller.current_goal.status != "working"
+                    ):
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Resume a working goal first.",
+                            }
+                        )
+                    else:
+                        enabled = (
+                            submit_text(line.removeprefix("/goal run").lstrip())
+                            or enabled
+                        )
+                elif goal_command(controller, line, emit):
+                    pass
+                elif submission_command(line) in {"plan", "implement"}:
+                    command = submission_command(line)
+                    enabled = (
+                        submit_text(
+                            line.removeprefix("/" + str(command)).lstrip(),
+                            implementation_request=command == "implement",
+                            planning_request=command == "plan",
+                        )
+                        or enabled
+                    )
                 elif line == "/continue":
                     enabled = True
                 elif line == "/rename" or line.startswith("/rename "):
@@ -1546,7 +1681,9 @@ async def terminal(
                         {
                             "type": "conversation.status",
                             **status.model_dump(mode="json"),
-                            "text": status.describe(),
+                            "interaction_mode": controller.state.interaction_mode,
+                            "text": f"Mode: {controller.state.interaction_mode}. "
+                            + status.describe(),
                         }
                     )
                 elif line.split(maxsplit=1)[:1] == ["/context"]:
@@ -1566,6 +1703,7 @@ async def terminal(
                         )
                 elif line == "/diff" or line.startswith("/diff "):
                     if diff_task is None:
+                        diff_fix_request = line.startswith("/diff fix ")
                         if source_attachments is not None:
                             diff_commands.attachments = source_attachments()
                         if source_snapshot is not None:
@@ -1647,6 +1785,9 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
+                                    "/plan [on|off|status|TEXT], "
+                                    "/mode plan|conversation, "
+                                    "/implement TEXT, /goal [ACTION], "
                                     "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
@@ -1658,7 +1799,7 @@ async def terminal(
                     else:
                         if submit_text(line):
                             enabled = True
-                incoming = asyncio.create_task(queue.get())
+                incoming = next_input()
     finally:
         if diff_submission is not None:
             diff_submission.accepted.cancel()

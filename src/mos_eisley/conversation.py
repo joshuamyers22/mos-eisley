@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Generic, Protocol
+from typing import Literal, Protocol
 from uuid import uuid4
-
-from typing_extensions import TypeVar
 
 from mos_eisley.conversation_compaction import (
     AuthorCompaction,
@@ -22,6 +21,16 @@ from mos_eisley.conversation_context import (
     project_context,
 )
 from mos_eisley.conversation_diff import DiffAttachment
+from mos_eisley.conversation_goal import (
+    DurableGoal,
+    GoalEvidence,
+    exhausted,
+    goal_system,
+    guard_goal_checkpoint,
+    merge_ledger,
+)
+from mos_eisley.conversation_goal_controller import ConversationGoalController, StateT
+from mos_eisley.conversation_goal_evaluation import GoalEvaluator, GoalSemanticVerdict
 from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLimits
 from mos_eisley.conversation_memory import (
     ConversationMemory,
@@ -29,6 +38,7 @@ from mos_eisley.conversation_memory import (
     memory_system,
 )
 from mos_eisley.conversation_pending import PendingTextLimits, pending_text_bytes
+from mos_eisley.conversation_planning import planning_system
 from mos_eisley.conversation_pressure import (
     ContextPressureBreakdown,
     ContextPressurePolicy,
@@ -85,7 +95,11 @@ from mos_eisley.core.agent import (
     run_agent,
 )
 from mos_eisley.core.budget import Budget, resolve_budget
-from mos_eisley.core.models import canonical_bytes, canonical_fingerprint, digest
+from mos_eisley.core.models import (
+    canonical_bytes,
+    canonical_fingerprint,
+    digest,
+)
 from mos_eisley.core.ports import ModelClient, ToolDispatcher
 from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
@@ -155,9 +169,6 @@ def context_for(state: RuntimeConversationState, index: int) -> tuple[Turn, ...]
     return project_context(state.entries, index, compaction).turns
 
 
-StateT = TypeVar("StateT", bound=RuntimeConversationState, default=ConversationState)
-
-
 class CheckpointCloser(Protocol):
     def __call__(
         self,
@@ -213,7 +224,7 @@ def _pressure_boundary_position(state: RuntimeConversationState) -> int:
     )
 
 
-class ConversationController(Generic[StateT]):
+class ConversationController(ConversationGoalController[StateT]):
     """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
@@ -226,6 +237,12 @@ class ConversationController(Generic[StateT]):
         cassette: AgentCassette,
         save: Callable[[StateT], StateT | None],
         *,
+        goal_evaluator: GoalEvaluator | None = None,
+        goal_evaluator_timeout: float = 2.0,
+        observe_goal_evidence: Callable[[DurableGoal], GoalEvidence | None]
+        | None = None,
+        observe_goal_inputs: Callable[[], tuple[str, str]] | None = None,
+        goal_clock: Callable[[], float] = time.time,
         validate_memory: Callable[[], None] | None = None,
         validate_review: Callable[[ConversationReviewPacket], None] | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
@@ -308,6 +325,14 @@ class ConversationController(Generic[StateT]):
         self.pending_limits = pending_limits
         self.task_scope = task_scope
         self.resolve_task_profile = resolve_task_profile
+        if not 0 < goal_evaluator_timeout <= 10:
+            raise ValueError("Goal evaluator timeout must be within ten seconds.")
+        self._goal_evaluator_task: asyncio.Future[GoalSemanticVerdict] | None = None
+        self.goal_evaluator = goal_evaluator
+        self.goal_evaluator_timeout = goal_evaluator_timeout
+        self.observe_goal_evidence = observe_goal_evidence
+        self.observe_goal_inputs = observe_goal_inputs
+        self.goal_clock = goal_clock
         self.tool_dispatcher = tool_dispatcher
         self.close_task_checkpoint = close_task_checkpoint
         self.claim_task_continuation = claim_task_continuation
@@ -329,6 +354,8 @@ class ConversationController(Generic[StateT]):
                     for entry in state.entries
                 )
             )
+
+        self.recover_goal_evaluations()
 
     @staticmethod
     def fresh(
@@ -370,11 +397,17 @@ class ConversationController(Generic[StateT]):
         entries: tuple[ConversationEntry | ArchivedConversationEntry, ...],
         *,
         consumed: int | None = None,
+        interaction_mode: Literal["conversation", "plan"] | None = None,
     ) -> None:
         if self._broken:
             raise ValueError("session persistence failed; reopen before continuing")
         updated = type(self.state).model_validate(
             dict(
+                interaction_mode=self.state.interaction_mode
+                if interaction_mode is None
+                else interaction_mode,
+                goals=self._goal_transitions(entries),
+                active_goal_id=self.state.active_goal_id,
                 session_id=self.state.session_id,
                 session_name=self.state.session_name,
                 owner_uid=self.state.owner_uid,
@@ -464,6 +497,9 @@ class ConversationController(Generic[StateT]):
                     session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
                     workspace=self.state.workspace,
+                    goals=self.state.goals,
+                    active_goal_id=self.state.active_goal_id,
+                    interaction_mode=self.state.interaction_mode,
                     memory_project_root=self.state.memory_project_root,
                     memory_project_mapping=self.state.memory_project_mapping,
                     revision=self.state.revision + 1,
@@ -637,6 +673,8 @@ class ConversationController(Generic[StateT]):
             raise CheckpointClosureError(
                 "conversation checkpoint revision changed before closure"
             )
+        if self.current_goal is not None and reason == "completed_milestone":
+            guard_goal_checkpoint(self.current_goal, bundle, dict(artifacts))
         head = self.close_task_checkpoint(
             bundle,
             artifacts,
@@ -662,6 +700,18 @@ class ConversationController(Generic[StateT]):
             self.state.model_copy(
                 update={
                     "task_checkpoint": head,
+                    "goals": tuple(
+                        g.model_copy(
+                            update={
+                                "ledger": merge_ledger(
+                                    g.ledger, bundle.checkpoint.task_ledger
+                                )
+                            }
+                        )
+                        if g.goal_id == self.state.active_goal_id
+                        else g
+                        for g in self.state.goals
+                    ),
                     "task_continuation": None,
                     "context_pressure_policy": self.context_pressure_policy,
                     "context_pressure_boundary": make_pressure_boundary(
@@ -758,9 +808,33 @@ class ConversationController(Generic[StateT]):
             ) from None
         return receipt.claim
 
+    def set_interaction_mode(self, mode: Literal["conversation", "plan"]) -> None:
+        """Record selection at an admission boundary; admitted turns stay frozen."""
+        if mode not in {"conversation", "plan"}:
+            raise ValueError("Use /mode plan or /mode conversation.")
+        if mode == self.state.interaction_mode:
+            return
+        self._commit(
+            validate_runtime_state(
+                self.state.model_copy(
+                    update={
+                        "interaction_mode": mode,
+                        "revision": self.state.revision + 1,
+                    }
+                )
+            )
+        )
+
     def submit(
-        self, text: str, *, diff_attachments: tuple[DiffAttachment, ...] = ()
+        self,
+        text: str,
+        *,
+        diff_attachments: tuple[DiffAttachment, ...] = (),
+        implementation_request: bool = False,
+        planning_request: bool = False,
     ) -> None:
+        if implementation_request and planning_request:
+            raise ValueError("Choose planning or implementation for a message.")
         if not text.strip():
             raise ValueError("message cannot be blank")
         if any(a.workspace != self.state.workspace for a in diff_attachments):
@@ -768,6 +842,18 @@ class ConversationController(Generic[StateT]):
         self._append(
             ConversationEntry(
                 text=text,
+                goal_id=None
+                if self.current_goal is None or self.current_goal.status != "working"
+                else self.current_goal.goal_id,
+                goal_definition_sha256=None
+                if self.current_goal is None or self.current_goal.status != "working"
+                else self.current_goal.definition.sha256,
+                interaction_mode="conversation"
+                if implementation_request
+                else "plan"
+                if planning_request
+                else self.state.interaction_mode,
+                implementation_request=implementation_request,
                 steering_for=self.active_chat_index,
                 diff_attachments=diff_attachments,
             )
@@ -790,7 +876,16 @@ class ConversationController(Generic[StateT]):
             raise ValueError("session persistence failed; reopen before continuing")
         if self.pending_limits is not None:
             self.pending_limits.admit(self.state.entries, entry.text)
-        self._update(self.state.entries + (entry,))
+        self._update(
+            self.state.entries + (entry,),
+            interaction_mode=(
+                "conversation"
+                if entry.implementation_request
+                else entry.interaction_mode
+            )
+            if not entry.is_review
+            else None,
+        )
 
     @property
     def active_chat_index(self) -> int | None:
@@ -856,7 +951,7 @@ class ConversationController(Generic[StateT]):
             (
                 i
                 for i, entry in enumerate(self.state.entries)
-                if entry.status == "queued"
+                if entry.status == "queued" and self.can_dispatch(entry)
             ),
             None,
         )
@@ -931,6 +1026,19 @@ class ConversationController(Generic[StateT]):
                 )
             elif self.resolve_task_profile is not None:
                 profile = self.resolve_task_profile(index)
+            if (
+                (
+                    entry.interaction_mode == "plan"
+                    or entry.implementation_request
+                    or entry.goal_id is not None
+                )
+                and profile is not None
+                and any(tool.selected for tool in profile.manifest.tools)
+            ):
+                raise ValueError(
+                    "Planning/implementation handoff cannot dispatch task tools; "
+                    "use trusted read controls and the qualified creator workflow."
+                )
             if profile is not None:
                 assert self.task_scope is not None
                 available = (
@@ -979,7 +1087,13 @@ class ConversationController(Generic[StateT]):
             profile_suffix = (
                 "" if admitted_profile is None else admitted_profile.system_suffix
             )
-            task_system = compaction_suffix + checkpoint_suffix + profile_suffix
+            task_system = (
+                compaction_suffix
+                + checkpoint_suffix
+                + profile_suffix
+                + planning_system(entry.interaction_mode, entry.implementation_request)
+                + goal_system(self.goal_for_entry(entry))
+            )
             config = conversation_config(
                 projected.turns,
                 self.state.memory,
@@ -991,6 +1105,23 @@ class ConversationController(Generic[StateT]):
             )
             request, budget = prepare_conversation_request(config, request_dispatcher)
             request_size = check_request_budget(request, budget)
+            goal = self.goal_for_entry(entry)
+            if goal is not None and exhausted(
+                goal,
+                self.goal_clock(),
+                input_bytes=request_size,
+                output_bytes=budget.output_reserve,
+                attempts=1,
+            ):
+                updated_goal = goal.model_copy(update={"status": "budget_exhausted"})
+                self._save_goals(
+                    tuple(
+                        updated_goal if g.goal_id == goal.goal_id else g
+                        for g in self.state.goals
+                    ),
+                    self.state.active_goal_id,
+                )
+                raise ValueError("Goal request exceeds remaining cumulative resources.")
             pressure = build_pressure_snapshot(
                 policy=self.context_pressure_policy,
                 source_revision=self.state.revision,
@@ -1001,7 +1132,12 @@ class ConversationController(Generic[StateT]):
                 request_max_bytes=budget.usable_input,
                 known_breakdown=ContextPressureBreakdown(
                     base_system_bytes=len(
-                        conversation_base_system(self.state.memory).encode("utf-8")
+                        (
+                            conversation_base_system(self.state.memory)
+                            + planning_system(
+                                entry.interaction_mode, entry.implementation_request
+                            )
+                        ).encode("utf-8")
                     ),
                     conversation_bytes=sum(
                         len(canonical_bytes(turn)) for turn in projected.turns
@@ -1120,8 +1256,12 @@ class ConversationController(Generic[StateT]):
                     )
                     completed = ConversationEntry(
                         text=entry.text,
+                        goal_id=entry.goal_id,
+                        goal_definition_sha256=entry.goal_definition_sha256,
                         steering_for=entry.steering_for,
                         diff_attachments=entry.diff_attachments,
+                        interaction_mode=entry.interaction_mode,
+                        implementation_request=entry.implementation_request,
                         memory_context=entry.memory_context,
                         request_admission=entry.request_admission,
                         status="completed",
@@ -1145,6 +1285,14 @@ class ConversationController(Generic[StateT]):
             return True
         finally:
             self._busy = False
+            if (
+                not self._broken
+                and self.observe_goal_evidence is not None
+                and self.current_goal is not None
+                and self.state.entries[index].goal_id == self.current_goal.goal_id
+                and self.state.entries[index].status == "completed"
+            ):
+                await self.evaluate_goal()
 
 
 RuntimeConversationController = (

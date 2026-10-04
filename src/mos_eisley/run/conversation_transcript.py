@@ -4,11 +4,12 @@ import base64
 import json
 import sqlite3
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID, Status
+from mos_eisley.conversation_diff import DiffAttachment
 from mos_eisley.conversation_pressure import ConversationPressureActivity
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.core.agent import AgentUsage
@@ -27,6 +28,19 @@ MAX_TRANSCRIPT_PAGE_BYTES = 512_000
 
 class TranscriptText(Contract):
     text: Text
+    goal_id: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    goal_definition_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
+    implementation_request: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    diff_attachments: Annotated[tuple[DiffAttachment, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None

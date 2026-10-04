@@ -10,6 +10,7 @@ from mos_eisley.conversation_compaction import (
     validate_author_compactions,
 )
 from mos_eisley.conversation_diff import DiffAttachment, attachment_suffix
+from mos_eisley.conversation_goal import DurableGoal
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
@@ -58,6 +59,16 @@ class ConversationMemoryContext(Contract):
 
 class ConversationEntry(Contract):
     text: Text
+    goal_id: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
+    goal_definition_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
+    implementation_request: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
     diff_attachments: Annotated[tuple[DiffAttachment, ...], Field(max_length=4)] = (
         Field(default=(), exclude_if=lambda value: not value)
     )
@@ -97,6 +108,17 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
+            self.goal_id is not None and self.is_review
+        ):
+            raise ValueError("A goal entry requires a definition and an author turn.")
+        if (self.interaction_mode == "plan" and self.implementation_request) or (
+            self.is_review
+            and (self.interaction_mode == "plan" or self.implementation_request)
+        ):
+            raise ValueError(
+                "Planning entries cannot authorize implementation or review."
+            )
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_suffix(self.diff_attachments))
@@ -159,6 +181,16 @@ class ArchivedConversationEntry(Contract):
     """
 
     text: Text
+    goal_id: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
+    goal_definition_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
+    implementation_request: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
     diff_attachments: Annotated[tuple[DiffAttachment, ...], Field(max_length=4)] = (
         Field(default=(), exclude_if=lambda value: not value)
     )
@@ -197,6 +229,17 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
+            self.goal_id is not None and self.is_review
+        ):
+            raise ValueError("A goal entry requires a definition and an author turn.")
+        if (self.interaction_mode == "plan" and self.implementation_request) or (
+            self.is_review
+            and (self.interaction_mode == "plan" or self.implementation_request)
+        ):
+            raise ValueError(
+                "Planning entries cannot authorize implementation or review."
+            )
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_suffix(self.diff_attachments))
@@ -256,6 +299,10 @@ class ArchivedConversationEntry(Contract):
             include={
                 "text",
                 "diff_attachments",
+                "interaction_mode",
+                "goal_id",
+                "goal_definition_sha256",
+                "implementation_request",
                 "status",
                 "answer",
                 "usage",
@@ -274,8 +321,17 @@ EntryT = TypeVar(
 
 
 class ConversationState(Contract, Generic[EntryT]):
+    goals: Annotated[tuple[DurableGoal, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    active_goal_id: Identifier | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     schema_version: Literal[1] = 1
     mode: Literal["recorded_conversation"] = "recorded_conversation"
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
     session_id: SessionID
     session_name: SessionName | None = Field(
         default=None, exclude_if=lambda value: value is None
@@ -338,6 +394,23 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
+        goals = {g.goal_id: g for g in self.goals}
+        if len(goals) != len(self.goals) or any(
+            g.owner_uid != self.owner_uid or g.workspace != self.workspace
+            for g in self.goals
+        ):
+            raise ValueError(
+                "Goals require unique identities and this exact owner/workspace."
+            )
+        if self.active_goal_id is not None and self.active_goal_id not in goals:
+            raise ValueError("Active goal is absent from retained history.")
+        for entry in self.entries:
+            if entry.goal_id is not None and (
+                entry.goal_id not in goals
+                or entry.goal_definition_sha256
+                not in {d.sha256 for d in goals[entry.goal_id].revisions}
+            ):
+                raise ValueError("Goal entry references an absent definition revision.")
         selected_memory_workspace = self.effective_memory_workspace
         validate_author_compactions(
             self.author_compactions,

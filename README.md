@@ -45,6 +45,11 @@ remain pending. Tmux is not required for ordinary Mos launch.
 Explicit [Git review scopes](docs/GIT_REVIEW_SCOPES.md) freeze uncommitted,
 base-branch or commit changes, whole files and line ranges for `/review`;
 source-only selections label the absence of a diff. Live review remains pending.
+[Explicit planning mode](docs/CONVERSATION_PLANNING.md) adds `/plan`, retained
+mode selection and explicit `/implement TEXT` handoffs in recorded conversations.
+[Durable goals](docs/CONVERSATION_GOALS.md) add `/goal` controls, retained budgets,
+completion guards and visible progress/blockers through the recorded controller.
+
 The [live diff panel](docs/CONVERSATION_DIFF.md) opens with `/diff` or F10, supports
 frozen source attachments, and links retained review findings to historical source.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;

@@ -7,8 +7,33 @@ from typing import Literal, Protocol
 from mos_eisley.conversation_diff import DiffAttachment
 
 
-def submission_command(text: str) -> Literal["review", "steer", "diff_followup"] | None:
+def submission_command(
+    text: str,
+) -> (
+    Literal[
+        "review",
+        "steer",
+        "diff_followup",
+        "plan",
+        "implement",
+        "goal_run",
+        "goal_control",
+    ]
+    | None
+):
     """Recognize typed submission commands; callers keep pasted text literal."""
+    if text.startswith("/goal run "):
+        return "goal_run"
+    if text == "/goal" or text.startswith("/goal "):
+        return "goal_control"
+    if text.startswith("/implement "):
+        return "implement"
+    if text.startswith("/plan ") and text not in {
+        "/plan on",
+        "/plan off",
+        "/plan status",
+    }:
+        return "plan"
     if text == "/review" or text.startswith("/review "):
         return "review"
     if text == "/steer" or text.startswith("/steer "):

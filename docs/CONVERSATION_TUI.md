@@ -9,6 +9,14 @@ provider/model switching are not enabled by this screen. Explicit
 [/review scope presets](GIT_REVIEW_SCOPES.md) provide bounded local Git acquisition
 and require a matching recorded packet to dispatch a review.
 
+Use [/goal](CONVERSATION_GOALS.md) to create, steer, pause and inspect durable
+objectives. The status pane and shared report show budgets, blockers and missing
+verification; goal state cannot certify work without trusted evidence adapters.
+
+Use [/plan](CONVERSATION_PLANNING.md) for read-only planning and `/implement TEXT`
+for an explicit creator-workflow handoff. The status bar shows the selected mode;
+admitted messages retain their own mode through queueing and resume.
+
 ## Start a conversation
 
 Open your project directory and run:
