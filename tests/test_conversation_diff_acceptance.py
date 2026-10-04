@@ -145,6 +145,76 @@ class DiffAcceptanceTests(IsolatedAsyncioTestCase):
                 input.send_text("\x04")
                 await asyncio.wait_for(task, 5)
 
+    async def test_rapid_refresh_coalesces_without_overlapping_git_reads(self) -> None:
+        with TemporaryDirectory() as directory, create_pipe_input() as input:
+            root = changed_workspace(Path(directory) / "source")
+            cassette = demo_cassette()
+            chat = ConversationController(
+                ConversationController.fresh(root, cassette), cassette, lambda _: None
+            )
+            entered = threading.Event()
+            release = threading.Event()
+            counter_lock = threading.Lock()
+            active = 0
+            maximum_active = 0
+            reads = 0
+
+            class SlowReader:
+                def __init__(self, selection: object, git_executable: object) -> None:
+                    pass
+
+                def snapshot(self) -> GitSnapshot:
+                    nonlocal active, maximum_active, reads
+                    with counter_lock:
+                        active += 1
+                        maximum_active = max(maximum_active, active)
+                        reads += 1
+                        read_number = reads
+                    content = (root / "one.txt").read_text().strip()
+                    try:
+                        if read_number == 1:
+                            entered.set()
+                            if not release.wait(5):
+                                raise TimeoutError("held Git read was not released")
+                        return GitSnapshot(
+                            GitState.READY, root, root, (), content, True
+                        )
+                    finally:
+                        with counter_lock:
+                            active -= 1
+
+            with patch("mos_eisley.conversation_tui.GitWorkspaceReader", SlowReader):
+                ui = ConversationTUI(chat, input=input, output=DummyOutput())
+                task = asyncio.create_task(ui.run())
+                try:
+                    await until(lambda: ui.app.is_running)
+                    input.send_text("/diff\r")
+                    self.assertTrue(await asyncio.to_thread(entered.wait, 2))
+                    for index in range(8):
+                        (root / "one.txt").write_text(f"version-{index}\n")
+                        if index % 2 == 0:
+                            ui.toggle_diff()
+                            ui.toggle_diff()
+                        else:
+                            ui.restart_diff_poll()
+                        await asyncio.sleep(0.01)
+                    self.assertIsNone(ui.diff_snapshot)
+                    self.assertEqual(reads, 1)
+                    self.assertEqual(maximum_active, 1)
+                    release.set()
+                    await until(
+                        lambda: (
+                            ui.diff_snapshot is not None
+                            and ui.diff_snapshot.digest == "version-7"
+                        )
+                    )
+                    self.assertEqual(reads, 2)
+                    self.assertEqual(maximum_active, 1)
+                finally:
+                    release.set()
+                    input.send_text("\x04")
+                    await asyncio.wait_for(task, 5)
+
     async def test_switch_blocks_attached_source_and_discards_old_generation(
         self,
     ) -> None:
