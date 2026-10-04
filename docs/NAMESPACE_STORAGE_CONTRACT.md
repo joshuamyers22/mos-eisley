@@ -1,12 +1,15 @@
 # Namespace-record and read-only storage-admission contract
 
-Status: proposed definition, 2026-10-04. Owner: Josh Myers. Baseline: `4d0dd7a`.
+Status: proposed storage/enrollment definition; pure record codec implemented, 2026-10-04. Owner: Josh Myers. Baseline: `4d0dd7a`.
 Requirement: [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support).
 This freezes the smallest prerequisite to the
 [migration design](IDENTITY_MIGRATION_DESIGN.md): one immutable namespace record,
 inspection of an existing private directory, and one bounded relative record read.
-No API below is implemented in this batch. Enrollment writes, existing store
-adoption, migration writers and public Windows selectors remain gated.
+The [pure record codec](../src/mos_eisley/platform/identity_wire.py) and
+[golden fixtures](../tests/test_platform_identity_wire.py) are implemented additively;
+[verification](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) covers that slice. Storage and
+enrollment APIs remain proposed. Enrollment writes, existing store adoption,
+migration writers and public Windows selectors remain gated.
 
 ## Observed boundaries and chosen scope
 
@@ -87,7 +90,8 @@ malicious kernel/administrator or another fully trusted process of the same owne
 
 ## Proposed narrow read-only API and lifetime
 
-Names below describe the intended API; they are not callable entry points yet:
+The two record codec functions are implemented; directory admission and record
+reading below remain proposed APIs:
 
 ```text
 decode_namespace_record(payload: bytes) -> NamespaceRecord
@@ -215,7 +219,9 @@ write authority nor approval to import retained task/review permissions.
 
 ## Required acceptance and efficient batches
 
-These are future implementation tests, not new passes claimed by this definition:
+These are requirements for the complete boundary. The pure codec note records
+its limited executable coverage; storage, enrollment and native evidence remain
+pending:
 
 | ID | Required evidence |
 |---|---|
@@ -238,8 +244,10 @@ These are future implementation tests, not new passes claimed by this definition
 
 Implement in this order, with independent qualification records:
 
-1. **Pure namespace record codec and golden fixtures** (N-01/02/03/14). Smallest
-   next code batch; no enrollment context, platform loading or storage operation.
+1. **Pure namespace record codec and golden fixtures — implemented additively**
+   (N-01/02/03 metadata-only/14). The [codec note](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
+   records source/wheel evidence. No enrollment context, platform loading or storage
+   operation; protected-anchor/custody evidence under N-03 remains pending.
 2. **POSIX existing-root read-only admission**, frozen ACL/mount policy and owned
    reference lifecycle (N-04/05/06/15). No existing store adoption or creation.
 3. **Secure fixed-child namespace reads**, bounded bytes and replacement/refusal

@@ -529,9 +529,10 @@ and accountable review remain pending.
 
 The [namespace/storage contract](NAMESPACE_STORAGE_CONTRACT.md) now freezes a
 minimal protected-record definition and read-only admission boundary, distinguishing
-metadata/private-storage observations from enrolled authority. Its next independent
-code slice is a pure namespace codec with fixtures, followed by root/child admission
-and target ACL/relative-open qualification. Protected custody, locking, publication
+metadata/private-storage observations from enrolled authority. The
+[pure namespace codec and fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) now pass
+focused source and dependency-free wheel checks. Next is read-only POSIX root
+admission, then child reads and target ACL/relative-open qualification. Protected custody, locking, publication
 and recovery still precede enrollment writes. [The definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
 claims no writer or public Windows selector admission.
 

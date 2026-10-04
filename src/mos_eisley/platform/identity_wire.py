@@ -3,7 +3,7 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Literal, cast
 
 from mos_eisley.platform.identity import (
     FileIdentity,
@@ -35,6 +35,25 @@ class OwnerBinding:
         _namespace(self.namespace_id)
         if type(self.principal) not in (PosixPrincipal, WindowsPrincipal):
             raise IdentityWireError("invalid principal value")
+
+
+@dataclass(frozen=True, slots=True)
+class NamespaceRecord:
+    """Untrusted namespace metadata; never proof of custody or enrollment."""
+
+    namespace_id: str = field(repr=False)
+    principal: PrincipalIdentity = field(repr=False)
+    migration_verification_key_sha256: str = field(repr=False)
+    kind: Literal["identity-namespace"] = field(
+        default="identity-namespace", init=False
+    )
+    schema_version: Literal[1] = field(default=1, init=False)
+
+    def __post_init__(self) -> None:
+        _namespace(self.namespace_id)
+        if type(self.principal) not in (PosixPrincipal, WindowsPrincipal):
+            raise IdentityWireError("invalid principal value")
+        _hex(self.migration_verification_key_sha256, 64, 64)
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +224,45 @@ def decode_owner_binding(payload: bytes) -> OwnerBinding:
     return OwnerBinding(
         cast(str, value["namespace_id"]),
         _principal(_object(value["principal"])),
+    )
+
+
+def encode_namespace_record(value: NamespaceRecord) -> bytes:
+    """Encode metadata only; fingerprint syntax does not validate a public key."""
+    if type(value) is not NamespaceRecord:
+        raise IdentityWireError("invalid namespace record value")
+    return _encode(
+        {
+            "kind": value.kind,
+            "schema_version": value.schema_version,
+            "namespace_id": value.namespace_id,
+            "principal": _principal_object(value.principal),
+            "migration_verification_key_sha256": (
+                value.migration_verification_key_sha256
+            ),
+        }
+    )
+
+
+def decode_namespace_record(payload: bytes) -> NamespaceRecord:
+    """Decode bounded canonical metadata without storage or enrollment effects."""
+    value = _decode(payload)
+    _members(
+        value,
+        "kind",
+        "schema_version",
+        "namespace_id",
+        "principal",
+        "migration_verification_key_sha256",
+    )
+    if value["kind"] != "identity-namespace":
+        raise IdentityWireError("unsupported namespace record kind")
+    if _integer(value["schema_version"]) != 1:
+        raise IdentityWireError("unsupported namespace record version")
+    return NamespaceRecord(
+        cast(str, value["namespace_id"]),
+        _principal(_object(value["principal"])),
+        cast(str, value["migration_verification_key_sha256"]),
     )
 
 

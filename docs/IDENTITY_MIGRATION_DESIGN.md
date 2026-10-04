@@ -226,8 +226,9 @@ Implement in this dependency order:
    principal/file/owner-binding contracts, strict decoding and
    selected legacy golden fixtures. No namespace enrollment, writers or consumers;
    M-02/03/05/06. Can proceed while adapter CI/review runs.
-2. **Namespace enrollment and storage prerequisites — contract defined.**
-   The [contract](NAMESPACE_STORAGE_CONTRACT.md) orders pure namespace codecs,
+2. **Namespace enrollment and storage prerequisites — contract defined; pure record codec implemented.**
+   The [pure namespace codec](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) is implemented
+   additively. The [contract](NAMESPACE_STORAGE_CONTRACT.md) orders its fixtures,
    read-only root/child admission, native qualification and protected custody/write
    primitives. Qualify principal/file
    selectors through accountable review, then protected namespace records, private

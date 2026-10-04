@@ -4748,8 +4748,9 @@ version-1 record, borrowed-root/owned-lease lifetime, fixed relative child reads
 private mode/ACL/DACL requirements and separate decoded/storage-checked/enrolled
 trust states. Copied JSON and private permissions do not establish protected key
 custody or enrollment. N-01–N-16 specify future source/wheel/native/fault evidence.
-The next code batch is the pure namespace codec and fixtures; then existing-root
-and child-read qualification. Enrollment creation, locks/publication/durability,
+The [pure namespace codec and golden fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
+are implemented additively with source and dependency-free wheel checks. Next is
+read-only POSIX existing-root admission, then child-read qualification. Enrollment creation, locks/publication/durability,
 protected anchor/key custody, consumer writers and public Windows selectors remain
 gated. [Verification](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) records this
 contract-definition batch, not implementation or native admission.

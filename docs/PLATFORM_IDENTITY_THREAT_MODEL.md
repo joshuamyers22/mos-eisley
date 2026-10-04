@@ -157,7 +157,11 @@ Accountable review remains open before migration or native admission.
 The [contract](NAMESPACE_STORAGE_CONTRACT.md) and
 [definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) add these future
 controls without implementing enrollment, storage effects or public admission.
-Owner: Josh Myers; accountable boundary review remains open.
+Owner: Josh Myers; accountable boundary review remains open. The additive
+[pure namespace codec](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) now supplies bounded
+canonical record decoding, redacted immutable metadata and inert source/wheel
+fixtures. Valid fingerprint syntax grants neither key validity nor custody; all
+storage and enrollment controls below still require separate implementation.
 
 | Abuse | Required control/evidence | Residual boundary |
 |---|---|---|

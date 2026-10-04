@@ -74,6 +74,7 @@ for module in (files, identity, wire, candidate, file_candidate):
                 "test_platform_files.PlatformFileContractTests",
                 "test_platform_identity.IdentityValueTests",
                 "test_platform_identity_wire.IdentityWireTests",
+                "test_platform_identity_wire.NamespaceRecordWireTests",
                 "test_platform_identity.IdentityContractTests",
                 "test_platform_windows_principal.WindowsPrincipalFaultTests",
                 "test_platform_windows_principal.NativeTokenBindingTests",

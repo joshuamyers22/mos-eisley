@@ -1,6 +1,6 @@
 # ADR-0016: Separate namespace metadata, storage inspection and enrollment
 
-- Status: proposed; accountable review and implementation pending
+- Status: proposed; pure record codec implemented, accountable review and storage/enrollment implementation pending
 - Date and owner: 2026-10-04, Josh Myers
 - Requirement: [plan §27.2](../mos-eisley-plan.md#272-version-011--full-native-windows-support)
 
@@ -39,7 +39,9 @@ enrollment, recovery preserves records and keys rather than silently undoing the
 
 The contract specifies N-01–N-16 and efficient independent slices, beginning with
 pure record codecs and fixtures. The [work note](../NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
-records definition evidence and limitations. No namespace/storage code, production
-writer, key provisioning or native admission is supplied here. Reconsider if ACL
+records definition evidence and limitations. The subsequent
+[pure codec slice](../NAMESPACE_RECORD_CODEC_WORK_NOTE.md) adds namespace metadata
+and golden fixtures only. No storage implementation, production writer, key
+provisioning or native admission is supplied here. Reconsider if ACL
 inspection/allocation bounds cannot qualify, root/key enrollment cannot be pinned
 without circular trust, or publication recovery cannot retain uncertainty safely.
