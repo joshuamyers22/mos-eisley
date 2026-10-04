@@ -40,11 +40,14 @@ class ScheduleReads:
         return self._poisoned
 
     @contextmanager
-    def operation(self) -> Generator[None]:
+    def operation(self, *, deadline: float | None = None) -> Generator[None]:
         current = self._operation.get()
-        token = self._operation.set(
-            current or (time.monotonic() + self.timeout, self._epoch)
-        )
+        limit, epoch = current or (time.monotonic() + self.timeout, self._epoch)
+        if deadline is not None:
+            if not math.isfinite(deadline):
+                raise ScheduleHandlerError("Invalid schedule read deadline.")
+            limit = min(limit, deadline)
+        token = self._operation.set((limit, epoch))
         try:
             yield
         finally:

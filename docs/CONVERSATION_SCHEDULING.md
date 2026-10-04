@@ -2,14 +2,15 @@
 
 This covers §31.15's inert fixtures, recorded durable controller admission and
 explicit plain/JSON/TUI controls, active-session recorded timer driving and
-qualified bounded local-result handlers and inert authenticated external ingress.
+qualified bounded local-result handlers, inert authenticated external ingress and
+explicit credentialed loopback transport.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
 controls themselves. Ordinary durable goals do not activate scheduling. The active
 recorded timer adapter owns wakeups only while the session terminal is open;
-trusted reads and inert signed envelopes are bounded. Credentialed transport
-adapters remain later work.
+trusted reads and signed envelopes are bounded. The optional loopback transport
+shares that owner; remote service deployments remain separate qualification.
 
 ## Explicit controls
 
@@ -199,8 +200,8 @@ or budget reset. Tests cover stale bindings/assignments, source substitution,
 failed/cancelled children, invalid and legacy test receipts, handler failure,
 deadlines/cancellation, late completion, bounded floods, dispatch rejection,
 user steering and metadata/queue acknowledgement loss on snapshot and SQLite.
-Credentialed external transport, live/paid tools/providers and closed-session
-execution remain separate qualification work.
+The credentialed loopback slice is qualified below. Remote deployments,
+live/paid tools/providers and closed-session execution remain separate work.
 
 ## Inert authenticated external event ingress
 
@@ -272,10 +273,86 @@ forged keys/signatures/sources, cross-owner/task/workspace claims, wire bounds,
 floods, stale broker observations, concurrency, cancellation, late reads, steering
 and metadata/queue/running acknowledgement loss on both stores.
 
-Remaining transport work requires a separate qualified adapter and applicable
-MCP/network/credential/owner-isolation gates, with generic sender acknowledgements
-and no private error/artifact disclosure. No credential provisioning, live/paid
-provider/tool execution, daemon or closed-session wakeup is enabled here.
+The explicit credentialed loopback transport below adds bounded socket admission
+and generic sender acknowledgements. Remote deployments retain separate
+MCP/network/credential/owner-isolation qualification. No live/paid provider/tool
+execution, daemon or closed-session wakeup is enabled here.
+
+## Credentialed loopback transport qualification
+
+The boundary assessment found that `MCPDispatcher`, `mcp_http.py` and
+`mcp_oauth_store.py` authorize outbound tool clients. Their endpoint, tool,
+execution and OAuth/bearer grants do not authorize inbound schedule events.
+The existing HTTP exception permits explicitly selected literal loopback, and
+the credential backend selects native macOS Keychain/Linux Secret Service rather
+than a plaintext fallback. Schedule ingress uses a separate credential namespace;
+it neither shares MCP OAuth tokens nor refreshes/provisions credentials.
+
+`LoopbackEventTransport` is the first qualified network adapter. A trusted host
+must explicitly construct `IngressTransportGrant` and
+`LoopbackIngressSettings(allow_loopback_http=True)`, register the exact signed
+source, and pass the adapter as `terminal(..., ingress_transport=adapter)`.
+That shared terminal serves plain, JSON and TUI renderers. No `/loop` argument,
+model text, project configuration, startup discovery or sender request enables a
+listener or grants credentials. The host chooses the ephemeral or explicit port;
+the only address is `127.0.0.1` and the only route is `POST /events`.
+
+The grant freezes the full owner/session/task/workspace/revision/policy/goal
+binding, schedule/source identities, signed-source authorization digest,
+credential identity/fingerprint and expiry. Provision a cryptographically random
+32-byte token encoded as 64 lowercase hex characters through the host's trusted
+credential workflow. Its native keychain service is
+`mos-eisley.schedule.ingress.v1`; the account is `grant.account`, the canonical
+SHA-256 of the entire grant. Provisioning and sender delivery are outside this
+read-only adapter. Missing/rotated/revoked credentials fail closed; environment
+variables and outbound MCP credentials provide no fallback. Opening requires the
+qualified timer owner and current process UID before any vault read or listener.
+Each admitted frame rechecks the vault before signature/broker validation and
+immediately before owner commit, including duplicates. Revocation observed by
+that final check rejects admission; revocation after committed acceptance cannot
+undo retained metadata or charges.
+
+Send the exact canonical signed envelope as the JSON body, with exact literal
+`Host: 127.0.0.1:PORT`, `Content-Type: application/json`, `Content-Length`, and
+`Authorization: Bearer TOKEN`. Duplicate/unknown headers, alternate paths/hosts,
+chunked bodies and extra pipelined bytes are rejected. Headers are capped at
+4 KiB and signed envelopes at 16 KiB. At most four connections and four buffered
+frames are allowed (each configurable downward), with sixteen accepted socket
+attempts per second. Over-limit connections close; framed rejections use the same
+fixed `400 {"status":"unavailable"}` response. Acceptance and authenticated
+retries use the same fixed `200 {"status":"received"}`. Responses expose no
+owner, event, schedule, payload, artifact, report, exception or credential detail.
+
+Socket tasks only read bounded frames and await acknowledgement. The active owner
+drains at most one frame at an idle boundary, after waiting user input; active
+turns, drafts and branch/diff work defer admission. Metadata does not directly
+start a provider call. The existing timer queue then revalidates all scope,
+expiry, resource and steering gates. Revision claims still use the trusted broker,
+and durable duplicate/rate records still commit atomically in snapshot/SQLite.
+Requests have a whole-operation monotonic deadline (default 5 seconds, allowed
+0.05–30), shortened further by the existing trusted-read deadline. Startup and
+response cleanup are bounded too. Hung vault/observer reads quarantine the same
+single read lane; late outcomes cannot commit. Closing, EOF, owner loss and
+interrupt cancellation discard uncommitted frames and close connections.
+
+A disconnect detected before owner admission cancels its frame. A non-consuming
+kernel socket check also catches disconnects during synchronous trusted-read
+waits before the final owner commit. Disconnect or
+deadline after the commit boundary is an uncertain sender acknowledgement, not a
+rollback: retries must authenticate again and cannot replenish rate limits,
+reserve another intent or refund exposure. Queued/running restart retains the
+existing skipped/uncertain behavior without replay. Listener and credentials
+must be explicitly reattached after guarded resume.
+
+`tests/test_conversation_schedule_transport.py` exercises real localhost sockets
+with synthetic tokens and a fixture credential backend on both session stores:
+owner/source isolation, signature rejection, generic responses, revocation during
+validation, rotation, stale revisions, expiry, disconnects, acknowledgement loss,
+queue/connection limits, deadlines, hung/cancelled reads, shutdown, restart and
+shared terminal dispatch. Backend selection is tested without opening the host
+vault. Native keychain provisioning/end-to-end behavior, remote TLS or MCP service
+deployments, and live/paid execution remain separate qualification. This slice
+provides no public listener, daemon or closed-session execution.
 
 ## Fixture behavior
 
@@ -407,10 +484,11 @@ stale sources, floods and lost acknowledgements. Package smoke includes both.
 
 `tests/test_conversation_schedule_ingress.py` qualifies the inert signed adapter,
 real broker revision checks and durable rate/replay recovery on both stores.
-Package smoke includes the same coverage.
+Package smoke includes the same coverage. The credentialed loopback socket
+fixtures are also included in package smoke.
 
-Remaining work includes credentialed external transports and live/paid execution
-adapters.
+Remaining work includes remote credentialed transport deployments, native vault
+end-to-end qualification and live/paid execution adapters.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
 exact receipts against qualified controllers. External event ingress and live/paid

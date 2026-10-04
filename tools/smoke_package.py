@@ -184,6 +184,7 @@ def main() -> int:
             "test_conversation_schedule_handlers.py",
             "test_conversation_schedule_sources.py",
             "test_conversation_schedule_ingress.py",
+            "test_conversation_schedule_transport.py",
             "test_conversation_startup.py",
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",

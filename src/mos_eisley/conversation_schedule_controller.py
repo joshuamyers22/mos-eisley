@@ -212,6 +212,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         packet: bytes,
         *,
         expected_revision: int,
+        transport_guard: Callable[[], None] | None = None,
     ) -> bool:
         """Authenticate and commit omitted metadata through the inert owner ingress."""
         if not 0 < len(packet) <= MAX_PACKET_BYTES:
@@ -226,6 +227,8 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
             if not isinstance(source, InertExternalIngress):
                 raise ValueError("External packet rejected; no qualified source.")
             source.admit_attempt()
+            if transport_guard is not None:
+                self.schedule_reads.call(transport_guard)
 
             def authenticate() -> LocalWakeupEvent:
                 self._qualified_source(record, source)
@@ -240,6 +243,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                 event=event,
                 external_packet=packet,
                 allow_dispatch=False,
+                commit_guard=transport_guard,
             )
             return (
                 self._schedule_record(schedule_id).state.accepted_events
@@ -467,6 +471,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         event: LocalWakeupEvent | None = None,
         allow_dispatch: bool = True,
         external_packet: bytes | None = None,
+        commit_guard: Callable[[], None] | None = None,
     ) -> str | None:
         """Explicit host tick only. One commit contains both intent and queue entry."""
         from mos_eisley.conversation_context_preview import preview_context
@@ -648,10 +653,14 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     updated, entries, "Schedule stopped before dispatch."
                 )
             if updated == record and entries == self.state.entries:
+                if commit_guard is not None:
+                    self.schedule_reads.call(commit_guard)
                 self.schedule_reads.check()
                 if self.state.revision != expected_revision:
                     raise ValueError("Schedule admission revision changed.")
                 return operation
+            if commit_guard is not None:
+                self.schedule_reads.call(commit_guard)
             self._schedule_commit(
                 tuple(updated if s == record else s for s in self.state.schedules),
                 expected_revision=expected_revision,
