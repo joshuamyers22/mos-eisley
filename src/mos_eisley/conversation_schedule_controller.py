@@ -24,6 +24,12 @@ from mos_eisley.conversation_schedule import (
     skip_wakeup,
 )
 from mos_eisley.conversation_schedule_handlers import ScheduleReads
+from mos_eisley.conversation_schedule_ingress import (
+    MAX_PACKET_BYTES,
+    ExternalSourceAuthorization,
+    InertExternalIngress,
+    charge_ingress,
+)
 from mos_eisley.conversation_schedule_sources import (
     LocalResultAuthorization,
     LocalResultBatch,
@@ -159,10 +165,16 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
 
     def _qualified_source(
         self, record: StoredSchedule, source: LocalResultSource
-    ) -> LocalResultAuthorization:
-        auth = LocalResultAuthorization.model_validate_json(
-            canonical_bytes(source.authorization)
-        )
+    ) -> LocalResultAuthorization | ExternalSourceAuthorization:
+        value = source.authorization
+        if isinstance(value, ExternalSourceAuthorization):
+            auth = ExternalSourceAuthorization.model_validate_json(
+                canonical_bytes(value)
+            )
+            if auth.not_after > record.state.spec.expires_at:
+                raise ValueError("External source cannot enlarge schedule lifetime.")
+        else:
+            auth = LocalResultAuthorization.model_validate_json(canonical_bytes(value))
         if (
             auth.binding != record.state.spec.binding
             or auth.pin not in record.state.spec.local_source_pins
@@ -192,6 +204,47 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
             if self.state.revision != expected_revision:
                 raise ValueError("Local registration raced with parent mutation.")
             self.schedule_sources[(schedule_id, auth.source_id)] = source
+
+    def receive_external_event(
+        self,
+        schedule_id: str,
+        source_id: str,
+        packet: bytes,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        """Authenticate and commit omitted metadata through the inert owner ingress."""
+        if not 0 < len(packet) <= MAX_PACKET_BYTES:
+            raise ValueError("External packet rejected.")
+        with self._schedule_lock, self.schedule_reads.operation():
+            if self.state.revision != expected_revision or self._broken:
+                raise ValueError(
+                    "External packet rejected; owner revision unavailable."
+                )
+            record = self._schedule_record(schedule_id)
+            source = self.schedule_sources.get((schedule_id, source_id))
+            if not isinstance(source, InertExternalIngress):
+                raise ValueError("External packet rejected; no qualified source.")
+            source.admit_attempt()
+
+            def authenticate() -> LocalWakeupEvent:
+                self._qualified_source(record, source)
+                event = source.authenticate(packet, now=self.goal_clock())
+                self._qualified_source(record, source)
+                return event
+
+            event = self.schedule_reads.call(authenticate)
+            self.admit_schedule(
+                schedule_id,
+                expected_revision=expected_revision,
+                event=event,
+                external_packet=packet,
+                allow_dispatch=False,
+            )
+            return (
+                self._schedule_record(schedule_id).state.accepted_events
+                > record.state.accepted_events
+            )
 
     def _validate_schedule_sources(self, record: StoredSchedule) -> None:
         for pin in record.state.spec.local_source_pins:
@@ -413,6 +466,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         expected_revision: int,
         event: LocalWakeupEvent | None = None,
         allow_dispatch: bool = True,
+        external_packet: bytes | None = None,
     ) -> str | None:
         """Explicit host tick only. One commit contains both intent and queue entry."""
         from mos_eisley.conversation_context_preview import preview_context
@@ -421,6 +475,12 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
             if self.state.revision != expected_revision:
                 raise ValueError("Schedule admission source revision is stale.")
             record = self._schedule_record(schedule_id)
+            if external_packet is not None and (
+                event is None or event.kind != "external"
+            ):
+                raise ValueError(
+                    "Signed envelopes require external notification metadata."
+                )
             gate = self._schedule_gate(record)
             if allow_dispatch:
                 self._validate_schedule_sources(record)
@@ -448,13 +508,46 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     event.sequence <= cursor.sequence
                     or event.event_id in cursor.recent_ids
                 )
-                if not spec.local_source_pins:
+                external_auth = None
+                if event.kind == "external":
+                    source = self.schedule_sources.get((schedule_id, event.source_id))
+                    if (
+                        not isinstance(source, InertExternalIngress)
+                        or external_packet is None
+                    ):
+                        raise ValueError(
+                            "External events require their registered signed adapter."
+                        )
+
+                    def validate_external(
+                        source: InertExternalIngress = source,
+                        packet: bytes = external_packet,
+                    ) -> ExternalSourceAuthorization:
+                        auth = self._qualified_source(record, source)
+                        if not isinstance(auth, ExternalSourceAuthorization):
+                            raise ValueError("External authorization is unavailable.")
+                        source.validate_packet(packet, event, now=now)
+                        self._qualified_source(record, source)
+                        return auth
+
+                    external_auth = self.schedule_reads.call(validate_external)
+                    if (
+                        observed.status != "active"
+                        or gate.binding != spec.binding
+                        or gate.goal_status not in {"working", "waiting"}
+                        or (not duplicate and observed.accepted_events >= 64)
+                    ):
+                        raise ValueError(
+                            "External notification stop/scope/limit guard rejected."
+                        )
+                elif not spec.local_source_pins:
                     validator = self.schedule_event_validator
                     if validator is None:
                         raise ValueError("No trusted committed-result validator.")
                     self.schedule_reads.call(lambda: validator(event))
                 if (
                     not duplicate
+                    and event.kind != "external"
                     and observed.status == "active"
                     and observed.accepted_events < 64
                 ):
@@ -471,7 +564,14 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                             self._qualified_source(record, source)
 
                         self.schedule_reads.call(validate)
-                observed = observe_local_event(observed, event, now=now)
+                rate = (
+                    charge_ingress(observed, external_auth, now=now)
+                    if external_auth is not None and not duplicate
+                    else None
+                )
+                observed = observe_local_event(
+                    observed, event, now=now, ingress_rate=rate
+                )
             reserved = observed
             entries = self.state.entries
             operation = None

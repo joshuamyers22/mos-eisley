@@ -252,6 +252,11 @@ def loop_status(
                 f"{state.pending_events}; reason: {state.reason}",
             )
         )
+        for receipt in state.ingress_receipts:
+            lines.append(
+                f"External source {receipt.source_id}: latest sequence "
+                f"{receipt.sequence}; payload omitted ({receipt.payload_bytes} bytes)."
+            )
         if branch_remaining is not None:
             lines.append(
                 f"Fork remaining input {branch_remaining['input_bytes']} bytes; "

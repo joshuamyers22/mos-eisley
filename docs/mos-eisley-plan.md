@@ -5384,6 +5384,28 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Authenticated external ingress, 2026-10-04 — inert adapter implemented; credentialed transport gated:**
+[Signed external envelope admission](CONVERSATION_SCHEDULING.md#inert-authenticated-external-event-ingress)
+uses owner-provisioned Ed25519 verification keys and durable source authorization
+pins covering owner/session/task/workspace/revision/policy/goal, expiry and rate
+limits. Canonical bounded envelopes reject forged keys/signatures/sources,
+cross-owner claims, unknown authority fields, stale/future/expired events and
+oversized payloads. Revision assertions are re-observed through the trusted
+Git/read broker across authentication and admission, and normal dispatch scope
+checks remain authoritative. Only omitted-payload metadata is committed; it cannot
+become model context, review evidence, user steering, approval or publication
+permission. There is no sender-facing artifact/report API.
+Accepted-event rolling rate windows commit with durable replay cursors in the
+existing snapshot/SQLite stores. Duplicate/out-of-order events, lifetime floods,
+cancellation, restart, source substitution and lost metadata/queue/running
+acknowledgements cannot reset exposure or replay uncertain work. A bounded
+pre-authentication attempt limiter caps forged/replayed packet verification work.
+Inert and real-Git fixtures cover source forgery, broker changes, concurrent
+controls, hung/cancelled readers, steering priority and failure recovery on both
+stores. The adapter opens no network listener, credentials or outbound channel.
+Credentialed MCP/network transport and live/paid execution qualification follow;
+no daemon or closed-session scheduling is claimed.
+
 **Trusted local handler qualification and bounded timeouts, 2026-10-04 — implemented:**
 Read-only schedule observers, event validators and local source readers now use
 shared whole-operation monotonic deadlines and cancellation checks before owner
@@ -5406,7 +5428,8 @@ failed/cancelled children, malformed receipts, hung/failed/cancelled handlers,
 late completion, steering priority and metadata/queue acknowledgement loss without
 budget resets or uncertain-operation replay. See
 [qualified local sources and deadline limits](CONVERSATION_SCHEDULING.md#trusted-handler-qualification-and-bounded-timeouts).
-Authenticated external ingress and live/paid execution qualification follow.
+Inert authenticated ingress is implemented above; credentialed transport and
+live/paid execution qualification follow.
 
 **Active-session recorded timer driving, 2026-10-04 — implemented:**
 One timer owner wakes the existing plain/JSON/TUI controller queue with bounded
@@ -5421,7 +5444,8 @@ EOF/quit/handoff/cancellation stop the waiter and persist clean pauses before
 releasing ownership; restart requires guarded resume without replay or budget
 reset. Recorded CLI timer completion is tested on snapshot and SQLite, alongside
 races, lost acknowledgements and TUI draft preservation. Trusted local handler
-qualification is implemented above; authenticated external ingress follows; no paid/live
+qualification and inert authenticated ingress are implemented above;
+credentialed transport follows; no paid/live
 provider, tool, daemon or closed-session execution is enabled by this slice.
 
 **Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
@@ -5444,7 +5468,8 @@ the queued wakeup atomically while retaining exposure. Queued cold-resume work i
 known undispatched and skipped; running work retains goal/schedule uncertainty
 without replay. Concurrent controls, writer/resume exclusion, cancellation and
 lost admission/running acknowledgements have recorded boundary tests.
-Trusted local handlers are qualified above; external ingress remains gated;
+Trusted local handlers and inert external ingress are qualified above;
+credentialed transport remains gated;
 this storage slice does not enable live/background dispatch.
 
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
@@ -5458,8 +5483,8 @@ refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
 timer/event admission path at that point. Durable recorded persistence and dispatch
 priority, explicit `/loop` controls and active recorded timers are implemented
-above. Trusted local handlers are qualified above; external/background adapters
-remain required;
+above. Trusted local handlers and inert external ingress are qualified above;
+credentialed transport/background adapters remain required;
 no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit

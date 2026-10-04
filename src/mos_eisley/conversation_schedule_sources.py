@@ -16,6 +16,7 @@ from mos_eisley.conversation_schedule import (
     LocalWakeupEvent,
     ScheduleBinding,
 )
+from mos_eisley.conversation_schedule_ingress import ExternalSourceAuthorization
 from mos_eisley.conversation_state import RuntimeConversationState
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 
@@ -71,7 +72,9 @@ class LocalResultBatch(Contract):
 
 class LocalResultSource(Protocol):
     @property
-    def authorization(self) -> LocalResultAuthorization: ...
+    def authorization(
+        self,
+    ) -> LocalResultAuthorization | ExternalSourceAuthorization: ...
 
     def events(self, after_sequence: int) -> LocalResultBatch: ...
 

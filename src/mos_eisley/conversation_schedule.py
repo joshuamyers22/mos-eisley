@@ -45,7 +45,7 @@ class ScheduleBinding(Contract):
 
 class LocalSourcePin(Contract):
     source_id: Identifier
-    kind: Literal["local_test", "local_child"]
+    kind: Literal["local_test", "local_child", "external"]
     authorization_sha256: Digest
 
 
@@ -105,7 +105,7 @@ class InertScheduleSpec(Contract):
 
 
 class LocalWakeupEvent(Contract):
-    """Host-owned local fixture metadata, never authenticated external ingress."""
+    """Omitted payload metadata; external provenance requires a signed adapter."""
 
     source_id: Identifier
     event_id: Identifier
@@ -114,7 +114,7 @@ class LocalWakeupEvent(Contract):
     payload_sha256: Digest
     payload_bytes: Annotated[int, Field(ge=0, le=4096)]
     payload_omitted: Literal[True] = True
-    kind: Literal["local_test", "local_child"]
+    kind: Literal["local_test", "local_child", "external"]
 
 
 class SourceCursor(Contract):
@@ -141,6 +141,26 @@ class WakeupReservation(Contract):
     completion_usage: ResourceLedger | None = None
 
 
+class IngressRate(Contract):
+    source_id: Identifier
+    accepted_at: Annotated[tuple[Time, ...], Field(min_length=1, max_length=16)]
+
+    @model_validator(mode="after")
+    def chronological(self) -> Self:
+        if tuple(sorted(self.accepted_at)) != self.accepted_at:
+            raise ValueError("Ingress rate observations must be chronological.")
+        return self
+
+
+class IngressReceipt(Contract):
+    source_id: Identifier
+    event_id: Identifier
+    sequence: Annotated[int, Field(ge=1)]
+    payload_sha256: Digest
+    payload_bytes: Annotated[int, Field(ge=1, le=4096)]
+    payload_omitted: Literal[True] = True
+
+
 class InertScheduleState(Contract):
     schema_version: Literal[1] = 1
     mode: Literal["inert_fixture"] = "inert_fixture"
@@ -160,6 +180,12 @@ class InertScheduleState(Contract):
     pending_events: Annotated[int, Field(ge=0, le=64)] = 0
     accepted_events: Annotated[int, Field(ge=0, le=64)] = 0
     cursors: Annotated[tuple[SourceCursor, ...], Field(max_length=4)] = ()
+    ingress_rates: Annotated[tuple[IngressRate, ...], Field(max_length=4)] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
+    ingress_receipts: Annotated[tuple[IngressReceipt, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     ledger: ResourceLedger = ResourceLedger()
     aggregate_exposure: ResourceLedger = ResourceLedger()
     fires: Annotated[tuple[WakeupReservation, ...], Field(max_length=16)] = ()
@@ -167,6 +193,42 @@ class InertScheduleState(Contract):
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
+        external = {
+            p.source_id for p in self.spec.local_source_pins if p.kind == "external"
+        }
+        observed_sources = {
+            c.source_id
+            for c in self.cursors
+            if c.source_id in external and c.sequence > 0
+        }
+        if (
+            len({r.source_id for r in self.ingress_rates}) != len(self.ingress_rates)
+            or any(r.source_id not in external for r in self.ingress_rates)
+            or {r.source_id for r in self.ingress_rates} != observed_sources
+            or len({r.source_id for r in self.ingress_receipts})
+            != len(self.ingress_receipts)
+            or {r.source_id for r in self.ingress_receipts} != observed_sources
+            or any(
+                not any(
+                    c.source_id == r.source_id
+                    and c.sequence == r.sequence
+                    and c.recent_ids
+                    and c.recent_ids[-1] == r.event_id
+                    for c in self.cursors
+                )
+                for r in self.ingress_receipts
+            )
+            or any(
+                not self.created_at <= t <= self.last_seen_at
+                for r in self.ingress_rates
+                for t in r.accepted_at
+            )
+            or sum(len(r.accepted_at) for r in self.ingress_rates)
+            > self.accepted_events
+        ):
+            raise ValueError(
+                "Ingress rate history differs from accepted source observations."
+            )
         if (
             not self.created_at < self.spec.expires_at
             or self.last_seen_at < self.created_at
@@ -380,7 +442,11 @@ def observe_timer(state: InertScheduleState, *, now: float) -> InertScheduleStat
 
 
 def observe_local_event(
-    state: InertScheduleState, event: LocalWakeupEvent, *, now: float
+    state: InertScheduleState,
+    event: LocalWakeupEvent,
+    *,
+    now: float,
+    ingress_rate: IngressRate | None = None,
 ) -> InertScheduleState:
     event = LocalWakeupEvent.model_validate_json(event.model_dump_json())
     state = observe_timer(state, now=now)
@@ -396,6 +462,34 @@ def observe_local_event(
     cursor = next(c for c in state.cursors if c.source_id == event.source_id)
     if event.sequence <= cursor.sequence or event.event_id in cursor.recent_ids:
         return state
+    rates = state.ingress_rates
+    receipts = state.ingress_receipts
+    if event.kind == "external":
+        if (
+            ingress_rate is None
+            or ingress_rate.source_id != event.source_id
+            or ingress_rate.accepted_at[-1] != now
+            or not any(
+                p.source_id == event.source_id and p.kind == "external"
+                for p in state.spec.local_source_pins
+            )
+        ):
+            raise ValueError("External metadata requires qualified rate admission.")
+        rates = tuple(r for r in rates if r.source_id != event.source_id) + (
+            ingress_rate,
+        )
+        receipt = IngressReceipt(
+            source_id=event.source_id,
+            event_id=event.event_id,
+            sequence=event.sequence,
+            payload_sha256=event.payload_sha256,
+            payload_bytes=event.payload_bytes,
+        )
+        receipts = tuple(r for r in receipts if r.source_id != event.source_id) + (
+            receipt,
+        )
+    elif ingress_rate is not None:
+        raise ValueError("Local fixture notifications cannot carry ingress charges.")
     updated = cursor.model_copy(
         update={
             "sequence": event.sequence,
@@ -407,6 +501,8 @@ def observe_local_event(
         accepted_events=state.accepted_events + 1,
         pending_events=state.pending_events + 1,
         cursors=tuple(updated if c == cursor else c for c in state.cursors),
+        ingress_rates=rates,
+        ingress_receipts=receipts,
     )
 
 

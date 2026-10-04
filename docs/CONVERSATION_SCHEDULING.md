@@ -2,14 +2,14 @@
 
 This covers §31.15's inert fixtures, recorded durable controller admission and
 explicit plain/JSON/TUI controls, active-session recorded timer driving and
-qualified bounded local-result handlers.
+qualified bounded local-result handlers and inert authenticated external ingress.
 The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
 controls themselves. Ordinary durable goals do not activate scheduling. The active
 recorded timer adapter owns wakeups only while the session terminal is open;
-trusted local reads are bounded; authenticated external event adapters remain
-later work.
+trusted reads and inert signed envelopes are bounded. Credentialed transport
+adapters remain later work.
 
 ## Explicit controls
 
@@ -124,7 +124,8 @@ The recorded controller now has explicit trusted host admission APIs, described
 below. The active-session recorded timer adapter and qualified local-result
 adapters are connected. Goal jobs retain controller-owned commit revisions, and
 the existing child inspection port supplies authorized retained implementation
-reports. Neither authenticates external notifications. Goal completion still
+reports. The separate inert signed adapter below authenticates external
+notifications without a network listener. Goal completion still
 requires qualified evidence/semantic adapters; result notifications do not
 prove completion or grant integration authority. The stopped review inventory
 remains outside this source boundary. Live background/execution/MCP gates remain
@@ -198,8 +199,83 @@ or budget reset. Tests cover stale bindings/assignments, source substitution,
 failed/cancelled children, invalid and legacy test receipts, handler failure,
 deadlines/cancellation, late completion, bounded floods, dispatch rejection,
 user steering and metadata/queue acknowledgement loss on snapshot and SQLite.
-Authenticated external ingress, live/paid tools/providers and closed-session
+Credentialed external transport, live/paid tools/providers and closed-session
 execution remain separate qualification work.
+
+## Inert authenticated external event ingress
+
+`InertExternalIngress` is an explicit owner API adapter, without a listener,
+network/MCP session, credential lookup, subprocess runner or outbound response
+channel. It verifies owner-provisioned Ed25519 public keys; it holds no signing
+key. This qualifies signed envelope admission and recovery in recorded sessions,
+not any credentialed service or remote transport deployment.
+
+The host freezes `ExternalSourceAuthorization.pin` in the existing source
+allowlist and `local_source_pins` field (the retained field names also cover
+external sources). The authorization binds source/key IDs, verification-key
+digest, full owner/session/task/workspace/revision/policy/goal scope, expiry,
+maximum event age and rolling rate allowance. Registration cannot extend schedule
+lifetime or obtain a key from project/model text. Resume requires exact trusted
+registration; swapping a key, scope or rate policy changes the pin and is rejected.
+
+A sender signs `DOMAIN + canonical_bytes(ExternalEventBody)` with Ed25519, where
+`DOMAIN` is `b"mos-eisley:schedule-event:v1\x00"`. The body includes schema version,
+source/key/event IDs, monotonic source sequence, full binding, occurrence/expiry
+and an opaque UTF-8 payload. `SignedExternalEvent` contains that body and a
+128-character lowercase hexadecimal signature. The envelope must equal its
+canonical JSON representation; duplicate keys, unknown fields and alternate wire
+interpretations are rejected. Payloads cap at 4096 UTF-8 bytes and envelopes at
+16,384 bytes. Events from the future, expired events and events outside the pinned
+maximum age/lifetime are rejected.
+
+`receive_external_event(schedule_id, source_id, packet, expected_revision=...)`
+authenticates and revalidates the envelope through the registered adapter. Its
+trusted workspace observer defaults to `observe_branch_workspace`, using the
+existing bounded Git/read broker for Git workspaces and stable owned-directory
+identity elsewhere. It observes only the host-selected workspace, twice across
+verification/admission; sender paths, refs and payload instructions are never
+followed. The normal schedule observer still revalidates scope before commit and
+again at queue dispatch. Tests use both an explicit inert broker fixture and a
+real Git revision change. Reads share the qualified operation deadline; hung or
+cancelled reads cannot append late metadata.
+
+Successful ingress commits only the latest per-source payload hash/size omission
+receipt (at most four), replay cursor
+and rate history through the existing snapshot/SQLite schedule header. Plain
+inspection discloses omitted payloads; JSON also exposes their receipt metadata. It creates
+no queue entry, provider/tool call, goal completion, approval or user steering.
+The existing active owner subsequently coalesces pending notifications at a safe
+boundary, using only the owner-selected prompt. User input retains priority before
+and after intent admission. External payloads never enter model prompts, review
+contexts or inspection output; the adapter has no API for returning private
+reports/artifacts to a sender.
+
+Each source has a host-clock rolling window, with an explicit allowance of 1–16
+accepted events per 1–3600 seconds. Accepted timestamps and sequence progress
+commit atomically, survive restart and are retained across pause/cancellation;
+source substitution, rollback clocks and guarded resume cannot reset them. Rate
+records must match external cursor identities and valid acceptance times.
+Duplicates/out-of-order envelopes remain authenticated but do not reserve work or
+spend rate allowance. Durable high-water sequences reject original replays after
+the bounded 16-ID recent window evicts them. The shared 64-event lifetime ceiling
+and four-source limit still apply. A separate bounded in-memory 16-attempt/second
+limiter caps owner-entry parsing/signature work, including forged/replayed packets;
+it grants no durable authority and resets with adapter construction. Future remote
+transports must also enforce their own connection/admission limits.
+
+A lost acknowledgement after metadata commit retains both cursor and rate charge;
+reopening and re-registering cannot reaccept the original envelope or replenish
+the rolling allowance. Failure before commit retains neither. Queue/running
+acknowledgement loss uses existing known-skipped/uncertain recovery, preserving
+all exposure without execution replay or automatic reconciliation. Tests cover
+forged keys/signatures/sources, cross-owner/task/workspace claims, wire bounds,
+floods, stale broker observations, concurrency, cancellation, late reads, steering
+and metadata/queue/running acknowledgement loss on both stores.
+
+Remaining transport work requires a separate qualified adapter and applicable
+MCP/network/credential/owner-isolation gates, with generic sender acknowledgements
+and no private error/artifact disclosure. No credential provisioning, live/paid
+provider/tool execution, daemon or closed-session wakeup is enabled here.
 
 ## Fixture behavior
 
@@ -329,7 +405,11 @@ storage backends. Package smoke coverage includes the driver.
 local notifications, including cancellation, hung handlers, late completion,
 stale sources, floods and lost acknowledgements. Package smoke includes both.
 
-Remaining work includes authenticated external ingress and live/paid execution
+`tests/test_conversation_schedule_ingress.py` qualifies the inert signed adapter,
+real broker revision checks and durable rate/replay recovery on both stores.
+Package smoke includes the same coverage.
+
+Remaining work includes credentialed external transports and live/paid execution
 adapters.
 The observer/validator ports must be supplied by qualified host adapters, not by
 project/model text. Production settlement/refunds and reconciliation must verify
