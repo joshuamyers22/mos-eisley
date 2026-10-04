@@ -5384,6 +5384,18 @@ Reference: Claude Code's
 
 ### 31.15 Later session-scoped scheduling and event-driven wakeups
 
+**Durable recorded storage/admission, 2026-10-04 — implemented:**
+The existing snapshot/SQLite session header now persists bounded schedules and
+exact operation-to-queue bindings in one revision update. Trusted host APIs require
+current scope and committed-result validators; creation cannot enlarge task limits.
+Dispatch revalidates binding, expiry and request identity. Later user input skips
+the queued wakeup atomically while retaining exposure. Queued cold-resume work is
+known undispatched and skipped; running work retains goal/schedule uncertainty
+without replay. Concurrent controls, writer/resume exclusion, cancellation and
+lost admission/running acknowledgements have recorded boundary tests. `/loop`,
+active timers, trusted handler qualification and external ingress remain gated;
+this slice does not enable live/background dispatch.
+
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
 [Scheduling assessment and fixtures](CONVERSATION_SCHEDULING.md) reuse the existing
 goal ledger and serialized queue in a test-only bridge. Pure explicit-clock/event
@@ -5393,9 +5405,9 @@ priority and conservative restart. Exact request-bound intents reserve exposure
 before queue admission; lost acknowledgements remain uncertain without replay or
 refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
-timer/event admission path. `/loop`, atomic runtime schedule persistence, final
-dispatch priority, trusted production handlers and external/background adapters
-remain required; no live session scheduling capability is claimed.
+timer/event admission path at that point. Durable recorded persistence and dispatch
+priority are now implemented above. `/loop`, trusted production handlers and
+external/background adapters remain required; no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit
 session-scoped `/loop` controls and equivalent plain/JSON creation, inspection

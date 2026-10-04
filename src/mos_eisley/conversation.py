@@ -7,6 +7,7 @@ import os
 import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from threading import RLock
 from typing import Literal, Protocol
 from uuid import uuid4
 
@@ -18,7 +19,6 @@ from mos_eisley.conversation_agents import (
 )
 from mos_eisley.conversation_branch import branch_system
 from mos_eisley.conversation_branch_controller import (
-    ConversationBranchController,
     observe_branch_workspace,
 )
 from mos_eisley.conversation_compaction import (
@@ -69,6 +69,12 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
+from mos_eisley.conversation_schedule import (
+    InertScheduleSpec,
+    LocalWakeupEvent,
+    ScheduleBinding,
+)
+from mos_eisley.conversation_schedule_controller import ConversationScheduleController
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     RuntimeConversationState,
@@ -235,7 +241,7 @@ def _pressure_boundary_position(state: RuntimeConversationState) -> int:
     )
 
 
-class ConversationController(ConversationBranchController[StateT]):
+class ConversationController(ConversationScheduleController[StateT]):
     """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
@@ -251,6 +257,8 @@ class ConversationController(ConversationBranchController[StateT]):
         side_timeout: float = 2.0,
         publish_fork: Callable[[ConversationState], None] | None = None,
         child_inspection: ChildInspectionSource | None = None,
+        schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None = None,
+        schedule_event_validator: Callable[[LocalWakeupEvent], None] | None = None,
         branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
         goal_evaluator: GoalEvaluator | None = None,
         goal_evaluator_timeout: float = 2.0,
@@ -336,6 +344,9 @@ class ConversationController(ConversationBranchController[StateT]):
         self._side_provider_task = None
         self.publish_fork = publish_fork
         self.child_inspection = child_inspection
+        self.schedule_observer = schedule_observer
+        self.schedule_event_validator = schedule_event_validator
+        self._schedule_lock = RLock()
         self.observe_branch_workspace = branch_workspace_observer
         self._side_busy = False
         self._side_answers = {}
@@ -381,6 +392,7 @@ class ConversationController(ConversationBranchController[StateT]):
 
         self.recover_goal_evaluations()
         self.recover_branches()
+        self.recover_schedules()
 
     def inspect_agents(self, child_id: str | None = None) -> AgentInspection:
         """Read authorized child records without author admission or persistence."""
@@ -440,8 +452,10 @@ class ConversationController(ConversationBranchController[StateT]):
     ) -> None:
         if self._broken:
             raise ValueError("session persistence failed; reopen before continuing")
+        schedules, entries = self._schedule_transitions(entries)
         updated = type(self.state).model_validate(
             dict(
+                schedules=schedules,
                 interaction_mode=self.state.interaction_mode
                 if interaction_mode is None
                 else interaction_mode,
@@ -544,6 +558,7 @@ class ConversationController(ConversationBranchController[StateT]):
                     branch_budget=self.state.branch_budget,
                     forks=self.state.forks,
                     sides=self.state.sides,
+                    schedules=self.state.schedules,
                     goals=self.state.goals,
                     active_goal_id=self.state.active_goal_id,
                     interaction_mode=self.state.interaction_mode,
@@ -1009,6 +1024,8 @@ class ConversationController(ConversationBranchController[StateT]):
         )
         if index is None:
             return False
+        if not self.revalidate_schedule_dispatch(index):
+            return False
         if self.input_limits is not None:
             self.input_limits.admit(self.state.memory, self.cassette)
         if self.validate_memory is not None:
@@ -1163,6 +1180,10 @@ class ConversationController(ConversationBranchController[StateT]):
             )
             request, budget = prepare_conversation_request(config, request_dispatcher)
             request_size = check_request_budget(request, budget)
+            if not self.revalidate_schedule_dispatch(
+                index, digest(canonical_bytes(request))
+            ):
+                return False
             if self.state.fork_origin is not None and self.observe_branch_workspace(
                 self.state.workspace
             ) != (
@@ -1291,6 +1312,10 @@ class ConversationController(ConversationBranchController[StateT]):
             if on_started is not None:
                 on_started()
             try:
+                if not self.revalidate_schedule_dispatch(index):
+                    raise ValueError(
+                        "Scheduled work was stopped before provider dispatch."
+                    )
                 if entry.review_packet is not None:
                     packet = entry.review_packet
                     review_result = (

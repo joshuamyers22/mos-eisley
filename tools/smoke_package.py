@@ -178,6 +178,7 @@ def main() -> int:
             "test_conversation_branch.py",
             "test_conversation_agents.py",
             "test_conversation_schedule.py",
+            "test_conversation_schedule_storage.py",
             "test_conversation_startup.py",
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",

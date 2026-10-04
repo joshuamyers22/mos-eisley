@@ -241,8 +241,16 @@ event fixtures cover bounded cadence, expiry, fire/resource limits, steering
 priority, duplicate coalescing and conservative restart. The test-only host bridge
 uses the existing queue and goal budgets; exact request-bound reservations survive
 lost acknowledgements without replay or refund. Real snapshot/SQLite recovery keeps
-goal uncertainty. `/loop`, atomic runtime schedule admission and qualified trusted
-handlers/background/external ingress remain later work.
+goal uncertainty. Durable recorded admission follows below.
+
+**Durable schedule storage/admission, 2026-10-04 — recorded controller implemented:**
+[Scheduling records](CONVERSATION_SCHEDULING.md) persist intents and queue entries
+atomically through existing snapshot/SQLite stores. Trusted host APIs enforce
+revision/scope bindings and task limits; dispatch revalidates the exact request and
+late user input supersedes queued wakeups. Cancellation and cold recovery retain
+charges and uncertainty without replay. Tests cover concurrent controls, store-owner
+exclusion, lost acknowledgements and archived SQLite state. `/loop`, active timers
+and qualified trusted handlers/background/external ingress remain later work.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit

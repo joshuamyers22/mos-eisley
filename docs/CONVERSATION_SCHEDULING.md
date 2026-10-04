@@ -1,6 +1,7 @@
 # Inert session scheduling qualification
 
-This is §31.15's inert timer/event fixture slice. The transition contracts in
+This covers §31.15's inert fixtures and recorded durable controller admission.
+The transition contracts in
 `conversation_schedule.py` accept an explicit clock and local fixture metadata;
 they do not read a clock, start tasks, dispatch providers/tools or install terminal
 controls. Ordinary durable goals do not activate scheduling. `/loop` and production
@@ -17,7 +18,8 @@ it does not reset their budgets. Both private snapshot and SQLite stores preserv
 these records. Terminal resume displays pending work and requires explicit input
 before dispatching it.
 
-The queue has no production timer/event admission path. Existing goal jobs record
+The recorded controller now has explicit trusted host admission APIs, described
+below. Active timer/event adapters are not connected. Existing goal jobs record
 check-ins and committed results but do not authenticate external notifications or
 schedule wakeups. Goal completion still requires qualified evidence/semantic
 adapters. Neither the child inspection port nor the stopped review inventory is a
@@ -71,6 +73,50 @@ preserves exposure. One already-coalesced notification can remain pending; misse
 intervals do not form a catch-up backlog. A paused/cancelled/completed/blocked,
 expired or uncertain goal cannot be advanced or resumed by a wakeup.
 
+## Durable storage and recorded controller admission
+
+`ConversationController` accepts a trusted `schedule_observer` that independently
+observes current owner/session/workspace, revision, policy and goal bindings.
+`add_schedule`, `admit_schedule`, `cancel_schedule` and `resume_schedule` require
+an explicit expected session revision. Creation preserves existing task exposure
+and cannot enlarge its lifetime/ceilings. Admission is a synchronous host tick,
+not a timer task. Local event admission additionally requires a trusted
+`schedule_event_validator` for committed-result provenance; neither a declared
+source ID nor an event payload grants authority. Task-scoped live scheduling is
+still rejected.
+
+The optional `schedules` header field retains bounded `StoredSchedule` records
+and operation-to-message bindings in the existing session snapshot/SQLite store.
+Old sessions omit the field. One revision update contains the reservation, exact
+request digest and queue entry. Validation rejects orphaned, duplicated, cross-owner
+or mismatched bindings, including their goal definitions and lifecycle states.
+SQLite working states preserve bindings alongside archived history. Normal author,
+memory, branch and goal updates retain schedule records; forks do not clone them.
+
+The stores' held session locks prevent competing writer/resume owners. Schedule
+control methods also serialize concurrent host calls and reject stale revisions.
+No separate scheduling registry or runnable work queue is introduced. A failed save
+stops the controller. An acknowledgement lost after commit leaves both intent and
+queue entry durable; a failure before commit leaves neither.
+
+Dispatch re-observes the current binding and expiry and verifies the exact prepared
+request digest before persisting running state. It checks cancellation/binding again
+after the running callback and before calling a provider. User input arriving while
+a wakeup is still queued atomically cancels that old queue entry and marks its intent
+`skipped`, with a visible reason. The schedule pauses for explicit revalidation and
+a future tick. This preserves user priority and avoids executing an older prompt
+without the newer user context. Its fire count and conservative schedule exposure
+remain charged; no author exchange was consumed by the skipped entry.
+
+Queued wakeups on cold restart are likewise known undispatched: they are skipped,
+their entries cancelled, and their charges retained. Running wakeups become
+interrupted/uncertain alongside the existing goal/branch recovery. Repeated resume
+does not increment uncertainty again, reset charges or recreate the intent. Clean
+schedules pause for explicit revalidation. Cancellation stops future admissions;
+already-entered provider work may return its retained result while the schedule
+stays cancelled. Unknown cancellation/failure preserves uncertainty. There is no
+automatic retry or scheduling reconciliation adapter.
+
 ## Verification and remaining qualification
 
 `tests/test_conversation_schedule.py` exercises cadence bounds/history, expiry,
@@ -81,14 +127,18 @@ overages and persistence failure. Real snapshot/SQLite cold resumes preserve goa
 uncertainty alongside serialized fixture state. No live provider or credentialed
 integration is used. Package smoke coverage includes these fixtures.
 
-The fixture's scheduling snapshot is a serialized qualification artifact, not a
-production registry or a new conversation storage format. Production work must
-retain schedules and queue admissions through the existing owner-scoped session
-store with atomic revision checks, revalidate at final dispatch, enforce source
-authorization and bounded handler timeouts, and handle late steering across the
-admission/dispatch boundary. The fixture host is sequential; it does not qualify
-multi-process admission races. Any production settlement/refund or reconciliation
-must verify exact receipts against qualified controllers. Live event ingress and
-active-session timers require their own applicable background, execution, MCP,
-network, credential and owner-isolation gates. This slice promises no daemon or
-execution while a session is closed.
+`tests/test_conversation_schedule_storage.py` exercises atomic header/queue commits
+on both backends, exact dispatch revalidation, late user priority, cancellation
+before/during provider work, lost admission/running acknowledgements, repeated cold
+resume, retained charges, concurrent host admission/cancellation, competing store
+owners, committed-source validation and SQLite archived history. Recorded fixture
+clients provide results; no live provider or credential is used.
+
+Remaining work includes `/loop` plain/JSON/TUI controls, qualified active-session
+timer driving, bounded trusted handler timeouts and external ingress authentication.
+The observer/validator ports must be supplied by qualified host adapters, not by
+project/model text. Production settlement/refunds and reconciliation must verify
+exact receipts against qualified controllers. Live event ingress and active-session
+timers retain the applicable background, execution, MCP, network, credential and
+owner-isolation gates. This slice promises no daemon or work while a session is
+closed.

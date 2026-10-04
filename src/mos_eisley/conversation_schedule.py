@@ -112,7 +112,7 @@ class WakeupReservation(Contract):
     ordinal: Annotated[int, Field(ge=1, le=16)]
     reserved: ResourceLedger
     notification_count: Annotated[int, Field(ge=1, le=65)]
-    state: Literal["reserved", "completed", "uncertain"] = "reserved"
+    state: Literal["reserved", "completed", "uncertain", "skipped"] = "reserved"
     result_sha256: Digest | None = None
     completion_usage: ResourceLedger | None = None
 
@@ -242,6 +242,52 @@ class WakeupGate(Contract):
     user_pending: bool
     task_pending: bool = False
     goal_expires_at: Time
+
+
+class ScheduleQueueBinding(Contract):
+    operation_id: Digest
+    message_position: Annotated[int, Field(ge=0, le=15)]
+
+
+class StoredSchedule(Contract):
+    """Session header record; this record and its queue entries commit together."""
+
+    state: InertScheduleState
+    queue_bindings: Annotated[
+        tuple[ScheduleQueueBinding, ...], Field(max_length=16)
+    ] = ()
+
+    @model_validator(mode="after")
+    def exact_bindings(self) -> Self:
+        if tuple(b.operation_id for b in self.queue_bindings) != tuple(
+            f.operation_id for f in self.state.fires
+        ):
+            raise ValueError("Every retained wakeup must bind exactly one queue entry.")
+        if len({b.message_position for b in self.queue_bindings}) != len(
+            self.queue_bindings
+        ):
+            raise ValueError("Schedule queue positions must be unique.")
+        return self
+
+
+def skip_wakeup(
+    state: InertScheduleState, operation_id: str, *, reason: str
+) -> InertScheduleState:
+    """Stop known undispatched work without guessing provider effects."""
+    state = _state(state)
+    fire = next(f for f in state.fires if f.operation_id == operation_id)
+    if fire.state != "reserved":
+        raise ValueError("Only a known undispatched reservation can be skipped.")
+    status = "paused" if state.status == "active" else state.status
+    return _state(
+        state,
+        status=status,
+        reason=reason,
+        fires=tuple(
+            f.model_copy(update={"state": "skipped"}) if f == fire else f
+            for f in state.fires
+        ),
+    )
 
 
 def _state(state: InertScheduleState, **updates: object) -> InertScheduleState:

@@ -41,6 +41,7 @@ from mos_eisley.conversation_review import (
     ConversationReviewPacket,
     review_summary,
 )
+from mos_eisley.conversation_schedule import StoredSchedule
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import (
     Contract,
@@ -327,6 +328,9 @@ EntryT = TypeVar(
 
 
 class ConversationState(Contract, Generic[EntryT]):
+    schedules: Annotated[tuple[StoredSchedule, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
     fork_origin: ForkOrigin | None = Field(default=None, exclude_if=lambda v: v is None)
     branch_budget: BranchBudget | None = Field(
         default=None, exclude_if=lambda v: v is None
@@ -437,6 +441,64 @@ class ConversationState(Contract, Generic[EntryT]):
             )
         if self.active_goal_id is not None and self.active_goal_id not in goals:
             raise ValueError("Active goal is absent from retained history.")
+        schedule_ids = [s.state.spec.schedule_id for s in self.schedules]
+        if len(set(schedule_ids)) != len(schedule_ids):
+            raise ValueError("Schedule identities must be unique.")
+        bound_positions: set[int] = set()
+        for stored in self.schedules:
+            spec = stored.state.spec
+            scope = spec.binding
+            if (
+                scope.owner_uid != self.owner_uid
+                or scope.session_id != self.session_id
+                or scope.workspace_sha256 != digest(self.workspace.encode())
+                or scope.goal_id not in goals
+                or scope.goal_definition_sha256
+                not in {d.sha256 for d in goals[scope.goal_id].revisions}
+            ):
+                raise ValueError(
+                    "Schedule scope differs from its session or retained goal."
+                )
+            for link, fire in zip(
+                stored.queue_bindings, stored.state.fires, strict=True
+            ):
+                position = link.message_position
+                if position in bound_positions or position >= len(self.entries):
+                    raise ValueError("Schedule queue binding is absent or duplicated.")
+                bound_positions.add(position)
+                entry = self.entries[position]
+                if (
+                    entry.text != spec.prompt
+                    or entry.goal_id != scope.goal_id
+                    or entry.goal_definition_sha256 != scope.goal_definition_sha256
+                    or entry.is_review
+                    or entry.implementation_request
+                    or entry.steering_for is not None
+                ):
+                    raise ValueError(
+                        "Scheduled queue entry differs from its frozen assignment."
+                    )
+                expected = {
+                    "queued": "reserved",
+                    "running": "reserved",
+                    "completed": "completed",
+                    "failed": "uncertain",
+                    "interrupted": "uncertain",
+                }.get(entry.status)
+                if (
+                    expected is not None
+                    and fire.state != expected
+                    or entry.status == "cancelled"
+                    and fire.state not in {"skipped", "uncertain"}
+                ):
+                    raise ValueError("Schedule and queue lifecycle states differ.")
+                if (
+                    entry.request_admission is not None
+                    and entry.request_admission.request.sha256 != fire.request_sha256
+                ):
+                    raise ValueError(
+                        "Dispatched schedule request differs from its pinned intent."
+                    )
         for entry in self.entries:
             if entry.goal_id is not None and (
                 entry.goal_id not in goals
