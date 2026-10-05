@@ -1,9 +1,9 @@
 # Work note: budgeted live session coding qualification
 
-- Status: preparation; no live outcome yet.
+- Status: blocked by one uncertain provider exchange; qualification incomplete.
 - Owner: Joshua Myers authorizes operation; Codex executes and records evidence.
 - Date: 2026-10-05.
-- Candidate: `d7d203b`, source and runtime code remain pinned.
+- Original candidate: `d7d203b`; corrected runtime candidate: `d2ca0c3`.
 - Guidance: repository Python engineering and agentic verification guides,
   `templates/WORK_NOTE.md`, `templates/THREAT_MODEL.md`; current GitHub template
   provenance is recorded in `LIVE_SESSION_CODING_WORK_NOTE.md`.
@@ -82,3 +82,67 @@ review sees both the true host bounds and the separate worker invocation allowan
 All four scenarios must run against this next commit; earlier attempts stay in the
 shared ledger and evidence. No further replacement of the failed `b9a0c30`
 correction exercise is authorized by the campaign's own stopping rule.
+
+## Current candidate outcomes
+
+Candidate `d2ca0c374c622bd90b02c0b434e15a65562ced85` passed the live success
+scenario through a plain ordinary CLI session and SQLite persistence. Ten role
+calls settled. Integrated source-only commit
+`53585f94e12a1d5a7fdc024c4619d6651d160f7d` passed frozen tests before and after
+integration; existing test content stayed unchanged. Four Docker lifecycle
+receipts record removal. The saved implementation entry is completed and consumes
+one ordinary session exchange. Lint, type checking with the project interpreter,
+and all 18 focused workflow tests passed after the source corrections.
+
+Its first correction attempt stopped at a generic baseline broker exchange error.
+The same small frozen test package returned a valid failed-test receipt in unpaid
+local verification, direct offline image execution, and an exact Docker broker
+replay. The original broker error was not reproduced; its cause remains
+unconfirmed. This is a material operational limitation, not a passing correction
+scenario. A recorded campaign amendment permitted one fresh correction attempt
+after those diagnostics, preserving all previous evidence and charges.
+
+That fresh attempt reached the 60-second exchange deadline without a usable
+provider response. Its original uncertain receipt retains **282,500 micro-USD**.
+The existing live transport admits at most one unresolved ledger entry; this hold
+prevents further role dispatch even though the monetary ceiling has remaining
+capacity. No refund, reconciliation, new ledger or retry of that request occurred.
+The failed exchange ran approximately **20:16:17–20:17:17 UTC on 2026-10-05**.
+
+Cold resume of that saved failed session opened and saved successfully. Before and
+after snapshots prove identical ledger charges/entries, Git source/tests/refs, and
+private model artifact file hashes. The saved entry remains failed with exactly
+one consumed exchange. This establishes no automatic replay after an uncertain
+failure; it does not establish the requested deliberate cancellation scenario.
+
+| Required scenario | Result on current runtime candidate |
+|---|---|
+| Successful implementation and verified integration | Passed |
+| Failed tests followed by bounded correction | Incomplete; stopped before coding-child dispatch |
+| Rejected review prevents integration | Not dispatched after the unresolved hold |
+| Deliberate cancellation and resume without duplicate calls/writes | Not dispatched; uncertain-failure cold resume separately verified |
+
+Total accounted exposure: **1,150,531 micro-USD ($1.150531)** across 27 ledger
+entries: 868,031 settled and 282,500 uncertain. The original authorized ceiling
+remains 10,000,000 micro-USD. All seven paid attempt dispositions are retained,
+including earlier candidates and the failed fresh attempt.
+
+Private evidence root:
+`/Users/josh/.mos-eisley-live-session-qualification-2026-10-05`.
+Aggregate evidence SHA-256:
+`a1e4681fb82fd5cff3ba34960cde8d3ec7023d7f4f2ba01354a2848564a841e3`.
+Raw model packets stay private and are not copied into tracked or sampling
+artifacts. No claim of prospective evaluation eligibility or release readiness
+follows from this campaign.
+
+## Required next step
+
+Obtain independent provider request/billing evidence and accountable reconciliation
+of ledger entry
+`0bafa5d29f1784ab94e3af290efea2986fbd26918bca7d2f41fbbb3f16316b40`
+under ledger
+`553abb8dfd706b2535cc79fa3303a0aa80bf1835c032d86958671d6c24a2d99d`.
+Preserve the full hold until that workflow verifies evidence and authority. Then
+prepare fresh, explicitly bounded remaining scenarios against the corrected
+runtime candidate with current policies and the same total authorization. Resolve
+or document the broker failure in accountable review before release claims.

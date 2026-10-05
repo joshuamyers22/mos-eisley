@@ -85,6 +85,11 @@ policy, role identity or expiry stops new work. No automatic retries or refunds.
 
 ## Remaining release evidence
 
+The [budgeted live qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md)
+records real success on corrected runtime candidate `d2ca0c3`, live-discovered
+contract corrections, and a retained uncertain provider exchange that currently
+blocks the remaining scenarios. The four-scenario qualification is incomplete.
+
 Run a separately budgeted exact-candidate demonstration through ordinary sessions,
 covering successful delivery, bounded correction and refused integration with the
 existing qualified OpenAI/Anthropic routes. Bind its selected model roster, current
