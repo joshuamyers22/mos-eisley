@@ -768,9 +768,9 @@ execution remain gated. Candidate `44adf47` passed verified live integration,
 declared failed-test correction, rejected review and cancellation/cold resume at
 both staging and held-charge boundaries. The
 [qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) binds
-the existing Sol/medium-led roster, worker and evidence. Exposure is $2.466033
-under the $10 cap, including a retained $0.113 cancellation charge requiring
-reconciliation before further paid coding dispatch. Accountable release review
+the existing Sol/medium-led roster, worker and evidence. The final cancellation
+charge was reconciled with provider evidence and owner scope attestation; spending
+is $2.375657 under the $10 cap, with zero unresolved entries. Accountable release review
 remains pending.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review

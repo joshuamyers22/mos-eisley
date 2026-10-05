@@ -93,11 +93,12 @@ candidate `44adf47` with the existing qualified Sol/medium, Luna/low, Terra/low,
 Sonnet 5/low and Opus 5.5/low routes. Live-discovered contract corrections include
 feasible plan approval, consistent budget interpretation and ordered chunking of
 large role packets. All 19 affected source and installed-wheel tests passed after
-these changes. Total exposure is $2.466033 under the unchanged $10 cap, including
-a $0.113 uncertain cancellation charge that remains retained.
+these changes. Accountable final cancellation reconciliation preserved its original
+receipt and settled the charge at $0.022624. Total settled spending is $2.375657
+under the unchanged $10 cap, with zero unresolved entries; see the
+[release work note](LIVE_SESSION_CODING_RELEASE_WORK_NOTE.md).
 
-The final cancellation charge needs provider evidence and accountable reconciliation
-before further paid coding dispatch. The completed demonstration binds the exact
+The completed demonstration binds the exact
 candidate, selected roster, reviewed policies, shared ledger, synthetic operating
 scope and immutable worker image.
 Accountable review must assess the new paid-call/integration composition beyond

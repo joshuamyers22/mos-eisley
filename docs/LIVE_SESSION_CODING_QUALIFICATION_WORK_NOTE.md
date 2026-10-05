@@ -1,7 +1,7 @@
 # Work note: budgeted live session coding qualification
 
-- Status: all four requested functional live scenarios passed; accountable release
-  review and final cancellation-charge reconciliation remain separate.
+- Status: all four requested functional live scenarios passed; final cancellation
+  charge reconciled; accountable release review tracked separately.
 - Owner: Joshua Myers authorizes operation; Codex executes and records evidence.
 - Date: 2026-10-05.
 - Qualified runtime candidate: `44adf471e7386f34fb37479b46eaf0b2302d4291`.
@@ -32,7 +32,7 @@ This proves cancellation while a reservation was held, without claiming that
 provider generation had started. Neither cold resume dispatched a new call.
 Every Docker lifecycle created by the five final scopes has a removal receipt.
 
-Final exposure: **2,466,033 micro-USD ($2.466033)** under the unchanged $10 cap:
+Exposure at functional completion: **2,466,033 micro-USD ($2.466033)** under the unchanged $10 cap:
 2,353,033 settled and 113,000 uncertain, across 132 entries and 23 paid attempts.
 The audit matched every retained role receipt to its exact ledger entry and
 reservation, including the reconciled historical receipt. All superseded and
@@ -55,10 +55,15 @@ runtime bytes. Wheel SHA-256:
 `4844c847ffd4d04d6be98025abcd6b31017a1666d62aee0894c48b213cfa53b9`.
 Earlier broad verification and its limits remain in the implementation work note.
 
+The [release work note](LIVE_SESSION_CODING_RELEASE_WORK_NOTE.md) records the
+subsequent accountable adjustment of the cancellation charge to 22,624 micro-USD,
+using a complete provider export and Joshua's explicit usage-scope attestation.
+Current total is **$2.375657**, all 132 entries settled and zero unresolved charges.
+The original uncertain receipt and functional completion evidence remain unchanged.
+
 This completes the requested bounded functional demonstration for existing-source
-`pure_python_v1` coding. Reconcile the retained cancellation charge with provider
-evidence and accountable authority before further paid coding dispatch; the
-one-unresolved-entry admission limit remains enforced. Accountable review of the
+`pure_python_v1` coding. The one-unresolved-entry admission limit remains enforced.
+Accountable review of the
 new paid-call/integration composition and release approval remain required. This
 does not qualify general repositories, goals, forks or prospective evaluation.
 

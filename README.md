@@ -53,7 +53,7 @@ An explicitly selected [live coding workflow candidate](docs/LIVE_SESSION_CODING
 connects `/implement` to creator tests, independent review, bounded correction and
 isolated Git integration within the existing pure-Python profile. Candidate
 `44adf47` passed the requested bounded live functional qualification; accountable
-release review and reconciliation of its retained cancellation charge remain pending.
+release review remains pending; all qualification spending is now settled.
 The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
 panes and reattachment to a running conversation.
 An optional [external tmux workspace](docs/TMUX_COMPATIBILITY.md) keeps Mos beside

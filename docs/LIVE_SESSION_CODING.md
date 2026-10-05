@@ -13,7 +13,7 @@ Sonnet 5/low critics, and Opus 5.5/low judge. It covered verified integration,
 declared controlled failed-test correction, rejected review and cancellation/cold
 resume at both staging and held-charge boundaries. See the
 [qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) for exact
-scope, receipts, retained cancellation exposure and previous failed attempts.
+scope, receipts, reconciled cancellation charge and previous failed attempts.
 Accountable release review remains required; general repository coding and the
 release image are not qualified by this demonstration.
 
@@ -76,7 +76,7 @@ mos chat --live-openai --allow-data-transfer \
   --spend-policy /private/path/creator-policy.json \
   --spend-ledger /private/path/spending.sqlite \
   --live-artifacts /private/path/artifacts \
-  --live-effort high \
+  --live-effort medium \
   --live-coding-selection /private/path/coding-selection.json \
   --allow-live-coding
 ```
@@ -86,6 +86,15 @@ literal text does not grant implementation authority. A bare launch or ordinary
 message sends no coding request. The connection currently requires an ordinary
 session: a fork, durable goal or separate task-profile budget is rejected before
 coding dispatch rather than resetting or bypassing that budget.
+
+The example uses the qualified Sol/medium creator. Prepare current owner-reviewed
+pricing and an unexpired selection before normal use; historical qualification
+selections and their synthetic repository paths are evidence, not reusable launch
+configuration. Keep the qualified immutable offline worker, private staging and
+artifact roots, protected tests and the selected aggregate spending cap. Changes
+to model/effort, execution profile or worker identity require their own qualification.
+If completion fails after integration, inspect the retained applied commit and
+integration marker; do not blindly repeat `/implement` or reset the ledger.
 
 ## Failure and evidence
 
