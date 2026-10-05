@@ -134,7 +134,9 @@ PR against `main` after the full gate. PR #272 remains open; prerequisite commit
 are included until it merges. Publication does not enable public selectors,
 enrollment or writers.
 
-Next: complete target qualification/review for root admission, then implement
-secure fixed-child namespace reads under the owned lease with fresh entry/content
-checks. Keep root selection, child reads, enrollment/custody, consumer adoption,
+The subsequent [fixed-child reader candidate](POSIX_NAMESPACE_READ_WORK_NOTE.md)
+implements bounded relative reads with fresh child entry/content/ACL checks and
+owned cleanup. Next: complete accountable root/read target qualification/review,
+then define the native Windows admission/read slice after its identity review.
+Keep root selection, public reads, enrollment/custody, consumer adoption,
 writers and public Windows selectors separately gated.

@@ -32,6 +32,7 @@ def main() -> int:
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_platform_storage.py",
+            "test_platform_namespace_read.py",
             "test_platform_identity_wire.py",
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
@@ -80,6 +81,7 @@ for module in (files, identity, wire, candidate, file_candidate):
             [
                 "test_platform_files.PlatformFileContractTests",
                 "test_platform_storage.PlatformStorageContractTests",
+                "test_platform_namespace_read.NamespaceReadContractTests",
                 "test_platform_identity.IdentityValueTests",
                 "test_platform_identity_wire.IdentityWireTests",
                 "test_platform_identity_wire.NamespaceRecordWireTests",

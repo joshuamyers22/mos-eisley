@@ -4755,7 +4755,14 @@ The [pure namespace codec and golden fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.
 are implemented additively with source and dependency-free wheel checks. Next is
 qualification/review of the [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md),
 which has native macOS source/wheel and portable fault evidence. Linux target
-evidence and accountable admission remain pending; secure child reads follow.
+evidence and accountable admission remain pending. The
+[secure fixed-child POSIX reader candidate](POSIX_NAMESPACE_READ_WORK_NOTE.md)
+now opens only the fixed name relative to the held lease, verifies actual private
+file ACL/type/owner/link and entry/content stability, and bounds native requests
+to 4,097 bytes and 16 attempts. Native macOS source and dependency-free wheel tests
+cover replacement, symlink/special-object, stale state and cleanup refusal. Linux
+reader execution, accountable root/read qualification and native Windows storage
+remain separate; public storage selection and record reading stay closed.
 Enrollment creation, locks/publication/durability,
 protected anchor/key custody, consumer writers and public Windows selectors remain
 gated. [Verification](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) records this

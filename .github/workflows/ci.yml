@@ -51,6 +51,8 @@ jobs:
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_identity_wire.py -v
       - name: Verify gated storage boundary from source on native Windows
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_storage.py -v
+      - name: Verify gated namespace reading from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_namespace_read.py -v
       - name: Verify candidate principal adapter from source on native Windows
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_principal.py -v
       - name: Verify candidate local-NTFS identities from source on native Windows
@@ -72,6 +74,7 @@ jobs:
           version: "0.12.5"
       - run: uv sync --frozen --dev
       - run: uv run --frozen python -m unittest discover -s tests -p test_platform_storage.py -v
+      - run: uv run --frozen python -m unittest discover -s tests -p test_platform_namespace_read.py -v
       - run: uv run --frozen python -m hatchling build
       - run: uv run --frozen python tools/smoke_platform_files.py
   quality:

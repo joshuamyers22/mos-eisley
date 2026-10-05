@@ -1,6 +1,6 @@
 # ADR-0016: Separate namespace metadata, storage inspection and enrollment
 
-- Status: proposed; pure record codec implemented, accountable review and storage/enrollment implementation pending
+- Status: proposed; pure record codec and POSIX root/read candidates implemented; accountable admission, native Windows storage and enrollment pending
 - Date and owner: 2026-10-04, Josh Myers
 - Requirement: [plan §27.2](../mos-eisley-plan.md#272-version-011--full-native-windows-support)
 
@@ -44,7 +44,11 @@ records definition evidence and limitations. The subsequent
 and golden fixtures only. A subsequent
 [POSIX root candidate](../POSIX_ROOT_ADMISSION_WORK_NOTE.md) implements bounded
 read-only root inspection and owned leases, with native macOS evidence and public
-selection still closed. Child reads, production writers, key provisioning and
-accountable target admission remain pending. Reconsider if ACL
+selection still closed. The
+[fixed-child POSIX reader candidate](../POSIX_NAMESPACE_READ_WORK_NOTE.md) adds
+bounded relative record inspection, real descriptor ACL/entry checks and owned
+child cleanup, with native macOS source/wheel evidence. Linux reader execution,
+native Windows storage, production writers, key provisioning and accountable
+target admission remain pending. Reconsider if ACL
 inspection/allocation bounds cannot qualify, root/key enrollment cannot be pinned
 without circular trust, or publication recovery cannot retain uncertainty safely.

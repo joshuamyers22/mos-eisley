@@ -10,7 +10,10 @@ The [pure record codec](../src/mos_eisley/platform/identity_wire.py) and
 [verification](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) covers that slice. Storage and
 enrollment APIs remain proposed. A direct
 [POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now implements existing-root
-inspection and owned leases; public storage admission stays closed. Enrollment
+inspection and owned leases; public storage admission stays closed.
+[POSIX fixed-child reading](POSIX_NAMESPACE_READ_WORK_NOTE.md) is also implemented
+as a direct candidate, with native macOS source/wheel and portable refusal tests.
+Public record reading remains closed. Enrollment
 writes, existing store adoption,
 migration writers and public Windows selectors remain gated.
 
@@ -93,8 +96,9 @@ malicious kernel/administrator or another fully trusted process of the same owne
 
 ## Proposed narrow read-only API and lifetime
 
-The two record codec functions are implemented; directory admission and record
-reading below remain proposed APIs:
+The two record codec functions and direct POSIX root/read candidates are
+implemented. Public directory admission/record reading below remain gated APIs;
+native Windows storage and enrollment remain proposed:
 
 ```text
 decode_namespace_record(payload: bytes) -> NamespaceRecord
@@ -257,7 +261,11 @@ Implement in this order, with independent qualification records:
    and portable faults; Linux execution and accountable admission remain pending.
    No existing store adoption or creation; public storage selection stays closed.
 3. **Secure fixed-child namespace reads**, bounded bytes and replacement/refusal
-   tests (N-07/08/09/10/14/15). Keep storage-checked observations advisory.
+   tests (N-07/08/09/10/14/15) — direct POSIX candidate implemented. The
+   [reader note](POSIX_NAMESPACE_READ_WORK_NOTE.md) records real native macOS
+   source/wheel checks, descriptor ACL/entry/content checks and owned child cleanup.
+   Linux reader execution and accountable target admission remain pending. Keep
+   storage-checked observations advisory and public selectors closed.
 4. **Native Windows admission/read candidates** after prerequisite identity review;
    verify the frozen masks and qualify DACL/reparse/relative-open/local-NTFS cases on
    actual targets. Public selectors remain closed until N-15/16 admission.

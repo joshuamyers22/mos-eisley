@@ -170,6 +170,7 @@ def main() -> int:
             "test_conversation_git.py",
             "test_conversation_git_isolation.py",
             "test_platform_storage.py",
+            "test_platform_namespace_read.py",
             "test_platform_identity_wire.py",
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
