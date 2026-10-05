@@ -413,7 +413,8 @@ class LiveCodingWorkflow:
             (
                 "Create a concrete implementation plan and additional "
                 "executable unittest tests BEFORE implementation. Return "
-                "CreatorPlan JSON: plan, interfaces, acceptance, "
+                "CreatorPlan JSON: plan (string), interfaces (string), "
+                "acceptance (string), "
                 "creator_tests:{files:[{path,content}]}. Tests must use "
                 "fresh tests/test_mos_*.py paths, import the selected "
                 "source modules and test requirements. Preserve every "
