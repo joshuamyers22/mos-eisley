@@ -62,3 +62,23 @@ The original candidate therefore failed this qualification attempt. Clarifying
 those field types in the creator prompt is a source correction; qualification
 must restart against its new committed candidate, retaining the first attempt
 and charge in the same shared ledger. No provider result is repaired or replayed.
+
+Candidate `b9a0c30` completed the success exercise with ten settled live role calls,
+protected tests unchanged, source-only integration and fresh final test receipt.
+The first correction scope failed during baseline execution: 441 generated test
+cases exceeded the worker's 32,000-byte output cap (confirmed by an unpaid replay).
+Its one bounded replacement stopped after the Sonnet critic returned acceptance
+with nonempty findings, violating an unstated validator invariant. The Terra
+critic also identified ambiguity between the worker's single-invocation allowance
+and the host's two-candidate correction budget. No correction child or integration
+occurred. Aggregate settled charge at that point was 498,721 micro-USD.
+
+The next source candidate supplies each role's JSON schema, states the review
+decision/findings invariant, and binds phase and actual cumulative workflow bounds
+into the reviewed artifact without disclosing author history or model identities.
+Creator instructions also describe private test retention, review/integration
+ordering and the worker output cap. A regression assertion checks that independent
+review sees both the true host bounds and the separate worker invocation allowance.
+All four scenarios must run against this next commit; earlier attempts stay in the
+shared ledger and evidence. No further replacement of the failed `b9a0c30`
+correction exercise is authorized by the campaign's own stopping rule.

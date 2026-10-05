@@ -69,6 +69,12 @@ def decode_model[T: Contract](model: type[T], text: str) -> T:
         ) from None
 
 
+def response_schema(model: type[Contract]) -> str:
+    return " JSON schema: " + json.dumps(
+        model.model_json_schema(), sort_keys=True, separators=(",", ":")
+    )
+
+
 class CodingRoute(Contract):
     provider: Literal["openai", "anthropic"]
     model: Text
@@ -296,6 +302,14 @@ class LiveCodingWorkflow:
         input_used = output_used = call_count = 0
         reserved_cost = 0
         usages: list[AgentUsage] = []
+        workflow_bounds = {
+            "candidate_attempts": 1 + s.correction_cycles,
+            "correction_cycles": s.correction_cycles,
+            "max_role_calls": 5 + (1 + s.correction_cycles) * 5,
+            "wall_seconds": s.wall_seconds,
+            "max_total_microusd": s.max_total_microusd,
+            "brief_assignment_scope": "one unpaid offline verification invocation",
+        }
 
         def current() -> None:
             s.check_current()
@@ -419,14 +433,21 @@ class LiveCodingWorkflow:
                 "fresh tests/test_mos_*.py paths, import the selected "
                 "source modules and test requirements. Preserve every "
                 "existing test. Implement only bounded pure Python "
-                "functions; no imports or shell in generated source."
-            ),
+                "functions; no imports or shell in generated source. "
+                "Additional tests stay in private artifacts; only source is "
+                "integrated. Independent implementation review and creator "
+                "approval precede integration; fresh frozen tests run before "
+                "and after integration. Test output, including expected "
+                "baseline failures, must fit 32000 bytes."
+            )
+            + response_schema(CreatorPlan),
             packet_bytes(
                 {
                     "request": author.initial_turns,
                     "author_system": author.system,
                     "snapshot": original,
                     "source_paths": s.source_paths,
+                    "workflow_bounds": workflow_bounds,
                 }
             ),
         )
@@ -484,6 +505,17 @@ class LiveCodingWorkflow:
             wall_seconds=20,
         )
         private_write(directory / "brief.json", canonical_bytes(brief))
+        review_context = (
+            " Acceptance requires findings=[]; revision requires at least one "
+            "unresolved concrete defect. Do not put positive observations in "
+            "findings. The artifact's workflow_bounds govern the whole live "
+            "workflow; the brief assignment describes one unpaid offline "
+            "verification invocation, not its live model or cumulative budget. "
+            "At phase=plan assess the proposed plan and frozen tests; missing "
+            "implementation receipts are expected. At phase=implementation "
+            "assess the candidate and real test receipt before integration; "
+            "post-integration receipts are expected only after approval."
+        )
 
         async def review(subject: bytes) -> ModelReview:
             findings: list[tuple[str, ...]] = []
@@ -498,7 +530,9 @@ class LiveCodingWorkflow:
                         "subject_sha256, decision (accept or revise), "
                         "findings (array of strings). Identify concrete "
                         "defects; tests passing alone is insufficient."
-                    ),
+                    )
+                    + review_context
+                    + response_schema(ModelReview),
                     packet_bytes(
                         {"subject_sha256": subject_sha, "artifact": subject.decode()}
                     ),
@@ -517,7 +551,9 @@ class LiveCodingWorkflow:
                     "(array of unresolved concrete defects). Check "
                     "requirements and tests independently; resolve each "
                     "reported defect."
-                ),
+                )
+                + review_context
+                + response_schema(ModelReview),
                 packet_bytes(
                     {
                         "subject_sha256": subject_sha,
@@ -543,7 +579,8 @@ class LiveCodingWorkflow:
                     "revise), reason (explain any revision). Approval covers only "
                     "this artifact within the"
                     " selected scope, never additional machine authority."
-                ),
+                )
+                + response_schema(CreatorApproval),
                 packet_bytes(
                     {
                         "artifact": subject.decode(),
@@ -570,7 +607,14 @@ class LiveCodingWorkflow:
             or baseline.tests_sha256 != brief.tests_sha256
         ):
             raise ValueError("Baseline test execution differs from the frozen package.")
-        plan_subject = packet_bytes({"brief": brief, "baseline_verification": baseline})
+        plan_subject = packet_bytes(
+            {
+                "phase": "plan",
+                "workflow_bounds": workflow_bounds,
+                "brief": brief,
+                "baseline_verification": baseline,
+            }
+        )
         plan_review = await review(plan_subject)
         if plan_review.decision != "accept":
             raise ValueError("Plan/tests need revision before coding-child dispatch.")
@@ -597,7 +641,8 @@ class LiveCodingWorkflow:
                     "only pure function modules using approved value "
                     "operations. Correct reported defects without weakening"
                     " requirements or tests."
-                ),
+                )
+                + response_schema(CodingPatch),
                 packet_bytes(
                     {
                         "brief": brief,
@@ -622,7 +667,13 @@ class LiveCodingWorkflow:
                     "Isolated verification returned a different source/test package."
                 )
             subject = packet_bytes(
-                {"brief": brief, "patch": patch, "verification": verification}
+                {
+                    "phase": "implementation",
+                    "workflow_bounds": workflow_bounds,
+                    "brief": brief,
+                    "patch": patch,
+                    "verification": verification,
+                }
             )
             private_write(directory / f"candidate-{cycle}.json", subject)
             if verification.passed:

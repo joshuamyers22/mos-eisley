@@ -382,6 +382,17 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
                 self.assertNotIn("gpt-6-astra", json.dumps(packet))
                 self.assertNotIn("claude-sonnet", json.dumps(packet))
                 self.assertNotIn("Private author history.", json.dumps(packet))
+                artifact = json.loads(str(packet["artifact"]))
+                self.assertIn(artifact["phase"], {"plan", "implementation"})
+                self.assertEqual(artifact["workflow_bounds"]["candidate_attempts"], 2)
+                self.assertEqual(artifact["workflow_bounds"]["correction_cycles"], 1)
+                self.assertEqual(
+                    artifact["workflow_bounds"]["brief_assignment_scope"],
+                    "one unpaid offline verification invocation",
+                )
+                self.assertEqual(
+                    artifact["brief"]["assignment"]["allowance"]["attempts"], 1
+                )
 
     async def test_failed_tests_get_bounded_correction_with_identical_brief(
         self,
