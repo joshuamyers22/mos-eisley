@@ -91,6 +91,7 @@ class ReviewerTestExecutionTests(unittest.TestCase):
         skipped: bool = False,
         target: str = "add",
         source_override: bytes | None = None,
+        declared_marker: DeclaredTestMarker | None = None,
     ) -> FrozenReviewerTestPackage:
         if source_override is not None:
             source = source_override
@@ -116,7 +117,7 @@ class ReviewerTestExecutionTests(unittest.TestCase):
             ("interface", "interface"): b"public interface",
             ("rubric", "rubric"): b"review rubric",
         }
-        if skipped:
+        if skipped or declared_marker is not None:
             reference_payloads[("marker_approval", "skip-approval")] = b"approved skip"
         references = tuple(
             BlindReviewReference(
@@ -135,17 +136,21 @@ class ReviewerTestExecutionTests(unittest.TestCase):
             bytes=len(source),
         )
         markers = (
-            (
-                DeclaredTestMarker(
-                    path="tests/test_add.py",
-                    line=5,
-                    kind="skip",
-                    reason="approved",
-                    approval_reference_id="skip-approval",
-                ),
+            (declared_marker,)
+            if declared_marker is not None
+            else (
+                (
+                    DeclaredTestMarker(
+                        path="tests/test_add.py",
+                        line=5,
+                        kind="skip",
+                        reason="approved",
+                        approval_reference_id="skip-approval",
+                    ),
+                )
+                if skipped
+                else ()
             )
-            if skipped
-            else ()
         )
         init_payload = b'"""Reviewer tests."""\n'
         init_declaration = TestFileDeclaration(
@@ -463,6 +468,81 @@ class Checks(unittest.TestCase):
             )
             self.assertFalse(mismatch_receipt.collection_contract_satisfied)
             self.assertFalse(mismatch_receipt.role_expectation_satisfied)
+
+    def test_empty_all_skipped_and_expected_failure_cannot_pass(self) -> None:
+        sources = (
+            b"from mos_eisley_reviewer_adapter import add\n",
+            (
+                b"from mos_eisley_reviewer_adapter import add\nimport unittest\n"
+                b"class TestSuppressed(unittest.TestCase):\n"
+                b"    @unittest.skip('conceal failure')\n"
+                b"    def test_add(self): self.assertEqual(add(2, 3), 99)\n"
+            ),
+            (
+                b"from mos_eisley_reviewer_adapter import add\nimport unittest\n"
+                b"class TestSuppressed(unittest.TestCase):\n"
+                b"    @unittest.expectedFailure\n"
+                b"    def test_add(self): self.assertEqual(add(2, 3), 99)\n"
+                b"    def test_real_failure(self): self.assertEqual(add(3, 2), 99)\n"
+            ),
+            (
+                b"from mos_eisley_reviewer_adapter import add\nimport unittest\n"
+                b"class TestSuppressed(unittest.TestCase):\n"
+                b"    @unittest.expectedFailure\n"
+                b"    def test_add(self): self.assertEqual(add(2, 3), 99)\n"
+            ),
+        )
+        for index, source in enumerate(sources):
+            with self.subTest(scenario=index), TemporaryDirectory() as directory:
+                root = Path(directory)
+                # Even explicitly declared markers cannot turn a vacuous or
+                # expected-failure suite into a passing runtime receipt.
+                marker = (
+                    DeclaredTestMarker(
+                        path="tests/test_add.py",
+                        line=4,
+                        kind="skip" if index == 1 else "xfail",
+                        reason="synthetic suppression probe",
+                        approval_reference_id="skip-approval",
+                    )
+                    if index
+                    else None
+                )
+                package = self._package(
+                    source_override=source,
+                    declared_marker=marker,
+                    expected_collected=2 if index == 2 else 1,
+                )
+                binding, package_path, implementation_root = self._binding(
+                    root,
+                    package,
+                    name="good",
+                    implementation=b"def add(left, right): return left + right\n",
+                )
+                receipt = self._receipt(
+                    self._request(
+                        binding,
+                        "known_bad" if index == 2 else "known_good",
+                        f"suppressed-{index}",
+                    ),
+                    binding,
+                    package_path,
+                    implementation_root,
+                )
+                self.assertFalse(receipt.role_expectation_satisfied)
+                with self.assertRaises(ValidationError):
+                    ImmutableReviewerTestExecutionReceipt.model_validate(
+                        {**receipt.model_dump(), "role_expectation_satisfied": True}
+                    )
+                observed = receipt.observation
+                if index == 0:
+                    self.assertEqual(observed.collected_tests, 0)
+                elif index == 1:
+                    self.assertEqual(observed.skipped_tests, 1)
+                    self.assertEqual(observed.executed_tests, 0)
+                else:
+                    self.assertEqual(observed.expected_failures, 1)
+                    self.assertTrue(receipt.collection_contract_satisfied)
 
     def test_known_bad_import_error_is_not_a_valid_control(self) -> None:
         with TemporaryDirectory() as directory:

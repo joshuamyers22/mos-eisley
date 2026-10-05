@@ -62,6 +62,10 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.isolated_broker import run_isolated_broker_async
 from mos_eisley.run.isolation import OfflineContainer
 from mos_eisley.run.process import MAX_WIRE_BYTES
+from mos_eisley.run.protected_spend_anchor import (
+    ProtectedAnchorGuard,
+    verify_protected_anchor_audit,
+)
 from mos_eisley.run.provider_broker import (
     MAX_REQUEST_BYTES,
     ApprovedRequest,
@@ -419,6 +423,7 @@ class ProductionCodingChildBroker:
         container: OfflineContainer,
         directory: Path,
         repository_root: Path,
+        protected_anchor: ProtectedAnchorGuard | None = None,
     ) -> None:
         current = datetime.now(UTC)
         grant = approval.approval
@@ -489,6 +494,7 @@ class ProductionCodingChildBroker:
         self._policy = provenance_policy
         self._spend_policy = spend_policy
         self._ledger = ledger
+        self._protected_anchor = protected_anchor
         self._child_key = child_key
         self._transport = transport
         self._container = container
@@ -526,6 +532,17 @@ class ProductionCodingChildBroker:
             reservation_sha256=reservation_hash,
             reserved_microusd=reservation.reserved_microusd,
         )
+        if self._protected_anchor is None:
+            raise ValueError(
+                "protected remote spending anchor is required for live G4 dispatch"
+            )
+        self._protected_anchor.claim(
+            self._approval.artifact_sha256,
+            self._policy,
+            self._ledger.policy,
+            entry,
+            deadline=self._expires_at,
+        )
         # Durable duplicate protection and aggregate spend precede the provider.
         self._ledger.reserve(entry)
         authorization = G4ProductionCodingChildAuthorization(
@@ -550,7 +567,7 @@ class ProductionCodingChildBroker:
         if not math.isfinite(remaining) or remaining <= 0:
             raise ValueError("production child approval has no remaining time")
         controller = PreReservedOpenAITransport(
-            self._transport,
+            self._protected_anchor.wrap_transport(self._transport, self._directory),
             self._spend_policy,
             self._directory,
             self._ledger,
@@ -620,6 +637,13 @@ class ProductionCodingChildBroker:
         validate_correction_child_job(
             G4CorrectionChildJob(offer=offer, signed_proposal=signed)
         )
+        verify_protected_anchor_audit(
+            self._directory,
+            self._policy,
+            self._approval.artifact_sha256,
+            self._ledger.policy,
+            entry,
+        )
         receipt = G4ProductionCodingChildReceipt(
             signed_approval=self._approval,
             authorization=authorization,
@@ -651,6 +675,20 @@ def verify_production_coding_child_receipt(
     request, source_text = _request_for_approval(dispatch.offer, grant, spend)
     request_hash = digest(canonical_bytes(ApprovedRequest(payload=request)))
     reservation_hash = digest(canonical_bytes(reservation))
+    # Historical receipts lack this prospective boundary. A new closeout claim
+    # must require its separate audit; if present, never ignore tampering.
+    if (directory / "protected-anchor-binding.json").exists():
+        verify_protected_anchor_audit(
+            directory,
+            policy,
+            receipt.signed_approval.artifact_sha256,
+            ledger.policy,
+            LedgerEntry(
+                entry_id=receipt.signed_approval.artifact_sha256,
+                reservation_sha256=reservation_hash,
+                reserved_microusd=reservation.reserved_microusd,
+            ),
+        )
     verify_provenance_signature(
         grant, receipt.signed_approval.signature, policy, "creator", _DOMAIN
     )

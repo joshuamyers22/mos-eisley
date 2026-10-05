@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import sqlite3
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -16,6 +15,7 @@ from typing import cast
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from protected_anchor_fixture import fixture_anchor
 from pydantic import JsonValue
 
 from mos_eisley.core.models import canonical_bytes, digest
@@ -413,6 +413,7 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
             container=container,
             directory=root / "run",
             repository_root=root / "repository",
+            protected_anchor=fixture_anchor(creator, ledger, approval.artifact_sha256),
         )
         return (
             broker,
@@ -599,8 +600,9 @@ class ProductionCodingChildBrokerTests(unittest.TestCase):
                 container=container,
                 directory=root / "second-run",
                 repository_root=root / "repository",
+                protected_anchor=broker._protected_anchor,
             )
-            with self.assertRaises(sqlite3.IntegrityError):
+            with self.assertRaisesRegex(ValueError, "already spent"):
                 asyncio.run(second.generate(offer))
             self.assertEqual(transport.calls, 1)
             self.assertEqual(ledger.snapshot().entries, 1)

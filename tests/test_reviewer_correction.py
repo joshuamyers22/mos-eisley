@@ -699,6 +699,38 @@ class CorrectionCycleTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "completion differs"):
                 admit_correction_cycle(**second_kwargs, previous=forged)
+            for update in (
+                {
+                    "reserved_before": G4CorrectionReservations(
+                        input_tokens=0,
+                        output_tokens=0,
+                        tool_calls=0,
+                        seconds=0,
+                        microusd=0,
+                    )
+                },
+                {
+                    "task_budget": second_approval.approval.task_budget.model_copy(
+                        update={
+                            "ceiling": G4CorrectionReservations(
+                                input_tokens=100_000,
+                                output_tokens=100_000,
+                                tool_calls=100,
+                                seconds=10_000,
+                                microusd=100_000,
+                            )
+                        }
+                    )
+                },
+            ):
+                reset = sign_correction_cycle_approval(
+                    second_approval.approval.model_copy(update=update),
+                    "creator",
+                    fixture.creator_key,
+                )
+                reset_kwargs: _CorrectionArgs = {**second_kwargs, "approval": reset}
+                with self.subTest(reset=update), self.assertRaises(ValueError):
+                    admit_correction_cycle(**reset_kwargs, previous=completion)
             second = admit_correction_cycle(**second_kwargs, previous=completion)
             self.assertEqual(second.approval.approval.cycle, 2)
             self.assertFalse(second.acceptance_authorized)

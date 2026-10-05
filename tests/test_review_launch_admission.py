@@ -36,6 +36,12 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         self.fixture = self.create_fixture()
+        # This launch is bound to the sealed campaign below. Prepare it using
+        # that reviewed scope instead of aging a short standard preparation
+        # while the complete campaign evidence is constructed and revalidated.
+        self.fixture.call = self.fixture.prepare(preparation_scope="formal_campaign")
+        self.fixture.review = self.fixture.envelope()
+        self.fixture.base.fake.directory = self.fixture.critic_directory()
         self.user = ScriptedUser(("approve", "approve"))
         self.configuration = self.bundle.attempts[0].configuration
         self.configuration = self.configuration.model_copy(
@@ -145,9 +151,9 @@ class LaunchAdmissionFixture(CampaignCeremonyFixture):
 
 class LaunchAdmissionTests(LaunchAdmissionFixture):
     async def test_formal_campaign_preparation_runs_under_signed_launch(self):
-        self.fixture.call = self.fixture.prepare(preparation_scope="formal_campaign")
-        self.fixture.review = self.fixture.envelope()
-        self.fixture.base.fake.directory = self.fixture.critic_directory()
+        self.assertEqual(
+            self.fixture.call.authorization.preparation_scope, "formal_campaign"
+        )
         probe = self.probe()
         self.authorize(probe)
 

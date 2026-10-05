@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mos_eisley.core.models import Contract, digest
 from mos_eisley.reviewer_correction import (
+    Disposition,
     G4CorrectionCycleApproval,
     G4CorrectionFinding,
     G4CorrectionReservations,
@@ -21,6 +22,7 @@ from mos_eisley.reviewer_correction import (
     G4CorrectionTaskBudget,
     G4CorrectionTriage,
     SignedG4CorrectionCycleApproval,
+    SignedG4CorrectionTriage,
     sign_correction_cycle_approval,
     sign_correction_triage,
 )
@@ -136,6 +138,18 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
                 max_microusd=50000,
             )
             source_revision = "a" * 40
+            approved_contract = (
+                "Every node must be an exact built-in str. "
+                "Preserve input order for independent nodes."
+            )
+            valid_but_irrelevant_quote = "Every node must be an exact built-in str."
+            # A lexicographic oracle disagrees with a conforming stable result.
+            # The exact type quotation is present, but supplies no ordering defect.
+            conforming_result = ["b", "a"]
+            wrong_oracle = ["a", "b"]
+            self.assertIn(valid_but_irrelevant_quote, approved_contract)
+            self.assertTrue(all(type(item) is str for item in conforming_result))
+            self.assertNotEqual(conforming_result, wrong_oracle)
             signed_integration = _SignedIntegration(
                 record=_IntegrationRecord(integrated_revision=source_revision)
             )
@@ -145,7 +159,7 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
                 policy=policy,
                 creator=SimpleNamespace(
                     approval=SimpleNamespace(
-                        approved_plan_sha256=digest(b"plan"),
+                        approved_plan_sha256=digest(approved_contract.encode()),
                         creator_test_suite_sha256=digest(b"creator tests"),
                     )
                 ),
@@ -197,7 +211,7 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
                     provenance_policy_sha256=policy.policy_sha256,
                     triage_artifact_sha256=triage.artifact_sha256,
                     source_revision=source_revision,
-                    approved_plan_sha256=digest(b"plan"),
+                    approved_plan_sha256=digest(approved_contract.encode()),
                     creator_test_suite_sha256=digest(b"creator tests"),
                     frozen_reviewer_test_package_sha256=digest(b"package"),
                     task_budget=G4CorrectionTaskBudget(
@@ -230,13 +244,14 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
                 candidate: G4InitialCandidateReceipt = second,
                 inputs: G4InitialCandidateInputs = second_inputs,
                 signed_grant: SignedG4CorrectionCycleApproval = approval,
+                signed_triage: SignedG4CorrectionTriage = triage,
             ) -> G4InitialCorrectionCycleAdmission:
                 return admit_initial_correction_cycle(
                     first=first,
                     reproduction=candidate,
                     first_inputs=first_inputs,
                     reproduction_inputs=inputs,
-                    triage=triage,
+                    triage=signed_triage,
                     approval=signed_grant,
                     review_policy=review_policy,
                     correction_store=claim_store,
@@ -246,6 +261,116 @@ class InitialCorrectionBridgeTests(unittest.TestCase):
             with patch(
                 "mos_eisley.reviewer_initial_correction.verify_initial_candidate_receipt"
             ) as verify:
+                # An enrolled creator signature cannot override a judge's
+                # non-implementation disposition, even with matching failures.
+                dispositions: tuple[Disposition, ...] = (
+                    "test_defect",
+                    "plan_gap",
+                    "flaky",
+                    "infrastructure_error",
+                    "unresolved",
+                )
+                for disposition in dispositions:
+                    rejected = sign_correction_triage(
+                        triage.triage.model_copy(
+                            update={
+                                "findings": (
+                                    G4CorrectionFinding(
+                                        failed_test_id=FAILED_ID,
+                                        disposition=disposition,
+                                        applicable_clause_sha256=digest(
+                                            approved_contract.encode()
+                                        ),
+                                        citation_evidence_sha256=digest(
+                                            valid_but_irrelevant_quote.encode()
+                                        ),
+                                        violation_evidence_sha256=digest(
+                                            b"No violation of the quoted type rule."
+                                        ),
+                                    ),
+                                )
+                            }
+                        ),
+                        "owner",
+                        owner,
+                    )
+                    acquiescent = sign_correction_cycle_approval(
+                        approval.approval.model_copy(
+                            update={"triage_artifact_sha256": rejected.artifact_sha256}
+                        ),
+                        "owner",
+                        owner,
+                    )
+                    with (
+                        self.subTest(disposition=disposition),
+                        self.assertRaisesRegex(ValueError, "triage does not cover"),
+                    ):
+                        invoke(signed_grant=acquiescent, signed_triage=rejected)
+                    self.assertEqual(list(claim_store.iterdir()), [])
+
+                # Matching receipts with two failures cannot be admitted on
+                # a signed judge decision covering only the first one.
+                first.execution.observation.failures = 2
+                second.execution.observation.failures = 2
+                missing_ids = (FAILED_ID, "test_order_reviewer.uncovered")
+                first.execution.observation.failed_test_ids = missing_ids
+                second.execution.observation.failed_test_ids = missing_ids
+                with self.assertRaisesRegex(ValueError, "triage does not cover"):
+                    invoke()
+                self.assertEqual(list(claim_store.iterdir()), [])
+                first.execution.observation.failures = 1
+                second.execution.observation.failures = 1
+                first.execution.observation.failed_test_ids = (FAILED_ID,)
+                second.execution.observation.failed_test_ids = (FAILED_ID,)
+
+                # Reproduction must have the same assertion failures, rather
+                # than a later pass, infrastructure error or changed failure.
+                for mutation in (
+                    {"failures": 0, "failed_test_ids": ()},
+                    {"errors": 1},
+                    {"unexpected_successes": 1},
+                    {"failed_test_ids": ("another.failure",)},
+                    {"executed_test_ids_sha256": digest(b"partial execution")},
+                ):
+                    flaky = _receipt("flaky", 5)
+                    for field, value in mutation.items():
+                        setattr(flaky.execution.observation, field, value)
+                    with (
+                        self.subTest(reproduction=mutation),
+                        self.assertRaisesRegex(ValueError, "matching assertion"),
+                    ):
+                        invoke(candidate=flaky)
+                    self.assertEqual(list(claim_store.iterdir()), [])
+
+                # A fresh session cannot discard the initial assignment's
+                # reserved resources or renew its task deadline.
+                for mutation in (
+                    {
+                        "reserved_before": G4CorrectionReservations(
+                            input_tokens=0,
+                            output_tokens=0,
+                            tool_calls=0,
+                            seconds=0,
+                            microusd=0,
+                        )
+                    },
+                    {
+                        "task_budget": approval.approval.task_budget.model_copy(
+                            update={"deadline": NOW + timedelta(minutes=7)}
+                        )
+                    },
+                ):
+                    reset = sign_correction_cycle_approval(
+                        approval.approval.model_copy(update=mutation), "owner", owner
+                    )
+                    with (
+                        self.subTest(reset=mutation),
+                        self.assertRaisesRegex(ValueError, "scope or budget"),
+                    ):
+                        invoke(signed_grant=reset)
+                    self.assertEqual(list(claim_store.iterdir()), [])
+
+                verify.reset_mock()
                 admission = invoke()
                 self.assertEqual(verify.call_count, 2)
                 self.assertEqual(
