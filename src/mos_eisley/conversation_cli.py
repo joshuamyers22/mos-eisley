@@ -206,6 +206,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--cassette",
         "--live-openai",
         "--live-repository-read",
+        "--git-review-panel",
         "--allow-data-transfer",
         "--live-effort",
         "--spend-policy",

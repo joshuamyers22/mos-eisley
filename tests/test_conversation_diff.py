@@ -152,7 +152,6 @@ class DiffTests(RepositoryFixture, TestCase):
                     sys.executable,
                     "-m",
                     "mos_eisley.cli",
-                    "chat",
                     "--tui",
                     "--git-review-panel",
                     "--cassette",
