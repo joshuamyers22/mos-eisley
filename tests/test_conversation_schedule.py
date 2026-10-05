@@ -425,9 +425,12 @@ class InertScheduleTests(IsolatedAsyncioTestCase):
         self.assertEqual(restored.next_due_at, 510.0)
         self.assertEqual(len(self.reserve(restored, 500.0).fires), 1)
         resumed = resume_schedule(restored, gate(state), now=500.0)
+        self.assertFalse(resumed.pending_timer)
+        self.assertEqual(len(self.reserve(resumed, 500.0).fires), 1)
+        self.assertEqual(resumed.ledger, state.ledger)
         self.assertEqual(
-            len(self.reserve(resumed, 500.0).fires), 2
-        )  # One coalesced notification, never backlog.
+            len(self.reserve(resumed, 510.0).fires), 2
+        )  # One future interval, never a restart backlog.
 
     def test_lost_ack_and_cancelled_inflight_never_replay_or_refund(self) -> None:
         state = self.reserve(self.fresh())

@@ -1,6 +1,8 @@
 """Active timer ownership, input priority, qualification and durable shutdown."""
 
 import asyncio
+import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,15 +18,20 @@ from test_conversation_loop import create
 from test_conversation_tui import until
 
 from mos_eisley.conversation import ConversationController
+from mos_eisley.conversation_branch import BranchBudget
 from mos_eisley.conversation_cli import demo_cassette, terminal
+from mos_eisley.conversation_context_preview import preview_context
 from mos_eisley.conversation_input import ConversationInput
 from mos_eisley.conversation_loop_commands import loop_command, recorded_loop_observer
 from mos_eisley.conversation_schedule import InertScheduleSpec, ScheduleBinding
 from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
+from mos_eisley.conversation_state import ConversationEntry, ConversationState
 from mos_eisley.conversation_tui import ConversationTUI
 from mos_eisley.core.ports import ModelClient
+from mos_eisley.providers.agent_recorded import AgentCassette, AgentExchange
 from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
 from mos_eisley.run.conversation_store import ConversationStore
+from mos_eisley.task_state import ResourceLedger
 
 
 class TimerTests(IsolatedAsyncioTestCase):
@@ -276,7 +283,7 @@ class TimerTests(IsolatedAsyncioTestCase):
                         await until(lambda chat=chat: chat.schedule_timer_active)
                         clock[0] = 110
                         await until(lambda client=client: len(client.requests) == 1)
-                        await until(lambda chat=chat: not chat.schedule_boundary_busy)
+                        await until(lambda chat=chat: chat.schedule_timer_idle)
                         if steering:
                             self.assertEqual(chat.state.entries[0].status, "cancelled")
                             self.assertEqual(
@@ -296,6 +303,450 @@ class TimerTests(IsolatedAsyncioTestCase):
                         await asyncio.wait_for(task, 3)
                     self.assertFalse(chat.schedule_timer_active)
 
+    async def test_dynamic_cadence_is_bounded_persisted_and_driven(self) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(
+                Path(directory),
+                cadence="dynamic",
+                minimum_interval_seconds=5,
+                maximum_interval_seconds=20,
+            )
+            timers = self.driver(chat)
+            chat.set_schedule_cadence(
+                "watch", 15, expected_revision=chat.state.revision
+            )
+            self.assertEqual(chat.state.schedules[0].state.cadence_history, (10, 15))
+            before = chat.state
+            with self.assertRaises(ValueError):
+                chat.set_schedule_cadence(
+                    "watch", 21, expected_revision=chat.state.revision
+                )
+            with self.assertRaises(ValueError):
+                chat.set_schedule_cadence("watch", 5, expected_revision=0)
+            self.assertEqual(chat.state, before)
+            clock[0] = 110
+            self.assertEqual(timers.tick(), ())
+            clock[0] = 115
+            self.assertEqual(len(timers.tick()), 1)
+            self.assertEqual(chat.state.schedules[0].state.next_due_at, 130)
+
+    async def test_due_timer_yields_to_cancel_stop_and_eof(self) -> None:
+        for control in ("/loop cancel watch", "/stop", None):
+            with TemporaryDirectory() as directory:
+                chat, clock = self.fresh(Path(directory))
+                clock[0] = 110
+                queue: asyncio.Queue[ConversationInput] = asyncio.Queue()
+                queue.put_nowait(control)
+                if control is not None:
+                    queue.put_nowait("/quit")
+                await terminal(chat, queue, lambda _: None)
+                self.assertEqual(chat.state.entries, ())
+                self.assertEqual(chat.state.schedules[0].state.fires, ())
+                self.assertFalse(chat.schedule_timer_active)
+
+    async def test_composer_defers_timers_and_discard_reopens_safe_boundary(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            queue: asyncio.Queue[ConversationInput] = asyncio.Queue()
+            events: list[dict[str, object]] = []
+            client = CapturingClient()
+            self.use_client(chat, client)
+            with patch.object(ActiveSessionTimers, "poll_seconds", 0.01):
+                task = asyncio.create_task(terminal(chat, queue, events.append))
+                try:
+                    queue.put_nowait("/compose")
+                    await until(
+                        lambda: any(e["type"] == "composer.started" for e in events)
+                    )
+                    clock[0] = 200
+                    await asyncio.sleep(0.04)
+                    self.assertEqual(chat.state.entries, ())
+                    queue.put_nowait("/discard")
+                    await until(lambda: len(client.requests) == 1)
+                finally:
+                    queue.put_nowait("/quit")
+                    await asyncio.wait_for(task, 3)
+                self.assertFalse(chat.schedule_timer_active)
+
+    async def test_pre_dispatch_failure_retires_intent_without_retry(self) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            queue: asyncio.Queue[ConversationInput] = asyncio.Queue()
+            client = CapturingClient()
+            self.use_client(chat, client)
+
+            def unavailable() -> None:
+                raise ValueError("trusted memory validation failed")
+
+            chat.validate_memory = unavailable
+            with patch.object(ActiveSessionTimers, "poll_seconds", 0.01):
+                task = asyncio.create_task(terminal(chat, queue, lambda _: None))
+                try:
+                    await until(lambda: chat.schedule_timer_active)
+                    clock[0] = 110
+                    await until(
+                        lambda: (
+                            bool(chat.state.entries)
+                            and chat.state.entries[0].status == "cancelled"
+                        )
+                    )
+                    record = chat.state.schedules[0].state
+                    self.assertEqual(record.status, "paused")
+                    self.assertEqual(record.fires[0].state, "skipped")
+                    self.assertEqual(record.ledger.attempts, 1)
+                    clock[0] = 200
+                    await asyncio.sleep(0.04)
+                    self.assertEqual(len(chat.state.schedules[0].state.fires), 1)
+                    self.assertEqual(client.requests, [])
+                finally:
+                    queue.put_nowait("/quit")
+                    await asyncio.wait_for(task, 3)
+
+    async def test_lost_admission_ack_is_fatal_and_restart_skips_without_replay(
+        self,
+    ) -> None:
+        for kind in (ConversationStore, SQLiteConversationStore):
+            with TemporaryDirectory() as directory:
+                root = Path(directory)
+                cassette = demo_cassette()
+                clock = [100.0]
+                chat = ConversationController(
+                    ConversationController.fresh(root, cassette),
+                    cassette,
+                    lambda _: None,
+                    goal_clock=lambda clock=clock: clock[0],
+                )
+                with kind(root / "sessions", chat.state.session_id, root) as store:
+                    store.save(chat.state)
+                    chat.save = store.save
+                    chat.schedule_observer = recorded_loop_observer(chat)
+                    chat.create_goal(definition())
+                    loop_command(chat, create(), lambda _: None)
+                    driver = self.driver(chat)
+
+                    def lost(
+                        state: ConversationState,
+                        store: ConversationStore | SQLiteConversationStore = store,
+                    ) -> None:
+                        store.save(state)
+                        raise OSError("commit succeeded but acknowledgement was lost")
+
+                    chat.save = lost
+                    clock[0] = 110
+                    with self.assertRaises(OSError):
+                        driver.tick()
+                    driver.close()
+                    stored = store.load()
+                    self.assertEqual(stored.entries[0].status, "queued")
+                    ledger = stored.schedules[0].state.ledger
+                    resumed = ConversationController(
+                        stored,
+                        cassette,
+                        store.save,
+                        goal_clock=lambda clock=clock: clock[0],
+                    )
+                    resumed.schedule_observer = recorded_loop_observer(resumed)
+                    other = self.driver(resumed)
+                    self.assertEqual(other.tick(), ())
+                    self.assertEqual(resumed.state.entries[0].status, "cancelled")
+                    self.assertEqual(resumed.state.schedules[0].state.ledger, ledger)
+                    other.close()
+
+    async def test_real_cli_timer_consumes_exact_recording_on_both_backends(
+        self,
+    ) -> None:
+        for backend, kind in (
+            ("snapshot", ConversationStore),
+            ("sqlite", SQLiteConversationStore),
+        ):
+            with TemporaryDirectory() as directory:
+                root = Path(directory)
+                original = demo_cassette()
+                chat = ConversationController(
+                    ConversationController.fresh(root, original),
+                    original,
+                    lambda _: None,
+                )
+                session_id = chat.state.session_id
+                with kind(root / "sessions", session_id, root) as store:
+                    store.save(chat.state)
+                    chat.save = store.save
+                    goal = chat.create_goal(definition())
+                    candidate = chat.state.model_copy(
+                        update={
+                            "entries": (
+                                ConversationEntry(
+                                    text="Inspect committed CI results",
+                                    goal_id=goal.goal_id,
+                                    goal_definition_sha256=goal.definition.sha256,
+                                    interaction_mode=chat.state.interaction_mode,
+                                ),
+                            )
+                        }
+                    )
+                    cassette = AgentCassette(
+                        exchanges=(
+                            AgentExchange(
+                                request_sha256=preview_context(
+                                    candidate
+                                ).request.sha256,
+                                response=original.exchanges[0].response,
+                            ),
+                        )
+                    )
+                    chat.refresh_memory(None, cassette, disabled=True)
+                    chat.schedule_observer = recorded_loop_observer(chat)
+                    self.assertEqual(
+                        loop_command(
+                            chat,
+                            create(
+                                interval_seconds=1,
+                                expires_in_seconds=30,
+                                maximum_fires=1,
+                            ),
+                            lambda _: None,
+                        ),
+                        "accepted",
+                    )
+                process = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    "-m",
+                    "mos_eisley.cli",
+                    "resume",
+                    session_id,
+                    "-C",
+                    str(root),
+                    "--storage",
+                    str(root / "sessions"),
+                    "--storage-backend",
+                    backend,
+                    "--no-memory",
+                    "--json",
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                assert process.stdin is not None and process.stdout is not None
+                try:
+                    process.stdin.write(b"/loop resume watch\n")
+                    await process.stdin.drain()
+                    events: list[dict[str, object]] = []
+                    async with asyncio.timeout(10):
+                        while True:
+                            raw = await process.stdout.readline()
+                            self.assertTrue(raw, events)
+                            event = json.loads(raw)
+                            events.append(event)
+                            if event["type"] == "message.completed":
+                                break
+                            self.assertNotIn(
+                                event["type"], {"conversation.error", "message.failed"}
+                            )
+                    self.assertTrue(any(e["type"] == "message.running" for e in events))
+                    process.stdin.write(b"/quit\n")
+                    await process.stdin.drain()
+                    _, errors = await asyncio.wait_for(process.communicate(), 3)
+                    self.assertEqual(process.returncode, 0, errors.decode())
+                    with kind(root / "sessions", session_id, root) as store:
+                        state = store.load()
+                        self.assertEqual(state.exchanges_consumed, 1)
+                        self.assertEqual(
+                            state.schedules[0].state.fires[0].state, "completed"
+                        )
+                        self.assertEqual(state.schedules[0].state.status, "exhausted")
+                finally:
+                    if process.returncode is None:
+                        process.kill()
+                        await process.communicate()
+
+    async def test_replacement_owner_cannot_open_until_shutdown_is_persisted(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            timers = self.driver(chat)
+            clock[0] = 110
+            timers.tick()
+            replacement = ActiveSessionTimers(chat, lambda _: None)
+            observed: list[str] = []
+
+            def save(state: ConversationState) -> None:
+                with self.assertRaises(ValueError):
+                    replacement.open()
+                observed.append(state.schedules[0].state.status)
+
+            chat.save = save
+            timers.close()
+            self.assertEqual(observed, ["paused"])
+            replacement.open()
+            self.assertEqual(replacement.tick(), ())
+            replacement.close()
+
+    async def test_running_timer_never_overlaps_or_replays_uncertain_work(self) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            timers = self.driver(chat)
+            clock[0] = 110
+            timers.tick()
+            client = WaitingClient()
+            task = asyncio.create_task(chat.step(client))
+            await client.started.wait()
+            clock[0] = 300
+            self.assertEqual(timers.tick(), ())
+            self.assertEqual(len(chat.state.schedules[0].state.fires), 1)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            exposure = chat.state.schedules[0].state.ledger
+            self.assertGreater(exposure.uncertain_effects, 0)
+            self.assertEqual(timers.tick(), ())
+            self.assertIsNone(timers.delay())
+            resumed = ConversationController(
+                chat.state, chat.cassette, lambda _: None, goal_clock=lambda: clock[0]
+            )
+            resumed.schedule_observer = recorded_loop_observer(resumed)
+            other = self.driver(resumed)
+            self.assertEqual(other.tick(), ())
+            self.assertEqual(resumed.state.schedules[0].state.ledger, exposure)
+            self.assertEqual(
+                loop_command(resumed, "/loop resume watch", lambda _: None), "rejected"
+            )
+            self.assertEqual(resumed.state.schedules[0].state.ledger, exposure)
+
+    async def test_skipped_intents_cannot_reset_shared_goal_budget(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            clock = [100.0]
+            cassette = demo_cassette()
+            chat = ConversationController(
+                ConversationController.fresh(root, cassette),
+                cassette,
+                lambda _: None,
+                goal_clock=lambda: clock[0],
+            )
+            chat.schedule_observer = recorded_loop_observer(chat)
+            goal_definition = definition()
+            chat.create_goal(
+                goal_definition.model_copy(
+                    update={
+                        "ceiling": goal_definition.ceiling.model_copy(
+                            update={"attempts": 1}
+                        ),
+                    }
+                )
+            )
+            loop_command(chat, create(maximum_fires=1), lambda _: None)
+            timers = self.driver(chat)
+            clock[0] = 110
+            self.assertEqual(len(timers.tick()), 1)
+            loop_command(chat, "/loop cancel watch", lambda _: None)
+            self.assertEqual(
+                loop_command(
+                    chat,
+                    create(
+                        schedule_id="other",
+                        maximum_fires=1,
+                    ),
+                    lambda _: None,
+                ),
+                "accepted",
+            )
+            clock[0] = 120
+            self.assertEqual(timers.tick(), ())
+            self.assertEqual(chat.state.schedules[1].state.status, "exhausted")
+            self.assertEqual(len(chat.state.entries), 1)
+            chat.submit("User steering also shares the retained ceiling")
+            client = CapturingClient()
+            with self.assertRaises(ValueError):
+                await chat.step(client)
+            self.assertEqual(client.requests, [])
+
+    async def test_unqualified_terminal_inspection_does_not_change_schedule_state(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            chat.schedule_observer = None
+            clock[0] = 110
+            state = chat.state
+            queue: asyncio.Queue[ConversationInput] = asyncio.Queue()
+            queue.put_nowait("/loop status")
+            queue.put_nowait(None)
+            await terminal(chat, queue, lambda _: None)
+            self.assertEqual(chat.state, state)
+            self.assertFalse(chat.schedule_timer_active)
+
+    async def test_resume_waits_new_interval_without_replaying_pending_timer(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory))
+            timers = self.driver(chat)
+            chat.submit("User has priority over due timer")
+            clock[0] = 200
+            self.assertIsNone(
+                chat.admit_schedule(
+                    "watch",
+                    expected_revision=chat.state.revision,
+                )
+            )
+            self.assertTrue(chat.state.schedules[0].state.pending_timer)
+            chat.cancel_queued()
+            timers.close()
+            other = self.driver(chat)
+            self.assertEqual(
+                loop_command(chat, "/loop resume watch", lambda _: None), "accepted"
+            )
+            self.assertFalse(chat.state.schedules[0].state.pending_timer)
+            self.assertEqual(other.tick(), ())
+            clock[0] = 210
+            self.assertEqual(len(other.tick()), 1)
+
+    async def test_skipped_intents_also_consume_inherited_fork_allowance(self) -> None:
+        with TemporaryDirectory() as directory:
+            chat, clock = self.fresh(Path(directory), maximum_fires=1)
+            goal = chat.current_goal
+            assert goal is not None
+            chat.state = chat.state.model_copy(
+                update={
+                    "branch_budget": BranchBudget(
+                        ceiling=goal.definition.ceiling.model_copy(
+                            update={"attempts": 1}
+                        ),
+                        ledger=ResourceLedger(),
+                    )
+                }
+            )
+            timers = self.driver(chat)
+            clock[0] = 110
+            self.assertEqual(len(timers.tick()), 1)
+            loop_command(chat, "/loop cancel watch", lambda _: None)
+            self.assertEqual(
+                loop_command(
+                    chat,
+                    create(
+                        schedule_id="other",
+                        maximum_fires=1,
+                    ),
+                    lambda _: None,
+                ),
+                "accepted",
+            )
+            clock[0] = 120
+            self.assertEqual(timers.tick(), ())
+            self.assertEqual(len(chat.state.entries), 1)
+            events: list[dict[str, object]] = []
+            loop_command(chat, "/loop --json", events.append)
+            report = json.loads(str(events[-1]["text"]))
+            self.assertEqual(report["schedules"][0]["branch_remaining"]["attempts"], 0)
+            chat.submit("User shares the inherited fork allowance")
+            client = CapturingClient()
+            with self.assertRaises(ValueError):
+                await chat.step(client)
+            self.assertEqual(client.requests, [])
+
     async def test_tui_timer_dispatch_preserves_unsent_editor(self) -> None:
         with TemporaryDirectory() as directory, create_pipe_input() as pipe:
             chat, clock = self.fresh(Path(directory))
@@ -312,8 +763,7 @@ class TimerTests(IsolatedAsyncioTestCase):
                     clock[0] = 110
                     await until(
                         lambda client=client: (
-                            len(client.requests) == 1
-                            and not chat.schedule_boundary_busy
+                            len(client.requests) == 1 and chat.schedule_timer_idle
                         )
                     )
                     self.assertEqual(ui.editor.text, "Unsent steering draft")

@@ -9,7 +9,12 @@ from __future__ import annotations
 import json
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import (
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.task_state import ResourceCeiling, ResourceLedger
@@ -105,13 +110,25 @@ class GoalJob(Contract):
     required: bool = True
     state: Literal["running", "passed", "failed", "stuck", "uncertain"] = "running"
     result_sha256: Digest | None = None
+    committed_revision: Annotated[int, Field(ge=1)] | None = None
     checkins: Annotated[int, Field(ge=0, le=16)] = 0
     max_checkins: Annotated[int, Field(ge=1, le=16)] = 3
     checkin_seconds: Annotated[int, Field(ge=1, le=3600)] = 60
     next_checkin_at: Annotated[float, Field(ge=0)] = 0
 
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        value: dict[str, object] = handler(self)
+        if self.committed_revision is None:
+            value.pop("committed_revision", None)
+        return value
+
     @model_validator(mode="after")
     def verified_result(self) -> Self:
+        if self.committed_revision is not None and (
+            self.state not in {"passed", "failed"} or self.result_sha256 is None
+        ):
+            raise ValueError("Commit metadata requires a terminal retained result.")
         if self.state == "passed" and self.result_sha256 is None:
             raise ValueError("A completed job requires a committed result identity.")
         return self
@@ -487,6 +504,10 @@ def apply_job_report(goal: DurableGoal, report: GoalJob, now: float) -> DurableG
         raise ValueError(
             "Result cannot change its registered assignment or check-in policy."
         )
+    if old.committed_revision is not None and (
+        report.result_sha256 != old.result_sha256 or report.state != old.state
+    ):
+        raise ValueError("A committed result cannot be replaced.")
     if old.state == "passed":
         if report.result_sha256 != old.result_sha256:
             raise ValueError("A duplicate operation cannot replace a committed result.")

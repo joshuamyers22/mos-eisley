@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
 
 from prompt_toolkit.input import create_input
 from pydantic import ValidationError
@@ -1003,6 +1004,29 @@ def _input_reader(
     return stop
 
 
+if TYPE_CHECKING:
+    from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
+
+
+class SessionIngressTransport(Protocol):
+    ready: asyncio.Event
+    closed: bool
+
+    async def open(self, owner: ActiveSessionTimers) -> None: ...
+    async def close(self) -> None: ...
+    def drain(self, owner: ActiveSessionTimers, *, busy: bool = False) -> bool: ...
+
+
+def _drain_ingress(
+    transport: SessionIngressTransport | None, owner: ActiveSessionTimers, *, busy: bool
+) -> bool:
+    return transport is not None and transport.drain(owner, busy=busy)
+
+
+async def _wait_ingress(transport: SessionIngressTransport) -> None:
+    await transport.ready.wait()
+
+
 async def terminal(
     controller: RuntimeConversationController,
     queue: ConversationInputQueue,
@@ -1016,8 +1040,12 @@ async def terminal(
     project_location: ProjectLocation | None = None,
     source_attachments: Callable[[], tuple[ReviewDiffAttachment, ...]] | None = None,
     source_snapshot: Callable[[], DiffSnapshot | None] | None = None,
+    ingress_transport: SessionIngressTransport | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
+
+    def ingress() -> SessionIngressTransport | None:
+        return ingress_transport
 
     def next_input() -> asyncio.Task[ConversationInput]:
         return asyncio.create_task(queue.get())
@@ -1436,13 +1464,17 @@ async def terminal(
     diff_submission: ConversationSubmission | None = None
     eof = False
     timer_wait: asyncio.Task[None] | None = None
+    ingress_wait: asyncio.Task[None] | None = None
     timers = ActiveSessionTimers(controller, emit)
     try:
         timers.open()
+        if ingress_transport is not None:
+            await ingress_transport.open(timers)
         while True:
             # Let the input reader expose already waiting steering before timers
             # admit or dispatch. An admission gets another input boundary below.
             await asyncio.sleep(0)
+            transport = ingress()
             current_input: asyncio.Task[ConversationInput] | None = incoming
             input_ready: bool = current_input is not None and current_input.done()
             timer_busy = (
@@ -1452,6 +1484,9 @@ async def terminal(
                 or composer.active
                 or eof
             )
+            if not input_ready and _drain_ingress(transport, timers, busy=timer_busy):
+                render()
+                continue
             if not input_ready and timers.tick(busy=timer_busy):
                 enabled = True
                 render()
@@ -1486,6 +1521,14 @@ async def terminal(
                 pending.add(diff_task)
             if branch_task is not None:
                 pending.add(branch_task)
+            if (
+                transport is not None
+                and not transport.closed
+                and not timer_busy
+                and controller.schedule_timer_idle
+            ):
+                ingress_wait = asyncio.create_task(_wait_ingress(transport))
+                pending.add(ingress_wait)
             delay = timers.delay(busy=timer_busy)
             if delay is not None:
                 timer_wait = asyncio.create_task(asyncio.sleep(delay))
@@ -1498,6 +1541,11 @@ async def terminal(
                 with suppress(asyncio.CancelledError):
                     await timer_wait
                 timer_wait = None
+            if ingress_wait is not None:
+                ingress_wait.cancel()
+                with suppress(asyncio.CancelledError):
+                    await ingress_wait
+                ingress_wait = None
             if incoming is not None and incoming.done():
                 done.add(incoming)
             if branch_task in done:
@@ -1542,6 +1590,9 @@ async def terminal(
                 try:
                     active.result()
                 except (AgentFailure, ValueError) as exc:
+                    if controller.persistence_broken:
+                        raise
+                    timers.pause("Owner turn failed; explicit loop resume required.")
                     enabled = False
                     message = "Recorded request failed; continuation is paused."
                     if isinstance(exc, MemoryChangedError):
@@ -1724,6 +1775,8 @@ async def terminal(
                     incoming = next_input()
                     continue
                 if line is None:
+                    if transport is not None:
+                        await transport.close()
                     timers.close()
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
@@ -1760,6 +1813,7 @@ async def terminal(
                             await diff_task
                         diff_task = None
                     if diff_submission is not None:
+                        assert isinstance(diff_submission, ConversationSubmission)
                         diff_submission.accepted.cancel()
                         diff_submission = None
                     discard_draft("Unsent draft discarded.")
@@ -2065,7 +2119,17 @@ async def terminal(
         discard_draft("Session closed; unsent draft discarded.")
         if branch_submission is not None:
             branch_submission.accepted.cancel()
-        for task in (timer_wait, active, incoming, diff_task, branch_task):
+        transport = ingress()
+        if transport is not None:
+            await transport.close()
+        for task in (
+            timer_wait,
+            ingress_wait,
+            active,
+            incoming,
+            diff_task,
+            branch_task,
+        ):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -2092,6 +2156,7 @@ async def _run_terminal(
 
     def interrupt() -> None:
         nonlocal stop
+        controller.schedule_reads.cancel()
         # Drop the reader's pending paste as well as the queued input on Ctrl-C.
         stop()
         stop = _input_reader(sys.stdin.fileno(), queue)

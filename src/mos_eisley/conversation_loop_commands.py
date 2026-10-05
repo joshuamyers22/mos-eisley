@@ -9,6 +9,10 @@ from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_branch_controller import observe_branch_workspace
 from mos_eisley.conversation_goal import merge_ledger
 from mos_eisley.conversation_schedule import InertScheduleSpec, ScheduleBinding
+from mos_eisley.conversation_schedule_controller import (
+    scheduled_branch_exposure,
+    scheduled_goal_exposure,
+)
 from mos_eisley.core.models import (
     Contract,
     Digest,
@@ -78,7 +82,11 @@ def recorded_loop_observer(
 
     def observe(spec: InertScheduleSpec) -> ScheduleBinding:
         goal = controller.current_goal
-        if goal is None or controller.task_scope is not None:
+        if (
+            goal is None
+            or controller.task_scope is not None
+            or controller.state.mode != "recorded_conversation"
+        ):
             raise ValueError(
                 "Recorded loops require a selected goal and recorded scope."
             )
@@ -140,7 +148,7 @@ def _create(
             review_rounds=0,
         ),
     )
-    binding = controller.schedule_observer(spec)
+    binding = controller.read_schedule_binding(spec)
     spec = spec.model_copy(update={"binding": binding})
     controller.add_schedule(spec, expected_revision=revision)
     return spec.schedule_id
@@ -172,7 +180,9 @@ def loop_status(
         state, spec = record.state, record.state.spec
         ledger = state.ledger
         goal = next(g for g in snapshot.goals if g.goal_id == spec.binding.goal_id)
-        aggregate = merge_ledger(state.aggregate_exposure, goal.ledger)
+        aggregate = merge_ledger(
+            state.aggregate_exposure, scheduled_goal_exposure(snapshot, goal.goal_id)
+        )
         remaining = {
             key: max(0, getattr(spec.ceiling, key) - getattr(ledger, key))
             for key in ResourceCeiling.model_fields
@@ -191,6 +201,17 @@ def loop_status(
             for b, f in zip(record.queue_bindings, state.fires, strict=True)
             if f.state in {"reserved", "uncertain"}
         ]
+        branch_remaining = None
+        if snapshot.branch_budget is not None:
+            branch_exposure = scheduled_branch_exposure(snapshot)
+            branch_remaining = {
+                key: max(
+                    0,
+                    getattr(snapshot.branch_budget.ceiling, key)
+                    - getattr(branch_exposure, key),
+                )
+                for key in ResourceCeiling.model_fields
+            }
         expiry_remaining = max(0.0, spec.expires_at - now)
         items.append(
             {
@@ -201,6 +222,7 @@ def loop_status(
                 "expires_in_seconds": expiry_remaining,
                 "unresolved": unresolved,
                 "goal_status": goal.status,
+                "branch_remaining": branch_remaining,
             }
         )
         lines.extend(
@@ -234,6 +256,17 @@ def loop_status(
                 f"{state.pending_events}; reason: {state.reason}",
             )
         )
+        for receipt in state.ingress_receipts:
+            lines.append(
+                f"External source {receipt.source_id}: latest sequence "
+                f"{receipt.sequence}; payload omitted ({receipt.payload_bytes} bytes)."
+            )
+        if branch_remaining is not None:
+            lines.append(
+                f"Fork remaining input {branch_remaining['input_bytes']} bytes; "
+                f"output {branch_remaining['output_bytes']} bytes; "
+                f"attempts {branch_remaining['attempts']}."
+            )
         if not expiry_remaining:
             lines.append("Expired by current clock; dispatch is prohibited.")
         for item in unresolved:
@@ -249,6 +282,7 @@ def loop_status(
             controller.schedule_timer_active
             and controller.schedule_observer is not None
             and controller.task_scope is None
+            and controller.state.mode == "recorded_conversation"
         ),
     }
     if as_json:
@@ -280,9 +314,10 @@ def loop_command(
         selected = None
         as_json = False
         if action == "create" and payload is not None:
-            selected = _create(
-                controller, LoopCreate.model_validate_json(payload), revision
-            )
+            with controller.schedule_reads.operation():
+                selected = _create(
+                    controller, LoopCreate.model_validate_json(payload), revision
+                )
         elif (
             action in {"cancel", "resume"}
             and payload is not None

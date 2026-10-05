@@ -5,7 +5,7 @@
   open PRs and correct errors.
 - Starting main: `5a6be4e`; work is isolated from existing modified checkouts.
 - Scope: PRs #266, #268, #270, #272, #273, #275, #276, #277, #278, #279,
-  #280, #281, #282, #283 and #284.
+  #280, #281, #282, #283, #284 and newly opened #285.
 
 ## Objective and invariants
 
@@ -47,5 +47,9 @@ this user-authorized merge.
 
 ## Verification
 
+Focused workspace-panel, Git-review-panel, timer-driver and attachment persistence
+checks passed. The scheduled-event branch appeared during integration and adds
+its bounded source/ingress transports. Recorded scheduling and branching now
+explicitly refuse a live-chat controller, preserving the draft qualification scope.
 Pending combined source/wheel gate and required CI. Disposable logs live outside
 Git. The final closeout will record actual counts, failures and platform skips.

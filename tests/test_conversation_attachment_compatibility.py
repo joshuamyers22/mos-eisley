@@ -11,7 +11,6 @@ from mos_eisley.conversation import ConversationController, ConversationState
 from mos_eisley.conversation_cli import demo_cassette
 from mos_eisley.conversation_diff import DiffAttachment, attachment_suffix
 from mos_eisley.conversation_diff_attachment import (
-    DiffAttachmentError,
     select_patch_lines,
 )
 from mos_eisley.conversation_source_attachment import attachment_fingerprint
@@ -68,9 +67,16 @@ class AttachmentCompatibilityTests(IsolatedAsyncioTestCase):
             for index, attachment in enumerate((workspace, review)):
                 block = client.requests[index].turns[-1].blocks[0]
                 assert isinstance(block, TextBlock)
-                envelope = json.loads(block.text.rsplit("\n", 1)[-1])
-                record = envelope[0] if isinstance(envelope, list) else envelope
-                self.assertEqual(record["excerpt"], attachment.excerpt)
+                if index == 0:
+                    records: list[dict[str, object]] = json.loads(
+                        block.text.rsplit("\n", 1)[-1]
+                    )
+                    self.assertEqual(records[0]["excerpt"], attachment.excerpt)
+                else:
+                    record: dict[str, object] = json.loads(
+                        block.text.rsplit("\n", 1)[-1]
+                    )
+                    self.assertEqual(record["excerpt"], attachment.excerpt)
 
             legacy = restored.model_dump(mode="json")
             admission = legacy["entries"][1]["request_admission"]
@@ -88,6 +94,6 @@ class AttachmentCompatibilityTests(IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ValueError, "diff attachments"):
                 ConversationState.model_validate_json(json.dumps(legacy))
 
-            with self.assertRaises(DiffAttachmentError):
+            with self.assertRaisesRegex(ValueError, "separate message"):
                 controller.submit("Mixed sources", diff_attachments=(workspace, review))
             self.assertEqual(len(controller.state.entries), 2)

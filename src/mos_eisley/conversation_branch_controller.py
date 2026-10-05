@@ -421,7 +421,7 @@ class ConversationBranchController(ConversationGoalController[StateT]):
             raise ValueError(
                 "Fork publication requires a safe boundary and owner-scoped store."
             )
-        if self.task_scope is not None:
+        if self.task_scope is not None or self.state.mode != "recorded_conversation":
             raise ValueError(
                 "Task-controller forks require qualified lifecycle integration."
             )
@@ -594,7 +594,7 @@ class ConversationBranchController(ConversationGoalController[StateT]):
             or len(question) > 8000
         ):
             raise ValueError("Side question is empty, excessive or already running.")
-        if self.task_scope is not None:
+        if self.task_scope is not None or self.state.mode != "recorded_conversation":
             raise ValueError(
                 "Task-controller side calls require qualified aggregate admission."
             )

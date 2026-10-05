@@ -92,6 +92,11 @@ from mos_eisley.conversation_schedule import (
     LocalWakeupEvent,
     ScheduleBinding,
 )
+from mos_eisley.conversation_schedule_controller import (
+    scheduled_branch_exposure,
+    scheduled_goal_exposure,
+)
+from mos_eisley.conversation_schedule_handlers import ScheduleReads
 from mos_eisley.conversation_source_attachment import (
     SourceAttachment,
     attachment_fingerprint,
@@ -310,6 +315,7 @@ class ConversationController(ConversationCodingController[StateT]):
         coding_integration_authorizer: IntegrationAuthorizer | None = None,
         schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None = None,
         schedule_event_validator: Callable[[LocalWakeupEvent], None] | None = None,
+        schedule_handler_timeout: float = 2.0,
         branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
         goal_evaluator: GoalEvaluator | None = None,
         goal_evaluator_timeout: float = 2.0,
@@ -436,6 +442,8 @@ class ConversationController(ConversationCodingController[StateT]):
             or (state.local_children and child_inspection is None)
             else child_inspection
         )
+        self.schedule_reads = ScheduleReads(schedule_handler_timeout)
+        self.schedule_sources = {}
         self.schedule_observer = schedule_observer
         self.schedule_event_validator = (
             self.validate_local_child_event
@@ -1382,7 +1390,13 @@ class ConversationController(ConversationCodingController[StateT]):
                 from mos_eisley.conversation_branch_controller import reserve
 
                 reserve(
-                    self.state.branch_budget,
+                    self.state.branch_budget.model_copy(
+                        update={
+                            "ledger": scheduled_branch_exposure(
+                                self.state, exclude_position=index
+                            )
+                        }
+                    ),
                     BranchReservation(
                         operation_id=f"author-{index}",
                         input_bytes=request_size,
@@ -1391,7 +1405,13 @@ class ConversationController(ConversationCodingController[StateT]):
                 )
             goal = self.goal_for_entry(entry)
             if goal is not None and exhausted(
-                goal,
+                goal.model_copy(
+                    update={
+                        "ledger": scheduled_goal_exposure(
+                            self.state, goal.goal_id, exclude_position=index
+                        )
+                    }
+                ),
                 self.goal_clock(),
                 input_bytes=request_size,
                 output_bytes=budget.output_reserve,

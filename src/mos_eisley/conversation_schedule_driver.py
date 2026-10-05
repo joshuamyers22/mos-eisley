@@ -30,7 +30,13 @@ class ActiveSessionTimers:
 
     @property
     def qualified(self) -> bool:
-        return self.opened and self.controller.schedule_timer_ready(self)
+        return (
+            self.opened
+            and self.controller.owns_schedule_timers(self)
+            and self.controller.schedule_observer is not None
+            and self.controller.task_scope is None
+            and self.controller.state.mode == "recorded_conversation"
+        )
 
     def delay(self, *, busy: bool = False) -> float | None:
         """Recheck wall-clock deadlines at most one second apart using async sleep."""
@@ -39,11 +45,17 @@ class ActiveSessionTimers:
         ]
         if not self.qualified or not records:
             return None
-        if busy or self.controller.schedule_boundary_busy:
+        if busy or not self.controller.schedule_timer_idle:
             return self.poll_seconds
         now = self.controller.goal_clock()
         if not math.isfinite(now) or now < 0:
             return 0
+        goal = self.controller.current_goal
+        if goal is not None and goal.status == "waiting":
+            return min(
+                self.poll_seconds,
+                max(0, min(s.state.spec.expires_at for s in records) - now),
+            )
         return min(
             self.poll_seconds,
             max(
@@ -89,7 +101,10 @@ class ActiveSessionTimers:
             goal = chat.current_goal
             if (
                 goal is None
-                or goal.status != "working"
+                or goal.status
+                not in (
+                    {"working", "waiting"} if spec.local_source_pins else {"working"}
+                )
                 or goal.goal_id != spec.binding.goal_id
                 or goal.definition.sha256 != spec.binding.goal_definition_sha256
             ):
@@ -101,9 +116,11 @@ class ActiveSessionTimers:
                 continue
             if busy:
                 continue
-            safe = not chat.schedule_boundary_busy
+            safe = chat.schedule_timer_idle
+            if not safe:
+                continue
             event = None
-            if safe and chat.local_child_executor is not None:
+            if not spec.local_source_pins and chat.local_child_executor is not None:
                 for source in spec.local_sources:
                     if any(
                         c.source_id == source and c.sequence >= 1 for c in state.cursors
@@ -114,6 +131,31 @@ class ActiveSessionTimers:
                     except (ValueError, OSError):
                         continue
                     break
+            if spec.local_source_pins and now < spec.expires_at:
+                try:
+                    changed = (
+                        chat.poll_schedule_sources(
+                            spec.schedule_id, expected_revision=chat.state.revision
+                        )
+                        or changed
+                    )
+                    record = next(
+                        s
+                        for s in chat.state.schedules
+                        if s.state.spec.schedule_id == spec.schedule_id
+                    )
+                    state = record.state
+                except (ValueError, OSError):
+                    if chat.persistence_broken:
+                        raise
+                    self._pause(
+                        spec.schedule_id,
+                        "Local handler rejected; check scope before explicit resume.",
+                    )
+                    changed = True
+                    continue
+            if goal.status == "waiting" and now < spec.expires_at:
+                continue
             if not (
                 event is not None
                 or now >= spec.expires_at
@@ -126,9 +168,7 @@ class ActiveSessionTimers:
                 continue
             try:
                 operation = chat.admit_schedule(
-                    spec.schedule_id,
-                    expected_revision=chat.state.revision,
-                    event=event,
+                    spec.schedule_id, expected_revision=chat.state.revision, event=event
                 )
             except (ValueError, OSError):
                 if chat.persistence_broken:
@@ -158,11 +198,21 @@ class ActiveSessionTimers:
                 )
         return ()
 
+    def pause(self, reason: str) -> None:
+        """A failed owner turn stops future ticks without refund or implicit retry."""
+        if (
+            not self.opened
+            or not self.controller.owns_schedule_timers(self)
+            or self.controller.persistence_broken
+        ):
+            return
+        for record in self.controller.state.schedules:
+            if record.state.status == "active":
+                self._pause(record.state.spec.schedule_id, reason)
+
     def close(self) -> None:
         """Pause clean schedules once; never replay persisted uncertainty."""
         if not self.opened:
             return
-        try:
-            self.controller.release_schedule_timers(self)
-        finally:
-            self.opened = False
+        self.opened = False
+        self.controller.release_schedule_timers(self)

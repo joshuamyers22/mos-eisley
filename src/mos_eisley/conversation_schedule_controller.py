@@ -13,6 +13,7 @@ from mos_eisley.conversation_schedule import (
     ScheduleQueueBinding,
     StoredSchedule,
     WakeupGate,
+    change_cadence,
     complete_wakeup,
     create_inert_schedule,
     observe_local_event,
@@ -22,16 +23,77 @@ from mos_eisley.conversation_schedule import (
     resume_schedule,
     skip_wakeup,
 )
+from mos_eisley.conversation_schedule_handlers import ScheduleReads
+from mos_eisley.conversation_schedule_ingress import (
+    MAX_PACKET_BYTES,
+    ExternalSourceAuthorization,
+    InertExternalIngress,
+    charge_ingress,
+)
+from mos_eisley.conversation_schedule_sources import (
+    LocalResultAuthorization,
+    LocalResultBatch,
+    LocalResultSource,
+)
 from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     ConversationEntry,
+    RuntimeConversationState,
     validate_runtime_state,
 )
-from mos_eisley.core.models import digest
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.task_state import ResourceCeiling, ResourceLedger
 
 
+def _with_schedule_holds(
+    state: RuntimeConversationState,
+    ledger: ResourceLedger,
+    *,
+    goal_id: str | None = None,
+    exclude_position: int | None = None,
+) -> ResourceLedger:
+    totals = {key: getattr(ledger, key) for key in ResourceLedger.model_fields}
+    for record in state.schedules:
+        if goal_id is not None and record.state.spec.binding.goal_id != goal_id:
+            continue
+        for fire, link in zip(record.state.fires, record.queue_bindings, strict=True):
+            if link.message_position == exclude_position:
+                continue
+            if fire.state == "skipped" or (
+                fire.state == "reserved"
+                and state.entries[link.message_position].status == "queued"
+            ):
+                for key in totals:
+                    totals[key] += getattr(fire.reserved, key)
+    return ResourceLedger.model_validate(totals)
+
+
+def scheduled_goal_exposure(
+    state: RuntimeConversationState,
+    goal_id: str,
+    *,
+    exclude_position: int | None = None,
+) -> ResourceLedger:
+    """Add known undispatched holds which never entered the goal's author ledger."""
+    goal = next(g for g in state.goals if g.goal_id == goal_id)
+    return _with_schedule_holds(
+        state, goal.ledger, goal_id=goal_id, exclude_position=exclude_position
+    )
+
+
+def scheduled_branch_exposure(
+    state: RuntimeConversationState, *, exclude_position: int | None = None
+) -> ResourceLedger:
+    if state.branch_budget is None:
+        raise ValueError("No branch allowance is retained.")
+    return _with_schedule_holds(
+        state, state.branch_budget.ledger, exclude_position=exclude_position
+    )
+
+
 class ConversationScheduleController(ConversationBranchController[StateT]):
+    schedule_reads: ScheduleReads
+    schedule_sources: dict[tuple[str, str], LocalResultSource]
     schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None
     schedule_event_validator: Callable[[LocalWakeupEvent], None] | None
     _schedule_timer_owner: object | None
@@ -39,42 +101,31 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
     _schedule_lock: RLock
     pending_limits: PendingTextLimits | None
 
-    @property
-    def schedule_boundary_busy(self) -> bool:
-        goal = self.current_goal
-        return (
-            self._busy
-            or self._side_busy
-            or any(c.state == "running" for c in self.state.local_children)
-            or any(e.status in {"queued", "running"} for e in self.state.entries)
-            or (goal is not None and bool(goal.reservations or goal.evaluating_sha256))
-        )
-
     def claim_schedule_timers(self, owner: object) -> None:
+        """One terminal owns timer wakeups; this claim grants no live execution."""
         with self._schedule_lock:
             if self._schedule_timer_owner is not None:
                 raise ValueError("This controller already has an active timer owner.")
             self._schedule_timer_owner = owner
             self.schedule_timer_active = (
-                self.schedule_observer is not None and self.task_scope is None
+                self.schedule_observer is not None
+                and self.task_scope is None
+                and self.state.mode == "recorded_conversation"
             )
 
-    def schedule_timer_ready(self, owner: object) -> bool:
-        return (
-            self._schedule_timer_owner is owner
-            and self.schedule_timer_active
-            and self.schedule_observer is not None
-            and self.task_scope is None
-        )
+    def owns_schedule_timers(self, owner: object) -> bool:
+        return self._schedule_timer_owner is owner and self.schedule_timer_active
+
+    @property
+    def schedule_boundary_busy(self) -> bool:
+        return not self.schedule_timer_idle
 
     def suspend_schedule_timers(self, owner: object) -> None:
         with self._schedule_lock:
-            if (
-                self._schedule_timer_owner is not owner
-                or not self.schedule_timer_active
-            ):
+            if not self.owns_schedule_timers(owner):
                 return
             self.schedule_timer_active = False
+            self.schedule_reads.cancel()
             if self.persistence_broken:
                 return
             for record in self.state.schedules:
@@ -82,25 +133,226 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     self.pause_schedule(
                         record.state.spec.schedule_id,
                         expected_revision=self.state.revision,
-                        reason=("Timer host changed; explicit resume required."),
+                        reason="Timer host changed; explicit resume required.",
                     )
 
-    def release_schedule_timers(self, owner: object) -> None:
+    def release_schedule_timers(self, owner: object) -> bool:
+        """Pause under the ownership lock before permitting a replacement driver."""
         with self._schedule_lock:
             if self._schedule_timer_owner is not owner:
-                return
+                return False
+            driving = self.schedule_timer_active
+            self.schedule_timer_active = False
+            self.schedule_reads.cancel()
             try:
-                if not self.persistence_broken:
+                if driving and not self._broken:
                     for record in self.state.schedules:
                         if record.state.status == "active":
                             self.pause_schedule(
                                 record.state.spec.schedule_id,
                                 expected_revision=self.state.revision,
-                                reason="Session closed; explicit loop resume required.",
+                                reason=(
+                                    "Active session closed; "
+                                    "explicit loop resume required."
+                                ),
                             )
             finally:
                 self._schedule_timer_owner = None
-                self.schedule_timer_active = False
+            return True
+
+    @property
+    def schedule_timer_idle(self) -> bool:
+        goal = self.current_goal
+        return (
+            not self._busy
+            and not self._side_busy
+            and not any(c.state == "running" for c in self.state.local_children)
+            and not any(e.status in {"queued", "running"} for e in self.state.entries)
+            and (goal is None or not goal.reservations and not goal.evaluating_sha256)
+        )
+
+    def read_schedule_binding(self, spec: InertScheduleSpec) -> ScheduleBinding:
+        observer = self.schedule_observer
+        if observer is None:
+            raise ValueError("No trusted schedule observer.")
+
+        def read() -> ScheduleBinding:
+            return ScheduleBinding.model_validate_json(canonical_bytes(observer(spec)))
+
+        return self.schedule_reads.call(read)
+
+    def reset_schedule_handlers(self) -> None:
+        if not self.schedule_timer_idle:
+            raise ValueError("Handler reset requires an idle controller.")
+        self.schedule_reads.reset()
+
+    def _qualified_source(
+        self, record: StoredSchedule, source: LocalResultSource
+    ) -> LocalResultAuthorization | ExternalSourceAuthorization:
+        value = source.authorization
+        if isinstance(value, ExternalSourceAuthorization):
+            auth = ExternalSourceAuthorization.model_validate_json(
+                canonical_bytes(value)
+            )
+            if auth.not_after > record.state.spec.expires_at:
+                raise ValueError("External source cannot enlarge schedule lifetime.")
+        else:
+            auth = LocalResultAuthorization.model_validate_json(canonical_bytes(value))
+        if (
+            auth.binding != record.state.spec.binding
+            or auth.pin not in record.state.spec.local_source_pins
+        ):
+            raise ValueError("Local source differs from its frozen authorization.")
+        return auth
+
+    def register_schedule_source(
+        self,
+        schedule_id: str,
+        source: LocalResultSource,
+        *,
+        expected_revision: int,
+    ) -> None:
+        """Trusted host registration only; restore exact pins after restart."""
+        with self._schedule_lock, self.schedule_reads.operation():
+            record = self._schedule_record(schedule_id)
+            auth = self.schedule_reads.call(
+                lambda: self._qualified_source(record, source)
+            )
+            if (
+                self.state.revision != expected_revision
+                or self._schedule_gate(record).binding != record.state.spec.binding
+            ):
+                raise ValueError("Local source registration scope/revision changed.")
+            self.schedule_reads.check()
+            if self.state.revision != expected_revision:
+                raise ValueError("Local registration raced with parent mutation.")
+            self.schedule_sources[(schedule_id, auth.source_id)] = source
+
+    def receive_external_event(
+        self,
+        schedule_id: str,
+        source_id: str,
+        packet: bytes,
+        *,
+        expected_revision: int,
+        transport_guard: Callable[[], None] | None = None,
+    ) -> bool:
+        """Authenticate and commit omitted metadata through the inert owner ingress."""
+        if not 0 < len(packet) <= MAX_PACKET_BYTES:
+            raise ValueError("External packet rejected.")
+        with self._schedule_lock, self.schedule_reads.operation():
+            if self.state.revision != expected_revision or self._broken:
+                raise ValueError(
+                    "External packet rejected; owner revision unavailable."
+                )
+            record = self._schedule_record(schedule_id)
+            source = self.schedule_sources.get((schedule_id, source_id))
+            if not isinstance(source, InertExternalIngress):
+                raise ValueError("External packet rejected; no qualified source.")
+            source.admit_attempt()
+            if transport_guard is not None:
+                self.schedule_reads.call(transport_guard)
+
+            def authenticate() -> LocalWakeupEvent:
+                self._qualified_source(record, source)
+                event = source.authenticate(packet, now=self.goal_clock())
+                self._qualified_source(record, source)
+                return event
+
+            event = self.schedule_reads.call(authenticate)
+            self.admit_schedule(
+                schedule_id,
+                expected_revision=expected_revision,
+                event=event,
+                external_packet=packet,
+                allow_dispatch=False,
+                commit_guard=transport_guard,
+            )
+            return (
+                self._schedule_record(schedule_id).state.accepted_events
+                > record.state.accepted_events
+            )
+
+    def _validate_schedule_sources(self, record: StoredSchedule) -> None:
+        for pin in record.state.spec.local_source_pins:
+            source = self.schedule_sources.get(
+                (record.state.spec.schedule_id, pin.source_id)
+            )
+            if source is None:
+                raise ValueError("Frozen source requires trusted host registration.")
+            self.schedule_reads.call(
+                lambda source=source: self._qualified_source(record, source)
+            )
+
+    def poll_schedule_sources(
+        self, schedule_id: str, *, expected_revision: int
+    ) -> bool:
+        """One bounded metadata notification per safe owner turn, without dispatch."""
+        with self._schedule_lock, self.schedule_reads.operation():
+            if self.state.revision != expected_revision:
+                raise ValueError("Local source polling revision is stale.")
+            record = self._schedule_record(schedule_id)
+            if (
+                record.state.status != "active"
+                or record.state.accepted_events >= 64
+                or not self.schedule_timer_idle
+            ):
+                return False
+            gate = self._schedule_gate(record)
+            if gate.binding != record.state.spec.binding or gate.goal_status not in {
+                "working",
+                "waiting",
+            }:
+                raise ValueError("Local result polling requires the frozen goal scope.")
+            for pin in record.state.spec.local_source_pins:
+                source = self.schedule_sources.get((schedule_id, pin.source_id))
+                if source is None:
+                    raise ValueError(
+                        "Frozen source requires trusted host registration."
+                    )
+                cursor = next(
+                    c for c in record.state.cursors if c.source_id == pin.source_id
+                )
+
+                def read(
+                    source: LocalResultSource = source,
+                    after_sequence: int = cursor.sequence,
+                ) -> LocalResultBatch:
+                    self._qualified_source(record, source)
+                    raw = canonical_bytes(source.events(after_sequence))
+                    if len(raw) > 32_000:
+                        raise ValueError("Local result batch exceeds its byte limit.")
+                    batch = LocalResultBatch.model_validate_json(raw)
+                    self._qualified_source(record, source)
+                    return batch
+
+                batch = self.schedule_reads.call(read)
+                for event in batch.events:
+                    if (
+                        event.source_id != pin.source_id
+                        or event.kind != pin.kind
+                        or event.binding != record.state.spec.binding
+                    ):
+                        raise ValueError(
+                            "Local result batch escapes its frozen source."
+                        )
+                for event in sorted(batch.events, key=lambda e: e.sequence):
+                    if (
+                        event.sequence <= cursor.sequence
+                        or event.event_id in cursor.recent_ids
+                    ):
+                        continue
+                    self.admit_schedule(
+                        schedule_id,
+                        expected_revision=expected_revision,
+                        event=event,
+                        allow_dispatch=False,
+                    )
+                    return True
+            self.schedule_reads.check()
+            if self.state.revision != expected_revision:
+                raise ValueError("Local result inspection raced with parent mutation.")
+            return False
 
     def _schedule_record(self, schedule_id: str) -> StoredSchedule:
         record = next(
@@ -129,7 +381,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     "live task scheduling remains gated."
                 )
             binding = ScheduleBinding.model_validate_json(
-                self.schedule_observer(spec).model_dump_json()
+                self.read_schedule_binding(spec).model_dump_json()
             )
             if (
                 binding.owner_uid != self.state.owner_uid
@@ -145,7 +397,11 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         return WakeupGate(
             binding=binding,
             goal_status="paused" if goal is None else goal.status,
-            aggregate_ledger=ResourceLedger() if goal is None else goal.ledger,
+            aggregate_ledger=(
+                ResourceLedger()
+                if goal is None
+                else scheduled_goal_exposure(self.state, goal.goal_id)
+            ),
             aggregate_ceiling=spec.ceiling if goal is None else goal.definition.ceiling,
             safe_boundary=not any(
                 c.state == "running" for c in self.state.local_children
@@ -169,6 +425,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         entries: tuple[ConversationEntry | ArchivedConversationEntry, ...]
         | None = None,
     ) -> None:
+        self.schedule_reads.check()
         if self.state.revision != expected_revision:
             raise ValueError("Schedule admission raced with a session revision change.")
         self._commit(
@@ -186,7 +443,7 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
     def add_schedule(
         self, spec: InertScheduleSpec, *, expected_revision: int
     ) -> StoredSchedule:
-        with self._schedule_lock:
+        with self._schedule_lock, self.schedule_reads.operation():
             spec = InertScheduleSpec.model_validate_json(spec.model_dump_json())
             if (
                 self.state.revision != expected_revision
@@ -238,15 +495,26 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         *,
         expected_revision: int,
         event: LocalWakeupEvent | None = None,
+        allow_dispatch: bool = True,
+        external_packet: bytes | None = None,
+        commit_guard: Callable[[], None] | None = None,
     ) -> str | None:
         """Explicit host tick only. One commit contains both intent and queue entry."""
         from mos_eisley.conversation_context_preview import preview_context
 
-        with self._schedule_lock:
+        with self._schedule_lock, self.schedule_reads.operation():
             if self.state.revision != expected_revision:
                 raise ValueError("Schedule admission source revision is stale.")
             record = self._schedule_record(schedule_id)
+            if external_packet is not None and (
+                event is None or event.kind != "external"
+            ):
+                raise ValueError(
+                    "Signed envelopes require external notification metadata."
+                )
             gate = self._schedule_gate(record)
+            if allow_dispatch:
+                self._validate_schedule_sources(record)
             now = self.goal_clock()
             observed = observe_timer(record.state, now=now)
             if gate.binding != record.state.spec.binding:
@@ -257,18 +525,90 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     }
                 )
             if event is not None:
-                if self.schedule_event_validator is None:
-                    raise ValueError(
-                        "Local events require a trusted committed-result validator."
-                    )
                 event = LocalWakeupEvent.model_validate_json(event.model_dump_json())
-                self.schedule_event_validator(event)
-                observed = observe_local_event(observed, event, now=now)
+                spec = record.state.spec
+                if (
+                    event.binding != spec.binding
+                    or event.source_id not in spec.local_sources
+                ):
+                    raise ValueError("Local event escapes the frozen source scope.")
+                cursor = next(
+                    c for c in observed.cursors if c.source_id == event.source_id
+                )
+                duplicate = (
+                    event.sequence <= cursor.sequence
+                    or event.event_id in cursor.recent_ids
+                )
+                external_auth = None
+                if event.kind == "external":
+                    source = self.schedule_sources.get((schedule_id, event.source_id))
+                    if (
+                        not isinstance(source, InertExternalIngress)
+                        or external_packet is None
+                    ):
+                        raise ValueError(
+                            "External events require their registered signed adapter."
+                        )
+
+                    def validate_external(
+                        source: InertExternalIngress = source,
+                        packet: bytes = external_packet,
+                    ) -> ExternalSourceAuthorization:
+                        auth = self._qualified_source(record, source)
+                        if not isinstance(auth, ExternalSourceAuthorization):
+                            raise ValueError("External authorization is unavailable.")
+                        source.validate_packet(packet, event, now=now)
+                        self._qualified_source(record, source)
+                        return auth
+
+                    external_auth = self.schedule_reads.call(validate_external)
+                    if (
+                        observed.status != "active"
+                        or gate.binding != spec.binding
+                        or gate.goal_status not in {"working", "waiting"}
+                        or (not duplicate and observed.accepted_events >= 64)
+                    ):
+                        raise ValueError(
+                            "External notification stop/scope/limit guard rejected."
+                        )
+                elif not spec.local_source_pins:
+                    validator = self.schedule_event_validator
+                    if validator is None:
+                        raise ValueError("No trusted committed-result validator.")
+                    self.schedule_reads.call(lambda: validator(event))
+                if (
+                    not duplicate
+                    and event.kind != "external"
+                    and observed.status == "active"
+                    and observed.accepted_events < 64
+                ):
+                    source = self.schedule_sources.get((schedule_id, event.source_id))
+                    if spec.local_source_pins:
+                        if source is None:
+                            raise ValueError("Frozen source is not registered.")
+
+                        def validate() -> None:
+                            auth = self._qualified_source(record, source)
+                            if event.kind != auth.kind:
+                                raise ValueError("Local source kind differs.")
+                            source.validate(event)
+                            self._qualified_source(record, source)
+
+                        self.schedule_reads.call(validate)
+                rate = (
+                    charge_ingress(observed, external_auth, now=now)
+                    if external_auth is not None and not duplicate
+                    else None
+                )
+                observed = observe_local_event(
+                    observed, event, now=now, ingress_rate=rate
+                )
             reserved = observed
             entries = self.state.entries
             operation = None
             if (
                 observed.status == "active"
+                and allow_dispatch
                 and gate.safe_boundary
                 and not gate.user_pending
                 and not gate.task_pending
@@ -297,7 +637,9 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                     from mos_eisley.conversation_branch_controller import reserve
 
                     reserve(
-                        self.state.branch_budget,
+                        self.state.branch_budget.model_copy(
+                            update={"ledger": scheduled_branch_exposure(self.state)}
+                        ),
                         BranchReservation(
                             operation_id=f"author-{len(entries)}",
                             input_bytes=preview.request.bytes,
@@ -336,6 +678,15 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                 updated, entries = self._retire_queued_schedule(
                     updated, entries, "Schedule stopped before dispatch."
                 )
+            if updated == record and entries == self.state.entries:
+                if commit_guard is not None:
+                    self.schedule_reads.call(commit_guard)
+                self.schedule_reads.check()
+                if self.state.revision != expected_revision:
+                    raise ValueError("Schedule admission revision changed.")
+                return operation
+            if commit_guard is not None:
+                self.schedule_reads.call(commit_guard)
             self._schedule_commit(
                 tuple(updated if s == record else s for s in self.state.schedules),
                 expected_revision=expected_revision,
@@ -385,6 +736,33 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
                 entries=entries,
             )
 
+    def set_schedule_cadence(
+        self, schedule_id: str, interval_seconds: int, *, expected_revision: int
+    ) -> None:
+        """Trusted host changes only a frozen dynamic schedule's bounded cadence."""
+        with self._schedule_lock, self.schedule_reads.operation():
+            record = self._schedule_record(schedule_id)
+            gate = self._schedule_gate(record)
+            if (
+                gate.binding != record.state.spec.binding
+                or gate.goal_status != "working"
+                or gate.aggregate_ledger.uncertain_effects
+            ):
+                raise ValueError("Cadence change requires the current working scope.")
+            updated = record.model_copy(
+                update={
+                    "state": change_cadence(
+                        record.state, interval_seconds, now=self.goal_clock()
+                    )
+                }
+            )
+            if self._schedule_gate(record).binding != gate.binding:
+                raise ValueError("Schedule inputs changed during cadence adjustment.")
+            self._schedule_commit(
+                tuple(updated if s == record else s for s in self.state.schedules),
+                expected_revision=expected_revision,
+            )
+
     def pause_schedule(
         self, schedule_id: str, *, expected_revision: int, reason: str
     ) -> None:
@@ -412,8 +790,11 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
             )
 
     def resume_schedule(self, schedule_id: str, *, expected_revision: int) -> None:
-        with self._schedule_lock:
+        if self.schedule_reads.blocked:
+            self.reset_schedule_handlers()
+        with self._schedule_lock, self.schedule_reads.operation():
             record = self._schedule_record(schedule_id)
+            self._validate_schedule_sources(record)
             updated = record.model_copy(
                 update={
                     "state": resume_schedule(
@@ -428,7 +809,9 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
 
             if self._schedule_timer_owner is not None:
                 self.schedule_timer_active = (
-                    self.schedule_observer is not None and self.task_scope is None
+                    self.schedule_observer is not None
+                    and self.task_scope is None
+                    and self.state.mode == "recorded_conversation"
                 )
 
     def schedule_for_position(self, position: int) -> StoredSchedule | None:
@@ -531,27 +914,34 @@ class ConversationScheduleController(ConversationBranchController[StateT]):
         record = self.schedule_for_position(position)
         if record is None:
             return True
+        revision = self.state.revision
         valid = False
         try:
-            gate = self._schedule_gate(record)
-            link = next(
-                b for b in record.queue_bindings if b.message_position == position
-            )
-            fire = next(
-                f for f in record.state.fires if f.operation_id == link.operation_id
-            )
-            valid = (
-                record.state.status == "active"
-                and fire.state == "reserved"
-                and gate.binding == record.state.spec.binding
-                and gate.goal_status == "working"
-                and not gate.aggregate_ledger.uncertain_effects
-                and self.goal_clock()
-                < min(record.state.spec.expires_at, gate.goal_expires_at)
-                and (request_sha256 is None or request_sha256 == fire.request_sha256)
-            )
+            with self.schedule_reads.operation():
+                gate = self._schedule_gate(record)
+                self._validate_schedule_sources(record)
+                link = next(
+                    b for b in record.queue_bindings if b.message_position == position
+                )
+                fire = next(
+                    f for f in record.state.fires if f.operation_id == link.operation_id
+                )
+                valid = (
+                    self.state.revision == revision
+                    and record.state.status == "active"
+                    and fire.state == "reserved"
+                    and gate.binding == record.state.spec.binding
+                    and gate.goal_status == "working"
+                    and not gate.aggregate_ledger.uncertain_effects
+                    and self.goal_clock()
+                    < min(record.state.spec.expires_at, gate.goal_expires_at)
+                    and (
+                        request_sha256 is None or request_sha256 == fire.request_sha256
+                    )
+                )
+                self.schedule_reads.check()
         except (ValueError, OSError):
-            pass
+            valid = False
         if not valid and self.state.entries[position].status == "queued":
             updated, entries = self._retire_queued_schedule(
                 record,

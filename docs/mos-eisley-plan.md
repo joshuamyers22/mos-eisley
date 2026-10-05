@@ -5770,6 +5770,129 @@ inspection and exact committed-child events reuse the goal ledger, session store
 and serialized queue. User input wins; cold restart and uncertain operations never
 replay. This recorded unpaid route grants no tools, writes or integration approval.
 Writable execution/VCS/E2, live providers and external ingress retain their gates.
+**Remote TLS transport, 2026-10-04 — local fixture slice implemented and qualified:**
+[Local mutual TLS qualification](CONVERSATION_SCHEDULING.md#local-mutual-tls-transport-qualification)
+connects one narrowly scoped TLS 1.3 adapter through the active session owner,
+signed ingress and native credential lifecycle. A frozen host policy binds exact
+CA/server/client certificate pins, listener address, narrow peer networks and
+limits to the credential grant; inbound authority is separate from outbound MCP.
+Strict mutual TLS, certificate validity and bounded host revocation checks precede
+owner commit alongside bearer, source and trusted broker revalidation. Accepted
+sockets count before negotiation, with handshake/request deadlines, bounded
+connections/queues and cancellation. Generic responses expose no private artifacts.
+Local PKI/socket fixtures qualify invalid/expired certificates, unsafe material,
+revocation/rotation, cross-owner claims, peer filtering/floods, hung/cancelled reads,
+disconnects, terminal dispatch and lost acknowledgements on snapshot/SQLite.
+Restart retains rates and queued/running exposure without replay or budget reset.
+Actual credentialed remote deployment still requires host trust/revocation and
+network-exposure qualification. Other-platform vaults, MCP service deployments
+and live/paid execution remain gated; no daemon or closed-session work is added.
+
+**Native credential-vault qualification, 2026-10-04 — macOS slice implemented and qualified:**
+[Native macOS credential lifecycle](CONVERSATION_SCHEDULING.md#native-macos-credential-vault-qualification)
+adds explicit host provisioning, bounded lookup, read-only inspection, scope-frozen
+rotation and revocation through macOS Keychain. Default ingress lookup requires
+private owner-scoped lifecycle authority as well as the native token; no raw-token
+adoption, OAuth reuse, vault enumeration or sender-facing credential controls are
+added. Durable pending/revoking denial, retained tombstones, exact-operation
+activation and serialized native locks prevent cancelled/timed-out writes from
+restoring authority. Hung OS calls retain their locks until completion; inspection
+and explicit cleanup replace automatic replay. Tokens remain out of lifecycle
+records, session snapshots, reports and command arguments.
+Explicit disposable-account native tests qualify provisioning/lookup/rotation/
+revocation, foreign owner claims, controlled native failures, deadlines,
+cancellation, lost acknowledgements and restart. Real loopback events on both
+snapshot/SQLite retain metadata, rates and queued/running exposure through native
+revocation without provider replay or budget reset. Actual vault lock/access
+settings remain unchanged; failures are injected around real native calls.
+Private-storage and concurrent-handle fixtures supplement native runs; skipped
+ordinary tests cannot claim native qualification. Other-platform vaults, remote
+TLS/MCP deployments and live/paid execution remain gated.
+
+**Credentialed external transport, 2026-10-04 — first loopback slice qualified:**
+[Credentialed loopback transport](CONVERSATION_SCHEDULING.md#credentialed-loopback-transport-qualification)
+connects one explicitly configured signed source through the active plain/JSON/TUI
+session owner. Assessment separates outbound MCP/OAuth authority from inbound
+event authorization. A separate native-vault credential namespace pins the full
+owner/session/task/workspace/revision/policy/goal, source authorization and expiry;
+credentials are re-read before validation and owner commit. Only literal loopback
+HTTP and one POST route are enabled by trusted host configuration, with bounded
+connections, buffering, attempt rates, whole-request deadlines and cancellation.
+Socket tasks cannot mutate the store or dispatch work. Fixed generic responses
+reveal no private artifacts or errors. Signed metadata and durable duplicate/rate
+charges retain the existing broker, queue, steering and restart boundaries.
+Real loopback fixtures with synthetic credentials cover disconnects, revocation,
+rotation, cross-owner claims, stale revisions, overload, hung/cancelled reads,
+shutdown and lost sender/store acknowledgements on snapshot/SQLite without
+replay or budget reset. Native vault selection is tested through a fixture port;
+macOS lifecycle/end-to-end qualification is implemented above. Other-platform
+vaults, remote TLS/MCP deployments and live/paid execution remain gated. No daemon or closed-session
+scheduling is claimed.
+
+**Authenticated external ingress, 2026-10-04 — inert adapter implemented; remote transport gated:**
+[Signed external envelope admission](CONVERSATION_SCHEDULING.md#inert-authenticated-external-event-ingress)
+uses owner-provisioned Ed25519 verification keys and durable source authorization
+pins covering owner/session/task/workspace/revision/policy/goal, expiry and rate
+limits. Canonical bounded envelopes reject forged keys/signatures/sources,
+cross-owner claims, unknown authority fields, stale/future/expired events and
+oversized payloads. Revision assertions are re-observed through the trusted
+Git/read broker across authentication and admission, and normal dispatch scope
+checks remain authoritative. Only omitted-payload metadata is committed; it cannot
+become model context, review evidence, user steering, approval or publication
+permission. There is no sender-facing artifact/report API.
+Accepted-event rolling rate windows commit with durable replay cursors in the
+existing snapshot/SQLite stores. Duplicate/out-of-order events, lifetime floods,
+cancellation, restart, source substitution and lost metadata/queue/running
+acknowledgements cannot reset exposure or replay uncertain work. A bounded
+pre-authentication attempt limiter caps forged/replayed packet verification work.
+Inert and real-Git fixtures cover source forgery, broker changes, concurrent
+controls, hung/cancelled readers, steering priority and failure recovery on both
+stores. The adapter opens no network listener, credentials or outbound channel.
+The first credentialed loopback transport is qualified above; remote MCP/network
+deployments and live/paid execution qualification follow;
+no daemon or closed-session scheduling is claimed.
+
+**Trusted local handler qualification and bounded timeouts, 2026-10-04 — implemented:**
+Read-only schedule observers, event validators and local source readers now use
+shared whole-operation monotonic deadlines and cancellation checks before owner
+commits. One worker per controller bounds reader concurrency; timeout/cancellation
+discards late outcomes and quarantines the lane until it has finished and an idle
+explicit reset/resume is allowed. Python cannot kill an arbitrary blocked reader;
+callbacks remain trusted read-only ports, and the wrapper grants no execution
+containment. Known handler failures pause work; lost persistence acknowledgements
+remain fatal without replay or refund.
+Qualified host adapters connect committed local test receipts and retained
+implementation-child reports to the existing active-session queue. Durable source
+pins freeze full scope and explicit operation/execution or child-assignment
+identities; restart requires exact trusted registration. Sealed review reports,
+stale assignments and incomplete output cannot wake work. Controller-owned test
+commit revisions are immutable; legacy unstamped results are not inferred.
+Bounded batches, one metadata notification per owner turn, durable duplicate
+cursors and lifetime event ceilings limit floods. Waiting goals retain metadata
+without dispatch or implicit resume. Snapshot/SQLite tests cover stale bindings,
+failed/cancelled children, malformed receipts, hung/failed/cancelled handlers,
+late completion, steering priority and metadata/queue acknowledgement loss without
+budget resets or uncertain-operation replay. See
+[qualified local sources and deadline limits](CONVERSATION_SCHEDULING.md#trusted-handler-qualification-and-bounded-timeouts).
+Inert authenticated ingress and the credentialed loopback slice are implemented
+above; remote transport and live/paid execution qualification follow.
+
+**Active-session recorded timer driving, 2026-10-04 — implemented:**
+One timer owner wakes the existing plain/JSON/TUI controller queue with bounded
+monotonic waits and current-clock deadlines. Timers admit one intent at safe
+boundaries, coalesce missed intervals and honor bounded dynamic cadence. Waiting
+user input wins before admission and again before dispatch; author/side/diff work,
+goal evaluation, queues and composition defer timers. Scope, expiry, request and
+resource guards remain authoritative, including retained skipped exposure across
+schedules and ordinary author turns. Unsafe clocks, scope/validation failures,
+stopped goals and uncertain operations cannot cause retries or pause bypass.
+EOF/quit/handoff/cancellation stop the waiter and persist clean pauses before
+releasing ownership; restart requires guarded resume without replay or budget
+reset. Recorded CLI timer completion is tested on snapshot and SQLite, alongside
+races, lost acknowledgements and TUI draft preservation. Trusted local handler
+qualification and inert authenticated ingress are implemented above;
+the credentialed loopback slice is qualified above; no paid/live
+provider, tool, daemon or closed-session execution is enabled by this slice.
 
 **Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
 Shared plain/JSON/TUI controls create schedules with explicit task, fixed or bounded
@@ -5779,8 +5902,8 @@ recorded policy and selected goal. Inspection shows state, remaining schedule/ta
 limits, cadence history and unresolved operation exposure without mutation.
 Cancellation retains charges; guarded resume revalidates scope, queue boundaries,
 expiry and uncertainty without resetting budgets. Command and draft-preservation
-tests cover both stores, cold restart and failed persistence. Creation itself dispatches no work; active recorded timer ownership and local
-read-only child connections are now implemented below.
+tests cover both stores, cold restart and failed persistence. Creation/resume start no immediate call; active-session recorded timer driving is
+implemented above.
 
 **Durable recorded storage/admission, 2026-10-04 — implemented:**
 The existing snapshot/SQLite session header now persists bounded schedules and
@@ -5791,8 +5914,9 @@ the queued wakeup atomically while retaining exposure. Queued cold-resume work i
 known undispatched and skipped; running work retains goal/schedule uncertainty
 without replay. Concurrent controls, writer/resume exclusion, cancellation and
 lost admission/running acknowledgements have recorded boundary tests.
-Active timers, trusted handler qualification and external ingress remain gated;
-this slice does not enable live/background dispatch.
+Trusted local handlers and inert external ingress are qualified above;
+the first credentialed loopback slice is qualified above; remote deployments remain gated;
+this storage slice does not enable live/background dispatch.
 
 **Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
 [Scheduling assessment and fixtures](CONVERSATION_SCHEDULING.md) reuse the existing
@@ -5804,8 +5928,10 @@ before queue admission; lost acknowledgements remain uncertain without replay or
 refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
 The substrate assessment found retained goal/recovery records but no qualified
 timer/event admission path at that point. Durable recorded persistence and dispatch
-priority and explicit `/loop` controls are now implemented above. Trusted handlers and
-external/background adapters remain required; no live scheduling is claimed.
+priority, explicit `/loop` controls and active recorded timers are implemented
+above. Trusted local handlers and inert external ingress are qualified above;
+remote credentialed transport/background adapters remain required;
+no live scheduling is claimed.
 
 After the durable goal and recovery foundations are qualified, add explicit
 session-scoped `/loop` controls and equivalent plain/JSON creation, inspection
