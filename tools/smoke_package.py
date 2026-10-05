@@ -175,6 +175,7 @@ def main() -> int:
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
             "test_platform_windows_file_identity.py",
+            "test_platform_windows_security.py",
             "test_wsl2_preflight.py",
             "test_conversation.py",
             "test_conversation_navigation.py",

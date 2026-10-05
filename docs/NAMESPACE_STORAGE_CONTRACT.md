@@ -258,17 +258,23 @@ Implement in this order, with independent qualification records:
 2. **POSIX existing-root read-only admission — direct candidate implemented**,
    frozen ACL/mount policy and owned reference lifecycle (N-04/05/06/15).
    [Evidence](POSIX_ROOT_ADMISSION_WORK_NOTE.md) covers native macOS source/wheel
-   and portable faults; Linux execution and accountable admission remain pending.
+   and portable faults; exact target qualification and accountable admission remain pending.
    No existing store adoption or creation; public storage selection stays closed.
 3. **Secure fixed-child namespace reads**, bounded bytes and replacement/refusal
    tests (N-07/08/09/10/14/15) — direct POSIX candidate implemented. The
    [reader note](POSIX_NAMESPACE_READ_WORK_NOTE.md) records real native macOS
    source/wheel checks, descriptor ACL/entry/content checks and owned child cleanup.
-   Linux reader execution and accountable target admission remain pending. Keep
+   Exact Linux reader qualification and accountable target admission remain pending. Keep
    storage-checked observations advisory and public selectors closed.
 4. **Native Windows admission/read candidates** after prerequisite identity review;
    verify the frozen masks and qualify DACL/reparse/relative-open/local-NTFS cases on
-   actual targets. Public selectors remain closed until N-15/16 admission.
+   actual targets. The [smallest Windows query batch](WINDOWS_ROOT_SECURITY_CONTRACT.md)
+   is now defined: bounded owner/DACL inspection of a borrowed directory HANDLE,
+   with the [pure parser and synthetic fixtures](WINDOWS_SECURITY_PARSER_WORK_NOTE.md)
+   implemented additively; native queries, owned root leases and child reads remain
+   subsequent batches. Its token-release uncertainty
+   prerequisite must be resolved before native implementation. Public selectors
+   remain closed until N-15/16 admission.
 5. **Protected custody/anchor plus locking/publication/durability contracts and
    fault suites** (N-11/12/13/16); then separately authorize explicit enrollment.
 6. **Same-owner memory preview/copy** only with confirmed enrollment and independently

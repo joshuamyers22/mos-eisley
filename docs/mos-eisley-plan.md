@@ -4754,15 +4754,23 @@ custody or enrollment. N-01–N-16 specify future source/wheel/native/fault evid
 The [pure namespace codec and golden fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
 are implemented additively with source and dependency-free wheel checks. Next is
 qualification/review of the [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md),
-which has native macOS source/wheel and portable fault evidence. Linux target
-evidence and accountable admission remain pending. The
+which has native macOS source/wheel and portable fault evidence. Exact target
+qualification and accountable admission remain pending. The
 [secure fixed-child POSIX reader candidate](POSIX_NAMESPACE_READ_WORK_NOTE.md)
 now opens only the fixed name relative to the held lease, verifies actual private
 file ACL/type/owner/link and entry/content stability, and bounds native requests
 to 4,097 bytes and 16 attempts. Native macOS source and dependency-free wheel tests
-cover replacement, symlink/special-object, stale state and cleanup refusal. Linux
-reader execution, accountable root/read qualification and native Windows storage
+cover replacement, symlink/special-object, stale state and cleanup refusal. Exact Linux
+reader qualification, accountable root/read qualification and native Windows storage
 remain separate; public storage selection and record reading stay closed.
+The [smallest Windows root-admission preparation](WINDOWS_ROOT_SECURITY_CONTRACT.md)
+now defines a pure owner/DACL decoder and query-only borrowed-directory inspector:
+one 64 KiB caller-owned security buffer, two fresh observations, exact protected
+owner-only DACL, bounded handle metadata/granted-rights checks and WS-01–WS-11 native
+source/wheel acceptance. The [pure parser and synthetic fixtures](WINDOWS_SECURITY_PARSER_WORK_NOTE.md)
+are implemented additively; native inspection remains pending. Owned leases and
+relative child reads are subsequent batches. Identity prerequisite review must resolve token-close uncertainty before
+the native inspector is implemented; this definition grants no storage admission.
 Enrollment creation, locks/publication/durability,
 protected anchor/key custody, consumer writers and public Windows selectors remain
 gated. [Verification](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) records this

@@ -37,6 +37,7 @@ def main() -> int:
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
             "test_platform_windows_file_identity.py",
+            "test_platform_windows_security.py",
         ):
             shutil.copyfile(repository / "tests" / name, root / name)
         fixtures = root / "fixtures"
@@ -55,6 +56,7 @@ from unittest.mock import patch
 import mos_eisley.platform.files as files
 import mos_eisley.platform.identity as identity
 import mos_eisley.platform.identity_wire as wire
+import mos_eisley.platform.windows_security as security
 assert 'mos_eisley.platform.posix_files' not in sys.modules
 assert 'mos_eisley.platform.posix_identity' not in sys.modules
 assert 'mos_eisley.platform.windows_identity' not in sys.modules
@@ -63,7 +65,7 @@ with patch.object(ctypes, 'WinDLL', create=True,
                   side_effect=AssertionError('eager system DLL loading')):
     import mos_eisley.platform.windows_identity as candidate
     import mos_eisley.platform.windows_file_identity as file_candidate
-for module in (files, identity, wire, candidate, file_candidate):
+for module in (files, identity, wire, security, candidate, file_candidate):
     assert pathlib.Path(module.__file__).is_relative_to(pathlib.Path(sys.prefix))
 """
         subprocess.run(
@@ -86,6 +88,7 @@ for module in (files, identity, wire, candidate, file_candidate):
                 "test_platform_identity_wire.IdentityWireTests",
                 "test_platform_identity_wire.NamespaceRecordWireTests",
                 "test_platform_identity.IdentityContractTests",
+                "test_platform_windows_security.WindowsSecurityParserTests",
                 "test_platform_windows_principal.WindowsPrincipalFaultTests",
                 "test_platform_windows_principal.NativeTokenBindingTests",
                 "test_platform_windows_principal.NativeWindowsPrincipalTests",
