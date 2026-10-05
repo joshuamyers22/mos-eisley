@@ -151,3 +151,28 @@ omitted-field behavior, directory ID width and OAuth's separate encoder. These
 controls do not authenticate namespace metadata or make decoded file observations
 fresh. No existing storage/credential/consumer code adopts the new module.
 Accountable review remains open before migration or native admission.
+
+## Proposed namespace/storage prerequisite controls
+
+The [contract](NAMESPACE_STORAGE_CONTRACT.md) and
+[definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) add these future
+controls without implementing enrollment, storage effects or public admission.
+Owner: Josh Myers; accountable boundary review remains open. The additive
+[pure namespace codec](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) now supplies bounded
+canonical record decoding, redacted immutable metadata and inert source/wheel
+fixtures. Valid fingerprint syntax grants neither key validity nor custody; all
+storage and enrollment controls below still require separate implementation.
+
+| Abuse | Required control/evidence | Residual boundary |
+|---|---|---|
+| Copied private JSON claims enrolled host/owner | Three typed trust states, independently protected root/key anchor and fresh custody proof; N-01/03/13 | No physical-machine attestation or malicious-administrator isolation |
+| Mode-only check misses ACL grants or a default/inherited DACL | Actual descriptor-based ACL inspection; exact narrow POSIX/Windows protection policy; unknowns refuse; N-06/15 | Broader provisioning needs separate reviewed policy |
+| Path/handle reuse substitutes an object or leaks owned references | Caller holds borrowed root through duplication; owned non-inheritable lease, relative fixed-child open, fresh entry/content/protection checks and cleanup faults; N-05/07/08 | Root-path selection and SQLite opens are separate boundaries |
+| Malformed record/ACL output exhausts memory or logs identity | Preparse byte and native-query bounds, exact tags/members, generic diagnostics; N-02/09 | Native allocation bounds require actual target evidence |
+| Missing record triggers bootstrap/ACL repair/credential fallback | Typed absence, no read-side creation or mutation, no custody access in storage reader; N-10/14 | Existing consumers retain their prior behavior until explicit adoption |
+| Crash between key, record and protected anchor grants partial enrollment | Explicit prepared/unbound/unregistered/enrolled states, uncertainty retention and bounded owner-authorized recovery; N-11/12/16 | No atomic transaction spans filesystem and key custody |
+
+No new accepted privacy exception is granted. Supply-chain trust and qualification
+policy remain in the trusted composition boundary; untrusted serialized records
+cannot select a weaker adapter/policy. Recovery preserves published evidence and
+refuses conflicting roots/keys rather than silently deleting or reenrolling.
