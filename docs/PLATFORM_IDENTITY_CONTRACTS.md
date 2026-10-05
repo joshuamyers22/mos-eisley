@@ -1,11 +1,17 @@
 # Principal and opened-file identity contracts
 
-Status: tagged values and additive POSIX queries implemented; native queries and
-consumer/schema adoption remain pending. Local verification is recorded in
+Status: tagged values, additive POSIX queries and candidate Windows principal
+queries implemented; native qualification, native file queries and consumer/schema
+adoption remain pending. Local POSIX verification is recorded in
 [the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md). Owner: Josh Myers. Scope: the next bounded batch under
 [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support),
 after the [bounded-reader extraction](BOUNDED_FILE_READER_CONTRACT.md).
 [ADR-0014](adr/0014-platform-identity-contracts.md) records the proposed design.
+
+A [candidate Windows principal adapter](WINDOWS_PRINCIPAL_WORK_NOTE.md) now
+implements process TokenUser acquisition for direct native qualification. The
+public Windows selector still refuses pending actual native evidence and
+accountable admission; native file identity remains unimplemented.
 
 ## Observed boundary and scope
 
@@ -197,8 +203,9 @@ This contract cannot supply cross-host authentication or migration authority.
 
 I-01–I-05 and additive compatibility checks are exercised by the POSIX slice;
 [the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) records
-actual results. I-06–I-08 remain future native-adapter qualification, and actual
-Windows import/refusal CI evidence remains pending publication.
+actual results. The [candidate Windows principal record](WINDOWS_PRINCIPAL_WORK_NOTE.md)
+adds source/wheel qualification tests. I-06–I-08 remain native qualification
+gates; actual native CI for this candidate remains pending publication.
 
 | ID | Evidence | Blocking threshold |
 |---|---|---|
@@ -229,6 +236,10 @@ against an independent native query, not the adapter being tested.
    resources and I-06–I-08 on actual Windows/local NTFS. Freeze and review filesystem
    detection and supported targets before admitting the native selector. This is a
    separate implementation PR, with owner/domain review for the boundary.
+   The first sub-batch implements only candidate principal queries on AMD64
+   Windows build 17763+ with 64-bit CPython 3.12+, native oracle/impersonation/cleanup
+   tests and source/wheel CI. Native selector admission is separate from this
+   candidate implementation; local-NTFS file queries are the next sub-batch.
 4. Migration inventory/design may proceed alongside adapter qualification. Change
    versioned writers and adopt one private-storage lifecycle only after both
    adapters qualify and migration acceptance is frozen. No broader storage replacement
@@ -240,6 +251,31 @@ updates. Add a Windows adapter only in step 3. New modules should use the standa
 library and depend on no CLI/store; avoid changing the stable bounded-reader API.
 Rollback before adoption removes these additive modules/tests/jobs without touching
 retained data. No automatic rebinding, dispatch or execution authority is added.
+
+## Candidate Windows principal usage
+
+For qualification on the candidate native target only:
+
+```python
+from mos_eisley.platform.windows_identity import current_principal
+
+principal = current_principal()
+```
+
+This direct entry point queries the process TokenUser with TOKEN_QUERY rights,
+refuses thread tokens before and after acquisition, and returns copied bounded
+SID bytes. Only ERROR_NO_TOKEN permits proceeding to the process token. Temporary
+token handles close on every exit; no context or privilege is changed. No SID is
+logged. Bounds precede native IsValidSid/GetLengthSid calls on an owned SID copy.
+The host guard rejects other architectures, 32-bit processes and older Windows
+builds before DLL loading. This candidate target range is not a qualification
+claim for every version; hosted CI records its actual version/architecture.
+
+The common `platform.identity.current_principal` continues to reject Windows;
+effect-boundary context revalidation, accountable selector admission, native file
+identity, storage authorization and consumer/schema adoption remain separate.
+See [the work note](WINDOWS_PRINCIPAL_WORK_NOTE.md) for actual results and pending
+native evidence. API availability or mocked success does not close I-06/I-08.
 
 ## POSIX slice usage
 

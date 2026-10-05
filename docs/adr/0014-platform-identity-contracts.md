@@ -68,3 +68,8 @@ pure tagged values, borrowed references and lazy POSIX queries, with explicit
 native refusal. Existing consumers and schemas remain unchanged. The ADR remains
 proposed for native admission and later adoption; this local implementation does
 not stand in for accountable native qualification or migration approval.
+
+The [candidate Windows principal slice](../WINDOWS_PRINCIPAL_WORK_NOTE.md) adds
+direct process TokenUser acquisition and qualification tests. The common Windows
+selector remains closed until actual native evidence and accountable admission.
+Native file identity and consumer/schema adoption remain open.
