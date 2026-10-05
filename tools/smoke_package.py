@@ -162,6 +162,11 @@ def main() -> int:
         ):
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
         for name in (
+            "test_platform_files.py",
+            "test_platform_identity.py",
+            "test_conversation_git.py",
+            "test_conversation_git_isolation.py",
+            "test_wsl2_preflight.py",
             "test_conversation.py",
             "test_conversation_navigation.py",
             "test_conversation_review.py",
@@ -169,6 +174,7 @@ def main() -> int:
             "test_conversation_composer.py",
             "test_conversation_steering.py",
             "test_conversation_tui.py",
+            "test_conversation_tmux.py",
             "test_conversation_startup.py",
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",

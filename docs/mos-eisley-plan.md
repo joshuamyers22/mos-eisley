@@ -2290,6 +2290,32 @@ coordinate the session selector with the v1 diff panel (§16.4.1). This feature 
 no new dependency to the G2 live read-only review exit gate. WSL2 and native Windows
 qualification follow §27.
 
+### 16.0.5 Optional external tmux workspace
+
+**User-directed addition, 2026-10-02:** qualify the existing conversation UI in
+a user-operated tmux session before considering an embedded terminal backend.
+The [workspace guide](CONVERSATION_TMUX.md) documents sibling shell/watcher panes,
+explicit client detach/reattach, Mos stop/quit controls and saved-session resume.
+The [compatibility tests](../tests/test_conversation_tmux.py) exercise real tmux
+clients and private servers, and run in source and installed-wheel suites.
+Tmux is optional; ordinary launch remains available without it.
+
+Reattachment must preserve the same running process, workspace, draft and queued
+work. Opening a competing controller must fail; resuming saved queued work stays
+paused until explicit continuation. Cover split/resize/zoom, Unicode, literal
+bracketed paste, cancellation/exit and server loss. Sibling commands remain
+user-operated, without automatic Mos sandboxing, observation or attribution.
+Tmux history is not conversation storage or verification evidence. `/quit`,
+controller failure and machine restart retain existing save/resume and §31.4
+recovery semantics; uncertain effects are never automatically replayed.
+
+Guide and test implementation does not establish all-platform qualification.
+Record actual OS/tmux versions and source/installed-wheel results; Ubuntu CI
+requires tmux, while macOS and actual Windows-hosted WSL2 need separate evidence.
+External compatibility adds no prerequisite to live-provider gates or native
+Windows delivery. Embedded terminals and an optional backend comparison remain
+subject to §§27–30 platform, update, installation and containment prerequisites.
+
 ### 16.1 Commands
 
 Initial prompts now use `mos chat "PROMPT"` or `mos -- "PROMPT"`; a launch beginning
@@ -2456,6 +2482,16 @@ Dependencies: full-screen conversation controls, the trusted read-only Git broke
 and workspace/path policy, plus bounded prompt attachments. Diff reads must disable
 external diff/textconv helpers and use the existing trusted Git configuration.
 Panel operations do not stage, revert, commit or expand tool authority.
+
+The bounded read-only Git and workspace path foundation is implemented in
+`conversation_git.py`; see [its contract and threat model](CONVERSATION_DIFF_GIT_FOUNDATION.md).
+The panel now provides `/diff` toggle, keyboard focus and file navigation,
+bounded staged/unstaged patch display, background refresh, and selected-line
+prompt attachments with frozen source bytes, composer preview, stale-source
+rejection, and request admission provenance; see [the panel work note](CONVERSATION_DIFF_PANEL_WORK_NOTE.md).
+The later [attachment authority follow-up](CONVERSATION_DIFF_ATTACHMENT_AUTHORITY_WORK_NOTE.md)
+adds a scrollable exact-excerpt and destination review before an attached chat
+message is queued, with a second explicit send and a draft-preserving cancel.
 
 Acceptance: exercise real PTY open/close/focus/resize behavior; concurrent edits
 and rapid refresh; staged/unstaged/untracked, renamed, deleted, binary and oversized
@@ -4551,6 +4587,13 @@ or capability-separation requirements elsewhere in this plan.
 
 ### 27.1 Version 0.1.0 — supported WSL2 deployment
 
+**Preparation, 2026-10-03:** [setup and qualification runbook](WSL2_QUALIFICATION.md)
+and the installed `python -m mos_eisley.wsl2_preflight` read-only diagnostic prepare
+the actual runner. The diagnostic rejects unrecognized kernels, unqualified mount
+types and public/foreign private directories; it does not enforce runtime
+admission, prove Linux containment or grant platform support. Host provenance,
+exact installed-artifact checks and the acceptance gates below remain required.
+
 WSL2 runs the Linux build and Linux backend inside a real WSL2 distribution. It is
 a supported Windows-host deployment, not a claim that Mos Eisley runs as a native
 Windows process. WSL1, native PowerShell/cmd execution, Windows host credentials,
@@ -4645,6 +4688,32 @@ crash recovery, stale file IDs, handle inheritance, process-tree escape, loopbac
 raw-network attempts, resource exhaustion, Git hooks/configuration, and migration of
 unaltered version 0.1.0 artifacts. Tests run on native Windows and local NTFS; mocks
 may supplement but cannot replace that evidence.
+
+**First extracted batch — bounded regular-file reader:** the existing
+`run.files.read_bounded` API now delegates through an inert, explicitly selected
+platform boundary. macOS/Linux retain final-symlink and special-file safeguards;
+invalid limits fail before I/O. Unqualified platforms, including native Windows,
+refuse reads without loading the POSIX adapter. Source and installed-wheel tests
+and a scoped Windows wheel import/refusal CI job cover this foundation. Native
+reading, full CLI importability and all remaining §27.2 contracts stay open. See
+[the contract](BOUNDED_FILE_READER_CONTRACT.md) and
+[verification record](BOUNDED_READER_WORK_NOTE.md); actual Windows execution is
+pending CI, and this batch does not qualify native support.
+
+**Next batch — additive principal and opened-file identity slice implemented:**
+[the contracts](PLATFORM_IDENTITY_CONTRACTS.md) and
+[proposed ADR-0014](adr/0014-platform-identity-contracts.md) now have strict tagged
+UID/SID and device/inode versus full-width volume/file-ID values, distinct borrowed
+reference types, lazy real-UID/fstat queries and explicit Windows/unknown-platform
+refusal. The POSIX query refuses real/effective UID mismatch, preserves caller
+reference lifetime/offset and does no path opening. Identifier equality remains
+contextual metadata, not permissions, DACLs, integrity or cross-host ownership.
+Existing consumers, artifact bytes/hashes and schemas are unchanged. Isolated
+source/wheel tests and the scoped Windows import/refusal job cover this additive
+slice; [the implementation record](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md)
+reports actual verification. Native token/handle adapters, local-NTFS qualification,
+accountable boundary review and separate schema migration remain open. This does
+not advance native support or storage authority.
 
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 

@@ -75,7 +75,7 @@ class AuthorCompactionAdmission(Contract):
 class RequestAdmission(Contract):
     """An admission record is not proof of transmission or provider receipt."""
 
-    schema_version: Literal[1, 2, 3, 4, 5, 6] = 2
+    schema_version: Literal[1, 2, 3, 4, 5, 6, 7] = 2
     source_revision: Annotated[int, Field(ge=0)]
     message_count: Annotated[int, Field(ge=1, le=16)]
     exchange_index: Annotated[int, Field(ge=0, le=15)]
@@ -85,6 +85,9 @@ class RequestAdmission(Contract):
     context_max_bytes: ContextByteLimit
     request: RequestBudgetPreview
     memory_selected: bool
+    diff_attachment_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     context_classification: ContextClassification | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -137,10 +140,16 @@ class RequestAdmission(Contract):
             raise ValueError(
                 "schema-6 admission requires acquired continuation profile"
             )
+        elif self.schema_version == 7 and (
+            self.pressure is None or self.diff_attachment_sha256 is None
+        ):
+            raise ValueError("schema-7 admission requires diff attachment provenance")
         elif self.context_classification is None:
             raise ValueError("scoped admission requires context classification")
         elif self.memory_selected != bool(self.context_classification.reusable_memory):
             raise ValueError("memory selection does not match its classification")
+        if self.schema_version < 7 and self.diff_attachment_sha256 is not None:
+            raise ValueError("legacy admission cannot contain diff attachments")
         if (
             self.task_profile is None
             and self.context_classification is not None
@@ -277,13 +286,16 @@ def record_admission(
     author_compaction: AuthorCompactionAdmission | None = None,
     pressure: ContextPressureSnapshot | None = None,
     pressure_advisory: ContextPressureAdvisory | None = None,
+    diff_attachment_sha256: str | None = None,
 ) -> RequestAdmission:
     context = canonical_fingerprint(
         RequestContext(system=request.system, turns=request.turns)
     )
     return RequestAdmission(
         schema_version=(
-            6
+            7
+            if diff_attachment_sha256 is not None
+            else 6
             if task_profile is not None and task_profile.acquisition is not None
             else 5
             if pressure is not None
@@ -302,6 +314,7 @@ def record_admission(
         context_max_bytes=context_max_bytes,
         request=describe_request(request, budget),
         memory_selected=memory_selected,
+        diff_attachment_sha256=diff_attachment_sha256,
         context_classification=context_classification,
         task_profile=task_profile,
         task_continuation=task_continuation,

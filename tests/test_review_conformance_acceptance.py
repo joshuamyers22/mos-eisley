@@ -64,7 +64,7 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
             operator_mode=first.policy.operator_mode,
             policy_id="fixture-tranche",
             committed_at=datetime.now(UTC),
-            valid_until=datetime.now(UTC) + timedelta(minutes=5),
+            valid_until=datetime.now(UTC) + timedelta(minutes=15),
             max_observation_age_seconds=600,
             runtime=first.runtime,
             review_policy=first.controller.authorization.policy,

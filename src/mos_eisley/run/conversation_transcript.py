@@ -9,6 +9,7 @@ from typing import Annotated
 from pydantic import Field, TypeAdapter
 
 from mos_eisley.conversation import SessionID, Status
+from mos_eisley.conversation_diff_attachment import MAX_ATTACHMENTS, DiffAttachment
 from mos_eisley.conversation_pressure import ConversationPressureActivity
 from mos_eisley.conversation_request_admission import RequestAdmission
 from mos_eisley.core.agent import AgentUsage
@@ -27,6 +28,9 @@ MAX_TRANSCRIPT_PAGE_BYTES = 512_000
 
 class TranscriptText(Contract):
     text: Text
+    diff_attachments: Annotated[
+        tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
+    ] = Field(default=(), exclude_if=lambda value: not value)
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None

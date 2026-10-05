@@ -9,36 +9,58 @@ jobs:
   source:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      MOS_REQUIRE_TMUX: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
       - run: uv sync --frozen --dev
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - run: tmux -V
       - run: make lint typecheck test verify-export build
       - run: make audit
   package:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      MOS_REQUIRE_TMUX: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
       - run: uv sync --frozen --dev
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - run: tmux -V
       - run: make build smoke
+  windows-files:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m hatchling build
+      - name: Verify installed file and identity contracts on native Windows
+        run: uv run --frozen python tools/smoke_platform_files.py --require-native-windows
   quality:
-    needs: [source, package]
+    needs: [source, package, windows-files]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - name: Require source and installed-wheel checks
+      - name: Require source, installed-wheel and Windows contract checks
         env:
           SOURCE_RESULT: ${{ needs.source.result }}
           PACKAGE_RESULT: ${{ needs.package.result }}
+          WINDOWS_FILES_RESULT: ${{ needs.windows-files.result }}
         run: |
           test "$SOURCE_RESULT" = success
           test "$PACKAGE_RESULT" = success
+          test "$WINDOWS_FILES_RESULT" = success
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15

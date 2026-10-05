@@ -486,12 +486,40 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
-**Native Windows first batch, 2026-10-03 — defined, not implemented:** the
+**Historical native Windows survey, 2026-10-03:** the
 [contract survey](NATIVE_WINDOWS_CONTRACT_SURVEY.md) recommends extracting only
 `run.files.read_bounded` behind a typed platform boundary, preserving its current
 POSIX behavior and wrapper, and adding actual Windows-native installed-wheel
 import/refusal checks. Principal/schema migration and secure NTFS storage follow
-as separate batches. This foundation does not qualify native CLI or platform support.
+as separate batches. The implementation records below describe subsequent work;
+the survey itself does not qualify native CLI or platform support.
+
+The first native-platform extraction is the
+[bounded-reader contract](BOUNDED_FILE_READER_CONTRACT.md): an unchanged public
+wrapper, qualified POSIX adapter and explicit native Windows refusal. Source/wheel
+contract tests and a required Windows import/refusal job are provided; actual native
+CI evidence is pending. Windows reading and the remaining platform contracts are
+still unimplemented.
+
+The next bounded §27.2 slice now implements
+[tagged identity values and POSIX queries](PLATFORM_IDENTITY_CONTRACTS.md): immutable
+UID/SID and full-width opened-object values, strict borrowed references, lazy
+real-UID/fstat queries and explicit Windows refusal. Twenty isolated identity tests
+are included in source/wheel smoke, and the scoped native job includes portable
+values/import/refusal. Existing callers, schemas and ownership checks are intact.
+[Verification](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) distinguishes local
+evidence from pending native CI. Native read-only identity adapters, migration and
+private-storage adoption remain separate batches.
+
+**WSL2 qualification preparation, 2026-10-03:** the
+[runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
+wheel installation, upgrade/diagnostics/uninstall, and retained qualification
+evidence. The installed `python -m mos_eisley.wsl2_preflight` diagnostic checks
+recognized kernel metadata, resolved ext4 candidate mounts, non-root ownership and
+private selected storage directories without reading their contents. Unit fixtures
+and installed-wheel tests verify its rejection behavior; it grants no runtime
+execution, containment, credential-store or platform-support authority. Actual
+Windows-hosted WSL2 and all applicable §27.1 qualification gates remain pending.
 
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
@@ -516,6 +544,15 @@ routes share release artifacts and §28's update flow. This is a finished-produc
 packaging requirement, separate from G2; distribution names/endpoints and clean
 installed-package checks must pass before advertising commands. See
 [plan §29](mos-eisley-plan.md#29-codex-style-installation-and-first-launch).
+
+**External tmux workspace, 2026-10-02:** the optional
+[guide](CONVERSATION_TMUX.md) and real tmux compatibility tests cover the existing
+conversation interface alongside user-operated shells/watchers. Source and
+installed-wheel CI require tmux. Platform qualification records must distinguish
+macOS, Ubuntu CI and actual Windows-hosted WSL2; guide/test delivery alone does not
+qualify every platform. This work can precede embedded terminals and does not
+change execution authority or the Windows/update/install prerequisites. See
+[plan §16.0.5](mos-eisley-plan.md#1605-optional-external-tmux-workspace).
 
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
