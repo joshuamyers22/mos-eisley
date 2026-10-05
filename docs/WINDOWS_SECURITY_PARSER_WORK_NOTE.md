@@ -86,3 +86,18 @@ changes followed the passing gate; only this verification record was updated.
 User-authorized commit and push follow the passing gate; no PR was requested.
 Native inspector follows prerequisite identity review and resolution of token-close
 uncertainty; owned leases and child reads remain later batches.
+
+## PR preparation against current main
+
+The later publication request authorizes a PR against `main`. Current main
+`5a6be4e` was integrated without conflicts; its changes are limited to the three
+`CONVERSATION_DIFF_*` review/acceptance documents. Source, tests, tools, CI, build
+and dependency inputs are unchanged from the full-gate parser commit `8a38199`.
+The passing combined gate therefore remains the runtime evidence; no duplicate
+full run was needed for this documentation-only integration. Local link targets
+and `git diff --check` pass. GitHub CI must verify the published head.
+
+This branch is stacked on already-open #266, #268, #270, #272, #273 and #275.
+Merge/review prerequisites in that order before the parser PR so its remaining
+diff is the bounded Windows parser batch. The stack does not grant native
+identity/storage admission or resolve token-close uncertainty.
