@@ -1,5 +1,20 @@
 # Delivery roadmap
 
+**Model-role clarification, user direction 2026-09-13:** the normal workflow assigns
+three distinct models to author, critic and judge. The user controls credentials,
+spending and machine authority; no additional human authorizer, observer or launch
+reviewer is required. See [plan §7.7.1](mos-eisley-plan.md#771-model-review-roles-and-operator-authority),
+which supersedes conflicting G2 staffing requirements in the historical status below.
+
+The next G2 implementation item is an operator-authorized review path that binds
+the three-model roster and separates contexts while retaining guidance, conformance,
+quorum, spending, one-use dispatch, cancellation and evidence checks. Existing signed
+probe/campaign APIs and the staged launch-signature gate do not yet implement that
+operating model. Preserve their historical evidence semantics; use explicit new
+contracts for model review and operator authorization. Validate a recorded
+author → critic → judge flow before a budgeted live demonstration. The proposed
+Sol-only probe campaign is a component conformance test, not that three-model demo.
+
 **Integrated project review, 2026-09-08:** adopt the revised
 [adaptive reasoning design](adaptive-reasoning-routing.md) and
 [adversarial review-loop project plan](adversarial-review-loop-project-plan.md)
