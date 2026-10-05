@@ -151,7 +151,7 @@ def _schema_payload(schema: ToolSchema) -> dict[str, JsonValue]:
     return payload
 
 
-def _tool_payload(tool: ToolDefinition) -> dict[str, JsonValue]:
+def tool_payload(tool: ToolDefinition) -> dict[str, JsonValue]:
     return {
         "type": "function",
         "name": tool.name,
@@ -216,7 +216,7 @@ def request_payload(request: ModelRequest) -> dict[str, JsonValue]:
         "model": request.model,
         "instructions": request.system or None,
         "input": cast(JsonValue, _input_payload(request)),
-        "tools": cast(JsonValue, [_tool_payload(tool) for tool in request.tools]),
+        "tools": cast(JsonValue, [tool_payload(tool) for tool in request.tools]),
         "reasoning": {"effort": request.effort},
         "max_output_tokens": request.max_output_tokens,
         "parallel_tool_calls": True,

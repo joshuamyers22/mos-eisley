@@ -5,8 +5,9 @@ Mos Eisley's primary interface is an ongoing terminal conversation. Bare `mos`,
 both input and output are terminals. This is the first implementation of the
 terminal interaction requested in plan §16.0, with Codex and Claude Code as the
 interaction references. Recorded responses remain the default. Explicit live
-OpenAI text turns use the same saved transcript and controls. Repository tools
-and in-session provider switching are not enabled.
+OpenAI turns use the same saved transcript and controls. An explicit
+read-only repository profile is available per `/inspect` turn; in-session provider
+switching is not enabled.
 
 Use the [external tmux workspace guide](CONVERSATION_TMUX.md) to run Mos beside
 shells or watchers and detach/reattach to the same running process.
@@ -26,7 +27,8 @@ mos chat --live-openai --allow-data-transfer \
 ```
 
 This launch sends each submitted text turn and its admitted conversation history
-to the policy's OpenAI model. It performs no repository tool calls. Token counting
+to the policy's OpenAI model. Without the separate read opt-in, it performs no
+repository tool calls. Token counting
 also transfers the request text. The existing ledger limits aggregate reserved
 spend; the policy limits each response. No turn runs on opening a session. A queued
 turn needs a send or explicit continue, as in recorded mode. Ctrl-C or `/stop`
@@ -38,6 +40,37 @@ policy, ledger, effort, and artifacts root. The saved session checks their exact
 identities. An expired or changed policy requires a new live session. The
 recorded preview stays the default for launches without `--live-openai`.
 Live requests still use the existing 16-message session limit and context budget.
+
+### Read-only repository inspection
+
+Add `--live-repository-read` to both the live launch and matching resume command
+to opt the saved session into bounded repository inspection. Then send
+`/inspect Explain how authentication works` as a typed TUI command. Only an
+explicit inspection command receives `repo_list`, `repo_search`, and `repo_read`.
+Pasted or literal text beginning with `/inspect ` grants no repository authority.
+Other messages retain the text-only path. The opt-in is saved in the session
+identity, so a resume without it fails before a turn starts. Launch or resume alone
+does not authorize file inspection.
+
+The tools list up to 80 visible entries, search up to 64 files and 64 directories
+to depth four, and read at most 64,000 bytes of one UTF-8 file, returning up to 80
+lines and 8,000 bytes per result. Directory scans examine at most 1,024 entries;
+limited listings and incomplete searches report truncation. Hidden paths, the
+project's `private/` directories,
+symlinks, special files, traversal and paths
+outside the selected workspace are refused. Answers append the workspace-relative
+sources used by successful reads. File contents are untrusted data, including any
+instructions embedded in source text. The owner must select a workspace whose
+visible contents are appropriate to transfer to the provider.
+
+Each model response in an inspection turn has its own reservation and receipt;
+the existing current schema-2 policy still caps each response and the shared ledger
+caps aggregate exposure. An inspection turn allows at most five model responses
+and six local read calls. The live provider receives the tool definitions and any
+returned source excerpts, including during token counting. This option grants no
+Git write, shell, edit, test, publishing, or broader workspace authority. The
+[inspection threat model](LIVE_REPOSITORY_INSPECTION_THREAT_MODEL.md) records the
+owner-operated trust scope and remaining risks.
 
 ## Start a conversation
 

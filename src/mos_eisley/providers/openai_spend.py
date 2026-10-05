@@ -6,14 +6,16 @@ import copy
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Literal, Protocol, Self
+from typing import Annotated, Literal, Protocol, Self, cast
 
 from pydantic import Field, JsonValue, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.providers.openai_responses import tool_payload
 from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 from mos_eisley.run.store import private_write
+from mos_eisley.tools.repository_read import DEFINITIONS as REPOSITORY_TOOLS
 
 Money = Annotated[int, Field(ge=0, le=1_000_000_000_000)]
 
@@ -148,7 +150,10 @@ class SpendControlledOpenAITransport(Protocol):
 
 
 def _normalized_text_request(
-    payload: dict[str, JsonValue], policy: SpendPolicy
+    payload: dict[str, JsonValue],
+    policy: SpendPolicy,
+    *,
+    allow_repository_tools: bool = False,
 ) -> tuple[dict[str, JsonValue], int]:
     request = copy.deepcopy(payload)
     if policy.provider != "openai":
@@ -173,7 +178,7 @@ def _normalized_text_request(
     }
     if (
         set(request) - permitted
-        or request.get("tools")
+        or (request.get("tools") and not allow_repository_tools)
         or request.get("service_tier") not in (None, "default")
         or (request.get("store") is not None and request.get("store") is not False)
         or request.get("truncation") not in (None, "disabled")
@@ -193,8 +198,29 @@ def _normalized_text_request(
             or set(item) != {"role", "content"}
             or item.get("role") not in ("user", "assistant", "system", "developer")
             or not isinstance(item.get("content"), str)
-        ):
+        ) and (not allow_repository_tools or not _repository_history_item(item)):
             raise ProviderError("spending controller rejects non-text input")
+    if allow_repository_tools:
+        tools = request.get("tools")
+        if tools != [tool_payload(item) for item in REPOSITORY_TOOLS]:
+            raise ProviderError("repository inspection tool schema changed")
+        calls: set[str] = set()
+        outputs: set[str] = set()
+        for item in inputs:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "function_call":
+                call_id = cast(str, item["call_id"])
+                if call_id in calls or len(calls) >= 6:
+                    raise ProviderError("repository inspection tool history changed")
+                calls.add(call_id)
+            elif item.get("type") == "function_call_output":
+                call_id = cast(str, item["call_id"])
+                if call_id not in calls or call_id in outputs:
+                    raise ProviderError("repository inspection tool history changed")
+                outputs.add(call_id)
+        if calls != outputs:
+            raise ProviderError("repository inspection tool history changed")
     output_cap = request.get("max_output_tokens")
     if type(output_cap) is not int or not 1 <= output_cap <= policy.max_output_tokens:
         raise ProviderError("output limit exceeds spending policy")
@@ -202,6 +228,37 @@ def _normalized_text_request(
     request["truncation"] = "disabled"
     request["service_tier"] = "default"
     return request, output_cap
+
+
+def _repository_history_item(item: JsonValue) -> bool:
+    if not isinstance(item, dict):
+        return False
+    kind = item.get("type")
+    if kind == "reasoning":
+        return (
+            set(item)
+            <= {"type", "id", "summary", "content", "encrypted_content", "status"}
+            and isinstance(item.get("id"), str)
+            and isinstance(item.get("summary"), list)
+            and (item.get("content") is None or isinstance(item.get("content"), list))
+            and isinstance(item.get("encrypted_content"), str)
+        )
+    if kind == "function_call":
+        return (
+            set(item) <= {"type", "id", "call_id", "name", "arguments"}
+            and item.get("name") in ("repo_list", "repo_read", "repo_search")
+            and isinstance(item.get("call_id"), str)
+            and isinstance(item.get("arguments"), str)
+            and len(cast(str, item["arguments"])) <= 8192
+        )
+    if kind == "function_call_output":
+        return (
+            set(item) == {"type", "call_id", "output"}
+            and isinstance(item.get("call_id"), str)
+            and isinstance(item.get("output"), str)
+            and len(cast(str, item["output"]).encode("utf-8")) <= 16_000
+        )
+    return False
 
 
 def count_payload(request: dict[str, JsonValue]) -> dict[str, JsonValue]:
@@ -257,12 +314,15 @@ class BudgetedOpenAITransport:
         policy: SpendPolicy,
         directory: Path,
         ledger: SpendLedger | None = None,
+        *,
+        allow_repository_tools: bool = False,
     ):
         self.transport = transport
         self.policy = policy
         self.directory = directory
         self.ledger = ledger
         self.ledger_entry_id = digest(str(directory.resolve()).encode())
+        self.allow_repository_tools = allow_repository_tools
         self._used = False
 
     async def create_response(
@@ -272,7 +332,11 @@ class BudgetedOpenAITransport:
             raise ProviderError("spending controller permits one response only")
         self._used = True  # Set before the first await, including concurrent callers.
         self.policy.check_current()
-        request, output_cap = _normalized_text_request(payload, self.policy)
+        request, output_cap = _normalized_text_request(
+            payload,
+            self.policy,
+            allow_repository_tools=self.allow_repository_tools,
+        )
         tokens = await self.transport.count_input_tokens(
             copy.deepcopy(count_payload(request))
         )

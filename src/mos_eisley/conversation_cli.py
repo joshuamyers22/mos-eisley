@@ -182,6 +182,7 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
+from mos_eisley.tools.repository_read import RepositoryReadError
 
 DEMO_PROMPTS = (
     "Remember that the fixture boundary is ten.",
@@ -198,6 +199,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--live-openai",
+        "--live-repository-read",
         "--allow-data-transfer",
         "--live-effort",
         "--spend-policy",
@@ -825,6 +827,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 help="Use explicit spend-controlled OpenAI text chat",
             )
             command.add_argument(
+                "--live-repository-read",
+                action="store_true",
+                help="Allow per-turn /inspect read-only repository tools in live chat",
+            )
+            command.add_argument(
                 "--allow-data-transfer",
                 action="store_true",
                 help="Permit submitted text, history and memory in provider requests",
@@ -1059,6 +1066,7 @@ async def terminal(
         *,
         require_active: bool = False,
         attachments: tuple[DiffAttachment, ...] = (),
+        inspect_repository: bool = False,
     ) -> bool:
         if not text.strip() or len(text) > 8000 or text.count("\n") >= 256:
             emit(
@@ -1086,11 +1094,15 @@ async def terminal(
             if require_active:
                 controller.steer(text)
             else:
-                controller.submit(text, attachments=attachments)
+                controller.submit(
+                    text,
+                    attachments=attachments,
+                    inspect_repository=inspect_repository,
+                )
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
-        except DiffAttachmentError as error:
+        except (DiffAttachmentError, RepositoryReadError) as error:
             emit({"type": "conversation.unavailable", "text": str(error)})
             return False
         render()
@@ -1317,6 +1329,11 @@ async def terminal(
                                 line.text.removeprefix("/steer").lstrip(),
                                 require_active=True,
                             )
+                        elif command == "inspect":
+                            accepted = submit_text(
+                                line.text.removeprefix("/inspect").lstrip(),
+                                inspect_repository=True,
+                            )
                         elif command == "review" or (
                             not line.literal
                             and not line.attachments
@@ -1527,6 +1544,12 @@ async def terminal(
                 elif line == "/steer" or line.startswith("/steer "):
                     if submit_text(
                         line.removeprefix("/steer").lstrip(), require_active=True
+                    ):
+                        enabled = True
+                elif line.startswith("/inspect "):
+                    if submit_text(
+                        line.removeprefix("/inspect").lstrip(),
+                        inspect_repository=True,
                     ):
                         enabled = True
                 elif line.strip().casefold().rstrip(".") in {
@@ -2507,12 +2530,17 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             spend_policy_sha256=spend_policy.policy_sha256,
             spend_ledger_id=spend_ledger.policy.ledger_id,
             artifacts_root=str(private_artifacts_root(args.live_artifacts)),
+            repository_read=args.live_repository_read,
         )
         if not os.environ.get("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY is required for live chat")
-    elif args.allow_data_transfer or any(
-        value is not None
-        for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+    elif (
+        args.live_repository_read
+        or args.allow_data_transfer
+        or any(
+            value is not None
+            for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+        )
     ):
         raise ValueError("live chat spending options require --live-openai")
     if args.review_packet is not None and args.live_review_selection is not None:
@@ -2684,6 +2712,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 spend_ledger,
                 os.environ["OPENAI_API_KEY"],
                 state.session_id,
+                Path(state.workspace),
             ).run
         if state.memory != memory and not selected_refresh:
             print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
