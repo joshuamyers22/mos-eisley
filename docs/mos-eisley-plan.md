@@ -4703,7 +4703,7 @@ contextual metadata, not permissions, DACLs, integrity or cross-host ownership.
 Existing consumers, artifact bytes/hashes and schemas are unchanged. Isolated
 source/wheel tests and the scoped Windows import/refusal job cover this additive
 slice; [the implementation record](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md)
-reports actual verification. Native token/handle adapters, local-NTFS qualification,
+reports actual verification. Native adapter qualification, local-NTFS evidence,
 accountable boundary review and separate schema migration remain open. This does
 not advance native support or storage authority.
 
@@ -4714,8 +4714,18 @@ token access, refusal of thread tokens before/after acquisition, bounded SID
 buffers and temporary-handle cleanup. Source/wheel CI now includes actual native
 SID-oracle, impersonation-refusal and handle-count tests as well as portable fault
 tests. Native qualification remains pending execution and accountable review;
-the common Windows selector continues to refuse. Local-NTFS opened-file identity
-is the next sub-batch. No existing consumer/schema/storage policy is adopted.
+the common Windows selector continues to refuse. No existing consumer/schema/storage
+policy is adopted.
+
+**Native opened-file sub-batch — candidate local-NTFS adapter implemented:**
+[the file-identity record](WINDOWS_FILE_IDENTITY_WORK_NOTE.md) freezes handle-only
+disk/device-characteristic, NTFS and file/directory eligibility checks, followed
+by full 64-bit volume serial/128-bit FileIdInfo acquisition. The borrowed HANDLE's
+lifetime, position and inheritance are preserved. Portable faults and actual native
+oracle, duplicate, hardlink, rename, replacement, mutation, directory and pipe cases
+are selected from source and installed wheels. Native execution, owner-operated
+storage rejection fixtures and accountable review remain pending; public selector
+admission, migration and private-storage adoption follow qualification.
 
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 

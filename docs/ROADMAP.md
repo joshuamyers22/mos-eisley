@@ -509,8 +509,12 @@ impersonation refusal and owned-token cleanup, portable faults and native
 oracle/impersonation/handle-count tests from source and wheels. Candidate coverage
 is 64-bit AMD64 Windows build 17763+; actual native qualification and accountable
 selector admission remain pending, so the common Windows selector stays closed.
-Local-NTFS file identity is next; migration and private-storage adoption follow
-qualification.
+The [candidate local-NTFS opened-file adapter](WINDOWS_FILE_IDENTITY_WORK_NOTE.md)
+now adds handle-only eligibility and full-width FileIdInfo queries, preserving
+borrowed handles. Portable faults and native oracle/lifecycle/refusal tests run
+from source and installed wheels. Actual native execution, extended storage
+fixtures and accountable admission remain pending; migration and private-storage
+adoption follow qualification.
 
 **WSL2 qualification preparation, 2026-10-03:** the
 [runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate

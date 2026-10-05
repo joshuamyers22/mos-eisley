@@ -49,6 +49,8 @@ jobs:
         run: uv run --frozen python -c "import platform, sys; print(platform.platform(), platform.machine(), sys.version)"
       - name: Verify candidate principal adapter from source on native Windows
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_principal.py -v
+      - name: Verify candidate local-NTFS identities from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_file_identity.py -v
       - name: Verify installed file and identity contracts on native Windows
         run: uv run --frozen python tools/smoke_platform_files.py --require-native-windows
   quality:

@@ -72,4 +72,7 @@ not stand in for accountable native qualification or migration approval.
 The [candidate Windows principal slice](../WINDOWS_PRINCIPAL_WORK_NOTE.md) adds
 direct process TokenUser acquisition and qualification tests. The common Windows
 selector remains closed until actual native evidence and accountable admission.
-Native file identity and consumer/schema adoption remain open.
+The [candidate local-NTFS file slice](../WINDOWS_FILE_IDENTITY_WORK_NOTE.md) adds
+handle-only device/filesystem eligibility and complete FileIdInfo observations.
+Both adapters still need native qualification and accountable selector admission;
+consumer/schema adoption remains open.

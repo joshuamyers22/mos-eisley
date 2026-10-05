@@ -1,7 +1,7 @@
 # Principal and opened-file identity contracts
 
-Status: tagged values, additive POSIX queries and candidate Windows principal
-queries implemented; native qualification, native file queries and consumer/schema
+Status: tagged values, additive POSIX queries and candidate Windows principal/file
+queries implemented; native qualification and consumer/schema
 adoption remain pending. Local POSIX verification is recorded in
 [the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md). Owner: Josh Myers. Scope: the next bounded batch under
 [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support),
@@ -11,7 +11,9 @@ after the [bounded-reader extraction](BOUNDED_FILE_READER_CONTRACT.md).
 A [candidate Windows principal adapter](WINDOWS_PRINCIPAL_WORK_NOTE.md) now
 implements process TokenUser acquisition for direct native qualification. The
 public Windows selector still refuses pending actual native evidence and
-accountable admission; native file identity remains unimplemented.
+accountable admission. The [candidate opened-file adapter](WINDOWS_FILE_IDENTITY_WORK_NOTE.md)
+now implements direct local-NTFS HANDLE queries for qualification, with a frozen
+handle-only eligibility algorithm; it does not admit the public selector.
 
 ## Observed boundary and scope
 
@@ -239,7 +241,9 @@ against an independent native query, not the adapter being tested.
    The first sub-batch implements only candidate principal queries on AMD64
    Windows build 17763+ with 64-bit CPython 3.12+, native oracle/impersonation/cleanup
    tests and source/wheel CI. Native selector admission is separate from this
-   candidate implementation; local-NTFS file queries are the next sub-batch.
+   candidate implementation. The second sub-batch implements direct local-NTFS
+   opened-file queries with full FileIdInfo values and source/wheel qualification
+   tests. Both adapters still need native evidence and accountable admission.
 4. Migration inventory/design may proceed alongside adapter qualification. Change
    versioned writers and adopt one private-storage lifecycle only after both
    adapters qualify and migration acceptance is frozen. No broader storage replacement
@@ -304,3 +308,31 @@ and import/refusal tests, without selecting POSIX tests. It now executes fourtee
 common tests across reader and identity contracts; this does not qualify Windows
 identity queries, native reading or the full CLI. On macOS/Linux the isolated helper
 runs thirty reader/identity tests; the main wheel smoke includes all identity tests.
+
+## Candidate local-NTFS opened-file entry point
+
+For qualification on the guarded native target only:
+
+```python
+from mos_eisley.platform.identity import WindowsHandle
+from mos_eisley.platform.windows_file_identity import file_identity
+
+observed = file_identity(WindowsHandle(live_handle))
+```
+
+This direct adapter leaves the common Windows selector closed. It loads trusted
+System32 bindings lazily once per process; every query obtains fresh observations.
+The [file-identity work note](WINDOWS_FILE_IDENTITY_WORK_NOTE.md) freezes the
+eligibility algorithm and pending-buffer handling, candidate targets, acceptance
+rubric and actual verification. Eligibility uses only handle observations, never
+a drive letter or reopened path. Unsupported storage/API results fail closed.
+
+Ordinary native CI requires local-NTFS file/directory, independent full-ID oracle,
+live duplicate/hardlink/rename/replacement/content-mutation, borrowed offset and
+inheritance preservation, closed-handle and pipe cases. These run in disposable
+processes from source and isolated installed wheels. Portable fault tests supplement
+remote/removable/non-NTFS/unknown-characteristic refusal and malformed native
+results. Real remote, removable, non-NTFS and raw-device rejection fixtures remain
+pending owner-operated qualification; missing fixtures do not count as qualified.
+Neither API success nor identifier equality admits secure path opening, DACLs,
+locking, private storage, migration, stable content or subsequent handle lifetime.

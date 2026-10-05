@@ -86,3 +86,31 @@ copy. Temporary thread/process handles close even on malformed buffers, query
 errors, allocation failures and final-context refusal. Cleanup failures refuse
 rather than returning a successful observation. Fault tests supplement native
 SID-oracle and handle-count tests; they do not qualify the API on macOS.
+
+## Candidate opened-file controls
+
+The direct candidate entry point validates an exact WindowsHandle and the same
+AMD64/build-17763+ target before lazy trusted System32 kernel32/ntdll binding.
+GetFileType, FileFsDeviceInformation, GetVolumeInformationByHandleW and
+FileStandardInfo establish the frozen observed disk/local-NTFS file/directory
+scope. Unknown characteristics and removable, remote, virtual, Terminal Services,
+WebDAV, portable or clustered storage refuse. Device flags do not prove physical
+hardware provenance or safe future private storage. Native rejection fixtures
+beyond ordinary local NTFS CI remain pending owner-operated evidence.
+
+FileIdInfo returns the complete 64-bit serial and 128-bit ID without fallback.
+Only fixed-size owned output structures and a 261-character filesystem buffer are
+used. No path/volume namespace lookup, file opening/reading, borrowed-handle close,
+position or inheritance mutation occurs. The caller must prevent concurrent
+close/reuse; this adapter cannot make a handle lease from an integer wrapper.
+An unexpected pending native volume query is refused, retaining one output-buffer
+pair for process lifetime and disabling further device queries to prevent deferred
+writes into freed storage and unbounded quarantine growth. No wait/cancel is issued.
+
+Fault tests cover full-width ABI, eligibility order, native failures/malformed
+completions, pending lifetime, bounded names, inert import and fresh identities.
+Independent raw native marshalling, live duplicates/hardlinks/renames/replacement,
+content mutation, directories, inherited-handle/offset preservation and real
+pipe/closed-handle refusal run in disposable native processes from source/wheels.
+These tests do not qualify Windows on a macOS host. Public selectors and all
+consumer schemas/storage authority remain unchanged pending accountable admission.

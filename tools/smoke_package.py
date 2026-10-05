@@ -167,6 +167,7 @@ def main() -> int:
             "test_conversation_git.py",
             "test_conversation_git_isolation.py",
             "test_platform_windows_principal.py",
+            "test_platform_windows_file_identity.py",
             "test_wsl2_preflight.py",
             "test_conversation.py",
             "test_conversation_navigation.py",
