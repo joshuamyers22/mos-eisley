@@ -1,6 +1,6 @@
 # Open PR integration, 2026-10-05
 
-- Status: active
+- Status: ready for final CI and merge
 - Owner: Josh Myers; integration by Codex under the explicit request to merge all
   open PRs and correct errors.
 - Starting main: `5a6be4e`; work is isolated from existing modified checkouts.
@@ -54,6 +54,16 @@ explicitly refuse a live-chat controller, preserving the draft qualification sco
 The combined gate exposed missing `review-scope` command registration; restored
 its parser and dispatch without replacing current provider commands. All 43 Git
 review/range regressions pass after the correction, as do Ruff format/lint and
-Pyright. The bare-launch Git-panel PTY regression passes. The combined source
-run and installed-wheel gate are in progress; required remote CI remains pending. Disposable logs live outside
+Pyright. The bare-launch Git-panel PTY regression passes. The initial local combined source run executed 3,554 tests (17 skipped):
+the two CLI failures were fixed above; one timing-sensitive conformance fixture
+used a planned timestamp earlier than its actual publication under load. Anchor
+that fixture to the committed publication time; its 11 focused tests pass before
+and after the correction. No production admission check was relaxed.
+
+CI run [37298156152](https://github.com/joshuamyers22/mos-eisley/actions/runs/37298156152)
+passes full source, installed package, dependency audit, native Windows, both
+POSIX platforms, container and quality checks; secret scanning also passes.
+Source CI executes 3,554 tests with 85% total branch-aware coverage. The final
+fixture-only correction requires fresh CI on its exact head. Installed-wheel
+verification is still running locally; final results are recorded in PR #278. Disposable logs live outside
 Git. The final closeout will record actual counts, failures and platform skips.
