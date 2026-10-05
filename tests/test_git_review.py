@@ -96,6 +96,73 @@ class GitScopeTests(RepositoryFixture, TestCase):
         finally:
             broker.close()
 
+    def test_group_signal_denial_kills_and_reaps_owned_child(self) -> None:
+        broker = GitReadBroker(self.root)
+        processes: list[subprocess.Popen[bytes]] = []
+        start = subprocess.Popen
+
+        def capture(
+            args: list[str],
+            *,
+            cwd: Path,
+            env: dict[str, str],
+            stdin: int,
+            stdout: int,
+            stderr: int,
+            start_new_session: bool,
+        ) -> subprocess.Popen[bytes]:
+            process = start(
+                args,
+                cwd=cwd,
+                env=env,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=start_new_session,
+            )
+            processes.append(process)
+            return process
+
+        try:
+            broker.prefix = [sys.executable, "-c", "import time; time.sleep(30)"]
+            broker.deadline = 0
+            with (
+                patch("mos_eisley.git_review.subprocess.Popen", side_effect=capture),
+                patch("mos_eisley.git_review.os.killpg", side_effect=PermissionError),
+                self.assertRaisesRegex(ValueError, "time limit"),
+            ):
+                broker._git()  # pyright: ignore[reportPrivateUsage]
+            self.assertEqual(len(processes), 1)
+            self.assertIsNotNone(processes[0].returncode)
+            assert processes[0].stdout is not None and processes[0].stderr is not None
+            self.assertTrue(processes[0].stdout.closed)
+            self.assertTrue(processes[0].stderr.closed)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=2)
+            broker.close()
+
+    def test_process_group_exit_race_preserves_original_limit_error(self) -> None:
+        broker = GitReadBroker(self.root)
+        kill_group = os.killpg
+
+        def exited(pid: int, sig: int) -> None:
+            kill_group(pid, sig)
+            raise ProcessLookupError
+
+        try:
+            broker.prefix = [sys.executable, "-c", "import time; time.sleep(30)"]
+            broker.deadline = 0
+            with (
+                patch("mos_eisley.git_review.os.killpg", side_effect=exited),
+                self.assertRaisesRegex(ValueError, "time limit"),
+            ):
+                broker._git()  # pyright: ignore[reportPrivateUsage]
+        finally:
+            broker.close()
+
     def test_file_count_limit_does_not_produce_a_partial_scope(self) -> None:
         for index in range(65):
             (self.root / f"new-{index:02d}").write_text("synthetic\n")
