@@ -45,10 +45,42 @@ jobs:
           version: "0.12.5"
       - run: uv sync --frozen --dev
       - run: uv run --frozen python -m hatchling build
+      - name: Record native qualification candidate
+        run: uv run --frozen python -c "import platform, sys; print(platform.platform(), platform.machine(), sys.version)"
+      - name: Verify inert identity wire codecs from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_identity_wire.py -v
+      - name: Verify pure owner/DACL parser with synthetic fixtures from source
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_security.py -v
+      - name: Verify gated storage boundary from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_storage.py -v
+      - name: Verify gated namespace reading from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_namespace_read.py -v
+      - name: Verify candidate principal adapter from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_principal.py -v
+      - name: Verify candidate local-NTFS identities from source on native Windows
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_file_identity.py -v
       - name: Verify installed file and identity contracts on native Windows
         run: uv run --frozen python tools/smoke_platform_files.py --require-native-windows
+  posix-storage:
+    env:
+      MOS_REQUIRE_POSIX_STORAGE: "1"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m unittest discover -s tests -p test_platform_storage.py -v
+      - run: uv run --frozen python -m unittest discover -s tests -p test_platform_namespace_read.py -v
+      - run: uv run --frozen python -m hatchling build
+      - run: uv run --frozen python tools/smoke_platform_files.py
   quality:
-    needs: [source, package, windows-files]
+    needs: [source, package, windows-files, posix-storage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -57,10 +89,12 @@ jobs:
           SOURCE_RESULT: ${{ needs.source.result }}
           PACKAGE_RESULT: ${{ needs.package.result }}
           WINDOWS_FILES_RESULT: ${{ needs.windows-files.result }}
+          POSIX_STORAGE_RESULT: ${{ needs.posix-storage.result }}
         run: |
           test "$SOURCE_RESULT" = success
           test "$PACKAGE_RESULT" = success
           test "$WINDOWS_FILES_RESULT" = success
+          test "$POSIX_STORAGE_RESULT" = success
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 15

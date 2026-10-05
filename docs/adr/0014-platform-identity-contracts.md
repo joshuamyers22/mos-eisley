@@ -68,3 +68,16 @@ pure tagged values, borrowed references and lazy POSIX queries, with explicit
 native refusal. Existing consumers and schemas remain unchanged. The ADR remains
 proposed for native admission and later adoption; this local implementation does
 not stand in for accountable native qualification or migration approval.
+
+The [candidate Windows principal slice](../WINDOWS_PRINCIPAL_WORK_NOTE.md) adds
+direct process TokenUser acquisition and qualification tests. The common Windows
+selector remains closed until actual native evidence and accountable admission.
+The [candidate local-NTFS file slice](../WINDOWS_FILE_IDENTITY_WORK_NOTE.md) adds
+handle-only device/filesystem eligibility and complete FileIdInfo observations.
+Both adapters still need native qualification and accountable selector admission;
+consumer/schema adoption remains open.
+
+[ADR-0015](0015-versioned-identity-migration.md) and the
+[migration design](../IDENTITY_MIGRATION_DESIGN.md) now define the subsequent
+versioned persistence boundary. This is proposed documentation, not implementation
+or admission of those consumers.

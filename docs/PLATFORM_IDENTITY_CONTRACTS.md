@@ -1,11 +1,19 @@
 # Principal and opened-file identity contracts
 
-Status: tagged values and additive POSIX queries implemented; native queries and
-consumer/schema adoption remain pending. Local verification is recorded in
+Status: tagged values, additive POSIX queries and candidate Windows principal/file
+queries implemented; native qualification and consumer/schema
+adoption remain pending. Local POSIX verification is recorded in
 [the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md). Owner: Josh Myers. Scope: the next bounded batch under
 [plan §27.2](mos-eisley-plan.md#272-version-011--full-native-windows-support),
 after the [bounded-reader extraction](BOUNDED_FILE_READER_CONTRACT.md).
 [ADR-0014](adr/0014-platform-identity-contracts.md) records the proposed design.
+
+A [candidate Windows principal adapter](WINDOWS_PRINCIPAL_WORK_NOTE.md) now
+implements process TokenUser acquisition for direct native qualification. The
+public Windows selector still refuses pending actual native evidence and
+accountable admission. The [candidate opened-file adapter](WINDOWS_FILE_IDENTITY_WORK_NOTE.md)
+now implements direct local-NTFS HANDLE queries for qualification, with a frozen
+handle-only eligibility algorithm; it does not admit the public selector.
 
 ## Observed boundary and scope
 
@@ -187,18 +195,22 @@ unchanged. Do not serialize these new objects into an existing schema or coerce 
 Windows SID into an integer field. Legacy decoders remain in place and reject
 unsupported cross-platform ownership rather than inventing a mapping.
 
-The following migration batch must enumerate every affected artifact and choose
-versioned host/account binding, legacy decoding and explicit authenticated owner
-rebinding. Original signed/canonical bytes and verification hashes stay verifiable;
-no on-read rewriting or silent replay under a different principal is allowed.
-This contract cannot supply cross-host authentication or migration authority.
+The [migration inventory](IDENTITY_MIGRATION_INVENTORY.md) and
+[proposed migration design](IDENTITY_MIGRATION_DESIGN.md) now enumerate ordinary
+artifact families and define versioned namespace/owner binding, legacy decoding,
+explicit authenticated rebinding prerequisites and recovery acceptance. Original
+signed/canonical bytes and verification hashes stay verifiable; no on-read rewriting
+or silent replay under a different principal is allowed. Migration implementation and
+accountable review remain pending. This primitive cannot supply cross-host
+authentication or migration authority; the design does not admit new selectors.
 
 ## Acceptance matrix for implementation
 
 I-01–I-05 and additive compatibility checks are exercised by the POSIX slice;
 [the implementation work note](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md) records
-actual results. I-06–I-08 remain future native-adapter qualification, and actual
-Windows import/refusal CI evidence remains pending publication.
+actual results. The [candidate Windows principal record](WINDOWS_PRINCIPAL_WORK_NOTE.md)
+adds source/wheel qualification tests. I-06–I-08 remain native qualification
+gates; actual native CI for this candidate remains pending publication.
 
 | ID | Evidence | Blocking threshold |
 |---|---|---|
@@ -229,6 +241,12 @@ against an independent native query, not the adapter being tested.
    resources and I-06–I-08 on actual Windows/local NTFS. Freeze and review filesystem
    detection and supported targets before admitting the native selector. This is a
    separate implementation PR, with owner/domain review for the boundary.
+   The first sub-batch implements only candidate principal queries on AMD64
+   Windows build 17763+ with 64-bit CPython 3.12+, native oracle/impersonation/cleanup
+   tests and source/wheel CI. Native selector admission is separate from this
+   candidate implementation. The second sub-batch implements direct local-NTFS
+   opened-file queries with full FileIdInfo values and source/wheel qualification
+   tests. Both adapters still need native evidence and accountable admission.
 4. Migration inventory/design may proceed alongside adapter qualification. Change
    versioned writers and adopt one private-storage lifecycle only after both
    adapters qualify and migration acceptance is frozen. No broader storage replacement
@@ -240,6 +258,31 @@ updates. Add a Windows adapter only in step 3. New modules should use the standa
 library and depend on no CLI/store; avoid changing the stable bounded-reader API.
 Rollback before adoption removes these additive modules/tests/jobs without touching
 retained data. No automatic rebinding, dispatch or execution authority is added.
+
+## Candidate Windows principal usage
+
+For qualification on the candidate native target only:
+
+```python
+from mos_eisley.platform.windows_identity import current_principal
+
+principal = current_principal()
+```
+
+This direct entry point queries the process TokenUser with TOKEN_QUERY rights,
+refuses thread tokens before and after acquisition, and returns copied bounded
+SID bytes. Only ERROR_NO_TOKEN permits proceeding to the process token. Temporary
+token handles close on every exit; no context or privilege is changed. No SID is
+logged. Bounds precede native IsValidSid/GetLengthSid calls on an owned SID copy.
+The host guard rejects other architectures, 32-bit processes and older Windows
+builds before DLL loading. This candidate target range is not a qualification
+claim for every version; hosted CI records its actual version/architecture.
+
+The common `platform.identity.current_principal` continues to reject Windows;
+effect-boundary context revalidation, accountable selector admission, native file
+identity, storage authorization and consumer/schema adoption remain separate.
+See [the work note](WINDOWS_PRINCIPAL_WORK_NOTE.md) for actual results and pending
+native evidence. API availability or mocked success does not close I-06/I-08.
 
 ## POSIX slice usage
 
@@ -268,3 +311,62 @@ and import/refusal tests, without selecting POSIX tests. It now executes fourtee
 common tests across reader and identity contracts; this does not qualify Windows
 identity queries, native reading or the full CLI. On macOS/Linux the isolated helper
 runs thirty reader/identity tests; the main wheel smoke includes all identity tests.
+
+## Candidate local-NTFS opened-file entry point
+
+For qualification on the guarded native target only:
+
+```python
+from mos_eisley.platform.identity import WindowsHandle
+from mos_eisley.platform.windows_file_identity import file_identity
+
+observed = file_identity(WindowsHandle(live_handle))
+```
+
+This direct adapter leaves the common Windows selector closed. It loads trusted
+System32 bindings lazily once per process; every query obtains fresh observations.
+The [file-identity work note](WINDOWS_FILE_IDENTITY_WORK_NOTE.md) freezes the
+eligibility algorithm and pending-buffer handling, candidate targets, acceptance
+rubric and actual verification. Eligibility uses only handle observations, never
+a drive letter or reopened path. Unsupported storage/API results fail closed.
+
+Ordinary native CI requires local-NTFS file/directory, independent full-ID oracle,
+live duplicate/hardlink/rename/replacement/content-mutation, borrowed offset and
+inheritance preservation, closed-handle and pipe cases. These run in disposable
+processes from source and isolated installed wheels. Portable fault tests supplement
+remote/removable/non-NTFS/unknown-characteristic refusal and malformed native
+results. Real remote, removable, non-NTFS and raw-device rejection fixtures remain
+pending owner-operated qualification; missing fixtures do not count as qualified.
+Neither API success nor identifier equality admits secure path opening, DACLs,
+locking, private storage, migration, stable content or subsequent handle lifetime.
+
+## Additive inert wire codecs
+
+[The codec implementation](../src/mos_eisley/platform/identity_wire.py) provides
+strict standalone principal/file/owner-binding and scoped-file bytes as defined in
+the [migration design](IDENTITY_MIGRATION_DESIGN.md). Imports and conversions query
+no OS identity, create no namespace and grant no storage/owner trust. The 4,096-byte
+preparse limit, duplicate-member rejection, canonical encoding, full-width hex
+and immutable metadata apply only to these new wire forms. Existing consumers,
+legacy codecs/writers and public Windows refusal remain unchanged.
+
+[Verification](IDENTITY_WIRE_CODEC_WORK_NOTE.md) records source/fresh-wheel
+wire checks and selected frozen legacy fixtures. Namespace enrollment, durable
+artifact versions, migration, qualified storage and accountable admission remain
+separate work. Codec acceptance does not qualify the native adapters.
+
+## Namespace/storage admission prerequisite
+
+The [defined namespace/storage contract](NAMESPACE_STORAGE_CONTRACT.md) specifies
+one immutable bounded namespace record and an owned read-only lease over an
+already-open directory. Identity values remain metadata; owner/private-storage
+checks cannot mint enrolled trust without independently protected root/key custody.
+ACL inspection, secure relative child opens, resource/lifetime bounds and explicit
+qualification supplement these identity primitives. No existing consumer, writer
+or public Windows selector is admitted by this definition.
+
+The [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now implements
+only that existing-root inspection and owned lease, with bounded native ACL/mount
+queries and native macOS source/wheel evidence. Public storage selection remains
+closed pending target qualification and accountable review. Child reads, protected
+enrollment and existing store adoption are separate slices.

@@ -5,22 +5,24 @@ from typing import Annotated, Generic, Literal, Self
 from pydantic import Field, model_validator
 from typing_extensions import TypeVar
 
+from mos_eisley.conversation_branch import (
+    BranchBudget,
+    ForkOrigin,
+    ForkReceipt,
+    SideReceipt,
+)
 from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     validate_author_compactions,
 )
-from mos_eisley.conversation_diff_attachment import (
-    MAX_ATTACHMENTS,
-    DiffAttachment,
-    attachment_fingerprint,
-    attachment_payload,
-)
+from mos_eisley.conversation_goal import DurableGoal
 from mos_eisley.conversation_limits import (
     DEFAULT_CONTEXT_BYTES,
     DEFAULT_SNAPSHOT_BYTES,
     ContextByteLimit,
     SnapshotByteLimit,
 )
+from mos_eisley.conversation_local_child import LocalChildRecord
 from mos_eisley.conversation_memory import ConversationMemory
 from mos_eisley.conversation_memory_project import memory_workspace
 from mos_eisley.conversation_name import SessionName
@@ -39,6 +41,12 @@ from mos_eisley.conversation_review import (
     ConversationLiveReviewPacket,
     ReviewPacket,
     review_summary,
+)
+from mos_eisley.conversation_schedule import StoredSchedule
+from mos_eisley.conversation_source_attachment import (
+    SourceAttachment,
+    attachment_fingerprint,
+    attachment_payload,
 )
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import (
@@ -65,9 +73,22 @@ class ConversationMemoryContext(Contract):
 
 class ConversationEntry(Contract):
     text: Text
-    diff_attachments: Annotated[
-        tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
-    ] = Field(default=(), exclude_if=lambda value: not value)
+    repository_inspection: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    goal_id: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
+    goal_definition_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
+    implementation_request: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    diff_attachments: Annotated[tuple[SourceAttachment, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -104,6 +125,8 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.repository_inspection and (self.is_review or self.diff_attachments):
+            raise ValueError("repository inspection requires a plain author turn")
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_payload(self.diff_attachments))
@@ -111,9 +134,23 @@ class ConversationEntry(Contract):
             raise ValueError("diff attachments differ from the saved message")
         if self.request_admission is not None and (
             self.request_admission.diff_attachment_sha256
-            != attachment_fingerprint(self.diff_attachments)
+            != attachment_fingerprint(
+                self.diff_attachments,
+                schema_version=self.request_admission.schema_version,
+            )
         ):
             raise ValueError("request admission differs from diff attachments")
+        if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
+            self.goal_id is not None and self.is_review
+        ):
+            raise ValueError("A goal entry requires a definition and an author turn.")
+        if (self.interaction_mode == "plan" and self.implementation_request) or (
+            self.is_review
+            and (self.interaction_mode == "plan" or self.implementation_request)
+        ):
+            raise ValueError(
+                "Planning entries cannot authorize implementation or review."
+            )
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -177,9 +214,22 @@ class ArchivedConversationEntry(Contract):
     """
 
     text: Text
-    diff_attachments: Annotated[
-        tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
-    ] = Field(default=(), exclude_if=lambda value: not value)
+    repository_inspection: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    goal_id: Identifier | None = Field(default=None, exclude_if=lambda v: v is None)
+    goal_definition_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
+    )
+    implementation_request: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    diff_attachments: Annotated[tuple[SourceAttachment, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
     status: Status = "queued"
     answer: Text | None = None
     usage: AgentUsage | None = None
@@ -215,6 +265,8 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.repository_inspection and (self.is_review or self.diff_attachments):
+            raise ValueError("repository inspection requires a plain author turn")
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_payload(self.diff_attachments))
@@ -222,9 +274,23 @@ class ArchivedConversationEntry(Contract):
             raise ValueError("archived diff attachments differ from the message")
         if self.request_admission is not None and (
             self.request_admission.diff_attachment_sha256
-            != attachment_fingerprint(self.diff_attachments)
+            != attachment_fingerprint(
+                self.diff_attachments,
+                schema_version=self.request_admission.schema_version,
+            )
         ):
             raise ValueError("archived admission differs from diff attachments")
+        if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
+            self.goal_id is not None and self.is_review
+        ):
+            raise ValueError("A goal entry requires a definition and an author turn.")
+        if (self.interaction_mode == "plan" and self.implementation_request) or (
+            self.is_review
+            and (self.interaction_mode == "plan" or self.implementation_request)
+        ):
+            raise ValueError(
+                "Planning entries cannot authorize implementation or review."
+            )
         if self.pressure_activity is not None and (
             self.status != "completed" or self.is_review
         ):
@@ -258,11 +324,16 @@ class ArchivedConversationEntry(Contract):
         else:
             ConversationEntry(
                 text=self.text,
+                repository_inspection=self.repository_inspection,
                 diff_attachments=self.diff_attachments,
                 status=self.status,
                 answer=self.answer,
                 usage=self.usage,
                 steering_for=self.steering_for,
+                goal_id=self.goal_id,
+                goal_definition_sha256=self.goal_definition_sha256,
+                interaction_mode=self.interaction_mode,
+                implementation_request=self.implementation_request,
             )
         if self.review_result is not None and (
             digest(canonical_bytes(self.review_result)) != refs.get("review_result")
@@ -282,7 +353,12 @@ class ArchivedConversationEntry(Contract):
             mode="json",
             include={
                 "text",
+                "repository_inspection",
                 "diff_attachments",
+                "interaction_mode",
+                "goal_id",
+                "goal_definition_sha256",
+                "implementation_request",
                 "status",
                 "answer",
                 "usage",
@@ -307,15 +383,41 @@ class LiveChatIdentity(Contract):
     spend_policy_sha256: Digest
     spend_ledger_id: Digest
     artifacts_root: Annotated[str, Field(min_length=1, max_length=4096)]
+    repository_read: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class ConversationState(Contract, Generic[EntryT]):
+    local_children: Annotated[tuple[LocalChildRecord, ...], Field(max_length=4)] = (
+        Field(default=(), exclude_if=lambda v: not v)
+    )
+    schedules: Annotated[tuple[StoredSchedule, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    fork_origin: ForkOrigin | None = Field(default=None, exclude_if=lambda v: v is None)
+    branch_budget: BranchBudget | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    forks: Annotated[tuple[ForkReceipt, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    sides: Annotated[tuple[SideReceipt, ...], Field(max_length=16)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    goals: Annotated[tuple[DurableGoal, ...], Field(max_length=8)] = Field(
+        default=(), exclude_if=lambda v: not v
+    )
+    active_goal_id: Identifier | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     schema_version: Literal[1] = 1
     mode: Literal["recorded_conversation", "openai_live_conversation"] = (
         "recorded_conversation"
     )
     live_chat: LiveChatIdentity | None = Field(
         default=None, exclude_if=lambda value: value is None
+    )
+    interaction_mode: Literal["conversation", "plan"] = Field(
+        default="conversation", exclude_if=lambda value: value == "conversation"
     )
     session_id: SessionID
     session_name: SessionName | None = Field(
@@ -385,6 +487,188 @@ class ConversationState(Contract, Generic[EntryT]):
             self.retained_cassette is not None or self.builtin_recording
         ):
             raise ValueError("live conversation cannot retain a recording")
+        if self.fork_origin is not None and (
+            self.fork_origin.context.owner_uid != self.owner_uid
+            or self.fork_origin.context.workspace != self.workspace
+            or self.branch_budget is None
+            or self.task_continuation is not None
+            or self.task_checkpoint is not None
+        ):
+            raise ValueError(
+                "Forks require exact owner/workspace, "
+                "allowance and no executable checkpoint."
+            )
+        for values in (
+            tuple(f.branch_id for f in self.forks),
+            tuple(s.side_id for s in self.sides),
+        ):
+            if len(set(values)) != len(values):
+                raise ValueError("Branch operation identities must be unique.")
+        goals = {g.goal_id: g for g in self.goals}
+        if len(goals) != len(self.goals) or any(
+            g.owner_uid != self.owner_uid or g.workspace != self.workspace
+            for g in self.goals
+        ):
+            raise ValueError(
+                "Goals require unique identities and this exact owner/workspace."
+            )
+        if self.active_goal_id is not None and self.active_goal_id not in goals:
+            raise ValueError("Active goal is absent from retained history.")
+        if len({c.child_id for c in self.local_children}) != len(self.local_children):
+            raise ValueError("Child operation identities must be unique.")
+        if sum(c.state == "running" for c in self.local_children) > 1:
+            raise ValueError("Only one local child may run per session.")
+        for child in self.local_children:
+            scope = child.authorization.scope
+            goal = goals.get(child.assignment.parent_task_id)
+            job = (
+                None
+                if goal is None
+                else next(
+                    (j for j in goal.jobs if j.operation_id == child.child_id), None
+                )
+            )
+            if (
+                scope.owner_uid != self.owner_uid
+                or scope.parent_session_id != self.session_id
+                or scope.workspace_sha256 != digest(self.workspace.encode())
+                or child.assignment.workspace != self.workspace
+                or goal is None
+                or child.goal_definition_sha256
+                not in {d.sha256 for d in goal.revisions}
+                or job is None
+                or not job.required
+                or job.definition_sha256 != child.goal_definition_sha256
+                or (
+                    child.state == "completed"
+                    and (
+                        job.state != "passed"
+                        or job.result_sha256 != child.execution_sha256
+                    )
+                )
+                or (
+                    child.state in {"uncertain", "cancelled"}
+                    and job.state != "uncertain"
+                )
+                or (child.state == "running" and job.state != "running")
+            ):
+                raise ValueError(
+                    "Child records cross scope or committed job boundaries."
+                )
+        for child in self.local_children:
+            if child.coding is None:
+                continue
+            goal = goals[child.assignment.parent_task_id]
+            job = next(
+                (
+                    j
+                    for j in goal.jobs
+                    if j.operation_id == child.child_id + "-integration"
+                ),
+                None,
+            )
+            coding = child.coding
+            expected = "running"
+            receipt = None
+            if (
+                child.state in {"cancelled", "uncertain"}
+                or coding.integration_state == "uncertain"
+            ):
+                expected = "uncertain"
+            elif coding.integration_state == "integrated":
+                expected = "passed"
+                receipt = digest(canonical_bytes(coding))
+            elif coding.handoff is not None and not coding.handoff.verification.passed:
+                expected = "failed"
+            if (
+                job is None
+                or not job.required
+                or job.definition_sha256 != child.goal_definition_sha256
+                or job.state
+                not in ({"running", "stuck"} if expected == "running" else {expected})
+                or job.result_sha256 != receipt
+            ):
+                raise ValueError(
+                    "Coding completion requires its exact required integration job."
+                )
+        for goal in self.goals:
+            if any(
+                sum(
+                    getattr(c.reserved, field)
+                    for c in self.local_children
+                    if c.assignment.parent_task_id == goal.goal_id
+                )
+                > getattr(goal.ledger, field)
+                for field in type(goal.definition.ceiling).model_fields
+            ):
+                raise ValueError(
+                    "Child reservations must remain charged to their parent."
+                )
+        schedule_ids = [s.state.spec.schedule_id for s in self.schedules]
+        if len(set(schedule_ids)) != len(schedule_ids):
+            raise ValueError("Schedule identities must be unique.")
+        bound_positions: set[int] = set()
+        for stored in self.schedules:
+            spec = stored.state.spec
+            scope = spec.binding
+            if (
+                scope.owner_uid != self.owner_uid
+                or scope.session_id != self.session_id
+                or scope.workspace_sha256 != digest(self.workspace.encode())
+                or scope.goal_id not in goals
+                or scope.goal_definition_sha256
+                not in {d.sha256 for d in goals[scope.goal_id].revisions}
+            ):
+                raise ValueError(
+                    "Schedule scope differs from its session or retained goal."
+                )
+            for link, fire in zip(
+                stored.queue_bindings, stored.state.fires, strict=True
+            ):
+                position = link.message_position
+                if position in bound_positions or position >= len(self.entries):
+                    raise ValueError("Schedule queue binding is absent or duplicated.")
+                bound_positions.add(position)
+                entry = self.entries[position]
+                if (
+                    entry.text != spec.prompt
+                    or entry.goal_id != scope.goal_id
+                    or entry.goal_definition_sha256 != scope.goal_definition_sha256
+                    or entry.is_review
+                    or entry.implementation_request
+                    or entry.steering_for is not None
+                ):
+                    raise ValueError(
+                        "Scheduled queue entry differs from its frozen assignment."
+                    )
+                expected = {
+                    "queued": "reserved",
+                    "running": "reserved",
+                    "completed": "completed",
+                    "failed": "uncertain",
+                    "interrupted": "uncertain",
+                }.get(entry.status)
+                if (
+                    expected is not None
+                    and fire.state != expected
+                    or entry.status == "cancelled"
+                    and fire.state not in {"skipped", "uncertain"}
+                ):
+                    raise ValueError("Schedule and queue lifecycle states differ.")
+                if (
+                    entry.request_admission is not None
+                    and entry.request_admission.request.sha256 != fire.request_sha256
+                ):
+                    raise ValueError(
+                        "Dispatched schedule request differs from its pinned intent."
+                    )
+        for entry in self.entries:
+            if entry.goal_id is not None and (
+                entry.goal_id not in goals
+                or entry.goal_definition_sha256
+                not in {d.sha256 for d in goals[entry.goal_id].revisions}
+            ):
+                raise ValueError("Goal entry references an absent definition revision.")
         selected_memory_workspace = self.effective_memory_workspace
         validate_author_compactions(
             self.author_compactions,
@@ -439,12 +723,31 @@ class ConversationState(Contract, Generic[EntryT]):
             self.memory.validate_identity(self.owner_uid, selected_memory_workspace)
         targets: set[int] = set()
         admitted_exchanges: set[int] = set()
+        for side in self.sides:
+            if (
+                side.source_session_id != self.session_id
+                or side.owner_uid != self.owner_uid
+                or side.source_revision >= self.revision
+                or side.exchange_index >= self.exchanges_consumed
+                or side.exchange_index in admitted_exchanges
+                or (side.state == "completed" and side.answer_sha256 is None)
+            ):
+                raise ValueError(
+                    "Side receipt crosses ownership or attempt boundaries."
+                )
+            admitted_exchanges.add(side.exchange_index)
         for index, entry in enumerate(self.entries):
+            if entry.repository_inspection and (
+                self.mode != "openai_live_conversation"
+                or self.live_chat is None
+                or not self.live_chat.repository_read
+            ):
+                raise ValueError("repository inspection differs from saved authority")
             if any(
                 attachment.workspace != self.workspace
                 for attachment in entry.diff_attachments
             ):
-                raise ValueError("diff attachment differs from conversation workspace")
+                raise ValueError("diff attachment belongs to another workspace")
             if (admission := entry.request_admission) is not None:
                 if (
                     admission.selection.message_index != index
@@ -530,7 +833,13 @@ class ConversationState(Contract, Generic[EntryT]):
             and (index in targets or entry.request_admission is not None)
             for index, entry in enumerate(self.entries)
         )
-        if not dispatched <= self.exchanges_consumed <= len(started):
+        offset = 0 if self.fork_origin is None else self.fork_origin.exchange_offset
+        side_attempts = len(self.sides)
+        if (
+            not dispatched + offset + side_attempts
+            <= self.exchanges_consumed
+            <= len(started) + offset + side_attempts
+        ):
             raise ValueError("invalid conversation exchange count")
         if sum(entry.status == "running" for entry in self.entries) > 1:
             raise ValueError("only one message may be running")

@@ -213,6 +213,7 @@ class ConversationTUI:
             tuple[str, tuple[DiffAttachment, ...], str] | None
         ) = None
         self.context_preview: tuple[int, str] | None = None
+        self.review_scope_preview: str | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
         self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
@@ -903,11 +904,16 @@ class ConversationTUI:
             if isinstance(self.review_packet, ConversationLiveReviewPacket)
             else "recorded"
         )
+        inspection = (
+            "\n/inspect QUESTION permits bounded source reads to OpenAI"
+            if state.live_chat is not None and state.live_chat.repository_read
+            else ""
+        )
         return display_text(
             f"Mos Eisley • {mode} • {state.session_name or '(unnamed)'} • "
             f"{state.session_id[:8]} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full paths\n"
-            f"Project root: {root}"
+            f"Project root: {root}{inspection}"
         )
 
     def status(self) -> str:
@@ -956,9 +962,11 @@ class ConversationTUI:
             )
         )
         unit = "tokens" if live is not None else "recorded bytes"
+        goal = self.controller.current_goal
+        goal_text = "" if goal is None else f" • goal {goal.status}"
         return (
             f" {model} • tools off • {phase} • "
-            f"{queued} queued • {attempts} • "
+            f"{state.interaction_mode} • {queued} queued • {attempts}{goal_text} • "
             f"{pending}{usage} {unit} • {pressure_text} • "
             f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
             f"{pressure.repeated_reads_since_boundary} repeated reads "
@@ -983,6 +991,10 @@ class ConversationTUI:
             link = (
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
             )
+            if entry.interaction_mode == "plan":
+                link += " • plan"
+            if entry.repository_inspection:
+                link += " • repository inspection"
             parts.append(f"You [{index}] • {entry.status}{link}\n{entry.text}")
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")
@@ -1024,6 +1036,8 @@ class ConversationTUI:
             parts.append(
                 self.project_location.describe(state.effective_memory_workspace)
             )
+        if self.review_scope_preview is not None:
+            parts.append(self.review_scope_preview)
         if self.context_preview is not None:
             revision, preview = self.context_preview
             parts.append(
@@ -1124,6 +1138,14 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.review_scope":
+            self.review_scope_preview = str(event["text"])
+            self.context_preview = None
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice("Frozen Git review scope shown.")
+            self.refresh()
+            return
         if event["type"] in {
             "conversation.context",
             "conversation.context_admission",
@@ -1150,6 +1172,49 @@ class ConversationTUI:
             self.memory_visible = self.directory_visible = False
             self.memory_report = None
             self.set_notice(f"Context report toggled. {command} shows or hides it.")
+            self.refresh()
+            return
+        if event["type"] == "conversation.loop":
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/loop status"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice(
+                "Loop report shown; timers require an active recorded session."
+            )
+            self.refresh()
+            return
+        if event["type"] == "conversation.agents":
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/agent"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice(
+                "Agent inspection shown; creator retains integration ownership."
+            )
+            self.refresh()
+            return
+        if event["type"] in {
+            "conversation.fork",
+            "conversation.side",
+            "conversation.branches",
+        }:
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/side status"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice(
+                "Fork/side report shown; context enters the author "
+                "only by explicit selection."
+            )
+            self.refresh()
+            return
+        if event["type"] == "conversation.goal":
+            self.context_preview = (self.controller.state.revision, str(event["text"]))
+            self.context_command = "/goal status"
+            self.memory_visible = self.directory_visible = False
+            self.memory_report = None
+            self.set_notice("Goal status shown; /goal status refreshes it.")
             self.refresh()
             return
         if event["type"] in {

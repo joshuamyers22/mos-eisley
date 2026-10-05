@@ -12,6 +12,12 @@ and team-export examples throughout this design history. Current implementation
 status is tracked in
 `docs/ROADMAP.md`; planned modules and commands below are not availability claims.
 
+**User clarification, 2026-09-13:** author, critic and judge are three distinct
+model assignments. The normal review workflow requires no additional human
+authorizer, observer or launch reviewer. The clarified role and implementation
+contract in [§7.7.1](#771-model-review-roles-and-operator-authority) supersedes
+conflicting G2 operating requirements and interpretations in this design history.
+
 **Integrated review, 2026-09-08:** §26 incorporates the reviewed adaptive-reasoning
 and adversarial-loop proposals and supersedes their conflicting defaults. The
 [project review](PROJECT_REVIEW_2026-09-08.md) distinguishes verified implementation
@@ -80,6 +86,44 @@ supersedes the earlier preproduction execution path for G3, G5 and the narrow
 oracle proposal. Protocol design, source audits and product tests remain
 engineering preparation; they do not enroll cases or establish study results.
 Production launch alone does not approve a cohort or waive any quality gate.
+**Tmux integration, 2026-10-02 — planned:** §16.0.5 adds optional external tmux
+compatibility for the existing conversation interface. §§30.4–30.5 order the
+terminal lifecycle, portable backend evaluation and tmux-inspired navigation work.
+External compatibility can precede the embedded-terminal phase; embedded tmux
+integration retains §§27–29 prerequisites. Tmux remains optional and supplies no
+new execution, recovery or model authority.
+
+**Version 2 scope, 2026-09-25:** §31 records the accepted additions from the
+[Claude Code feature survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md).
+The 2026-09-27 Claude Managed Agents survey adds recovery and credential-boundary
+requirements to §31 and a scoped v3 interoperability direction in §32. The
+2026-09-28 `resume` survey adds ranked resume-picker discovery to §31. These are
+post-v1 product requirements and do not change the v1 release gates or claim
+current availability.
+
+**Codex feature survey, 2026-10-03 — planned:** §§31.7–31.12 add direct review
+scope selection, findings in the diff panel, explicit planning, durable goals,
+conversation forks and side chats, and implementation-agent inspection. Deliver
+review scope and findings first, then planning and goals, with each slice subject
+to its existing capability gates. These extend the current controllers and do not
+change v1 release scope or claim implementation. §31.13 records optional Codex
+review support for developing Mos Eisley itself.
+
+**Claude Code autonomy survey, 2026-10-03 — planned:** §31.10 adds explicit
+completion evaluation, measurable progress, background-work awareness and bounded
+error recovery to durable goals. §31.14 adds work-unit completion checks; §31.15
+adds later session-scoped scheduling and event-driven wakeups. Reuse the existing
+controllers, verification, review and aggregate ledgers. Completion and progress
+checks take priority within the goal slice; scheduling follows qualified goal and
+recovery foundations. These requirements do not change v1 scope or grant current
+unattended execution or publication authority.
+
+**G2 owner operation, 2026-09-26:** Joshua Myers directed that one human may
+perform the phase authorizer, observer and launch reviewer roles for G2. The
+[owner operated contract](G2_OWNER_OPERATED_CONTRACT.md) supersedes earlier G2
+human independence wording. Distinct enrolled role keys, prospective evidence,
+exact approvals, spending and containment gates remain required. This change does
+not apply to independent evaluation grading or later promotion gates.
 
 **Continuous production evaluation, 2026-09-25:** §26.6 adds three planned levels:
 owner-scoped live measurement, bounded live policy comparisons, and recurring
@@ -924,6 +968,53 @@ reject an unsupported `max` request rather than silently weaken it. The critic a
 judge assess the creator-written plan and tests before the creator approves
 execution as specified in §15.7.
 
+### 7.7.1 Model review roles and operator authority
+
+**User-directed clarification, 2026-09-13:** assign one model as author, a different
+model as critic and a third model as judge. The author creates the plan, tests and
+implementation and integrates corrections. The critic independently examines the
+frozen work and produces supported findings. The judge adjudicates those findings
+against the same work and requirements. All three roles are model roles; normal
+review does not require recruiting human authorizers, observers or launch reviewers.
+The user remains the operator controlling provider credentials, spending and actual
+machine permissions.
+
+Record each assignment's exact provider/backend/model, supported reasoning effort,
+context and permissions before dispatch. Models are distinct for this three-role
+profile; the three-provider profile additionally requires distinct providers under
+§7.7. No vendor is permanently assigned to a role. Provider API credentials enable
+calls to the selected models and stay in the trusted host. They are separate from
+keys that sign local evidence; models receive neither kind of secret. A model's
+approval or verdict cannot grant provider, spending, shell, write or publish authority.
+
+Independence here means distinct model assignments with controller-enforced context
+separation and role capabilities. The critic receives the frozen artifact and
+approved review context without the author's private conversation or reasoning.
+The judge receives the artifact, requirements and structured findings needed for
+adjudication, without private author reasoning or provider/model identity cues.
+Retain the actual inputs, outputs, model identities and checks in owner-controlled
+evidence. Model agreement is not proof of correctness or independent human attestation.
+
+**Required implementation alignment:** the current brokered probe/campaign path
+uses external phase-authorizer and observer signatures; the staged launch gate adds
+a separate signed launch decision. Those mechanisms must not become mandatory
+human staffing requirements for this product workflow. Implement an explicit
+operator-authorized model-review path with a pinned three-role roster, current
+guidance, real provider conformance, enforced quorum, aggregate spending admission,
+one-use dispatch, bounded deadlines, cancellation cleanup and retained results.
+Use distinct/versioned evidence semantics for operator authorization and model
+review. Preserve historical signature verification; do not fabricate independent
+signatures or relabel model outputs as human custody/observation claims.
+
+Acceptance must exercise the three assigned models through authoring, frozen critic
+review and judge adjudication, plus rejection of role/model substitution, context
+leaks, missing required responses, stale artifacts, budget exhaustion and attempted
+authority escalation by model output. Recorded fixtures precede an explicitly
+budgeted live demonstration. This clarification changes the planned G2 operating
+model; it does not claim the runtime already implements it or that live conformance
+has passed. Separate research grading and automatic-routing activation requirements
+retain their own scope and must not be imposed as normal three-role review staffing.
+
 ---
 
 ## 8. Tool layer
@@ -1447,6 +1538,19 @@ coding only after both execution/VCS containment and the E2 bounded-subagent gat
 pass; it does not authorize earlier model-driven writes. Validate against a
 creator-only baseline on matched tasks before promoting a default delegation policy.
 
+Status, 2026-10-04: [writable recorded local coding](WRITABLE_LOCAL_CODING.md)
+implements one explicit unpaid `pure_python_v1` child profile with creator-authored
+frozen executable tests, exact plan/test review and creator approval, fresh brief,
+isolated VCS staging, aggregate reservations, bounded owned cancellation and durable
+patch/report handoff. Integration requires separate exact final review/creator
+approval, a clean one-use VCS fast-forward and fresh tests of the actual integrated
+tree. Required integration jobs remain unpassed until that sequence completes.
+Local Docker probes cover both stores, a known-bad control and actual cancellation.
+This qualifies the bounded recorded route only: arbitrary source/shell execution,
+other repository/platform profiles, paid/live providers, automatic spawning and E2
+quality/efficiency/default-policy promotion retain their gates. See the linked
+contract for supported syntax, confinement, limits and recovery obligations.
+
 ### 14.3 Versioned skills and personas
 
 A skill is a progressively disclosed prompt/rubric bundle with a manifest,
@@ -1640,8 +1744,9 @@ options followed by a prompt. [User-defined session names and a resume picker](C
 now support optional labels, rename/clear controls, filtering and explicit selection
 for duplicate names. Explicit, spend-controlled OpenAI text turns are available in
 the TUI; the default preview needs no credentials or network connection.
-The full product contract below remains the target; repository tools and broader
-provider switching are not yet available in live conversation.
+The full product contract below remains the target. Explicit bounded read-only
+repository inspection is available for live `/inspect` turns; broader repository
+automation and provider switching remain unavailable in live conversation.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain
@@ -2432,6 +2537,11 @@ Read-only plus never-approve means a review invocation cannot modify the filesys
 /approvals /sandbox /diff /review /init
 ```
 
+The post-v1 additions in §§31.7–31.12 extend `/review` and `/diff` and add planned
+`/plan`, `/goal`, `/fork`, `/side`, and `/agent` (`/subagents` alias) controls.
+Expose commands only with truthful capability status; a preview must not imply
+that live review, writes, background continuation or child dispatch is available.
+
 `Alt+,` / `Alt+.` steps effort down/up mid-session. Persistent status line: model, effort, sandbox mode, live token count against budget.
 
 Extend context/status inspection and fresh continuation with §6.7's selection,
@@ -2442,8 +2552,10 @@ the conversation documentation does not report an implementation.
 
 **User direction, 2026-09-12:** include a live `/diff` panel in product v1's
 conversation/TUI workstream. Its acceptance criteria are required for v1 release;
-the feature remains planned. Deliver it after the trusted read-only Git and
-workspace/path boundaries are available, alongside Git-backed coding integration.
+the scoped owner-operated gate is recorded in
+[the acceptance verification](CONVERSATION_DIFF_ACCEPTANCE_VERIFICATION.md).
+Trusted read-only Git and workspace/path boundaries are available for that scope;
+broader Git-backed coding integration remains a separate milestone.
 No package version is assigned by this entry. The interaction reference is the
 Claude Code newsletter from Lydia, received 2026-09-12, titled "This week in
 Claude Code: /resume on desktop, start sessions from your phone, and more",
@@ -4519,6 +4631,15 @@ reviewed inclusion probabilities and independent groups; otherwise label the
 report descriptive. A later cohort cannot erase an earlier failure or replenish a
 spent error budget by renaming the policy.
 
+Within a cohort, distinguish one precommitted all-gates-must-pass policy claim
+from simultaneous claims about individual outcomes; the reviewed testing rule
+must match the declared claim. Allocate error across alternative candidate
+policies and repeated cohort decisions even if a single conjunctive claim needs
+no within-claim Bonferroni division. A time-uniform method is required for any
+favorable decision based on repeated interim looks; the fixed-horizon G5 paired
+bound is not such a method. Match the estimator and interval to the prospective
+owner-specific inclusion and randomized group-allocation design.
+
 The initial G5 paired study uses separate frozen starts. A live cohort assigns one
 user-affecting whole-task policy per task or independent group; it must not replay
 writes or approvals merely to create a pair. Its causal comparison uses the
@@ -4623,6 +4744,14 @@ artifact documented for release. Until then, WSL2 remains a planned support targ
 
 ### 27.2 Version 0.1.1 — full native Windows support
 
+**Implementation preparation, 2026-10-03:** the
+[native Windows contract survey](NATIVE_WINDOWS_CONTRACT_SURVEY.md) maps current
+POSIX dependencies and defines the first bounded batch: preserve
+`run.files.read_bounded` behind a platform contract, qualify its POSIX adapter,
+and verify explicit native Windows import/refusal from an installed wheel.
+This establishes one invariant-based seam before principal/schema migration;
+it supplies no native reader, private storage, CLI parity or Windows support claim.
+
 Version 0.1.1 runs directly from Windows Terminal, PowerShell, or cmd and provides
 parity for every Mos Eisley capability advertised for macOS/Linux in that release.
 Conversation-only operation, a WSL subprocess, or a Linux container launcher does
@@ -4703,9 +4832,78 @@ contextual metadata, not permissions, DACLs, integrity or cross-host ownership.
 Existing consumers, artifact bytes/hashes and schemas are unchanged. Isolated
 source/wheel tests and the scoped Windows import/refusal job cover this additive
 slice; [the implementation record](PLATFORM_IDENTITY_IMPLEMENTATION_WORK_NOTE.md)
-reports actual verification. Native token/handle adapters, local-NTFS qualification,
+reports actual verification. Native adapter qualification, local-NTFS evidence,
 accountable boundary review and separate schema migration remain open. This does
 not advance native support or storage authority.
+
+**Native principal sub-batch — candidate adapter implemented:**
+[the Windows principal record](WINDOWS_PRINCIPAL_WORK_NOTE.md) covers direct
+process TokenUser SID queries on 64-bit AMD64 Windows build 17763+, query-only
+token access, refusal of thread tokens before/after acquisition, bounded SID
+buffers and temporary-handle cleanup. Source/wheel CI now includes actual native
+SID-oracle, impersonation-refusal and handle-count tests as well as portable fault
+tests. Native qualification remains pending execution and accountable review;
+the common Windows selector continues to refuse. No existing consumer/schema/storage
+policy is adopted.
+
+**Native opened-file sub-batch — candidate local-NTFS adapter implemented:**
+[the file-identity record](WINDOWS_FILE_IDENTITY_WORK_NOTE.md) freezes handle-only
+disk/device-characteristic, NTFS and file/directory eligibility checks, followed
+by full 64-bit volume serial/128-bit FileIdInfo acquisition. The borrowed HANDLE's
+lifetime, position and inheritance are preserved. Portable faults and actual native
+oracle, duplicate, hardlink, rename, replacement, mutation, directory and pipe cases
+are selected from source and installed wheels. Native execution, owner-operated
+storage rejection fixtures and accountable review remain pending; public selector
+admission, migration and private-storage adoption follow qualification.
+
+**Migration inventory and design — documentation complete, adoption pending:**
+The [source inventory](IDENTITY_MIGRATION_INVENTORY.md) covers durable and nested
+owners, mapped-directory identities, SQLite metadata/indexes, reviewed maintenance
+plans, navigation selections and implicit OAuth key bindings. The
+[proposed design](IDENTITY_MIGRATION_DESIGN.md) and
+[ADR-0015](adr/0015-versioned-identity-migration.md) define tagged wire forms,
+explicit owner namespaces, family-specific versions, unchanged legacy bytes/hashes,
+authenticated rebinding prerequisites and prepare/publish/recovery acceptance.
+The [inert codec slice](IDENTITY_WIRE_CODEC_WORK_NOTE.md) now adds strict bounded
+standalone wire forms and selected frozen legacy fixtures without consumer/writer
+changes. Continue with qualified namespace/storage
+prerequisites, a single-user-memory read-only preview and same-owner copy/recovery;
+then dependency-closed graphs and SQLite. Cross-namespace rebinding and credentials
+remain separate reviewed batches. No writer, consumer or public selector changes
+are included. [Verification](IDENTITY_MIGRATION_WORK_NOTE.md) records this design
+batch; native qualification and accountable design/adoption review remain open.
+
+**Namespace/storage prerequisites — smallest contract defined:**
+The [namespace-record and read-only admission contract](NAMESPACE_STORAGE_CONTRACT.md)
+and [ADR-0016](adr/0016-namespace-record-storage-admission.md) freeze one bounded
+version-1 record, borrowed-root/owned-lease lifetime, fixed relative child reads,
+private mode/ACL/DACL requirements and separate decoded/storage-checked/enrolled
+trust states. Copied JSON and private permissions do not establish protected key
+custody or enrollment. N-01–N-16 specify future source/wheel/native/fault evidence.
+The [pure namespace codec and golden fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
+are implemented additively with source and dependency-free wheel checks. Next is
+qualification/review of the [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md),
+which has native macOS source/wheel and portable fault evidence. Exact target
+qualification and accountable admission remain pending. The
+[secure fixed-child POSIX reader candidate](POSIX_NAMESPACE_READ_WORK_NOTE.md)
+now opens only the fixed name relative to the held lease, verifies actual private
+file ACL/type/owner/link and entry/content stability, and bounds native requests
+to 4,097 bytes and 16 attempts. Native macOS source and dependency-free wheel tests
+cover replacement, symlink/special-object, stale state and cleanup refusal. Exact Linux
+reader qualification, accountable root/read qualification and native Windows storage
+remain separate; public storage selection and record reading stay closed.
+The [smallest Windows root-admission preparation](WINDOWS_ROOT_SECURITY_CONTRACT.md)
+now defines a pure owner/DACL decoder and query-only borrowed-directory inspector:
+one 64 KiB caller-owned security buffer, two fresh observations, exact protected
+owner-only DACL, bounded handle metadata/granted-rights checks and WS-01–WS-11 native
+source/wheel acceptance. The [pure parser and synthetic fixtures](WINDOWS_SECURITY_PARSER_WORK_NOTE.md)
+are implemented additively; native inspection remains pending. Owned leases and
+relative child reads are subsequent batches. Identity prerequisite review must resolve token-close uncertainty before
+the native inspector is implemented; this definition grants no storage admission.
+Enrollment creation, locks/publication/durability,
+protected anchor/key custody, consumer writers and public Windows selectors remain
+gated. [Verification](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) records this
+contract-definition batch, not implementation or native admission.
 
 ### 27.3 Version 0.1.1 delivery sequence and exit gate
 
@@ -4893,9 +5091,9 @@ command, hide the pane, continue chatting or switch sessions, and return to the
 same live terminal. This is a user-facing process surface, not a new model tool or
 an authority shortcut.
 
-Begin this phase only after native Windows parity in §27, guided updates and safe
-restart in §28, and the supported installation journeys in §29 are qualified on
-the advertised platforms. The terminal must reuse those platform process,
+Begin this embedded-terminal phase only after native Windows parity in §27,
+guided updates and safe restart in §28, and the supported installation journeys
+in §29 are qualified on the advertised platforms. The terminal must reuse those platform process,
 credential, storage, update and recovery contracts rather than introducing a
 POSIX-only lifecycle after Windows support has shipped.
 
@@ -4977,12 +5175,23 @@ POSIX-only lifecycle after Windows support has shipped.
 
 ### 30.4 Delivery and acceptance
 
-Deliver the process-supervisor and terminal identity contracts first, then the
-single-pane emulator, multiple named/background terminals, chat attachments and
-cross-session navigation. Add model-mediated terminal input only as a separately
-gated capability after the user-only terminal lifecycle is proven. Desktop pop-out
-windows, remote terminal hosting and multi-user terminal sharing remain outside
-this phase.
+Deliver the following dependency-ordered slices. External tmux compatibility in
+§16.0.5 can land first without moving embedded terminals ahead of §§27–29.
+
+| Order | Smallest useful slice | Dependency and acceptance evidence |
+|---:|---|---|
+| 1 | External tmux workspace documentation and compatibility | Existing conversation interface; real installed-package detach/reattach, resize, paste and exclusive-controller checks in §16.0.5 |
+| 2 | Terminal identity, supervisor and lifecycle contract | §§27–29 qualified; immutable owner/conversation/worktree bindings, bounded output and resources, verified descendant cleanup, and distinct hide/detach/interrupt/terminate semantics |
+| 3 | Bounded backend comparison and selection | Slice 2; compare tmux control mode with direct PTY on the same macOS/Linux/WSL2 workload, retain ConPTY on native Windows, and record measured tradeoffs and a supported-version matrix under §30.5 |
+| 4 | One embedded terminal with safe live reattachment | Selected qualified backend; preserve drafts, diff selection and task state, enforce input/output bounds, reconcile process identity after UI disconnect and report lost/uncertain processes honestly |
+| 5 | Multiple named/background terminals and navigation | Slice 4; terminal picker, previous-terminal switch, split/resize/zoom controls and deduplicated running/exited/failed notices without stealing composer focus |
+| 6 | Immutable output attachments and worktree-linked navigation | Slices 4–5 and §16.0.4 identity support; bounded digested selections, explicit omissions and provenance, exact worktree targeting and cleanup/update coordination |
+
+Keep terminal navigation and process identity in Mos so the same user-facing
+features work across qualified backends. Add model-mediated terminal input only
+as a separately gated capability after the user-only lifecycle is proven. Desktop
+pop-out windows, remote terminal hosting and multi-user terminal sharing remain
+outside this phase.
 
 Acceptance requires packaged-installation tests on qualified macOS, Linux, WSL2 and
 native Windows targets. Cover interactive shells, REPLs, test watchers and local
@@ -4994,3 +5203,801 @@ identity; denied filesystem/network/credential access; cross-user and cross-term
 isolation; attachment integrity and omissions; and continued chat, steering, diff
 navigation and cancellation while terminals run. Platform mocks may supplement but
 cannot replace real PTY and ConPTY evidence.
+
+### 30.5 Optional tmux backend and adoption gate
+
+Evaluate tmux as an optional terminal backend on macOS, Linux and WSL2 behind the
+platform contract established in slice 2. Use its command/output control protocol
+rather than scraping an interactive tmux display. The current renderer uses
+prompt-toolkit; a tmux backend must not require a renderer rewrite. Native Windows
+uses the qualified ConPTY implementation. A missing or incompatible tmux version
+leaves the direct backend available where qualified; failure of a selected live
+backend reports lost/uncertain state instead of silently relaunching commands.
+
+- Keep Mos terminal identity authoritative. Bind each immutable terminal ID to a
+  verified server instance, tmux session/pane IDs, supervisor identity and exact
+  workspace/worktree. Revalidate on attachment; names, indexes, socket paths or
+  reused PIDs alone cannot identify a previous process. Server loss or restart
+  invalidates stale mappings. Tmux history does not replace session records or
+  §31.4 controller recovery, and commands are never automatically respawned.
+- Use private Mos-managed sockets and reviewed configuration, separate from the
+  user's existing tmux server. Launch with an allowlisted environment and prevent
+  attachment-time environment updates from importing credentials or sockets.
+  Partition servers by execution profile and isolation needs; sibling terminals
+  must not gain access to the control socket, other spools or terminal authority.
+  Private socket permissions alone do not isolate processes under the same user.
+- Keep policy, authorization, resource accounting and complete descendant
+  supervision in Mos's trusted execution boundary. Tmux multiplexing is not a
+  sandbox or proof of process-tree cleanup. Qualify server placement and lifetime
+  against containment, cancellation, detached-process discovery and updater rules;
+  reject any profile for which the backend cannot uphold §30.3.
+- Parse framed replies and asynchronous output with bounded buffers, explicit
+  escaping and flow control; reconcile retained screen state after interruptions.
+  Track dropped/omitted output. Use reviewed argument/protocol encoding and never
+  interpolate terminal names or model text into tmux command strings. Screen
+  captures and retained exited panes are display aids, not complete command logs,
+  command success evidence or immutable attachments. Mos owns the bounded spool,
+  exit attribution and §30.2 attachment digest/provenance contract.
+
+Use the production template's improvement-plan structure for the comparison:
+declare workloads, thresholds, owner, supported versions, resource ceiling and
+stop/rollback conditions before implementation. Compare reattachment success and
+latency, output loss, UI responsiveness under floods, CPU/memory use, descendant
+cleanup failures and implementation/packaging cost against the direct backend.
+Emit only bounded metadata under §17.5; no terminal content or command arguments
+enter operational telemetry. Supplement ordinary behavior checks with disconnect,
+server crash, stale identity, credential inheritance, cross-terminal access and
+update failure cases. Record the decision in an ADR; adopt tmux only when measured
+benefits justify the dependency and every applicable invariant passes. Otherwise
+retain the direct backend and deliver the same navigation features. Neither
+outcome adds tmux to the production template's required dependencies.
+
+Implementation references: [tmux manual](https://man.openbsd.org/tmux) and
+[control-mode documentation](https://github.com/tmux/tmux/wiki/Control-Mode).
+Verify behavior against the selected release rather than assuming the latest
+manual's options exist on every supported installation.
+
+---
+
+## 31. Version 2 conversation and automation requirements
+
+**Scope and order.** Requirements 31.1–31.3 come from the
+[2026-09-25 feature review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md);
+31.4–31.5 incorporate the 2026-09-27
+[Claude Managed Agents architecture](https://www.anthropic.com/engineering/managed-agents)
+and [vault design](https://claude.com/blog/whats-new-in-claude-managed-agents)
+survey where they strengthen existing Mos Eisley contracts.
+Requirement 31.6 draws on
+[`robertmartin8/resume`'s title-first search](https://github.com/robertmartin8/resume/blob/42da916ca9c59cc7a92db72c407af83527d82222/src/search.rs)
+while retaining Mos Eisley's owner-scoped, metadata-only picker.
+Requirements 31.7–31.12 are user-directed additions from the 2026-10-03 Codex
+survey, using the official [review documentation](https://learn.chatgpt.com/docs/code-review)
+and [command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
+as interaction references. Their semantics below are Mos Eisley product decisions.
+They belong to version 2 after the applicable v1 conversation, live-review,
+bounded-read, storage and policy gates have passed. Version 2 here denotes a
+product phase, not a storage/schema version or a claim that §27's 0.1.1 release
+already includes them. Use existing controllers and ledgers; none creates a new
+approval, review, publisher or extension authority. Track implementation status
+in the roadmap, not by marking a requirement as shipped here.
+
+### 31.1 Paid-review launch preview
+
+Before a paid conversational or CLI review begins, show or emit a bounded preview
+of the exact target and revision, included and omitted files/ranges, selected
+roles/models, effective policy, remaining task spend ceiling, and whether any
+result is authorized for outward posting. Label unknown cost estimates as unknown;
+the existing admission budget remains authoritative. A request that already
+authorizes review needs no second confirmation. Revalidate target, brief, policy
+and spend at launch; if they changed, refresh the preview or fail visibly before
+dispatch. Review intent never implies publication authority.
+
+Acceptance: TUI, plain and JSON modes identify the same frozen target and omission
+set; stale target/policy, exceeded spend and changed posting intent cannot pass
+launch. A recorded review remains distinguishable from a paid live review. Preview
+generation cannot contact a provider, spend money or publish a result.
+
+### 31.2 Exact file and range attachments
+
+Add an explicit file/range picker to the conversation composer and equivalent
+plain/JSON input. Resolve each selection under the chosen workspace and read
+policy, preview its size and source revision, freeze exact bytes and a digest at
+submission, disclose any reduction, and recheck changed or stale sources before
+use. Directory expansion requires an explicit bounded selection. A typed path or
+`@` mention may open the picker, but prose alone does not load a file. Attachments
+are untrusted evidence, never policy instructions or an automatic critic brief.
+This reuses §6.6's artifact/view contract and §16.4.1's diff-line attachment path.
+
+Acceptance: cover symlinks and path races, renamed/deleted/oversized/binary files,
+revision changes, concurrent edits, rejected submission, resumed drafts and
+workspace switches. The attached bytes, digest, provenance and omissions agree
+in TUI, plain and JSON modes; no attachment broadens read scope or silently enters
+an independent critic's context.
+
+### 31.3 Complete scriptable `mos exec` contract
+
+Extend the existing non-interactive controller with bounded UTF-8 stdin as an
+explicit untrusted input attachment when selected. Reject ambiguous mixing of
+stdin and positional input and report size/encoding errors before any paid call.
+In `--json` mode, reserve stdout for schema-versioned events and one terminal
+result containing task/review status, artifact IDs, usage and omission markers;
+send diagnostics to stderr. Define stable non-zero exit codes for invalid input,
+policy denial, budget exhaustion, cancellation and incomplete/failed review. A
+zero process exit means the command completed under its declared status, not that
+a review verdict was `accept`. Document the mapping so CI checks the verdict
+field rather than assuming success from process exit alone.
+
+Acceptance: pipe and positional-input cases, output floods, interruption, partial
+events and provider failure produce one unambiguous terminal state. Plain and JSON
+paths share the interactive controller, policy, spending ledger and redaction
+rules. This v2 expansion does not retroactively change the documented scope of
+the existing `mos exec --json` command or the historical M10 milestone table.
+
+### 31.4 Recoverable session, controller and execution boundaries
+
+Make the retained, owner-scoped session event log the durable source for controller
+recovery, separate from the disposable execution sandbox. Assign monotonic event
+sequence numbers and stable operation IDs. Persist a decision and its applicable
+policy, target revision and budget reservation before dispatch; persist the result
+or an explicit uncertain-effect state before advancing the session cursor. A
+restarted controller reconstructs the bounded working context, remaining task
+budget and outstanding user steering from verified records; an unclosed dispatch
+is conservatively recovered as uncertain. A replacement sandbox
+must be provisioned from a pinned recipe and scoped mounts, then revalidate the
+workspace revision and capabilities before any further tool call. A lost response
+to a tool with possible side effects is never silently retried. This strengthens
+§§6.7, 14.1 and 17.7 without creating a second transcript store or granting
+additional execution authority.
+
+Acceptance: inject controller, event-store and sandbox failure before dispatch,
+after dispatch, and before result commit. Recovery causes no automatic repeat of
+a possible write or paid call, lost steering, reset budget, cross-owner read,
+widened mount or skipped approval. Preserve full spend exposure for an ambiguous
+paid call. The user sees an uncertain effect when it cannot be resolved; verified
+read-only operations may resume from the last committed cursor. Exercise the same
+contract through TUI, plain and JSON modes on each supported storage backend.
+
+### 31.5 Credential attachment at the approved network boundary
+
+Extend the trusted credential holder in §§4.5 and 19.2–19.4 so approved outbound
+requests can authenticate without placing a provider or service secret in an
+agent's prompt, tool arguments, process environment, sandbox filesystem, transcript
+or event payload. Resolve a typed credential reference only in the trusted broker;
+attach the secret to an allowlisted destination and operation after policy and
+owner checks. Pin scheme, host and redirect behavior, scope and expiry; fail closed
+on destination changes or unsupported client behavior. Preserve the existing
+separate publisher path for GitHub writes. Credential rotation and revocation must
+take effect without restarting an agent session, and an uncertain write must not
+be replayed merely because authentication changed.
+
+Acceptance: negative tests cover model-controlled destinations, redirects, DNS and
+proxy changes, tool-output injection, subprocess environment inspection,
+cross-owner references, logs/replay/export, rotation during an active session and
+revocation before dispatch. Network capture proves the credential reaches only the
+approved destination. Existing credential paths remain supported until this
+brokered path passes the same provider and tool conformance gates.
+
+### 31.6 Ranked discovery in the existing resume picker
+
+Improve the §16.0.3 picker using only the bounded session metadata already
+admitted for the selected owner, canonical workspace, storage location and
+backend. Rank exact session-ID and normalized-name matches first, followed by
+name prefixes, all-query-word name matches, then bounded fuzzy name matches;
+use saved time and immutable ID for deterministic ties. Show the match basis and
+keep the selected session's full name, ID and saved time visible. An empty query
+continues to show recent sessions. Search must not parse transcripts, index prior
+messages, create a second content cache, combine workspaces/backends, or load a
+prior conversation into the model. `mos resume --name` keeps its exact-match and
+ambiguity behavior; ranked search is an interactive discovery aid, not authority
+to choose a session automatically. Existing catalog limits and selected-state
+identity/hash rechecks remain in force.
+
+Acceptance: exact and prefix hits outrank fuzzy hits regardless of recency; ties
+are stable across refresh and restart. Unicode normalization, duplicate names,
+unnamed sessions, query-length/CPU bounds and the 1,000-session SQLite picker
+limit behave predictably. A rename, deletion, replacement or active-session change
+between search and Enter cannot resume a stale selection. Two-owner and
+two-workspace fixtures prove no cross-scope result or transcript-content read;
+JSON and SQLite catalogs produce the same ranking for equivalent metadata.
+
+### 31.7 Direct review scope selection
+
+**Implementation status, 2026-10-03:** the initial
+[local Git/read prerequisite and recorded `/review` connection](GIT_REVIEW_SCOPES.md)
+support uncommitted, base-branch, exact-commit and explicit file/range presets,
+frozen scope digests,
+omission previews and revalidation before dispatch and result publication.
+Source-only selections label the absence of a diff; comparison intervals use the
+same numeric coordinates independently in each version and retain original line
+numbers, staged/unstaged separation and selection-limited acceptance. Selected
+files are fully hashed for stale detection; unselected content is excluded from
+the brief. TUI, plain and JSON share selectors and persisted target contracts.
+Explicit POSIX repository roots only. Live-review preview,
+managed-worktree qualification and Linux/Windows-hosted WSL2 evidence remain open;
+this slice does not satisfy those gates.
+
+Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
+presets for uncommitted changes, comparison against a base branch, an exact commit,
+or explicitly selected files/ranges with review criteria. Uncommitted scope includes
+staged, unstaged and permitted untracked inputs with their status distinguished.
+Branch comparison resolves and pins the merge base and head; commit review pins
+the commit and comparison parent, requiring an explicit parent for ambiguous merge
+commits. Explicit file review labels its comparison basis or absence of a diff.
+Reject ambiguous target combinations rather than silently choosing a scope.
+
+Use the existing trusted Git/read broker to materialize exact source bytes and
+the scoped brief, with workspace identity, revisions, digests and omissions.
+Apply §31.1's launch preview and revalidation, then dispatch the existing isolated
+critic/judge workflow. Custom criteria cannot broaden read policy or introduce
+conversation history into critic context. Review authorization needs no second
+confirmation and never authorizes edits or posting. Preserve prepared-packet
+compatibility and visibly distinguish recorded fixtures from qualified live review.
+
+Acceptance: cover unborn HEAD, detached HEAD, missing bases, merge commits,
+renames, binary/oversized inputs, untracked files, concurrent edits and workspace
+switches. TUI, plain and JSON paths produce the same frozen brief and omission
+set; stale sources cannot pass admission. Git external diff/textconv helpers stay
+disabled. Review leaves the checkout unchanged and retains existing quorum,
+spend, cancellation and blindness checks.
+
+### 31.8 Findings in the diff panel
+
+**Implementation status, 2026-10-03:** the
+[local diff panel](CONVERSATION_DIFF.md) ranks retained critic findings and judge
+dispositions across review runs, including archived SQLite reports. Exact cited
+source coordinates open historical snapshots; current-source revalidation labels
+stale findings without inferring resolution. Explicit feedback/fix commands bind
+source attachments to finding IDs and review positions, retain correction-request
+links through resume and use existing author admission and task budgets. Rejected
+follow-ups preserve commands and attachments. The current recorded conversation
+does not grant live write/correction, verification, review or publication authority;
+those existing execution and qualification gates remain required.
+
+Extend §16.4.1's diff panel with ranked findings linked to exact file/range and
+review revision. Show category, impact, critic finding, judge disposition,
+source-bound evidence and proposed correction, preserving the full retained
+report behind bounded views. Support keyboard navigation from a finding to its
+diff and explicit line-specific feedback attached to a follow-up request. Keep
+historical review findings separate from the latest live diff and label findings
+as stale when source revisions change; disappearance from a diff is not resolution.
+
+An explicit request to fix selected findings enters the existing creator-led
+plan/test, implementation and bounded correction workflow under current policy.
+Selecting a finding or opening evidence alone does not authorize a write. Track
+finding IDs, correction revisions and final review dispositions; creator claims
+of a fix do not replace required verification or independent review. New revisions
+invalidate affected acceptance while retaining task budgets and review counters.
+
+Acceptance: exercise stale line mappings, renames/deletions, partial views,
+multiple review runs, rejected follow-up submission, resize and resumed sessions.
+TUI, plain and JSON expose equivalent finding identities and dispositions. A
+refresh preserves drafts/selection, and no stale finding is marked resolved or
+used as final acceptance without evidence bound to the corrected revision.
+
+### 31.9 Explicit planning mode
+
+**Implementation status, 2026-10-03 — recorded conversation slice:**
+[/plan and equivalent mode controls](CONVERSATION_PLANNING.md) persist the selected
+mode and freeze it per admitted message. Planning instructions cover the required
+plan contents and count in request/context admission and previews. Task-tool
+dispatch fails closed in planning; trusted read controls remain available. Explicit
+`/implement TEXT` and finding-fix requests atomically exit planning on admission
+and carry the §15.7 creator workflow constraints without routine human confirmation.
+JSON/SQLite resume, archived records, active/queued boundaries, literal drafts and
+rejection/storage failure checks cover this slice. The recorded handoff describes
+the creator workflow; live plan/test approval, child dispatch, write, independent
+review and verification qualification remain existing gates. No approvals or
+authority are created or revived by mode selection.
+
+Add `/plan` and equivalent mode selection for investigating requirements and
+proposing an implementation before coding begins. Persist and display the mode;
+use only permitted read-only exploration, bounded clarifications and a plan with
+scope, assumptions, interfaces, proposed subtasks, verification and resource
+ceilings. Ordinary planning does not automatically launch a paid review panel.
+Distinguish an exploratory draft from the frozen creator plan/test package in
+§15.7. Planning mode does not authorize writes, implementation children or posting.
+
+An explicit implementation request exits planning and enters the existing
+creator-led workflow, including plan/test freeze, critic/judge review and creator
+approval before coding-child dispatch. Do not add a routine human confirmation
+where the request already authorizes implementation. Mode changes cannot bypass
+policy or revive stale approvals; queued changes apply at a recorded safe boundary.
+
+Acceptance: planning produces no repository writes or coding dispatch; clarify
+and revise cycles preserve intent and budget. Resume retains the selected mode.
+Changing a reviewed plan or tests invalidates dependent approval, and an explicit
+implementation request follows §15.7 through verification without extra permission
+prompts unless an actual policy boundary requires one.
+
+### 31.10 Durable goals
+
+**2026-10-04 — recorded controller slice implemented:**
+[/goal](CONVERSATION_GOALS.md) persists explicit objectives, definition revisions,
+completion decisions, progress/stall counters, aggregate budget reservations,
+required-job dependencies and typed failure/reconciliation evidence in JSON/SQLite.
+Current-revision mechanical verification precedes a bounded separate semantic
+adapter; author claims, stale evidence and missing executed-test counts cannot
+close an objective. Pause, cancellation, edits, duplicate/late results and interrupted
+calls preserve stop states and exposure. TUI/plain/JSON share controls and reports.
+Completion/progress landed before required-job and recovery adapters, following
+§31.13. The shipped recorded terminal has no qualified execution-evidence or live
+semantic adapter: background execution, automatic retries, unattended continuation,
+paid provider wiring and scheduled wakeups retain their existing qualification gates.
+The following requirements remain authoritative for those integrations.
+
+Add `/goal` controls to create, inspect, edit, pause, resume and clear an explicit
+user objective through §6.7's task/checkpoint controller. Record success criteria,
+verification requirements, remaining work, aggregate spend/time ceilings and
+stopping conditions. Show goal progress and remaining budget while accepting
+steering. Activate only on an explicit goal request; ordinary questions and short
+reviews keep their direct-answer behavior. A goal may continue already-authorized
+work across turns within qualified execution and recovery capabilities.
+
+Completion requires the declared verification and no outstanding required work.
+Budget exhaustion, an unresolved blocker, cancellation and explicit pause are
+distinct visible states. Resume revalidates policy, revisions and capabilities;
+it cannot reset ledgers, repeat uncertain effects or restore expired grants.
+Editing a goal preserves its history and invalidates affected plan/test approvals.
+Clearing removes the active objective without deleting required private evidence.
+Goal persistence does not imply unattended scheduling or authority to publish.
+
+#### 31.10.1 Completion evaluation at turn boundaries
+
+When the author ends a goal turn, the trusted controller checks the current goal
+revision, outstanding obligations, required verification and independent review
+dispositions before returning control or admitting another turn. A provider's
+`end_turn` ends a turn, not the objective. Record the decision, evidence references,
+remaining budget and concrete missing requirements; feed those requirements into
+the next authorized turn. Revalidate queued steering and goal edits before dispatch.
+
+Use deterministic checks for mechanical conditions such as test/build outcomes,
+executed-test counts and revision identity. For semantic criteria, use a bounded,
+separately invoked evaluator with a schema-validated result and reason. Give it
+only the frozen criteria and permitted evidence views, with provenance and
+omissions. Author claims and transcript summaries cannot substitute for required
+execution receipts or independent review. This completion evaluator does not
+constitute a blind critic or judge and cannot waive their dispositions, rewrite
+criteria or enlarge authority. Missing, stale, failed or unavailable evidence
+leaves completion unproven. An evaluator's claim that a condition is impossible
+records a blocker and rationale rather than clearing the objective or proving
+failure by itself.
+
+Reserve and account for evaluator calls under the existing aggregate task ledger;
+do not launch a full paid review panel after every turn. Reuse valid checks for
+unchanged inputs and invalidate affected evidence on revision changes. Controller
+guards remain authoritative over model verdicts. Show the latest completion
+decision and missing requirements in TUI, plain and JSON modes.
+
+#### 31.10.2 Measurable progress and stalled work
+
+Record progress from completed obligations, newly verified evidence and changed
+failure causes against the active goal revision. Tool calls, repeated prose and
+elapsed turns alone do not establish progress. Declare bounded no-progress and
+repeated-failure thresholds before running, alongside turn, time and spend
+ceilings; persist their counters across restart and continuation. When a threshold
+is reached, stop automatic continuation, preserve the objective and outstanding
+work, and expose the exact blocker and attempted remedies. Distinguish stalled
+work from explicit user pause, cancellation and budget exhaustion. Further
+continuation requires explicit steering/resume or a verified change resolving the
+blocker under the existing policy; it cannot silently reset counters or budgets.
+
+#### 31.10.3 Background-work awareness
+
+Represent working, waiting for required child/test/tool results and blocked states
+separately. Do not declare completion while required background work remains
+unresolved, and do not repeatedly call an evaluator merely because the author is
+waiting. Persist the required operation IDs and result dependencies through the
+existing child/execution controller. A committed result can trigger one authorized
+continuation at a safe turn boundary; duplicate or late results cannot reopen a
+completed, paused or cancelled goal. Optional background work does not block
+completion unless the declared criteria require it.
+
+Provide bounded check-ins for required jobs that stop reporting progress, using
+controller-observed status and permitted output rather than model guesses.
+Declare intervals, backoff and maximum check-ins; charge any model work to the
+task budget. Surface progressing, stuck, failed and uncertain jobs separately.
+Check-ins cannot bypass pause/cancellation, relaunch an uncertain command or
+broaden a child's assignment. Advertise this behavior only after the corresponding
+background controller is qualified; embedded terminals retain §30's prerequisites.
+
+#### 31.10.4 Goal error recovery
+
+Classify transient provider/connection failures, exhausted usage or credit limits,
+authentication/configuration failures and uncertain effects explicitly. Retry
+only operations known to be retryable under §§14 and 31.4, with bounded attempts,
+backoff and jitter. A lost response to a paid call or possible write remains
+uncertain until reconciled; a transient transport error alone does not authorize
+redispatch. Preserve exposure, retry counters and aggregate budgets across resume.
+Exhausted limits or failures requiring user action stop dispatch and retain the
+goal with the cause and next required action visible. Automatic resumption after
+a known limit reset requires an explicitly authorized bounded policy, fresh
+admission and §31.15's wakeup capability. No failure is completion, and no recovery
+restores expired grants or silently drops unfinished obligations.
+
+Acceptance: cover steering during work, concurrent updates, restart, changed
+workspace/tests, budget exhaustion and uncertain dispatch. A completed status
+requires revision-bound verification; no repeated continuation manufactures a new
+budget, loses unfinished obligations or dispatches after pause/cancellation.
+Also cover false author/evaluator completion claims, missing and stale evidence,
+evaluator timeout or malformed output, repeated tool activity without progress,
+failure loops, required versus optional running work, duplicate/late results,
+lost background reports and check-in exhaustion. Inject retryable failures,
+authentication failures and exhausted limits; demonstrate no repeated uncertain
+write/paid call, reset accounting or accidental automatic resume. TUI, plain and
+JSON expose equivalent decisions, blockers and budgets. Implement completion and
+progress checks first within this slice, then qualified background and recovery
+behavior.
+
+Interaction reference: Claude Code's
+[`/goal` documentation](https://code.claude.com/docs/en/goal). Its transcript-only
+evaluation and reset accounting baselines on resume are not Mos requirements;
+Mos retains revision-bound verification and cumulative budget continuity.
+
+### 31.11 Conversation forks and side chats
+
+**2026-10-04 — recorded controller slice implemented:**
+[/fork and /side](CONVERSATION_BRANCHES.md) explicitly select completed owner-scoped
+context, preserve parent/source/branch identity and frozen artifact provenance,
+and use disjoint parent-reserved allowances with retained task obligations and
+exposure. JSON/SQLite publish private forks without cloned memory, task tools,
+checkpoint claims or review grants. Side calls remain transient until explicit
+attachment, with receipt-only persistence and bounded cancellation/recovery.
+Current workspace observations gate fork dispatch; explicit revalidation preserves
+historical provenance. Shared TUI/plain/JSON controls retain steering and drafts.
+Live task/provider/child integrations and isolated worktrees retain existing gates;
+this implements item 5 after durable goals in §31.13. The following requirements
+remain authoritative for qualified integrations.
+
+Add `/fork` to explicitly branch an owner-authorized conversation at a selected
+retained boundary. Record parent, source revision and branch identity; copy only
+the selected permitted context and artifact references. A fork does not undo
+filesystem effects. Revalidate the current checkout, and offer an isolated worktree
+only through §16.0.4's qualified broker and explicit workspace binding. A fork
+continuing the same task retains that task's aggregate obligations, spend and
+attempt counters; creating a separately authorized task cannot erase old exposure.
+Policy grants and uncertain operations are never cloned as executable authority.
+
+Add `/side` for a bounded read-only question without interrupting the active task
+or automatically inserting its answer into the main model context. Select context
+explicitly, account for side-call usage under the applicable budget, and let the
+user attach an identified answer back to the main conversation. Keep side content
+transient by default under the existing storage/retention contract; do not create
+an ambient memory cache. Explain any durable minimum operational metadata.
+Fork and side contexts are conversational aids, never independent critic contexts.
+
+Acceptance: preserve main-task steering and drafts; reject cross-owner selection,
+stale branch points and unsupported worktree creation. Exercise cancellation,
+restart, concurrent forks, task-budget reuse and expired grants. Side answers
+enter the main request only through explicit attachment with provenance; neither
+feature leaks creator history or peer findings into critic/judge packets.
+
+### 31.12 Implementation-agent inspection
+
+**Inspection interface, 2026-10-04 — implemented; production connection gated:**
+[/agent and /subagents](CONVERSATION_AGENTS.md) share read-only plain/JSON/TUI
+commands, owner/parent/workspace checks, assignment/report digest binding, stale and
+partial output disclosure, and concurrent snapshot validation. Review projections
+contain only operational identity and state; report reads cannot reveal review
+evidence. Inspection leaves conversation state and spend unchanged. The substrate
+assessment found task/checkpoint records and review inventory, but no qualified
+implementation-child controller. The shipped terminal explicitly reports this
+missing source. A trusted controller port reuses future authorized child records
+without a second registry; §14.2 lifecycle/execution/VCS/E2 qualification and its
+production connection remain required. This is not a claim that child execution or
+the complete live §31.12 workflow is qualified.
+
+Add `/agent` with `/subagents` as an alias and equivalent plain/JSON inspection
+of creator-authorized implementation children. Show assignment, parent/task ID,
+model/effort, workspace/worktree, state, bounded usage/spend, verification status
+and unresolved work. Inspect retained reports and permitted evidence through the
+existing controller. Inspection alone does not spawn, resume, reassign or broaden
+a child; explicit steering/cancellation remains subject to the original assignment,
+plan/test approval and task budget. The creator retains final integration ownership.
+
+Keep independent review visibility rules intact. During blinded review, show only
+permitted operational status; creator and peers cannot inspect sealed readings or
+critic findings before the protocol's reveal/adjudication boundary. Distinguish
+implementation-agent reports from independent review evidence and disclose missing
+or partial output. Use existing owner-scoped records rather than a second registry.
+
+Acceptance: cover mixed implementation/review activity, completed/failed/cancelled
+children, stale assignments, concurrent inspection and resume. Inspection does not
+change agent state or spend; cross-owner reads and premature review reveal fail
+closed, and cancellation/steering cannot bypass frozen plan/test authorization.
+
+### 31.13 Delivery order and optional development review
+
+| Order | Addition | Required existing substrate |
+|---:|---|---|
+| 1 | Review scope presets (§31.7) | Trusted Git/read broker, frozen briefs, §31.1 preview and applicable live-review qualification |
+| 2 | Findings in the diff panel (§31.8) | §16.4.1 diff panel, revision-bound findings and correction/verification gates |
+| 3 | Planning mode (§31.9) | Conversation mode state, read policy and §15.7 creator workflow |
+| 4 | Durable goals (§31.10) | §6.7 task/checkpoints, aggregate ledgers and §31.4 recovery for advertised restart behavior |
+| 5 | Forks and side chats (§31.11) | Owner-scoped history, explicit context selection and qualified worktree lifecycle where selected |
+| 6 | Implementation-agent inspection (§31.12) | Qualified child controller, retained reports and enforced review visibility boundaries |
+| 7 | Session scheduling and event-driven wakeups (§31.15) | Qualified durable goals, §31.4 recovery, §14.1 trusted handlers and applicable background/MCP/execution gates |
+
+Work-unit completion checks (§31.14) accompany the goal and child-controller
+slices rather than forming a second pipeline. Preserve planning before goals;
+prioritize completion evaluation and progress detection within the goal slice.
+
+Deliver these as post-v1 slices without weakening or delaying existing release
+gates. Current context controls, worktrees, attachments, MCP, typed lifecycle
+events, structured final output and scriptable execution keep their existing
+requirements; this survey does not create duplicate architecture for them.
+
+For developing Mos Eisley itself, optionally run one Codex review on a completed
+bounded batch using `codex review --uncommitted`, `--base <branch>` or
+`--commit <SHA>`. Add concise repository-specific Code Review Rules to applicable
+`AGENTS.md` files for blindness, stale approval, budget continuity and credential
+boundaries when adopting that workflow. Review output is advisory development
+evidence, not a substitute for Mos Eisley's required independent reviews or CI.
+The [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github)
+can support explicitly configured PR reviews, but this plan addition does not
+enable automatic reviews, authorize comments or transfer private run artifacts.
+Keep §12's publisher/data boundaries and §31.3's verdict-aware CI contract.
+
+### 31.14 Work-unit and child completion checks
+
+Apply §31.10.1's completion pattern at §6.7 work-unit closure and acceptance of
+§14.2 implementation-child reports. Use the existing typed lifecycle handlers and
+controller guards to check the declared obligations, required tests and evidence
+identities before a unit is marked complete or dependent work is released. A
+child reporting done is a claim; retain the report while recording unmet checks
+and returning concrete feedback to the creator. The creator owns integration and
+any further child assignment under the approved plan/test revisions. Unit closure
+cannot replace task-level verification or final independent review.
+
+Reuse trusted, bounded handlers under §14.1; project text cannot install an
+arbitrary executable completion hook. Define ordering, timeout and failure behavior
+so a missing, failed or vetoing check leaves closure unproven with a visible reason.
+Retain failed attempts and consumed resources under the same task ledger.
+
+Acceptance: premature reports, stale tests/revisions, empty test collection,
+handler failure, duplicate reports and resumed units cannot release dependent
+work or mark completion without valid evidence. Correction feedback preserves
+assignment scope, creator ownership, review blindness and aggregate limits.
+Reference: Claude Code's
+[`TaskCompleted` hooks](https://code.claude.com/docs/en/hooks#taskcompleted).
+
+### 31.15 Later session-scoped scheduling and event-driven wakeups
+
+**Active recorded timers/local read-only children, 2026-10-04 — implemented:**
+[Local qualification](LOCAL_BACKGROUND_QUALIFICATION.md) connects bounded active
+session waiters and explicitly authorized fresh child briefs through the existing
+offline container. Durable parent reservations, required job receipts, stale-report
+inspection and exact committed-child events reuse the goal ledger, session stores
+and serialized queue. User input wins; cold restart and uncertain operations never
+replay. This recorded unpaid route grants no tools, writes or integration approval.
+Writable execution/VCS/E2, live providers and external ingress retain their gates.
+**Remote TLS transport, 2026-10-04 — local fixture slice implemented and qualified:**
+[Local mutual TLS qualification](CONVERSATION_SCHEDULING.md#local-mutual-tls-transport-qualification)
+connects one narrowly scoped TLS 1.3 adapter through the active session owner,
+signed ingress and native credential lifecycle. A frozen host policy binds exact
+CA/server/client certificate pins, listener address, narrow peer networks and
+limits to the credential grant; inbound authority is separate from outbound MCP.
+Strict mutual TLS, certificate validity and bounded host revocation checks precede
+owner commit alongside bearer, source and trusted broker revalidation. Accepted
+sockets count before negotiation, with handshake/request deadlines, bounded
+connections/queues and cancellation. Generic responses expose no private artifacts.
+Local PKI/socket fixtures qualify invalid/expired certificates, unsafe material,
+revocation/rotation, cross-owner claims, peer filtering/floods, hung/cancelled reads,
+disconnects, terminal dispatch and lost acknowledgements on snapshot/SQLite.
+Restart retains rates and queued/running exposure without replay or budget reset.
+Actual credentialed remote deployment still requires host trust/revocation and
+network-exposure qualification. Other-platform vaults, MCP service deployments
+and live/paid execution remain gated; no daemon or closed-session work is added.
+
+**Native credential-vault qualification, 2026-10-04 — macOS slice implemented and qualified:**
+[Native macOS credential lifecycle](CONVERSATION_SCHEDULING.md#native-macos-credential-vault-qualification)
+adds explicit host provisioning, bounded lookup, read-only inspection, scope-frozen
+rotation and revocation through macOS Keychain. Default ingress lookup requires
+private owner-scoped lifecycle authority as well as the native token; no raw-token
+adoption, OAuth reuse, vault enumeration or sender-facing credential controls are
+added. Durable pending/revoking denial, retained tombstones, exact-operation
+activation and serialized native locks prevent cancelled/timed-out writes from
+restoring authority. Hung OS calls retain their locks until completion; inspection
+and explicit cleanup replace automatic replay. Tokens remain out of lifecycle
+records, session snapshots, reports and command arguments.
+Explicit disposable-account native tests qualify provisioning/lookup/rotation/
+revocation, foreign owner claims, controlled native failures, deadlines,
+cancellation, lost acknowledgements and restart. Real loopback events on both
+snapshot/SQLite retain metadata, rates and queued/running exposure through native
+revocation without provider replay or budget reset. Actual vault lock/access
+settings remain unchanged; failures are injected around real native calls.
+Private-storage and concurrent-handle fixtures supplement native runs; skipped
+ordinary tests cannot claim native qualification. Other-platform vaults, remote
+TLS/MCP deployments and live/paid execution remain gated.
+
+**Credentialed external transport, 2026-10-04 — first loopback slice qualified:**
+[Credentialed loopback transport](CONVERSATION_SCHEDULING.md#credentialed-loopback-transport-qualification)
+connects one explicitly configured signed source through the active plain/JSON/TUI
+session owner. Assessment separates outbound MCP/OAuth authority from inbound
+event authorization. A separate native-vault credential namespace pins the full
+owner/session/task/workspace/revision/policy/goal, source authorization and expiry;
+credentials are re-read before validation and owner commit. Only literal loopback
+HTTP and one POST route are enabled by trusted host configuration, with bounded
+connections, buffering, attempt rates, whole-request deadlines and cancellation.
+Socket tasks cannot mutate the store or dispatch work. Fixed generic responses
+reveal no private artifacts or errors. Signed metadata and durable duplicate/rate
+charges retain the existing broker, queue, steering and restart boundaries.
+Real loopback fixtures with synthetic credentials cover disconnects, revocation,
+rotation, cross-owner claims, stale revisions, overload, hung/cancelled reads,
+shutdown and lost sender/store acknowledgements on snapshot/SQLite without
+replay or budget reset. Native vault selection is tested through a fixture port;
+macOS lifecycle/end-to-end qualification is implemented above. Other-platform
+vaults, remote TLS/MCP deployments and live/paid execution remain gated. No daemon or closed-session
+scheduling is claimed.
+
+**Authenticated external ingress, 2026-10-04 — inert adapter implemented; remote transport gated:**
+[Signed external envelope admission](CONVERSATION_SCHEDULING.md#inert-authenticated-external-event-ingress)
+uses owner-provisioned Ed25519 verification keys and durable source authorization
+pins covering owner/session/task/workspace/revision/policy/goal, expiry and rate
+limits. Canonical bounded envelopes reject forged keys/signatures/sources,
+cross-owner claims, unknown authority fields, stale/future/expired events and
+oversized payloads. Revision assertions are re-observed through the trusted
+Git/read broker across authentication and admission, and normal dispatch scope
+checks remain authoritative. Only omitted-payload metadata is committed; it cannot
+become model context, review evidence, user steering, approval or publication
+permission. There is no sender-facing artifact/report API.
+Accepted-event rolling rate windows commit with durable replay cursors in the
+existing snapshot/SQLite stores. Duplicate/out-of-order events, lifetime floods,
+cancellation, restart, source substitution and lost metadata/queue/running
+acknowledgements cannot reset exposure or replay uncertain work. A bounded
+pre-authentication attempt limiter caps forged/replayed packet verification work.
+Inert and real-Git fixtures cover source forgery, broker changes, concurrent
+controls, hung/cancelled readers, steering priority and failure recovery on both
+stores. The adapter opens no network listener, credentials or outbound channel.
+The first credentialed loopback transport is qualified above; remote MCP/network
+deployments and live/paid execution qualification follow;
+no daemon or closed-session scheduling is claimed.
+
+**Trusted local handler qualification and bounded timeouts, 2026-10-04 — implemented:**
+Read-only schedule observers, event validators and local source readers now use
+shared whole-operation monotonic deadlines and cancellation checks before owner
+commits. One worker per controller bounds reader concurrency; timeout/cancellation
+discards late outcomes and quarantines the lane until it has finished and an idle
+explicit reset/resume is allowed. Python cannot kill an arbitrary blocked reader;
+callbacks remain trusted read-only ports, and the wrapper grants no execution
+containment. Known handler failures pause work; lost persistence acknowledgements
+remain fatal without replay or refund.
+Qualified host adapters connect committed local test receipts and retained
+implementation-child reports to the existing active-session queue. Durable source
+pins freeze full scope and explicit operation/execution or child-assignment
+identities; restart requires exact trusted registration. Sealed review reports,
+stale assignments and incomplete output cannot wake work. Controller-owned test
+commit revisions are immutable; legacy unstamped results are not inferred.
+Bounded batches, one metadata notification per owner turn, durable duplicate
+cursors and lifetime event ceilings limit floods. Waiting goals retain metadata
+without dispatch or implicit resume. Snapshot/SQLite tests cover stale bindings,
+failed/cancelled children, malformed receipts, hung/failed/cancelled handlers,
+late completion, steering priority and metadata/queue acknowledgement loss without
+budget resets or uncertain-operation replay. See
+[qualified local sources and deadline limits](CONVERSATION_SCHEDULING.md#trusted-handler-qualification-and-bounded-timeouts).
+Inert authenticated ingress and the credentialed loopback slice are implemented
+above; remote transport and live/paid execution qualification follow.
+
+**Active-session recorded timer driving, 2026-10-04 — implemented:**
+One timer owner wakes the existing plain/JSON/TUI controller queue with bounded
+monotonic waits and current-clock deadlines. Timers admit one intent at safe
+boundaries, coalesce missed intervals and honor bounded dynamic cadence. Waiting
+user input wins before admission and again before dispatch; author/side/diff work,
+goal evaluation, queues and composition defer timers. Scope, expiry, request and
+resource guards remain authoritative, including retained skipped exposure across
+schedules and ordinary author turns. Unsafe clocks, scope/validation failures,
+stopped goals and uncertain operations cannot cause retries or pause bypass.
+EOF/quit/handoff/cancellation stop the waiter and persist clean pauses before
+releasing ownership; restart requires guarded resume without replay or budget
+reset. Recorded CLI timer completion is tested on snapshot and SQLite, alongside
+races, lost acknowledgements and TUI draft preservation. Trusted local handler
+qualification and inert authenticated ingress are implemented above;
+the credentialed loopback slice is qualified above; no paid/live
+provider, tool, daemon or closed-session execution is enabled by this slice.
+
+**Explicit recorded `/loop` controls, 2026-10-04 — implemented:**
+Shared plain/JSON/TUI controls create schedules with explicit task, fixed or bounded
+dynamic cadence, expiry, maximum fires and resource limits through the durable
+controller APIs. CLI-owned read-only observation binds the workspace/revision,
+recorded policy and selected goal. Inspection shows state, remaining schedule/task
+limits, cadence history and unresolved operation exposure without mutation.
+Cancellation retains charges; guarded resume revalidates scope, queue boundaries,
+expiry and uncertainty without resetting budgets. Command and draft-preservation
+tests cover both stores, cold restart and failed persistence. Creation/resume start no immediate call; active-session recorded timer driving is
+implemented above.
+
+**Durable recorded storage/admission, 2026-10-04 — implemented:**
+The existing snapshot/SQLite session header now persists bounded schedules and
+exact operation-to-queue bindings in one revision update. Trusted host APIs require
+current scope and committed-result validators; creation cannot enlarge task limits.
+Dispatch revalidates binding, expiry and request identity. Later user input skips
+the queued wakeup atomically while retaining exposure. Queued cold-resume work is
+known undispatched and skipped; running work retains goal/schedule uncertainty
+without replay. Concurrent controls, writer/resume exclusion, cancellation and
+lost admission/running acknowledgements have recorded boundary tests.
+Trusted local handlers and inert external ingress are qualified above;
+the first credentialed loopback slice is qualified above; remote deployments remain gated;
+this storage slice does not enable live/background dispatch.
+
+**Inert qualification fixtures, 2026-10-04 — implemented; runtime scheduling gated:**
+[Scheduling assessment and fixtures](CONVERSATION_SCHEDULING.md) reuse the existing
+goal ledger and serialized queue in a test-only bridge. Pure explicit-clock/event
+contracts cover fixed/bounded dynamic cadence, expiry, fire/resource caps,
+owner/revision/policy/goal bindings, source allowlists, duplicate coalescing, steering
+priority and conservative restart. Exact request-bound intents reserve exposure
+before queue admission; lost acknowledgements remain uncertain without replay or
+refund. Snapshot/SQLite recovery fixtures preserve the real goal's uncertainty.
+The substrate assessment found retained goal/recovery records but no qualified
+timer/event admission path at that point. Durable recorded persistence and dispatch
+priority, explicit `/loop` controls and active recorded timers are implemented
+above. Trusted local handlers and inert external ingress are qualified above;
+remote credentialed transport/background adapters remain required;
+no live scheduling is claimed.
+
+After the durable goal and recovery foundations are qualified, add explicit
+session-scoped `/loop` controls and equivalent plain/JSON creation, inspection
+and cancellation for bounded CI monitoring, PR maintenance and reminders. Define
+the selected prompt/task, owner, workspace/revision binding, fixed interval or
+bounded dynamic interval, expiry, maximum fires, resource ceilings and stop rules.
+Show the effective cadence and changes to it. A goal advances toward a completion
+condition; a loop wakes on a schedule. Neither implicitly enables the other.
+No bare command starts open-ended cleanup or new initiatives without explicit
+scope. Scheduling creation itself does not dispatch a paid call or tool operation.
+
+Use one existing controller queue for timers and permitted incoming events. Admit
+wakeups only at safe turn boundaries, prioritize user steering, coalesce duplicate
+notifications and prevent overlapping dispatch for the same task. Record stable
+event/operation IDs and bounded replay protection. Expired or cancelled schedules
+cannot fire; missed intervals do not create an unbounded catch-up queue. Resume
+revalidates schedule identity, expiry, policy, workspace, goals and remaining
+budgets without resetting exposure or replaying uncertain effects. This initial
+capability requires an active qualified session; it promises neither a daemon nor
+cloud execution while the session is closed.
+
+Prefer qualified event-driven CI/build/child notifications to repeated model
+polling when available. Bind authenticated sources to the owner and permitted
+task/workspace, cap event size/rate and disclose omitted payloads. External event
+content is untrusted evidence, not user steering, an approval or permission to
+publish. Revalidate any revision-bound assertion through the existing broker;
+events cannot enter sealed critic/judge contexts or expose private artifacts to
+senders. External ingress requires its own qualified adapter and applicable MCP,
+network, credential and owner-isolation gates. Local committed child/test results
+can supply wakeups without adding external ingress.
+
+Acceptance: fixed/dynamic intervals, expiry, cancellation, restart, clock changes,
+duplicate/out-of-order events, event floods, stale revisions, busy sessions and
+lost acknowledgments produce bounded, inspectable behavior. Prove no overlapping
+task dispatch, cross-owner wakeup, pause bypass, budget reset, repeated uncertain
+operation or unauthorized outward action. Test inert timer/event fixtures before
+credentialed integrations. Keep ordinary session goals usable without scheduling.
+References: Claude Code's
+[`/loop` and scheduling documentation](https://code.claude.com/docs/en/scheduled-tasks)
+and [channels documentation](https://code.claude.com/docs/en/channels).
+
+## 32. Version 3 managed-agent interoperability
+
+**Scope and order.** Treat
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview)
+as an optional external client ecosystem after the narrow outward MCP boundary in
+§13.2/E4 is qualified. A configured Managed Agent may invoke owner-authenticated,
+schema-versioned Mos Eisley review preflight, status and bounded replay through
+that interface. Mos Eisley remains the authority for roster, frozen briefs,
+spending, execution policy, retained evidence and publication. The integration
+must not expose a general remote runner or permit a caller to assert its own
+sandbox tier, repository identity or review verdict.
+
+Managed Agents runs a Claude-specific agent loop and retains session history on
+Anthropic's service. Its multiagent threads have separate contexts but share a
+sandbox, filesystem and vault credentials; its outcome grader supplies iterative
+feedback, not Mos Eisley's independent cross-provider judgment. Therefore it is
+not a substitute for the canonical provider loop, structurally blind critics or
+judge. Self-hosted tool execution still sends tool inputs and results to
+Anthropic's control plane. Any later proposal to use a Managed Agent as a
+model-facing backend requires a separate owner data-egress decision and the same
+provider, role, containment, spending and replay conformance gates as other routes.
+
+Acceptance for the initial v3 interface: a Managed Agent can request a bounded
+preflight and retrieve only its owner's authorized status/replay view; forged owner
+IDs, cross-owner run IDs, stale targets, repeated requests and attempts to enlarge
+permissions fail closed. Cancellation and uncertain outcomes remain visible across
+the boundary. Test with an inert external-client fixture before any credentialed
+Managed Agents run. No v3 feature or Managed Agents availability is claimed here.

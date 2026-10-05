@@ -33,6 +33,11 @@ Notable changes are recorded here using semantic versioning.
   can authorize, observe and approve an exact launch while recording self-review risk;
   schema-1 separated roles remain the backward-compatible default.
 
+- Qualify pinned `goodtune/ghp` as a candidate GitHub publisher boundary and
+  record a no-go decision: mandatory repository/scope enforcement, exact route
+  denial, fail-closed audit and vulnerability gates are not met. No publisher or
+  GitHub-write authority is enabled.
+
 - Complete G1 work-unit-owned profile acquisition with schema-2 private task bundles,
   exact retained instruction material, work-unit/policy binding, checkpoint-store
   reconstruction, selected trusted tool schemas, legacy fail-closed replay and

@@ -1,0 +1,773 @@
+# G6-06 bounded rollout and assessment plan
+
+Status: **offline phase rehearsals through R6 complete; live release and
+cohort assessment open**, 2026-09-27. This is the G6-06 handoff in the
+[G6 project plan](G6_ACTIVATED_ROUTING_PROJECT_PLAN.md). It defines the first
+owner-scoped production cohort and its stop, close and assessment procedure; it
+does not authorize a provider send or report a cohort outcome. The
+[G6-05 qualification gate](G6_05_OPERATIONS_EXACT_CANDIDATE_QUALIFICATION_PLAN.md)
+is open, the [G5 study](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md) has qualified no
+policy, and the current [preflight](ROUTING_RUNTIME_PREFLIGHT.md) denies dispatch.
+
+## Decision boundary
+
+G6-06 begins only after an exact G6-05 packet has a real **go** decision,
+independent source and custody review, and current route, witness and control
+evidence. The [offline G6-05 packet validator](../src/mos_eisley/run/routing_qualification.py)
+can make a packet `reviewable` but cannot supply that decision. A separately
+recorded owner/operator release must bind the G6-05 decision digest, one cohort
+manifest digest, exact broker build and deployment identity, a validity window,
+and the permitted initial phase. No saved preflight, signed eligibility receipt,
+or release packet is a bearer for a worker or an alternate send path. The
+credential-owning broker still verifies every attempt at use.
+
+The first cohort uses **one named owner, one frozen complete policy, one reviewed
+measurement path and one bounded task population**. The owner chooses task types,
+stages, maximum eligible assignments, maximum concurrent attempts, per-task,
+per-session and cohort exposure, maximum unresolved exposure, start and end
+times, support coverage, stop latency, route freshness, alert thresholds and
+follow-up window before release. No numeric default in this design is a spending
+or traffic authorization. The fixed reviewed route and full review remain the
+safe operating mode outside this exact cohort.
+
+G6-06 is an operational pilot. Its monitored outcomes can stop or quarantine
+traffic and describe the cohort. A claim that the routing policy improves cost,
+quality or latency over another policy requires a separately reviewed
+prospective comparison under [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
+and the [G5 study protocol](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md). Do not call
+an early stopped pilot a successful efficacy result, use a favorable subset as
+a new holdout, or alter the frozen policy within the cohort.
+
+## Freeze the rollout manifest and release record
+
+The owner and operator create a versioned, access-controlled manifest before
+any cohort assignment. Retain its digest in an independently controlled
+append-only release record. A changed field requires a new manifest, review
+and release; the broker cannot silently widen the active cohort. If a
+comparative study is proposed, its prospective sampling design and access
+controls are an additional prerequisite. Sampling receipts are metadata only;
+they neither grant admission nor reveal holdout assignment. Missing sampling
+probabilities, groups, labels and splits remain unknown and are never inferred
+or repaired.
+
+| Manifest section | Required frozen content |
+|---|---|
+| Authority and identity | Named decision owner, operations/on-call owner, independent security reviewer, exact G6-05 go record and expiry, signer and witness trust-root digests, broker build, target host, credential-owning identity and release window. |
+| Cohort | One owner/cohort ID, eligible task/stage types, trusted task/session enrollment source, inclusion/exclusion rule, maximum assignments and concurrency, start/end and support window; no cross-owner pooling. |
+| Policy and route | Exact G5-qualified policy, promotion, activation, execution-profile and rubric digests; candidate IDs, provider/backend/model/effort/client/prompt-asset and capability digests, current catalog/price/conformance/drift sources, signed fallback or fail-closed rule. |
+| Exposure | Full worst-case request amount, task/session/cohort ceilings, maximum unresolved rows, settled/held/uncertain accounting rule, cost/pricing basis and alert/headroom levels. No new session to escape a cap. |
+| Monitoring | Versioned text-free event schema, required before-send and outcome joins, independent monitor and audit health checks, dashboard cadence, alert thresholds, missingness and clock-skew limits, on-call escalation and stop deadline. |
+| Follow-up and assessment | Exact rubric and independently graded outcomes, ascertainment and follow-up window, fixed cohort cutoff, completeness requirements, denominator and unknown-outcome handling, assessment date, comparison claim type if any, reviewer roster and later-window reporting rule. |
+| Operations | Signed stop and rollback procedure, witness/checkpoint recovery owner, fallback drill, incident inventory, backup/restore evidence, retained exposure rule, re-entry requirements and evidence retention/deletion schedule. |
+
+The release record contains an explicit `no-go`, `shadow-only` or
+`bounded-live` owner/operator decision with the manifest digest, approved
+maximums, expiry and independent reviewer acknowledgment. `shadow-only` may
+compute a route decision but cannot claim, reserve, invoke transport or affect
+the user's task. `bounded-live` requires every G6-05 gate and the live broker
+boundary to be independently accepted. A release changes neither G5 policy
+bytes nor G6-04 witness state by itself; runtime admission remains per attempt.
+Withdrawal or expiry stops new assignments.
+
+### Proposed live controller contract
+
+Implement strict, versioned, immutable `CohortManifest` and
+`SignedCohortRelease` contracts outside the task worker. The manifest pins the
+fields above and its canonical digest. A release has `manifest_sha256`,
+`g6_05_go_sha256`, exact broker build/host and witness epoch, phase, issue and
+expiry times, signer identities and signatures, and a unique release sequence.
+The broker obtains the independently enrolled owner/operator keys and highest
+release sequence from a protected channel. A stale, unknown, superseded,
+revoked or changed release denies. Release signatures are domain-separated
+from promotion, activation and witness signatures; neither signer receives
+provider credentials. A `shadow-only` release has no claim/send capability.
+
+Before route selection or any live attempt, the trusted controller records the
+task's owner and cohort membership and atomically consumes an **assignment
+slot** keyed by the original task ID. That witnessed assignment is the immutable
+intent-to-treat roster entry even if selection later fails or no send occurs.
+Its serializable transition enforces maximum assignments and exact owner,
+cohort, policy and phase. A duplicate is idempotent only for the same frozen
+assignment; a changed owner or policy is a conflict. An ambiguous assignment
+is inspected read-only, never redrawn or replaced.
+
+The later one-use claim references that witnessed assignment. The real witness
+admission must check active concurrency, maximum attempts, unresolved rows and
+three spending scopes in one linearizable transition with the claim, or an
+independently reviewed equivalent fencing protocol must prove the same limits
+under concurrent workers and crashes. A local in-memory counter or three
+separate ledgers cannot enforce this contract. A crash between assignment and
+claim leaves a counted **no-dispatch assignment**, not a missing cohort member.
+An ambiguous claim retains possible full exposure and is inspected read-only;
+it is never retried as a fresh task.
+Completion decrements active concurrency only after a checkpointed terminal
+disposition that excludes a possible in-flight send. An uncertain state keeps
+the slot until independently reviewed reconciliation proves it can close; its
+full possible spend remains held. No new assignment follows release expiry,
+stop or cohort close.
+
+### Offline controller fixture
+
+The [synthetic cohort controller](../src/mos_eisley/run/cohort_controller.py)
+uses the [checkpointed witness](../src/mos_eisley/run/witnessed_admission.py)
+for shadow enrollment, separately signed bounded-live and closed releases,
+one-use task assignments, atomic assignment and concurrency caps, and
+assignment-bound claims. The [synthetic tests](../tests/test_cohort_controller.py)
+cover stale and invalid releases, shadow denial, duplicate and competing
+assignments, settled and uncertain claims, stop, close, checkpoint rollback,
+and process kills at assignment commit boundaries. The G6-05 go digest in this
+fixture is a binding value only: the fixture does not validate a real G6-05
+decision, qualify a route, grant provider credentials, or implement the live
+monitoring and later-window assessment gates below.
+
+### C04 offline audit and alert outage rehearsal
+
+The [inert transaction fixture](../src/mos_eisley/run/routing_transaction.py)
+requires a separate synthetic, hash-only before-send audit row and a healthy
+required-alert path for an enrolled cohort. Both paths are checked before claim
+and at the final pre-transport read. A read-only inventory joins witnessed
+assignments and claims to local intents and audit rows without opening the
+outcome table. The [C04 tests](../tests/test_cohort_audit_outage.py) cover missing
+paths, outages before and after claim, alert acknowledgment loss, missing audit
+rows, local intent rollback and recovery with full retained exposure. An outage
+after the final read retains the approved one-entry in-flight bound. The local
+SQLite audit and boolean alert fixture do not establish independent custody,
+actual alert delivery, clock quality or target-host stop latency.
+
+### C05 offline route-change rehearsal
+
+The [inert witnessed transaction](../src/mos_eisley/run/routing_transaction.py)
+requires a synthetic exact-route observation probe for an enrolled cohort. It
+checks the selected route and observation window before claim and again after
+intent, immediately before inert transport entry. The
+[C05 tests](../tests/test_cohort_route_change.py) remove or stale the route
+before claim, after claim and after the final check. Pre-claim loss leaves no
+claim; post-claim loss abandons without transport and retains full exposure;
+post-final-check loss may leave one in-flight entry under the approved bound.
+The tests also show that a frozen fallback is only a new, exact resolver
+selection: it cannot be plugged into a consumed attempt or a different frozen
+policy. A fallback send would require fresh complete policy, preflight and
+witness admission. The synthetic probe does not authenticate a real catalog,
+conformance source, provider outage or target-host observation timing.
+
+### C06 offline stop and re-entry rehearsal
+
+The [read-only stop inventory](../src/mos_eisley/run/cohort_stop.py) requires a
+checkpointed signed stop and a consistent recovery high-water snapshot. It
+reports the frozen roster and claim counts, durable intent and audit counts,
+possible in-flight attempts and conservative exposure without reading the
+outcome store or granting re-entry. The [C06 tests](../tests/test_cohort_stop_reentry.py)
+cover stop before claim, after claim and after the final check, a separate
+process restart, invalid stop signatures, unavailable alert delivery, blocked
+same-epoch stop clearing and release renewal, and rejection of an old release
+in a proposed new epoch. The fixture records stop issue and witness times but
+does not measure operator action, alert delivery or target-host stop latency.
+It does not validate exposure migration, independent new-epoch approval or a
+fresh G6-05/G6-06 release; these remain required before any real re-entry.
+
+### C07 offline early-close and follow-up rehearsal
+
+The [C07 tests](../tests/test_cohort_early_close_followup.py) close a witnessed
+cohort after an assigned task fails or is cancelled before claim, then reject a
+replacement assignment, another send and release renewal. They retain the
+original task in the closeout denominator: pending follow-up is provisional
+before its registered deadline, and missing follow-up blocks a mature packet.
+A separate injected local outcome-write failure leaves one inert transport
+entry, its witnessed settlement and durable intent visible, while the closeout
+packet fails its settlement link. A late synthetic follow-up changes a packet
+from blocked to structurally reviewable only after its evidence reference is
+supplied. No test authenticates that reference, establishes an actual outcome
+or grants assessment authority.
+
+### C08 offline combined rollback rehearsal
+
+The [synthetic recovery inventory](../src/mos_eisley/run/routing_transaction.py)
+compares the current witness checkpoint, assignment roster, claim IDs, local
+intent digests and audit event digests with an explicitly supplied frozen
+high-water snapshot. The cohort transaction checks that snapshot before claim
+and at its final read. The [C08 tests](../tests/test_cohort_combined_rollback.py)
+restore older witness, checkpoint, intent and audit files separately and in
+combinations, including a coordinated restore that leaves the local intent and
+audit stores mutually consistent. Read-only inspection reports the mismatch,
+preserves the anchored roster/claim counts and full possible uncertain
+exposure, and another inert send is denied without repair or refund. The
+fixture capture helper does not provide independent custody: a real operator
+must retain the high-water record outside every rollback domain and verify its
+lineage before any recovery decision.
+
+### C09 offline assessment-freeze rehearsal
+
+The [C09 tests](../tests/test_cohort_assessment_freeze.py) attempt a new policy
+for an already assigned cohort, a release bound to a changed manifest, and a
+changed rubric at closeout. The witnessed roster and release remain frozen;
+the packet validator rejects changed protocol bindings. A synthetic early
+follow-up reference leaves closeout provisional before the registered deadline,
+and a future-dated packet is blocked. Omitting the no-dispatch task from a
+two-task cohort fails the original-roster and follow-up joins even when the
+other task has an inert settled result. A structurally reviewable packet still
+has no assessment authority, and its contract rejects an asserted positive
+authority flag.
+
+This rehearsal neither reads protected outcomes nor sampling assignments. It
+cannot authenticate a rubric or comparison registration, verify holdout
+non-reuse, grade outcomes, or establish a policy benefit. Those decisions need
+independently retained prospective sources and the applicable audited workflow.
+
+### R0 offline integration rehearsal
+
+The fixed [R0 runner](../tools/g6_06_r0_offline.py) executes the G6-02 exact-route,
+G6-03 one-use, G6-04 witness/budget, G6-05 promotion/activation/qualification,
+and G6-06 cohort suites without provider credentials. The
+[integrated inert tests](../tests/test_cohort_r0_integrated.py) join one frozen
+selection, witnessed assignment and claim, durable intent, before-send audit,
+single inert transport entry, checkpoint and read-only recovery. They also
+exercise a signed stop before a new claim and an exact frozen fallback
+selection in a separate resolver fixture. The
+[runner tests](../tests/test_g6_06_r0_offline.py) block empty, failing and
+skipped suites without copying failure text to the result index.
+
+Run `uv run --frozen python -m tools.g6_06_r0_offline <new-private-json-path>`
+from the repository root. The runner writes a new mode-0600 metadata-only index
+with suite counts, case-ID digests and a digest of its fixed source-file set. It
+checks that imported test and implementation modules came from those bound files.
+Its `synthetic_pass` status means only that this local fixture set passed. The
+index keeps target-build verification, independent review, G6-05 qualification,
+cohort release, dispatch and assessment authority false. It cannot establish
+the exact target-host build, independent source custody, real stop latency,
+credential isolation or an R0 acceptance decision. The fallback resolver
+fixture has a separate synthetic policy lineage, so this run does not prove a
+live fallback send path.
+
+### R1 offline shadow-only rehearsal
+
+The [read-only shadow evaluator](../src/mos_eisley/run/cohort_shadow.py) requires
+an enrolled `shadow_only` release, exact owner/task/session/stage membership,
+the frozen candidate policy and current witnessed control. It calls the pure
+exact-route resolver, checks the required monitor and one synthetic route
+observation, and returns bounded decision metadata with literal false
+assignment, claim and dispatch authority. A batch writer creates one private
+metadata-only file; it records no request, prompt or model response.
+
+The [R1 tests](../tests/test_cohort_r1_shadow.py) cover every eligible synthetic
+task binding, calibrated selection, an independently frozen policy fallback,
+unavailable, changed and stale route observations, policy substitution, expired
+preflight and release, monitor loss,
+stale control, stop and out-of-scope tasks. They confirm that shadow decisions
+leave the witnessed assignment roster, claims, intents, audit rows and inert
+transport empty. An unavailable selected route does not trigger an automatic
+fallback; the fallback test enrolls a separate synthetic policy lineage.
+
+This is an offline decision rehearsal. It does not observe the served route,
+authenticate live catalog or monitor sources, verify real signer independence,
+qualify a policy, or begin an actual shadow rollout. R0 acceptance and the live
+operational gates remain open.
+
+### R2 offline entry-gate and denial rehearsal
+
+The [R2 entry validator](../src/mos_eisley/run/cohort_entry.py) inspects one
+proposed `bounded_live` transition against an independently supplied frozen
+entry anchor. The anchor binds the manifest, G6-05 go decision and packet,
+accepted R0/R1 review evidence, on-call evidence, full request amount, route
+age limit and expiry. The validator verifies the proposed owner/operator-signed
+release and the preceding witnessed `shadow_only` release, exact policy,
+candidate, build, host, epoch, control and preflight bindings, current route,
+monitor, required alert and audit paths, and a consistent recovery inventory.
+It denies an already populated assignment or claim roster and requires a full
+request to fit the task, session and conservative cohort headroom, including
+retained recovery exposure. Its result is only `reviewable` or `blocked`, with
+explicit reasons and literal false release and dispatch authority. It never
+advances the witnessed release, assigns a task, claims a budget or sends.
+The [signed G6-05 owner-decision and R2 binding rehearsal](G6_05_OWNER_DECISION_R2_BINDING.md)
+adds `validate_joined_offline_r2_entry`, which verifies an independently
+anchored owner signature and compares its exact go digest, route, host,
+witness epoch, release window and approved envelope with this R2 proposal.
+The standalone check reports `signed_owner_decision_checked: false`; the joined
+check reports true after running that additional validation. Neither grants a
+release or dispatch authority.
+The further `validate_end_to_end_offline_r2_entry` reruns G605-06 over its
+packet, drill, source handoff, inspection and Q7 inputs; compares their
+recomputed digests with the frozen owner anchor; and checks the signed owner
+scope against the qualified packet and exact synthetic task/session roster.
+Its `readiness_checked` flag reports that additional screen. The synthetic
+fixture covers both a matching chain and changed, rejected or stale inputs.
+The [G606-02 offline handoff screen](../tools/g6_06_handoff_evidence.py)
+separately binds the exact R0 result index, complete R1 shadow decision batch,
+R2 base result and on-call reference to a frozen metadata anchor. Domain-separated
+signed R0, R1 and on-call reviews must accept those exact digests in order, under
+distinct supplied reviewer keys and dated windows. Missing, changed, rejected,
+stale or incorrectly signed references block the handoff screen. It does not
+authenticate actual reviewer custody or turn an R2 `reviewable` result into a
+release.
+
+The [R2 tests](../tests/test_cohort_r2_entry.py) rehearse missing or substituted
+go/review/on-call references, invalid signatures or phase transitions, changed
+route and preflight evidence, required path outages, exhausted or retained
+budget, expired evidence, stop and recovery mismatch. They assert that the
+shadow release, assignment and claim roster, intents, audit rows and inert
+transport remain unchanged. The references and readiness signals are synthetic
+metadata supplied to this offline validator; it cannot authenticate real
+external G6-05, reviewer, on-call or target-host evidence. A `reviewable`
+result is a packet for independent review, not an R2 release or live admission.
+
+### R3 offline per-attempt rehearsal
+
+The [R3 integration fixture](../tests/test_cohort_r3_attempt.py) starts with a
+`reviewable` end-to-end R2 result: it reruns G605-06 over the qualification,
+drill, handoff, inspection and Q7 inputs, then checks the signed G6-05 owner
+decision and qualified cohort scope. It checks `readiness_checked` and
+`signed_owner_decision_checked` and confirms that the result has no release or
+dispatch authority. Immediately before the synthetic R2-to-R3 transition it
+reruns the same full screen; a blocked result prevents the fixture from
+applying the separate owner/operator-signed `bounded_live` release. After that
+release, the fixture records one witnessed task/session assignment and runs one
+exact source-bound attempt through the existing inert transaction. The test joins
+the assignment, witnessed claim and checkpoint, hash-only intent, required
+before-send audit event and one inert transport entry. A repeated attempt
+cannot enter transport again.
+
+The handoff denial cases change or expire readiness, reject an inspection or
+Q7 review, change a source reference, trust root or qualified task roster, or
+remove the owner decision after the initial screen. The standalone R2 check
+can still be `reviewable` in these cases, while the full handoff blocks and
+leaves the shadow release, witness state, assignment and claim roster, audit
+and inert transport untouched. Later denial cases cover an unassigned attempt,
+expired preflight, changed policy selection, unavailable route, alert or monitor,
+a cut after claim or intent, stop after audit, changed route after the final read, and
+uncertain transport. They inspect the remaining claim, full exposure, audit
+join and entry count. A missing audit blocks the next attempt; uncertain
+exposure holds the single concurrent slot. A route change after the final
+read may leave one possible inert entry under the frozen race contract.
+Run `uv run --frozen python -m unittest tests.test_cohort_r3_attempt` from the
+repository root. This fixture has no provider credential or paid send. It
+does not enforce a production transition: the handoff screen is a test fixture
+guard around a synthetic release. It does not implement the future live R3
+broker boundary or supply real R2 approval, route observations, witness custody
+or target-host evidence.
+
+### R4 offline surveillance and hard-stop rehearsal
+
+The [read-only R4 inspector](../src/mos_eisley/run/cohort_surveillance.py)
+checks a bounded metadata packet against independently supplied manifest,
+release, selection, safety-signal and threshold anchors. It reads the synthetic
+witness/checkpoint, assignment and claim roster, intent and required audit
+metadata, high-water recovery inventory, exact route observation, preflight,
+monitor, alert channel and inert transport entry digests. Each proposed
+transport entry reference must join to one witnessed claim, earlier intent
+and audit event; a matching count alone does not establish provenance. The
+inspector calculates conservative exposure from settled charges plus retained
+unresolved exposure, counts held/uncertain claims, and returns `healthy`,
+`warning`, `hard_stop` or `stopped`
+with reasons and literal false admission, stop and dispatch authority. It does
+not read the protected outcome or sampling stores.
+
+The [R4 tests](../tests/test_cohort_r4_surveillance.py) cover a complete
+single-entry join reached through the end-to-end G6-05/R2 and R3 synthetic
+handoffs. The R4 fixture takes R3's signed release, records a witnessed
+assignment, runs one inert attempt, and matches its task/session, claim, intent,
+audit and transport reference to the surveillance packet. Broken upstream
+readiness, Q7 or owner-decision inputs leave the separate fault fixture in
+shadow with no assignment, claim, intent, audit or inert entry. Other cases
+cover missing or duplicated transport references, claim and
+intent cuts, route/control drift, required-path outages, stale observations,
+anchored safety signals, retained-exposure warning and cap breach, witness
+outage, uncertain exposure, missing or late stop acknowledgment, and a
+separately signed stop.
+They show that alert loss blocks another inert attempt and signed stop blocks
+new assignment. Run
+`uv run --frozen python -m unittest tests.test_cohort_r4_surveillance` from
+the repository root. A snapshot only reports a stop condition; it does not
+issue one. Transport references and safety status are synthetic metadata,
+not independently authenticated live evidence. Real cadence, alert delivery,
+signer custody, transport provenance, safety review and operator response
+remain live acceptance gates.
+
+### R5 offline close-and-follow-up rehearsal
+
+The [R5 handoff validator](../src/mos_eisley/run/cohort_close_handoff.py)
+binds a frozen R4 snapshot and trigger, pre-close witnessed state and recovery
+high-water anchor, separately signed `closed` release, and the existing
+metadata-only closeout packet. It requires the original assignment and claim
+roster to survive close, no assignment after the trigger, a sequential closed
+release within the frozen close latency, consistent checkpoint/audit/recovery
+sources, packet intent links that match the durable store, and complete
+follow-up indexing against the original roster. It
+compares witnessed unresolved exposure with independently retained exposure;
+a higher unreconciled high-water amount blocks a reviewable handoff. Its result
+is `blocked`, `pending_followup` or `reviewable`, with literal false close,
+re-entry, assessment and dispatch authority.
+
+The R4-to-R5 trigger reproduction screen runs **before** the synthetic close.
+It reruns R4 over the current pre-close witness, checkpoint, route, recovery,
+audit, monitor, alert and inert-transport sources using an independently
+expected R4 anchor digest. It requires the reproduced result to equal the
+frozen R4 result, the witnessed state to match the pre-close snapshot, and the
+trigger time to match the registered cutoff or hard-stop observation. A bounded
+reproduction result carries only digests, time, reasons and false authority
+fields. `validate_reproduced_offline_r5_close_handoff` later requires its
+separately frozen digest to match the R5 anchor and recovery snapshot. Neither
+screen signs the receipt or authenticates external custody; the expected
+anchor and receipt digests must come from an independent freeze in a real run.
+
+The [R5 tests](../tests/test_cohort_r5_close_followup.py) join an R4 hard-stop
+finding to a separately signed stop and close, preserve a no-dispatch task in
+the denominator, deny new attempts and release renewal, keep pending and
+missing follow-up visible, reject a replacement roster, and make a late
+synthetic follow-up only structurally reviewable. They also cover a registered
+cutoff, an assignment slipping into the close delay, trigger/release
+substitution, and independently retained exposure that the base closeout
+packet cannot account for. The reproduction faults deny a forged hard-stop
+result even when its digest is placed in the R5 anchor, a changed route or
+witness after freeze, a wrong R4 anchor, a mismatched cutoff, and a substituted
+or blocked reproduction result at R5. Run
+`uv run --frozen python -m unittest tests.test_cohort_r5_close_followup` from
+the repository root. The R4 snapshot and follow-up references are synthetic
+metadata; this fixture neither authenticates real custody nor reads protected
+outcomes or sampling assignments. It does not close an actual cohort or issue
+an assessment decision.
+
+### R6 offline assessment handoff rehearsal
+
+The [R6 packet validator](../src/mos_eisley/run/cohort_assessment_handoff.py)
+binds one mature, `reviewable` R5 result and closeout packet to an independently
+frozen assessment anchor. The packet carries the original roster digest,
+complete assignment and claim counts, an independently anchored inert-entry
+index, no-dispatch and possible-transfer counts, full follow-up coverage,
+settled and conservatively retained cost, incident status, and digests of
+restricted quality, damage, completion, latency, cost, missingness and review
+evidence. A claim alone never counts as a send; an unconfirmed intent remains
+a possible transfer. The reviewer, accepted review status, claim type and
+proposed disposition must match the frozen anchor. A comparative claim also
+needs an explicit baseline and design registration dated before cohort start;
+missing probabilities, groups, splits or labels are never reconstructed.
+
+The R5-to-R6 offline join now carries the pre-close R4 reproduction digest in
+both the frozen R6 anchor and assessment packet. The R6 fixture reproduces the
+registered-cutoff R4 finding before close, freezes that receipt, and obtains
+its mature R5 result through the reproduced close handoff. The joined R6
+validator reruns the reproduced R5 check at the closeout preparation time and
+requires its result to equal the R5 result bound into R6. Missing, blocked,
+changed or rebound reproduction metadata denies even if the standalone R6
+packet screen is reviewable. `r5_reproduction_checked` records that this extra
+screen ran; all assessment, policy, next-cohort and dispatch authority remains
+false. This synthetic receipt is not independently authenticated source
+evidence; a real handoff needs an externally controlled freeze and review.
+The G606-02 screen also checks signed R5 and R6 source bundles. R5 binds the
+pre-close state, R4 trigger and reproduction, recovery anchor, closeout packet
+and R5 result. R6 binds that R5 bundle, the R6 anchor and packet, separate
+inert-entry index, evidence references and reproduced R6 result. Distinct
+supplied reviewer keys sign exact digests after the relevant source is ready;
+substitution, rejection, wrong key, missing review or stale timing blocks.
+The [synthetic handoff tests](../tests/test_cohort_handoff_evidence.py) exercise
+both screens. Their metadata consistency does not establish external freeze
+custody, actual source authorship, independent role separation or an assessment
+decision. The underlying R2/R5/R6 validators still run separately.
+
+The [R6 tests](../tests/test_cohort_r6_assessment_handoff.py) cover the full
+two-task denominator with one no-dispatch assignment, early and incomplete
+follow-up, favorable subsets, missing transport references, understated cost,
+changed evidence or reviewer, severe incident disposition, unregistered or
+late comparison, and substituted R5, protocol or decision references. Joined
+faults also cover a missing receipt, a changed receipt with its original
+freeze, a blocked receipt with rebound R6 digests and a missing packet digest. Run
+`uv run --frozen python -m unittest tests.test_cohort_r6_assessment_handoff`
+from the repository root. `reviewable` means only that synthetic metadata is
+structurally ready for independent source review. The validator does not
+open protected outcome or sampling stores, authenticate the references or
+prospective registration, grade quality, establish a causal comparison, issue
+an assessment decision, authorize a new cohort or permit dispatch.
+
+### R0–R6 full offline chain index
+
+The [full offline runner](../tools/g6_06_full_offline.py) extends the fixed R0
+suite list with the G6-05 host-drill tests and each R1–R6 suite. The R6 fixture
+uses the nested R5, R4, R3 and end-to-end R2 synthetic handoffs. The runner
+verifies imported module origins, follows local Python imports and package
+initializers from its fixed suite/source seeds, and hashes that source closure
+before and after execution. A changed closure, changed source byte or loaded
+local module outside the closure blocks the result. Every suite must run all
+discovered cases without failures, errors, skips or unexpected results. Its
+[tests](../tests/test_g6_06_full_offline.py) block missing suite or source
+coverage, transitive or dynamic import omissions, inconsistent pass counts,
+changed source files and failure cases.
+
+Run `uv run --frozen python -m tools.g6_06_full_offline <new-private-json-path>`
+from the repository root. The exclusive mode-0600 JSON index contains source
+paths and SHA-256 digests, a case-ID digest and counts for each fixed suite,
+source stability and a `synthetic_pass` or `blocked` status. It contains no
+failure text, test output, prompts, transcripts, model responses or outcomes.
+Target-build verification, independent review, G6-05 qualification, cohort
+release, dispatch and assessment authority remain literal false. This local
+index does not establish the real target-host run or independent gate decisions.
+The [R0–R6 offline technical review packet](G6_06_R0_R6_OFFLINE_TECHNICAL_REVIEW.md)
+records the current source and test assessment, coverage limits and open
+independent decisions.
+
+### G606-03 offline reproduction handoff
+
+The [reproduction validator](../tools/g6_06_reproduction_handoff.py) consumes
+four metadata-only JSON inputs: a separately frozen anchor, its baseline full
+index, a new full-runner index and a reproducer record. The anchor pins the
+canonical baseline-index SHA-256, ordered source-set and suite-manifest SHA-256,
+the exact `pyproject.toml`, `uv.lock` and full-runner file digests, declared
+broker-build, protocol and command digests, distinct producer/reproducer and
+host IDs, and a dated replay window. Freeze this anchor outside the replay
+workspace before running the replay; creating it from replay data would void
+the comparison. The reproducer record binds both index digests, source and
+suite digests, build/protocol/command digests, reproducer and host IDs, and the
+replay completion time. All index digests use canonical JSON from the strict
+index contract; raw JSON whitespace has no effect.
+
+Run `uv run --frozen python -m tools.g6_06_reproduction_handoff
+<anchor.json> <baseline-index.json> <replay-index.json> <record.json>
+<new-assessment.json>` from the repository root. It validates both complete
+index contracts, including fixed suite/source coverage and pass counts, then
+compares every ordered source entry and suite result. It denies changed case
+identities or counts, lock/runner inputs, build/protocol/command claims,
+same-identity or same-host replay, stale windows and non-passing runs. The
+exclusive mode-0600 result binds the exact anchor and record digests and
+contains only digest/count metadata and bounded
+mismatch categories. `metadata_match` is a reproducibility screen; the
+reproducer's identity, host/build, source custody and independent review need
+separate authentication. Every authority field stays false. The
+[synthetic fault tests](../tests/test_g6_06_reproduction_handoff.py) exercise
+the match and denial paths without opening protected sampling or outcome data.
+The [local candidate freeze and replay handoff](G6_06_G60603_REPRODUCTION_FREEZE.md)
+packages the current exact bound source bytes, baseline index, case-ID
+protocol and command template. It includes an invalid anchor-input template;
+independent custody, build/host claims and the distinct reviewer run remain
+open.
+The [G6-06 blocker and re-entry packet](G6_06_BLOCKER_AND_REENTRY_PACKET.md)
+binds a later same-preparer 306-source rehash and 314-case clean replay to a
+recorded hold pending evidence. The user reports one available human and no separate
+host; the independent G606-01/G606-03 decisions are still open. The packet
+records the evidence and required conditions for a new, genuinely distinct
+replay without retroactively converting the local run into gate acceptance.
+
+### G606-04 offline operating-gate packet screen
+
+The [operating-gate validator](../tools/g6_06_operating_gate.py) binds one
+`CohortManifest`, the G6-05 O01–O10 host protocol and evidence index, a frozen
+G6-06 C01–C09 protocol, its observation index, a separately retained anchor,
+and one source-review row per O and C case. The anchor fixes the manifest,
+broker build, host, witness epoch/deployment, qualification packet, G6-05 go,
+G5 claim and G6-01–G6-04 review-bundle digests, exact O protocol/evidence and
+C protocol digests, named reviewer and expiry. The C protocol freezes the
+negative fault IDs and expected state digests before any C observation, plus
+assignment/concurrency and three-scope spend ceilings, request maximum,
+warning and hard-stop exposure thresholds, observation cadence, queue and
+retention limits, stop and alert deadlines, and the one-entry final-read bound.
+Its zero paid-call field is literal. The O evidence is complete before the C
+protocol freezes; the independent anchor freezes before the first C result.
+
+The validator reruns the existing O01–O10 index check and checks every named
+C01–C09 fault. A passing C row needs a source digest, separate producer and
+checker, the frozen status/state digest, bounded assignment/claim/intent/entry
+counts, conservative exposure and checkpoint behavior. Each O and C case must
+have a dated `accept` review bound to its exact observation digest and a
+reviewer ID distinct from the operators. Missing, failed, unavailable, late,
+over-limit or substituted evidence blocks the packet. The
+[eight synthetic tests](../tests/test_g6_06_operating_gate.py) exercise these
+denials and the private metadata-only assessment output.
+
+Run `uv run --frozen python -m tools.g6_06_operating_gate <anchor.json>
+<manifest.json> <host-protocol.json> <host-evidence.json>
+<cohort-protocol.json> <cohort-evidence.json> <reviews.json>
+<new-assessment.json> --now <UTC-ISO-time>` from the repository root. The
+output is exclusive mode-0600 JSON with input digests, case counts and bounded
+reasons. `reviewable` means the supplied metadata joins and fault oracles fit
+the frozen packet. Reviewer identity, host/build, source custody, G5 claim,
+G6-05 go and the G6-01–G6-04 decisions remain external claims; the validator
+authenticates none of them. All release, dispatch and assessment authority
+fields remain literal false. Actual O/C target-host observation, signed
+source decisions and a separately approved owner/operator release are still
+required for the live G606-04 gate.
+The [G606-04 candidate operating-gate handoff](G6_06_G60604_OPERATING_GATE_HANDOFF.md)
+contains the exact C01–C09 fault inventory, unfilled strict input templates,
+source-review runbook and synthetic preflight. Its templates deliberately
+cannot pass this screen before approved limits, frozen state digests, target-host
+observations and distinct source reviews are supplied.
+
+### G606-05 offline assessment source-coverage screen
+
+The [source-review validator](../tools/g6_06_assessment_sources.py) takes the
+R6 anchor, packet and reproduced result, the R5 result and closeout sources,
+a separately frozen G606-05 anchor, and a dated source-review index. It reruns
+the base R6 handoff checks, requires the supplied R6 result to match them with
+the R5 reproduction flag set, and binds exact packet/result, closeout,
+follow-up, evidence-reference and upstream-handoff digests. The upstream digest
+is a reference to the separately checked G606-02 signed handoff, not proof of
+its validity inside this screen.
+
+For a descriptive packet, the index must contain ordered, accepted reviews of
+the complete original-task follow-up index and every R6 evidence reference:
+quality, damage, completion, all-task latency, whole-task cost, stop/incidents,
+missingness and independent review. Each row names a source producer,
+custodian and distinct frozen source reviewer, binds the original roster and
+the exact artifact digest, and reports complete task coverage with zero unknown
+or disputed entries. Incident status must match R6. A registered comparison
+also requires separate reviews of the supplied baseline-registration and
+design digests; the existing R6 gate requires registration before cohort start.
+No probability, group, split, label or outcome is inferred or repaired.
+
+Run `uv run --frozen python -m tools.g6_06_assessment_sources <anchor.json>
+<r6-anchor.json> <r6-packet.json> <r6-result.json> <closeout-protocol.json>
+<closeout.json> <r5-result.json> <source-reviews.json>
+<new-assessment.json> --now <UTC-ISO-time>` from the repository root. The
+exclusive mode-0600 output contains only input digests, coverage counts and
+bounded denial reasons. The [synthetic tests](../tests/test_g6_06_assessment_sources.py)
+cover descriptive and comparative metadata, missing/rejected/substituted
+sources, favorable subsets, unknowns, disputes, incidents, changed R6 and
+upstream references, stale roles/windows and private output. `reviewable`
+means only that supplied metadata and dispositions are internally consistent.
+The validator does not authenticate source custody or a reviewer, open
+protected outcome/sampling stores, grade outcomes, establish a comparison,
+issue an assessment decision or authorize another cohort. Those decisions
+remain in the approved independent and audited workflows.
+The [G606-05 candidate source-review handoff](G6_06_G60605_ASSESSMENT_SOURCE_HANDOFF.md)
+provides the exact nine descriptive and eleven registered-comparison source
+kind inventories, deliberately unfilled anchor and review templates, a
+restricted-source review checklist and synthetic preflight. It supplies no
+actual follow-up, protected outcome, registration or independent decision.
+
+## Operating sequence
+
+| Phase | Entry check and action | Exit evidence / stop condition |
+|---|---|---|
+| R0: fixture rehearsal | On the exact target build, run G6-02 through G6-05 negative suites and a complete inert task from selection through witnessed claim, intent, outcome and read-only recovery. Exercise a signed stop and fixed fallback with no paid send. | Independent reviewer matches source/build digests and observes one-use, three-scope spend, checkpoint, audit and stop invariants. Any mismatch is no-go. |
+| R1: shadow-only | With a current `shadow-only` release, compute exact decisions for eligible owner tasks without dispatching, changing the served route, issuing a claim, or using a credential. Record only bounded decision metadata. | Compare candidate coverage, unavailable/fallback cases, route freshness and monitor health against the frozen manifest. Shadow observations cannot qualify a policy or expand scope. |
+| R2: bounded-live entry | Owner and operator make a fresh `bounded-live` release after G6-05 go, reviewed R0/R1 evidence, exact route and witness checks, on-call readiness and verified budget headroom. Admit only the named owner/cohort and frozen task/session membership. | A failed entry predicate keeps the fixed/full-review path. No worker can switch itself from shadow to live. |
+| R3: per-attempt operation | Require a prior witnessed assignment, then reverify complete policy/promotion/activation chain, exact route and current observations, owner/session membership, monitor and clock, latest signed/witnessed control and task/session/cohort headroom. Atomically claim full exposure, commit one hash-only intent, make the final witnessed check, then enter the zero-retry broker transport once. | Stale or changed evidence, missing audit, stop, outage, duplicate, cross-owner request or exhausted cap denies. After intent, uncertainty consumes the attempt and full possible exposure; never retry or silently switch route. |
+| R4: live surveillance | Operations monitors required event completeness, claim/intent/send joins, cap/headroom, uncertain rows, stop acknowledgment, route and signer freshness, alert delivery and safety signals at the manifest cadence. | Any hard stop below disables new admissions. A warning threshold pages the named operator and follows the frozen escalation rule; it cannot autonomously raise a cap. |
+| R5: close and follow-up | At the earliest of cohort cap, time expiry, operator stop or registered close condition, stop new assignment. Preserve the immutable cohort roster and original assignment/attempt IDs. Allow only conservative settlement and independently registered follow-up. | A closed cohort never reopens under the same release. Missing or disputed outcomes stay unknown; no replacement task or invented split/label. |
+| R6: later-window assessment | After the registered follow-up matures, independently review the complete intent-to-treat roster, quality/damage/completion, all-task latency, full settled and uncertain cost, stop/incident history and missingness. Compare only against a prospectively registered baseline if that design exists. | Record `continue-fixed`, `no-go`, or a proposed new review cycle. No automatic enlargement or between-cohort promotion; any new policy needs fresh G5/G6 evidence and a new release. |
+
+The runtime operation in R3 is a required **future live implementation**, not
+the current [`execute_offline_witnessed_routing_transaction`](../src/mos_eisley/run/routing_transaction.py)
+fixture. The latter accepts an inert transport and local synthetic witness.
+G6-06 cannot begin R2 by changing that function's denial fields or replacing
+its transport with a credentialed client.
+
+## Required operational records and monitors
+
+Use owner-isolated, versioned, bounded metadata. Before-send records are durable
+before the first possible transfer. The independent audit sink records event ID,
+owner/cohort and task/session/attempt keys or protected digests, phase, exact
+policy/route/profile and control digests, witnessed claim/checkpoint generation,
+maximum held amount, UTC event time and safe status/error code. It must support
+read-only joins among assignment, claim, intent, transport entry, settlement,
+terminal disposition and follow-up **without inventing a missing event**.
+Prompts, transcripts, model responses, tool output, source diffs, labels,
+outcomes and unrestricted reviewer prose do not enter operational events or
+sampling metadata. Independently graded outcomes remain in the approved
+restricted outcome workflow; the operational report cites only reviewed
+aggregates and source digests.
+
+| Signal | Denominator or invariant | Required action |
+|---|---|---|
+| Admission integrity | Every transport entry has one current acknowledged witnessed claim and earlier durable intent; at most one entry per attempt. | Any missing, duplicate or conflicting link is a hard stop and incident. |
+| Spending | Full held/uncertain exposure plus settled charges against each task/session/cohort ceiling; count all attempts, failures and abandoned work. | Deny at ceiling; violation or unaccounted exposure is a hard stop. Do not refund uncertain spend from a quiet dashboard. |
+| Control and dependency health | Latest signed local and independent witness state agree; route evidence, signer roots, clock, monitor and audit are current and available. | Any stale/missing/mismatched required source blocks new admissions. |
+| Safety and quality | Independently adjudicated damage, missed defects, completion and follow-up status over **all eligible assigned tasks**, including no-dispatch/failure/cancellation. | Registered safety threshold breach or credible severe harm triggers stop; unknown outcomes do not count as clean. |
+| Latency and cost | Assignment-to-terminal latency for all assigned tasks; whole-task cost includes held uncertainty and all rework. Report p50/p95 and cost per independently verified success only with nonzero verified successes. | Breached frozen operational ceiling triggers the registered stop/escalation rule; descriptive pilot metrics do not establish causal savings. |
+| Coverage and drift | Selected route, qualified fallback, fail-closed and out-of-distribution counts over all eligible decisions; exact catalog/conformance/pricing observation age. | Route drift, unqualified fallback, lower-effort substitution or expired evidence stops new admissions. |
+| Missingness and incidents | Required events, independent outcomes and follow-up present/missing/unknown by original assignment; alert acknowledgment and stop latency. | Missing required audit/monitor blocks admission; unresolved missingness blocks a positive assessment claim. |
+
+Freeze numeric warning and hard-stop thresholds, observation cadence, queue
+capacity, event-retention window and alert deadline before R2. Dashboard
+availability alone is insufficient: the broker must fail closed on the required
+monitor/audit path. Optional telemetry loss is counted and cannot be backfilled
+into valid experimental evidence. Use the [G5 whole-task definitions](G5_WHOLE_TASK_STUDY_PREREGISTRATION.md)
+for any quality or cost comparison; do not substitute model-judge agreement or
+success-only cost.
+
+## Stop, fallback, rollback and re-entry
+
+The operations owner can commit an emergency stop through an enrolled signer and
+the independent witness without broker cooperation. Stop blocks later claims;
+the approved G6-01/G6-04 final-read race contract governs an already claimed
+attempt. Immediately disable new cohort assignment and broker admission,
+preserve all claims, intents, checkpoint generations and possible spend, alert
+on-call, and inventory potentially in-flight attempts. Cancellation does not
+prove provider cancellation. No automatic replay, attempt-ID regeneration,
+fresh session, refund or resume is permitted.
+
+If the selected route is unavailable, use the **exact signed fallback only if
+it is currently eligible and receives a new complete admission**. Otherwise
+fail closed and retain the fixed/full-review workflow. Never lower effort,
+substitute a nearby model or silently route a pending attempt. An outage of the
+witness, checkpoint, required monitor, audit sink, trusted clock or route
+observation blocks new paid sends; a restored dependency alone does not clear
+the stop.
+
+Rollback uses the independently retained high-water checkpoint and compares
+the enrolled root, witness journal, broker intents, audit and validated
+settlements. A copied or older internally valid database is a blocker, not a
+reset opportunity. The security reviewer and operations owner record incident
+resolution, conservative exposure and any invalidated evidence. Re-entry
+requires a new signed control/activation decision, fresh route evidence, new
+owner/operator release, and independent approval of any new epoch or ceiling.
+No in-place policy refit or automatic traffic ramp is allowed.
+
+## Synthetic rehearsal and target-host acceptance matrix
+
+Before any R2 release, run the G6-05 target-host cases plus these cohort-level
+cases with inert transport and zero paid spend. Freeze exact fixture ceiling,
+clock, failpoints, expected records and reviewer before running. Inspect state
+from a separate identity after each forced cut.
+
+| ID | Scenario | Required observation |
+|---|---|---|
+| C01 | Missing/expired G6-05 go, changed manifest/build/route/rubric, unsigned or expired owner/operator release | No live assignment or claim; shadow cannot elevate itself. |
+| C02 | Eligible task outside named owner, stage, window or enrollment; duplicate task or fresh session for consumed attempt | Denial without cross-owner disclosure, extra claim or reset of exposure. |
+| C03 | Concurrent assignments at the last cohort slot, then claims at concurrency, unresolved and cohort-spend headroom; kill after assignment and before claim receipt | At most the frozen count/cap admits. An ambiguous assignment remains in the roster as no-dispatch; an ambiguous claim retains full exposure, with no partial budget reservation, reset or unrecorded send. |
+| C04 | Audit/monitor outage, lost alert, stale clock/route, witness rollback or stop during an in-flight attempt | New admission stops; held/uncertain full exposure and exact possible in-flight state remain visible. |
+| C05 | Selected route disappears before claim, after claim and after final read; fallback current/stale | Before claim, an independently eligible fallback needs a new decision and admission. Consumed attempts never retry; stale fallback fails closed. |
+| C06 | Stop before claim, after claim and after final read; operator unavailable, recovery and later re-entry | Behavior matches approved in-flight bound; on-call latency is measured, stop persists, and no automatic re-entry occurs. |
+| C07 | Close cohort early, delay/lose follow-up, fail/cancel a task, lose outcome write, attempt replacement draw | Intent-to-treat roster and missingness stay intact; no favorable denominator, success claim or silent replacement. |
+| C08 | Roll back local or witness state and restore audit from an older copy; then request another send | Witness high-water mismatch or missing required audit links block admission and preserve original assignments, claims, intents and exposure. |
+| C09 | Change rubric/policy or inspect early outcomes while attempting a later-window claim | Existing cohort remains frozen; no within-cohort retuning, reused holdout or unregistered positive assessment. |
+
+The reviewer signs a result for each case against the exact manifest/build and
+retains negative evidence as well as passes. Any failed hard invariant, missing
+required record or unexplained discrepancy is a release blocker. A synthetic
+pass does not replace real witness, credential, target-host or operator evidence.
+
+## Closeout and assessment decision
+
+The [offline closeout validator](../src/mos_eisley/run/cohort_closeout.py)
+checks a metadata-only packet against an independently supplied frozen cutoff,
+follow-up deadline and assessment protocol digest, plus one witnessed state and
+checkpoint. It compares the packet's original task roster, claims, intent links,
+local disposition metadata, retained exposure, follow-up statuses and required
+evidence references. The [synthetic tests](../tests/test_cohort_closeout.py)
+exercise no-dispatch and post-cutoff assignments, missing or replacement
+follow-up, changed registration/release, missing or duplicate settlement links,
+charge mismatch, retained held exposure and checkpoint mismatch. `reviewable`
+means structurally ready for
+independent source review; the validator cannot authenticate source custody,
+read protected labels or outcomes, grade quality, establish a comparison, or
+issue a positive assessment or dispatch decision.
+
+At the registered cutoff, produce a bounded owner-scoped report with the
+manifest/release digests, complete assignment and attempt counts, exact route
+coverage, settled and held/uncertain spend, cap/headroom history, all-task
+latency, independently graded quality and damage when available, missingness,
+incidents/stops, protocol deviations and remaining follow-up. The independent
+reviewer verifies the joins and denominator against the frozen roster and
+records limitations. Unknown or disputed outcomes remain unknown. An assessment
+before follow-up maturity is explicitly provisional and cannot be a positive
+quality or savings claim.
+
+The project owner and operations owner then record `no-go`, `continue-fixed`,
+or `propose-next-cohort`. `propose-next-cohort` is a request for a fresh
+independently reviewed manifest, qualified policy and release, not authority to
+expand this one. A harmful signal, budget escape, duplicate or unaudited send,
+cross-owner access, stale control acceptance, failed stop, missing required
+follow-up, or failed registered gate yields no-go. No cohort volume, quiet
+dashboard, lower spend or lower token count alone establishes policy benefit.
+
+**G6-06 completes only after** one actual named cohort was released under a
+closed G6-05 gate, operated within every frozen bound, passed stop/fallback
+drills, closed without assignment repair, and independently assessed after the
+registered follow-up window. This document completes the offline design only;
+the live milestone and its decision remain open.

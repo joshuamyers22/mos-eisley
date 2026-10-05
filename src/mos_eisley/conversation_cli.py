@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
 
 from prompt_toolkit.input import create_input
 from pydantic import ValidationError
@@ -37,8 +38,9 @@ from mos_eisley.conversation_context_preview import (
     pressure_status,
     preview_context,
 )
+from mos_eisley.conversation_diff import DiffAttachment as ReviewDiffAttachment
+from mos_eisley.conversation_diff import DiffSnapshot
 from mos_eisley.conversation_diff_attachment import (
-    DiffAttachment,
     DiffAttachmentError,
 )
 from mos_eisley.conversation_directory import (
@@ -123,6 +125,10 @@ from mos_eisley.conversation_review import (
     review_summary,
     run_conversation_review,
 )
+from mos_eisley.conversation_source_attachment import (
+    SourceAttachment,
+    attachment_payload,
+)
 from mos_eisley.conversation_state import LiveChatIdentity, WorkingConversationState
 from mos_eisley.conversation_switch import (
     DirectoryHandoff,
@@ -182,6 +188,7 @@ from mos_eisley.run.files import read_bounded
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 from mos_eisley.tools.none import NoToolsDispatcher
+from mos_eisley.tools.repository_read import RepositoryReadError
 
 DEMO_PROMPTS = (
     "Remember that the fixture boundary is ten.",
@@ -198,6 +205,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--live-openai",
+        "--live-repository-read",
+        "--git-review-panel",
         "--allow-data-transfer",
         "--live-effort",
         "--spend-policy",
@@ -778,6 +787,12 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
+        if name in {"chat", "resume"}:
+            command.add_argument(
+                "--git-review-panel",
+                action="store_true",
+                help="Use the Git review and findings panel",
+            )
         if name == "chat":
             add_memory_project_options(command)
             command.add_argument(
@@ -823,6 +838,11 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--live-openai",
                 action="store_true",
                 help="Use explicit spend-controlled OpenAI text chat",
+            )
+            command.add_argument(
+                "--live-repository-read",
+                action="store_true",
+                help="Allow per-turn /inspect read-only repository tools in live chat",
             )
             command.add_argument(
                 "--allow-data-transfer",
@@ -985,6 +1005,29 @@ def _input_reader(
     return stop
 
 
+if TYPE_CHECKING:
+    from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
+
+
+class SessionIngressTransport(Protocol):
+    ready: asyncio.Event
+    closed: bool
+
+    async def open(self, owner: ActiveSessionTimers) -> None: ...
+    async def close(self) -> None: ...
+    def drain(self, owner: ActiveSessionTimers, *, busy: bool = False) -> bool: ...
+
+
+def _drain_ingress(
+    transport: SessionIngressTransport | None, owner: ActiveSessionTimers, *, busy: bool
+) -> bool:
+    return transport is not None and transport.drain(owner, busy=busy)
+
+
+async def _wait_ingress(transport: SessionIngressTransport) -> None:
+    await transport.ready.wait()
+
+
 async def terminal(
     controller: RuntimeConversationController,
     queue: ConversationInputQueue,
@@ -996,14 +1039,33 @@ async def terminal(
     memory_command: Callable[[str], dict[str, object]] | None = None,
     switch_directory: Callable[[str], Awaitable[bool]] | None = None,
     project_location: ProjectLocation | None = None,
+    source_attachments: Callable[[], tuple[ReviewDiffAttachment, ...]] | None = None,
+    source_snapshot: Callable[[], DiffSnapshot | None] | None = None,
+    ingress_transport: SessionIngressTransport | None = None,
 ) -> None:
     """The same controller serves the human and NDJSON renderers."""
+
+    def ingress() -> SessionIngressTransport | None:
+        return ingress_transport
+
+    def next_input() -> asyncio.Task[ConversationInput]:
+        return asyncio.create_task(queue.get())
+
     seen: dict[int, str] = {}
     seen_pressure: set[str] = set()
     project_location = project_location or ProjectLocation.inspect(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    from mos_eisley.conversation_agent_commands import agent_command
+    from mos_eisley.conversation_branch_commands import BranchCommands
+    from mos_eisley.conversation_diff_commands import DiffCommands
+    from mos_eisley.conversation_goal_commands import goal_command
+    from mos_eisley.conversation_loop_commands import loop_command
+    from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
+
+    diff_commands = DiffCommands(controller, emit)
+    branch_commands = BranchCommands(controller, emit)
 
     def discard_draft(reason: str) -> None:
         if composer.active:
@@ -1021,7 +1083,76 @@ async def terminal(
             return False
         return True
 
-    def submit_review() -> bool:
+    async def submit_review(command: str = "/review") -> bool:
+        packet = review_packet
+        if command.startswith("/review "):
+            if isinstance(packet, ConversationLiveReviewPacket):
+                emit(
+                    {
+                        "type": "conversation.unavailable",
+                        "text": (
+                            "Git scope presets require a matching recording; "
+                            "select live review separately."
+                        ),
+                    }
+                )
+                return False
+            from mos_eisley.git_review import freeze_git_scope
+            from mos_eisley.git_review_cli import parse_review_selection
+
+            try:
+                selection = parse_review_selection(command)
+                scope = await asyncio.to_thread(
+                    freeze_git_scope, Path(controller.state.workspace), selection
+                )
+                preview = scope.preview()
+                preview["roles"] = (
+                    [
+                        recording.critic.model_dump(mode="json")
+                        for recording in packet.cassette.critics
+                    ]
+                    if packet is not None
+                    else []
+                )
+                preview["policy"] = (
+                    None if packet is None else packet.policy.model_dump(mode="json")
+                )
+                emit(
+                    {
+                        "type": "conversation.review_scope",
+                        **preview,
+                        "text": scope.preview_text()
+                        + (
+                            "\nRecorded roles: "
+                            + ", ".join(
+                                f"{r.critic.provider}/{r.critic.model}: "
+                                f"{r.critic.persona}"
+                                for r in packet.cassette.critics
+                            )
+                            + f"\nPolicy: {packet.policy.model_dump_json()}"
+                            if packet is not None
+                            else "\nRecorded roles: none configured."
+                        ),
+                    }
+                )
+                if packet is not None:
+                    if packet.brief != scope.brief() or not scope.complete:
+                        raise ValueError(
+                            "The recording does not match this complete "
+                            "frozen Git brief."
+                        )
+                    packet = ConversationReviewPacket.model_validate(
+                        {
+                            **packet.model_dump(),
+                            "git_scope": scope,
+                            "schema_version": 4
+                            if packet.guidance_review is not None
+                            else 3,
+                        }
+                    )
+            except (OSError, ValueError) as error:
+                emit({"type": "conversation.unavailable", "text": str(error)})
+                return False
         if review_packet is None:
             emit(
                 {
@@ -1036,7 +1167,8 @@ async def terminal(
         if not has_capacity():
             return False
         try:
-            controller.submit_review(review_packet)
+            assert packet is not None
+            controller.submit_review(packet)
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
@@ -1054,12 +1186,56 @@ async def terminal(
         render()
         return True
 
+    diff_fix_request = False
+
+    def mode_control(line: str) -> bool:
+        selections = {
+            "/plan": "plan",
+            "/plan on": "plan",
+            "/plan off": "conversation",
+            "/mode plan": "plan",
+            "/mode conversation": "conversation",
+        }
+        if line not in selections and line not in {"/plan status", "/mode"}:
+            return False
+        if line in selections:
+            controller.set_interaction_mode(
+                "plan" if selections[line] == "plan" else "conversation"
+            )
+        emit(
+            {
+                "type": "conversation.mode",
+                "interaction_mode": controller.state.interaction_mode,
+                "revision": controller.state.revision,
+                "text": (
+                    f"Mode: {controller.state.interaction_mode}. "
+                    "Applies to new messages; admitted work retains its mode."
+                ),
+            }
+        )
+        return True
+
     def submit_text(
         text: str,
         *,
         require_active: bool = False,
-        attachments: tuple[DiffAttachment, ...] = (),
+        attachments: tuple[SourceAttachment, ...] | None = None,
+        inspect_repository: bool = False,
+        implementation_request: bool = False,
+        planning_request: bool = False,
     ) -> bool:
+        selected_attachments = (
+            diff_commands.attachments if attachments is None else attachments
+        )
+        if selected_attachments and require_active:
+            emit(
+                {
+                    "type": "conversation.unavailable",
+                    "text": "Send source attachments as an ordinary follow-up message.",
+                }
+            )
+            return False
+        text += attachment_payload(selected_attachments)
         if not text.strip() or len(text) > 8000 or text.count("\n") >= 256:
             emit(
                 {
@@ -1086,13 +1262,22 @@ async def terminal(
             if require_active:
                 controller.steer(text)
             else:
-                controller.submit(text, attachments=attachments)
+                controller.submit(
+                    text,
+                    inspect_repository=inspect_repository,
+                    diff_attachments=selected_attachments,
+                    implementation_request=implementation_request,
+                    planning_request=planning_request,
+                )
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
-        except DiffAttachmentError as error:
+        except (DiffAttachmentError, RepositoryReadError) as error:
             emit({"type": "conversation.unavailable", "text": str(error)})
             return False
+        if selected_attachments:
+            diff_commands.attachments = ()
+            diff_commands.emit_attachments()
         render()
         return True
 
@@ -1195,7 +1380,16 @@ async def terminal(
             return False
         return None if command is None else manage_memory(command)
 
+    seen_goal_revision = -1
+
     def render() -> None:
+        nonlocal seen_goal_revision
+        if (
+            controller.current_goal is not None
+            and seen_goal_revision != controller.state.revision
+        ):
+            seen_goal_revision = controller.state.revision
+            goal_command(controller, "/goal status", emit)
         for index, entry in enumerate(controller.state.entries):
             if seen.get(index) != entry.status:
                 seen[index] = entry.status
@@ -1204,9 +1398,18 @@ async def terminal(
                     "index": index,
                     "text": entry.text,
                     "answer": entry.answer,
+                    "interaction_mode": entry.interaction_mode,
+                    "implementation_request": entry.implementation_request,
                 }
+                if entry.goal_id is not None:
+                    event["goal_id"] = entry.goal_id
+                    event["goal_definition_sha256"] = entry.goal_definition_sha256
                 if entry.steering_for is not None:
                     event["steering_for"] = entry.steering_for
+                if entry.diff_attachments:
+                    event["diff_attachments"] = [
+                        a.model_dump(mode="json") for a in entry.diff_attachments
+                    ]
                 if entry.review_brief_id is not None:
                     event["review_brief_id"] = entry.review_brief_id
                 if entry.review_result is not None:
@@ -1235,34 +1438,162 @@ async def terminal(
                 )
 
     render()
+    if controller.state.branch_budget is not None:
+        branch_commands.status()
+    if controller.state.interaction_mode == "plan":
+        mode_control("/plan status")
+    if controller.current_goal is not None:
+        goal_command(controller, "/goal status", emit)
+    if controller.state.schedules:
+        loop_command(controller, "/loop status", emit)
     enabled = False  # Resume displays pending input; only explicit input starts work.
     if initial_prompt is not None:
         enabled = submit_text(initial_prompt)
-    incoming: asyncio.Task[ConversationInput] | None = asyncio.create_task(queue.get())
+    incoming: asyncio.Task[ConversationInput] | None = next_input()
     active: asyncio.Task[bool] | None = None
+    branch_task: asyncio.Task[str] | None = None
+    branch_submission: ConversationSubmission | None = None
+
+    def side_started() -> None:
+        nonlocal branch_submission
+        if branch_submission is not None:
+            if not branch_submission.accepted.done():
+                branch_submission.accepted.set_result(True)
+            branch_submission = None
+
+    diff_task: asyncio.Task[str | None] | None = None
+    diff_submission: ConversationSubmission | None = None
     eof = False
+    timer_wait: asyncio.Task[None] | None = None
+    ingress_wait: asyncio.Task[None] | None = None
+    timers = ActiveSessionTimers(controller, emit)
     try:
+        timers.open()
+        if ingress_transport is not None:
+            await ingress_transport.open(timers)
         while True:
+            # Let the input reader expose already waiting steering before timers
+            # admit or dispatch. An admission gets another input boundary below.
+            await asyncio.sleep(0)
+            transport = ingress()
+            current_input: asyncio.Task[ConversationInput] | None = incoming
+            input_ready: bool = current_input is not None and current_input.done()
+            timer_busy = (
+                active is not None
+                or branch_task is not None
+                or diff_task is not None
+                or composer.active
+                or eof
+            )
+            if not input_ready and _drain_ingress(transport, timers, busy=timer_busy):
+                render()
+                continue
+            if not input_ready and timers.tick(busy=timer_busy):
+                enabled = True
+                render()
+                continue
             if (
                 enabled
+                and not input_ready
                 and active is None
-                and any(entry.status == "queued" for entry in controller.state.entries)
+                and any(
+                    entry.status == "queued" and controller.can_dispatch(entry)
+                    for entry in controller.state.entries
+                )
             ):
                 active = asyncio.create_task(controller.step(on_started=render))
-            if eof and active is None:
+            if eof and active is None and diff_task is None and branch_task is None:
                 return
             if incoming is None and active is not None:
                 # Keep accepting Ctrl-C while finishing work after stdin closes.
-                incoming = asyncio.create_task(queue.get())
-            pending = {task for task in (incoming, active) if task is not None}
+                incoming = next_input()
+            pending: set[
+                asyncio.Task[ConversationInput]
+                | asyncio.Task[bool]
+                | asyncio.Task[str | None]
+                | asyncio.Task[str]
+                | asyncio.Task[None]
+            ] = set()
+            if incoming is not None:
+                pending.add(incoming)
+            if active is not None:
+                pending.add(active)
+            if diff_task is not None:
+                pending.add(diff_task)
+            if branch_task is not None:
+                pending.add(branch_task)
+            if (
+                transport is not None
+                and not transport.closed
+                and not timer_busy
+                and controller.schedule_timer_idle
+            ):
+                ingress_wait = asyncio.create_task(_wait_ingress(transport))
+                pending.add(ingress_wait)
+            delay = timers.delay(busy=timer_busy)
+            if delay is not None:
+                timer_wait = asyncio.create_task(asyncio.sleep(delay))
+                pending.add(timer_wait)
             if not pending:
                 return
             done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            if timer_wait is not None:
+                timer_wait.cancel()
+                with suppress(asyncio.CancelledError):
+                    await timer_wait
+                timer_wait = None
+            if ingress_wait is not None:
+                ingress_wait.cancel()
+                with suppress(asyncio.CancelledError):
+                    await ingress_wait
+                ingress_wait = None
+            if incoming is not None and incoming.done():
+                done.add(incoming)
+            if branch_task in done:
+                assert branch_task is not None
+                try:
+                    result = branch_task.result()
+                except asyncio.CancelledError:
+                    result = "rejected"
+                if result == "queued":
+                    enabled = True
+                if (
+                    branch_submission is not None
+                    and not branch_submission.accepted.done()
+                ):
+                    branch_submission.accepted.set_result(result != "rejected")
+                branch_task = None
+                branch_submission = None
+            if diff_task in done:
+                assert diff_task is not None
+                accepted = False
+                try:
+                    followup = diff_task.result()
+                except (OSError, ValueError) as error:
+                    emit({"type": "conversation.unavailable", "text": str(error)})
+                else:
+                    if followup is not None and (
+                        diff_submission is None
+                        or not diff_submission.accepted.cancelled()
+                    ):
+                        # Persistence failures must escape: only selection/input
+                        # errors are recoverable diff notices.
+                        accepted = submit_text(
+                            followup, implementation_request=diff_fix_request
+                        )
+                        enabled = accepted or enabled
+                if diff_submission is not None and not diff_submission.accepted.done():
+                    diff_submission.accepted.set_result(accepted)
+                diff_submission = None
+                diff_task = None
             if active in done:
                 assert active is not None
                 try:
                     active.result()
                 except (AgentFailure, ValueError) as exc:
+                    if controller.persistence_broken:
+                        raise
+                    timers.pause("Owner turn failed; explicit loop resume required.")
                     enabled = False
                     message = "Recorded request failed; continuation is paused."
                     if isinstance(exc, MemoryChangedError):
@@ -1293,7 +1624,7 @@ async def terminal(
                     raise line
                 if isinstance(line, ConversationSubmission):
                     if line.accepted.cancelled():
-                        incoming = asyncio.create_task(queue.get())
+                        incoming = next_input()
                         continue
                     try:
                         command = (
@@ -1310,12 +1641,115 @@ async def terminal(
                             # Saving is a local control, never a queued model turn.
                             if not line.accepted.done():
                                 line.accepted.set_result(remembered)
-                            incoming = asyncio.create_task(queue.get())
+                            incoming = next_input()
                             continue
-                        if command == "steer":
+                        if not line.literal and mode_control(line.text):
+                            line.accepted.set_result(True)
+                            incoming = next_input()
+                            continue
+                        if command == "loop_control":
+                            result = loop_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
+                            incoming = next_input()
+                            continue
+                        if command == "agent_inspection":
+                            result = agent_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
+                            incoming = next_input()
+                            continue
+                        if command == "branch_control":
+                            if line.text == "/side cancel":
+                                if branch_task is not None:
+                                    branch_task.cancel()
+                                    with suppress(asyncio.CancelledError):
+                                        await branch_task
+                                    branch_task = None
+                                if branch_submission is not None:
+                                    branch_submission.accepted.cancel()
+                                    branch_submission = None
+                                line.accepted.set_result(True)
+                                incoming = next_input()
+                                continue
+                            if branch_task is None:
+                                branch_task = asyncio.create_task(
+                                    branch_commands.execute(
+                                        line.text, on_side_started=side_started
+                                    )
+                                )
+                                branch_submission = line
+                            else:
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "A side/fork control is running; "
+                                        "draft retained.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
+                            incoming = next_input()
+                            continue
+                        if command == "goal_control":
+                            result = goal_command(controller, line.text, emit)
+                            line.accepted.set_result(result == "accepted")
+                            incoming = next_input()
+                            continue
+                        if command == "goal_run":
+                            if (
+                                controller.current_goal is None
+                                or controller.current_goal.status != "working"
+                            ):
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "Resume a working goal first.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
+                            else:
+                                accepted = submit_text(
+                                    line.text.removeprefix("/goal run").lstrip(),
+                                    attachments=line.diff_attachments,
+                                )
+                                line.accepted.set_result(accepted)
+                                enabled = enabled or accepted
+                            incoming = next_input()
+                            continue
+                        if command == "diff_followup":
+                            if diff_task is not None:
+                                emit(
+                                    {
+                                        "type": "conversation.unavailable",
+                                        "text": "Diff busy; draft retained.",
+                                    }
+                                )
+                                line.accepted.set_result(False)
+                            else:
+                                diff_fix_request = line.text.startswith("/diff fix ")
+                                diff_commands.attachments = line.diff_attachments
+                                if source_snapshot is not None:
+                                    diff_commands.snapshot = source_snapshot()
+                                diff_task = asyncio.create_task(
+                                    diff_commands.execute(line.text)
+                                )
+                                diff_submission = line
+                            incoming = next_input()
+                            continue
+                        if command in {"plan", "implement"}:
+                            accepted = submit_text(
+                                line.text.removeprefix("/" + command).lstrip(),
+                                attachments=line.diff_attachments,
+                                implementation_request=command == "implement",
+                                planning_request=command == "plan",
+                            )
+                        elif command == "steer":
                             accepted = submit_text(
                                 line.text.removeprefix("/steer").lstrip(),
                                 require_active=True,
+                            )
+                        elif command == "inspect":
+                            accepted = submit_text(
+                                line.text.removeprefix("/inspect").lstrip(),
+                                inspect_repository=True,
                             )
                         elif command == "review" or (
                             not line.literal
@@ -1325,10 +1759,13 @@ async def terminal(
                             and line.text.strip().casefold().rstrip(".")
                             == "review this change"
                         ):
-                            accepted = submit_review()
+                            accepted = await submit_review(
+                                line.text if command == "review" else "/review"
+                            )
                         else:
                             accepted = submit_text(
-                                line.text, attachments=line.attachments
+                                line.text,
+                                attachments=line.attachments or line.diff_attachments,
                             )
                         if not line.accepted.done():
                             line.accepted.set_result(accepted)
@@ -1336,13 +1773,50 @@ async def terminal(
                     except BaseException:
                         line.accepted.cancel()
                         raise
-                    incoming = asyncio.create_task(queue.get())
+                    incoming = next_input()
                     continue
                 if line is None:
+                    if transport is not None:
+                        await transport.close()
+                    timers.close()
                     discard_draft("Input closed; unsent draft discarded.")
                     eof = True
                     continue  # Finish already enabled messages on EOF, then save/exit.
-                if line in {"/stop", "/quit"}:
+                if line == "/side cancel":
+                    if branch_task is not None:
+                        branch_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await branch_task
+                        branch_task = None
+                        if branch_submission is not None:
+                            branch_submission.accepted.cancel()
+                            branch_submission = None
+                    emit(
+                        {
+                            "type": "conversation.side",
+                            "text": "Side call stopped; "
+                            "any uncertain exposure remains reserved.",
+                        }
+                    )
+                elif line in {"/stop", "/quit"}:
+                    await controller.stop_local_child()
+                    if branch_task is not None:
+                        branch_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await branch_task
+                        branch_task = None
+                    if branch_submission is not None:
+                        branch_submission.accepted.cancel()
+                        branch_submission = None
+                    if diff_task is not None:
+                        diff_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await diff_task
+                        diff_task = None
+                    if diff_submission is not None:
+                        assert isinstance(diff_submission, ConversationSubmission)
+                        diff_submission.accepted.cancel()
+                        diff_submission = None
                     discard_draft("Unsent draft discarded.")
                     enabled = False
                     if active is not None:
@@ -1352,11 +1826,59 @@ async def terminal(
                         active = None
                     if line == "/stop":
                         controller.cancel_queued()
+                        if (
+                            controller.current_goal is not None
+                            and controller.current_goal.status != "completed"
+                        ):
+                            controller.goal_control("cancel")
                     render()
                     if line == "/quit":
                         return
-                elif compose(line):
+                elif compose(line) or mode_control(line):
                     pass
+                elif submission_command(line) == "goal_run":
+                    if (
+                        controller.current_goal is None
+                        or controller.current_goal.status != "working"
+                    ):
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Resume a working goal first.",
+                            }
+                        )
+                    else:
+                        enabled = (
+                            submit_text(line.removeprefix("/goal run").lstrip())
+                            or enabled
+                        )
+                elif submission_command(line) == "loop_control":
+                    loop_command(controller, line, emit)
+                elif submission_command(line) == "agent_inspection":
+                    agent_command(controller, line, emit)
+                elif submission_command(line) == "branch_control":
+                    if branch_task is None:
+                        branch_task = asyncio.create_task(branch_commands.execute(line))
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "A side/fork control is running; "
+                                "retry when complete.",
+                            }
+                        )
+                elif goal_command(controller, line, emit):
+                    pass
+                elif submission_command(line) in {"plan", "implement"}:
+                    command = submission_command(line)
+                    enabled = (
+                        submit_text(
+                            line.removeprefix("/" + str(command)).lstrip(),
+                            implementation_request=command == "implement",
+                            planning_request=command == "plan",
+                        )
+                        or enabled
+                    )
                 elif line == "/continue":
                     enabled = True
                 elif line == "/rename" or line.startswith("/rename "):
@@ -1466,7 +1988,9 @@ async def terminal(
                         {
                             "type": "conversation.status",
                             **status.model_dump(mode="json"),
-                            "text": status.describe(),
+                            "interaction_mode": controller.state.interaction_mode,
+                            "text": f"Mode: {controller.state.interaction_mode}. "
+                            + status.describe(),
                         }
                     )
                 elif line.split(maxsplit=1)[:1] == ["/context"]:
@@ -1482,6 +2006,21 @@ async def terminal(
                                 "type": "conversation.context_admission",
                                 **inspection.model_dump(mode="json"),
                                 "text": inspection.describe(),
+                            }
+                        )
+                elif line == "/diff" or line.startswith("/diff "):
+                    if diff_task is None:
+                        diff_fix_request = line.startswith("/diff fix ")
+                        if source_attachments is not None:
+                            diff_commands.attachments = source_attachments()
+                        if source_snapshot is not None:
+                            diff_commands.snapshot = source_snapshot()
+                        diff_task = asyncio.create_task(diff_commands.execute(line))
+                    else:
+                        emit(
+                            {
+                                "type": "conversation.unavailable",
+                                "text": "Diff read in progress; retry when complete.",
                             }
                         )
                 elif line == "/directory":
@@ -1521,6 +2060,11 @@ async def terminal(
                             }
                         )
                     else:
+                        if diff_task is not None:
+                            diff_task.cancel()
+                            with suppress(asyncio.CancelledError):
+                                await diff_task
+                            diff_task = None
                         enabled = False
                         if await switch_directory(line):
                             return
@@ -1529,11 +2073,24 @@ async def terminal(
                         line.removeprefix("/steer").lstrip(), require_active=True
                     ):
                         enabled = True
-                elif line.strip().casefold().rstrip(".") in {
+                elif line.startswith("/inspect "):
+                    if submit_text(
+                        line.removeprefix("/inspect").lstrip(),
+                        inspect_repository=True,
+                    ):
+                        enabled = True
+                elif line.startswith("/review ") or line.strip().casefold().rstrip(
+                    "."
+                ) in {
                     "/review",
                     "review this change",
                 }:
-                    enabled = submit_review() or enabled
+                    enabled = (
+                        await submit_review(
+                            line if line.startswith("/review ") else "/review"
+                        )
+                        or enabled
+                    )
                 elif line.strip():
                     if line.startswith("/"):
                         emit(
@@ -1541,7 +2098,11 @@ async def terminal(
                                 "type": "conversation.help",
                                 "text": (
                                     "Commands: /compose, /send, /discard, "
-                                    "/steer TEXT, /review, "
+                                    "/plan [on|off|status|TEXT], "
+                                    "/mode plan|conversation, "
+                                    "/implement TEXT, /goal [ACTION], /fork, /side, "
+                                    "/agent, /subagents, /loop, "
+                                    "/steer TEXT, /review, /diff, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
                                     "/status, "
@@ -1552,14 +2113,30 @@ async def terminal(
                     else:
                         if submit_text(line):
                             enabled = True
-                incoming = asyncio.create_task(queue.get())
+                incoming = next_input()
     finally:
+        if diff_submission is not None:
+            diff_submission.accepted.cancel()
         discard_draft("Session closed; unsent draft discarded.")
-        for task in (active, incoming):
+        if branch_submission is not None:
+            branch_submission.accepted.cancel()
+        transport = ingress()
+        if transport is not None:
+            await transport.close()
+        for task in (
+            timer_wait,
+            ingress_wait,
+            active,
+            incoming,
+            diff_task,
+            branch_task,
+        ):
             if task is not None:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
+        await controller.stop_local_child()
+        timers.close()
         render()
 
 
@@ -1580,6 +2157,7 @@ async def _run_terminal(
 
     def interrupt() -> None:
         nonlocal stop
+        controller.schedule_reads.cancel()
         # Drop the reader's pending paste as well as the queued input on Ctrl-C.
         stop()
         stop = _input_reader(sys.stdin.fileno(), queue)
@@ -2507,12 +3085,17 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             spend_policy_sha256=spend_policy.policy_sha256,
             spend_ledger_id=spend_ledger.policy.ledger_id,
             artifacts_root=str(private_artifacts_root(args.live_artifacts)),
+            repository_read=args.live_repository_read,
         )
         if not os.environ.get("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY is required for live chat")
-    elif args.allow_data_transfer or any(
-        value is not None
-        for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+    elif (
+        args.live_repository_read
+        or args.allow_data_transfer
+        or any(
+            value is not None
+            for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+        )
     ):
         raise ValueError("live chat spending options require --live-openai")
     if args.review_packet is not None and args.live_review_selection is not None:
@@ -2684,6 +3267,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 spend_ledger,
                 os.environ["OPENAI_API_KEY"],
                 state.session_id,
+                Path(state.workspace),
             ).run
         if state.memory != memory and not selected_refresh:
             print(MEMORY_CHANGED_MESSAGE, file=sys.stderr)
@@ -2709,6 +3293,18 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                 pending_limits=pending_limits,
                 run_live_chat=live_runner,
             )
+
+        from mos_eisley.conversation_loop_commands import recorded_loop_observer
+
+        controller.schedule_observer = recorded_loop_observer(controller)
+
+        def publish_fork(child: ConversationState) -> None:
+            with store_type(
+                args.storage, child.session_id, Path(child.workspace), create=True
+            ) as child_store:
+                child_store.save(child)
+
+        controller.publish_fork = publish_fork
         memory_runtime = ConversationMemoryRuntime(
             controller,
             memory_store,
@@ -2776,6 +3372,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     )
                     + "Commands: /compose, /send, /discard, "
                     "/steer TEXT, /review, /context [N], /rename NAME, "
+                    "/fork, /side, /agent, /subagents, /loop, "
                     "/stop, /continue, /quit. "
                     "Ctrl-C stops work.\n"
                     + project_location.describe(
@@ -2854,6 +3451,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             and sys.stdin.isatty()
             and sys.stdout.isatty()
         ):
+            from mos_eisley.conversation_git_review_tui import GitReviewTUI
             from mos_eisley.conversation_tui import ConversationTUI
 
             fd = sys.stdin.fileno()
@@ -2865,7 +3463,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                         disabled=getattr(args, "memory_project_local", False)
                         or args.no_memory,
                     )
-                    ui = ConversationTUI(
+                    ui_type = GitReviewTUI if args.git_review_panel else ConversationTUI
+                    ui = ui_type(
                         controller,
                         review_packet,
                         initial_prompt=initial_prompt,
