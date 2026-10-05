@@ -152,6 +152,9 @@ def main() -> int:
         # synthetic credentials and an in-memory keychain, never the host vault.
         fixtures = root / "fixtures"
         fixtures.mkdir()
+        (fixtures / "posix_root_abi.c").write_bytes(
+            Path("tests/fixtures/posix_root_abi.c").read_bytes()
+        )
         (fixtures / "__init__.py").write_text("")
         for name in (
             "mcp_http_server.py",
@@ -166,6 +169,7 @@ def main() -> int:
             "test_platform_identity.py",
             "test_conversation_git.py",
             "test_conversation_git_isolation.py",
+            "test_platform_storage.py",
             "test_platform_identity_wire.py",
             "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",

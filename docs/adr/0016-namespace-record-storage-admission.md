@@ -41,7 +41,10 @@ The contract specifies N-01–N-16 and efficient independent slices, beginning w
 pure record codecs and fixtures. The [work note](../NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
 records definition evidence and limitations. The subsequent
 [pure codec slice](../NAMESPACE_RECORD_CODEC_WORK_NOTE.md) adds namespace metadata
-and golden fixtures only. No storage implementation, production writer, key
-provisioning or native admission is supplied here. Reconsider if ACL
+and golden fixtures only. A subsequent
+[POSIX root candidate](../POSIX_ROOT_ADMISSION_WORK_NOTE.md) implements bounded
+read-only root inspection and owned leases, with native macOS evidence and public
+selection still closed. Child reads, production writers, key provisioning and
+accountable target admission remain pending. Reconsider if ACL
 inspection/allocation bounds cannot qualify, root/key enrollment cannot be pinned
 without circular trust, or publication recovery cannot retain uncertainty safely.

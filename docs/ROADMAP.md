@@ -531,8 +531,11 @@ The [namespace/storage contract](NAMESPACE_STORAGE_CONTRACT.md) now freezes a
 minimal protected-record definition and read-only admission boundary, distinguishing
 metadata/private-storage observations from enrolled authority. The
 [pure namespace codec and fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) now pass
-focused source and dependency-free wheel checks. Next is read-only POSIX root
-admission, then child reads and target ACL/relative-open qualification. Protected custody, locking, publication
+focused source and dependency-free wheel checks. The
+[POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now has native macOS
+source/wheel, real ACL and compiled ABI evidence; required Ubuntu/macOS CI is
+prepared. Linux execution and accountable admission remain pending; secure child
+reads and target relative-open qualification follow. Protected custody, locking, publication
 and recovery still precede enrollment writes. [The definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
 claims no writer or public Windows selector admission.
 

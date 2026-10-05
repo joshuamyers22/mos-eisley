@@ -364,3 +364,9 @@ checks cannot mint enrolled trust without independently protected root/key custo
 ACL inspection, secure relative child opens, resource/lifetime bounds and explicit
 qualification supplement these identity primitives. No existing consumer, writer
 or public Windows selector is admitted by this definition.
+
+The [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now implements
+only that existing-root inspection and owned lease, with bounded native ACL/mount
+queries and native macOS source/wheel evidence. Public storage selection remains
+closed pending target qualification and accountable review. Child reads, protected
+enrollment and existing store adoption are separate slices.

@@ -8,7 +8,10 @@ inspection of an existing private directory, and one bounded relative record rea
 The [pure record codec](../src/mos_eisley/platform/identity_wire.py) and
 [golden fixtures](../tests/test_platform_identity_wire.py) are implemented additively;
 [verification](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) covers that slice. Storage and
-enrollment APIs remain proposed. Enrollment writes, existing store adoption,
+enrollment APIs remain proposed. A direct
+[POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now implements existing-root
+inspection and owned leases; public storage admission stays closed. Enrollment
+writes, existing store adoption,
 migration writers and public Windows selectors remain gated.
 
 ## Observed boundaries and chosen scope
@@ -248,8 +251,11 @@ Implement in this order, with independent qualification records:
    (N-01/02/03 metadata-only/14). The [codec note](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
    records source/wheel evidence. No enrollment context, platform loading or storage
    operation; protected-anchor/custody evidence under N-03 remains pending.
-2. **POSIX existing-root read-only admission**, frozen ACL/mount policy and owned
-   reference lifecycle (N-04/05/06/15). No existing store adoption or creation.
+2. **POSIX existing-root read-only admission — direct candidate implemented**,
+   frozen ACL/mount policy and owned reference lifecycle (N-04/05/06/15).
+   [Evidence](POSIX_ROOT_ADMISSION_WORK_NOTE.md) covers native macOS source/wheel
+   and portable faults; Linux execution and accountable admission remain pending.
+   No existing store adoption or creation; public storage selection stays closed.
 3. **Secure fixed-child namespace reads**, bounded bytes and replacement/refusal
    tests (N-07/08/09/10/14/15). Keep storage-checked observations advisory.
 4. **Native Windows admission/read candidates** after prerequisite identity review;

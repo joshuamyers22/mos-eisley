@@ -229,8 +229,10 @@ Implement in this dependency order:
 2. **Namespace enrollment and storage prerequisites — contract defined; pure record codec implemented.**
    The [pure namespace codec](NAMESPACE_RECORD_CODEC_WORK_NOTE.md) is implemented
    additively. The [contract](NAMESPACE_STORAGE_CONTRACT.md) orders its fixtures,
-   read-only root/child admission, native qualification and protected custody/write
-   primitives. Qualify principal/file
+   root/child admission, native qualification and protected custody/write
+   primitives. The [POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) adds
+   owned read-only leases with native macOS/fault evidence; Linux and accountable
+   admission remain pending. Qualify principal/file
    selectors through accountable review, then protected namespace records, private
    create/open/lock/durability APIs. M-04/09/10/16; native Windows storage remains
    blocked until its separate contracts pass.

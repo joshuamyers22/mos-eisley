@@ -4753,7 +4753,10 @@ trust states. Copied JSON and private permissions do not establish protected key
 custody or enrollment. N-01–N-16 specify future source/wheel/native/fault evidence.
 The [pure namespace codec and golden fixtures](NAMESPACE_RECORD_CODEC_WORK_NOTE.md)
 are implemented additively with source and dependency-free wheel checks. Next is
-read-only POSIX existing-root admission, then child-read qualification. Enrollment creation, locks/publication/durability,
+qualification/review of the [POSIX root-admission candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md),
+which has native macOS source/wheel and portable fault evidence. Linux target
+evidence and accountable admission remain pending; secure child reads follow.
+Enrollment creation, locks/publication/durability,
 protected anchor/key custody, consumer writers and public Windows selectors remain
 gated. [Verification](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md) records this
 contract-definition batch, not implementation or native admission.
