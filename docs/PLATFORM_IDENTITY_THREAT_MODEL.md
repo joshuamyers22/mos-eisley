@@ -114,3 +114,40 @@ content mutation, directories, inherited-handle/offset preservation and real
 pipe/closed-handle refusal run in disposable native processes from source/wheels.
 These tests do not qualify Windows on a macOS host. Public selectors and all
 consumer schemas/storage authority remain unchanged pending accountable admission.
+
+## Proposed migration boundary
+
+The [inventory](IDENTITY_MIGRATION_INVENTORY.md) and
+[design](IDENTITY_MIGRATION_DESIGN.md) extend preparation to versioned persistence;
+they implement no storage effects. Accountable design review remains open.
+
+| Abuse | Required control and future acceptance | Residual limit |
+|---|---|---|
+| Relabel UID/SID or copy an owner namespace to impersonate a source | Strict tagged bindings, explicit protected enrollment and role-bound trust; M-02/04/14 | Namespace metadata alone authenticates nothing; malicious administrators are outside the primitive guarantee |
+| Rewrite a leaf owner while keeping enclosing version/hash | Preserve raw/canonical bytes, new family versions and complete reference closure; M-01/03/05 | Historical bytes remain evidence under their original context, not destination authority |
+| Reuse a reviewed preview after migration or change bytes without changing file ID | Fresh locked effect-boundary revalidation; new store generation and selection kinds; M-09/11/12 | Qualified path/storage/lock contracts are still required |
+| Crash or replay an import to overwrite or duplicate committed state | No-overwrite publication, bounded durable commit/nonce state, exact receipt recovery; M-08/10/14 | Flush uncertainty is reported, never asserted to be rollback |
+| Transfer task approvals, uncertain attempts or compaction context | Historical-only original records; rebuild destination active context through existing gates; M-13 | Migration cannot authorize execution, continuation or paid retries |
+| Change OAuth UID-dependent keys to retrieve another account or leak tokens | Separate keychain namespace/relogin workflow; no credential access in artifact migration; M-15 | Native credential custody and rekey recovery need their own qualification |
+
+The first write scope is a separate same-owner single-user-memory copy only after
+storage and namespace gates. Cross-host/principal rebinding requires the separate
+attestation/key-custody protocol and tests. Recovery retains source and published
+destination evidence, refuses conflicts and needs a fresh preview for staging
+cleanup. No new accepted risk exception or privacy waiver is introduced.
+
+## Inert wire boundary controls
+
+The [codec slice](IDENTITY_WIRE_CODEC_WORK_NOTE.md) implements the proposed
+standalone wire boundary with a preparse byte limit, exact tags/member sets,
+duplicate-key rejection at every object depth, strict integers, full-width
+lowercase hex and exact canonical UTF-8 comparison. Invalid representations and
+unknown/new outer versions do not fall back to legacy ownership. Diagnostics omit
+input identifiers; immutable metadata hides payloads in reprs. Clean-process tests
+trap OS queries, directory creation, socket creation and native DLL loading.
+
+Frozen synthetic legacy fixtures retain exact bytes/digests, null/default and
+omitted-field behavior, directory ID width and OAuth's separate encoder. These
+controls do not authenticate namespace metadata or make decoded file observations
+fresh. No existing storage/credential/consumer code adopts the new module.
+Accountable review remains open before migration or native admission.

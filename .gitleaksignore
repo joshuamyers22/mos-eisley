@@ -45,3 +45,7 @@ f8544c90ae6dfc8c0459406b866bb6c4a9a09d05:src/mos_eisley/reviewer_correction.py:g
 39ae0c341feee24710bf60230ccb5ba1ced1c7bc:src/mos_eisley/reviewer_initial_candidate.py:generic-api-key:106
 8057cf54c9bb0776256f41374ab8952336686e94:src/mos_eisley/reviewer_initial_integration.py:generic-api-key:105
 8057cf54c9bb0776256f41374ab8952336686e94:src/mos_eisley/reviewer_initial_integration.py:generic-api-key:169
+
+# Frozen SHA-256 of synthetic public binding data in the inert-codec legacy fixture.
+# Exact introducing commit/file/rule/line only; no credential bytes are present.
+6079b3ff1599706d6926aa40ded00d79885da3b5:tests/test_identity_legacy_fixtures.py:generic-api-key:34

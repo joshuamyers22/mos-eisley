@@ -516,6 +516,17 @@ from source and installed wheels. Actual native execution, extended storage
 fixtures and accountable admission remain pending; migration and private-storage
 adoption follow qualification.
 
+The [migration inventory](IDENTITY_MIGRATION_INVENTORY.md) and
+[proposed versioned design](IDENTITY_MIGRATION_DESIGN.md) now define the §27.2
+artifact closure, owner namespace/wire forms, legacy preservation, recovery and
+acceptance cases. The [inert codec batch](IDENTITY_WIRE_CODEC_WORK_NOTE.md) now implements strict
+standalone wire forms and selected legacy compatibility fixtures, with source and
+fresh-wheel tests. Namespace enrollment and storage remain the next prerequisites. Namespace/storage qualification precedes the first
+same-owner single-memory preview/copy; graphs/SQLite and authenticated rebinding
+follow separately. This is documentation completion, with
+[verification](IDENTITY_MIGRATION_WORK_NOTE.md); runtime adoption, native admission
+and accountable review remain pending.
+
 **WSL2 qualification preparation, 2026-10-03:** the
 [runner runbook](WSL2_QUALIFICATION.md) covers Windows-host setup, exact-candidate
 wheel installation, upgrade/diagnostics/uninstall, and retained qualification

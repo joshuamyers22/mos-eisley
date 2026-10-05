@@ -31,6 +31,8 @@ def main() -> int:
         for name in (
             "test_platform_files.py",
             "test_platform_identity.py",
+            "test_platform_identity_wire.py",
+            "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
             "test_platform_windows_file_identity.py",
         ):
@@ -44,6 +46,7 @@ import sys
 from unittest.mock import patch
 import mos_eisley.platform.files as files
 import mos_eisley.platform.identity as identity
+import mos_eisley.platform.identity_wire as wire
 assert 'mos_eisley.platform.posix_files' not in sys.modules
 assert 'mos_eisley.platform.posix_identity' not in sys.modules
 assert 'mos_eisley.platform.windows_identity' not in sys.modules
@@ -52,7 +55,7 @@ with patch.object(ctypes, 'WinDLL', create=True,
                   side_effect=AssertionError('eager system DLL loading')):
     import mos_eisley.platform.windows_identity as candidate
     import mos_eisley.platform.windows_file_identity as file_candidate
-for module in (files, identity, candidate, file_candidate):
+for module in (files, identity, wire, candidate, file_candidate):
     assert pathlib.Path(module.__file__).is_relative_to(pathlib.Path(sys.prefix))
 """
         subprocess.run(
@@ -70,6 +73,7 @@ for module in (files, identity, candidate, file_candidate):
             [
                 "test_platform_files.PlatformFileContractTests",
                 "test_platform_identity.IdentityValueTests",
+                "test_platform_identity_wire.IdentityWireTests",
                 "test_platform_identity.IdentityContractTests",
                 "test_platform_windows_principal.WindowsPrincipalFaultTests",
                 "test_platform_windows_principal.NativeTokenBindingTests",
@@ -80,6 +84,18 @@ for module in (files, identity, candidate, file_candidate):
             ]
             if args.require_native_windows
             else ["discover", "-s", str(root), "-p", "test_platform_*.py"]
+        )
+        subprocess.run(
+            [
+                str(python),
+                "-m",
+                "unittest",
+                "test_identity_legacy_fixtures.LegacyFixtureBytesTests",
+                "-v",
+            ],
+            cwd=root,
+            env=environment,
+            check=True,
         )
         subprocess.run(
             [str(python), "-m", "unittest", *selection, "-v"],

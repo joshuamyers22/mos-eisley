@@ -166,6 +166,8 @@ def main() -> int:
             "test_platform_identity.py",
             "test_conversation_git.py",
             "test_conversation_git_isolation.py",
+            "test_platform_identity_wire.py",
+            "test_identity_legacy_fixtures.py",
             "test_platform_windows_principal.py",
             "test_platform_windows_file_identity.py",
             "test_wsl2_preflight.py",
