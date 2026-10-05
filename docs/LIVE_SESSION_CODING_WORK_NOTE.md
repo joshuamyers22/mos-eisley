@@ -1,6 +1,7 @@
 # Work note: connected live session coding
 
-- Status: source implementation complete; live qualification and release review pending.
+- Status: source implementation and requested bounded functional live qualification
+  complete; accountable release review pending.
 - Owner: Codex implementation; Joshua Myers owns operating scope and release review.
 - Started: 2026-10-05
 - Starting revision: `374dae8`, clean isolated `feat/live-session-coding` worktree.
@@ -80,20 +81,25 @@ policy, role identity or expiry stops new work. No automatic retries or refunds.
   The exact starting main revision passed
   [GitHub Linux CI](https://github.com/joshuamyers22/mos-eisley/actions/runs/37331224069);
   this is baseline context, not candidate-branch CI qualification.
-- No paid provider requests, merge or release were performed. Exact-candidate live
-  qualification and accountable review of spending/integration remain outstanding.
+- No paid provider requests occurred during the original source implementation
+  phase. Subsequent live qualification and its retained charges are recorded below;
+  no merge or release was performed.
 
 ## Remaining release evidence
 
 The [budgeted live qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md)
-records real success on corrected runtime candidate `d2ca0c3`, live-discovered
-contract corrections, and a retained uncertain provider exchange that currently
-blocks the remaining scenarios. The four-scenario qualification is incomplete.
+records all four requested functional scenarios passing on committed runtime
+candidate `44adf47` with the existing qualified Sol/medium, Luna/low, Terra/low,
+Sonnet 5/low and Opus 5.5/low routes. Live-discovered contract corrections include
+feasible plan approval, consistent budget interpretation and ordered chunking of
+large role packets. All 19 affected source and installed-wheel tests passed after
+these changes. Total exposure is $2.466033 under the unchanged $10 cap, including
+a $0.113 uncertain cancellation charge that remains retained.
 
-Run a separately budgeted exact-candidate demonstration through ordinary sessions,
-covering successful delivery, bounded correction and refused integration with the
-existing qualified OpenAI/Anthropic routes. Bind its selected model roster, current
-reviewed policies, shared ledger, operating scope and immutable worker image.
+The final cancellation charge needs provider evidence and accountable reconciliation
+before further paid coding dispatch. The completed demonstration binds the exact
+candidate, selected roster, reviewed policies, shared ledger, synthetic operating
+scope and immutable worker image.
 Accountable review must assess the new paid-call/integration composition beyond
 this implementation assessment. General repository coding, goals and forks remain
 outside this candidate's supported operating profile.

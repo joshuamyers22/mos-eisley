@@ -1,13 +1,66 @@
 # Work note: budgeted live session coding qualification
 
-- Status: provider charge reconciled; live qualification exposed further prompt
-  contract defects; qualification incomplete.
+- Status: all four requested functional live scenarios passed; accountable release
+  review and final cancellation-charge reconciliation remain separate.
 - Owner: Joshua Myers authorizes operation; Codex executes and records evidence.
 - Date: 2026-10-05.
-- Original candidate: `d7d203b`; corrected runtime candidate: `d2ca0c3`.
+- Qualified runtime candidate: `44adf471e7386f34fb37479b46eaf0b2302d4291`.
+- Historical candidates: `d7d203b`, `b9a0c30`, `d2ca0c3`, `f1c9145`.
 - Guidance: repository Python engineering and agentic verification guides,
   `templates/WORK_NOTE.md`, `templates/THREAT_MODEL.md`; current GitHub template
   provenance is recorded in `LIVE_SESSION_CODING_WORK_NOTE.md`.
+
+## Final functional results
+
+All cases used ordinary plain CLI sessions with SQLite persistence, real live
+OpenAI/Anthropic role responses and the same committed runtime candidate. The
+final roster is Sol/medium creator, Luna/low child, Terra/low and Sonnet 5/low
+critics, Opus 5.5/low judge. Each session consumed one ordinary implementation
+exchange; no goal, fork or task budget was introduced.
+
+| Required scenario | Verified result on `44adf47` |
+|---|---|
+| Successful implementation and verified integration | 10 calls; source-only commit `fd70c0aacf4aab72cccf331ebf31868771e9fd8b`; frozen tests passed before and after integration; protected tests unchanged |
+| Failed tests followed by bounded correction | 11 calls; diagnostic candidate failed real tests, one correction passed the identical frozen package; reviewed and approved source-only commit `20c9c7cf48ca9fd32940019f334cd582972d79b4` passed fresh final verification |
+| Rejected review prevents integration | 4 calls; judge requested revision of the impossible task; no child dispatch, integration marker or Git change |
+| Cancellation and resume without duplicates | Cancelled after real Git staging and separately while a provider reservation was held; cold resumes preserved ledger entries/charges, Git source/tests/refs and model artifact file hashes; saved entries stayed cancelled with one consumed exchange |
+
+The staging-cancellation case made 10 calls; its owned detached worktree was
+removed and integration never started. Held-charge cancellation admitted one
+creator call and preserved its entire **113,000 micro-USD** uncertain allowance.
+This proves cancellation while a reservation was held, without claiming that
+provider generation had started. Neither cold resume dispatched a new call.
+Every Docker lifecycle created by the five final scopes has a removal receipt.
+
+Final exposure: **2,466,033 micro-USD ($2.466033)** under the unchanged $10 cap:
+2,353,033 settled and 113,000 uncertain, across 132 entries and 23 paid attempts.
+The audit matched every retained role receipt to its exact ledger entry and
+reservation, including the reconciled historical receipt. All superseded and
+failed attempts remain represented; none is counted as a passing required case.
+
+Private evidence root:
+`/Users/josh/.mos-eisley-live-session-qualification-2026-10-05`.
+Completed functional evidence SHA-256:
+`29601e6aef36147aa08f7b4c241ea16d244162af3195b6de1da51512ba1940d0`.
+The final correction scope is `correction-sol-v3-concise`; the other final scopes
+are `success-sol-v3`, `rejection-sol-v3`, `cancellation-stage-sol-v3` and
+`cancellation-sol-v3`. Their selection and verified-evidence hashes are bound in
+that aggregate. Raw packets remain private and outside sampling artifacts.
+
+Affected source and installed-wheel verification both passed 19 tests, including
+large review packets with exact artifact identity through integration. Ruff,
+format checking, Pyright, dependency-export verification and source/wheel builds
+passed. The installed wheel's two changed workflow modules match the committed
+runtime bytes. Wheel SHA-256:
+`4844c847ffd4d04d6be98025abcd6b31017a1666d62aee0894c48b213cfa53b9`.
+Earlier broad verification and its limits remain in the implementation work note.
+
+This completes the requested bounded functional demonstration for existing-source
+`pure_python_v1` coding. Reconcile the retained cancellation charge with provider
+evidence and accountable authority before further paid coding dispatch; the
+one-unresolved-entry admission limit remains enforced. Accountable review of the
+new paid-call/integration composition and release approval remain required. This
+does not qualify general repositories, goals, forks or prospective evaluation.
 
 ## Objective and acceptance evidence
 
@@ -28,9 +81,10 @@ obtain a required outcome is reported, not relabeled as success.
 
 - User-authorized total exposure: **$10**, including held/uncertain charges, in one
   fresh immutable shared ledger. Never reset, top up or refund it automatically.
-- Existing routes: Astra/high creator, Luna/low child, Terra/low and Sonnet 5/low
+- Final existing routes: Sol/medium creator, Luna/low child, Terra/low and Sonnet 5/low
   critics, Opus 5.5/low judge. Fresh schema-2 prices checked against official
-  provider documentation; no model or effort substitution.
+  provider documentation; exact model/effort selection, no substitution. Historical
+  attempts used Astra/high before the explicitly recorded Sol campaign.
 - Maximum 9,000 input and 3,400 output tokens per role call, zero SDK retries;
   one correction cycle, at most 15 calls and 600 seconds per workflow.
 - All task files are synthetic. Keys load only from an owner-private file outside
@@ -84,7 +138,7 @@ All four scenarios must run against this next commit; earlier attempts stay in t
 shared ledger and evidence. No further replacement of the failed `b9a0c30`
 correction exercise is authorized by the campaign's own stopping rule.
 
-## Current candidate outcomes
+## Historical candidate outcomes before reconciliation
 
 Candidate `d2ca0c374c622bd90b02c0b434e15a65562ced85` passed the live success
 scenario through a plain ordinary CLI session and SQLite persistence. Ten role
@@ -116,7 +170,7 @@ private model artifact file hashes. The saved entry remains failed with exactly
 one consumed exchange. This establishes no automatic replay after an uncertain
 failure; it does not establish the requested deliberate cancellation scenario.
 
-| Required scenario | Result on current runtime candidate |
+| Required scenario | Historical result on `d2ca0c3` |
 |---|---|
 | Successful implementation and verified integration | Passed |
 | Failed tests followed by bounded correction | Incomplete; stopped before coding-child dispatch |
@@ -136,7 +190,7 @@ Raw model packets stay private and are not copied into tracked or sampling
 artifacts. No claim of prospective evaluation eligibility or release readiness
 follows from this campaign.
 
-## Required next step
+## Historical reconciliation handoff and amendments
 
 ### October 5 reconciliation and Sol campaign
 
@@ -209,3 +263,22 @@ call or failed session is replayed. Requalification must use fresh ordinary sess
 against the next committed candidate; previous receipts remain immutable.
 The affected unittest suite passed all 19 tests, including the new large-packet
 regression. Ruff and Pyright passed for the changed implementation and tests.
+
+### Final fixture amendments
+
+On `44adf47`, the first correction scope integrated correctly on its first candidate;
+the failed-test correction criterion was not exercised. A fresh previous-field
+guard scope requested a diagnostic return of 0, but that matched its initial
+source exactly; the host rejected the unchanged patch before execution. A fresh
+changed-baseline scope stopped because the child supplied a stale before-content
+digest and skipped the diagnostic. These are retained failures of qualification
+criteria, not repaired model responses or passing correction cases.
+
+The final bounded fixture amendment restored the original return-0 base, requested
+a distinct diagnostic sentinel of -999, and asked for a concise plan explicitly
+conditioned on `previous={}` versus host-supplied failed-candidate evidence. Real
+live responses produced the required failed first candidate and passing correction.
+The host never supplied a patch, changed a model response, weakened tests or
+replayed an uncertain call. Final success, rejection and both cancellation scopes
+then ran against the identical `44adf47` candidate. The held-call cancellation was
+last; no paid call followed it.

@@ -51,8 +51,9 @@ available in the same TUI; see the [terminal guide](docs/CONVERSATION_TUI.md)
 for launch and resume options.
 An explicitly selected [live coding workflow candidate](docs/LIVE_SESSION_CODING.md)
 connects `/implement` to creator tests, independent review, bounded correction and
-isolated Git integration within the existing pure-Python profile. Combined live
-provider qualification and release approval remain pending.
+isolated Git integration within the existing pure-Python profile. Candidate
+`44adf47` passed the requested bounded live functional qualification; accountable
+release review and reconciliation of its retained cancellation charge remain pending.
 The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
 panes and reattachment to a running conversation.
 An optional [external tmux workspace](docs/TMUX_COMPATIBILITY.md) keeps Mos beside

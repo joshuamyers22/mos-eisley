@@ -6,11 +6,16 @@ chat options. Ordinary chat and `/plan` retain their existing behavior. The
 selection hash is part of saved session identity; resume requires the same
 selection bytes, current pricing, ledger, credentials and execution image.
 
-This is a source implementation candidate for the existing bounded
-`pure_python_v1` execution profile. Source and unpaid Docker/Git fixtures are
-engineering evidence; they do not qualify the new combined provider workflow,
-release image or general repository coding. A separately budgeted exact-candidate
-live demonstration and accountable review are required before release claims.
+This is an implementation candidate for the existing bounded `pure_python_v1`
+execution profile. Candidate `44adf47` passed the requested four-scenario live
+functional demonstration with Sol/medium creator, Luna/low child, Terra/low and
+Sonnet 5/low critics, and Opus 5.5/low judge. It covered verified integration,
+declared controlled failed-test correction, rejected review and cancellation/cold
+resume at both staging and held-charge boundaries. See the
+[qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) for exact
+scope, receipts, retained cancellation exposure and previous failed attempts.
+Accountable release review remains required; general repository coding and the
+release image are not qualified by this demonstration.
 
 ## User journey
 
@@ -59,8 +64,8 @@ Prepare a `LiveCodingSelection` JSON file using the schema in
   `correction_cycles` (0–2) and `wall_seconds` (30–1800).
 
 Use the already-qualified component routes and freshly reviewed schema-2 pricing;
-the new composition still needs its own qualification. The creator's model,
-effort, policy hash, shared ledger and artifacts root must match live chat.
+changed selections or operating scope need their own qualification. The creator's
+model, effort, policy hash, shared ledger and artifacts root must match live chat.
 For example, select the existing OpenAI creator/child routes, an OpenAI critic,
 Sonnet critic and Opus judge without silently choosing or downgrading models.
 Do not put credentials in the selection or repository. Provider keys are read from
