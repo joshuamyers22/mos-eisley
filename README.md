@@ -18,6 +18,9 @@ scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
 owner-authorized tasks; see
 [ADR-0011](docs/adr/0011-defer-studies-until-production.md).
+The planned GitHub publisher remains disabled: the pinned stock-GHP candidate
+failed qualification and was rejected in
+[ADR 0005](docs/adr/0005-ghp-github-publication-boundary.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
