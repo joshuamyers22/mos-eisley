@@ -104,6 +104,8 @@ class WorkflowModels:
     def __init__(self) -> None:
         self.roles: list[str] = []
         self.packets: list[dict[str, object]] = []
+        self.input_block_counts: list[int] = []
+        self.large_plan = False
         self.fail_child_once = False
         self.reject_plan = False
         self.reject_final = False
@@ -117,9 +119,12 @@ class WorkflowModels:
     async def call(
         self, route: CodingRoute, config: AgentConfig, directory: Path
     ) -> AgentResult:
-        block = config.initial_turns[0].blocks[0]
-        assert isinstance(block, TextBlock)
-        packet = json.loads(block.text)
+        blocks = config.initial_turns[0].blocks
+        assert all(isinstance(block, TextBlock) for block in blocks)
+        packet = json.loads(
+            "".join(block.text for block in blocks if isinstance(block, TextBlock))
+        )
+        self.input_block_counts.append(len(blocks))
         self.packets.append(packet)
         system = config.system
         if system.startswith("Create a concrete"):
@@ -144,6 +149,8 @@ class WorkflowModels:
                     ]
                 },
             }
+            if self.large_plan:
+                output["plan"] = "Implement addition. " * 300
         elif system.startswith("Independently review") or system.startswith(
             "Adjudicate"
         ):
@@ -392,6 +399,23 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(
                     artifact["brief"]["assignment"]["allowance"]["attempts"], 1
+                )
+
+    async def test_large_review_packets_preserve_exact_artifact_through_integration(
+        self,
+    ) -> None:
+        self.models.large_plan = True
+        result = await self.run_workflow()
+        self.assertIn("Frozen tests passed", result.final_text)
+        self.assertTrue(any(n > 1 for n in self.models.input_block_counts))
+        for role, packet in zip(self.models.roles, self.models.packets, strict=True):
+            if role in {"critic", "judge", "approve"}:
+                artifact = json.loads(str(packet["artifact"]))
+                self.assertEqual(
+                    artifact["brief"]["plan"], "Implement addition. " * 300
+                )
+                self.assertEqual(
+                    packet["subject_sha256"], digest(str(packet["artifact"]).encode())
                 )
 
     async def test_failed_tests_get_bounded_correction_with_identical_brief(

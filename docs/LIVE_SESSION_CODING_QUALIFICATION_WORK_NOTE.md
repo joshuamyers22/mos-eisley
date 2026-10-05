@@ -182,3 +182,30 @@ Preserve the full hold until that workflow verifies evidence and authority. Then
 prepare fresh, explicitly bounded remaining scenarios against the corrected
 runtime candidate with current policies and the same total authorization. Resolve
 or document the broker failure in accountable review before release claims.
+
+### Packet-size diagnosis and correction
+
+On `f1c9145`, success passed ten live calls with source-only commit
+`eb2d803f699a47fcd43c3909126b3da642122522`. Rejection passed four calls: the
+judge requested revision, no child was called and no Git state changed. Deliberate
+cancellation after real Git staging passed ten calls: integration never started,
+the saved entry is cancelled, its owned worktree was removed, and cold resume
+preserved ledger, Git and private artifact snapshots with one consumed exchange.
+
+Correction again stopped before the first critic. An unpaid replay of the complete
+workflow using the stored plan stopped at a `TextBlock` validation error: the
+review packet exceeds its 8,000-character block cap. This reproduces the host
+failure after successful baseline verification. Earlier attribution of this stop
+to Docker was incorrect; a generic public error and absence of a persisted
+baseline receipt were insufficient evidence of its stage. Stored responses used
+in this diagnostic are not live qualification outcomes.
+
+The next correction chunks role packet text into consecutive blocks of at most
+8,000 characters, tells the model to concatenate them in order, and preserves the
+exact packet, artifact digests and existing cumulative byte/token/cost bounds.
+A large-plan regression verifies exact artifact identity reaches both critics,
+judge and creator approval through real fixture Git integration. No blocked role
+call or failed session is replayed. Requalification must use fresh ordinary sessions
+against the next committed candidate; previous receipts remain immutable.
+The affected unittest suite passed all 19 tests, including the new large-packet
+regression. Ruff and Pyright passed for the changed implementation and tests.
