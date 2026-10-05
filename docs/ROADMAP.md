@@ -770,8 +770,9 @@ both staging and held-charge boundaries. The
 [qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) binds
 the existing Sol/medium-led roster, worker and evidence. The final cancellation
 charge was reconciled with provider evidence and owner scope attestation; spending
-is $2.375657 under the $10 cap, with zero unresolved entries. Accountable release review
-remains pending.
+is $2.375657 under the $10 cap, with zero unresolved entries. Delivery CI and
+accountable release disposition are recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287);
+normal use requires both gates to pass.
 
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit

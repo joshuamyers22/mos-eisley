@@ -1,7 +1,7 @@
 # Work note: live session coding release gates
 
-- Status: active; financial reconciliation complete; combined checks and
-  accountable release approval pending.
+- Status: release packet prepared; financial reconciliation complete. Final
+  delivery checks and accountable disposition are recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287).
 - Owner: Joshua Myers owns operating and release authority; Codex prepares changes
   and verification, without claiming independent human approval.
 - Started: 2026-10-05.
@@ -64,6 +64,15 @@ is running outside the sandbox so native socket, tmux and Git containment checks
 can run. Main requires `quality`, `container` and `gitleaks`, enforced for admins;
 the approval count is zero, so no protection bypass is planned.
 
+PR #287 is the authoritative closeout record for the final delivery head, complete
+local check result, exact-head CI, artifact hashes, accountable disposition and
+merge/build verification. This preparation note does not itself assert those gates
+passed. The initial delivery build at `61cbb58` verified all 387 runtime source
+files in both wheel and source archive against qualified candidate `44adf47`.
+Container, secret scanning and native Windows/macOS/Linux storage CI passed on
+that head. Later documentation commits preserve the runtime and dependency bytes;
+the final PR head still requires its own protected CI checks.
+
 ## Review and release handoff
 
 The user authorized this release-gate work, including PR and merge operations.
@@ -74,4 +83,5 @@ candidate, review findings, CI results and operating scope before merge.
 The [review packet](LIVE_SESSION_CODING_RELEASE_REVIEW.md) traces spending,
 integration, data transfer and cancellation controls and states residual model
 reliability and post-integration recovery limits. Financial review is complete
-for the exact adjustment above. Accountable release acceptance remains pending.
+for the exact adjustment above. Before normal use, confirm passing delivery CI and
+accountable release acceptance in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287).

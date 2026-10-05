@@ -42,8 +42,8 @@ success rates or prospective evaluation eligibility.
    $0.022624; the original $0.113 receipt remains unchanged. The ledger now has
    132 settled entries, $2.375657 total and zero unresolved entries, under the same
    $10 cap. Evidence and authority hashes are in the release work note.
-2. **Release blocker:** exact delivery-head CI and accountable acceptance of this
-   packet have not yet completed. The agent cannot supply its own independent
+2. **Release gates:** exact delivery-head CI and accountable acceptance of this
+   packet are required; their final results are recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287). The agent cannot supply its own independent
    financial/release approval.
 3. **Operational limitation:** model responses can violate a frozen plan or content
    digest. Qualification retained such failures; the host rejected stale/unchanged
@@ -72,7 +72,7 @@ Broader earlier checks and their sandbox limits are disclosed in the implementat
 work note. Current full local/CI and release artifact results will be recorded in
 the [release work note](LIVE_SESSION_CODING_RELEASE_WORK_NOTE.md).
 
-Accountable disposition is pending. Acceptance must identify the concrete PR/head,
+Accountable disposition is recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287). Acceptance must identify the concrete PR/head,
 financial adjustment/evidence, CI result, bounded operating scope and limitations
 above. Approval authorizes merge and verified normal use only within that scope;
 it does not authorize wider routing/platform activation or new spending caps.

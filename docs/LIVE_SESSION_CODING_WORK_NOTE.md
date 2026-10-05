@@ -1,7 +1,8 @@
 # Work note: connected live session coding
 
 - Status: source implementation and requested bounded functional live qualification
-  complete; accountable release review pending.
+  complete; final delivery CI and accountable release disposition are recorded in
+  [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287).
 - Owner: Codex implementation; Joshua Myers owns operating scope and release review.
 - Started: 2026-10-05
 - Starting revision: `374dae8`, clean isolated `feat/live-session-coding` worktree.

@@ -14,8 +14,9 @@ declared controlled failed-test correction, rejected review and cancellation/col
 resume at both staging and held-charge boundaries. See the
 [qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) for exact
 scope, receipts, reconciled cancellation charge and previous failed attempts.
-Accountable release review remains required; general repository coding and the
-release image are not qualified by this demonstration.
+Before normal use, confirm passing delivery CI and accountable acceptance in
+[PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287). General repository coding and a replacement
+execution image are not qualified by this demonstration.
 
 ## User journey
 

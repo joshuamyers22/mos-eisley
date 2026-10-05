@@ -52,8 +52,9 @@ for launch and resume options.
 An explicitly selected [live coding workflow candidate](docs/LIVE_SESSION_CODING.md)
 connects `/implement` to creator tests, independent review, bounded correction and
 isolated Git integration within the existing pure-Python profile. Candidate
-`44adf47` passed the requested bounded live functional qualification; accountable
-release review remains pending; all qualification spending is now settled.
+`44adf47` passed the requested bounded live functional qualification, and all
+qualification spending is settled. Normal use requires passing delivery CI and
+accountable release acceptance recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287).
 The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
 panes and reattachment to a running conversation.
 An optional [external tmux workspace](docs/TMUX_COMPATIBILITY.md) keeps Mos beside
