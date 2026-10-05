@@ -12,7 +12,7 @@ import stat
 import sys
 import termios
 from collections.abc import Awaitable, Callable
-from contextlib import closing, suppress
+from contextlib import ExitStack, closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -135,7 +135,13 @@ from mos_eisley.conversation_switch import (
     fresh_directory_arguments,
     is_directory_switch,
 )
-from mos_eisley.core.agent import AgentFailure, RequestBudgetError, build_request
+from mos_eisley.core.agent import (
+    AgentConfig,
+    AgentFailure,
+    AgentResult,
+    RequestBudgetError,
+    build_request,
+)
 from mos_eisley.core.budget import resolve_budget
 from mos_eisley.core.models import ReviewResult, canonical_bytes, digest
 from mos_eisley.core.protocol import ModelResponse, TextBlock, Turn, Usage
@@ -205,6 +211,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--live-openai",
+        "--live-coding-selection",
+        "--allow-live-coding",
         "--live-repository-read",
         "--git-review-panel",
         "--allow-data-transfer",
@@ -788,6 +796,19 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
     for name in ("chat", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
         if name in {"chat", "resume"}:
+            command.add_argument(
+                "--live-coding-selection",
+                type=Path,
+                help="Exact bounded live creator/child/review workflow selection",
+            )
+            command.add_argument(
+                "--allow-live-coding",
+                action="store_true",
+                help=(
+                    "Authorize /implement within the selected live coding "
+                    "scope and ceilings"
+                ),
+            )
             command.add_argument(
                 "--git-review-panel",
                 action="store_true",
@@ -3049,6 +3070,25 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         None if args.cassette is None else read_recording(args.cassette, input_limits)
     )
     live_identity = None
+    coding_selection = None
+    coding_selection_sha256 = None
+    if args.live_coding_selection is not None or args.allow_live_coding:
+        if (
+            not args.live_openai
+            or not args.allow_data_transfer
+            or not args.allow_live_coding
+            or args.live_coding_selection is None
+        ):
+            raise ValueError(
+                "Live coding requires --live-openai, --allow-data-"
+                "transfer, --allow-live-coding and --live-coding-"
+                "selection."
+            )
+        from mos_eisley.conversation_live_coding import read_coding_selection
+
+        coding_selection, coding_selection_sha256 = read_coding_selection(
+            args.live_coding_selection, args.workspace
+        )
     spend_policy = None
     spend_ledger = None
     if args.live_openai:
@@ -3086,6 +3126,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             spend_ledger_id=spend_ledger.policy.ledger_id,
             artifacts_root=str(private_artifacts_root(args.live_artifacts)),
             repository_read=args.live_repository_read,
+            coding_selection_sha256=coding_selection_sha256,
         )
         if not os.environ.get("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY is required for live chat")
@@ -3194,13 +3235,16 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         directory.verify()
     if memory_project is not None:
         memory_project.verify()
-    with store_type(
-        args.storage,
-        session_id,
-        args.workspace,
-        create=fresh is not None,
-        expected_root_identity=None if picked is None else picked.location.identity,
-    ) as store:
+    with (
+        ExitStack() as coding_resources,
+        store_type(
+            args.storage,
+            session_id,
+            args.workspace,
+            create=fresh is not None,
+            expected_root_identity=None if picked is None else picked.location.identity,
+        ) as store,
+    ):
         if isinstance(store, SQLiteConversationStore):
             store.input_limits = input_limits
         if fresh is not None:
@@ -3297,6 +3341,86 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         from mos_eisley.conversation_loop_commands import recorded_loop_observer
 
         controller.schedule_observer = recorded_loop_observer(controller)
+
+        if coding_selection is not None:
+            from mos_eisley.conversation_live_coding import (
+                LiveCodingWorkflow,
+                read_coding_selection,
+            )
+            from mos_eisley.conversation_live_coding_transport import LiveCodingModels
+            from mos_eisley.run.coding_child import CodingContainer, DockerCodingChild
+            from mos_eisley.run.coding_vcs import CodingVCS
+
+            assert (
+                live_identity is not None
+                and spend_policy is not None
+                and spend_ledger is not None
+            )
+            assert coding_selection_sha256 is not None
+            if (
+                coding_selection.creator.model != live_identity.model
+                or coding_selection.creator.effort != live_identity.effort
+                or coding_selection.creator.expected_policy_sha256
+                != spend_policy.policy_sha256
+                or coding_selection.spend_ledger != args.spend_ledger.absolute()
+                or coding_selection.expected_ledger_id != spend_ledger.policy.ledger_id
+                or coding_selection.artifacts_root != Path(live_identity.artifacts_root)
+            ):
+                raise ValueError(
+                    "Live coding creator, ledger and artifacts must "
+                    "match the saved live session."
+                )
+            models = LiveCodingModels(
+                spend_ledger,
+                coding_selection.expected_ledger_id,
+                os.environ["OPENAI_API_KEY"],
+                os.environ.get("ANTHROPIC_API_KEY", ""),
+            )
+            coding_broker = CodingVCS(
+                coding_selection.git,
+                args.workspace.resolve(),
+                coding_selection.staging_root,
+            )
+            coding_resources.callback(coding_broker.close)
+            coding_executor = DockerCodingChild(
+                CodingContainer(
+                    coding_selection.docker,
+                    coding_selection.image_id,
+                    lifecycle_root=coding_selection.artifacts_root
+                    / "coding-lifecycles",
+                )
+            )
+
+            def coding_guard() -> None:
+                _, sha = read_coding_selection(
+                    args.live_coding_selection, args.workspace
+                )
+                if (
+                    sha != coding_selection_sha256
+                    or controller.persistence_broken
+                    or controller.state.owner_uid != os.getuid()
+                    or any(e.status == "queued" for e in controller.state.entries)
+                ):
+                    raise ValueError(
+                        "Live coding selection, owner, durable session "
+                        "or queued steering changed."
+                    )
+
+            workflow = LiveCodingWorkflow(
+                coding_selection,
+                coding_selection_sha256,
+                models,
+                coding_executor,
+                coding_broker,
+                coding_guard,
+            )
+
+            async def run_session_coding(
+                config: AgentConfig, attempt: int
+            ) -> AgentResult:
+                return await workflow.run(config, attempt, controller.state.session_id)
+
+            controller.run_live_coding = run_session_coding
 
         def publish_fork(child: ConversationState) -> None:
             with store_type(

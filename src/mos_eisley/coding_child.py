@@ -214,6 +214,9 @@ class CodingBrief(Contract):
     acceptance: Text
     owned_paths: Annotated[tuple[str, ...], Field(min_length=1, max_length=16)]
     test_paths: Annotated[tuple[str, ...], Field(min_length=1, max_length=16)]
+    creator_tests: CodeSnapshot | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     wall_seconds: Annotated[int, Field(ge=1, le=20)] = 10
     depth: Literal[1] = 1
     source_policy: Literal["pure_python_v1"] = "pure_python_v1"
@@ -222,6 +225,15 @@ class CodingBrief(Contract):
     @model_validator(mode="after")
     def frozen_scope(self) -> Self:
         files = {f.path: f for f in self.snapshot.files}
+        added_tests = (
+            {}
+            if self.creator_tests is None
+            else {f.path: f for f in self.creator_tests.files}
+        )
+        if set(added_tests) & files.keys() or not set(added_tests) <= set(
+            self.test_paths
+        ):
+            raise ValueError("Creator tests must be additional protected test paths.")
         for paths in (self.owned_paths, self.test_paths):
             if paths != tuple(sorted(set(paths))):
                 raise ValueError("File ownership must be sorted and unique.")
@@ -231,9 +243,10 @@ class CodingBrief(Contract):
             set(self.owned_paths) & set(self.test_paths)
             or any(p.startswith("tests/") for p in self.owned_paths)
             or any(not p.startswith("tests/test_") for p in self.test_paths)
-            or not set(self.test_paths) <= files.keys()
+            or not set(self.test_paths) <= files.keys() | added_tests.keys()
             or set(files)
-            != (set(self.owned_paths) & files.keys()) | set(self.test_paths)
+            != (set(self.owned_paths) & files.keys())
+            | (set(self.test_paths) & files.keys())
             or self.permitted_tools != ("write_owned_files",)
             or self.assignment.plan_sha256 != digest(self.plan.encode())
             or self.assignment.tests_sha256 != self.tests_sha256
@@ -255,8 +268,17 @@ class CodingBrief(Contract):
     @property
     def tests_sha256(self) -> str:
         return CodeSnapshot(
-            files=tuple(f for f in self.snapshot.files if f.path in self.test_paths)
+            files=tuple(
+                f for f in self.verification_snapshot.files if f.path in self.test_paths
+            )
         ).sha256
+
+    @property
+    def verification_snapshot(self) -> CodeSnapshot:
+        added = () if self.creator_tests is None else self.creator_tests.files
+        return CodeSnapshot(
+            files=tuple(sorted((*self.snapshot.files, *added), key=lambda f: f.path))
+        )
 
     @property
     def sha256(self) -> str:
@@ -278,7 +300,7 @@ class CodingPatch(Contract):
         return digest(canonical_bytes(self))
 
     def apply(self, brief: CodingBrief) -> CodeSnapshot:
-        files = {f.path: f for f in brief.snapshot.files}
+        files = {f.path: f for f in brief.verification_snapshot.files}
         paths = tuple(c.file.path for c in self.changes)
         if self.brief_sha256 != brief.sha256 or paths != tuple(sorted(set(paths))):
             raise ValueError(

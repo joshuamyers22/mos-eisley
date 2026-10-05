@@ -756,6 +756,24 @@ session stores are covered by focused and real Docker qualification. This narrow
 local route does not promote E2's default delegation policy or activate arbitrary
 Python/shell, paid providers, other repository profiles or other platforms.
 
+**Connected live coding, 2026-10-05 — bounded functional live qualification complete:**
+[Explicit session coding](LIVE_SESSION_CODING.md) connects `/implement` to live
+creator planning and additional immutable tests, isolated baseline/child/final
+verification, separate OpenAI/Anthropic critics, anonymous judge adjudication,
+exact creator approvals, bounded corrections and one-use Git integration.
+Finite owner-selected scopes, shared spending, private before-send/integration
+markers, source freshness and saved selection identity apply to the whole workflow.
+The execution profile remains `pure_python_v1`; goals/forks and general repository
+execution remain gated. Candidate `44adf47` passed verified live integration,
+declared failed-test correction, rejected review and cancellation/cold resume at
+both staging and held-charge boundaries. The
+[qualification work note](LIVE_SESSION_CODING_QUALIFICATION_WORK_NOTE.md) binds
+the existing Sol/medium-led roster, worker and evidence. The final cancellation
+charge was reconciled with provider evidence and owner scope attestation; spending
+is $2.375657 under the $10 cap, with zero unresolved entries. Delivery CI and
+accountable release disposition are recorded in [PR #287](https://github.com/joshuamyers22/mos-eisley/pull/287);
+normal use requires both gates to pass.
+
 **Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
 scope presets and revision-bound findings in the diff panel first, then explicit
 planning and durable goals, followed by conversation forks/side chats and

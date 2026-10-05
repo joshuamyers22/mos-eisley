@@ -178,7 +178,7 @@ class DockerCodingChild:
     async def verify(
         self, brief: CodingBrief, snapshot: CodeSnapshot
     ) -> CodingVerification:
-        original = {f.path: f for f in brief.snapshot.files}
+        original = {f.path: f for f in brief.verification_snapshot.files}
         if set(f.path for f in snapshot.files) - set(original) - set(brief.owned_paths):
             raise ValueError("Verification snapshot expands file authority.")
         if any(

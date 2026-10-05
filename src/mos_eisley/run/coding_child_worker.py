@@ -183,7 +183,7 @@ async def execute_wire(
         )
     if mode == "verify":
         wire = VerifyWire.model_validate_json(payload)
-        original = {f.path: f for f in wire.brief.snapshot.files}
+        original = {f.path: f for f in wire.brief.verification_snapshot.files}
         if any(
             f.path not in wire.brief.owned_paths and f != original.get(f.path)
             for f in wire.snapshot.files

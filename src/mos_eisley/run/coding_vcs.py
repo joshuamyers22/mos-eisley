@@ -35,6 +35,7 @@ class _Stage:
     tree: str
     diff: str
     snapshot: CodeSnapshot
+    artifact_test_paths: tuple[str, ...] = ()
     commit: str | None = None
     consumed: bool = False
     integrated: bool = False
@@ -310,6 +311,14 @@ class CodingVCS:
         if head != brief.base_commit or snapshot != brief.snapshot:
             raise ValueError("Creator repository differs from the approved brief.")
         frozen_paths = {item.path for item in brief.snapshot.files}
+        if brief.creator_tests is not None:
+            for item in brief.creator_tests.files:
+                if self._file(self.workspace, item.path).exists() or self._git(
+                    self.workspace, "ls-files", "--", item.path
+                ):
+                    raise ValueError(
+                        "Retained creator tests must be absent from the base."
+                    )
         for name in set(brief.owned_paths) - frozen_paths:
             if self._file(self.workspace, name).exists() or self._git(
                 self.workspace, "ls-files", "--", name
@@ -360,6 +369,11 @@ class CodingVCS:
         record = _Stage(
             path, brief.sha256, patch.sha256, brief.base_commit, "", "", target
         )
+        record.artifact_test_paths = (
+            ()
+            if brief.creator_tests is None
+            else tuple(f.path for f in brief.creator_tests.files)
+        )
         self._stages[brief.sha256] = record
         self._repository(path)
         self._clean(path)
@@ -401,6 +415,10 @@ class CodingVCS:
         ):
             raise ValueError("Staged checkout contains ambient files.")
         for item in record.snapshot.files:
+            if item.path in record.artifact_test_paths:
+                if self._file(path, item.path).exists():
+                    raise ValueError("Retained creator tests appeared in the worktree.")
+                continue
             file = self._file(path, item.path)
             if file.read_bytes() != item.content.encode():
                 raise ValueError("Staged source or protected tests changed.")
@@ -459,7 +477,17 @@ class CodingVCS:
             or brief.assignment.workspace != str(self.workspace)
         ):
             raise ValueError("Final verification requires this exact integrated patch.")
-        head, snapshot = self.snapshot(tuple(item.path for item in expected.files))
+        head, physical = self.snapshot(
+            tuple(
+                item.path
+                for item in expected.files
+                if item.path not in record.artifact_test_paths
+            )
+        )
+        added = () if brief.creator_tests is None else brief.creator_tests.files
+        snapshot = CodeSnapshot(
+            files=tuple(sorted((*physical.files, *added), key=lambda f: f.path))
+        )
         if head != commit or snapshot != expected:
             raise ValueError("Integrated repository differs from the approved patch.")
         return snapshot
