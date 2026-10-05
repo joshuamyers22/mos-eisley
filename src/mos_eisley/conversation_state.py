@@ -134,7 +134,10 @@ class ConversationEntry(Contract):
             raise ValueError("diff attachments differ from the saved message")
         if self.request_admission is not None and (
             self.request_admission.diff_attachment_sha256
-            != attachment_fingerprint(self.diff_attachments)
+            != attachment_fingerprint(
+                self.diff_attachments,
+                schema_version=self.request_admission.schema_version,
+            )
         ):
             raise ValueError("request admission differs from diff attachments")
         if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
@@ -271,7 +274,10 @@ class ArchivedConversationEntry(Contract):
             raise ValueError("archived diff attachments differ from the message")
         if self.request_admission is not None and (
             self.request_admission.diff_attachment_sha256
-            != attachment_fingerprint(self.diff_attachments)
+            != attachment_fingerprint(
+                self.diff_attachments,
+                schema_version=self.request_admission.schema_version,
+            )
         ):
             raise ValueError("archived admission differs from diff attachments")
         if (self.goal_id is None) != (self.goal_definition_sha256 is None) or (
@@ -741,7 +747,7 @@ class ConversationState(Contract, Generic[EntryT]):
                 attachment.workspace != self.workspace
                 for attachment in entry.diff_attachments
             ):
-                raise ValueError("diff attachment differs from conversation workspace")
+                raise ValueError("diff attachment belongs to another workspace")
             if (admission := entry.request_admission) is not None:
                 if (
                     admission.selection.message_index != index

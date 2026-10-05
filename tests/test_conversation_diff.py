@@ -154,6 +154,7 @@ class DiffTests(RepositoryFixture, TestCase):
                     "mos_eisley.cli",
                     "chat",
                     "--tui",
+                    "--git-review-panel",
                     "--cassette",
                     str(cassette),
                     "--workspace",

@@ -36,5 +36,13 @@ def attachment_payload(attachments: tuple[SourceAttachment, ...]) -> str:
     raise DiffAttachmentError("Send each attachment format in a separate message.")
 
 
-def attachment_fingerprint(attachments: tuple[SourceAttachment, ...]) -> str | None:
+def attachment_fingerprint(
+    attachments: tuple[SourceAttachment, ...], *, schema_version: int = 7
+) -> str | None:
+    # The draft Git-review format predates schema-7 attachment fingerprints.
+    # Its saved author text still carries the exact, validated source envelope.
+    if schema_version < 7 and all(
+        isinstance(item, ReviewDiffAttachment) for item in attachments
+    ):
+        return None
     return digest(attachment_payload(attachments).encode()) if attachments else None

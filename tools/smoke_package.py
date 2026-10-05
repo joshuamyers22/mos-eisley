@@ -191,6 +191,8 @@ def main() -> int:
             "test_conversation_tui.py",
             "test_conversation_tmux.py",
             "test_conversation_diff.py",
+            "test_conversation_diff_attachment.py",
+            "test_conversation_attachment_compatibility.py",
             "test_conversation_planning.py",
             "test_conversation_goal.py",
             "test_conversation_branch.py",
