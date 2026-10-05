@@ -119,6 +119,11 @@ from mos_eisley.task_state import (
     WorkspaceState,
 )
 from mos_eisley.tools.none import NoToolsDispatcher
+from mos_eisley.tools.repository_read import (
+    INSPECTION_SYSTEM,
+    RepositoryReadDispatcher,
+    RepositoryReadError,
+)
 
 
 def conversation_config(
@@ -146,8 +151,8 @@ def conversation_config(
         effort=live_chat.effort if live_chat is not None else "high",
         system=conversation_base_system(memory) + memory_system(memory) + task_system,
         initial_turns=turns,
-        max_iterations=8 if tools_enabled else 1,
-        max_tool_calls=32 if tools_enabled else 0,
+        max_iterations=(5 if live_chat is not None else 8) if tools_enabled else 1,
+        max_tool_calls=(6 if live_chat is not None else 32) if tools_enabled else 0,
         budget=live_budget or BudgetPolicy(),
     )
 
@@ -810,13 +815,25 @@ class ConversationController(Generic[StateT]):
         return receipt.claim
 
     def submit(
-        self, text: str, *, attachments: tuple[DiffAttachment, ...] = ()
+        self,
+        text: str,
+        *,
+        attachments: tuple[DiffAttachment, ...] = (),
+        inspect_repository: bool = False,
     ) -> None:
         if not text.strip():
             raise ValueError("message cannot be blank")
+        if inspect_repository and (
+            self.state.mode != "openai_live_conversation"
+            or self.state.live_chat is None
+            or not self.state.live_chat.repository_read
+            or attachments
+        ):
+            raise RepositoryReadError("Repository inspection is not authorized here.")
         self._append(
             ConversationEntry(
                 text=attached_prompt(text, attachments),
+                repository_inspection=inspect_repository,
                 diff_attachments=attachments,
                 steering_for=self.active_chat_index,
             )
@@ -1005,11 +1022,26 @@ class ConversationController(Generic[StateT]):
                     request_dispatcher = ScopedToolDispatcher(
                         self.tool_dispatcher, admitted_profile.selected_tools
                     )
-            if (
-                self.state.mode == "openai_live_conversation"
-                and request_dispatcher.definitions
-            ):
-                raise ValueError("live chat does not enable tools")
+            if self.state.mode == "openai_live_conversation":
+                inspect_turn = entry.repository_inspection
+                if inspect_turn:
+                    if (
+                        self.state.live_chat is None
+                        or not self.state.live_chat.repository_read
+                        or entry.diff_attachments
+                    ):
+                        raise ValueError(
+                            "repository inspection is not authorized for this session"
+                        )
+                    if request_dispatcher.definitions:
+                        raise ValueError(
+                            "repository inspection cannot combine with task tools"
+                        )
+                    request_dispatcher = RepositoryReadDispatcher(
+                        Path(self.state.workspace)
+                    )
+                elif request_dispatcher.definitions:
+                    raise ValueError("live chat does not enable task tools")
             classification = classify_context(
                 self.state.memory,
                 profile,
@@ -1043,6 +1075,12 @@ class ConversationController(Generic[StateT]):
                 + checkpoint_suffix
                 + profile_suffix
                 + attachment_suffix
+                + (
+                    INSPECTION_SYSTEM
+                    if self.state.mode == "openai_live_conversation"
+                    and entry.repository_inspection
+                    else ""
+                )
             )
             config = conversation_config(
                 projected.turns,
@@ -1171,6 +1209,7 @@ class ConversationController(Generic[StateT]):
                         )
                     completed = ConversationEntry(
                         text=entry.text,
+                        repository_inspection=entry.repository_inspection,
                         status="failed"
                         if review_result.verdict.decision == "infrastructure_error"
                         else "completed",
@@ -1214,6 +1253,7 @@ class ConversationController(Generic[StateT]):
                     completed = ConversationEntry(
                         text=entry.text,
                         diff_attachments=entry.diff_attachments,
+                        repository_inspection=entry.repository_inspection,
                         steering_for=entry.steering_for,
                         memory_context=entry.memory_context,
                         request_admission=entry.request_admission,

@@ -168,6 +168,8 @@ def main() -> int:
             "test_conversation_git_isolation.py",
             "test_wsl2_preflight.py",
             "test_conversation.py",
+            "test_live_repository_read.py",
+            "test_conversation_live_chat.py",
             "test_conversation_navigation.py",
             "test_conversation_review.py",
             "test_conversation_guidance_review.py",

@@ -1,0 +1,57 @@
+{
+  "scope_sha256": "ed453675e12205d3eac17438f08602b0e3f51b3a802480d1c04195e99864b5a7",
+  "scope": {
+    "base_commit": "5a6be4eff5470cf186cb7032b76598b5b0c1c20c",
+    "files": [
+      {
+        "path": "src/mos_eisley/conversation.py",
+        "sha256": "4e314a96aa8a83dc0dfeebffac3716a8362461b65d5ee25c06a76a198b1d8c0f"
+      },
+      {
+        "path": "src/mos_eisley/conversation_cli.py",
+        "sha256": "3d04df478f95f7bc13809c762deb3c077864bbd7e97ed54fcbd3f2b311b7240c"
+      },
+      {
+        "path": "src/mos_eisley/conversation_input.py",
+        "sha256": "b93f26ef08964ef34fed2b0eabfdd5a6866785c8e7142a4285fa13adc603fbf2"
+      },
+      {
+        "path": "src/mos_eisley/conversation_live_chat.py",
+        "sha256": "fe848637dfc376930c3ee08ff9bb6d3e654e62e6cdb8c07dc058c85933a8622e"
+      },
+      {
+        "path": "src/mos_eisley/conversation_state.py",
+        "sha256": "b907d2593899ab35a9545c1d7cec575d3f6fbe52f370f6c5d4c4bfe32ea6a655"
+      },
+      {
+        "path": "src/mos_eisley/conversation_tui.py",
+        "sha256": "4ca0c0f49924cd0f4b7a4bd295eab7fc4f42c706e9f2010effb05d48472ee2e4"
+      },
+      {
+        "path": "src/mos_eisley/providers/openai_responses.py",
+        "sha256": "cf7a7a8d1c00b2e299b298b254e59d5b6cd19dd02901147451f9c9111cdd30e4"
+      },
+      {
+        "path": "src/mos_eisley/providers/openai_spend.py",
+        "sha256": "6d65c5eaa3edc0efd6a5ce4a94f99a2ea8a5e4c2ce59ecc9fc3de67eb29d2e9b"
+      },
+      {
+        "path": "src/mos_eisley/tools/repository_read.py",
+        "sha256": "16cc4b0c7565289287a638695a76baa8868be61f59ee063b9059bdae4eb0a39e"
+      },
+      {
+        "path": "tests/test_conversation_live_chat.py",
+        "sha256": "0bdb3fabee7c7483cd4718285a992c25b74b6633e8a8dad4719e0aa3f5f14b90"
+      },
+      {
+        "path": "tests/test_live_repository_read.py",
+        "sha256": "447c53d5011d96822746f6886d397ef29d69d1ed51af58135a8ca31671ea6b03"
+      },
+      {
+        "path": "tools/smoke_package.py",
+        "sha256": "2efcdb245717337bf530a036e12d104b7ae34d08ab6e7c4131f4669ed00ac260"
+      }
+    ]
+  },
+  "algorithm": "SHA-256 of UTF-8 json.dumps(scope, sort_keys=True, separators=(comma, colon))"
+}

@@ -65,6 +65,9 @@ class ConversationMemoryContext(Contract):
 
 class ConversationEntry(Contract):
     text: Text
+    repository_inspection: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
     diff_attachments: Annotated[
         tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
     ] = Field(default=(), exclude_if=lambda value: not value)
@@ -104,6 +107,8 @@ class ConversationEntry(Contract):
 
     @model_validator(mode="after")
     def complete_answer(self) -> Self:
+        if self.repository_inspection and (self.is_review or self.diff_attachments):
+            raise ValueError("repository inspection requires a plain author turn")
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_payload(self.diff_attachments))
@@ -177,6 +182,9 @@ class ArchivedConversationEntry(Contract):
     """
 
     text: Text
+    repository_inspection: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
     diff_attachments: Annotated[
         tuple[DiffAttachment, ...], Field(max_length=MAX_ATTACHMENTS)
     ] = Field(default=(), exclude_if=lambda value: not value)
@@ -215,6 +223,8 @@ class ArchivedConversationEntry(Contract):
 
     @model_validator(mode="after")
     def consistent_references(self) -> Self:
+        if self.repository_inspection and (self.is_review or self.diff_attachments):
+            raise ValueError("repository inspection requires a plain author turn")
         if self.diff_attachments and (
             self.is_review
             or not self.text.endswith(attachment_payload(self.diff_attachments))
@@ -258,6 +268,7 @@ class ArchivedConversationEntry(Contract):
         else:
             ConversationEntry(
                 text=self.text,
+                repository_inspection=self.repository_inspection,
                 diff_attachments=self.diff_attachments,
                 status=self.status,
                 answer=self.answer,
@@ -282,6 +293,7 @@ class ArchivedConversationEntry(Contract):
             mode="json",
             include={
                 "text",
+                "repository_inspection",
                 "diff_attachments",
                 "status",
                 "answer",
@@ -307,6 +319,7 @@ class LiveChatIdentity(Contract):
     spend_policy_sha256: Digest
     spend_ledger_id: Digest
     artifacts_root: Annotated[str, Field(min_length=1, max_length=4096)]
+    repository_read: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class ConversationState(Contract, Generic[EntryT]):
@@ -440,6 +453,12 @@ class ConversationState(Contract, Generic[EntryT]):
         targets: set[int] = set()
         admitted_exchanges: set[int] = set()
         for index, entry in enumerate(self.entries):
+            if entry.repository_inspection and (
+                self.mode != "openai_live_conversation"
+                or self.live_chat is None
+                or not self.live_chat.repository_read
+            ):
+                raise ValueError("repository inspection differs from saved authority")
             if any(
                 attachment.workspace != self.workspace
                 for attachment in entry.diff_attachments

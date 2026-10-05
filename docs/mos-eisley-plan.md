@@ -1640,8 +1640,9 @@ options followed by a prompt. [User-defined session names and a resume picker](C
 now support optional labels, rename/clear controls, filtering and explicit selection
 for duplicate names. Explicit, spend-controlled OpenAI text turns are available in
 the TUI; the default preview needs no credentials or network connection.
-The full product contract below remains the target; repository tools and broader
-provider switching are not yet available in live conversation.
+The full product contract below remains the target. Explicit bounded read-only
+repository inspection is available for live `/inspect` turns; broader repository
+automation and provider switching remain unavailable in live conversation.
 
 **User direction, 2026-09-06:** Mos Eisley should be conversational like Codex.
 Opening `mos` starts an ongoing conversation in the selected workspace. Plain
@@ -2442,8 +2443,10 @@ the conversation documentation does not report an implementation.
 
 **User direction, 2026-09-12:** include a live `/diff` panel in product v1's
 conversation/TUI workstream. Its acceptance criteria are required for v1 release;
-the feature remains planned. Deliver it after the trusted read-only Git and
-workspace/path boundaries are available, alongside Git-backed coding integration.
+the scoped owner-operated gate is recorded in
+[the acceptance verification](CONVERSATION_DIFF_ACCEPTANCE_VERIFICATION.md).
+Trusted read-only Git and workspace/path boundaries are available for that scope;
+broader Git-backed coding integration remains a separate milestone.
 No package version is assigned by this entry. The interaction reference is the
 Claude Code newsletter from Lydia, received 2026-09-12, titled "This week in
 Claude Code: /resume on desktop, start sessions from your phone, and more",

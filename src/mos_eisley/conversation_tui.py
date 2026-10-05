@@ -903,11 +903,16 @@ class ConversationTUI:
             if isinstance(self.review_packet, ConversationLiveReviewPacket)
             else "recorded"
         )
+        inspection = (
+            "\n/inspect QUESTION permits bounded source reads to OpenAI"
+            if state.live_chat is not None and state.live_chat.repository_read
+            else ""
+        )
         return display_text(
             f"Mos Eisley • {mode} • {state.session_name or '(unnamed)'} • "
             f"{state.session_id[:8]} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full paths\n"
-            f"Project root: {root}"
+            f"Project root: {root}{inspection}"
         )
 
     def status(self) -> str:
@@ -983,6 +988,8 @@ class ConversationTUI:
             link = (
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
             )
+            if entry.repository_inspection:
+                link += " • repository inspection"
             parts.append(f"You [{index}] • {entry.status}{link}\n{entry.text}")
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")

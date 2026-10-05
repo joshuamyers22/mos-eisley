@@ -19,8 +19,8 @@
 | A recorded session silently becomes live, or vice versa | Persisted mode and exact resume identity; `tests/test_conversation_live_chat.py` | The local owner can create a separate session deliberately. |
 | A changed price policy or ledger permits unreviewed exposure | Current policy hash, ledger identity and blocked status checked at launch and per turn; spend controller rechecks policy and reserves atomically | Reviewed prices are operator assertions; calls made outside this ledger are outside its cap. |
 | A cancelled or crashed turn is retried | Attempt consumed before dispatch and exclusive artifact directory per attempt; cancellation test | Provider-side completion after interruption may still bill; inspect ledger and artifacts. |
-| Text or key reaches another endpoint | Fixed OpenAI endpoint and bounded HTTP client; no tools, proxies, or SDK retries | A compromised local process or provider is outside the single-owner host boundary. |
-| Malicious model output invokes local tools | No tool definitions or dispatcher in live runner; text only in the conversation controller | A user may still act on model text. |
+| Text or key reaches another endpoint | Fixed OpenAI endpoint and bounded HTTP client; default text chat has no tools, proxies, or SDK retries | A compromised local process or provider is outside the single-owner host boundary. |
+| Malicious model output invokes local tools | Default turns have no tool definitions or dispatcher. The separate explicit `/inspect ` read profile has only three fixed tools and its own [threat model](LIVE_REPOSITORY_INSPECTION_THREAT_MODEL.md). | A user may still act on model text; source prose can influence model answers. |
 | Artifact path substitution exposes receipts | Existing owner-only root and exclusive attempt directory; path checks in runtime | Trusted owner access can modify local files; checksums are not signatures. |
 
 The output is a chat answer, not G2 qualification or release evidence. A live

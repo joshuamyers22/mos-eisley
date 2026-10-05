@@ -7,12 +7,14 @@ from typing import Literal, Protocol
 from mos_eisley.conversation_diff_attachment import DiffAttachment
 
 
-def submission_command(text: str) -> Literal["review", "steer"] | None:
+def submission_command(text: str) -> Literal["review", "steer", "inspect"] | None:
     """Recognize typed submission commands; callers keep pasted text literal."""
     if text == "/review":
         return "review"
     if text == "/steer" or text.startswith("/steer "):
         return "steer"
+    if text.startswith("/inspect "):
+        return "inspect"
     return None
 
 
