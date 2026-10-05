@@ -486,6 +486,14 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
+**Historical native Windows survey, 2026-10-03:** the
+[contract survey](NATIVE_WINDOWS_CONTRACT_SURVEY.md) recommends extracting only
+`run.files.read_bounded` behind a typed platform boundary, preserving its current
+POSIX behavior and wrapper, and adding actual Windows-native installed-wheel
+import/refusal checks. Principal/schema migration and secure NTFS storage follow
+as separate batches. The implementation records below describe subsequent work;
+the survey itself does not qualify native CLI or platform support.
+
 The first native-platform extraction is the
 [bounded-reader contract](BOUNDED_FILE_READER_CONTRACT.md): an unchanged public
 wrapper, qualified POSIX adapter and explicit native Windows refusal. Source/wheel
