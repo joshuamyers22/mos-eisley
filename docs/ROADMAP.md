@@ -43,6 +43,9 @@ The [G5 paired whole-task preregistration protocol](G5_WHOLE_TASK_STUDY_PREREGIS
 records the comparison and analysis rules that can be fixed before outcomes. Its
 study-specific numeric thresholds, sampling design, independent groups, labels,
 splits and feasibility calculation remain unset; no G5 study is sealed or qualified.
+The [Stage-0 design packet](G5_STAGE0_BEST_PRACTICES_DESIGN_PACKET.md) specifies
+the proposed source-backed sampling and review procedure, pending actual
+custodian inputs and independent approval.
 
 **Continuous production study, 2026-09-25 — planned:** [plan §26.6](mos-eisley-plan.md#266-continuous-production-study-and-calibration)
 adds three separately gated levels after the applicable provider and execution
@@ -621,6 +624,18 @@ input and model authority. This is post-Windows product work, not part of the
 initial TUI or G2 live-review gate. See
 [plan §30](mos-eisley-plan.md#30-post-windows-embedded-terminal-emulator).
 
+**External tmux compatibility, 2026-10-03 — local macOS slice complete:** the
+[workspace guide](TMUX_COMPATIBILITY.md) documents an optional user-operated
+workspace and explicit detach/reattach versus durable resume. The installed-wheel
+[smoke check](../tools/smoke_tmux.py) exercises real attached PTY clients under tmux
+3.7c on macOS 15.1 arm64: drafts/paused queues, exclusive controller locking,
+split/resize/zoom, Unicode, transcript navigation, literal slash paste,
+queued-work cancellation, terminal restoration, server-loss resume and ordinary
+launch without tmux on PATH. Linux and actual Windows-hosted WSL2 runs remain
+pending; plan §16.0.5 is not fully qualified across its target platforms. No runtime
+Mos change or embedded backend is introduced, and §§27–29 remain prerequisites
+for the embedded-terminal phase.
+
 **Product direction, 2026-09-06:** the primary experience is a persistent terminal
 conversation launched with `mos`, following plan §16.0. Users can ask questions,
 plan, request changes, steer ongoing work, and request independent review within
@@ -628,6 +643,153 @@ the same session as those capabilities become available. A minimal conversationa
 TUI and safe session resume are an early product workstream alongside item 3;
 advanced visual polish can follow later. This is planned work, not an availability
 claim, and preserves the existing provider, spending, quality, and containment gates.
+
+**Version 2 feature-survey additions, 2026-09-25 — planned:** the
+[Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
+adds a bounded paid-review launch preview, exact file/range attachments, and a
+complete stdin/final-status contract for `mos exec` to the post-v1 product phase in
+[plan §31](mos-eisley-plan.md#31-version-2-conversation-and-automation-requirements).
+The 2026-09-27 Managed Agents survey also adds durable recovery across session,
+controller and sandbox failures, plus brokered credential attachment at approved
+network destinations, to that v2 phase. Injected-failure and credential-egress
+tests are required before either is advertised.
+The 2026-09-28 `resume` survey adds ranked name/ID discovery to the existing
+metadata-only resume picker, with deterministic ordering, existing scope and
+catalog limits, and stale-selection rechecks; see plan §31.6.
+They depend on the applicable v1 conversation, review, read and policy gates. They
+do not change v1 scope, grant new authority or advance an implementation gate.
+
+**Review scope prerequisites, 2026-10-03 — local recorded slice implemented:**
+[Bounded Git acquisition](GIT_REVIEW_SCOPES.md) and explicit `/review` presets
+support uncommitted, base-branch, commit and explicit file/range targets with frozen
+briefs and stale
+input rejection. Requires an explicit POSIX repository root; live review,
+full managed-worktree gates and Linux/Windows-hosted WSL2
+qualification remain pending.
+
+**Live diff and findings, 2026-10-03 — local POSIX slice implemented:**
+[/diff and F10](CONVERSATION_DIFF.md) provide paged staged/unstaged/untracked views,
+coalesced refresh and frozen author attachments. Retained review findings link to
+exact historical source, with stale labels and explicit feedback/fix follow-ups
+through current admission. JSON/SQLite preserve source provenance and correction
+links. Real macOS PTY focus/resize and rejection/resume checks accompany this slice;
+platform, managed-worktree and live execution/review gates remain pending.
+
+**Explicit planning, 2026-10-03 — recorded conversation slice implemented:**
+[/plan](CONVERSATION_PLANNING.md) selects and persists read-only planning with
+immutable per-message modes. Explicit implementation/finding-fix handoffs use the
+creator workflow constraints and existing budgets, without new approval prompts.
+Recorded replay, JSON/SQLite resume and admission/tool boundaries cover this slice;
+live creator execution/approval and platform qualification remain gated. Durable
+goals (§31.10) follow planning in the delivery order; their recorded controller
+slice is now implemented below.
+
+**Durable goals, 2026-10-04 — recorded controller slice implemented:**
+[/goal](CONVERSATION_GOALS.md) adds explicit objectives, retained revisions and
+owner-scoped JSON/SQLite persistence. Completion requires current verification,
+executed-test evidence, required independent review and a bounded separate semantic
+adapter. Progress/stall counters, aggregate reservations, required-job check-ins,
+classified failures and exact-operation reconciliation preserve budgets and stop
+states across restart. Shared terminal controls expose decisions and missing work.
+The shipped recorded terminal cannot certify repository completion without qualified
+execution-evidence and semantic adapters. Live background execution, retries,
+unattended continuation and scheduling remain gated. Forks/side chats (§31.11)
+follow this slice and are now implemented below.
+
+**Forks and side chats, 2026-10-04 — recorded controller slice implemented:**
+[/fork and /side](CONVERSATION_BRANCHES.md) select completed owner-scoped context,
+retain source provenance and task exposure, and reserve disjoint fork allowances
+before private JSON/SQLite publication. Side requests share budgets without
+interrupting the author or injecting answers into main context; content remains
+transient until explicit attachment. Bounded deadlines, conservative restart and
+exact-request reconciliation prevent replay or budget resets. TUI/plain/JSON share
+inspection and controls while retaining drafts and steering. Live provider/task/child
+integration and isolated worktrees remain qualified-gate work. Implementation-agent
+inspection (§31.12) follows; its interface is implemented below.
+
+**Implementation-agent inspection, 2026-10-04 — interface implemented:**
+[/agent and /subagents](CONVERSATION_AGENTS.md) provide shared plain/JSON/TUI
+inspection of authorized controller projections and digest-bound retained reports.
+Owner/parent/workspace checks, stale assignments, concurrent revisions and sealed
+review boundaries fail closed without changing state/spend. An explicit local recorded read-only child host now supplies retained
+controller records and committed reports; writable implementation children and
+production connection remain gated on §14.2 execution/VCS/E2 qualification. Session scheduling (§31.15) follows in §31.13's sequence, with its
+own prerequisites still required.
+
+**Session scheduling, 2026-10-04 — inert qualification fixtures implemented:**
+[Durable-goal/queue assessment](CONVERSATION_SCHEDULING.md) and explicit-clock/local
+event fixtures cover bounded cadence, expiry, fire/resource limits, steering
+priority, duplicate coalescing and conservative restart. The test-only host bridge
+uses the existing queue and goal budgets; exact request-bound reservations survive
+lost acknowledgements without replay or refund. Real snapshot/SQLite recovery keeps
+goal uncertainty. Durable recorded admission follows below.
+
+**Durable schedule storage/admission, 2026-10-04 — recorded controller implemented:**
+[Scheduling records](CONVERSATION_SCHEDULING.md) persist intents and queue entries
+atomically through existing snapshot/SQLite stores. Trusted host APIs enforce
+revision/scope bindings and task limits; dispatch revalidates the exact request and
+late user input supersedes queued wakeups. Cancellation and cold recovery retain
+charges and uncertainty without replay. Tests cover concurrent controls, store-owner
+exclusion, lost acknowledgements and archived SQLite state. `/loop` and active recorded timers are now implemented below; writable/live
+execution, external trusted handlers and ingress remain gated.
+
+**Active recorded timers and local child connection, 2026-10-04 — implemented:**
+[Local background qualification](LOCAL_BACKGROUND_QUALIFICATION.md) adds one active
+terminal timer owner, bounded waiters, user-priority queue admission, explicit
+resume after host loss and durable shutdown. Trusted host APIs run an explicitly
+approved fresh read-only child through the existing offline container, reserve
+parent resources before dispatch and retain required jobs/reports in the existing
+session stores. `/agent` reads current reports; selected exact committed child
+results can wake the same queue without injecting report content. Recorded source,
+wheel and real Docker probes qualify this narrow local route. Paid providers,
+writable execution/VCS/E2, external ingress and other platform evidence remain gated.
+
+**Writable recorded local coding, 2026-10-04 — bounded profile implemented:**
+[Writable local coding](WRITABLE_LOCAL_CODING.md) adds creator-authored executable
+tests before exact plan/test review and creator approval, isolated VCS staging,
+protected test packages and a separately approved integration operation. Recorded
+`pure_python_v1` children return a patch and test receipt; the creator owns final
+review, one-use fast-forward integration and fresh verification of the actual tree.
+Required integration jobs prevent a failed or unintegrated handoff from completing
+a goal. Owned cancellation, cumulative reservations, restart uncertainty and both
+session stores are covered by focused and real Docker qualification. This narrow
+local route does not promote E2's default delegation policy or activate arbitrary
+Python/shell, paid providers, other repository profiles or other platforms.
+
+**Codex feature-survey additions, 2026-10-03 — broader work planned:** deliver direct review
+scope presets and revision-bound findings in the diff panel first, then explicit
+planning and durable goals, followed by conversation forks/side chats and
+implementation-agent inspection. [Plan §§31.7–31.13](mos-eisley-plan.md#317-direct-review-scope-selection)
+define acceptance and dependency order. Reuse the trusted Git/read broker,
+critic/judge pipeline, task/checkpoint ledgers, recovery and child controller;
+preserve structural blindness and current release gates. These are post-v1
+requirements; the local recorded slice above grants no new execution/publication authority.
+Optional Codex development reviews remain advisory and do not replace CI or
+required independent review.
+
+**Claude Code autonomy-survey additions, 2026-10-03 — planned:** strengthen
+[durable goals (§31.10)](mos-eisley-plan.md#3110-durable-goals) with controller
+completion gates, evidence-based evaluation, measurable progress/stall detection,
+required-background-work states and bounded error recovery. Completion and progress
+checks lead the goal slice; revision-bound verification, structural review
+blindness and cumulative budgets remain authoritative. Add
+[work-unit/child completion checks (§31.14)](mos-eisley-plan.md#3114-work-unit-and-child-completion-checks)
+through existing trusted lifecycle handlers. Deliver
+[session scheduling and event-driven wakeups (§31.15)](mos-eisley-plan.md#3115-later-session-scoped-scheduling-and-event-driven-wakeups)
+after qualified goal/recovery foundations and the existing feature sequence, with
+explicit scope, expiry, cancellation, deduplication and fresh admission. External
+events require qualified owner/source and ingress boundaries. These are post-v1
+requirements, not implementation or unattended/publication authority claims.
+
+**Version 3 Managed Agents interoperability — planned:**
+[plan §32](mos-eisley-plan.md#32-version-3-managed-agent-interoperability) permits
+an optional Claude Managed Agents client to use the qualified narrow outward MCP
+interface for owner-scoped review preflight, status and bounded replay. The
+canonical multi-provider loop, structural critic/judge isolation, local policy and
+owner-controlled evidence remain Mos Eisley's authority. Begin with an inert
+external-client fixture after E4; credentialed use needs a separate data-egress
+decision and applicable conformance gates. This is a v3 direction, not an
+implemented integration or a change to current release scope.
 
 **Data ownership and storage, 2026-09-06:** keep saved conversations, replay,
 evaluation evidence, and model-selection records under one user's ownership.
@@ -669,7 +831,12 @@ loading and telemetry adapters remain planned.
    skeleton, request-bound fixtures, quorum/evidence policy, artifacts and replay.
 2. **Implemented:** canonical multi-turn/tool protocol, inert fixture tool, model
    registry, deterministic effort resolution, byte budgets and boundary journal.
-3. **In progress — live read-only review:** OpenAI Responses adapter and explicit
+3. **In progress — live read-only review:** The explicit one-provider Anthropic
+   Sonnet 5 / Opus 5.5 profile passed its owner-signed three-slot campaign and
+   separately admitted live launch on 2026-09-27; see the
+   [G2 closeout](G2_OWNER_OPERATED_CONTRACT.md#executed-g2-scope-2026-09-27).
+   The default two-provider policy remains pending. The earlier work below is
+   retained as an implementation history. OpenAI Responses adapter and explicit
    one-prompt command implemented with documented capabilities, data-transfer
    acknowledgement, bounded I/O, reviewed-price per-response spending reservations
    and contract tests. Shared local cross-process spending admission is implemented.
@@ -954,7 +1121,10 @@ loading and telemetry adapters remain planned.
    foundations; managed Git operations belong to item 7 / G4 and do not extend G2.
    See [plan §16.0.4](mos-eisley-plan.md#1604-repository-grouped-sessions-and-isolated-worktrees)
    for lifecycle, migration, cleanup and acceptance requirements.
-   **V1 — live full-screen diff panel:** deliver `/diff` beside the conversation
+   **V1 — live full-screen diff panel; local POSIX slice implemented:**
+   `/diff` now shows paged changes and frozen source attachments, with retained
+   findings and explicit follow-ups; see [the guide](CONVERSATION_DIFF.md).
+   Complete applicable platform/workspace qualification for `/diff` beside the conversation
    after the trusted read-only Git and workspace/path boundaries are available,
    alongside item 7's Git-backed coding integration. Show changed files, added/removed
    counts and a live diff; let users attach selected, frozen lines to the next prompt.

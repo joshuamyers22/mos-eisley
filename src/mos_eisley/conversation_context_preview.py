@@ -9,6 +9,7 @@ from mos_eisley.conversation import (
     conversation_config,
     prepare_conversation_request,
 )
+from mos_eisley.conversation_branch import branch_system
 from mos_eisley.conversation_compaction import compaction_system
 from mos_eisley.conversation_context import (
     ContextSelection,
@@ -16,8 +17,10 @@ from mos_eisley.conversation_context import (
     describe_selection,
     project_context,
 )
+from mos_eisley.conversation_goal import goal_system
 from mos_eisley.conversation_limits import ContextByteLimit
 from mos_eisley.conversation_memory import memory_system
+from mos_eisley.conversation_planning import planning_system
 from mos_eisley.conversation_pressure import (
     ContextPressureAdvisory,
     ContextPressureBoundary,
@@ -162,7 +165,20 @@ def preview_context(
     config = conversation_config(
         projected.turns,
         state.memory,
-        task_system="" if compaction is None else compaction_system(compaction),
+        task_system=("" if compaction is None else compaction_system(compaction))
+        + planning_system(
+            state.entries[index].interaction_mode,
+            state.entries[index].implementation_request,
+        )
+        + goal_system(
+            next(
+                (g for g in state.goals if g.goal_id == state.entries[index].goal_id),
+                None,
+            )
+        )
+        + branch_system(
+            None if state.fork_origin is None else state.fork_origin.context
+        ),
     )
     fingerprint = canonical_fingerprint(
         RequestContext(system=config.system, turns=projected.turns)
@@ -180,7 +196,13 @@ def preview_context(
         request_max_bytes=request_preview.max_bytes,
         known_breakdown=ContextPressureBreakdown(
             base_system_bytes=len(
-                conversation_base_system(state.memory).encode("utf-8")
+                (
+                    conversation_base_system(state.memory)
+                    + planning_system(
+                        state.entries[index].interaction_mode,
+                        state.entries[index].implementation_request,
+                    )
+                ).encode("utf-8")
             ),
             conversation_bytes=sum(
                 len(canonical_bytes(turn)) for turn in projected.turns

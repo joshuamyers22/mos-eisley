@@ -14,6 +14,7 @@ from mos_eisley.core.models import (
     ReviewResult,
     canonical_bytes,
 )
+from mos_eisley.git_review import GitReviewScope, revalidate_git_scope
 from mos_eisley.project_guidance_review import PreparedGuidanceReview
 from mos_eisley.providers.recorded import Cassette, RecordedReviewer
 from mos_eisley.review.pipeline import review, validate_roster
@@ -25,7 +26,7 @@ REVIEW_FOLLOWUP = "What should be fixed?"
 
 
 class ConversationReviewPacket(Contract):
-    schema_version: Literal[1, 2] = 1
+    schema_version: Literal[1, 2, 3, 4] = 1
     mode: Literal["recorded_conversation_review"] = "recorded_conversation_review"
     brief: Brief
     cassette: Cassette
@@ -33,11 +34,24 @@ class ConversationReviewPacket(Contract):
     guidance_review: PreparedGuidanceReview | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    git_scope: GitReviewScope | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
-        if (self.schema_version == 2) != (self.guidance_review is not None):
-            raise ValueError("Guided terminal reviews require packet schema 2.")
+        if (self.schema_version in {2, 4}) != (self.guidance_review is not None):
+            raise ValueError("Guided terminal reviews require packet schema 2 or 4.")
+        if (self.schema_version in {3, 4}) != (self.git_scope is not None):
+            raise ValueError(
+                "Git-scoped terminal reviews require packet schema 3 or 4."
+            )
+        if self.git_scope is not None and (
+            not self.git_scope.complete or self.git_scope.brief() != self.brief
+        ):
+            raise ValueError(
+                "Review requires a complete Git scope matching its exact brief."
+            )
         if (
             self.guidance_review is not None
             and self.guidance_review.brief != self.brief
@@ -70,6 +84,11 @@ class ConversationLiveReviewPacket(Contract):
     manifest_sha256: Digest
     guidance_review: PreparedGuidanceReview
 
+    @property
+    def git_scope(self) -> None:
+        """Live reviews retain their separately approved prepared brief."""
+        return None
+
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
         if (
@@ -91,6 +110,8 @@ async def run_conversation_review(
 ) -> ReviewResult:
     # Only the explicit packet is available here: never a controller or transcript.
     packet = ConversationReviewPacket.model_validate_json(packet.model_dump_json())
+    if packet.git_scope is not None:
+        await asyncio.to_thread(revalidate_git_scope, packet.git_scope)
     if packet.guidance_review is not None:
         if validate_guidance is None:
             raise ValueError(
@@ -112,6 +133,8 @@ async def run_conversation_review(
     if packet.guidance_review is not None:
         assert validate_guidance is not None
         validate_guidance()
+    if packet.git_scope is not None:
+        await asyncio.to_thread(revalidate_git_scope, packet.git_scope)
     return result
 
 
