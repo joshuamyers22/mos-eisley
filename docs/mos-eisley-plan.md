@@ -4580,6 +4580,14 @@ artifact documented for release. Until then, WSL2 remains a planned support targ
 
 ### 27.2 Version 0.1.1 — full native Windows support
 
+**Implementation preparation, 2026-10-03:** the
+[native Windows contract survey](NATIVE_WINDOWS_CONTRACT_SURVEY.md) maps current
+POSIX dependencies and defines the first bounded batch: preserve
+`run.files.read_bounded` behind a platform contract, qualify its POSIX adapter,
+and verify explicit native Windows import/refusal from an installed wheel.
+This establishes one invariant-based seam before principal/schema migration;
+it supplies no native reader, private storage, CLI parity or Windows support claim.
+
 Version 0.1.1 runs directly from Windows Terminal, PowerShell, or cmd and provides
 parity for every Mos Eisley capability advertised for macOS/Linux in that release.
 Conversation-only operation, a WSL subprocess, or a Linux container launcher does

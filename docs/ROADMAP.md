@@ -486,6 +486,13 @@ parity. The detailed scope and release gates are in
 WSL2 support does not advance a feature's authority gate. Native Windows work follows
 the same G4 containment and VCS prerequisites before TEST or WRITE is enabled.
 
+**Native Windows first batch, 2026-10-03 — defined, not implemented:** the
+[contract survey](NATIVE_WINDOWS_CONTRACT_SURVEY.md) recommends extracting only
+`run.files.read_bounded` behind a typed platform boundary, preserving its current
+POSIX behavior and wrapper, and adding actual Windows-native installed-wheel
+import/refusal checks. Principal/schema migration and secure NTFS storage follow
+as separate batches. This foundation does not qualify native CLI or platform support.
+
 **Application updates, 2026-09-12 — planned:** the finished product must notify
 installed users when maintainers publish a compatible release and offer release
 notes, Update now, Remind me later and Skip this version. Deliver a verified release
