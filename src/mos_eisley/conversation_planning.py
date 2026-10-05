@@ -3,7 +3,12 @@
 from typing import Literal
 
 
-def planning_system(mode: Literal["conversation", "plan"], implementation: bool) -> str:
+def planning_system(
+    mode: Literal["conversation", "plan"],
+    implementation: bool,
+    *,
+    live_coding: bool = False,
+) -> str:
     if mode == "plan":
         return (
             "\nPlanning mode: investigate requirements using only explicit history and "
@@ -22,7 +27,7 @@ def planning_system(mode: Literal["conversation", "plan"], implementation: bool)
             "planning mode."
         )
     if implementation:
-        return (
+        workflow = (
             "\nExplicit implementation request: enter the creator-led workflow. Freeze "
             "the concrete plan and creator-authored tests; obtain independent "
             "critic/judge "
@@ -35,7 +40,13 @@ def planning_system(mode: Literal["conversation", "plan"], implementation: bool)
             "Do not request routine human confirmation for already-authorized work. "
             "Revalidate current policy, revisions and capabilities; mode selection "
             "grants "
-            "no execution, publication or expired approval authority. In this recorded "
-            "conversation, describe the workflow without claiming live execution."
+            "no execution, publication or expired approval authority. "
+        )
+        return workflow + (
+            "Use only the installed live creator workflow within its selected "
+            "scope and ceilings."
+            if live_coding
+            else "In this recorded conversation, describe the workflow "
+            "without claiming live execution."
         )
     return ""

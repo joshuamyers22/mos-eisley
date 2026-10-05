@@ -330,6 +330,8 @@ class ConversationController(ConversationCodingController[StateT]):
         ) = None,
         run_live_chat: Callable[[AgentConfig, int], Awaitable[AgentResult]]
         | None = None,
+        run_live_coding: Callable[[AgentConfig, int], Awaitable[AgentResult]]
+        | None = None,
         load_entry: Callable[[int, ArchivedConversationEntry], ConversationEntry]
         | None = None,
         input_limits: ActiveInputLimits | None = None,
@@ -464,6 +466,7 @@ class ConversationController(ConversationCodingController[StateT]):
         self.validate_review = validate_review
         self.run_live_review = run_live_review
         self.run_live_chat = run_live_chat
+        self.run_live_coding = run_live_coding
         self.load_entry = load_entry
         self.input_limits = input_limits
         self.pending_limits = pending_limits
@@ -1218,6 +1221,29 @@ class ConversationController(ConversationCodingController[StateT]):
         # Select and admit the exact immutable context before persisting running
         # or burning an attempt. The config is reused after dispatch admission.
         config: AgentConfig | None = None
+        if (
+            entry.implementation_request
+            and self.state.live_chat is not None
+            and self.state.live_chat.coding_selection_sha256 is not None
+            and self.run_live_coding is None
+        ):
+            raise ValueError(
+                "Saved live coding selection requires its exact workflow runner."
+            )
+        if (
+            entry.implementation_request
+            and self.run_live_coding is not None
+            and (
+                self.state.fork_origin is not None
+                or entry.goal_id is not None
+                or self.state.branch_budget is not None
+                or self.task_scope is not None
+            )
+        ):
+            raise ValueError(
+                "Live coding requires an ordinary session without a "
+                "separate task/goal/fork budget."
+            )
         request_dispatcher: ToolDispatcher = NoToolsDispatcher()
         if not is_review:
             author_compaction = (
@@ -1352,7 +1378,11 @@ class ConversationController(ConversationCodingController[StateT]):
                     and entry.repository_inspection
                     else ""
                 )
-                + planning_system(entry.interaction_mode, entry.implementation_request)
+                + planning_system(
+                    entry.interaction_mode,
+                    entry.implementation_request,
+                    live_coding=self.run_live_coding is not None,
+                )
                 + goal_system(self.goal_for_entry(entry))
                 + branch_system(
                     None
@@ -1439,7 +1469,9 @@ class ConversationController(ConversationCodingController[StateT]):
                         (
                             conversation_base_system(self.state.memory)
                             + planning_system(
-                                entry.interaction_mode, entry.implementation_request
+                                entry.interaction_mode,
+                                entry.implementation_request,
+                                live_coding=self.run_live_coding is not None,
                             )
                         ).encode("utf-8")
                     ),
@@ -1565,7 +1597,13 @@ class ConversationController(ConversationCodingController[StateT]):
                     assert config is not None
                     if self.state.mode == "openai_live_conversation":
                         assert self.run_live_chat is not None
-                        result = await self.run_live_chat(config, consumed)
+                        if (
+                            entry.implementation_request
+                            and self.run_live_coding is not None
+                        ):
+                            result = await self.run_live_coding(config, consumed)
+                        else:
+                            result = await self.run_live_chat(config, consumed)
                     else:
                         recorded = RecordedAgentClient(
                             AgentCassette(

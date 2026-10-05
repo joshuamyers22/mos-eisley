@@ -384,6 +384,9 @@ class LiveChatIdentity(Contract):
     spend_ledger_id: Digest
     artifacts_root: Annotated[str, Field(min_length=1, max_length=4096)]
     repository_read: bool = Field(default=False, exclude_if=lambda value: not value)
+    coding_selection_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
 
 
 class ConversationState(Contract, Generic[EntryT]):
