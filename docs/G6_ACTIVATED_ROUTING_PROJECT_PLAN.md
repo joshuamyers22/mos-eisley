@@ -208,7 +208,7 @@ fail closed according to the signed fallback policy. Re-entry requires corrected
 evidence and a new independent activation decision.
 
 This plan follows the staged gates, work register, independent verification and
-rollback structure in the [production project template's GHP project plan](../../production-project-template/docs/GHP_INTEGRATION_PROJECT_PLAN.md).
+rollback structure in the [production project template's GHP project plan](https://github.com/joshuamyers22/production-project-template/blob/c5b331b82355a6dca150f0b1730e9f0cd6133361/docs/GHP_INTEGRATION_PROJECT_PLAN.md).
 The controlling routing requirements remain [plan §26.4](mos-eisley-plan.md#264-delivery-order-and-accountable-gates),
 the [project review](PROJECT_REVIEW_2026-09-08.md), and the
 [activation](ROUTING_ACTIVATION_ELIGIBILITY.md) and

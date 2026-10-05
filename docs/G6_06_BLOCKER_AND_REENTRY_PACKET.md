@@ -9,12 +9,12 @@ cohort, authorize dispatch or assess outcomes.
 
 ## Bound evidence and present constraint
 
-The private [hold record](../private/g6_06_hold_pending_evidence_20260928T0139Z.json)
+The private hold record (`private/g6_06_hold_pending_evidence_20260928T0139Z.json`, operator-local and excluded from Git)
 has SHA-256
 `19804cddd28165432c57820439121f1e46668b6520b1637baf8bbd79d4137954`.
 It binds the [G606-03 candidate freeze](G6_06_G60603_REPRODUCTION_FREEZE.md),
-the [local self-recheck record](../private/g60603-self-recheck-20260928T0123Z.json)
-and the [fresh replay index](../private/g60603-self-recheck-replay-index-20260928T0123Z.json).
+the local self-recheck record (`private/g60603-self-recheck-20260928T0123Z.json`, operator-local and excluded from Git)
+and the fresh replay index (`private/g60603-self-recheck-replay-index-20260928T0123Z.json`, operator-local and excluded from Git).
 These private files are Git-ignored and mode `0600`; retain or transfer them
 separately under approved custody.
 The hold record supersedes the earlier local no-go proposal index (SHA-256
@@ -79,7 +79,7 @@ for later review, without changing their authority fields.
    Bind the canonical baseline index, ordered source set, suite manifest,
    `pyproject.toml`, `uv.lock`, runner, actual broker build, negative-case
    protocol and command digests, distinct producer/reproducer and host IDs,
-   freeze time and expiry. Keep the [candidate's invalid anchor template](../private/g60603-candidate-20260928T0045Z/anchor-inputs.json)
+   freeze time and expiry. Keep the candidate's invalid anchor template (`private/g60603-candidate-20260928T0045Z/anchor-inputs.json`, operator-local and excluded from Git)
    invalid until these claims are observed and independently retained.
 4. The distinct reviewer transfers the verified archive to the separate host,
    runs the exact frozen command against a fresh private output path, and

@@ -200,7 +200,7 @@ executable race/crash test matrix; safe audit/retention and on-call recovery;
 and a bounded verification budget. The reviewer should compare this draft with
 [plan §26.4](mos-eisley-plan.md#264-delivery-order-and-accountable-gates),
 [R3](adaptive-reasoning-routing.md#delivery-gates), and the
-[production project template's verification guidance](../../production-project-template/docs/PRODUCTION_BLUEPRINT.md).
+[production project template's verification guidance](https://github.com/joshuamyers22/production-project-template/blob/c5b331b82355a6dca150f0b1730e9f0cd6133361/docs/PRODUCTION_BLUEPRINT.md).
 
 Until those decisions are recorded and independently reviewed, G6-01 remains a
 draft. G6-02 may use synthetic fixtures to test exact resolution only after its

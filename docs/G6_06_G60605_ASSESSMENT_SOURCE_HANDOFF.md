@@ -11,7 +11,7 @@ source-custody decision, assessment decision or next-cohort authority.
 ## Candidate identity and files
 
 The local package is
-[`private/g60605-candidate-20260928T0115Z`](../private/g60605-candidate-20260928T0115Z).
+`private/g60605-candidate-20260928T0115Z` (operator-local and excluded from Git).
 Its directory is mode `0700`, files are mode `0600`, and Git ignores it. The
 `candidate-inventory.json` SHA-256 is
 `099d1677fbcb0d2a1506df208ce9f98fd39d93ffc87f8df0cbf909687c02a063`.

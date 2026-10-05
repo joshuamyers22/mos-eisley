@@ -11,7 +11,7 @@ uncommitted files.
 ## Candidate identity
 
 The local package is
-[`private/g60603-candidate-20260928T0045Z`](../private/g60603-candidate-20260928T0045Z).
+`private/g60603-candidate-20260928T0045Z` (operator-local and excluded from Git).
 Its directory is mode `0700`, and each file is mode `0600`. It is ignored by
 Git, so transfer it separately to an independently controlled location. The
 `candidate-freeze.json` file has SHA-256

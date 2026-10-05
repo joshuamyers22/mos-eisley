@@ -10,7 +10,7 @@ approved ceilings, source review, G6-05 go, cohort release or dispatch authority
 ## Candidate identity and files
 
 The local package is
-[`private/g60604-candidate-20260928T0104Z`](../private/g60604-candidate-20260928T0104Z).
+`private/g60604-candidate-20260928T0104Z` (operator-local and excluded from Git).
 The directory is mode `0700` and files are mode `0600`; Git ignores it. Its
 `candidate-inventory.json` SHA-256 is
 `e583b8240661397d235f765a66065857ac686f4d1de977f97935f17fd0fd6e07`.
