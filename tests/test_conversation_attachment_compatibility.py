@@ -74,14 +74,16 @@ class AttachmentCompatibilityTests(IsolatedAsyncioTestCase):
 
             legacy = restored.model_dump(mode="json")
             admission = legacy["entries"][1]["request_admission"]
-            admission["schema_version"] = 6
+            admission["schema_version"] = 5
             admission.pop("diff_attachment_sha256")
             self.assertEqual(
-                ConversationState.model_validate_json(json.dumps(legacy)).entries[1].diff_attachments,
+                ConversationState.model_validate_json(json.dumps(legacy))
+                .entries[1]
+                .diff_attachments,
                 (review,),
             )
             # Legacy workspace excerpts never lose their schema-7 binding.
-            legacy["entries"][0]["request_admission"]["schema_version"] = 6
+            legacy["entries"][0]["request_admission"]["schema_version"] = 5
             legacy["entries"][0]["request_admission"].pop("diff_attachment_sha256")
             with self.assertRaisesRegex(ValueError, "diff attachments"):
                 ConversationState.model_validate_json(json.dumps(legacy))
