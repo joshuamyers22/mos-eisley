@@ -1,6 +1,7 @@
 # Work note: budgeted live session coding qualification
 
-- Status: blocked by one uncertain provider exchange; qualification incomplete.
+- Status: provider charge reconciled; live qualification exposed further prompt
+  contract defects; qualification incomplete.
 - Owner: Joshua Myers authorizes operation; Codex executes and records evidence.
 - Date: 2026-10-05.
 - Original candidate: `d7d203b`; corrected runtime candidate: `d2ca0c3`.
@@ -136,6 +137,41 @@ artifacts. No claim of prospective evaluation eligibility or release readiness
 follows from this campaign.
 
 ## Required next step
+
+### October 5 reconciliation and Sol campaign
+
+The complete October 5 OpenAI CSV, together with Joshua's explicit confirmation
+that all credential usage is included and only qualification used Astra, identifies
+one unmatched Astra request: 925 input and 2,324 output tokens, no cache writes.
+The original 282,500 micro-USD hold was reconciled to 125,450 micro-USD. Its original
+uncertain receipt remains unchanged; replaying the same reconciliation was inert.
+The authority is the authenticated owner session attestation. A local executor
+integrity seal is not represented as an independently enrolled human signature.
+After reconciliation the ledger contained 993,481 micro-USD and no unresolved entries.
+
+A fresh predeclared campaign selected qualified Sol/medium as creator, retaining
+the same other routes, exact `d2ca0c3` source, worker, ledger and $10 cap. Success
+passed ten live calls with source-only commit `67ed882848b26b4c40a63cc9e9cf9b6410a6cef2`
+and fresh final frozen tests. Correction stopped at another baseline broker error;
+one exact unpaid replay and eight bounded diagnostic exchanges returned valid
+failed-test receipts. The original error remains unconfirmed. Rejection did not
+pass: critics/judge accepted a plan explaining the impossible requirements and
+creator approval allowed child dispatch. No integration occurred. Stage
+cancellation did not reach staging: creator approval misread the offline allowance
+as cumulative workflow authority and requested revision.
+
+The next source correction makes plan acceptance explicitly authorize feasible
+coding-child dispatch, requires revision for an impossible/stopping plan, and gives
+creator approval the same phase and budget interpretation as critics/judge. The
+existing regression now checks approval receives the same bound reviewed artifact.
+No original result is replaced; all four scenarios must restart against the next
+committed candidate. The held-call cancellation scope has not been dispatched.
+All 18 focused workflow tests, Ruff and Pyright with the project interpreter passed
+for this correction. The repository uses unittest discovery; initial pytest and
+direct module invocations did not load the suite and are not passing checks.
+
+The following historical next-step text described the previous blocking hold;
+that reconciliation is now complete:
 
 Obtain independent provider request/billing evidence and accountable reconciliation
 of ledger entry

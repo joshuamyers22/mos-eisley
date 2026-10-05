@@ -512,7 +512,11 @@ class LiveCodingWorkflow:
             "workflow; the brief assignment describes one unpaid offline "
             "verification invocation, not its live model or cumulative budget. "
             "At phase=plan assess the proposed plan and frozen tests; missing "
-            "implementation receipts are expected. At phase=implementation "
+            "implementation receipts are expected. Acceptance permits coding-child "
+            "dispatch: the plan must be executable and capable of satisfying the "
+            "full assigned objective. A plan that correctly explains why the "
+            "requirements are impossible or proposes stopping needs revision; "
+            "do not accept it as an implementation plan. At phase=implementation "
             "assess the candidate and real test receipt before integration; "
             "post-integration receipts are expected only after approval."
         )
@@ -580,6 +584,7 @@ class LiveCodingWorkflow:
                     "this artifact within the"
                     " selected scope, never additional machine authority."
                 )
+                + review_context
                 + response_schema(CreatorApproval),
                 packet_bytes(
                     {

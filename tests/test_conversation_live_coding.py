@@ -376,7 +376,7 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
             (self.artifacts / ("1" * 32) / "coding-0000/completion.json").is_file()
         )
         for role, packet in zip(self.models.roles, self.models.packets, strict=True):
-            if role in {"critic", "judge"}:
+            if role in {"critic", "judge", "approve"}:
                 # The explicit task remains visible; unrelated author history does not.
                 self.assertNotIn("request", packet)
                 self.assertNotIn("gpt-6-astra", json.dumps(packet))
