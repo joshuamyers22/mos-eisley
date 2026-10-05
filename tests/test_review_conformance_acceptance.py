@@ -15,6 +15,11 @@ from mos_eisley.run.review_conformance_acceptance import (
     evaluate_review_conformance,
     review_role_profile,
 )
+from mos_eisley.run.review_conformance_authorization import (
+    ReviewConformanceScope,
+    review_conformance_scope,
+    verify_review_conformance_authorization,
+)
 from mos_eisley.run.review_conformance_observation import (
     ReviewObservationPolicy,
     make_review_probe_observation,
@@ -33,6 +38,17 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
         fixture = RuntimeEvidenceFixture()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+
+        async def load(scope: ReviewConformanceScope):
+            # Issue each synthetic phase grant at its actual admission boundary.
+            # Keep the policy's bounded allowance; expiry-specific fixtures retain
+            # their short default, and the production controller keeps its limits.
+            fixture.timestamp = datetime.now(UTC)
+            return fixture.certificate(
+                scope, lifetime_seconds=fixture.policy.max_authorization_seconds
+            )
+
+        self.enterContext(patch.object(fixture, "load_certificate", side_effect=load))
         return fixture
 
     def prepare_attempts(self) -> None:
@@ -183,6 +199,22 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
 
 
 class ReviewAcceptanceTests(ReviewAcceptanceFixture):
+    async def test_phase_grant_uses_current_admission_time_and_policy_bound(self):
+        fixture = self.create_fixture()
+        probe = fixture.probe()
+        scope = review_conformance_scope(
+            probe.controller.preview, **fixture.runtime.model_dump()
+        )
+        fixture.timestamp = datetime.now(UTC) - timedelta(days=1)
+        signed = await fixture.load_certificate(scope)
+        verified = verify_review_conformance_authorization(
+            signed, fixture.policy, scope, datetime.now(UTC)
+        )
+        self.assertLessEqual(
+            (verified.valid_until - verified.issued_at).total_seconds(),
+            fixture.policy.max_authorization_seconds,
+        )
+
     def test_three_precommitted_verified_probes_accept_only_exact_profile(self):
         before = [fixture.base.ledger.path.read_bytes() for fixture in self.fixtures]
         result = self.evaluate()

@@ -185,6 +185,15 @@ class ReviewerTestPackageTests(TestCase):
             with self.assertRaisesRegex(ValueError, "reference differs"):
                 freeze_reviewer_test_package(manifest, package_root, references)
 
+    def test_fixture_mutation_preserving_assertions_is_rejected(self) -> None:
+        with TemporaryDirectory() as directory:
+            manifest, package_root, references, paths = self._fixture(Path(directory))
+            original = paths["tests/test_behavior.py"].read_bytes()
+            paths["fixtures/case.json"].write_text('{"input":3}\n')
+            with self.assertRaisesRegex(ValueError, "differs"):
+                freeze_reviewer_test_package(manifest, package_root, references)
+            self.assertEqual(paths["tests/test_behavior.py"].read_bytes(), original)
+
     def test_manifest_rejects_noncanonical_and_vacuous_declarations(self) -> None:
         with TemporaryDirectory() as directory:
             manifest, _, _, _ = self._fixture(Path(directory))

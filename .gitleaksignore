@@ -1,3 +1,7 @@
+# False positive: an Ed25519 signing-key parameter type annotation; no key value.
+# Restrict this exception to the exact introducing commit and finding.
+7c75b5978f213c1f91c152b832d36336183c52d0:src/mos_eisley/run/protected_spend_anchor.py:generic-api-key:138
+
 # False positive: Python function arguments in the artifact byte-budget test.
 # No credential value is present. Scope this exception
 # to the exact finding in its introducing commit; keep future findings enabled.

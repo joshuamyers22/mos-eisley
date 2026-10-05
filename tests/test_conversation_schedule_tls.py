@@ -25,6 +25,7 @@ from test_conversation_schedule_credentials import MemoryVault
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_input import ConversationInput
 from mos_eisley.conversation_schedule_credentials import NativeIngressVault
+from mos_eisley.conversation_schedule_handlers import ScheduleReads
 from mos_eisley.conversation_schedule_tls import TLSEventTransport, TLSIngressSettings
 from mos_eisley.conversation_schedule_transport import (
     REJECTED,
@@ -197,6 +198,9 @@ class TLSTests(IsolatedAsyncioTestCase):
         attached: bool = True,
         **changes: object,
     ):
+        # Source fixtures use 100 ms to test hung callbacks. TLS setup validates
+        # real certificates, so use the production read budget for this fixture.
+        chat.schedule_reads = ScheduleReads()
         with TemporaryDirectory(prefix="mos-tls-fixture-") as directory:
             pki = PKI(Path(directory))
             config = pki.settings(**changes)
@@ -296,6 +300,27 @@ class TLSTests(IsolatedAsyncioTestCase):
                     self.assertFalse(adapter.drain(owner))
                     self.assertEqual(await self.helper.response(reader), REJECTED)
                     self.assertEqual(chat.state, before)
+
+    async def test_startup_accepts_certificate_validation_over_short_fixture_budget(
+        self,
+    ):
+        original = TLSEventTransport._context  # pyright: ignore[reportPrivateUsage]
+
+        def delayed_context(adapter: TLSEventTransport):
+            time.sleep(0.15)
+            return original(adapter)
+
+        with (
+            self.helper.helper.session(fixtures.fixtures.ConversationStore) as (
+                chat,
+                *_,
+            ),
+            patch.object(TLSEventTransport, "_context", delayed_context),
+        ):
+            async with self.opened(chat) as (adapter, pki, _, owner, _):
+                self.assertGreater(adapter.port, 0)
+                self.assertIs(adapter.owner, owner)
+                self.assertEqual(adapter.tls, pki.settings())
 
     async def test_untrusted_expired_missing_and_wrong_pinned_client_certificates(self):
         with self.helper.helper.session(fixtures.fixtures.ConversationStore) as (

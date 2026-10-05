@@ -250,9 +250,14 @@ class ImmutableReviewerTestExecutionReceipt(Contract):
                 and observed.failures > 0
                 and observed.errors == 0
                 and observed.unexpected_successes == 0
+                and observed.expected_failures == 0
             )
         else:
-            role_match = counts_match and observed.suite_successful
+            role_match = (
+                counts_match
+                and observed.suite_successful
+                and observed.expected_failures == 0
+            )
         if self.role_expectation_satisfied != role_match:
             raise ValueError("role expectation differs from observed outcomes")
         if len(canonical_bytes(self)) > EXECUTION_RECEIPT_BYTES:
@@ -487,9 +492,14 @@ def execute_isolated_reviewer_tests_in_trusted_host(
             and observed.failures > 0
             and observed.errors == 0
             and observed.unexpected_successes == 0
+            and observed.expected_failures == 0
         )
     else:
-        role_match = counts_match and observed.suite_successful
+        role_match = (
+            counts_match
+            and observed.suite_successful
+            and observed.expected_failures == 0
+        )
     return ImmutableReviewerTestExecutionReceipt(
         request=request,
         request_sha256=request.request_sha256,

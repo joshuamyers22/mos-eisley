@@ -14,6 +14,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from protected_anchor_fixture import fixture_anchor
 from test_reviewer_coding_broker import _FakeTransport
 
 from mos_eisley.core.models import canonical_bytes, digest
@@ -202,6 +203,7 @@ class InitialChildBrokerTests(unittest.TestCase):
             container=container,
             directory=root / "run",
             repository_root=root / "repository",
+            protected_anchor=fixture_anchor(creator, ledger, live.artifact_sha256),
         )
         return broker, offer, order, policy, ledger, transport, container
 

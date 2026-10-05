@@ -245,6 +245,43 @@ class SpendingTests(IsolatedAsyncioTestCase):
             self.assertEqual(transport.calls, [])
             self.assertFalse((root / "spend-reservation.json").exists())
 
+    async def test_pre_reserved_hold_withdrawn_during_count_blocks_generation(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            transport = FakeTransport(root)
+            controller, ledger, reservation = self.pre_reserved_controller(
+                root, transport
+            )
+            original = transport.count_input_tokens
+
+            async def count(payload: dict[str, JsonValue]) -> int:
+                tokens = await original(payload)
+                # Withdrawal preserves full exposure; it does not assume a
+                # refund or invent a settled charge for an uncertain effect.
+                ledger.settle(
+                    LedgerSettlement(
+                        entry_id=controller.ledger_entry_id,
+                        reservation_sha256=digest(canonical_bytes(reservation)),
+                        status="uncertain",
+                        charged_microusd=reservation.reserved_microusd,
+                    )
+                )
+                return tokens
+
+            with (
+                patch.object(transport, "count_input_tokens", side_effect=count),
+                self.assertRaisesRegex(ValueError, "exact held entry"),
+            ):
+                await controller.create_response(request())
+            self.assertEqual(len(transport.counts), 1)
+            self.assertEqual(transport.calls, [])
+            self.assertEqual(ledger.snapshot().charged_microusd, 325)
+            self.assertEqual(ledger.snapshot().unresolved_entries, 1)
+            with self.assertRaises(ProviderError):
+                await controller.create_response(request())
+
     async def test_schema_two_reserves_and_settles_cache_write_exposure(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
