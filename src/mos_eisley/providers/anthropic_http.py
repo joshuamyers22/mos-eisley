@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
+import httpx2 as httpx
 
 MAX_ANTHROPIC_RESPONSE_BYTES = 1_000_000
 

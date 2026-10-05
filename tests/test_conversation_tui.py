@@ -49,9 +49,24 @@ def controller(*, multiline: bool = False) -> ConversationController:
 
 
 class TUITests(IsolatedAsyncioTestCase):
+    async def test_scope_preview_remains_visible_after_queue_revision_changes(
+        self,
+    ) -> None:
+        with create_pipe_input() as input:
+            chat = controller()
+            ui = ConversationTUI(chat, input=input, output=DummyOutput())
+            ui.emit(
+                {"type": "conversation.review_scope", "text": "Frozen scope HEAD: abc"}
+            )
+            chat.submit("queued message")
+            ui.refresh()
+            self.assertIn("Frozen scope HEAD: abc", ui.transcript.text)
+            self.assertNotIn("Context preview is stale", ui.transcript.text)
+
     async def test_rejected_slash_submissions_remain_editable(self) -> None:
         for text, reason, setup in (
             ("/review", "--review-packet", "missing"),
+            ("/review --base main --commit HEAD", "Select --uncommitted", "missing"),
             ("/steer keep this instruction", "requires text and an active", "missing"),
             ("/steer", "Message requires text", "missing"),
             ("/review", "Pending text needs", "budget"),
@@ -300,6 +315,8 @@ class TUITests(IsolatedAsyncioTestCase):
         for text in (
             "/quit",
             "/review",
+            "/review --uncommitted",
+            "/review --range pricing.py:1-1",
             "/context",
             "/context 0",
             "/steer retained text",

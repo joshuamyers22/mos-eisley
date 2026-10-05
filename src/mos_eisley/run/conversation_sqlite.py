@@ -26,6 +26,7 @@ from uuid import uuid4
 from pydantic import Field, TypeAdapter, model_validator
 
 from mos_eisley.conversation import ConversationState, SessionID
+from mos_eisley.conversation_diff import DiffAttachment
 from mos_eisley.conversation_inputs import ActiveInputLimits, InputField
 from mos_eisley.conversation_limits import MAX_SNAPSHOT_BYTES
 from mos_eisley.conversation_pressure import ConversationPressureActivity
@@ -288,6 +289,10 @@ def _working_parts(
 def _runtime_record_body(part: PackedPart) -> dict[str, object]:
     """Decode persisted admission metadata before strict native validation."""
     body: dict[str, object] = dict(part.body)
+    if body.get("diff_attachments"):
+        body["diff_attachments"] = TypeAdapter(
+            tuple[DiffAttachment, ...]
+        ).validate_json(_json(body["diff_attachments"]))
     if body.get("request_admission") is not None:
         body["request_admission"] = RequestAdmission.model_validate_json(
             _json(body["request_admission"])

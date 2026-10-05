@@ -18,6 +18,9 @@ scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
 owner-authorized tasks; see
 [ADR-0011](docs/adr/0011-defer-studies-until-production.md).
+The planned GitHub publisher remains disabled: the pinned stock-GHP candidate
+failed qualification and was rejected in
+[ADR 0005](docs/adr/0005-ghp-github-publication-boundary.md).
 
 Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
@@ -27,6 +30,10 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
+
+Windows-hosted WSL2 qualification is being prepared; see the
+[setup and verification runbook](docs/WSL2_QUALIFICATION.md). Actual WSL2 support
+remains pending the platform gates in plan §27.1.
 
 Start the interactive recorded conversation from your project directory:
 
@@ -39,8 +46,31 @@ uv run --frozen mos -- "Remember that the fixture boundary is ten."
 
 The welcome screen shows the workspace and supported preview messages. Sessions
 save privately in `~/.mos-eisley-sessions`; `-C PATH` selects a workspace and
-`--storage PATH` overrides storage. Live conversation is still pending. See the
-[terminal guide](docs/CONVERSATION_TUI.md) for controls and recorded limits.
+`--storage PATH` overrides storage. Explicit, spend-controlled OpenAI chat is
+available in the same TUI; see the [terminal guide](docs/CONVERSATION_TUI.md)
+for launch and resume options.
+The [external tmux guide](docs/CONVERSATION_TMUX.md) describes optional workspace
+panes and reattachment to a running conversation.
+An optional [external tmux workspace](docs/TMUX_COMPATIBILITY.md) keeps Mos beside
+a user-operated shell or watcher, with detach/reattach to the same running process.
+Local macOS compatibility is checked; Linux and Windows-hosted WSL2 qualification
+remain pending. Tmux is not required for ordinary Mos launch.
+Explicit [Git review scopes](docs/GIT_REVIEW_SCOPES.md) freeze uncommitted,
+base-branch or commit changes, whole files and line ranges for `/review`;
+source-only selections label the absence of a diff. These scope presets require
+a matching recording; the separately qualified live-review path retains its own
+exact prepared brief and signed launch.
+[Explicit planning mode](docs/CONVERSATION_PLANNING.md) adds `/plan`, retained
+mode selection and explicit `/implement TEXT` handoffs in recorded conversations.
+[Durable goals](docs/CONVERSATION_GOALS.md) add `/goal` controls, retained budgets,
+completion guards and visible progress/blockers through the recorded controller.
+[Agent inspection](docs/CONVERSATION_AGENTS.md) adds `/agent` and `/subagents`
+with owner-scoped report checks; production connection awaits the qualified child controller.
+[Conversation forks and side chats](docs/CONVERSATION_BRANCHES.md) add `/fork`
+and `/side` with explicit context, retained budgets and transient side answers.
+
+The [live diff panel](docs/CONVERSATION_DIFF.md) opens with `/diff` or F10, supports
+frozen source attachments, and links retained review findings to historical source.
 Use `mos chat "PROMPT"` or `mos -- "PROMPT"` to submit an initial literal message;
 launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 

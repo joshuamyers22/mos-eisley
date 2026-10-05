@@ -6,6 +6,9 @@ does not automatically invoke a panel. This remains a recorded-provider preview;
 it does not inspect a repository or make changes. The separately configured
 [live review path](CONVERSATION_LIVE_REVIEW.md) uses the same triggers with a
 frozen prepared brief and a fresh signed launch.
+Explicit
+[/review scope commands](GIT_REVIEW_SCOPES.md) can now acquire a bounded Git brief;
+dispatch still requires a recording matching that exact brief.
 
 ## Try the round-trip
 

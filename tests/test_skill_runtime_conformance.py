@@ -37,7 +37,7 @@ class SkillRuntimeConformanceTests(TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         _, _, self.publication, self.result = self.response_fixture.publish()
-        self.observed_at = self.response_fixture.publish_at + timedelta(seconds=1)
+        self.observed_at = self.publication.committed_at + timedelta(seconds=1)
         self.authenticate_at = self.observed_at + timedelta(seconds=1)
         self.private_key = bytes(range(32))
         public_key = (

@@ -1,11 +1,104 @@
 # Interactive terminal conversation
 
+The Git-review/findings panel uses `mos --git-review-panel` (or the same option
+on resume). Ordinary `mos` retains the qualified workspace diff panel. Both use
+the same session controller; frozen attachment formats retain their provenance.
+
+
 Mos Eisley's primary interface is an ongoing terminal conversation. Bare `mos`,
 `mos chat` and `mos resume` open a full-screen transcript and editable composer when
 both input and output are terminals. This is the first implementation of the
 terminal interaction requested in plan §16.0, with Codex and Claude Code as the
-interaction references. It uses recorded responses; arbitrary live answers,
-repository tools and provider/model switching are not enabled by this screen.
+interaction references. Recorded responses remain the default. Explicit live
+OpenAI turns use the same saved transcript and controls. An explicit
+read-only repository profile is available per `/inspect` turn; in-session provider
+switching is not enabled.
+
+Use the [external tmux workspace guide](CONVERSATION_TMUX.md) to run Mos beside
+shells or watchers and detach/reattach to the same running process.
+
+## Live OpenAI conversation
+
+Use a current reviewed schema-2 [OpenAI spending policy](OPENAI_SPENDING.md), an existing
+[shared spending ledger](SHARED_SPENDING.md), and an existing owner-only artifacts
+directory. Set `OPENAI_API_KEY` in the local environment. For example:
+
+```sh
+mkdir -m 700 "$HOME/.mos-eisley-live-chat"
+mos chat --live-openai --allow-data-transfer \
+  --spend-policy /private/path/spend-policy.json \
+  --spend-ledger /private/path/spending.sqlite \
+  --live-artifacts "$HOME/.mos-eisley-live-chat"
+```
+
+This launch sends each submitted text turn and its admitted conversation history
+to the policy's OpenAI model. Without the separate read opt-in, it performs no
+repository tool calls. Token counting
+also transfers the request text. The existing ledger limits aggregate reserved
+spend; the policy limits each response. No turn runs on opening a session. A queued
+turn needs a send or explicit continue, as in recorded mode. Ctrl-C or `/stop`
+cancels an active turn; its reserved exposure can remain uncertain, and the saved
+attempt is never replayed automatically.
+
+Resume with `mos resume SESSION_ID` (or `--last`) and the same live flags, current
+policy, ledger, effort, and artifacts root. The saved session checks their exact
+identities. An expired or changed policy requires a new live session. The
+recorded preview stays the default for launches without `--live-openai`.
+Live requests still use the existing 16-message session limit and context budget.
+
+### Read-only repository inspection
+
+Add `--live-repository-read` to both the live launch and matching resume command
+to opt the saved session into bounded repository inspection. Then send
+`/inspect Explain how authentication works` as a typed TUI command. Only an
+explicit inspection command receives `repo_list`, `repo_search`, and `repo_read`.
+Pasted or literal text beginning with `/inspect ` grants no repository authority.
+Other messages retain the text-only path. The opt-in is saved in the session
+identity, so a resume without it fails before a turn starts. Launch or resume alone
+does not authorize file inspection.
+
+The tools list up to 80 visible entries, search up to 64 files and 64 directories
+to depth four, and read at most 64,000 bytes of one UTF-8 file, returning up to 80
+lines and 8,000 bytes per result. Directory scans examine at most 1,024 entries;
+limited listings and incomplete searches report truncation. Hidden paths, the
+project's `private/` directories,
+symlinks, special files, traversal and paths
+outside the selected workspace are refused. Answers append the workspace-relative
+sources used by successful reads. File contents are untrusted data, including any
+instructions embedded in source text. The owner must select a workspace whose
+visible contents are appropriate to transfer to the provider.
+
+Each model response in an inspection turn has its own reservation and receipt;
+the existing current schema-2 policy still caps each response and the shared ledger
+caps aggregate exposure. An inspection turn allows at most five model responses
+and six local read calls. The live provider receives the tool definitions and any
+returned source excerpts, including during token counting. This option grants no
+Git write, shell, edit, test, publishing, or broader workspace authority. The
+[inspection threat model](LIVE_REPOSITORY_INSPECTION_THREAT_MODEL.md) records the
+owner-operated trust scope and remaining risks.
+Explicit
+[/review scope presets](GIT_REVIEW_SCOPES.md) provide bounded local Git acquisition
+and require a matching recorded packet to dispatch a review.
+
+Use [/agent and /subagents](CONVERSATION_AGENTS.md) for read-only child inspection
+when the qualified controller source is connected; the shipped terminal reports
+the missing source. Reports appear in the context pane and preserve editor drafts.
+
+Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected conversation
+branches and bounded side questions. Side answers stay transient until attached;
+reports preserve the editor draft and show provenance and shared budgets.
+
+Use [/goal](CONVERSATION_GOALS.md) to create, steer, pause and inspect durable
+objectives. The status pane and shared report show budgets, blockers and missing
+verification; goal state cannot certify work without trusted evidence adapters.
+
+Use [/plan](CONVERSATION_PLANNING.md) for read-only planning and `/implement TEXT`
+for an explicit creator-workflow handoff. The status bar shows the selected mode;
+admitted messages retain their own mode through queueing and resume.
+
+Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected author
+context. Forks save separate sessions; side answers remain transient until
+`/side attach ID`. `/side cancel` stops the side call while main work continues.
 
 ## Start a conversation
 
@@ -86,6 +179,11 @@ fail; they never fall back to the built-in preview. The built-in recording is
 request-bound too, so arbitrary prompts cannot receive live answers. No setup
 files, credentials or network connections are needed to open the default preview.
 
+For a conversation beside a user-operated shell or watcher, see the
+[external tmux workspace guide](TMUX_COMPATIBILITY.md). Reattach to the same running
+Mos pane to preserve its unsent draft; durable `mos resume` is the recovery path
+after process loss. Tmux is optional and does not enable additional tools.
+
 `--plain` keeps the line-oriented interface. Pipes, redirected input, and `--json`
 also use that interface automatically. `--tui` explicitly requires terminal
 input/output and rejects `--json` before creating storage. Bare launches with piped
@@ -94,8 +192,9 @@ remain informational; unknown commands still fail instead of becoming prompts.
 Launch options may follow `mos` directly; use `mos chat --help` for their full list.
 
 The startup reference is [Codex's documented project-directory launch](https://learn.chatgpt.com/docs/codex/cli),
-checked 2026-09-09. Mos now matches the no-subcommand terminal entry point. Live
-authentication remains future work; this is not complete Codex feature parity.
+checked 2026-09-09. Mos now matches the no-subcommand terminal entry point.
+Live OpenAI chat requires explicit local credentials and spending inputs; this is
+not complete Codex feature parity.
 
 The persistent header now shows the working directory and active user/project memory
 revisions. `/directory` shows the full path, and `/memory` toggles complete memory
@@ -141,7 +240,7 @@ F4, `/continue`, or a newly submitted message continues it.
 | Ctrl-U | Discard the unsent draft and its undo history. |
 | Ctrl-C | Discard the draft and stop active work and queued messages. |
 | Ctrl-D | Discard the draft, cancel active work, retain queued messages and exit. |
-| Tab | Switch focus between the transcript and composer. |
+| Tab | Cycle focus through composer, transcript and the visible diff pane. |
 | Page Up / Page Down | Focus and scroll the transcript; Tab returns to editing. |
 | F3 | Expand/collapse the latest review's findings and evidence. |
 | F4 | Explicitly continue saved or paused queued work. |
@@ -150,6 +249,9 @@ F4, `/continue`, or a newly submitted message continues it.
 | F7 | Select the next memory or review reference on the saved history page. |
 | F8 | Open/close the selected artifact; only one stays expanded. |
 | F9 | Choose another directory once active work and unsent input are resolved. |
+| F10 | Toggle the [live diff panel](CONVERSATION_DIFF.md), preserving the draft. |
+| F11 in diff | Attach selected frozen source rows to the next author prompt. |
+| F12 | Browse retained review findings and their historical source. |
 
 `/directory switch` opens the same selector, and `/directory switch PATH` selects
 a path relative to this session's workspace. Selection opens a fresh conversation;

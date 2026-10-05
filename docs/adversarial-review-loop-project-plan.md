@@ -11,6 +11,18 @@ See [project review](PROJECT_REVIEW_2026-09-08.md),
 
 ## Product and sequencing decisions
 
+**User clarification, 2026-09-13:** author (also called creator), critic and judge
+are three distinct model assignments. The author drafts and integrates, the critic
+reviews the frozen work independently, and the judge adjudicates the findings.
+The user controls credentials, spending and machine permissions. This workflow
+requires no additional human authorizer, observer or launch reviewer. Follow the
+precedence and implementation contract in
+[main plan §7.7.1](mos-eisley-plan.md#771-model-review-roles-and-operator-authority).
+Controller-enforced role/context separation supplies model-review independence;
+model judgments do not grant execution authority or establish human attestation.
+Extra Stage-0 reader assignments below belong to that measured profile and do not
+replace the normal author/critic/judge roles.
+
 Reuse Mos's controller, review contracts, private artifacts, evaluation lineage,
 spending admission and containment gates. Keep local files/SQLite as the default;
 remote storage remains a user choice subject to owner isolation. No mandatory

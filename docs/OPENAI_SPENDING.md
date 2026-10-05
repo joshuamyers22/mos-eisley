@@ -71,6 +71,14 @@ not supported by this preview.
    cache-write rate, and output at the output rate. Do not assume cache-read
    discounts or add reasoning a second time.
 
+The owner-operated live TUI has one narrow exception to step 1: a session launched
+with `--live-repository-read` can send the exact fixed `repo_list`, `repo_search`,
+and `repo_read` function schemas for a `/inspect ` turn. Its tool history contains
+only those calls and bounded local outputs. Each model response, including a
+response after a tool result, repeats the five steps above with a distinct ledger
+entry and receipt. The ordinary `openai-run` and live text-only paths still reject
+tools. See the [TUI guide](CONVERSATION_TUI.md#read-only-repository-inspection).
+
 Schema 1 remains readable for existing artifacts and preserves its original
 canonical representation. It cannot specify a cache-write rate and must not be
 used for the new calibration campaign. Schema 2 requires the cache-write rate to

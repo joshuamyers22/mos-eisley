@@ -417,6 +417,14 @@ def parser() -> argparse.ArgumentParser:
     from mos_eisley.conversation_cli import add_commands
 
     add_commands(subcommands.add_parser)
+    from mos_eisley.git_review_cli import add_command as add_git_review
+
+    add_git_review(
+        subcommands.add_parser(
+            "review-scope",
+            help="Freeze a bounded local Git review scope; no provider calls",
+        )
+    )
     from mos_eisley.project_guidance_cli import add_command as add_guidance_command
 
     add_guidance_command(
@@ -7864,6 +7872,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         if args.command in {
+            "review-scope",
             "guidance-inspect",
             "guidance",
             "guidance-overrides",
@@ -7874,6 +7883,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "guidance-context",
             "guidance-review",
         }:
+            from mos_eisley.git_review_cli import run_command as run_git_review
             from mos_eisley.project_guidance_binding_cli import (
                 run_command as run_binding,
             )
@@ -7901,6 +7911,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
             return {
+                "review-scope": run_git_review,
                 "guidance-context": run_role_context,
                 "guidance-review": run_guidance_review,
                 "guidance-policy-check": run_policy_check,
