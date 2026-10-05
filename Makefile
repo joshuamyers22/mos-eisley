@@ -36,3 +36,4 @@ container:
 	uv run --frozen python tools/smoke_review_campaign_runner.py
 	uv run --frozen python tools/smoke_review_launch.py
 	uv run --frozen python tools/smoke_local_child.py
+	uv run --frozen python tools/smoke_coding_child.py

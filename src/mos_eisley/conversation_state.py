@@ -486,6 +486,42 @@ class ConversationState(Contract, Generic[EntryT]):
                 raise ValueError(
                     "Child records cross scope or committed job boundaries."
                 )
+        for child in self.local_children:
+            if child.coding is None:
+                continue
+            goal = goals[child.assignment.parent_task_id]
+            job = next(
+                (
+                    j
+                    for j in goal.jobs
+                    if j.operation_id == child.child_id + "-integration"
+                ),
+                None,
+            )
+            coding = child.coding
+            expected = "running"
+            receipt = None
+            if (
+                child.state in {"cancelled", "uncertain"}
+                or coding.integration_state == "uncertain"
+            ):
+                expected = "uncertain"
+            elif coding.integration_state == "integrated":
+                expected = "passed"
+                receipt = digest(canonical_bytes(coding))
+            elif coding.handoff is not None and not coding.handoff.verification.passed:
+                expected = "failed"
+            if (
+                job is None
+                or not job.required
+                or job.definition_sha256 != child.goal_definition_sha256
+                or job.state
+                not in ({"running", "stuck"} if expected == "running" else {expected})
+                or job.result_sha256 != receipt
+            ):
+                raise ValueError(
+                    "Coding completion requires its exact required integration job."
+                )
         for goal in self.goals:
             if any(
                 sum(

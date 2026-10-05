@@ -21,6 +21,13 @@ from mos_eisley.conversation_branch import branch_system
 from mos_eisley.conversation_branch_controller import (
     observe_branch_workspace,
 )
+from mos_eisley.conversation_coding_controller import (
+    CodingAuthorizer,
+    CodingBroker,
+    CodingReviewer,
+    ConversationCodingController,
+    IntegrationAuthorizer,
+)
 from mos_eisley.conversation_compaction import (
     AuthorCompaction,
     AuthorCompactionDraft,
@@ -46,7 +53,6 @@ from mos_eisley.conversation_inputs import ActiveInputLimitError, ActiveInputLim
 from mos_eisley.conversation_local_child import LocalChildExecutor
 from mos_eisley.conversation_local_child_controller import (
     ChildAuthorizer,
-    ConversationLocalChildController,
     RetainedLocalChildSource,
 )
 from mos_eisley.conversation_memory import (
@@ -126,6 +132,7 @@ from mos_eisley.core.ports import ModelClient, ToolDispatcher
 from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry
 from mos_eisley.providers.agent_recorded import AgentCassette, RecordedAgentClient
+from mos_eisley.run.coding_child import CodingExecutor
 from mos_eisley.run.task_checkpoint_store import (
     CheckpointClosureError,
     CheckpointClosureReason,
@@ -246,7 +253,7 @@ def _pressure_boundary_position(state: RuntimeConversationState) -> int:
     )
 
 
-class ConversationController(ConversationLocalChildController[StateT]):
+class ConversationController(ConversationCodingController[StateT]):
     """One request per message; steering is applied after the active request.
 
     Persistence runs before dispatch and after every transition. The CLI supplies
@@ -264,6 +271,11 @@ class ConversationController(ConversationLocalChildController[StateT]):
         child_inspection: ChildInspectionSource | None = None,
         local_child_authorizer: ChildAuthorizer | None = None,
         local_child_executor: LocalChildExecutor | None = None,
+        coding_authorizer: CodingAuthorizer | None = None,
+        coding_reviewer: CodingReviewer | None = None,
+        coding_executor: CodingExecutor | None = None,
+        coding_broker: CodingBroker | None = None,
+        coding_integration_authorizer: IntegrationAuthorizer | None = None,
         schedule_observer: Callable[[InertScheduleSpec], ScheduleBinding] | None = None,
         schedule_event_validator: Callable[[LocalWakeupEvent], None] | None = None,
         branch_workspace_observer: Callable[[str], str] = observe_branch_workspace,
@@ -350,9 +362,27 @@ class ConversationController(ConversationLocalChildController[StateT]):
         self.side_timeout = side_timeout
         self._side_provider_task = None
         self.publish_fork = publish_fork
+        coding_dependencies = (
+            coding_authorizer,
+            coding_reviewer,
+            coding_executor,
+            coding_broker,
+            coding_integration_authorizer,
+        )
+        if any(d is not None for d in coding_dependencies) and any(
+            d is None for d in coding_dependencies
+        ):
+            raise ValueError("Coding host dependencies must be complete.")
+        self.coding_authorizer = coding_authorizer
+        self.coding_reviewer = coding_reviewer
+        self.coding_executor = coding_executor
+        self.coding_broker = coding_broker
+        self.coding_integration_authorizer = coding_integration_authorizer
         if (local_child_authorizer is None) != (local_child_executor is None):
             raise ValueError("Local child host dependencies must be complete.")
-        if local_child_executor is not None and child_inspection is not None:
+        if (
+            local_child_executor is not None or coding_executor is not None
+        ) and child_inspection is not None:
             raise ValueError("Select one authoritative child inspection controller.")
         self.local_child_authorizer = local_child_authorizer
         self.local_child_executor = local_child_executor
@@ -361,13 +391,15 @@ class ConversationController(ConversationLocalChildController[StateT]):
         self.child_inspection = (
             RetainedLocalChildSource(self)
             if local_child_executor is not None
+            or coding_executor is not None
             or (state.local_children and child_inspection is None)
             else child_inspection
         )
         self.schedule_observer = schedule_observer
         self.schedule_event_validator = (
             self.validate_local_child_event
-            if local_child_executor is not None and schedule_event_validator is None
+            if (local_child_executor is not None or coding_executor is not None)
+            and schedule_event_validator is None
             else schedule_event_validator
         )
         self.schedule_timer_active = False

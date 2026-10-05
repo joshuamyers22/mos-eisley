@@ -80,3 +80,10 @@ reports only while their exact assignment approval remains current; resumed
 records without that adapter expose stale operational metadata. The shipped
 terminal does not install a spawning or approval adapter. This route grants no
 tools, live providers, coding writes, test verification or integration approval.
+
+Writable recorded child reports use the same retained source through the explicit
+[creator coding host workflow](WRITABLE_LOCAL_CODING.md). `/agent` exposes child test
+verification and report references; it does not spawn, alter tests or approve
+integration. The coding record retains a protected patch/diff and separate final
+review/integration receipts, with an unpassed required integration job until final
+verification succeeds.

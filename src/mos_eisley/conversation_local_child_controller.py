@@ -96,6 +96,7 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
         if (
             not math.isfinite(now)
             or now < 0
+            or approved.mode != "recorded_read_only"
             or approved.scope != scope
             or approved.assignment_sha256 != assignment.sha256
             or approved.expires_at <= now
@@ -106,6 +107,9 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
                 "Child approval is stale or crosses owner/workspace scope."
             )
         return approved
+
+    def record_authorization(self, record: LocalChildRecord) -> LocalChildAuthorization:
+        return self.child_authorization(record.assignment)
 
     def _commit_children(
         self, children: tuple[LocalChildRecord, ...], goals: tuple[DurableGoal, ...]
@@ -380,7 +384,7 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
             or spec.binding.task_id != child.assignment.task_id
             or spec.binding.goal_id != child.assignment.parent_task_id
             or spec.binding.goal_definition_sha256 != child.goal_definition_sha256
-            or self.child_authorization(child.assignment) != child.authorization
+            or self.record_authorization(child) != child.authorization
         ):
             raise ValueError("Wakeup requires a current authorized committed child.")
         payload = canonical_bytes(child.report)
@@ -426,7 +430,7 @@ class RetainedLocalChildSource[ChildStateT: RuntimeConversationState]:
             with suppress(OSError, ValueError):
                 goal = chat.current_goal
                 current = (
-                    chat.child_authorization(record.assignment) == record.authorization
+                    chat.record_authorization(record) == record.authorization
                     and goal is not None
                     and goal.goal_id == record.assignment.parent_task_id
                     and goal.definition.sha256 == record.goal_definition_sha256
@@ -440,7 +444,13 @@ class RetainedLocalChildSource[ChildStateT: RuntimeConversationState]:
                     assignment=record.assignment,
                     assignment_current=current,
                     usage=record.usage,
-                    verification="not_run",
+                    verification=(
+                        "passed"
+                        if record.coding.handoff.verification.passed
+                        else "failed"
+                    )
+                    if record.coding is not None and record.coding.handoff is not None
+                    else "not_run",
                     report=None
                     if record.report is None
                     else AgentReportReference(

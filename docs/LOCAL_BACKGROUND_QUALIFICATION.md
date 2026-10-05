@@ -98,3 +98,8 @@ providers require separate transfer/spending/conformance qualification. Coding
 writes require the trusted execution/VCS and E2 workflow gates; the current
 read-only child does not satisfy those gates or the required implementation
 delegation in a writable creator workflow.
+
+The subsequent [writable recorded local profile](WRITABLE_LOCAL_CODING.md) supplies
+explicit creator-approved pure Python coding, isolated VCS handoff and separately
+approved integration. Its gates and capabilities are separate from this read-only
+profile; neither promotes a default delegation policy or permits paid providers.

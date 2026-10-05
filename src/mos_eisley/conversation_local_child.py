@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Protocol, Self
 
 from pydantic import Field, model_validator
 
+from mos_eisley.coding_child import CodingRetention
 from mos_eisley.conversation_agents import (
     AgentInspectionScope,
     ImplementationAssignment,
@@ -21,7 +22,23 @@ class LocalChildAuthorization(Contract):
     assignment_sha256: Digest
     workspace_observation_sha256: Digest
     expires_at: Annotated[float, Field(ge=0, allow_inf_nan=False)]
-    mode: Literal["recorded_read_only"] = "recorded_read_only"
+    mode: Literal["recorded_read_only", "recorded_coding"] = "recorded_read_only"
+    brief_sha256: Digest | None = None
+    review_sha256: Digest | None = None
+
+    @model_validator(mode="after")
+    def exact_mode(self) -> Self:
+        if (self.mode == "recorded_coding") != (
+            self.brief_sha256 is not None and self.review_sha256 is not None
+        ):
+            raise ValueError(
+                "Coding approval requires an exact brief and plan/test review."
+            )
+        if self.mode == "recorded_read_only" and (
+            self.brief_sha256 is not None or self.review_sha256 is not None
+        ):
+            raise ValueError("Read-only approval cannot carry coding authority.")
+        return self
 
 
 class LocalChildJob(Contract):
@@ -92,6 +109,7 @@ class LocalChildExecutor(Protocol):
 
 
 class LocalChildRecord(Contract):
+    coding: CodingRetention | None = Field(default=None, exclude_if=lambda v: v is None)
     child_id: Identifier
     authorization: LocalChildAuthorization
     assignment: ImplementationAssignment
@@ -107,6 +125,18 @@ class LocalChildRecord(Contract):
 
     @model_validator(mode="after")
     def bound_result(self) -> Self:
+        if (self.authorization.mode == "recorded_coding") != (self.coding is not None):
+            raise ValueError("Coding records need their complete frozen workflow.")
+        if self.coding is not None and (
+            self.coding.brief.assignment != self.assignment
+            or self.authorization.brief_sha256 != self.coding.brief.sha256
+            or self.authorization.review_sha256
+            != digest(canonical_bytes(self.coding.plan_review))
+            or (self.state == "completed") != (self.coding.handoff is not None)
+        ):
+            raise ValueError(
+                "Coding record differs from its assignment, approval or handoff."
+            )
         if self.authorization.assignment_sha256 != self.assignment.sha256:
             raise ValueError("Child authorization differs from the frozen assignment.")
         if (

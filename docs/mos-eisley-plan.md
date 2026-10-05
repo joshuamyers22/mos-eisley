@@ -1425,6 +1425,19 @@ coding only after both execution/VCS containment and the E2 bounded-subagent gat
 pass; it does not authorize earlier model-driven writes. Validate against a
 creator-only baseline on matched tasks before promoting a default delegation policy.
 
+Status, 2026-10-04: [writable recorded local coding](WRITABLE_LOCAL_CODING.md)
+implements one explicit unpaid `pure_python_v1` child profile with creator-authored
+frozen executable tests, exact plan/test review and creator approval, fresh brief,
+isolated VCS staging, aggregate reservations, bounded owned cancellation and durable
+patch/report handoff. Integration requires separate exact final review/creator
+approval, a clean one-use VCS fast-forward and fresh tests of the actual integrated
+tree. Required integration jobs remain unpassed until that sequence completes.
+Local Docker probes cover both stores, a known-bad control and actual cancellation.
+This qualifies the bounded recorded route only: arbitrary source/shell execution,
+other repository/platform profiles, paid/live providers, automatic spawning and E2
+quality/efficiency/default-policy promotion retain their gates. See the linked
+contract for supported syntax, confinement, limits and recovery obligations.
+
 ### 14.3 Versioned skills and personas
 
 A skill is a progressively disclosed prompt/rubric bundle with a manifest,
