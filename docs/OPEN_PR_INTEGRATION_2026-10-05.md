@@ -51,5 +51,9 @@ Focused workspace-panel, Git-review-panel, timer-driver and attachment persisten
 checks passed. The scheduled-event branch appeared during integration and adds
 its bounded source/ingress transports. Recorded scheduling and branching now
 explicitly refuse a live-chat controller, preserving the draft qualification scope.
-Pending combined source/wheel gate and required CI. Disposable logs live outside
+The combined gate exposed missing `review-scope` command registration; restored
+its parser and dispatch without replacing current provider commands. All 43 Git
+review/range regressions pass after the correction, as do Ruff format/lint and
+Pyright. The bare-launch Git-panel PTY regression passes. The combined source
+run and installed-wheel gate are in progress; required remote CI remains pending. Disposable logs live outside
 Git. The final closeout will record actual counts, failures and platform skips.
