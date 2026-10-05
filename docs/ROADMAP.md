@@ -534,8 +534,14 @@ metadata/private-storage observations from enrolled authority. The
 focused source and dependency-free wheel checks. The
 [POSIX root candidate](POSIX_ROOT_ADMISSION_WORK_NOTE.md) now has native macOS
 source/wheel, real ACL and compiled ABI evidence; required Ubuntu/macOS CI is
-prepared. Linux execution and accountable admission remain pending; secure child
-reads and target relative-open qualification follow. Protected custody, locking, publication
+prepared. The [POSIX fixed-child reader candidate](POSIX_NAMESPACE_READ_WORK_NOTE.md)
+adds bounded record inspection and refusal/cleanup tests. Exact target qualification
+and accountable admission remain pending. The
+[Windows root security preparation](WINDOWS_ROOT_SECURITY_CONTRACT.md) defines a
+[pure owner/DACL decoder and synthetic fixtures](WINDOWS_SECURITY_PARSER_WORK_NOTE.md),
+now implemented, followed by borrowed-directory queries after identity
+review and token-release uncertainty resolution; owned leases and relative child
+reads remain separate. Protected custody, locking, publication
 and recovery still precede enrollment writes. [The definition record](NAMESPACE_STORAGE_CONTRACT_WORK_NOTE.md)
 claims no writer or public Windows selector admission.
 

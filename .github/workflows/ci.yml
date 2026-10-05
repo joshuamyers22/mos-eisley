@@ -49,6 +49,8 @@ jobs:
         run: uv run --frozen python -c "import platform, sys; print(platform.platform(), platform.machine(), sys.version)"
       - name: Verify inert identity wire codecs from source on native Windows
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_identity_wire.py -v
+      - name: Verify pure owner/DACL parser with synthetic fixtures from source
+        run: uv run --frozen python -m unittest discover -s tests -p test_platform_windows_security.py -v
       - name: Verify gated storage boundary from source on native Windows
         run: uv run --frozen python -m unittest discover -s tests -p test_platform_storage.py -v
       - name: Verify gated namespace reading from source on native Windows

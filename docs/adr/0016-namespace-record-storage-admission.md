@@ -47,8 +47,14 @@ read-only root inspection and owned leases, with native macOS evidence and publi
 selection still closed. The
 [fixed-child POSIX reader candidate](../POSIX_NAMESPACE_READ_WORK_NOTE.md) adds
 bounded relative record inspection, real descriptor ACL/entry checks and owned
-child cleanup, with native macOS source/wheel evidence. Linux reader execution,
+child cleanup, with native macOS source/wheel evidence. Exact Linux reader qualification,
 native Windows storage, production writers, key provisioning and accountable
-target admission remain pending. Reconsider if ACL
+target admission remain pending.
+The [Windows root security preparation](../WINDOWS_ROOT_SECURITY_CONTRACT.md)
+selects caller-buffer owner/DACL queries and a pure bounded decoder as the first
+Windows slice. Borrowed inspection precedes independently qualified owned leases
+and relative reads; token-release uncertainty remains an identity prerequisite.
+The [pure parser](../WINDOWS_SECURITY_PARSER_WORK_NOTE.md) is implemented with
+synthetic fixtures; no native inspection or admitted adapter is claimed. Reconsider if ACL
 inspection/allocation bounds cannot qualify, root/key enrollment cannot be pinned
 without circular trust, or publication recovery cannot retain uncertainty safely.
