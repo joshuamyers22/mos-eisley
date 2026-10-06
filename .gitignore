@@ -17,3 +17,5 @@ htmlcov/
 *.sqlite
 *.sqlite-*
 .DS_Store
+
+.work/

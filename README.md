@@ -28,6 +28,12 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Quick start
 
+The [installation and update candidate](docs/APPLICATION_INSTALLATION.md) prepares
+self-contained bundles, signed standalone installation and package-manager
+packaging. Official distribution remains gated on platform CI, package ownership,
+publisher custody and accountable release review. Browser account login delegates
+to native provider clients; subscription-backed Mos inference remains pending.
+
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
 
