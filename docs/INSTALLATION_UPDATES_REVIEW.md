@@ -32,14 +32,15 @@ account login. The source parser does not read credential values or auth files.
 | Gate | Evidence | Disposition |
 |---|---|---|
 | Tamper, ownership, state, faults | 32 focused tests passed | Local evidence; final CI pending |
-| Static source | Ruff check/format and strict Pyright pass | Recheck after later code edits |
+| Static source | Ruff check/format and strict Pyright pass | Runtime source frozen at `80b104c`; later tool checks passed |
 | Standalone runtime | Committed `80b104c` macOS arm64 setup, recorded chat/resume, synthetic-version upgrade/rollback and recovery | Passed locally; other native platforms pending |
 | npm | Real offline local tarball packing/install/launch | Registry ownership and publication unproven |
 | Homebrew | Real isolated install/launch/formula test/uninstall of committed archive; rpath rewriting and fixture-networking defects fixed | Passed locally; public tap absent |
 | Native bootstrap | Actual build/help and enrolled-key offline installation; tamper rejected; custom-root discovery/recovery/uninstall | Passed locally with host access |
-| Repository/package | Source: 3,616 tests, 17 skips, 85% coverage; export/build passed; installed-wheel tests running | Complete combined gate pending |
+| Repository/package | Complete local `make check`: source 3,616/17 skips/85% coverage; installed wheel 2,601/13 skips; export/build passed | Passed locally; final exact-head CI pending |
+| New package boundaries | 32 focused installation/account cases pass from a fresh installed wheel | Added to the future package CI selection |
 | Dependency audit | Locked audit, 54 packages, zero reported known vulnerabilities/adverse statuses | Passed locally |
-| Native platform matrix | Linux arm64/x86_64 and macOS arm64 passed; Intel failed with a bundled-libssl missing symbol | Managed runtime pin added; final exact-head matrix pending |
+| Native platform matrix | All four distribution jobs passed at `ed094be`; Intel bundled-libssl mismatch resolved by managed-runtime pin | Final record/test-selection head CI pending; WSL2 remains separate |
 | WSL2 | No registered Windows-hosted runner | Blocked availability claim |
 | Account inference | Native login command stubs tested | Subscription adapter/qualification absent |
 | Publisher approval | Public root enrolled; private key outside Git | Accountable review, CI custody/protection pending |
@@ -54,7 +55,7 @@ account login. The source parser does not read credential values or auth files.
   native extension header space. Exclude libexec from cleaning.
 - Require managed Python 3.12.14 for native builds rather than selecting each
   runner's system interpreter. Intel CI exposed an incompatible bundled libssl;
-  this correction still requires its native CI rerun.
+  the corrected four-platform native CI rerun passed.
 - Select the running custom standalone root for update commands rather than
   silently selecting the default root.
 - Move new dispatch/proxy logic outside existing large flow functions so strict

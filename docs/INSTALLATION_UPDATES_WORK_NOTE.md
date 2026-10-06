@@ -1,6 +1,6 @@
 # Installation and updates delivery
 
-- Status: active
+- Status: candidate prepared; exact-head CI, accountable review and publisher/platform inputs remain open
 - Owner: Joshua Myers
 - Started: 2026-10-06
 - Objective: plan §§28–29; standalone, direct download, npm and Homebrew share verified self-contained artifacts, first-launch guidance, bounded discovery, transactional replacement and compatible recovery.
@@ -20,16 +20,18 @@
 - Real local npm tarball pack/install/launch passed; Homebrew Ruby syntax passed. Actual isolated Homebrew install revealed dylib-ID rewriting of the frozen runtime; the formula now preserves rpaths and excludes libexec from cleaning. The corrected actual install/launch/formula-test/uninstall journey passed. Native bootstrap build/help also passed with host access; sandboxed one-file loading cannot create its required macOS semaphore.
 - The final committed-archive Homebrew rerun initially failed after uninstall when the fixture forced a full core-tap clone and the network reset. Removing that fixture-only override restored Homebrew's normal API configuration; the full install/launch/formula-test/uninstall journey passed. The owner Cellar and taps were not modified.
 - The native bootstrap then installed the committed archive offline using the enrolled public root and locally signed candidate metadata. With Python/Node absent from PATH, the installed command selected its custom root, reported disabled discovery, recovered and uninstalled successfully. Tampered signed metadata was rejected. This local signature binds a private qualification artifact, not a public release or accountable review approval.
-- Combined `make check` passed its source suite (3,616 tests, 17 platform skips; 85% coverage), dependency-export verification and wheel/source builds. Installed-wheel testing is still running with host access for socket/Git/tmux tests. The complete command must not be reported passed until package results finish. The earlier sandbox attempt stopped at static checking, before the full tests.
+- Combined `make check` completed successfully with host access: source suite 3,616 cases with 17 skips and 85% coverage, dependency-export verification, wheel/source builds and installed-wheel suite 2,601 cases with 13 skips. The earlier sandbox attempt stopped at static checking, before full tests. Later affected source cases passed in the 32-test run.
+- The 32 new installation/account boundary cases also passed against a fresh installed wheel with locked runtime hashes. They are now included in future installed-wheel CI selection. Dependency installation failed in the sandbox; the host-access repeat succeeded. No skipped or failed sandbox check was counted passing.
 - Package smoke tools no longer select a hardcoded 0.1.0 wheel. A disposable future-version 0.1.1 wheel built, installed into an isolated target and reported its correct version. This is packaging evidence, not a release. Stable/preview filename selection now follows project metadata.
 - Affected installed file/identity smoke passed with host access: 164 cases, 8 platform skips, plus two legacy-fixture cases. The sandbox attempt failed at the required local Unix socket and was not counted passing.
-- Native CI passed Linux arm64/x86_64 and macOS arm64, but macOS Intel failed loading cryptography: its bundled libssl lacked `_SSL_get0_group_name`. The runner had selected a system Python rather than the managed runtime used locally. Distribution builds now require managed Python 3.12.14 and record TLS/platform build inputs. Local managed Python reports OpenSSL 3.5.7; the Intel fix remains subject to exact-head CI.
+- Native CI initially passed Linux arm64/x86_64 and macOS arm64, but Intel failed loading cryptography: its bundled libssl lacked `_SSL_get0_group_name`. Distribution builds now require managed Python 3.12.14 and record TLS/platform build inputs; the local runtime reports OpenSSL 3.5.7. All four native distribution jobs passed at `ed094be`, including actual macOS npm/Homebrew journeys. Container, secret scan, Windows file contracts and both POSIX storage jobs also passed. The final package-test selection/record update requires its own exact-head CI; actual WSL2 remains unqualified.
 - Locked runtime audit passed: 54 packages, no known vulnerabilities or adverse project statuses. No paid provider requests were made.
 - Owner selected existing provider account browser sign-in. `mos auth` delegates to native clients, excludes explicit API/token environment variables and relative/project PATH entries, and does not copy native auth storage. Tests use stubs: no real account login or subscription inference qualification was performed.
 - A dedicated owner-only Ed25519 publisher key was enrolled outside Git; only the public root is in source. GitHub secret custody and release-environment protection were not configured. The owner has no npm account/scope; the selected scope is provisional. The Homebrew tap does not exist. Actual WSL2 qualification requires a Windows-hosted runner; none is registered, and Linux CI cannot substitute.
 
 ## Accountable review and release disposition
 
+Delivery draft: [PR #289](https://github.com/joshuamyers22/mos-eisley/pull/289).
 Pending review of the exact committed candidate and its CI. The user request
 authorizes implementation and a reviewable draft; it does not provide independent
 security review of the new executable-publisher trust boundary. Per `AGENTS.md`,
