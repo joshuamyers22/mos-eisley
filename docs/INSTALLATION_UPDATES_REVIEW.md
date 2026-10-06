@@ -39,7 +39,7 @@ account login. The source parser does not read credential values or auth files.
 | Native bootstrap | Actual build/help and enrolled-key offline installation; tamper rejected; custom-root discovery/recovery/uninstall | Passed locally with host access |
 | Repository/package | Source: 3,616 tests, 17 skips, 85% coverage; export/build passed; installed-wheel tests running | Complete combined gate pending |
 | Dependency audit | Locked audit, 54 packages, zero reported known vulnerabilities/adverse statuses | Passed locally |
-| Native platform matrix | Four CI targets defined | No CI outcomes yet |
+| Native platform matrix | Linux arm64/x86_64 and macOS arm64 passed; Intel failed with a bundled-libssl missing symbol | Managed runtime pin added; final exact-head matrix pending |
 | WSL2 | No registered Windows-hosted runner | Blocked availability claim |
 | Account inference | Native login command stubs tested | Subscription adapter/qualification absent |
 | Publisher approval | Public root enrolled; private key outside Git | Accountable review, CI custody/protection pending |
@@ -52,6 +52,9 @@ account login. The source parser does not read credential values or auth files.
   0.1.1 wheel built, installed and reported the correct version.
 - Preserve frozen-library rpaths in Homebrew; rewriting dylib IDs exceeded the
   native extension header space. Exclude libexec from cleaning.
+- Require managed Python 3.12.14 for native builds rather than selecting each
+  runner's system interpreter. Intel CI exposed an incompatible bundled libssl;
+  this correction still requires its native CI rerun.
 - Select the running custom standalone root for update commands rather than
   silently selecting the default root.
 - Move new dispatch/proxy logic outside existing large flow functions so strict

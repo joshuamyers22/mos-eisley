@@ -22,7 +22,9 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: "24"
-      - run: uv sync --frozen --dev --group distribution
+      - run: uv sync --frozen --dev --group distribution --python 3.12.14 --managed-python
+      - name: Record native runtime and TLS build inputs
+        run: uv run --frozen python -c "import platform, ssl, sys; print(platform.platform(), platform.machine(), sys.version, ssl.OPENSSL_VERSION)"
       - run: uv run --frozen python -m unittest discover -s tests -p test_app_distribution.py
       - run: uv run --frozen python tools/build_standalone.py
       - run: uv run --frozen python tools/build_app_bootstrap.py
