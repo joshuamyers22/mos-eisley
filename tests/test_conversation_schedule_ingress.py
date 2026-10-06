@@ -97,7 +97,6 @@ class IngressTests(IsolatedAsyncioTestCase):
         *,
         maximum: int = 2,
         window: int = 10,
-        production_read_budget: bool = False,
     ) -> Generator[
         tuple[
             ConversationController,
@@ -111,8 +110,6 @@ class IngressTests(IsolatedAsyncioTestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             chat = self.helper.fresh(root, goal=False)
-            if production_read_budget:
-                chat.schedule_reads = ScheduleReads()
             with kind(root / "sessions", chat.state.session_id, root) as store:
                 store.save(chat.state)
                 chat.save = store.save
@@ -360,7 +357,7 @@ class IngressTests(IsolatedAsyncioTestCase):
     async def test_attempt_flood_is_capped_before_signature_and_broker_work(
         self,
     ) -> None:
-        with self.session(ConversationStore, production_read_budget=True) as (
+        with self.session(ConversationStore) as (
             chat,
             source,
             _clock,
@@ -491,6 +488,7 @@ class IngressTests(IsolatedAsyncioTestCase):
                     _reads,
                     store,
                 ):
+                    chat.schedule_reads = ScheduleReads(0.1)
                     release = Event()
 
                     def observe(

@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Event, Thread
+from time import sleep
 from unittest import IsolatedAsyncioTestCase
 
 from test_conversation_agents import RetainedChildren
@@ -20,7 +21,10 @@ from mos_eisley.conversation_cli import demo_cassette
 from mos_eisley.conversation_goal import GoalJob, GoalTestReceipt
 from mos_eisley.conversation_schedule import InertScheduleSpec
 from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
-from mos_eisley.conversation_schedule_handlers import ScheduleHandlerError
+from mos_eisley.conversation_schedule_handlers import (
+    ScheduleHandlerError,
+    ScheduleReads,
+)
 from mos_eisley.conversation_schedule_sources import (
     CommittedChildResults,
     CommittedTestResults,
@@ -45,7 +49,6 @@ class SourceTests(IsolatedAsyncioTestCase):
             lambda _: None,
             goal_clock=lambda: 100.0,
             schedule_observer=lambda s: s.binding,
-            schedule_handler_timeout=0.1,
         )
         if goal:
             chat.create_goal(definition())
@@ -312,6 +315,7 @@ class SourceTests(IsolatedAsyncioTestCase):
         for handler in ("observer", "validator", "source"):
             for kind in BACKENDS:
                 with self.session(kind) as (chat, source, _retained, store):
+                    chat.schedule_reads = ScheduleReads(0.1)
                     release, done = Event(), Event()
                     original_events = source.events
                     event = source.events(0).events[0]
@@ -363,6 +367,7 @@ class SourceTests(IsolatedAsyncioTestCase):
     ) -> None:
         with TemporaryDirectory() as directory:
             chat = self.fresh(Path(directory))
+            chat.schedule_reads = ScheduleReads(0.1)
             source, _retained = self.child(chat)
             entered, release, ended = Event(), Event(), Event()
             errors: list[Exception] = []
@@ -531,9 +536,14 @@ class SourceTests(IsolatedAsyncioTestCase):
             )
             raw = canonical_bytes(receipt)
             artifacts = {digest(raw): raw}
-            source = CommittedTestResults(
-                auth, lambda: chat.state, artifacts.__getitem__
-            )
+
+            def read_artifact(sha256: str) -> bytes:
+                # Receipt reads can exceed the hung-callback test budget on a
+                # loaded worker while remaining within the production budget.
+                sleep(0.15)
+                return artifacts[sha256]
+
+            source = CommittedTestResults(auth, lambda: chat.state, read_artifact)
             chat.register_schedule_source(
                 "schedule", source, expected_revision=chat.state.revision
             )
@@ -636,6 +646,7 @@ class SourceTests(IsolatedAsyncioTestCase):
     ) -> None:
         for kind in BACKENDS:
             with self.session(kind) as (chat, source, _retained, store):
+                chat.schedule_reads = ScheduleReads(0.1)
                 event = source.events(0).events[0]
                 chat.admit_schedule(
                     "schedule", event=event, expected_revision=chat.state.revision
