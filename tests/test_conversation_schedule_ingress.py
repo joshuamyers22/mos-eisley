@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Event
+from time import sleep
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
@@ -32,6 +33,7 @@ from mos_eisley.conversation_schedule_ingress import (
     InertExternalIngress,
     SignedExternalEvent,
 )
+from mos_eisley.conversation_schedule_sources import LocalWakeupEvent
 from mos_eisley.conversation_state import ConversationState
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
@@ -95,6 +97,7 @@ class IngressTests(IsolatedAsyncioTestCase):
         *,
         maximum: int = 2,
         window: int = 10,
+        production_read_budget: bool = False,
     ) -> Generator[
         tuple[
             ConversationController,
@@ -108,6 +111,8 @@ class IngressTests(IsolatedAsyncioTestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             chat = self.helper.fresh(root, goal=False)
+            if production_read_budget:
+                chat.schedule_reads = ScheduleReads()
             with kind(root / "sessions", chat.state.session_id, root) as store:
                 store.save(chat.state)
                 chat.save = store.save
@@ -355,7 +360,7 @@ class IngressTests(IsolatedAsyncioTestCase):
     async def test_attempt_flood_is_capped_before_signature_and_broker_work(
         self,
     ) -> None:
-        with self.session(ConversationStore) as (
+        with self.session(ConversationStore, production_read_budget=True) as (
             chat,
             source,
             _clock,
@@ -367,8 +372,27 @@ class IngressTests(IsolatedAsyncioTestCase):
                 self.body(source), key=Ed25519PrivateKey.from_private_bytes(b"x" * 32)
             )
             before = store.load()
-            with patch(
-                "mos_eisley.conversation_schedule_ingress.monotonic", return_value=10.0
+            authenticate = InertExternalIngress.authenticate
+            authentication_calls: list[bytes] = []
+
+            def delayed_authenticate(
+                ingress: InertExternalIngress, packet: bytes, *, now: float
+            ) -> LocalWakeupEvent:
+                authentication_calls.append(packet)
+                if len(authentication_calls) == 1:
+                    # A loaded CI worker can exceed the hung-callback fixture's
+                    # 100 ms budget without exceeding the production budget.
+                    sleep(0.15)
+                return authenticate(ingress, packet, now=now)
+
+            with (
+                patch.object(
+                    InertExternalIngress, "authenticate", delayed_authenticate
+                ),
+                patch(
+                    "mos_eisley.conversation_schedule_ingress.monotonic",
+                    return_value=10.0,
+                ),
             ):
                 for _ in range(16):
                     with self.assertRaises(ScheduleHandlerError):
@@ -377,6 +401,7 @@ class IngressTests(IsolatedAsyncioTestCase):
                     self.receive(chat, forged)
                 with self.assertRaisesRegex(ValueError, "attempt limit"):
                     self.receive(chat, self.sign(self.body(source)))
+            self.assertEqual(len(authentication_calls), 16)
             self.assertEqual(reads, [])
             self.assertEqual(store.load(), before)
             self.assertTrue(self.receive(chat, self.sign(self.body(source))))
