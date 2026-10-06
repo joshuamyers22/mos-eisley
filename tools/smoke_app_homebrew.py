@@ -43,7 +43,6 @@ def main() -> int:
             "HOMEBREW_NO_ANALYTICS": "1",
             "HOMEBREW_NO_INSTALL_CLEANUP": "1",
             "HOMEBREW_NO_AUTOREMOVE": "1",
-            "HOMEBREW_NO_INSTALL_FROM_API": "1",
             "HOMEBREW_DEVELOPER": "1",
             "HOMEBREW_CACHE": str(base / "cache"),
             "HOMEBREW_LOGS": str(base / "logs"),

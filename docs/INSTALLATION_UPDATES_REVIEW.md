@@ -33,10 +33,10 @@ account login. The source parser does not read credential values or auth files.
 |---|---|---|
 | Tamper, ownership, state, faults | 32 focused tests passed | Local evidence; final CI pending |
 | Static source | Ruff check/format and strict Pyright pass | Recheck after later code edits |
-| Standalone runtime | Actual macOS arm64 setup, recorded chat/resume, synthetic-version upgrade/rollback and recovery | Final custom-root fix requires exact rebuilt artifact |
+| Standalone runtime | Committed `80b104c` macOS arm64 setup, recorded chat/resume, synthetic-version upgrade/rollback and recovery | Passed locally; other native platforms pending |
 | npm | Real offline local tarball packing/install/launch | Registry ownership and publication unproven |
-| Homebrew | Real isolated install/launch/formula test/uninstall; rpath rewriting defect fixed | Public tap absent; final artifact journey pending |
-| Native bootstrap | Actual build/help with host access | Full enrolled-key offline bootstrap journey pending |
+| Homebrew | Real isolated install/launch/formula test/uninstall of committed archive; rpath rewriting and fixture-networking defects fixed | Passed locally; public tap absent |
+| Native bootstrap | Actual build/help and enrolled-key offline installation; tamper rejected; custom-root discovery/recovery/uninstall | Passed locally with host access |
 | Repository/package | Combined `make check` running | Not yet passed |
 | Dependency audit | Locked audit, 54 packages, zero reported known vulnerabilities/adverse statuses | Passed locally |
 | Native platform matrix | Four CI targets defined | No CI outcomes yet |
