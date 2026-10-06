@@ -37,7 +37,7 @@ account login. The source parser does not read credential values or auth files.
 | npm | Real offline local tarball packing/install/launch | Registry ownership and publication unproven |
 | Homebrew | Real isolated install/launch/formula test/uninstall of committed archive; rpath rewriting and fixture-networking defects fixed | Passed locally; public tap absent |
 | Native bootstrap | Actual build/help and enrolled-key offline installation; tamper rejected; custom-root discovery/recovery/uninstall | Passed locally with host access |
-| Repository/package | Combined `make check` running | Not yet passed |
+| Repository/package | Source: 3,616 tests, 17 skips, 85% coverage; export/build passed; installed-wheel tests running | Complete combined gate pending |
 | Dependency audit | Locked audit, 54 packages, zero reported known vulnerabilities/adverse statuses | Passed locally |
 | Native platform matrix | Four CI targets defined | No CI outcomes yet |
 | WSL2 | No registered Windows-hosted runner | Blocked availability claim |
@@ -48,6 +48,8 @@ account login. The source parser does not read credential values or auth files.
 
 - Preserve distribution-derived versions; a hardcoded version would reject later
   upgrades and invalidate update discovery.
+- Select package smoke wheels from project metadata. A disposable future-version
+  0.1.1 wheel built, installed and reported the correct version.
 - Preserve frozen-library rpaths in Homebrew; rewriting dylib IDs exceeded the
   native extension header space. Exclude libexec from cleaning.
 - Select the running custom standalone root for update commands rather than
