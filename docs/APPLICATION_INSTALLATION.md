@@ -1,9 +1,13 @@
 # Application installation and updates
 
-This candidate prepares distribution; it is not a published installer. The npm
-scope is provisional, the Homebrew tap does not exist, and platform CI and
-accountable release approval remain gates. Python/uv development installation
-continues to work as documented in the README.
+This candidate prepares distribution; it is not a published installer. The verified
+`@mos-eisley` scope has staged packages and stage-only trusted publishers. The
+[official Homebrew tap](https://github.com/joshuamyers22/homebrew-mos-eisley) is
+initialized without an active formula. Publisher environment protection, encrypted
+signing custody and native candidate verification are recorded in
+[PUBLISHER_RELEASE_PREPARATION](PUBLISHER_RELEASE_PREPARATION.md). Accountable
+release approval and actual public-artifact verification remain gates. Python/uv
+development installation continues to work as documented in the README.
 
 ## Standalone installation
 
@@ -111,20 +115,21 @@ credential. Do not paste keys into chat, PRs, logs or workflow files.
    an actual Windows host before claiming that support.
 2. Verify organization ownership of the selected `@mos-eisley` scope by the
    supplied npm account `joshuamyers22`. The launcher package is
-   `@mos-eisley/mos-eisley`; organization creation and ownership remain unverified.
-   Create a separate `mos-eisley` organization using the free public-package plan;
-   preserve the personal account. Authenticate through npm's browser
+   `@mos-eisley/mos-eisley`; organization ownership is verified.
+   The organization is already configured; preserve the personal account.
+   Authenticate through npm's browser
    flow; configure trusted publication/provenance rather than putting a token in
    source. Publish native packages before the launcher package at the identical
    immutable version. Actual registry publication remains untested.
-3. Create the proposed `joshuamyers22/homebrew-mos-eisley` tap, review the generated
+3. The `joshuamyers22/homebrew-mos-eisley` tap is initialized. Review the generated
    formula and commit that exact release's URLs/checksums. The formula preserves
    frozen-library rpaths and excludes libexec from cleaning. Local tap tests are
    not evidence that the public tap is available.
-4. Configure and verify protection of the `application-release` environment,
-   required reviewers and signing-key custody. The workflow references
-   `MOS_RELEASE_SIGNING_KEY_BASE64`; no secret or protection was provisioned by
-   this task. Enroll custody through the owner's approved secret-management path.
+4. The `application-release` environment now requires owner approval, disallows
+   administrator bypass and restricts deployment to version tags. The existing
+   enrolled key is provisioned as encrypted `MOS_RELEASE_SIGNING_KEY_BASE64`.
+   Maintain private backup/recovery custody and approve only the reviewed exact
+   candidate; see the publisher preparation record.
 5. Publish an approved immutable tag whose version matches the package. The
    release workflow builds all four native bundles, signs their shared metadata,
    generates packages/formula, and attaches the direct-download assets. Stable

@@ -1,6 +1,11 @@
 # Installation and updates review packet
 
 Repository: `joshuamyers22/mos-eisley`; branch: `feat/installation-updates`.
+Historical implementation review: PR #289 merged under the owner's direction on
+2026-10-07. Current publisher controls and remaining approval are recorded in
+[PUBLISHER_RELEASE_PREPARATION](PUBLISHER_RELEASE_PREPARATION.md). The sections
+below retain the original pre-merge assessment.
+
 Date: 2026-10-06. Implementation reviewer: Codex, the implementing agent;
 there is no independence claim. Accountable owner/security disposition is pending.
 This uses the repository's pinned production-template adversarial review rubric.
