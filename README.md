@@ -32,7 +32,8 @@ The [installation and update candidate](docs/APPLICATION_INSTALLATION.md) prepar
 self-contained bundles, signed standalone installation and package-manager
 packaging. Official distribution remains gated on platform CI, package ownership,
 publisher custody and accountable release review. Browser account login delegates
-to native provider clients; subscription-backed Mos inference remains pending.
+to native provider clients. An [experimental subscription transport](docs/SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
+is available for isolated text turns; subscription-backed coding remains pending.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.

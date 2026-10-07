@@ -53,9 +53,16 @@ interactive owner terminal. Relative and current-project PATH entries are
 excluded; owners still need to install and trust the selected client. Login runs
 from the home directory, with native-client configuration still applicable.
 
-**Subscription-backed Mos inference remains unavailable.** Login does not turn
-the existing qualified API routes into subscription routes. A separate supported
-adapter and qualification are needed before this account can power Mos coding.
+An [experimental subscription text route](SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
+is available through owner-installed Codex 0.161.0. `mos subscription status`
+reads native login metadata without sending a prompt. `mos subscription ask --help`
+shows explicit transfer/usage consent and fresh private-attempt requirements.
+Only `gpt-6-sol` with `medium` effort is currently compatible. Native transport
+retries may consume usage; local output/deadline limits are not billing caps.
+
+Subscription-backed Mos coding remains pending. Login and this isolated adapter
+supply no qualified creator/critic/judge route or saved-conversation integration.
+Existing API routes retain their own authorization and spending controls.
 Recorded conversation remains available without credentials. Setup and login
 supply no inference prompt or paid Mos request.
 
