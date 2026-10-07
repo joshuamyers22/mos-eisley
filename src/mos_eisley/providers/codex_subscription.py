@@ -11,12 +11,16 @@ import shutil
 import signal
 import stat
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 from pydantic import JsonValue, TypeAdapter
 
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Turn, Usage
+from mos_eisley.platform.files import UnsupportedPlatformError
+from mos_eisley.platform.posix_storage_native import NativeRootQueries
+from mos_eisley.platform.storage import StorageAdmissionError
 from mos_eisley.tools.mcp_schema import compile_schema, valid_instance
 
 CLIENT_VERSION = "0.161.0"
@@ -65,17 +69,65 @@ _DISABLED = (
 )
 
 
-def _receipt(path: Path, value: dict[str, JsonValue]) -> None:
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+def _receipt(directory: int, name: str, value: dict[str, JsonValue]) -> None:
+    descriptor = os.open(
+        name,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+        dir_fd=directory,
+    )
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         stream.write(json.dumps(value, allow_nan=False))
         stream.flush()
         os.fsync(stream.fileno())
-    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    os.fsync(directory)
+
+
+@contextlib.contextmanager
+def _new_attempt(path: Path) -> Generator[int, None, None]:
+    """Anchor receipt writes to checked, ACL-free owner directories."""
     try:
-        os.fsync(directory)
+        parent = os.open(
+            path.absolute().parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        )
+    except OSError:
+        raise ProviderError("Subscription attempt parent is inadmissible") from None
+    attempt: int | None = None
+    try:
+        try:
+            query = NativeRootQueries()
+            info = os.fstat(parent)
+            if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise StorageAdmissionError("attempt parent is not private")
+            query.protection(parent, stat.S_IMODE(info.st_mode))
+            os.mkdir(path.name, mode=0o700, dir_fd=parent)
+            os.fsync(parent)
+            attempt = os.open(
+                path.name,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=parent,
+            )
+            info = os.fstat(attempt)
+            if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise StorageAdmissionError("attempt directory is not private")
+            query.protection(attempt, stat.S_IMODE(info.st_mode))
+        except FileExistsError:
+            raise
+        except (
+            OSError,
+            ValueError,
+            AttributeError,
+            StorageAdmissionError,
+            UnsupportedPlatformError,
+        ):
+            raise ProviderError(
+                "Subscription storage protection is unsupported"
+            ) from None
+        yield attempt
     finally:
-        os.close(directory)
+        if attempt is not None:
+            os.close(attempt)
+        os.close(parent)
 
 
 def select_client(explicit: Path | None = None) -> Path:
@@ -367,121 +419,115 @@ class CodexSubscriptionClient:
         output_schema = None
         if request.response_format is not None:
             output_schema, _ = compile_schema(request.response_format.json_schema)
-        parent = self.attempt.absolute().parent
-        info = parent.lstat()
-        if (
-            not stat.S_ISDIR(info.st_mode)
-            or info.st_uid != os.getuid()
-            or info.st_mode & 0o077
-        ):
-            raise ProviderError("Subscription attempt parent must be owner-private")
-        attempt = parent.resolve(strict=True) / self.attempt.name
-        # An existing attempt is never replayed, including an uncertain/cancelled one.
-        attempt.mkdir(mode=0o700, exist_ok=False)
-        directory = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        _receipt(
-            attempt / "request.json",
-            {
-                "schema": 1,
-                "provider": PROVIDER,
-                "model": request.model,
-                "effort": request.effort,
-                "client_version": CLIENT_VERSION,
-                "request_sha256": hashlib.sha256(payload).hexdigest(),
-                "billing": "subscription_usage_unverified",
-                "state": "reserved",
-            },
-        )
-        readiness = await status(self.executable)
-        if not all(readiness.values()):
-            raise ProviderError("A supported client signed in with ChatGPT is required")
-        with tempfile.TemporaryDirectory(prefix="mos-subscription-turn-") as directory:
-            cwd = Path(directory)
-            arguments = [
-                "--no-daemon",
-                "exec",
-                "--ignore-user-config",
-                "--ignore-rules",
-                "--strict-config",
-                "--ephemeral",
-                "--skip-git-repo-check",
-                "--sandbox",
-                "read-only",
-                "--json",
-                "--color",
-                "never",
-                "--model",
-                request.model,
-            ]
-            for setting in (
-                'model_provider="openai"',
-                'forced_login_method="chatgpt"',
-                f'model_reasoning_effort="{request.effort}"',
-                'approval_policy="never"',
-                'web_search="disabled"',
-                "project_doc_max_bytes=0",
-                'history.persistence="none"',
-                "features.skip_host_skill_discovery=true",
-                "suppress_unstable_features_warning=true",
-            ):
-                arguments.extend(("-c", setting))
-            for feature in _DISABLED:
-                arguments.extend(("--disable", feature))
-            if output_schema is not None:
-                schema = cwd / "output-schema.json"
-                schema.write_text(json.dumps(output_schema))
-                arguments.extend(("--output-schema", str(schema)))
-            arguments.append("-")
+        with _new_attempt(self.attempt) as attempt:
             _receipt(
-                attempt / "dispatch.json", {"schema": 1, "state": "dispatch_started"}
-            )
-            code, raw, _ = await invoke(
-                self.executable,
-                tuple(arguments),
-                cwd,
-                data=payload,
-                timeout=self.timeout,
-            )
-            if code != 0:
-                raise ProviderError(
-                    "Subscription inference failed; Mos will not repeat this invocation"
-                )
-            limit = min(request.max_text_output_bytes or request.max_output, 64_000)
-            result = parse_result(raw, limit)
-            if len(result.model_dump_json().encode()) > request.max_output:
-                raise ProviderError("Subscription response exceeded its byte ceiling")
-            if (
-                request.max_output_tokens is not None
-                and result.usage.output > request.max_output_tokens
-            ):
-                raise ProviderError(
-                    "Subscription response exceeded the accepted token ceiling"
-                )
-            if output_schema is not None:
-                text = result.turn.blocks[0]
-                assert isinstance(text, TextBlock)
-                try:
-                    value: object = json.loads(text.text)
-                    valid = valid_instance(output_schema, value)
-                except ValueError:
-                    valid = False
-                if not valid:
-                    raise ProviderError(
-                        "Subscription response violated the output contract"
-                    )
-            _receipt(
-                attempt / "completion.json",
+                attempt,
+                "request.json",
                 {
                     "schema": 1,
-                    "state": "completed",
-                    "usage": result.usage.model_dump(mode="json"),
-                    "response_sha256": hashlib.sha256(
-                        result.model_dump_json().encode()
-                    ).hexdigest(),
+                    "provider": PROVIDER,
+                    "model": request.model,
+                    "effort": request.effort,
+                    "client_version": CLIENT_VERSION,
+                    "request_sha256": hashlib.sha256(payload).hexdigest(),
+                    "billing": "subscription_usage_unverified",
+                    "state": "reserved",
                 },
             )
-            return result
+            readiness = await status(self.executable)
+            if not all(readiness.values()):
+                raise ProviderError(
+                    "A supported client signed in with ChatGPT is required"
+                )
+            with tempfile.TemporaryDirectory(
+                prefix="mos-subscription-turn-"
+            ) as directory:
+                cwd = Path(directory)
+                arguments = [
+                    "--no-daemon",
+                    "exec",
+                    "--ignore-user-config",
+                    "--ignore-rules",
+                    "--strict-config",
+                    "--ephemeral",
+                    "--skip-git-repo-check",
+                    "--sandbox",
+                    "read-only",
+                    "--json",
+                    "--color",
+                    "never",
+                    "--model",
+                    request.model,
+                ]
+                for setting in (
+                    'model_provider="openai"',
+                    'forced_login_method="chatgpt"',
+                    f'model_reasoning_effort="{request.effort}"',
+                    'approval_policy="never"',
+                    'web_search="disabled"',
+                    "project_doc_max_bytes=0",
+                    'history.persistence="none"',
+                    "features.skip_host_skill_discovery=true",
+                    "suppress_unstable_features_warning=true",
+                ):
+                    arguments.extend(("-c", setting))
+                for feature in _DISABLED:
+                    arguments.extend(("--disable", feature))
+                if output_schema is not None:
+                    schema = cwd / "output-schema.json"
+                    schema.write_text(json.dumps(output_schema))
+                    arguments.extend(("--output-schema", str(schema)))
+                arguments.append("-")
+                _receipt(
+                    attempt, "dispatch.json", {"schema": 1, "state": "dispatch_started"}
+                )
+                code, raw, _ = await invoke(
+                    self.executable,
+                    tuple(arguments),
+                    cwd,
+                    data=payload,
+                    timeout=self.timeout,
+                )
+                if code != 0:
+                    raise ProviderError(
+                        "Subscription inference failed; "
+                        "Mos will not repeat this invocation"
+                    )
+                limit = min(request.max_text_output_bytes or request.max_output, 64_000)
+                result = parse_result(raw, limit)
+                if len(result.model_dump_json().encode()) > request.max_output:
+                    raise ProviderError(
+                        "Subscription response exceeded its byte ceiling"
+                    )
+                if (
+                    request.max_output_tokens is not None
+                    and result.usage.output > request.max_output_tokens
+                ):
+                    raise ProviderError(
+                        "Subscription response exceeded the accepted token ceiling"
+                    )
+                if output_schema is not None:
+                    text = result.turn.blocks[0]
+                    assert isinstance(text, TextBlock)
+                    try:
+                        value: object = json.loads(text.text)
+                        valid = valid_instance(output_schema, value)
+                    except ValueError:
+                        valid = False
+                    if not valid:
+                        raise ProviderError(
+                            "Subscription response violated the output contract"
+                        )
+                _receipt(
+                    attempt,
+                    "completion.json",
+                    {
+                        "schema": 1,
+                        "state": "completed",
+                        "usage": result.usage.model_dump(mode="json"),
+                        "response_sha256": hashlib.sha256(
+                            result.model_dump_json().encode()
+                        ).hexdigest(),
+                    },
+                )
+                return result

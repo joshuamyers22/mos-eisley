@@ -136,8 +136,8 @@ def run_command(args: argparse.Namespace) -> int:
         return 0
     except (OSError, ValueError, ProviderError, UnicodeError):
         print(
-            "Subscription request rejected or failed; inspect its private receipt. "
-            "No automatic retry was made.",
+            "Subscription request rejected or failed; inspect any retained receipt. "
+            "Mos did not repeat the invocation.",
             file=sys.stderr,
         )
         return 2

@@ -12,12 +12,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from pydantic import JsonValue, TypeAdapter
 
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import JsonSchemaOutput, ModelRequest, TextBlock, Turn
+from mos_eisley.platform.storage import StorageAdmissionError
 from mos_eisley.providers.codex_subscription import (
     CLIENT_VERSION,
     PROVIDER,
@@ -384,6 +385,67 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ProviderError):
             await self.adapter().complete(request())
         self.assertFalse(self.log.exists())
+
+    async def test_extended_parent_acl_refuses_before_native_client(self) -> None:
+        with (
+            patch(
+                "mos_eisley.providers.codex_subscription.NativeRootQueries.protection",
+                side_effect=StorageAdmissionError("extended ACL"),
+            ),
+            self.assertRaises(ProviderError),
+        ):
+            await self.adapter().complete(request())
+        self.assertFalse(self.log.exists())
+        self.assertFalse((self.root / "attempt").exists())
+
+    async def test_inherited_attempt_acl_burns_attempt_before_authentication(
+        self,
+    ) -> None:
+        with (
+            patch(
+                "mos_eisley.providers.codex_subscription.NativeRootQueries.protection",
+                side_effect=[None, StorageAdmissionError("inherited ACL")],
+            ),
+            self.assertRaises(ProviderError),
+        ):
+            await self.adapter().complete(request())
+        self.assertFalse(self.log.exists())
+        self.assertTrue((self.root / "attempt").is_dir())
+        with self.assertRaises(FileExistsError):
+            await self.adapter().complete(request())
+
+    async def test_receipt_writes_keep_opened_directory_after_path_replacement(
+        self,
+    ) -> None:
+        parent, moved = self.root / "receipts", self.root / "moved"
+        parent.mkdir(mode=0o700)
+        selected = CodexSubscriptionClient(
+            self.client,
+            parent / "attempt",
+            allow_data_transfer=True,
+            allow_subscription_usage=True,
+        )
+
+        async def exchange(*args: object, **kwargs: object) -> tuple[int, bytes, bytes]:
+            parent.rename(moved)
+            parent.mkdir(mode=0o700)
+            return 0, encoded(events()), b""
+
+        with (
+            patch(
+                "mos_eisley.providers.codex_subscription.status",
+                new=AsyncMock(
+                    return_value={
+                        "client_version_supported": True,
+                        "subscription_signed_in": True,
+                    }
+                ),
+            ),
+            patch("mos_eisley.providers.codex_subscription.invoke", new=exchange),
+        ):
+            await selected.complete(request())
+        self.assertTrue((moved / "attempt" / "completion.json").is_file())
+        self.assertFalse((parent / "attempt").exists())
 
     async def test_strict_structured_output_and_token_rejection(self) -> None:
         output = JsonSchemaOutput(
