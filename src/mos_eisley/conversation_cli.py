@@ -1070,7 +1070,7 @@ async def terminal(
         return ingress_transport
 
     def next_input() -> asyncio.Task[ConversationInput]:
-        return asyncio.create_task(queue.get())
+        return asyncio.create_task(updates.get(queue))
 
     seen: dict[int, str] = {}
     seen_pressure: set[str] = set()
@@ -1078,6 +1078,7 @@ async def terminal(
         Path(controller.state.workspace)
     )
     composer = ConversationComposer()
+    from mos_eisley.app_update_session import SessionUpdates
     from mos_eisley.conversation_agent_commands import agent_command
     from mos_eisley.conversation_branch_commands import BranchCommands
     from mos_eisley.conversation_diff_commands import DiffCommands
@@ -1085,6 +1086,7 @@ async def terminal(
     from mos_eisley.conversation_loop_commands import loop_command
     from mos_eisley.conversation_schedule_driver import ActiveSessionTimers
 
+    updates = SessionUpdates(emit)
     diff_commands = DiffCommands(controller, emit)
     branch_commands = BranchCommands(controller, emit)
 
@@ -2123,7 +2125,7 @@ async def terminal(
                                     "/mode plan|conversation, "
                                     "/implement TEXT, /goal [ACTION], /fork, /side, "
                                     "/agent, /subagents, /loop, "
-                                    "/steer TEXT, /review, /diff, "
+                                    "/steer TEXT, /review, /diff, /update, "
                                     "/memory [ACTION SCOPE TEXT], /directory, "
                                     "/context [N], "
                                     "/status, "
@@ -2136,6 +2138,7 @@ async def terminal(
                             enabled = True
                 incoming = next_input()
     finally:
+        await updates.close()
         if diff_submission is not None:
             diff_submission.accepted.cancel()
         discard_draft("Session closed; unsent draft discarded.")
@@ -3559,6 +3562,10 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     f"{pending_limits.max_bytes} UTF-8 bytes (this launch)."
                 ),
             }
+        )
+        welcome += (
+            "\nFirst launch: mos setup checks prerequisites and explains "
+            "provider credentials without paid calls."
         )
         welcome += (
             f"\nPending text budget: {pending_limits.max_bytes} UTF-8 bytes "

@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,7 +17,11 @@ def main() -> int:
     if args.require_native_windows and sys.platform != "win32":
         parser.error("native Windows execution is required")
     repository = Path(__file__).resolve().parents[1]
-    wheel = repository / "dist/mos_eisley-0.1.0-py3-none-any.whl"
+    version = tomllib.loads((repository / "pyproject.toml").read_text())["project"][
+        "version"
+    ]
+    normalized = version.replace("-rc.", "rc")
+    wheel = repository / f"dist/mos_eisley-{normalized}-py3-none-any.whl"
     with TemporaryDirectory(prefix="mos-platform-wheel-") as directory:
         root = Path(directory)
         venv = root / "venv"

@@ -412,11 +412,21 @@ def parser() -> argparse.ArgumentParser:
             "or mos chat --help for session options."
         ),
     )
-    command.add_argument("--version", action="version", version="mos-eisley 0.1.0")
+    from mos_eisley.app_release import application_version
+
+    command.add_argument(
+        "--version", action="version", version=f"mos-eisley {application_version()}"
+    )
     subcommands = command.add_subparsers(dest="command", required=True)
     from mos_eisley.conversation_cli import add_commands
 
     add_commands(subcommands.add_parser)
+    from mos_eisley.app_update_cli import add_commands as add_update_commands
+
+    add_update_commands(subcommands.add_parser)
+    from mos_eisley.provider_auth_cli import add_command as add_auth_command
+
+    add_auth_command(subcommands.add_parser)
     from mos_eisley.git_review_cli import add_command as add_git_review
 
     add_git_review(
@@ -7864,7 +7874,7 @@ def _run_openai_conformance_broker(
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def command_main(argv: Sequence[str] | None = None) -> int:
     from mos_eisley.conversation_cli import startup_arguments
 
     args = parser().parse_args(
@@ -8705,6 +8715,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"mos-eisley: {type(error).__name__}: input or artifact validation failed",
             file=sys.stderr,
         )
+        return 2
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Share the installation lease while ordinary clients own work."""
+    from mos_eisley.app_update_session import active_client
+
+    selected = list(sys.argv[1:] if argv is None else argv)
+    if selected and selected[0] == "auth":
+        from mos_eisley.provider_auth_cli import run_command as run_auth
+
+        return run_auth(parser().parse_args(selected))
+    if selected and selected[0] in {"update", "setup"}:
+        from mos_eisley.app_update_cli import run_command as run_update
+
+        return run_update(parser().parse_args(selected))
+    if selected and selected[0] in {"--version", "--help"}:
+        return command_main(selected)
+    try:
+        with active_client():
+            return command_main(selected)
+    except (OSError, ValueError) as error:
+        print(f"Mos Eisley: {error}", file=sys.stderr)
         return 2
 
 

@@ -3,12 +3,15 @@
 import importlib.util
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
 def main() -> int:
-    wheel = Path("dist/mos_eisley-0.1.0-py3-none-any.whl").resolve()
+    version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+    normalized = version.replace("-rc.", "rc")
+    wheel = Path(f"dist/mos_eisley-{normalized}-py3-none-any.whl").resolve()
     with TemporaryDirectory(prefix="mos-eisley-wheel-") as directory:
         root = Path(directory)
         python = root / "venv/bin/python"
@@ -165,6 +168,7 @@ def main() -> int:
         ):
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
         for name in (
+            "test_app_distribution.py",
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_conversation_git.py",

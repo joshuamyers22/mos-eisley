@@ -1,0 +1,43 @@
+name: App distribution
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  standalone:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          version: "0.12.5"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+      - run: uv sync --frozen --dev --group distribution --python 3.12.14 --managed-python
+      - name: Record native runtime and TLS build inputs
+        run: uv run --frozen python -c "import platform, ssl, sys; print(platform.platform(), platform.machine(), sys.version, ssl.OPENSSL_VERSION)"
+      - run: uv run --frozen python -m unittest discover -s tests -p test_app_distribution.py
+      - run: uv run --frozen python tools/build_standalone.py
+      - run: uv run --frozen python tools/build_app_bootstrap.py
+      - run: uv run --frozen python tools/smoke_app_distribution.py
+      - run: uv run --frozen python tools/smoke_app_managers.py
+      - name: Qualify actual Homebrew installation when available
+        if: runner.os == 'macOS'
+        run: uv run --frozen python tools/smoke_app_homebrew.py
+      - name: Retain immutable platform assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: standalone-${{ matrix.os }}
+          path: |
+            dist/standalone/mos-*.tar.gz
+            dist/standalone/mos-install-*
+          if-no-files-found: error

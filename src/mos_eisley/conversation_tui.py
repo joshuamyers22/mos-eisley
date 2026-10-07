@@ -1138,6 +1138,9 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        if event["type"] == "conversation.update":
+            self.set_notice(str(event["text"]))
+            return
         if event["type"] == "conversation.review_scope":
             self.review_scope_preview = str(event["text"])
             self.context_preview = None

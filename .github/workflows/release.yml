@@ -6,6 +6,8 @@ permissions:
   actions: read
   contents: write
 jobs:
+  standalone:
+    uses: ./.github/workflows/app-distribution.yml
   gitleaks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -21,7 +23,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   release:
-    needs: gitleaks
+    environment: application-release
+    needs: [gitleaks, standalone]
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -46,6 +49,16 @@ jobs:
           output-file: ./dist/release-sbom.cdx.json
           format: cyclonedx-json
           upload-artifact: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: standalone-*
+          path: dist/standalone
+          merge-multiple: true
+      - name: Prepare signed application publication
+        env:
+          MOS_RELEASE_SIGNING_KEY_BASE64: ${{ secrets.MOS_RELEASE_SIGNING_KEY_BASE64 }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: uv run --frozen python tools/prepare_app_publication.py --commit "$SOURCE_COMMIT"
       - name: Record release commit
         run: git rev-parse HEAD > dist/SOURCE_COMMIT
       - name: Checksum release artifacts
@@ -54,5 +67,18 @@ jobs:
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-rc.') }}
+          overwrite_files: false
           fail_on_unmatched_files: true
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/release-sbom.cdx.json
+            dist/SOURCE_COMMIT
+            dist/SHA256SUMS
+            dist/standalone/mos-*.tar.gz
+            dist/standalone/mos-install-*
+            dist/standalone/release.json
+            dist/standalone/install.sh
+            dist/standalone/BOOTSTRAP_SHA256SUMS
+            dist/managers/mos-eisley.rb
