@@ -23,7 +23,7 @@ def main() -> int:
     npm.mkdir(exist_ok=True)
     dependencies: dict[str, str] = {}
     for artifact in release.artifacts:
-        name = f"@joshuamyers22/mos-eisley-{artifact.platform}"
+        name = f"@mos-eisley/mos-eisley-{artifact.platform}"
         dependencies[name] = release.version
         package = npm / artifact.platform
         package.mkdir(exist_ok=True)
@@ -59,7 +59,7 @@ def main() -> int:
     (main_package / "package.json").write_text(
         json.dumps(
             {
-                "name": "@joshuamyers22/mos-eisley",
+                "name": "@mos-eisley/mos-eisley",
                 "version": release.version,
                 "license": "SEE LICENSE IN LICENSE",
                 "bin": {"mos": "launcher.cjs"},

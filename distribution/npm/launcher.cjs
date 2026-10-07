@@ -9,7 +9,7 @@ if (!os || !arch) {
   process.exit(2);
 }
 try {
-  const packagePath = require.resolve(`@joshuamyers22/mos-eisley-${os}-${arch}/package.json`);
+  const packagePath = require.resolve(`@mos-eisley/mos-eisley-${os}-${arch}/package.json`);
   const command = path.join(path.dirname(packagePath), 'runtime', 'mos');
   const result = spawnSync(command, process.argv.slice(2), {stdio: 'inherit'});
   if (result.error) throw result.error;

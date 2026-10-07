@@ -109,9 +109,11 @@ credential. Do not paste keys into chat, PRs, logs or workflow files.
 1. Complete accountable security/release review of the exact candidate, then
    pass repository checks and all native artifact jobs. Run the WSL2 journey on
    an actual Windows host before claiming that support.
-2. Verify ownership of an npm account/scope. `@joshuamyers22` is a proposed name,
-   not established ownership. Update the generator, launcher and update guidance
-   together if the selected scope differs. Authenticate through npm's browser
+2. Verify organization ownership of the selected `@mos-eisley` scope by the
+   supplied npm account `joshuamyers22`. The launcher package is
+   `@mos-eisley/mos-eisley`; organization creation and ownership remain unverified.
+   Create a separate `mos-eisley` organization using the free public-package plan;
+   preserve the personal account. Authenticate through npm's browser
    flow; configure trusted publication/provenance rather than putting a token in
    source. Publish native packages before the launcher package at the identical
    immutable version. Actual registry publication remains untested.

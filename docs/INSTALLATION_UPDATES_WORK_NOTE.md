@@ -27,7 +27,7 @@
 - Native CI initially passed Linux arm64/x86_64 and macOS arm64, but Intel failed loading cryptography: its bundled libssl lacked `_SSL_get0_group_name`. Distribution builds now require managed Python 3.12.14 and record TLS/platform build inputs; the local runtime reports OpenSSL 3.5.7. All four native distribution jobs passed at `ed094be`, including actual macOS npm/Homebrew journeys. Container, secret scan, Windows file contracts and both POSIX storage jobs also passed. The final package-test selection/record update requires its own exact-head CI; actual WSL2 remains unqualified.
 - Locked runtime audit passed: 54 packages, no known vulnerabilities or adverse project statuses. No paid provider requests were made.
 - Owner selected existing provider account browser sign-in. `mos auth` delegates to native clients, excludes explicit API/token environment variables and relative/project PATH entries, and does not copy native auth storage. Tests use stubs: no real account login or subscription inference qualification was performed.
-- A dedicated owner-only Ed25519 publisher key was enrolled outside Git; only the public root is in source. GitHub secret custody and release-environment protection were not configured. The owner has no npm account/scope; the selected scope is provisional. The Homebrew tap does not exist. Actual WSL2 qualification requires a Windows-hosted runner; none is registered, and Linux CI cannot substitute.
+- A dedicated owner-only Ed25519 publisher key was enrolled outside Git; only the public root is in source. GitHub secret custody and release-environment protection were not configured. The owner supplied npm username `joshuamyers22` and delegated organization-scope selection. `@mos-eisley` is selected; organization creation/ownership remain unverified, and local npm reports ENEEDAUTH. The Homebrew tap does not exist. Actual WSL2 qualification requires a Windows-hosted runner; none is registered, and Linux CI cannot substitute.
 
 ## Accountable review and release disposition
 
@@ -44,3 +44,19 @@ manager provenance/ownership, platform support and the explicit limitation that
 browser login does not yet supply Mos inference. npm/Homebrew upgrades are fixed
 manual manager instructions; automated manager transaction/rollback and a complete
 first-launch subscription adapter remain incomplete.
+
+## Selected npm organization
+
+The owner requested review before approving candidate `15899a1`; PR #289 stays
+in draft. The selected organization scope is `@mos-eisley`, separate from the
+owner's supplied personal npm account `joshuamyers22`. Generator, launcher and
+update instructions use `@mos-eisley/mos-eisley` together. No organization was
+created, credentials inspected, package published or account converted. Public
+package lookup cannot establish organization availability or ownership. The scope
+change creates a new candidate requiring its own CI and accountable review.
+
+Affected scope-change checks: all 32 installation/account tests and Ruff
+check/format passed. Actual local npm pack/install/launch passed under the new
+organization names; the generated Homebrew formula passed syntax validation.
+This uses the retained native fixture and does not claim a rebuilt current-head
+runtime or registry publication. Strict Pyright passed with zero errors or warnings; new exact-head CI remains pending.

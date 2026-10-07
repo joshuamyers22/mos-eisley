@@ -35,7 +35,7 @@ from mos_eisley.app_release import (
 CHECK_INTERVAL = 6 * 60 * 60
 FAILURE_BACKOFF = 15 * 60
 SYSTEM_POLICY_PATH = Path("/etc/mos-eisley/update-policy.json")
-NPM_PACKAGE = "@joshuamyers22/mos-eisley"
+NPM_PACKAGE = "@mos-eisley/mos-eisley"
 BREW_FORMULA = "joshuamyers22/mos-eisley/mos-eisley"
 
 
