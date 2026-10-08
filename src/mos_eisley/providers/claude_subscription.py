@@ -95,6 +95,7 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
     initialized = completed = False
     answer = ""
     session = ""
+    quota_sessions: list[str] = []
     reported: dict[str, JsonValue] | None = None
     try:
         if len(raw) > MAX_EVENTS:
@@ -104,7 +105,29 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             kind = event.get("type")
             if completed:
                 raise ClaudeProtocolError("event_order")
-            if kind == "system" and event.get("subtype") == "init" and not initialized:
+            if kind == "rate_limit_event":
+                info = event.get("rate_limit_info")
+                selected = event.get("session_id")
+                identifier = event.get("uuid")
+                if (
+                    set(event) != {"type", "rate_limit_info", "session_id", "uuid"}
+                    or not isinstance(info, dict)
+                    or info.get("status") not in ("allowed", "allowed_warning")
+                    or not isinstance(selected, str)
+                    or not 1 <= len(selected) <= 200
+                    or not isinstance(identifier, str)
+                    or not 1 <= len(identifier) <= 200
+                    or len(quota_sessions) >= 32
+                ):
+                    raise ClaudeProtocolError(
+                        "quota_metadata", observed_event="rate_limit_event"
+                    )
+                if initialized and selected != session:
+                    raise ClaudeProtocolError("session_identity")
+                quota_sessions.append(selected)
+            elif (
+                kind == "system" and event.get("subtype") == "init" and not initialized
+            ):
                 if event.get("tools") != [] or event.get("mcp_servers") != []:
                     raise ClaudeProtocolError("init_tools")
                 if event.get("model") != request.model:
@@ -113,6 +136,8 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
                     raise ClaudeProtocolError("init_permissions")
                 selected = event.get("session_id")
                 if not isinstance(selected, str) or not 1 <= len(selected) <= 200:
+                    raise ClaudeProtocolError("session_identity")
+                if any(value != selected for value in quota_sessions):
                     raise ClaudeProtocolError("session_identity")
                 session, initialized = selected, True
             elif kind == "assistant" and initialized:

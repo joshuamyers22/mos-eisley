@@ -71,7 +71,72 @@ def encoded(value: list[dict[str, JsonValue]]) -> bytes:
     return b"\n".join(json.dumps(item).encode() for item in value)
 
 
+def quota_event(status: str = "allowed") -> dict[str, JsonValue]:
+    return {
+        "type": "rate_limit_event",
+        "rate_limit_info": {"status": status, "rateLimitType": "five_hour"},
+        "session_id": "fixture-session",
+        "uuid": "fixture-event",
+    }
+
+
 class ClaudeTests(unittest.IsolatedAsyncioTestCase):
+    def test_allowed_quota_metadata_preserves_exact_response_and_usage(self) -> None:
+        expected = parse_result(encoded(events()), request())
+        for state in ("allowed", "allowed_warning"):
+            for index in range(3):
+                value = events()
+                value.insert(index, quota_event(state))
+                self.assertEqual(parse_result(encoded(value), request()), expected)
+
+    def test_quota_metadata_never_grants_completion_or_bypasses_authority(self) -> None:
+        for value in ([], events()[:-1], events()[1:]):
+            with self.assertRaises(ProviderError):
+                parse_result(encoded([quota_event(), *value]), request())
+        cases: tuple[tuple[int, dict[str, JsonValue]], ...] = (
+            (0, {"tools": ["Bash"]}),
+            (0, {"permissionMode": "bypassPermissions"}),
+            (0, {"model": "different"}),
+            (2, {"modelUsage": {"different": {}}}),
+            (2, {"num_turns": 2}),
+            (2, {"is_error": True}),
+            (2, {"permission_denials": [{"tool_name": "Read"}]}),
+        )
+        for index, update in cases:
+            value = events()
+            value[index].update(update)
+            with self.subTest(update=update), self.assertRaises(ProviderError):
+                parse_result(encoded([quota_event(), *value]), request())
+
+    def test_quota_metadata_shape_session_order_and_count_are_bounded(self) -> None:
+        cases: tuple[dict[str, JsonValue], ...] = (
+            {"rate_limit_info": {"status": "rejected"}},
+            {"rate_limit_info": {"status": "unknown"}},
+            {"rate_limit_info": []},
+            {"uuid": None},
+            {"uuid": "x" * 201},
+            {"session_id": "different-session"},
+            {"message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+        )
+        for update in cases:
+            metadata = quota_event()
+            metadata.update(update)
+            for index in (0, 1):
+                value = events()
+                value.insert(index, metadata)
+                with (
+                    self.subTest(update=update, index=index),
+                    self.assertRaises(ProviderError),
+                ):
+                    parse_result(encoded(value), request())
+        parse_result(encoded([*[quota_event()] * 32, *events()]), request())
+        for value in (
+            [*[quota_event()] * 33, *events()],
+            [*events(), quota_event()],
+        ):
+            with self.assertRaises(ProviderError):
+                parse_result(encoded(value), request())
+
     def test_protocol_failure_reason_does_not_retain_native_payload(self) -> None:
         with self.assertRaises(ClaudeProtocolError) as caught:
             parse_result(b'{"private":"fixture-secret",invalid}', request())
