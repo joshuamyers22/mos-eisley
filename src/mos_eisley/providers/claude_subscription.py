@@ -38,6 +38,7 @@ class ClaudeProtocolError(ProviderError):
         observed_model: object = None,
         *,
         observed_event: object = None,
+        observed_system_subtype: object = None,
     ) -> None:
         super().__init__("Claude subscription returned an inadmissible turn")
         self.reason = reason
@@ -65,6 +66,26 @@ class ClaudeProtocolError(ProviderError):
                 "auth_status",
                 "prompt_suggestion",
             )
+            else None
+        )
+        self.observed_system_subtype = (
+            observed_system_subtype
+            if observed_system_subtype
+            in (
+                "init",
+                "api_retry",
+                "status",
+                "compact_boundary",
+                "turn_duration",
+                "task_started",
+                "task_progress",
+                "task_notification",
+                "task_updated",
+                "hook_started",
+                "hook_response",
+            )
+            else "unrecognized"
+            if observed_event == "system"
             else None
         )
 
@@ -104,7 +125,13 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             event = _OBJECT.validate_json(line, strict=True)
             kind = event.get("type")
             if completed:
-                raise ClaudeProtocolError("event_order")
+                raise ClaudeProtocolError(
+                    "event_order",
+                    observed_event=kind,
+                    observed_system_subtype=event.get("subtype")
+                    if kind == "system"
+                    else None,
+                )
             if kind == "rate_limit_event":
                 info = event.get("rate_limit_info")
                 selected = event.get("session_id")
@@ -191,7 +218,13 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
                 reported = candidate
                 completed = True
             else:
-                raise ClaudeProtocolError("event_kind", observed_event=kind)
+                raise ClaudeProtocolError(
+                    "event_kind",
+                    observed_event=kind,
+                    observed_system_subtype=event.get("subtype")
+                    if kind == "system"
+                    else None,
+                )
         if not initialized or not completed or reported is None:
             raise ClaudeProtocolError("incomplete_turn")
         names = (
@@ -413,6 +446,7 @@ class ClaudeSubscriptionClient:
                 try:
                     result = parse_result(raw, request)
                 except ClaudeProtocolError as error:
+                    subtype = error.observed_system_subtype
                     write_receipt(
                         directory,
                         "failure.json",
@@ -427,6 +461,11 @@ class ClaudeSubscriptionClient:
                             **(
                                 {"observed_event": error.observed_event}
                                 if error.observed_event is not None
+                                else {}
+                            ),
+                            **(
+                                {"observed_system_subtype": subtype}
+                                if subtype is not None
                                 else {}
                             ),
                             "billing_verified": False,

@@ -151,6 +151,23 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
             ).observed_event
         )
 
+    def test_system_subtype_diagnostics_preserve_refusal_and_redact_unknowns(
+        self,
+    ) -> None:
+        for subtype, expected in (
+            ("api_retry", "api_retry"),
+            ("fixture-secret", "unrecognized"),
+        ):
+            for index, reason in ((1, "event_kind"), (3, "event_order")):
+                value = events()
+                value.insert(index, {"type": "system", "subtype": subtype})
+                with self.assertRaises(ClaudeProtocolError) as caught:
+                    parse_result(encoded(value), request())
+                self.assertEqual(caught.exception.reason, reason)
+                self.assertEqual(caught.exception.observed_event, "system")
+                self.assertEqual(caught.exception.observed_system_subtype, expected)
+                self.assertNotIn("fixture-secret", str(caught.exception))
+
     def test_model_mismatch_metadata_retains_only_model_identifiers(self) -> None:
         for model, expected in (
             ("claude-sonnet-5-20261001", "claude-sonnet-5-20261001"),
@@ -167,6 +184,26 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cases = (
+            (
+                0,
+                encoded([events()[0], {"type": "system", "subtype": "api_retry"}]),
+                {
+                    "phase": "protocol",
+                    "reason": "event_kind",
+                    "observed_event": "system",
+                    "observed_system_subtype": "api_retry",
+                },
+            ),
+            (
+                0,
+                encoded([events()[0], {"type": "system", "subtype": "fixture-secret"}]),
+                {
+                    "phase": "protocol",
+                    "reason": "event_kind",
+                    "observed_event": "system",
+                    "observed_system_subtype": "unrecognized",
+                },
+            ),
             (
                 1,
                 b"fixture-secret",
