@@ -154,7 +154,7 @@ def prepare(args: argparse.Namespace) -> None:
         max_input_bytes=128000,
         max_output_bytes=16000,
         max_output_tokens=getattr(args, "max_output_tokens", 2048),
-        timeout_seconds=60,
+        timeout_seconds=getattr(args, "inference_timeout_seconds", 60),
         allow_data_transfer=True,
         allow_subscription_usage=True,
         accept_unverified_billing_and_native_retries=True,
@@ -234,6 +234,7 @@ def read_prepared_scope(
         or prepared["selection_sha256"] != selection_sha
         or auth.max_invocations != 14
         or auth.max_output_tokens not in (2048, 4096)
+        or auth.timeout_seconds not in (60, 120)
         or selection.correction_cycles != 0
         or (auth.workspace / "adder.py").read_text() != BASE_SOURCE
         or (auth.workspace / "tests/test_adder.py").read_text() != BASE_TEST
@@ -520,6 +521,9 @@ def main() -> None:
     parser.add_argument("--valid-for-seconds", type=int, default=1200)
     parser.add_argument(
         "--max-output-tokens", type=int, choices=(2048, 4096), default=2048
+    )
+    parser.add_argument(
+        "--inference-timeout-seconds", type=int, choices=(60, 120), default=60
     )
     parser.add_argument(
         "--approve-live-subscription-qualification", action="store_true"

@@ -121,6 +121,23 @@ class PreparedScopeTests(TestCase):
         self.assertEqual(selection.correction_cycles, 0)
         self.assertFalse((self.args.root / "run-started.json").exists())
 
+    def test_explicit_120_second_scope_preserves_global_and_coding_ceilings(
+        self,
+    ) -> None:
+        self.args.root = self.root.parent / "expanded-deadline-scope"
+        self.args.max_output_tokens = 4096
+        self.args.inference_timeout_seconds = 120
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(self.args)
+        auth, selection, _ = read_prepared_scope(self.args.root)
+        self.assertEqual(auth.timeout_seconds, 120)
+        self.assertEqual(auth.max_output_tokens, 4096)
+        self.assertEqual(auth.max_invocations, 14)
+        self.assertEqual(auth.max_output_bytes, 16000)
+        self.assertEqual(selection.wall_seconds, 600)
+        self.assertEqual(selection.correction_cycles, 0)
+        self.assertEqual(tuple(auth.usage_root.iterdir()), ())
+
     def test_semantically_equal_selection_byte_change_refuses(self) -> None:
         selection = self.root / "selection.json"
         with selection.open("ab") as output:
