@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -9,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typing import Literal
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
+from uuid import uuid4
 
 from pydantic import JsonValue
 from test_coding_controller import FixtureCodingExecutor
@@ -29,13 +31,29 @@ from mos_eisley.conversation_state import LiveChatIdentity
 from mos_eisley.core.agent import AgentConfig, AgentResult, run_agent
 from mos_eisley.core.budget import BudgetPolicy
 from mos_eisley.core.models import canonical_bytes, digest
-from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Turn, Usage
+from mos_eisley.core.protocol import (
+    Effort,
+    ModelRequest,
+    ModelResponse,
+    TextBlock,
+    Turn,
+    Usage,
+)
 from mos_eisley.core.registry import anthropic_registry, openai_registry
 from mos_eisley.providers.openai_spend import SpendPolicy
 from mos_eisley.run.coding_vcs import CodingVCS
 from mos_eisley.run.conversation_sqlite import SQLiteConversationStore
 from mos_eisley.run.conversation_store import ConversationStore
 from mos_eisley.run.spend_ledger import SpendLedger
+from mos_eisley.subscription_authorization import (
+    SubscriptionAuthorization,
+    SubscriptionGrant,
+    SubscriptionProvider,
+    SubscriptionRole,
+    executable_sha256,
+    native_context_sha256,
+    subscription_registry,
+)
 from mos_eisley.tools.none import NoToolsDispatcher
 
 
@@ -234,11 +252,22 @@ class WorkflowModels:
             self.started.set()
             await asyncio.Event().wait()
         registry = (
-            openai_registry() if route.provider == "openai" else anthropic_registry()
+            subscription_registry()
+            if route.provider.endswith("_subscription")
+            else openai_registry()
+            if route.provider == "openai"
+            else anthropic_registry()
         )
-        return await run_agent(
+        result = await run_agent(
             config, registry, ResponseClient(json.dumps(output)), NoToolsDispatcher()
         )
+        if route.provider.endswith("_subscription"):
+            return result.model_copy(
+                update={
+                    "usage": result.usage.model_copy(update={"billing_verified": False})
+                }
+            )
+        return result
 
 
 class LiveCodingTests(IsolatedAsyncioTestCase):
@@ -354,6 +383,195 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
 
     async def run_workflow(self, attempt: int = 0) -> AgentResult:
         return await self.workflow.run(self.config, attempt, "1" * 32)
+
+    def subscription_selection(self) -> LiveCodingSelection:
+        client = self.root / "native-client"
+        client.write_text("synthetic native client")
+        client.chmod(0o700)
+        profiles: tuple[
+            tuple[SubscriptionRole, SubscriptionProvider, str, Effort, int], ...
+        ] = (
+            ("creator", "openai_subscription", "gpt-6-sol", "medium", 4),
+            ("child", "openai_subscription", "gpt-6-sol", "medium", 2),
+            ("critic_openai", "openai_subscription", "gpt-5.6-terra", "medium", 3),
+            (
+                "critic_anthropic",
+                "anthropic_subscription",
+                "claude-sonnet-5",
+                "high",
+                3,
+            ),
+            ("judge", "openai_subscription", "gpt-6-astra", "medium", 3),
+        )
+        grants = tuple(
+            SubscriptionGrant.model_validate_json(
+                json.dumps(
+                    {
+                        "role": role,
+                        "provider": provider,
+                        "model": model,
+                        "effort": effort,
+                        "client": str(client),
+                        "client_sha256": executable_sha256(client),
+                        "authentication_context_sha256": native_context_sha256(
+                            provider
+                        ),
+                        "max_invocations": calls,
+                    }
+                )
+            )
+            for role, provider, model, effort, calls in profiles
+        )
+        authority = SubscriptionAuthorization(
+            authorization_id=uuid4().hex,
+            session_id="1" * 32,
+            owner_uid=os.getuid(),
+            workspace=self.repo,
+            usage_root=self.artifacts,
+            valid_until=datetime.now(UTC) + timedelta(minutes=10),
+            grants=grants,
+            max_invocations=15,
+            max_input_bytes=128000,
+            max_output_bytes=16000,
+            max_output_tokens=2048,
+            timeout_seconds=30,
+            allow_data_transfer=True,
+            allow_subscription_usage=True,
+            accept_unverified_billing_and_native_retries=True,
+        )
+        path = self.root / "subscription-authorization.json"
+        path.write_bytes(canonical_bytes(authority))
+        path.chmod(0o600)
+        routes = tuple(
+            CodingRoute(
+                provider=g.provider,
+                model=g.model,
+                effort=g.effort,
+                subscription_authorization=path,
+                expected_subscription_sha256=authority.sha256,
+                subscription_role=g.role,
+            )
+            for g in grants
+        )
+        data = self.selection.model_dump()
+        data.update(
+            mode="operator_subscription_session_coding",
+            creator=routes[0],
+            child=routes[1],
+            critics=routes[2:4],
+            judge=routes[4],
+            spend_ledger=None,
+            expected_ledger_id=None,
+            max_total_microusd=None,
+        )
+        return LiveCodingSelection.model_validate(data)
+
+    async def test_subscription_workflow_keeps_diversity_without_dollar_receipts(
+        self,
+    ) -> None:
+        selection = self.subscription_selection()
+        self.workflow = LiveCodingWorkflow(
+            selection,
+            digest(canonical_bytes(selection)),
+            self.models,
+            self.executor,
+            self.broker,
+            lambda: None,
+        )
+        result = await self.run_workflow()
+        self.assertFalse(result.usage.billing_verified)
+        self.assertEqual(result.usage.requests, 10)
+        receipt = json.loads(
+            (self.artifacts / ("1" * 32) / "coding-0000/completion.json").read_text()
+        )
+        self.assertNotIn("reserved_microusd", receipt)
+        self.assertEqual(receipt["reserved_invocations"], 10)
+        self.assertEqual(
+            (self.repo / "adder.py").read_text(), "def add(a,b):\n    return a+b\n"
+        )
+
+    async def test_subscription_roster_rejects_same_family_and_role_substitution(
+        self,
+    ) -> None:
+        selection = self.subscription_selection()
+        bad = selection.critics[1].model_copy(
+            update={
+                "provider": "openai_subscription",
+                "model": "gpt-6-astra",
+                "effort": "medium",
+                "subscription_role": "critic_openai",
+            }
+        )
+        with self.assertRaises(ValueError):
+            LiveCodingSelection.model_validate(
+                {**selection.model_dump(), "critics": (selection.critics[0], bad)}
+            )
+        with self.assertRaises(ValueError):
+            LiveCodingSelection.model_validate(
+                {
+                    **selection.model_dump(),
+                    "judge": selection.judge.model_copy(
+                        update={"subscription_role": "creator"}
+                    ),
+                }
+            )
+        with self.assertRaises(ValueError):
+            LiveCodingSelection.model_validate(
+                {**selection.model_dump(), "spend_ledger": self.root / "ledger.sqlite"}
+            )
+
+    async def test_subscription_role_admission_checks_grant_before_model_dispatch(
+        self,
+    ) -> None:
+        selection = self.subscription_selection()
+        path = selection.creator.subscription_authorization
+        assert path is not None
+        path.write_text("{}")
+        self.workflow = LiveCodingWorkflow(
+            selection,
+            digest(canonical_bytes(selection)),
+            self.models,
+            self.executor,
+            self.broker,
+            lambda: None,
+        )
+        with self.assertRaises(ValueError):
+            await self.run_workflow()
+        self.assertEqual(self.models.roles, [])
+        self.assertEqual(self.git("rev-parse", "HEAD").strip(), self.base)
+
+    async def test_subscription_existing_session_acl_refuses_before_project_artifacts(
+        self,
+    ) -> None:
+        from mos_eisley.platform.posix_storage_native import NativeRootQueries
+        from mos_eisley.platform.storage import StorageAdmissionError
+
+        selection = self.subscription_selection()
+        session = self.artifacts / ("1" * 32)
+        session.mkdir(mode=0o700)
+        inode = session.stat().st_ino
+        original = NativeRootQueries.protection
+
+        def protection(query: NativeRootQueries, directory: int, mode: int) -> None:
+            if os.fstat(directory).st_ino == inode:
+                raise StorageAdmissionError("extended session ACL")
+            original(query, directory, mode)
+
+        self.workflow = LiveCodingWorkflow(
+            selection,
+            digest(canonical_bytes(selection)),
+            self.models,
+            self.executor,
+            self.broker,
+            lambda: None,
+        )
+        with (
+            patch.object(NativeRootQueries, "protection", new=protection),
+            self.assertRaises(StorageAdmissionError),
+        ):
+            await self.run_workflow()
+        self.assertEqual(self.models.roles, [])
+        self.assertFalse((session / "coding-0000").exists())
 
     async def test_complete_live_path_preserves_tests_and_blinds_review(self) -> None:
         result = await self.run_workflow()
@@ -549,6 +767,7 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.models.roles, ["plan"])
 
     async def test_completed_session_result_survives_both_stores(self) -> None:
+        assert self.routes[0].expected_policy_sha256 is not None
         identity = LiveChatIdentity(
             model=self.routes[0].model,
             effort="high",

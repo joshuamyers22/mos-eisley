@@ -48,6 +48,7 @@ from mos_eisley.conversation_source_attachment import (
     attachment_fingerprint,
     attachment_payload,
 )
+from mos_eisley.conversation_subscription import SubscriptionChatIdentity
 from mos_eisley.core.agent import AgentUsage
 from mos_eisley.core.models import (
     Contract,
@@ -413,10 +414,10 @@ class ConversationState(Contract, Generic[EntryT]):
         default=None, exclude_if=lambda v: v is None
     )
     schema_version: Literal[1] = 1
-    mode: Literal["recorded_conversation", "openai_live_conversation"] = (
-        "recorded_conversation"
-    )
-    live_chat: LiveChatIdentity | None = Field(
+    mode: Literal[
+        "recorded_conversation", "openai_live_conversation", "subscription_conversation"
+    ] = "recorded_conversation"
+    live_chat: LiveChatIdentity | SubscriptionChatIdentity | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     interaction_mode: Literal["conversation", "plan"] = Field(
@@ -484,8 +485,23 @@ class ConversationState(Contract, Generic[EntryT]):
 
     @model_validator(mode="after")
     def valid_progress(self) -> Self:
-        if (self.mode == "openai_live_conversation") != (self.live_chat is not None):
+        if (self.mode != "recorded_conversation") != (self.live_chat is not None):
             raise ValueError("live conversation requires its saved provider identity")
+        if (self.mode == "subscription_conversation") != isinstance(
+            self.live_chat, SubscriptionChatIdentity
+        ):
+            raise ValueError("Subscription session requires its exact route identity")
+        if isinstance(self.live_chat, SubscriptionChatIdentity):
+            authority = self.live_chat.authorization
+            if (
+                authority.session_id,
+                authority.owner_uid,
+                str(authority.workspace),
+            ) != (self.session_id, self.owner_uid, self.workspace):
+                raise ValueError(
+                    "Subscription session owner/workspace identity changed"
+                )
+            authority.grant("chat")
         if self.live_chat is not None and (
             self.retained_cassette is not None or self.builtin_recording
         ):

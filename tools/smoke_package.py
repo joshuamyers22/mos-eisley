@@ -170,6 +170,8 @@ def main() -> int:
         for name in (
             "test_app_distribution.py",
             "test_codex_subscription.py",
+            "test_claude_subscription.py",
+            "test_subscription_authorization.py",
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_conversation_git.py",

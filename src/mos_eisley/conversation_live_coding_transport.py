@@ -79,6 +79,8 @@ class LiveCodingModels:
     async def call(
         self, route: CodingRoute, config: AgentConfig, directory: Path
     ) -> AgentResult:
+        if route.provider not in {"openai", "anthropic"} or route.spend_policy is None:
+            raise ValueError("API transport cannot use subscription authority")
         policy = SpendPolicy.model_validate_json(
             read_bounded(route.spend_policy, 64_000)
         )
@@ -154,4 +156,32 @@ class LiveCodingModels:
             registry,
             AnthropicMessagesClient(_AnthropicMessageTransport(anthropic)),
             NoToolsDispatcher(),
+        )
+
+
+class SubscriptionCodingModels:
+    """Every role is independently admitted against one shared usage allowance."""
+
+    async def call(
+        self, route: CodingRoute, config: AgentConfig, directory: Path
+    ) -> AgentResult:
+        from mos_eisley.conversation_subscription import run_subscription_role
+        from mos_eisley.subscription_authorization import read_authorization
+
+        if (
+            route.subscription_authorization is None
+            or route.expected_subscription_sha256 is None
+            or route.subscription_role is None
+        ):
+            raise ValueError("Subscription coding role authority is missing")
+        authority = read_authorization(
+            route.subscription_authorization, route.expected_subscription_sha256
+        )
+        authority.check_current(authority.workspace, directory.parent.parent.name)
+        return await run_subscription_role(
+            authority,
+            route.subscription_authorization,
+            route.subscription_role,
+            config,
+            directory.parent.name + "." + directory.name,
         )
