@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import tempfile
 from collections.abc import Callable
@@ -161,6 +162,7 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
     answer = ""
     session = ""
     quota_sessions: list[str] = []
+    progress_events = 0
     reported: dict[str, JsonValue] | None = None
     try:
         if len(raw) > MAX_EVENTS:
@@ -176,7 +178,43 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
                     if kind == "system"
                     else None,
                 )
-            if kind == "rate_limit_event":
+            if kind == "system" and event.get("subtype") == "thinking_tokens":
+                selected = event.get("session_id")
+                identifier = event.get("uuid")
+                estimates = (
+                    event.get("estimated_tokens"),
+                    event.get("estimated_tokens_delta"),
+                )
+                if (
+                    not initialized
+                    or selected != session
+                    or not isinstance(identifier, str)
+                    or not 1 <= len(identifier) <= 200
+                    or set(event)
+                    != {
+                        "type",
+                        "subtype",
+                        "session_id",
+                        "uuid",
+                        "estimated_tokens",
+                        "estimated_tokens_delta",
+                    }
+                    or progress_events >= 4096
+                    or any(
+                        not isinstance(value, (int, float))
+                        or isinstance(value, bool)
+                        or not math.isfinite(value)
+                        or not 0 <= value <= 1_000_000_000
+                        for value in estimates
+                    )
+                ):
+                    raise ClaudeProtocolError(
+                        "thinking_metadata",
+                        observed_event="system",
+                        observed_system_subtype="thinking_tokens",
+                    )
+                progress_events += 1
+            elif kind == "rate_limit_event":
                 info = event.get("rate_limit_info")
                 selected = event.get("session_id")
                 identifier = event.get("uuid")

@@ -80,7 +80,58 @@ def quota_event(status: str = "allowed") -> dict[str, JsonValue]:
     }
 
 
+def thinking_event() -> dict[str, JsonValue]:
+    return {
+        "type": "system",
+        "subtype": "thinking_tokens",
+        "session_id": "fixture-session",
+        "uuid": "fixture-event",
+        "estimated_tokens": 2,
+        "estimated_tokens_delta": 1,
+    }
+
+
 class ClaudeTests(unittest.IsolatedAsyncioTestCase):
+    def test_thinking_progress_never_changes_response_or_reported_usage(self) -> None:
+        value = events()
+        expected = parse_result(encoded(value), request())
+        value.insert(1, thinking_event())
+        self.assertEqual(parse_result(encoded(value), request()), expected)
+        metadata = thinking_event()
+        metadata["estimated_tokens"] = 1_000_000_000
+        self.assertEqual(
+            parse_result(encoded([events()[0], metadata, *events()[1:]]), request()),
+            expected,
+        )
+        incomplete = [events()[0], metadata]
+        with self.assertRaises(ProviderError):
+            parse_result(encoded(incomplete), request())
+
+    def test_thinking_progress_shape_identity_order_and_count_refuse(self) -> None:
+        cases: tuple[dict[str, JsonValue], ...] = (
+            {"estimated_tokens": True},
+            {"estimated_tokens": -1},
+            {"estimated_tokens": float("inf")},
+            {"estimated_tokens_delta": "1"},
+            {"estimated_tokens_delta": -1},
+            {"session_id": "different"},
+            {"uuid": None},
+            {"uuid": "x" * 201},
+            {"message": {"content": [{"type": "tool_use"}]}},
+        )
+        for update in cases:
+            metadata = thinking_event()
+            metadata.update(update)
+            with self.subTest(update=update), self.assertRaises(ProviderError):
+                parse_result(encoded([events()[0], metadata, *events()[1:]]), request())
+        for value in (
+            [thinking_event(), *events()],
+            [*events(), thinking_event()],
+            [events()[0], *[thinking_event()] * 4097, *events()[1:]],
+        ):
+            with self.assertRaises(ProviderError):
+                parse_result(encoded(value), request())
+
     def test_allowed_quota_metadata_preserves_exact_response_and_usage(self) -> None:
         expected = parse_result(encoded(events()), request())
         for state in ("allowed", "allowed_warning"):
