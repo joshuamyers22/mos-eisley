@@ -359,6 +359,7 @@ def main() -> int:
             (root / name).write_text((Path("tests") / name).read_text())
         for name in (
             "qualify_subscription_roles.py",
+            "qualify_claude_subscription.py",
             "test_subscription_role_qualification.py",
         ):
             (root / name).write_text((Path("tools") / name).read_text())

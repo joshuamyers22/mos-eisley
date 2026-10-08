@@ -1,16 +1,22 @@
 """Offline preparation/admission regression checks; no model invocation."""
 
 import argparse
+import asyncio
 import contextlib
 import io
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import AsyncMock, patch
 
+from qualify_claude_subscription import prepare as prepare_diagnostic
+from qualify_claude_subscription import read_scope as read_diagnostic_scope
+from qualify_claude_subscription import run as run_diagnostic
 from qualify_subscription_roles import prepare, read_prepared_scope
 
 from mos_eisley.core.models import digest
+from mos_eisley.core.ports import ProviderError
 
 
 class PreparedScopeTests(TestCase):
@@ -66,3 +72,41 @@ class PreparedScopeTests(TestCase):
         path.write_text(json.dumps(value))
         with self.assertRaisesRegex(ValueError, "Prepared synthetic scope changed"):
             read_prepared_scope(self.root)
+
+    def test_claude_diagnostic_has_only_one_exact_role_invocation(self) -> None:
+        root = self.root.parent / "diagnostic"
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare_diagnostic(root, self.root.parent / "fixture-native")
+        auth = read_diagnostic_scope(root)
+        self.assertEqual(auth.max_invocations, 1)
+        self.assertEqual(len(auth.grants), 1)
+        self.assertEqual(auth.grants[0].role, "critic_anthropic")
+        self.assertEqual(tuple(auth.usage_root.iterdir()), ())
+
+    def test_claude_diagnostic_refuses_expanded_invocation_budget(self) -> None:
+        root = self.root.parent / "diagnostic"
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare_diagnostic(root, self.root.parent / "fixture-native")
+        path = root / "authorization.json"
+        value = json.loads(path.read_text())
+        value["max_invocations"] = 2
+        path.write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "one-invocation limits"):
+            read_diagnostic_scope(root)
+
+    def test_claude_diagnostic_failure_report_never_replays_or_retains_error_text(
+        self,
+    ) -> None:
+        root = self.root.parent / "diagnostic"
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare_diagnostic(root, self.root.parent / "fixture-native")
+        with patch(
+            "qualify_claude_subscription.AuthorizedSubscriptionClient.complete",
+            new=AsyncMock(side_effect=ProviderError("fixture-secret")),
+        ) as native:
+            report = asyncio.run(run_diagnostic(root))
+            self.assertEqual(report["result"], "stopped_on_first_failure")
+            self.assertNotIn("fixture-secret", (root / "diagnostic.json").read_text())
+            with self.assertRaises(FileExistsError):
+                asyncio.run(run_diagnostic(root))
+            self.assertEqual(native.await_count, 1)

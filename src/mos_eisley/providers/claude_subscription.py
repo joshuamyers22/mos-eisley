@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -26,6 +27,46 @@ from mos_eisley.tools.mcp_schema import compile_schema, valid_instance
 CLIENT_VERSION = "2.1.283"
 PROVIDER = "anthropic_subscription"
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+
+class ClaudeProtocolError(ProviderError):
+    """Controlled parser reason; never includes a native payload or diagnostic."""
+
+    def __init__(
+        self,
+        reason: str,
+        observed_model: object = None,
+        *,
+        observed_event: object = None,
+    ) -> None:
+        super().__init__("Claude subscription returned an inadmissible turn")
+        self.reason = reason
+        self.observed_model = (
+            observed_model
+            if isinstance(observed_model, str)
+            and re.fullmatch(
+                r"claude-(sonnet|opus|haiku)-[0-9](?:[.-][0-9]+)*", observed_model
+            )
+            and len(observed_model) <= 120
+            else None
+        )
+        self.observed_event = (
+            observed_event
+            if observed_event
+            in (
+                "rate_limit_event",
+                "system",
+                "assistant",
+                "user",
+                "stream_event",
+                "result",
+                "tool_progress",
+                "tool_use_summary",
+                "auth_status",
+                "prompt_suggestion",
+            )
+            else None
+        )
 
 
 async def status(executable: Path) -> dict[str, JsonValue]:
@@ -57,23 +98,22 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
     reported: dict[str, JsonValue] | None = None
     try:
         if len(raw) > MAX_EVENTS:
-            raise ValueError("oversized events")
+            raise ClaudeProtocolError("event_ceiling")
         for line in raw.splitlines():
             event = _OBJECT.validate_json(line, strict=True)
             kind = event.get("type")
             if completed:
-                raise ValueError("events after completion")
+                raise ClaudeProtocolError("event_order")
             if kind == "system" and event.get("subtype") == "init" and not initialized:
-                if (
-                    event.get("tools") != []
-                    or event.get("mcp_servers") != []
-                    or event.get("model") != request.model
-                    or event.get("permissionMode") != "dontAsk"
-                ):
-                    raise ValueError("native authority or route mismatch")
+                if event.get("tools") != [] or event.get("mcp_servers") != []:
+                    raise ClaudeProtocolError("init_tools")
+                if event.get("model") != request.model:
+                    raise ClaudeProtocolError("init_model", event.get("model"))
+                if event.get("permissionMode") != "dontAsk":
+                    raise ClaudeProtocolError("init_permissions")
                 selected = event.get("session_id")
                 if not isinstance(selected, str) or not 1 <= len(selected) <= 200:
-                    raise ValueError("missing session identity")
+                    raise ClaudeProtocolError("session_identity")
                 session, initialized = selected, True
             elif kind == "assistant" and initialized:
                 message = event.get("message")
@@ -81,44 +121,54 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
                     not isinstance(message, dict)
                     or message.get("model") != request.model
                 ):
-                    raise ValueError("assistant route mismatch")
+                    raise ClaudeProtocolError(
+                        "assistant_identity",
+                        message.get("model") if isinstance(message, dict) else None,
+                    )
                 blocks = message.get("content")
                 if not isinstance(blocks, list):
-                    raise ValueError("invalid content")
+                    raise ClaudeProtocolError("content_shape")
                 for block in blocks:
                     if not isinstance(block, dict) or block.get("type") not in {
                         "text",
                         "thinking",
                     }:
-                        raise ValueError("native tool or unknown content")
+                        raise ClaudeProtocolError("content_kind")
                     if block.get("type") == "text":
                         text = block.get("text")
                         if not isinstance(text, str):
-                            raise ValueError("invalid text")
+                            raise ClaudeProtocolError("text_shape")
                         answer += text
             elif kind == "result" and initialized:
                 models = event.get("modelUsage")
+                if not isinstance(models, dict) or set(models) != {request.model}:
+                    raise ClaudeProtocolError(
+                        "result_models",
+                        next(iter(models))
+                        if isinstance(models, dict) and len(models) == 1
+                        else None,
+                    )
+                if event.get("num_turns") != 1:
+                    raise ClaudeProtocolError("result_turns")
+                if event.get("permission_denials") != []:
+                    raise ClaudeProtocolError("result_permissions")
                 if (
                     event.get("subtype") != "success"
                     or event.get("is_error") is not False
-                    or event.get("num_turns") != 1
-                    or event.get("permission_denials") != []
                     or event.get("session_id") != session
-                    or not isinstance(models, dict)
-                    or set(models) != {request.model}
                 ):
-                    raise ValueError("failed, repeated or substituted turn")
+                    raise ClaudeProtocolError("result_authority")
                 if event.get("result") != answer or not answer:
-                    raise ValueError("result text mismatch")
+                    raise ClaudeProtocolError("result_text")
                 candidate = event.get("usage")
                 if not isinstance(candidate, dict):
-                    raise ValueError("missing usage")
+                    raise ClaudeProtocolError("usage_shape")
                 reported = candidate
                 completed = True
             else:
-                raise ValueError("unsupported native event")
+                raise ClaudeProtocolError("event_kind", observed_event=kind)
         if not initialized or not completed or reported is None:
-            raise ValueError("incomplete turn")
+            raise ClaudeProtocolError("incomplete_turn")
         names = (
             "input_tokens",
             "output_tokens",
@@ -130,7 +180,7 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             type(value) is not int or not 0 <= value <= 1_000_000_000
             for value in values
         ):
-            raise ValueError("invalid usage")
+            raise ClaudeProtocolError("usage_counters")
         incoming, outgoing, cached, created = values
         assert (
             isinstance(incoming, int)
@@ -144,7 +194,7 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             request.max_output_tokens is not None
             and outgoing > request.max_output_tokens
         ):
-            raise ValueError("output ceiling exceeded")
+            raise ClaudeProtocolError("output_ceiling")
         result = ModelResponse(
             turn=Turn(role="assistant", blocks=(TextBlock(text=answer),)),
             stop_reason="end_turn",
@@ -158,16 +208,14 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             provider_request_id=session,
         )
         if len(canonical_bytes(result)) > request.max_output:
-            raise ValueError("response ceiling exceeded")
+            raise ClaudeProtocolError("response_ceiling")
         if request.response_format is not None:
             schema, _ = compile_schema(request.response_format.json_schema)
             if not valid_instance(schema, json.loads(answer)):
-                raise ValueError("invalid structured output")
+                raise ClaudeProtocolError("output_schema")
         return result
     except (ValueError, TypeError, RecursionError):
-        raise ProviderError(
-            "Claude subscription returned an inadmissible turn"
-        ) from None
+        raise ClaudeProtocolError("malformed_events") from None
 
 
 class ClaudeSubscriptionClient:
@@ -251,6 +299,11 @@ class ClaudeSubscriptionClient:
             )
             readiness = await status(self.executable)
             if not all(readiness.values()):
+                write_receipt(
+                    directory,
+                    "failure.json",
+                    {"phase": "auth_preflight", "billing_verified": False},
+                )
                 raise ProviderError(
                     "Supported Claude client with subscription sign-in required"
                 )
@@ -286,14 +339,75 @@ class ClaudeSubscriptionClient:
                 if self.dispatch_guard is not None:
                     self.dispatch_guard()
                 write_receipt(directory, "dispatch.json", {"state": "dispatch_started"})
-                code, raw, _ = await invoke(
-                    self.executable, arguments, cwd, data=payload, timeout=self.timeout
-                )
+                try:
+                    code, raw, diagnostic = await invoke(
+                        self.executable,
+                        arguments,
+                        cwd,
+                        data=payload,
+                        timeout=self.timeout,
+                    )
+                except ProviderError:
+                    write_receipt(
+                        directory,
+                        "failure.json",
+                        {"phase": "native_process", "billing_verified": False},
+                    )
+                    raise
                 if code != 0:
+                    hint = "unclassified"
+                    native_diagnostic = (raw + diagnostic).lower()
+                    for category, markers in (
+                        (
+                            "control_options",
+                            (b"unknown option", b"unrecognized option"),
+                        ),
+                        (
+                            "authentication",
+                            (b"not logged in", b"authentication", b"invalid api key"),
+                        ),
+                        ("quota", (b"credit balance", b"rate limit", b"usage limit")),
+                        ("model", (b"model not found", b"unsupported model")),
+                    ):
+                        if any(marker in native_diagnostic for marker in markers):
+                            hint = category
+                            break
+                    write_receipt(
+                        directory,
+                        "failure.json",
+                        {
+                            "phase": "native_exit",
+                            "return_code": code,
+                            "diagnostic_hint": hint,
+                            "billing_verified": False,
+                        },
+                    )
                     raise ProviderError(
                         "Claude subscription failed; Mos will not repeat the invocation"
                     )
-                result = parse_result(raw, request)
+                try:
+                    result = parse_result(raw, request)
+                except ClaudeProtocolError as error:
+                    write_receipt(
+                        directory,
+                        "failure.json",
+                        {
+                            "phase": "protocol",
+                            "reason": error.reason,
+                            **(
+                                {"observed_model": error.observed_model}
+                                if error.observed_model is not None
+                                else {}
+                            ),
+                            **(
+                                {"observed_event": error.observed_event}
+                                if error.observed_event is not None
+                                else {}
+                            ),
+                            "billing_verified": False,
+                        },
+                    )
+                    raise
                 write_receipt(
                     directory,
                     "completion.json",

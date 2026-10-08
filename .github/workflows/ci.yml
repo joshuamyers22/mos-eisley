@@ -23,7 +23,7 @@ jobs:
       - name: Verify subscription qualification preparation without inference
         run: |
           uv run --frozen python -m unittest discover -s tools -p test_subscription_role_qualification.py -v
-          uv run --frozen pyright tools/qualify_subscription_roles.py tools/test_subscription_role_qualification.py
+          uv run --frozen pyright tools/qualify_subscription_roles.py tools/qualify_claude_subscription.py tools/test_subscription_role_qualification.py
       - run: make audit
   package:
     runs-on: ubuntu-latest

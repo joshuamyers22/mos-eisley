@@ -11,6 +11,7 @@ from pydantic import JsonValue
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import JsonSchemaOutput, ModelRequest, TextBlock, Turn
 from mos_eisley.providers.claude_subscription import (
+    ClaudeProtocolError,
     ClaudeSubscriptionClient,
     parse_result,
     status,
@@ -71,6 +72,93 @@ def encoded(value: list[dict[str, JsonValue]]) -> bytes:
 
 
 class ClaudeTests(unittest.IsolatedAsyncioTestCase):
+    def test_protocol_failure_reason_does_not_retain_native_payload(self) -> None:
+        with self.assertRaises(ClaudeProtocolError) as caught:
+            parse_result(b'{"private":"fixture-secret",invalid}', request())
+        self.assertEqual(caught.exception.reason, "malformed_events")
+        self.assertNotIn("fixture-secret", str(caught.exception))
+        with self.assertRaises(ClaudeProtocolError) as rate:
+            parse_result(encoded([{"type": "rate_limit_event"}, *events()]), request())
+        self.assertEqual(rate.exception.observed_event, "rate_limit_event")
+        self.assertIsNone(
+            ClaudeProtocolError(
+                "event_kind", observed_event="fixture-secret"
+            ).observed_event
+        )
+
+    def test_model_mismatch_metadata_retains_only_model_identifiers(self) -> None:
+        for model, expected in (
+            ("claude-sonnet-5-20261001", "claude-sonnet-5-20261001"),
+            ("fixture-secret", None),
+        ):
+            value = events()
+            value[0]["model"] = model
+            with self.assertRaises(ClaudeProtocolError) as caught:
+                parse_result(encoded(value), request())
+            self.assertEqual(caught.exception.reason, "init_model")
+            self.assertEqual(caught.exception.observed_model, expected)
+
+    async def test_failure_receipts_distinguish_exit_and_protocol_without_payload(
+        self,
+    ) -> None:
+        cases = (
+            (
+                1,
+                b"fixture-secret",
+                {
+                    "phase": "native_exit",
+                    "return_code": 1,
+                    "diagnostic_hint": "unclassified",
+                },
+            ),
+            (
+                1,
+                b"unknown option fixture-secret",
+                {
+                    "phase": "native_exit",
+                    "return_code": 1,
+                    "diagnostic_hint": "control_options",
+                },
+            ),
+            (0, b"fixture-secret", {"phase": "protocol", "reason": "malformed_events"}),
+        )
+        for code, raw, expected in cases:
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                client = ClaudeSubscriptionClient(
+                    root / "claude",
+                    root / "attempt",
+                    allow_data_transfer=True,
+                    allow_subscription_usage=True,
+                )
+                with (
+                    patch(
+                        "mos_eisley.providers.claude_subscription.status",
+                        new=AsyncMock(
+                            return_value={
+                                "client_version_supported": True,
+                                "subscription_signed_in": True,
+                            }
+                        ),
+                    ),
+                    patch(
+                        "mos_eisley.providers.claude_subscription.invoke",
+                        new=AsyncMock(return_value=(code, raw, b"fixture-secret")),
+                    ) as native,
+                ):
+                    with self.assertRaises(ProviderError):
+                        await client.complete(request())
+                    receipt = root / "attempt/failure.json"
+                    self.assertEqual(
+                        json.loads(receipt.read_text()),
+                        {**expected, "billing_verified": False},
+                    )
+                    self.assertNotIn("fixture-secret", receipt.read_text())
+                    self.assertFalse((root / "attempt/completion.json").exists())
+                    with self.assertRaises(FileExistsError):
+                        await client.complete(request())
+                    self.assertEqual(native.await_count, 1)
+
     def test_native_text_and_usage_keep_cache_units(self) -> None:
         result = parse_result(encoded(events()), request())
         self.assertEqual(result.usage.input, 8)
