@@ -7,6 +7,7 @@ import json
 import math
 import re
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Tur
 from mos_eisley.providers.codex_subscription import (
     MAX_EVENTS,
     MAX_INPUT,
+    NativeProcessError,
     invoke,
     new_attempt,
     write_receipt,
@@ -479,6 +481,7 @@ class ClaudeSubscriptionClient:
                 if self.dispatch_guard is not None:
                     self.dispatch_guard()
                 write_receipt(directory, "dispatch.json", {"state": "dispatch_started"})
+                process_started = time.monotonic()
                 try:
                     code, raw, diagnostic = await invoke(
                         self.executable,
@@ -487,11 +490,26 @@ class ClaudeSubscriptionClient:
                         data=payload,
                         timeout=self.timeout,
                     )
-                except ProviderError:
+                except ProviderError as error:
                     write_receipt(
                         directory,
                         "failure.json",
-                        {"phase": "native_process", "billing_verified": False},
+                        {
+                            "phase": "native_process",
+                            "billing_verified": False,
+                            "process_reason": error.process_reason
+                            if isinstance(error, NativeProcessError)
+                            else "deadline"
+                            if error.failure_kind == "provider_timeout"
+                            else "unclassified",
+                            "deadline_seconds": self.timeout,
+                            "elapsed_ms": min(
+                                1_000_000,
+                                max(
+                                    0, int((time.monotonic() - process_started) * 1000)
+                                ),
+                            ),
+                        },
                     )
                     raise
                 if code != 0:

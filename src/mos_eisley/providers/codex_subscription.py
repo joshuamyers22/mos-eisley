@@ -13,6 +13,7 @@ import stat
 import tempfile
 from collections.abc import Callable, Generator
 from pathlib import Path
+from typing import Literal
 
 from pydantic import JsonValue, TypeAdapter
 
@@ -30,6 +31,26 @@ MAX_EVENTS = 1_000_000
 MAX_STDERR = 32_000
 NATIVE_PROFILE = ("gpt-6-sol", "medium")
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+NativeProcessReason = Literal[
+    "deadline", "output_limit", "start", "exchange", "cleanup", "unsupported_platform"
+]
+
+
+class NativeProcessError(ProviderError):
+    """Fixed launcher reason; contains no native output or OS exception text."""
+
+    def __init__(self, reason: NativeProcessReason, message: str) -> None:
+        super().__init__(
+            message,
+            failure_kind="provider_timeout"
+            if reason == "deadline"
+            else "provider_error",
+            failure_stage="response" if reason == "deadline" else "exchange",
+        )
+        self.process_reason = reason
+
+
 CLIENT_ENVIRONMENT = {
     "PATH",
     "HOME",
@@ -164,7 +185,9 @@ async def read_stream(stream: asyncio.StreamReader, limit: int) -> bytes:
     while chunk := await stream.read(4096):
         size += len(chunk)
         if size > limit:
-            raise ProviderError("Subscription client exceeded its output limit")
+            raise NativeProcessError(
+                "output_limit", "Subscription client exceeded its output limit"
+            )
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -190,7 +213,9 @@ async def invoke(
     output_limit: int = MAX_EVENTS,
 ) -> tuple[int, bytes, bytes]:
     if os.name != "posix":
-        raise ProviderError("This subscription client requires macOS or Linux")
+        raise NativeProcessError(
+            "unsupported_platform", "This subscription client requires macOS or Linux"
+        )
     environment = {
         key: value for key, value in os.environ.items() if key in CLIENT_ENVIRONMENT
     }
@@ -206,7 +231,9 @@ async def invoke(
             start_new_session=True,
         )
     except OSError:
-        raise ProviderError("Subscription client could not start") from None
+        raise NativeProcessError(
+            "start", "Subscription client could not start"
+        ) from None
     assert process.stdin is not None and process.stdout is not None
     assert process.stderr is not None
     readers = (
@@ -222,18 +249,24 @@ async def invoke(
             code = await process.wait()
         return code, stdout, stderr
     except TimeoutError:
-        raise ProviderError(
+        raise NativeProcessError(
+            "deadline",
             "Subscription request timed out; Mos will not repeat this invocation",
-            failure_kind="provider_timeout",
-            failure_stage="response",
         ) from None
     except OSError:
-        raise ProviderError("Subscription client exchange failed") from None
+        raise NativeProcessError(
+            "exchange", "Subscription client exchange failed"
+        ) from None
     finally:
         for reader in readers:
             reader.cancel()
         await asyncio.gather(*readers, return_exceptions=True)
-        await _stop(process)
+        try:
+            await _stop(process)
+        except (OSError, TimeoutError):
+            raise NativeProcessError(
+                "cleanup", "Subscription client cleanup failed"
+            ) from None
 
 
 async def status(executable: Path) -> dict[str, JsonValue]:

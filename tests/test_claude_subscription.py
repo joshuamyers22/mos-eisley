@@ -16,6 +16,7 @@ from mos_eisley.providers.claude_subscription import (
     parse_result,
     status,
 )
+from mos_eisley.providers.codex_subscription import NativeProcessError
 
 
 def request() -> ModelRequest:
@@ -92,6 +93,57 @@ def thinking_event() -> dict[str, JsonValue]:
 
 
 class ClaudeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_native_process_reasons_are_retained_without_exception_text(
+        self,
+    ) -> None:
+        cases = (
+            (NativeProcessError("deadline", "fixture-secret"), "deadline"),
+            (NativeProcessError("output_limit", "fixture-secret"), "output_limit"),
+            (NativeProcessError("start", "fixture-secret"), "start"),
+            (NativeProcessError("exchange", "fixture-secret"), "exchange"),
+            (NativeProcessError("cleanup", "fixture-secret"), "cleanup"),
+            (ProviderError("fixture-secret"), "unclassified"),
+        )
+        for error, expected in cases:
+            with (
+                self.subTest(reason=expected),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                client = ClaudeSubscriptionClient(
+                    root / "claude",
+                    root / "attempt",
+                    allow_data_transfer=True,
+                    allow_subscription_usage=True,
+                )
+                with (
+                    patch(
+                        "mos_eisley.providers.claude_subscription.status",
+                        new=AsyncMock(
+                            return_value={
+                                "client_version_supported": True,
+                                "subscription_signed_in": True,
+                            }
+                        ),
+                    ),
+                    patch(
+                        "mos_eisley.providers.claude_subscription.invoke",
+                        new=AsyncMock(side_effect=error),
+                    ) as native,
+                ):
+                    with self.assertRaises(ProviderError):
+                        await client.complete(request())
+                    data = json.loads((root / "attempt/failure.json").read_text())
+                    self.assertEqual(data["process_reason"], expected)
+                    self.assertEqual(data["deadline_seconds"], 60)
+                    self.assertIsInstance(data["elapsed_ms"], int)
+                    self.assertGreaterEqual(data["elapsed_ms"], 0)
+                    self.assertNotIn("fixture-secret", json.dumps(data))
+                    self.assertFalse((root / "attempt/completion.json").exists())
+                    with self.assertRaises(FileExistsError):
+                        await client.complete(request())
+                    self.assertEqual(native.await_count, 1)
+
     def test_thinking_progress_never_changes_response_or_reported_usage(self) -> None:
         value = events()
         expected = parse_result(encoded(value), request())

@@ -23,6 +23,7 @@ from mos_eisley.providers.codex_subscription import (
     CLIENT_VERSION,
     PROVIDER,
     CodexSubscriptionClient,
+    NativeProcessError,
     invoke,
     parse_result,
     select_client,
@@ -473,8 +474,9 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_output_is_bounded_before_event_parsing(self) -> None:
         self.configure(large=True)
-        with self.assertRaises(ProviderError):
+        with self.assertRaises(NativeProcessError) as caught:
             await invoke(self.client, ("exec",), self.root, output_limit=100)
+        self.assertEqual(caught.exception.process_reason, "output_limit")
 
     async def test_cancellation_burns_attempt_without_completion(self) -> None:
         self.configure(sleep=True)
@@ -491,9 +493,15 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_timeout_is_finite_and_does_not_retry(self) -> None:
         self.configure(sleep=True)
-        with self.assertRaises(ProviderError) as raised:
+        with self.assertRaises(NativeProcessError) as raised:
             await invoke(self.client, ("exec",), self.root, timeout=0.05)
         self.assertEqual(raised.exception.failure_kind, "provider_timeout")
+        self.assertEqual(raised.exception.process_reason, "deadline")
+
+    async def test_missing_native_client_has_controlled_start_reason(self) -> None:
+        with self.assertRaises(NativeProcessError) as caught:
+            await invoke(self.root / "missing", (), self.root)
+        self.assertEqual(caught.exception.process_reason, "start")
 
     def test_absolute_project_local_client_is_rejected(self) -> None:
         with (
