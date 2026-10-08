@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
+from qualify_claude_subscription import main as diagnostic_main
 from qualify_claude_subscription import prepare as prepare_diagnostic
 from qualify_claude_subscription import read_scope as read_diagnostic_scope
 from qualify_claude_subscription import run as run_diagnostic
@@ -82,6 +83,54 @@ class PreparedScopeTests(TestCase):
         self.assertEqual(len(auth.grants), 1)
         self.assertEqual(auth.grants[0].role, "critic_anthropic")
         self.assertEqual(tuple(auth.usage_root.iterdir()), ())
+
+    def test_combined_diagnostic_prepares_current_scope_and_runs_once(self) -> None:
+        root = self.root.parent / "diagnostic"
+
+        async def inspect_scope(path: Path) -> dict[str, str]:
+            auth = read_diagnostic_scope(path)
+            self.assertEqual(auth.max_invocations, 1)
+            self.assertFalse((path / "run-started.json").exists())
+            return {"result": "passed"}
+
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "diagnostic",
+                    "prepare-run",
+                    "--root",
+                    str(root),
+                    "--client",
+                    str(self.root.parent / "fixture-native"),
+                    "--approve-live-claude-diagnostic",
+                ],
+            ),
+            patch("qualify_claude_subscription.run", side_effect=inspect_scope) as run,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            diagnostic_main()
+            run.assert_called_once_with(root)
+
+    def test_combined_diagnostic_without_approval_never_prepares(self) -> None:
+        root = self.root.parent / "diagnostic"
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "diagnostic",
+                    "prepare-run",
+                    "--root",
+                    str(root),
+                    "--client",
+                    str(self.root.parent / "fixture-native"),
+                ],
+            ),
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit),
+        ):
+            diagnostic_main()
+        self.assertFalse(root.exists())
 
     def test_claude_diagnostic_refuses_expanded_invocation_budget(self) -> None:
         root = self.root.parent / "diagnostic"

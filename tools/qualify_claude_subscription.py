@@ -156,19 +156,22 @@ async def run(root: Path) -> dict[str, JsonValue]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "run"))
+    parser.add_argument("action", choices=("prepare", "run", "prepare-run"))
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--client", type=Path)
     parser.add_argument("--approve-live-claude-diagnostic", action="store_true")
     args = parser.parse_args()
     root = args.root.absolute()
-    if args.action == "prepare":
+    if (
+        args.action in ("run", "prepare-run")
+        and not args.approve_live_claude_diagnostic
+    ):
+        parser.error("run requires explicit one-invocation diagnostic approval")
+    if args.action in ("prepare", "prepare-run"):
         if args.client is None:
             parser.error("prepare requires an absolute Claude client")
         prepare(root, args.client)
-    else:
-        if not args.approve_live_claude_diagnostic:
-            parser.error("run requires explicit one-invocation diagnostic approval")
+    if args.action in ("run", "prepare-run"):
         report = asyncio.run(run(root))
         print(json.dumps(report))
         if report["result"] != "passed":
