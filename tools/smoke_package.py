@@ -357,6 +357,11 @@ def main() -> int:
             "test_reviewer_openai_review_grant.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
+        for name in (
+            "qualify_subscription_roles.py",
+            "test_subscription_role_qualification.py",
+        ):
+            (root / name).write_text((Path("tools") / name).read_text())
         subprocess.run(
             [
                 str(python),

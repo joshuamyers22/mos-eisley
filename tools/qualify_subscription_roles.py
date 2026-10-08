@@ -194,11 +194,13 @@ def prepare(args: argparse.Namespace) -> None:
         max_output_bytes=500000,
     )
     write(root / "selection.json", json.loads(canonical_bytes(selection)))
+    # Coding admission binds the exact file bytes, including receipt formatting.
+    selection_sha = digest((root / "selection.json").read_bytes())
     write(
         root / "prepared.json",
         {
             "authorization_sha256": authorization.sha256,
-            "selection_sha256": digest(canonical_bytes(selection)),
+            "selection_sha256": selection_sha,
             "source_sha256": digest(BASE_SOURCE.encode()),
             "test_sha256": digest(BASE_TEST.encode()),
             "inference_invocations": 0,
@@ -217,7 +219,9 @@ def prepare(args: argparse.Namespace) -> None:
     )
 
 
-async def exercise(root: Path) -> dict[str, JsonValue]:
+def read_prepared_scope(
+    root: Path,
+) -> tuple[SubscriptionAuthorization, LiveCodingSelection, str]:
     authority_path = root / "authorization.json"
     auth = read_authorization(authority_path)
     selection, selection_sha = read_coding_selection(
@@ -233,6 +237,12 @@ async def exercise(root: Path) -> dict[str, JsonValue]:
         or (auth.workspace / "tests/test_adder.py").read_text() != BASE_TEST
     ):
         raise ValueError("Prepared synthetic scope changed")
+    return auth, selection, selection_sha
+
+
+async def exercise(root: Path) -> dict[str, JsonValue]:
+    authority_path = root / "authorization.json"
+    auth, selection, selection_sha = read_prepared_scope(root)
     write(
         root / "run-started.json",
         {
