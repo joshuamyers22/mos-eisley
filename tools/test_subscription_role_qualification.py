@@ -91,6 +91,7 @@ class PreparedScopeTests(TestCase):
             image_id="sha256:" + "1" * 64,
             valid_for_seconds=1200,
         )
+        self.args = args
         with contextlib.redirect_stdout(io.StringIO()):
             prepare(args)
 
@@ -106,6 +107,19 @@ class PreparedScopeTests(TestCase):
         self.assertEqual(selection.correction_cycles, 0)
         self.assertFalse((self.root / "run-started.json").exists())
         self.assertEqual(tuple((self.root / "usage").iterdir()), ())
+
+    def test_explicit_4096_scope_is_fresh_and_keeps_other_limits(self) -> None:
+        self.args.root = self.root.parent / "expanded-token-scope"
+        self.args.max_output_tokens = 4096
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(self.args)
+        auth, selection, _ = read_prepared_scope(self.args.root)
+        self.assertEqual(auth.max_output_tokens, 4096)
+        self.assertEqual(auth.max_invocations, 14)
+        self.assertEqual(auth.max_output_bytes, 16000)
+        self.assertEqual(auth.timeout_seconds, 60)
+        self.assertEqual(selection.correction_cycles, 0)
+        self.assertFalse((self.args.root / "run-started.json").exists())
 
     def test_semantically_equal_selection_byte_change_refuses(self) -> None:
         selection = self.root / "selection.json"

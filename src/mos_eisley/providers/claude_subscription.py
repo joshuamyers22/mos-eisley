@@ -42,8 +42,12 @@ class ClaudeProtocolError(ProviderError):
         *,
         observed_event: object = None,
         observed_system_subtype: object = None,
+        observed_output_bytes: int | None = None,
+        observed_output_tokens: int | None = None,
     ) -> None:
         super().__init__("Claude subscription returned an inadmissible turn")
+        self.observed_output_bytes = observed_output_bytes
+        self.observed_output_tokens = observed_output_tokens
         self.reason = reason
         self.observed_model = (
             observed_model
@@ -336,7 +340,11 @@ def parse_result(raw: bytes, request: ModelRequest) -> ModelResponse:
             request.max_output_tokens is not None
             and outgoing > request.max_output_tokens
         ):
-            raise ClaudeProtocolError("output_ceiling")
+            raise ClaudeProtocolError(
+                "output_ceiling",
+                observed_output_bytes=len(answer.encode()),
+                observed_output_tokens=outgoing,
+            )
         result = ModelResponse(
             turn=Turn(role="assistant", blocks=(TextBlock(text=answer),)),
             stop_reason="end_turn",
@@ -547,6 +555,7 @@ class ClaudeSubscriptionClient:
                     result = parse_result(raw, request)
                 except ClaudeProtocolError as error:
                     subtype = error.observed_system_subtype
+                    observed_tokens = error.observed_output_tokens
                     write_receipt(
                         directory,
                         "failure.json",
@@ -566,6 +575,16 @@ class ClaudeSubscriptionClient:
                             **(
                                 {"observed_system_subtype": subtype}
                                 if subtype is not None
+                                else {}
+                            ),
+                            **(
+                                {"native_reported_output_tokens": observed_tokens}
+                                if observed_tokens is not None
+                                else {}
+                            ),
+                            **(
+                                {"output_text_bytes": error.observed_output_bytes}
+                                if error.observed_output_bytes is not None
                                 else {}
                             ),
                             "billing_verified": False,

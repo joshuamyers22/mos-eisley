@@ -93,6 +93,22 @@ def thinking_event() -> dict[str, JsonValue]:
 
 
 class ClaudeTests(unittest.IsolatedAsyncioTestCase):
+    def test_output_ceiling_reports_only_validated_numeric_counters(self) -> None:
+        with self.assertRaises(ClaudeProtocolError) as caught:
+            parse_result(
+                encoded(events("ok")),
+                request().model_copy(update={"max_output_tokens": 2}),
+            )
+        self.assertEqual(caught.exception.reason, "output_ceiling")
+        self.assertEqual(caught.exception.observed_output_tokens, 3)
+        self.assertEqual(caught.exception.observed_output_bytes, 2)
+        with self.assertRaises(ClaudeProtocolError) as text:
+            parse_result(
+                encoded(events("ok")),
+                request().model_copy(update={"max_text_output_bytes": 1}),
+            )
+        self.assertEqual(text.exception.observed_output_bytes, 2)
+
     async def test_native_process_reasons_are_retained_without_exception_text(
         self,
     ) -> None:
@@ -288,7 +304,21 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
     async def test_failure_receipts_distinguish_exit_and_protocol_without_payload(
         self,
     ) -> None:
+        limited = events()
+        usage = limited[2]["usage"]
+        assert isinstance(usage, dict)
+        usage["output_tokens"] = 101
         cases = (
+            (
+                0,
+                encoded(limited),
+                {
+                    "phase": "protocol",
+                    "reason": "output_ceiling",
+                    "native_reported_output_tokens": 101,
+                    "output_text_bytes": 2,
+                },
+            ),
             (
                 0,
                 encoded([events()[0], {"type": "system", "subtype": "api_retry"}]),

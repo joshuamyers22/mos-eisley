@@ -153,7 +153,7 @@ def prepare(args: argparse.Namespace) -> None:
         max_invocations=14,
         max_input_bytes=128000,
         max_output_bytes=16000,
-        max_output_tokens=2048,
+        max_output_tokens=getattr(args, "max_output_tokens", 2048),
         timeout_seconds=60,
         allow_data_transfer=True,
         allow_subscription_usage=True,
@@ -212,6 +212,7 @@ def prepare(args: argparse.Namespace) -> None:
                 "root": str(root),
                 "authorization_sha256": authorization.sha256,
                 "maximum_native_inference_invocations": 14,
+                "reported_output_token_limit": authorization.max_output_tokens,
                 "billing_verified": False,
                 "prepared_only": True,
             }
@@ -232,6 +233,7 @@ def read_prepared_scope(
         prepared["authorization_sha256"] != auth.sha256
         or prepared["selection_sha256"] != selection_sha
         or auth.max_invocations != 14
+        or auth.max_output_tokens not in (2048, 4096)
         or selection.correction_cycles != 0
         or (auth.workspace / "adder.py").read_text() != BASE_SOURCE
         or (auth.workspace / "tests/test_adder.py").read_text() != BASE_TEST
@@ -516,6 +518,9 @@ def main() -> None:
     parser.add_argument("--docker", type=Path, default=Path("/usr/local/bin/docker"))
     parser.add_argument("--image-id")
     parser.add_argument("--valid-for-seconds", type=int, default=1200)
+    parser.add_argument(
+        "--max-output-tokens", type=int, choices=(2048, 4096), default=2048
+    )
     parser.add_argument(
         "--approve-live-subscription-qualification", action="store_true"
     )
