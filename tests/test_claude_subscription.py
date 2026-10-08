@@ -156,6 +156,8 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         for subtype, expected in (
             ("api_retry", "api_retry"),
+            ("model_fallback", "model_fallback"),
+            ("informational", "informational"),
             ("fixture-secret", "unrecognized"),
         ):
             for index, reason in ((1, "event_kind"), (3, "event_order")):

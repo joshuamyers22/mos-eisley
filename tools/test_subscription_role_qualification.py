@@ -12,15 +12,68 @@ from unittest.mock import AsyncMock, patch
 
 from qualify_claude_subscription import main as diagnostic_main
 from qualify_claude_subscription import prepare as prepare_diagnostic
+from qualify_claude_subscription import read_diagnostic_request
 from qualify_claude_subscription import read_scope as read_diagnostic_scope
 from qualify_claude_subscription import run as run_diagnostic
 from qualify_subscription_roles import prepare, read_prepared_scope
 
-from mos_eisley.core.models import digest
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 
 
 class PreparedScopeTests(TestCase):
+    def test_exact_synthetic_critic_request_is_bound_and_capped(self) -> None:
+        request = ModelRequest(
+            provider="anthropic_subscription",
+            model="claude-sonnet-5",
+            effort="high",
+            turns=(
+                Turn(role="user", blocks=(TextBlock(text="Synthetic plan review"),)),
+            ),
+            max_output=500000,
+        )
+        raw = canonical_bytes(request)
+        path = self.root.parent / "synthetic-request.json"
+        path.write_bytes(raw)
+        bounded = read_diagnostic_request(path, digest(raw))
+        self.assertEqual(bounded.turns, request.turns)
+        self.assertEqual(
+            (
+                bounded.max_output,
+                bounded.max_text_output_bytes,
+                bounded.max_output_tokens,
+            ),
+            (18000, 16000, 2048),
+        )
+        path.write_bytes(raw + b"\n")
+        with self.assertRaisesRegex(ValueError, "identity changed"):
+            read_diagnostic_request(path, digest(raw))
+
+    def test_synthetic_request_refuses_other_profile_and_oversize_input(self) -> None:
+        path = self.root.parent / "synthetic-request.json"
+        for model in ("other",):
+            request = ModelRequest(
+                provider="anthropic_subscription",
+                model=model,
+                effort="high",
+                turns=(
+                    Turn(
+                        role="user",
+                        blocks=(TextBlock(text="Synthetic plan review"),),
+                    ),
+                ),
+                max_output=18000,
+            )
+            raw = canonical_bytes(request)
+            path.write_bytes(raw)
+            with self.assertRaises(ValueError):
+                read_diagnostic_request(path, digest(raw))
+        raw = b" " * 128001
+        path.write_bytes(raw)
+        with self.assertRaises(ValueError):
+            read_diagnostic_request(path, digest(raw))
+
     def setUp(self) -> None:
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)

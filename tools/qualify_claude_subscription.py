@@ -14,7 +14,7 @@ from pydantic import JsonValue
 from qualify_subscription_roles import write
 
 from mos_eisley.conversation_subscription import AuthorizedSubscriptionClient
-from mos_eisley.core.models import canonical_bytes
+from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.protocol import JsonSchemaOutput, ModelRequest, TextBlock, Turn
 from mos_eisley.providers.codex_subscription import select_client
 from mos_eisley.subscription_authorization import (
@@ -96,7 +96,30 @@ def read_scope(root: Path) -> SubscriptionAuthorization:
     return auth
 
 
-async def run(root: Path) -> dict[str, JsonValue]:
+def read_diagnostic_request(path: Path, expected_sha: str) -> ModelRequest:
+    with path.open("rb") as source:
+        raw = source.read(128001)
+    if len(raw) > 128000 or digest(raw) != expected_sha:
+        raise ValueError("Synthetic diagnostic request identity changed")
+    request = ModelRequest.model_validate_json(raw)
+    if (request.provider, request.model, request.effort) != (
+        "anthropic_subscription",
+        "claude-sonnet-5",
+        "high",
+    ) or request.tools:
+        raise ValueError(
+            "Synthetic diagnostic requires the exact tool-free Claude profile"
+        )
+    return request.model_copy(
+        update={
+            "max_output": 18000,
+            "max_text_output_bytes": 16000,
+            "max_output_tokens": 2048,
+        }
+    )
+
+
+async def run(root: Path, request: ModelRequest | None = None) -> dict[str, JsonValue]:
     auth = read_scope(root)
     write(
         root / "run-started.json",
@@ -106,7 +129,7 @@ async def run(root: Path) -> dict[str, JsonValue]:
         "authorization_sha256": auth.sha256,
         "billing_verified": False,
     }
-    request = ModelRequest(
+    request = request or ModelRequest(
         provider="anthropic_subscription",
         model="claude-sonnet-5",
         effort="high",
@@ -160,6 +183,8 @@ def main() -> None:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--client", type=Path)
     parser.add_argument("--approve-live-claude-diagnostic", action="store_true")
+    parser.add_argument("--request-file", type=Path)
+    parser.add_argument("--request-sha256")
     args = parser.parse_args()
     root = args.root.absolute()
     if (
@@ -167,12 +192,35 @@ def main() -> None:
         and not args.approve_live_claude_diagnostic
     ):
         parser.error("run requires explicit one-invocation diagnostic approval")
+    diagnostic_request = None
+    if args.request_file is not None or args.request_sha256 is not None:
+        if (
+            args.action != "prepare-run"
+            or args.request_file is None
+            or args.request_sha256 is None
+        ):
+            parser.error(
+                "a synthetic request requires prepare-run and both file/digest"
+            )
+        diagnostic_request = read_diagnostic_request(
+            args.request_file, args.request_sha256
+        )
     if args.action in ("prepare", "prepare-run"):
         if args.client is None:
             parser.error("prepare requires an absolute Claude client")
         prepare(root, args.client)
+        if diagnostic_request is not None:
+            write(
+                root / "request-source.json",
+                {
+                    "source_sha256": args.request_sha256,
+                    "request_sha256": digest(canonical_bytes(diagnostic_request)),
+                },
+            )
     if args.action in ("run", "prepare-run"):
-        report = asyncio.run(run(root))
+        report = asyncio.run(
+            run(root) if diagnostic_request is None else run(root, diagnostic_request)
+        )
         print(json.dumps(report))
         if report["result"] != "passed":
             raise SystemExit(1)
