@@ -233,7 +233,7 @@ def read_prepared_scope(
         prepared["authorization_sha256"] != auth.sha256
         or prepared["selection_sha256"] != selection_sha
         or auth.max_invocations != 14
-        or auth.max_output_tokens not in (2048, 4096)
+        or auth.max_output_tokens not in (2048, 4096, 8192)
         or auth.timeout_seconds not in (60, 120)
         or selection.correction_cycles != 0
         or (auth.workspace / "adder.py").read_text() != BASE_SOURCE
@@ -520,7 +520,7 @@ def main() -> None:
     parser.add_argument("--image-id")
     parser.add_argument("--valid-for-seconds", type=int, default=1200)
     parser.add_argument(
-        "--max-output-tokens", type=int, choices=(2048, 4096), default=2048
+        "--max-output-tokens", type=int, choices=(2048, 4096, 8192), default=2048
     )
     parser.add_argument(
         "--inference-timeout-seconds", type=int, choices=(60, 120), default=60

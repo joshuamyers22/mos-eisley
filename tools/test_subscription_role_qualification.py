@@ -15,8 +15,10 @@ from qualify_claude_subscription import prepare as prepare_diagnostic
 from qualify_claude_subscription import read_diagnostic_request
 from qualify_claude_subscription import read_scope as read_diagnostic_scope
 from qualify_claude_subscription import run as run_diagnostic
+from qualify_subscription_roles import main as qualification_main
 from qualify_subscription_roles import prepare, read_prepared_scope
 
+from mos_eisley.conversation_subscription import SubscriptionChatIdentity
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
@@ -120,6 +122,86 @@ class PreparedScopeTests(TestCase):
         self.assertEqual(auth.timeout_seconds, 60)
         self.assertEqual(selection.correction_cycles, 0)
         self.assertFalse((self.args.root / "run-started.json").exists())
+
+    def test_explicit_8192_scope_binds_shared_routes_without_dispatch(self) -> None:
+        self.args.root = self.root.parent / "maximum-token-scope"
+        self.args.max_output_tokens = 8192
+        self.args.inference_timeout_seconds = 120
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(self.args)
+        auth, selection, _ = read_prepared_scope(self.args.root)
+        self.assertEqual(auth.max_output_tokens, 8192)
+        self.assertEqual(auth.max_invocations, 14)
+        self.assertEqual(auth.max_input_bytes, 128000)
+        self.assertEqual(auth.max_output_bytes, 16000)
+        self.assertEqual(auth.timeout_seconds, 120)
+        self.assertEqual(selection.wall_seconds, 600)
+        self.assertEqual(selection.correction_cycles, 0)
+        identity = SubscriptionChatIdentity(
+            authorization=auth,
+            authorization_path=self.args.root / "authorization.json",
+        )
+        self.assertEqual(identity.max_output_tokens, 8192)
+        for route in (
+            selection.creator,
+            selection.child,
+            *selection.critics,
+            selection.judge,
+        ):
+            self.assertEqual(route.expected_subscription_sha256, auth.sha256)
+        self.assertEqual(auth.grant("critic_anthropic").effort, "high")
+        self.assertEqual(tuple(auth.usage_root.iterdir()), ())
+        self.assertFalse((self.args.root / "run-started.json").exists())
+        path = self.args.root / "authorization.json"
+        value = json.loads(path.read_text())
+        value["max_output_tokens"] = 4096
+        path.write_text(json.dumps(value))
+        with self.assertRaises(ValueError):
+            read_prepared_scope(self.args.root)
+
+    def test_cli_token_choices_keep_default_and_refuse_other_ceilings(self) -> None:
+        arguments = [
+            "qualification",
+            "prepare",
+            "--root",
+            str(self.root),
+            "--codex",
+            str(self.args.codex),
+            "--claude",
+            str(self.args.claude),
+            "--image-id",
+            self.args.image_id,
+        ]
+        for tokens in (None, 2048, 4096, 8192):
+            argv = arguments + (
+                [] if tokens is None else ["--max-output-tokens", str(tokens)]
+            )
+            with (
+                patch("sys.argv", argv),
+                patch("qualify_subscription_roles.prepare") as call,
+            ):
+                qualification_main()
+                self.assertEqual(
+                    call.call_args.args[0].max_output_tokens, tokens or 2048
+                )
+        for tokens in (0, 6144, 8193):
+            with (
+                patch("sys.argv", arguments + ["--max-output-tokens", str(tokens)]),
+                patch("qualify_subscription_roles.prepare") as call,
+                contextlib.redirect_stderr(io.StringIO()),
+                self.assertRaises(SystemExit),
+            ):
+                qualification_main()
+            call.assert_not_called()
+
+    def test_prepared_scope_refuses_unsupported_token_ceiling(self) -> None:
+        self.args.root = self.root.parent / "unsupported-token-scope"
+        self.args.max_output_tokens = 6144
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(self.args)
+        with self.assertRaisesRegex(ValueError, "Prepared synthetic scope changed"):
+            read_prepared_scope(self.args.root)
+        self.assertEqual(tuple((self.args.root / "usage").iterdir()), ())
 
     def test_explicit_120_second_scope_preserves_global_and_coding_ceilings(
         self,
