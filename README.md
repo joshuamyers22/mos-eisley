@@ -753,3 +753,5 @@ docker run --rm --network none --read-only --tmpfs /tmp \
 
 The second command intentionally exits 1; its temporary artifacts disappear when
 the container exits. Mount a private writable output directory to retain runs.
+
+[Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md) bind native-client usage authority through resume and coding roles; expanded review and live role qualification remain gated.

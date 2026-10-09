@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -39,6 +40,13 @@ from mos_eisley.run.coding_child import CodingExecutor
 from mos_eisley.run.coding_vcs import CodingVCS
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.store import private_write
+from mos_eisley.subscription_authorization import (
+    SubscriptionRole,
+    provider_family,
+    read_authorization,
+    subscription_registry,
+)
+from mos_eisley.subscription_usage import private_directory
 from mos_eisley.task_state import ResourceCeiling
 from mos_eisley.tools.none import NoToolsDispatcher
 
@@ -76,16 +84,63 @@ def response_schema(model: type[Contract]) -> str:
 
 
 class CodingRoute(Contract):
-    provider: Literal["openai", "anthropic"]
+    provider: Literal[
+        "openai", "anthropic", "openai_subscription", "anthropic_subscription"
+    ]
     model: Text
     effort: Effort
-    spend_policy: Path
-    expected_policy_sha256: Digest
+    spend_policy: Path | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    expected_policy_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    subscription_authorization: Path | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    expected_subscription_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    subscription_role: SubscriptionRole | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def distinct_authority(self) -> Self:
+        if self.provider.endswith("_subscription"):
+            if (
+                self.spend_policy is not None
+                or self.expected_policy_sha256 is not None
+                or self.subscription_authorization is None
+                or not self.subscription_authorization.is_absolute()
+                or self.expected_subscription_sha256 is None
+                or self.subscription_role is None
+            ):
+                raise ValueError(
+                    "Subscription coding requires its separate role authority"
+                )
+        elif (
+            self.spend_policy is None
+            or not self.spend_policy.is_absolute()
+            or self.expected_policy_sha256 is None
+            or any(
+                value is not None
+                for value in (
+                    self.subscription_authorization,
+                    self.expected_subscription_sha256,
+                    self.subscription_role,
+                )
+            )
+        ):
+            raise ValueError("API coding requires its reviewed spend policy")
+        return self
 
 
 class LiveCodingSelection(Contract):
     schema_version: Literal[1] = 1
-    mode: Literal["operator_live_session_coding"] = "operator_live_session_coding"
+    mode: Literal[
+        "operator_live_session_coding", "operator_subscription_session_coding"
+    ] = "operator_live_session_coding"
     workspace: Path
     source_paths: Annotated[tuple[str, ...], Field(min_length=1, max_length=16)]
     test_paths: Annotated[tuple[str, ...], Field(min_length=1, max_length=12)]
@@ -93,15 +148,21 @@ class LiveCodingSelection(Contract):
     child: CodingRoute
     critics: Annotated[tuple[CodingRoute, ...], Field(min_length=2, max_length=2)]
     judge: CodingRoute
-    spend_ledger: Path
-    expected_ledger_id: Digest
+    spend_ledger: Path | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    expected_ledger_id: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     artifacts_root: Path
     staging_root: Path
     git: Path
     docker: Path
     image_id: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
     valid_until: datetime
-    max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000)]
+    max_total_microusd: Annotated[int, Field(gt=0, le=1_000_000_000)] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     max_input_bytes: Annotated[int, Field(gt=0, le=4_000_000)] = 1_000_000
     max_output_bytes: Annotated[int, Field(gt=0, le=2_000_000)] = 1_000_000
     correction_cycles: Annotated[int, Field(ge=0, le=2)] = 1
@@ -111,7 +172,6 @@ class LiveCodingSelection(Contract):
     def exact_scope(self) -> Self:
         for path in (
             self.workspace,
-            self.spend_ledger,
             self.artifacts_root,
             self.staging_root,
             self.git,
@@ -132,26 +192,77 @@ class LiveCodingSelection(Contract):
             raise ValueError("Live coding needs disjoint source and protected tests.")
         roster = (self.creator, *self.critics, self.judge)
         if (
-            len({(r.provider, r.model) for r in roster}) != len(roster)
-            or {r.provider for r in self.critics} != {"openai", "anthropic"}
-            or self.creator.provider != "openai"
-            or self.child.provider != "openai"
+            len({(provider_family(r.provider), r.model) for r in roster}) != len(roster)
+            or {provider_family(r.provider) for r in self.critics}
+            != {"openai", "anthropic"}
+            or provider_family(self.creator.provider) != "openai"
+            or provider_family(self.child.provider) != "openai"
         ):
             raise ValueError(
                 "Use distinct creator/critic/judge models and both critic providers."
             )
-        for route in (*roster, self.child):
+        subscription = self.mode == "operator_subscription_session_coding"
+        routes = (self.creator, self.child, *self.critics, self.judge)
+        if any(
+            route.provider.endswith("_subscription") != subscription for route in routes
+        ):
+            raise ValueError(
+                "Coding selection cannot mix API and subscription authority"
+            )
+        if subscription:
+            if any(
+                value is not None
+                for value in (
+                    self.spend_ledger,
+                    self.expected_ledger_id,
+                    self.max_total_microusd,
+                )
+            ):
+                raise ValueError(
+                    "Subscription coding cannot fabricate API spending authority"
+                )
+            if (
+                len(
+                    {
+                        (r.subscription_authorization, r.expected_subscription_sha256)
+                        for r in routes
+                    }
+                )
+                != 1
+            ):
+                raise ValueError(
+                    "Subscription coding roles require one immutable "
+                    "shared authorization"
+                )
+            expected_roles = (
+                "creator",
+                "child",
+                "critic_" + provider_family(self.critics[0].provider),
+                "critic_" + provider_family(self.critics[1].provider),
+                "judge",
+            )
+            if tuple(r.subscription_role for r in routes) != expected_roles:
+                raise ValueError("Subscription coding role grants changed")
+        elif (
+            self.spend_ledger is None
+            or not self.spend_ledger.is_absolute()
+            or self.expected_ledger_id is None
+            or self.max_total_microusd is None
+        ):
+            raise ValueError(
+                "API coding requires its exact spending ledger and ceiling"
+            )
+        for route in routes:
             registry = (
-                openai_registry()
+                subscription_registry()
+                if subscription
+                else openai_registry()
                 if route.provider == "openai"
                 else anthropic_registry()
             )
-            if (
-                registry.resolve(route.provider, route.model, route.effort).substituted
-                or not route.spend_policy.is_absolute()
-            ):
+            if registry.resolve(route.provider, route.model, route.effort).substituted:
                 raise ValueError(
-                    "Live coding routes cannot substitute models or effort."
+                    "Live coding routes cannot substitute models or effort"
                 )
         if self.valid_until.tzinfo is None:
             raise ValueError("Live coding expiry must include a timezone.")
@@ -254,10 +365,23 @@ class LiveCodingWorkflow:
             raise ValueError("One live coding workflow may run per session.")
         self.selection.check_current()
         self.guard()
+        subscription = self.selection.mode == "operator_subscription_session_coding"
+        if subscription:
+            route = self.selection.creator
+            assert route.subscription_authorization is not None
+            authority = read_authorization(
+                route.subscription_authorization, route.expected_subscription_sha256
+            )
+            authority.check_current(self.selection.workspace, session_id)
+            if self.selection.artifacts_root != authority.usage_root:
+                raise ValueError("Coding artifacts differ from subscription authority")
+            os.close(private_directory(self.selection.artifacts_root))
         root = private_artifacts_root(self.selection.artifacts_root)
         session = root / session_id
         session.mkdir(mode=0o700, exist_ok=True)
         private_artifacts_root(session)
+        if subscription:
+            os.close(private_directory(session))
         for position, previous in enumerate(session.iterdir()):
             if position >= 32:
                 raise ValueError(
@@ -272,6 +396,8 @@ class LiveCodingWorkflow:
                 )
         directory = session / f"coding-{attempt:04d}"
         directory.mkdir(mode=0o700, exist_ok=False)
+        if subscription:
+            os.close(private_directory(directory))
         self._active = True
         try:
             async with asyncio.timeout(self.selection.wall_seconds):
@@ -307,7 +433,11 @@ class LiveCodingWorkflow:
             "correction_cycles": s.correction_cycles,
             "max_role_calls": 5 + (1 + s.correction_cycles) * 5,
             "wall_seconds": s.wall_seconds,
-            "max_total_microusd": s.max_total_microusd,
+            **(
+                {"max_total_microusd": s.max_total_microusd}
+                if s.max_total_microusd is not None
+                else {"billing_verified": False}
+            ),
             "brief_assignment_scope": "one unpaid offline verification invocation",
         }
 
@@ -327,17 +457,42 @@ class LiveCodingWorkflow:
             )
             if observed != (base, original):
                 raise ValueError("Repository changed since creator planning.")
-            policy = SpendPolicy.model_validate_json(
-                read_bounded(route.spend_policy, 64_000)
-            )
-            policy.check_current()
-            if (
-                policy.policy_sha256 != route.expected_policy_sha256
-                or (policy.provider, policy.model) != (route.provider, route.model)
-                or policy.schema_version != 2
-            ):
-                raise ValueError("Live coding route or reviewed pricing changed.")
-            output = min(64_000, max(8_000, policy.max_output_tokens * 8))
+            subscription = route.provider.endswith("_subscription")
+            if subscription:
+                assert route.subscription_authorization is not None
+                authorization = read_authorization(
+                    route.subscription_authorization, route.expected_subscription_sha256
+                )
+                authorization.check_current(s.workspace, directory.parent.name)
+                assert route.subscription_role is not None
+                grant = authorization.grant(route.subscription_role)
+                if (grant.provider, grant.model, grant.effort) != (
+                    route.provider,
+                    route.model,
+                    route.effort,
+                ):
+                    raise ValueError("Coding subscription role differs from its grant")
+                output = authorization.max_output_bytes + 2000
+                output_tokens = authorization.max_output_tokens
+                # Internal API accumulator; subscriptions emit no dollar receipt.
+                cost = 0
+            else:
+                assert route.spend_policy is not None
+                policy = SpendPolicy.model_validate_json(
+                    read_bounded(route.spend_policy, 64_000)
+                )
+                policy.check_current()
+                if (
+                    policy.policy_sha256 != route.expected_policy_sha256
+                    or (policy.provider, policy.model) != (route.provider, route.model)
+                    or policy.schema_version != 2
+                ):
+                    raise ValueError("Live coding route or reviewed pricing changed")
+                output = min(64_000, max(8_000, policy.max_output_tokens * 8))
+                output_tokens = policy.max_output_tokens
+                cost = policy.reservation_cost(
+                    policy.max_input_tokens, policy.max_output_tokens
+                )
             text = data.decode()
             config = AgentConfig(
                 provider=route.provider,
@@ -367,11 +522,13 @@ class LiveCodingWorkflow:
                     reserve_low_bytes=output,
                     reserve_medium_bytes=output,
                     reserve_high_bytes=output,
-                    max_output_tokens=policy.max_output_tokens,
+                    max_output_tokens=output_tokens,
                 ),
             )
             registry = (
-                openai_registry()
+                subscription_registry()
+                if subscription
+                else openai_registry()
                 if route.provider == "openai"
                 else anthropic_registry()
             )
@@ -381,15 +538,15 @@ class LiveCodingWorkflow:
                 config, resolved, budget, NoToolsDispatcher(), config.initial_turns
             )
             size = check_request_budget(request, budget)
-            cost = policy.reservation_cost(
-                policy.max_input_tokens, policy.max_output_tokens
-            )
             maximum_calls = 5 + (1 + s.correction_cycles) * 5
             if (
                 call_count >= maximum_calls
                 or input_used + size > s.max_input_bytes
                 or output_used + output > s.max_output_bytes
-                or reserved_cost + cost > s.max_total_microusd
+                or (
+                    s.max_total_microusd is not None
+                    and reserved_cost + cost > s.max_total_microusd
+                )
             ):
                 raise ValueError(
                     "Live coding cumulative call/byte/spending ceiling exhausted."
@@ -406,7 +563,11 @@ class LiveCodingWorkflow:
                 phase / "admission.json",
                 packet_bytes(
                     {
-                        "reserved_microusd": cost,
+                        **(
+                            {"reserved_microusd": cost}
+                            if not subscription
+                            else {"billing_verified": False, "reserved_invocations": 1}
+                        ),
                         "request_sha256": digest(canonical_bytes(request)),
                     }
                 ),
@@ -762,12 +923,20 @@ class LiveCodingWorkflow:
                     "commit": commit,
                     "verification": checked,
                     "calls": call_count,
-                    "reserved_microusd": reserved_cost,
+                    **(
+                        {"reserved_microusd": reserved_cost}
+                        if s.max_total_microusd is not None
+                        else {
+                            "billing_verified": False,
+                            "reserved_invocations": call_count,
+                        }
+                    ),
                     "selection_sha256": self.selection_sha256,
                 }
             ),
         )
         usage = AgentUsage(
+            billing_verified=all(u.billing_verified for u in usages),
             unit="tokens",
             requests=sum(u.requests for u in usages),
             tools=0,

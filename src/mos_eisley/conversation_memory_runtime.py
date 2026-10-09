@@ -82,7 +82,7 @@ class ConversationMemoryRuntime:
                 "Correct its storage or use /memory off."
             ) from None
         builtin = self.builtin and replacement is None
-        if self.controller.state.mode == "openai_live_conversation":
+        if self.controller.state.mode != "recorded_conversation":
             if replacement is not None:
                 raise MemoryRefreshError("live chat cannot select a recording")
             self.controller.refresh_memory(
