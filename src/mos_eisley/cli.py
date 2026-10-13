@@ -427,6 +427,9 @@ def parser() -> argparse.ArgumentParser:
     from mos_eisley.provider_auth_cli import add_command as add_auth_command
 
     add_auth_command(subcommands.add_parser)
+    from mos_eisley.subscription_cli import add_command as add_subscription_command
+
+    add_subscription_command(subcommands.add_parser)
     from mos_eisley.git_review_cli import add_command as add_git_review
 
     add_git_review(
@@ -8723,6 +8726,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mos_eisley.app_update_session import active_client
 
     selected = list(sys.argv[1:] if argv is None else argv)
+    if selected and selected[0] == "subscription":
+        from mos_eisley.subscription_cli import run_command as run_subscription
+
+        try:
+            with active_client():
+                return run_subscription(parser().parse_args(selected))
+        except (OSError, ValueError):
+            print(
+                "Subscription client or installation lease is unavailable.",
+                file=sys.stderr,
+            )
+            return 2
     if selected and selected[0] == "auth":
         from mos_eisley.provider_auth_cli import run_command as run_auth
 
