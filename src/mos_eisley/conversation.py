@@ -105,6 +105,7 @@ from mos_eisley.conversation_state import (
     ArchivedConversationEntry,
     LiveChatIdentity,
     RuntimeConversationState,
+    SubscriptionChatIdentity,
     WorkingConversationState,
     validate_runtime_state,
 )
@@ -180,11 +181,15 @@ def conversation_config(
     *,
     task_system: str = "",
     tools_enabled: bool = False,
-    live_chat: LiveChatIdentity | None = None,
+    live_chat: LiveChatIdentity | SubscriptionChatIdentity | None = None,
 ) -> AgentConfig:
     live_budget = None
     if live_chat is not None:
-        output_bytes = min(64_000, max(8_000, live_chat.max_output_tokens * 8))
+        output_bytes = (
+            live_chat.authorization.max_output_bytes + 2000
+            if isinstance(live_chat, SubscriptionChatIdentity)
+            else min(64_000, max(8_000, live_chat.max_output_tokens * 8))
+        )
         live_budget = BudgetPolicy(
             session_cap_bytes=256_000,
             reserve_low_bytes=output_bytes,
@@ -194,7 +199,11 @@ def conversation_config(
             max_output_tokens=live_chat.max_output_tokens,
         )
     return AgentConfig(
-        provider="openai" if live_chat is not None else "fixture",
+        provider=live_chat.provider
+        if isinstance(live_chat, SubscriptionChatIdentity)
+        else "openai"
+        if live_chat is not None
+        else "fixture",
         model=live_chat.model if live_chat is not None else "tool-reviewer-v1",
         effort=live_chat.effort if live_chat is not None else "high",
         system=conversation_base_system(memory) + memory_system(memory) + task_system,
@@ -217,7 +226,15 @@ def prepare_conversation_request(
     config: AgentConfig, dispatcher: ToolDispatcher | None = None
 ) -> tuple[ModelRequest, Budget]:
     """Build the complete request and resolve its local budget."""
-    registry = openai_registry() if config.provider == "openai" else fixture_registry()
+    from mos_eisley.subscription_authorization import subscription_registry
+
+    registry = (
+        subscription_registry()
+        if config.provider.endswith("_subscription")
+        else openai_registry()
+        if config.provider == "openai"
+        else fixture_registry()
+    )
     resolved = registry.resolve(config.provider, config.model, config.effort)
     budget = resolve_budget(resolved.spec, resolved.effort, config.budget)
     request = build_request(
@@ -356,7 +373,7 @@ class ConversationController(ConversationCodingController[StateT]):
             cassette.exchanges
         ):
             raise ValueError("cassette does not cover saved attempts")
-        if state.mode == "openai_live_conversation" and run_live_chat is None:
+        if state.mode != "recorded_conversation" and run_live_chat is None:
             raise ValueError("live conversation requires an explicit live runner")
         if task_scope is None and (
             resolve_task_profile is not None
@@ -534,7 +551,7 @@ class ConversationController(ConversationCodingController[StateT]):
         context_max_bytes: int | None = None,
         input_limits: ActiveInputLimits | None = None,
         context_pressure_policy: ContextPressurePolicy | None = None,
-        live_chat: LiveChatIdentity | None = None,
+        live_chat: LiveChatIdentity | SubscriptionChatIdentity | None = None,
     ) -> ConversationState:
         if not workspace.is_dir():
             raise ValueError("conversation workspace must be a directory")
@@ -544,11 +561,15 @@ class ConversationController(ConversationCodingController[StateT]):
         if input_limits is not None:
             input_limits.admit_size("retained_cassette", recording.bytes)
         return ConversationState(
-            mode="openai_live_conversation"
+            mode="subscription_conversation"
+            if isinstance(live_chat, SubscriptionChatIdentity)
+            else "openai_live_conversation"
             if live_chat is not None
             else "recorded_conversation",
             live_chat=live_chat,
-            session_id=uuid4().hex,
+            session_id=live_chat.authorization.session_id
+            if isinstance(live_chat, SubscriptionChatIdentity)
+            else uuid4().hex,
             owner_uid=os.getuid(),
             workspace=str(workspace.resolve(strict=True)),
             cassette_sha256=recording.sha256,
@@ -690,9 +711,7 @@ class ConversationController(ConversationCodingController[StateT]):
                     memory=memory,
                     memory_disabled=disabled,
                     retained_cassette=(
-                        None
-                        if self.state.mode == "openai_live_conversation"
-                        else cassette
+                        None if self.state.mode != "recorded_conversation" else cassette
                     ),
                     cassette_sha256=recording.sha256,
                     mode=self.state.mode,
@@ -1319,7 +1338,7 @@ class ConversationController(ConversationCodingController[StateT]):
                     request_dispatcher = ScopedToolDispatcher(
                         self.tool_dispatcher, admitted_profile.selected_tools
                     )
-            if self.state.mode == "openai_live_conversation":
+            if self.state.mode != "recorded_conversation":
                 inspect_turn = entry.repository_inspection
                 if inspect_turn:
                     if (
@@ -1374,7 +1393,7 @@ class ConversationController(ConversationCodingController[StateT]):
                 + attachment_suffix
                 + (
                     INSPECTION_SYSTEM
-                    if self.state.mode == "openai_live_conversation"
+                    if self.state.mode != "recorded_conversation"
                     and entry.repository_inspection
                     else ""
                 )
@@ -1595,7 +1614,7 @@ class ConversationController(ConversationCodingController[StateT]):
                     )
                 else:
                     assert config is not None
-                    if self.state.mode == "openai_live_conversation":
+                    if self.state.mode != "recorded_conversation":
                         assert self.run_live_chat is not None
                         if (
                             entry.implementation_request
@@ -1620,7 +1639,7 @@ class ConversationController(ConversationCodingController[StateT]):
                         not isinstance(
                             block,
                             (TextBlock, ReasoningBlock)
-                            if self.state.mode == "openai_live_conversation"
+                            if self.state.mode != "recorded_conversation"
                             else TextBlock,
                         )
                         for block in result.turns[-1].blocks

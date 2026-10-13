@@ -24,7 +24,9 @@ from mos_eisley.providers import codex_subscription as adapter
 OBJECT = TypeAdapter(dict[str, JsonValue])
 
 
-async def qualify(client: Path) -> dict[str, JsonValue]:
+async def qualify(
+    client: Path, model: str = "gpt-6-sol", effort: str = "medium"
+) -> dict[str, JsonValue]:
     observed: dict[str, JsonValue] = {"requests": 0, "auth_is_fixture": False}
 
     class Fixture(BaseHTTPRequestHandler):
@@ -50,10 +52,10 @@ async def qualify(client: Path) -> dict[str, JsonValue]:
             request = OBJECT.validate_json(self.rfile.read(size))
             tools = request.get("tools", [])
             observed["empty_tool_inventory"] = tools == []
-            observed["requested_model_preserved"] = request.get("model") == "gpt-6-sol"
+            observed["requested_model_preserved"] = request.get("model") == model
             reasoning = request.get("reasoning")
             observed["requested_effort_preserved"] = (
-                isinstance(reasoning, dict) and reasoning.get("effort") == "medium"
+                isinstance(reasoning, dict) and reasoning.get("effort") == effort
             )
             message: dict[str, JsonValue] = {
                 "id": "msg_fixture",
@@ -180,12 +182,13 @@ async def qualify(client: Path) -> dict[str, JsonValue]:
                 allow_data_transfer=True,
                 allow_subscription_usage=True,
                 timeout=30,
+                authorized_profile=(model, effort),
             )
             result = await selected.complete(
                 ModelRequest(
                     provider=adapter.PROVIDER,
-                    model="gpt-6-sol",
-                    effort="medium",
+                    model=model,
+                    effort=selected.profile[1],
                     turns=(
                         Turn(
                             role="user",
@@ -208,8 +211,12 @@ async def qualify(client: Path) -> dict[str, JsonValue]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--client", required=True, type=Path)
+    parser.add_argument("--model", default="gpt-6-sol")
+    parser.add_argument("--effort", default="medium")
     args = parser.parse_args()
-    result = asyncio.run(qualify(adapter.select_client(args.client)))
+    result = asyncio.run(
+        qualify(adapter.select_client(args.client), args.model, args.effort)
+    )
     print(json.dumps(result))
     return 0
 

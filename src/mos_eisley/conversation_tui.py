@@ -898,7 +898,9 @@ class ConversationTUI:
         root = self.project_location.root_label()
         root = root if len(root) <= 70 else "…" + root[-69:]
         mode = (
-            "live OpenAI chat"
+            "subscription chat"
+            if state.mode == "subscription_conversation"
+            else "live OpenAI chat"
             if state.mode == "openai_live_conversation"
             else "recorded chat / live review"
             if isinstance(self.review_packet, ConversationLiveReviewPacket)

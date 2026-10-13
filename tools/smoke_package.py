@@ -170,6 +170,8 @@ def main() -> int:
         for name in (
             "test_app_distribution.py",
             "test_codex_subscription.py",
+            "test_claude_subscription.py",
+            "test_subscription_authorization.py",
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_conversation_git.py",
@@ -355,6 +357,12 @@ def main() -> int:
             "test_reviewer_openai_review_grant.py",
         ):
             (root / name).write_text((Path("tests") / name).read_text())
+        for name in (
+            "qualify_subscription_roles.py",
+            "qualify_claude_subscription.py",
+            "test_subscription_role_qualification.py",
+        ):
+            (root / name).write_text((Path("tools") / name).read_text())
         subprocess.run(
             [
                 str(python),

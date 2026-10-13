@@ -57,6 +57,7 @@ class AgentConfig(Contract):
 
 
 class AgentUsage(Contract):
+    billing_verified: bool = Field(default=True, exclude_if=lambda value: value)
     unit: Literal["bytes", "tokens"] = "bytes"
     requests: Annotated[int, Field(ge=0)]
     tools: Annotated[int, Field(ge=0)]

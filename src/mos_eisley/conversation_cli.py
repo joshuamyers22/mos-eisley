@@ -130,6 +130,10 @@ from mos_eisley.conversation_source_attachment import (
     attachment_payload,
 )
 from mos_eisley.conversation_state import LiveChatIdentity, WorkingConversationState
+from mos_eisley.conversation_subscription import (
+    SubscriptionChatIdentity,
+    SubscriptionChatRuntime,
+)
 from mos_eisley.conversation_switch import (
     DirectoryHandoff,
     fresh_directory_arguments,
@@ -193,6 +197,7 @@ from mos_eisley.run.conversation_transfer import transfer_conversation
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
+from mos_eisley.subscription_authorization import read_authorization
 from mos_eisley.tools.none import NoToolsDispatcher
 from mos_eisley.tools.repository_read import RepositoryReadError
 
@@ -211,6 +216,8 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--storage",
         "--cassette",
         "--live-openai",
+        "--subscription-authorization",
+        "--allow-subscription-usage",
         "--live-coding-selection",
         "--allow-live-coding",
         "--live-repository-read",
@@ -855,6 +862,16 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
         if name in {"chat", "resume"}:
+            command.add_argument(
+                "--subscription-authorization",
+                type=Path,
+                help="Immutable owner/session subscription authorization",
+            )
+            command.add_argument(
+                "--allow-subscription-usage",
+                action="store_true",
+                help="Acknowledge native subscription usage and retry exposure",
+            )
             command.add_argument(
                 "--live-openai",
                 action="store_true",
@@ -3077,7 +3094,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     coding_selection_sha256 = None
     if args.live_coding_selection is not None or args.allow_live_coding:
         if (
-            not args.live_openai
+            not (args.live_openai or args.subscription_authorization is not None)
             or not args.allow_data_transfer
             or not args.allow_live_coding
             or args.live_coding_selection is None
@@ -3094,7 +3111,36 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         )
     spend_policy = None
     spend_ledger = None
-    if args.live_openai:
+    if args.subscription_authorization is not None:
+        if (
+            args.live_openai
+            or not args.allow_data_transfer
+            or not args.allow_subscription_usage
+            or args.live_repository_read
+            or any(
+                value is not None
+                for value in (args.spend_policy, args.spend_ledger, args.live_artifacts)
+            )
+        ):
+            raise ValueError(
+                "Subscription sessions require transfer/usage consent "
+                "and their separate authorization"
+            )
+        if (
+            explicit_cassette is not None
+            or getattr(args, "refresh_cassette", None) is not None
+        ):
+            raise ValueError("Subscription sessions cannot use a recording")
+        authority = read_authorization(args.subscription_authorization)
+        authority.check_current(args.workspace, authority.session_id)
+        live_identity = SubscriptionChatIdentity(
+            authorization=authority,
+            authorization_path=args.subscription_authorization.absolute(),
+            coding_selection_sha256=coding_selection_sha256,
+        )
+    elif args.live_openai:
+        if args.allow_subscription_usage:
+            raise ValueError("API sessions cannot inherit subscription usage consent")
         if (
             not args.allow_data_transfer
             or args.spend_policy is None
@@ -3135,6 +3181,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             raise ValueError("OPENAI_API_KEY is required for live chat")
     elif (
         args.live_repository_read
+        or args.allow_subscription_usage
         or args.allow_data_transfer
         or any(
             value is not None
@@ -3290,15 +3337,12 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             memory = None if ignore_memory else memory_store.load()
         cassette = (
             demo_cassette(memory=state.memory)
-            if state.mode == "openai_live_conversation"
+            if state.mode != "recorded_conversation"
             else explicit_cassette
             or state.retained_cassette
             or demo_cassette(memory=state.memory)
         )
-        if (
-            state.mode == "openai_live_conversation"
-            and state.live_chat != live_identity
-        ):
+        if state.mode != "recorded_conversation" and state.live_chat != live_identity:
             raise ValueError(
                 "resume requires the exact live provider, policy, ledger "
                 "and artifacts root"
@@ -3306,7 +3350,14 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if state.mode == "recorded_conversation" and live_identity is not None:
             raise ValueError("recorded conversation cannot resume as live chat")
         live_runner = None
-        if live_identity is not None:
+        if isinstance(live_identity, SubscriptionChatIdentity):
+            live_runner = SubscriptionChatRuntime(
+                live_identity,
+                Path(state.workspace),
+                state.session_id,
+                state.exchanges_consumed,
+            ).run
+        elif live_identity is not None:
             assert spend_policy is not None and spend_ledger is not None
             live_runner = LiveChatRuntime(
                 live_identity,
@@ -3347,38 +3398,70 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
 
         if coding_selection is not None:
             from mos_eisley.conversation_live_coding import (
+                CodingModelPort,
                 LiveCodingWorkflow,
                 read_coding_selection,
             )
-            from mos_eisley.conversation_live_coding_transport import LiveCodingModels
+            from mos_eisley.conversation_live_coding_transport import (
+                LiveCodingModels,
+                SubscriptionCodingModels,
+            )
             from mos_eisley.run.coding_child import CodingContainer, DockerCodingChild
             from mos_eisley.run.coding_vcs import CodingVCS
 
-            assert (
-                live_identity is not None
-                and spend_policy is not None
-                and spend_ledger is not None
-            )
-            assert coding_selection_sha256 is not None
-            if (
-                coding_selection.creator.model != live_identity.model
-                or coding_selection.creator.effort != live_identity.effort
-                or coding_selection.creator.expected_policy_sha256
-                != spend_policy.policy_sha256
-                or coding_selection.spend_ledger != args.spend_ledger.absolute()
-                or coding_selection.expected_ledger_id != spend_ledger.policy.ledger_id
-                or coding_selection.artifacts_root != Path(live_identity.artifacts_root)
-            ):
-                raise ValueError(
-                    "Live coding creator, ledger and artifacts must "
-                    "match the saved live session."
+            assert live_identity is not None and coding_selection_sha256 is not None
+            models: CodingModelPort
+            if isinstance(live_identity, SubscriptionChatIdentity):
+                auth = live_identity.authorization
+                if (
+                    coding_selection.mode != "operator_subscription_session_coding"
+                    or coding_selection.creator.model != live_identity.model
+                    or coding_selection.creator.effort != live_identity.effort
+                    or coding_selection.artifacts_root != auth.usage_root
+                ):
+                    raise ValueError(
+                        "Subscription coding selection differs from the saved session"
+                    )
+                for route in (
+                    coding_selection.creator,
+                    coding_selection.child,
+                    *coding_selection.critics,
+                    coding_selection.judge,
+                ):
+                    if (
+                        route.subscription_authorization
+                        != live_identity.authorization_path
+                        or route.expected_subscription_sha256 != auth.sha256
+                    ):
+                        raise ValueError(
+                            "Coding role changed the saved subscription authority"
+                        )
+                models = SubscriptionCodingModels()
+            else:
+                assert spend_policy is not None and spend_ledger is not None
+                assert coding_selection.expected_ledger_id is not None
+                if (
+                    coding_selection.mode != "operator_live_session_coding"
+                    or coding_selection.creator.model != live_identity.model
+                    or coding_selection.creator.effort != live_identity.effort
+                    or coding_selection.creator.expected_policy_sha256
+                    != spend_policy.policy_sha256
+                    or coding_selection.spend_ledger != args.spend_ledger.absolute()
+                    or coding_selection.expected_ledger_id
+                    != spend_ledger.policy.ledger_id
+                    or coding_selection.artifacts_root
+                    != Path(live_identity.artifacts_root)
+                ):
+                    raise ValueError(
+                        "Live coding creator, ledger and artifacts must "
+                        "match the saved live session."
+                    )
+                models = LiveCodingModels(
+                    spend_ledger,
+                    coding_selection.expected_ledger_id,
+                    os.environ["OPENAI_API_KEY"],
+                    os.environ.get("ANTHROPIC_API_KEY", ""),
                 )
-            models = LiveCodingModels(
-                spend_ledger,
-                coding_selection.expected_ledger_id,
-                os.environ["OPENAI_API_KEY"],
-                os.environ.get("ANTHROPIC_API_KEY", ""),
-            )
             coding_broker = CodingVCS(
                 coding_selection.git,
                 args.workspace.resolve(),

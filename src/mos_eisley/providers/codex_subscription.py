@@ -11,8 +11,9 @@ import shutil
 import signal
 import stat
 import tempfile
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
+from typing import Literal
 
 from pydantic import JsonValue, TypeAdapter
 
@@ -30,6 +31,26 @@ MAX_EVENTS = 1_000_000
 MAX_STDERR = 32_000
 NATIVE_PROFILE = ("gpt-6-sol", "medium")
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+NativeProcessReason = Literal[
+    "deadline", "output_limit", "start", "exchange", "cleanup", "unsupported_platform"
+]
+
+
+class NativeProcessError(ProviderError):
+    """Fixed launcher reason; contains no native output or OS exception text."""
+
+    def __init__(self, reason: NativeProcessReason, message: str) -> None:
+        super().__init__(
+            message,
+            failure_kind="provider_timeout"
+            if reason == "deadline"
+            else "provider_error",
+            failure_stage="response" if reason == "deadline" else "exchange",
+        )
+        self.process_reason = reason
+
+
 CLIENT_ENVIRONMENT = {
     "PATH",
     "HOME",
@@ -69,7 +90,7 @@ _DISABLED = (
 )
 
 
-def _receipt(directory: int, name: str, value: dict[str, JsonValue]) -> None:
+def write_receipt(directory: int, name: str, value: dict[str, JsonValue]) -> None:
     descriptor = os.open(
         name,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -84,7 +105,7 @@ def _receipt(directory: int, name: str, value: dict[str, JsonValue]) -> None:
 
 
 @contextlib.contextmanager
-def _new_attempt(path: Path) -> Generator[int, None, None]:
+def new_attempt(path: Path) -> Generator[int, None, None]:
     """Anchor receipt writes to checked, ACL-free owner directories."""
     try:
         parent = os.open(
@@ -130,7 +151,7 @@ def _new_attempt(path: Path) -> Generator[int, None, None]:
         os.close(parent)
 
 
-def select_client(explicit: Path | None = None) -> Path:
+def select_client(explicit: Path | None = None, *, name: str = "codex") -> Path:
     """Exclude project-local executables and relative PATH entries."""
     project = Path.cwd().resolve()
     if explicit is None:
@@ -144,7 +165,7 @@ def select_client(explicit: Path | None = None) -> Path:
                 or not Path(entry).resolve().is_relative_to(project)
             )
         ]
-        found = shutil.which("codex", path=os.pathsep.join(directories))
+        found = shutil.which(name, path=os.pathsep.join(directories))
         if found is None:
             raise ProviderError("Install the official Codex client first")
         explicit = Path(found)
@@ -158,13 +179,15 @@ def select_client(explicit: Path | None = None) -> Path:
     return resolved
 
 
-async def _read(stream: asyncio.StreamReader, limit: int) -> bytes:
+async def read_stream(stream: asyncio.StreamReader, limit: int) -> bytes:
     chunks: list[bytes] = []
     size = 0
     while chunk := await stream.read(4096):
         size += len(chunk)
         if size > limit:
-            raise ProviderError("Subscription client exceeded its output limit")
+            raise NativeProcessError(
+                "output_limit", "Subscription client exceeded its output limit"
+            )
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -190,7 +213,9 @@ async def invoke(
     output_limit: int = MAX_EVENTS,
 ) -> tuple[int, bytes, bytes]:
     if os.name != "posix":
-        raise ProviderError("This subscription client requires macOS or Linux")
+        raise NativeProcessError(
+            "unsupported_platform", "This subscription client requires macOS or Linux"
+        )
     environment = {
         key: value for key, value in os.environ.items() if key in CLIENT_ENVIRONMENT
     }
@@ -206,12 +231,14 @@ async def invoke(
             start_new_session=True,
         )
     except OSError:
-        raise ProviderError("Subscription client could not start") from None
+        raise NativeProcessError(
+            "start", "Subscription client could not start"
+        ) from None
     assert process.stdin is not None and process.stdout is not None
     assert process.stderr is not None
     readers = (
-        asyncio.create_task(_read(process.stdout, output_limit)),
-        asyncio.create_task(_read(process.stderr, MAX_STDERR)),
+        asyncio.create_task(read_stream(process.stdout, output_limit)),
+        asyncio.create_task(read_stream(process.stderr, MAX_STDERR)),
     )
     try:
         async with asyncio.timeout(timeout):
@@ -222,18 +249,24 @@ async def invoke(
             code = await process.wait()
         return code, stdout, stderr
     except TimeoutError:
-        raise ProviderError(
+        raise NativeProcessError(
+            "deadline",
             "Subscription request timed out; Mos will not repeat this invocation",
-            failure_kind="provider_timeout",
-            failure_stage="response",
         ) from None
     except OSError:
-        raise ProviderError("Subscription client exchange failed") from None
+        raise NativeProcessError(
+            "exchange", "Subscription client exchange failed"
+        ) from None
     finally:
         for reader in readers:
             reader.cancel()
         await asyncio.gather(*readers, return_exceptions=True)
-        await _stop(process)
+        try:
+            await _stop(process)
+        except (OSError, TimeoutError):
+            raise NativeProcessError(
+                "cleanup", "Subscription client cleanup failed"
+            ) from None
 
 
 async def status(executable: Path) -> dict[str, JsonValue]:
@@ -369,6 +402,8 @@ class CodexSubscriptionClient:
         allow_data_transfer: bool,
         allow_subscription_usage: bool,
         timeout: float = 60,
+        authorized_profile: tuple[str, str] | None = None,
+        dispatch_guard: Callable[[], None] | None = None,
     ) -> None:
         if os.name != "posix":
             raise ProviderError("This subscription client requires macOS or Linux")
@@ -381,9 +416,24 @@ class CodexSubscriptionClient:
         self.executable = executable
         self.attempt = attempt
         self.timeout = timeout
+        self.profile = NATIVE_PROFILE
+        if authorized_profile is not None:
+            from mos_eisley.subscription_authorization import subscription_registry
+
+            model, effort = authorized_profile
+            from pydantic import TypeAdapter
+
+            from mos_eisley.core.protocol import Effort
+
+            selected = TypeAdapter[Effort](Effort).validate_python(effort)
+            resolved = subscription_registry().resolve(PROVIDER, model, selected)
+            if resolved.substituted:
+                raise ValueError("Authorized native profile cannot substitute effort")
+            self.profile = (model, selected)
+        self.dispatch_guard = dispatch_guard
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
-        if (request.model, request.effort) != NATIVE_PROFILE:
+        if (request.model, request.effort) != self.profile:
             raise ProviderError(
                 "This model/effort is outside the native compatibility set"
             )
@@ -419,8 +469,8 @@ class CodexSubscriptionClient:
         output_schema = None
         if request.response_format is not None:
             output_schema, _ = compile_schema(request.response_format.json_schema)
-        with _new_attempt(self.attempt) as attempt:
-            _receipt(
+        with new_attempt(self.attempt) as attempt:
+            write_receipt(
                 attempt,
                 "request.json",
                 {
@@ -478,7 +528,9 @@ class CodexSubscriptionClient:
                     schema.write_text(json.dumps(output_schema))
                     arguments.extend(("--output-schema", str(schema)))
                 arguments.append("-")
-                _receipt(
+                if self.dispatch_guard is not None:
+                    self.dispatch_guard()
+                write_receipt(
                     attempt, "dispatch.json", {"schema": 1, "state": "dispatch_started"}
                 )
                 code, raw, _ = await invoke(
@@ -518,7 +570,7 @@ class CodexSubscriptionClient:
                         raise ProviderError(
                             "Subscription response violated the output contract"
                         )
-                _receipt(
+                write_receipt(
                     attempt,
                     "completion.json",
                     {
