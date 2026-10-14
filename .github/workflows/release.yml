@@ -104,10 +104,10 @@ jobs:
       - name: Restore native bootstrap executable permissions
         run: chmod 700 dist/standalone/mos-install-*
       - name: Qualify the exact signed installation candidate
-        run: uv run --frozen python tools/smoke_app_distribution.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-signed.json
+        run: uv run --frozen python tools/smoke_app_distribution.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-signed-${{ matrix.os }}.json
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
-        run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew.json
+        run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: signed-qualification-${{ matrix.os }}
