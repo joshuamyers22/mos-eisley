@@ -1832,7 +1832,8 @@ controller an early product workstream alongside live read-only review. Begin wi
 recorded providers and explicit input artifacts, then enable live conversation
 after provider conformance, transfer policy, and aggregate session spending gates.
 Repository discovery, edits, tests, and publishing each retain their existing
-containment and authority prerequisites. Advanced visual polish can follow later.
+containment and authority prerequisites. The explicit interface polish milestone
+in §16.0.6 follows the working conversational interface.
 Acceptance requires contextual follow-ups, visible queued steering, cancellation
 without losing the session, safe save/resume, and a review round-trip that preserves
 critic blindness. Interactive and non-interactive paths share orchestration and
@@ -2420,6 +2421,55 @@ requires tmux, while macOS and actual Windows-hosted WSL2 need separate evidence
 External compatibility adds no prerequisite to live-provider gates or native
 Windows delivery. Embedded terminals and an optional backend comparison remain
 subject to §§27–30 platform, update, installation and containment prerequisites.
+
+### 16.0.6 Clean, professional terminal interface
+
+**User-directed addition, 2026-10-14 — planned.** Refine Mos Eisley's terminal
+interface into a clean, professional conversation workspace, using Claude Code
+and Codex as visual and interaction references. Retain Mos Eisley's own identity
+and existing conversation/controller behavior. This is an explicit product
+milestone, with no committed delivery date.
+
+**Design requirements:**
+
+- Establish a consistent visual system: restrained accent colors, readable
+  contrast, deliberate whitespace, aligned content and consistent labels,
+  separators and emphasis. Avoid excessive frames, dense banners and competing
+  status indicators; let the conversation occupy most of the screen.
+- Use a compact welcome/header with product identity, workspace and session
+  context. Keep current mode, provider/model when applicable, active work and
+  relevant usage/budget indicators readable without exposing internal identifiers
+  or configuration detail by default. Make full paths and diagnostic details
+  available through existing inspection controls. Keep preview, recorded/live and
+  unavailable-capability labels accurate and visible where they affect use.
+- Give user messages, assistant responses, progress, tool activity, review
+  findings, approvals and errors a clear, consistent hierarchy. Make routine tool
+  detail compact and expandable; keep actionable failures and approval reasons
+  visible. Use readable Markdown, code blocks and file references where supported,
+  with graceful plain-text fallback.
+- Make the multiline composer visually distinct with an obvious input affordance,
+  concise contextual key hints and clear queued, working, paused and stopped
+  states. Preserve drafts, cursor position, focus and scroll position across
+  updates; do not force a reader back to the latest output while browsing history.
+- Apply the same visual language to the session picker, directory selector,
+  diff/context panes and confirmation dialogs. Long paths and narrow terminals
+  must wrap or abbreviate deliberately without hiding essential decisions.
+- Support light and dark terminal backgrounds, non-color distinctions, Unicode
+  width and plain/limited-color output. Sanitize terminal control characters in
+  user, repository and provider content before rendering.
+
+**Delivery and acceptance:** first inspect the current installed terminal and
+produce representative before/after previews for welcome, conversation, active
+tools, review/approval, errors and session selection. Establish shared presentation
+tokens/components, then update the transcript/header/composer, followed by the
+auxiliary screens. Validate in real macOS PTYs at narrow and wide sizes, during
+resize and long output, on light and dark backgrounds and with color disabled.
+Check keyboard navigation, multiline input, scrolling, copy/paste, stop/queue
+controls, draft preservation and cold resume. Run affected renderer/controller
+regression checks and a packaged-app smoke check; confirm plain and JSON output
+contracts remain usable. Record remaining platform limits and obtain owner visual
+acceptance before marking the milestone complete. Presentation changes retain
+existing transfer, spending, approval and execution gates.
 
 ### 16.1 Commands
 
