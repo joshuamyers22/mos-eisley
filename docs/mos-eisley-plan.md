@@ -4650,7 +4650,7 @@ secured and verified before runnable public instructions are published.
 | Windows-hosted WSL2, 0.1.0 | A Windows-facing guide checks WSL2 prerequisites, then uses the Linux installer inside the selected distribution. Identify the installed environment and explain how to launch from Windows Terminal. |
 | Native Windows, 0.1.1 | One copyable PowerShell command installs a verified native package in a per-user location and makes `mos` available in a new terminal, after §27 native qualification. |
 | npm | An official scoped package supports a single global-install command and exposes `mos`, selecting the same verified platform release. Clearly state the supported Node/npm prerequisites. |
-| Homebrew | A maintained official tap/package provides a single install command on qualified macOS/Linux targets, with normal upgrade and uninstall behavior. |
+| Homebrew | A maintained official tap/package provides a single install command on qualified macOS/Linux targets, with normal upgrade and uninstall behavior. macOS additionally requires the explicit cask milestone in §29.4. |
 | Direct download | Versioned OS/architecture archives with integrity/provenance information support manual, pinned and offline installation using a previously acquired complete package. |
 
 Package the Python application with its required interpreter and runtime
@@ -4703,6 +4703,48 @@ conflicts, denied permissions, failed/interrupted downloads, tampered archives,
 unsupported platforms, pinned/offline installation and state-preserving uninstall.
 Exercise npm/Homebrew ownership and switching explicitly; mocks or a source-tree
 launch cannot substitute for a successful installed-package journey.
+
+### 29.4 Homebrew cask installation milestone
+
+**User-directed addition, 2026-10-14 — planned.** Deliver a macOS cask whose
+target installation experience is `brew install --cask mos-eisley`, followed by
+running `mos` from a project directory. This is a required macOS distribution
+milestone under §29, with no committed delivery date. The published preview
+formula does not complete it.
+
+Deliver in two stages:
+
+1. **Project tap cask:** publish a reviewed cask in
+   `joshuamyers22/homebrew-mos-eisley`, initially installable with
+   `brew install --cask joshuamyers22/mos-eisley/mos-eisley`. Use a distinct,
+   explicit preview token if the packaged release is still a preview. Package
+   the self-contained native CLI for Apple Silicon and Intel, bind downloads to
+   immutable release URLs and checksums, and expose the `mos` binary. No separate
+   Python setup or graphical application is required.
+2. **Default-tap availability:** assess current Homebrew eligibility and submit
+   the cask to `Homebrew/homebrew-cask` when eligible. The target command must
+   work on a clean supported Mac without first adding the project tap. Record
+   acceptance and public availability before marking this stage complete;
+   submission alone is insufficient. Homebrew acceptance is an external
+   dependency, so retain the qualified project-tap route if acceptance is pending
+   or declined and report the shorter-command milestone as incomplete.
+
+Follow the current [Cask Cookbook](https://docs.brew.sh/Cask-Cookbook),
+[Acceptable Casks](https://docs.brew.sh/Acceptable-Casks) and
+[package acceptance policy](https://docs.brew.sh/Package-Acceptance-Policy).
+Resolve token availability, release-channel eligibility and applicable macOS
+signing, notarization and Gatekeeper requirements before advertising the cask.
+
+Acceptance requires public-artifact installation on clean supported Apple Silicon
+and Intel Macs without Python, `mos --version`, help, credential-free `mos setup`,
+recorded chat and cold resume. Verify cask audit/style checks, package-manager
+upgrade and uninstall, preview/stable separation, and deliberate migration from
+the preview formula, uv, npm and standalone installations. Detect PATH conflicts
+and package ownership; leave one clearly selected launcher and preserve user
+sessions, memory, credentials and configuration. Connect cask origin detection
+to §28 so updates direct users to Homebrew. Document the exact qualified install,
+upgrade and uninstall commands in the README and installation guide. This
+milestone changes packaging, not live-provider or coding qualification gates.
 
 ## 30. Post-Windows embedded terminal emulator
 
