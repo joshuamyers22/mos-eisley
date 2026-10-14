@@ -614,6 +614,16 @@ qualify every platform. This work can precede embedded terminals and does not
 change execution authority or the Windows/update/install prerequisites. See
 [plan §16.0.5](mos-eisley-plan.md#1605-optional-external-tmux-workspace).
 
+**Homebrew cask, 2026-10-14 — planned:** deliver a macOS cask in the project tap,
+then pursue default-tap acceptance so `brew install --cask mos-eisley` works on a
+clean supported Mac without adding a tap. Qualify Apple Silicon and Intel native
+artifacts, setup/chat/resume, Homebrew upgrades and state-preserving uninstall,
+and migration from existing installation methods. The preview formula does not
+complete this milestone. Default-tap acceptance is an external dependency; keep
+the project-tap route available and do not claim the shorter command until public
+installation passes. No delivery date is committed. See
+[plan §29.4](mos-eisley-plan.md#294-homebrew-cask-installation-milestone).
+
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
 qualified, add named workspace/worktree-bound terminal panes that continue running
