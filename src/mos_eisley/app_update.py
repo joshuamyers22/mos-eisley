@@ -288,13 +288,16 @@ def update(root: Path, *, confirmed: bool, target: str | None = None) -> str:
 
 
 def manual_instructions(origin: str, target: str | None) -> str:
+    preview = "-rc." in installed_version()
     if origin == "npm":
+        selected = target or ("preview" if preview else "latest")
         return (
             "Close Mos sessions, then run: npm install --global "
-            f"{NPM_PACKAGE}@{target or 'latest'}"
+            f"{NPM_PACKAGE}@{selected}"
         )
     if origin == "homebrew":
-        return f"Close Mos sessions, then run: brew upgrade {BREW_FORMULA}"
+        formula = f"{BREW_FORMULA}-preview" if preview else BREW_FORMULA
+        return f"Close Mos sessions, then run: brew upgrade {formula}"
     return (
         "This is a developer/unmanaged installation. Update its selected "
         "environment using the installation documentation."

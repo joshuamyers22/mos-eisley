@@ -363,6 +363,14 @@ def main() -> int:
             "test_subscription_role_qualification.py",
         ):
             (root / name).write_text((Path("tools") / name).read_text())
+        # The distribution regression exercises the qualification helper as
+        # well as the installed product. Keep that helper outside site-packages
+        # and copy it explicitly, just like the other retained test fixtures.
+        helpers = root / "tools"
+        helpers.mkdir()
+        (helpers / "smoke_app_distribution.py").write_text(
+            Path("tools/smoke_app_distribution.py").read_text()
+        )
         subprocess.run(
             [
                 str(python),

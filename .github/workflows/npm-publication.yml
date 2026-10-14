@@ -41,8 +41,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            *-rc.*) mos_npm_tag=preview ;;
+            *) mos_npm_tag=latest ;;
+          esac
           for target in linux-aarch64 linux-x86_64 macos-aarch64 macos-x86_64 main; do
-            npm stage publish "./.work/npm-managers/npm/$target" --access public --ignore-scripts
+            npm stage publish "./.work/npm-managers/npm/$target" --access public --ignore-scripts --tag "$mos_npm_tag"
           done
       - name: Record the approval boundary
         run: echo 'Packages are staged. The npm owner must inspect and approve native packages before the launcher using npm 2FA.' >> "$GITHUB_STEP_SUMMARY"

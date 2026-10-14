@@ -88,8 +88,8 @@ def run_command(args: argparse.Namespace) -> int:
     if args.action == "login" and result.returncode == 0:
         print(
             "Provider account sign-in completed in the official client. "
-            "Subscription-backed Mos inference is a separate route and remains "
-            "unavailable until its adapter and qualification pass. "
+            "Experimental subscription chat/coding requires a separate explicit "
+            "authorization and qualified native-client profile. "
             "API-key routes are not silently selected."
         )
     return result.returncode

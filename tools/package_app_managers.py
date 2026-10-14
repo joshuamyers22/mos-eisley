@@ -71,9 +71,12 @@ def main() -> int:
             indent=2,
         )
     )
+    preview = release.channel == "preview"
+    formula_name = "mos-eisley-preview.rb" if preview else "mos-eisley.rb"
+    formula_class = "MosEisleyPreview" if preview else "MosEisley"
     formula: list[str] = [
         "# Generated from verified release.json; do not edit checksums by hand.",
-        "class MosEisley < Formula",
+        f"class {formula_class} < Formula",
         '  desc "Persistent multi-provider coding and review conversation"',
         '  homepage "https://github.com/joshuamyers22/mos-eisley"',
         f'  version "{release.version}"',
@@ -113,7 +116,7 @@ def main() -> int:
             "end",
         ]
     )
-    (output / "mos-eisley.rb").write_text("\n".join(formula) + "\n")
+    (output / formula_name).write_text("\n".join(formula) + "\n")
     return 0
 
 

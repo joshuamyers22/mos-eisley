@@ -32,4 +32,11 @@ The saved session binds the complete scope, owner, workspace, native executable 
 
 After a failed or cancelled native call, retain the authorization, reservation and dispatch receipts. Mos blocks further calls under that scope and refuses replay of the same call. Inspect ordinary private session/coding evidence and obtain a new explicit recovery decision; deleting markers or automatically issuing replacement authority is not recovery. Read-only inspection remains available. A fresh authorization does not silently replace an existing saved session's immutable identity.
 
-The new session/Claude integration is a candidate pending its expanded owner review and live provider-diverse role qualification. The accepted PR #291 transport scope remains distinct. No full v1 readiness or public-release approval follows from these commands.
+The owner accepted the experimental security scope and the exact provider-diverse
+synthetic qualification passed. [PR #291](https://github.com/joshuamyers22/mos-eisley/pull/291)
+and [PR #292](https://github.com/joshuamyers22/mos-eisley/pull/292) merged through the
+protected path; merged main `1d4d090` has the reviewed #292 source tree. The fresh
+merged source and installed wheel each passed 109 focused checks. This closes that
+experimental integration, while arbitrary-project quality, repeated-run reliability,
+billing and native retry/generation limits remain unverified. These commands grant
+no public production launch or additional inference authority.
