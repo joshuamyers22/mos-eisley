@@ -614,6 +614,16 @@ qualify every platform. This work can precede embedded terminals and does not
 change execution authority or the Windows/update/install prerequisites. See
 [plan §16.0.5](mos-eisley-plan.md#1605-optional-external-tmux-workspace).
 
+**Homebrew cask, 2026-10-14 — planned:** deliver a macOS cask in the project tap,
+then pursue default-tap acceptance so `brew install --cask mos-eisley` works on a
+clean supported Mac without adding a tap. Qualify Apple Silicon and Intel native
+artifacts, setup/chat/resume, Homebrew upgrades and state-preserving uninstall,
+and migration from existing installation methods. The preview formula does not
+complete this milestone. Default-tap acceptance is an external dependency; keep
+the project-tap route available and do not claim the shorter command until public
+installation passes. No delivery date is committed. See
+[plan §29.4](mos-eisley-plan.md#294-homebrew-cask-installation-milestone).
+
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
 qualified, add named workspace/worktree-bound terminal panes that continue running
@@ -641,8 +651,19 @@ conversation launched with `mos`, following plan §16.0. Users can ask questions
 plan, request changes, steer ongoing work, and request independent review within
 the same session as those capabilities become available. A minimal conversational
 TUI and safe session resume are an early product workstream alongside item 3;
-advanced visual polish can follow later. This is planned work, not an availability
-claim, and preserves the existing provider, spending, quality, and containment gates.
+interface polish follows the working conversation under §16.0.6. This is planned
+work, not an availability claim, and preserves the existing provider, spending,
+quality, and containment gates.
+
+**Terminal interface polish, 2026-10-14 — planned:** make the conversation cleaner
+and more professional, with Claude Code and Codex as visual/interaction references.
+Deliver a restrained shared visual system, compact header/status, readable
+transcript and tool details, a clear multiline composer, and consistent session,
+directory, diff and approval screens. Preserve visible capability/approval states
+and qualify resize, narrow terminals, light/dark backgrounds, non-color use,
+keyboard controls, draft/scroll preservation and packaged-app behavior. Begin with
+before/after previews and finish with owner visual acceptance; no delivery date is
+committed. See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
 
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
