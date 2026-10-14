@@ -28,18 +28,21 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The first distribution candidate is **0.1.0-rc.1**, for macOS and Linux on arm64
-and x86_64. It is an explicitly selected preview, separate from stable releases.
+The published [**0.1.0-rc.1 preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
+covers macOS and Linux on arm64 and x86_64. The immutable release includes signed
+metadata and platform qualification evidence. All five npm packages are available
+under `preview`; the official macOS tap supplies `mos-eisley-preview`.
+Stable `0.1.0` remains unqualified.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
 for the publication gates, exact artifact evidence and remaining limitations.
 
 ## Quick start
 
-The [installation and update candidate](docs/APPLICATION_INSTALLATION.md) prepares
-self-contained bundles, signed standalone installation and package-manager
-packaging. Official distribution remains gated on platform CI, package ownership,
-publisher custody and accountable release review. Browser account login delegates
+The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes
+the published self-contained preview and package-manager commands.
+[Publisher acceptance and public verification](https://github.com/joshuamyers22/mos-eisley/pull/302)
+record the exact released source and accepted limitations. Browser account login delegates
 to native provider clients. An [experimental subscription transport](docs/SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
 supports isolated text turns. [Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md)
 now support saved chat/resume and bounded provider-diverse coding after the reviewed

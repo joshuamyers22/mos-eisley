@@ -122,6 +122,9 @@ jobs:
       actions: read
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: application-publication
@@ -130,8 +133,18 @@ jobs:
         with:
           pattern: signed-qualification-*
           path: dist/qualification
-      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+      - name: Require a new release or a matching unpublished draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: python3 tools/publish_app_release.py preflight --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT"
+      - name: Upload all qualified assets to a draft
+        id: draft
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
+          draft: true
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-rc.') }}
           overwrite_files: false
@@ -149,3 +162,10 @@ jobs:
             dist/standalone/BOOTSTRAP_SHA256SUMS
             dist/managers/*.rb
             dist/qualification/*/*.json
+      - name: Verify the uploaded inventory and publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          DRAFT_RELEASE_ID: ${{ steps.draft.outputs.id }}
+        run: python3 tools/publish_app_release.py finalize --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT" --release-id "$DRAFT_RELEASE_ID"

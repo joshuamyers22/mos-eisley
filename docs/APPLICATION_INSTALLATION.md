@@ -1,13 +1,12 @@
 # Application installation and updates
 
-This candidate prepares distribution; it is not a published installer. The verified
-`@mos-eisley` scope has staged packages and stage-only trusted publishers. The
-[official Homebrew tap](https://github.com/joshuamyers22/homebrew-mos-eisley) is
-initialized without an active formula. Publisher environment protection, encrypted
-signing custody and native candidate verification are recorded in
-[PUBLISHER_RELEASE_PREPARATION](PUBLISHER_RELEASE_PREPARATION.md). Accountable
-release approval and actual public-artifact verification remain gates. Python/uv
-development installation continues to work as documented in the README.
+The [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
+is published for macOS and Linux on arm64 and x86_64. Standalone installers and all
+five `@mos-eisley` npm packages are public; the
+[official Homebrew tap](https://github.com/joshuamyers22/homebrew-mos-eisley) supplies
+`mos-eisley-preview` for macOS. [Publisher acceptance and public verification](https://github.com/joshuamyers22/mos-eisley/pull/302)
+bind the release to source `8cf38c83591e505a9c7b57f4d701b12cb80fc4c6`.
+Python/uv development installation continues to work as documented in the README.
 
 ## Preview selection
 
@@ -15,9 +14,11 @@ The owner selected a macOS/Linux-only `0.1.0-rc.1` preview while postponing WSL2
 qualification. The stable `0.1.0` platform contract remains unqualified. The
 [preview qualification record](PREVIEW_DISTRIBUTION_QUALIFICATION.md) links the
 exact source, native jobs, publisher acceptance and public installation evidence.
-Until its publication gates pass, the commands below are prepared instructions.
+The tagged release passed four signed installation gates and both macOS formula
+gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
+release assets and all five registry tarballs matched the qualified candidate.
 
-After the preview is published, download and inspect `install.sh` from the exact
+Download and inspect `install.sh` from the exact
 `v0.1.0-rc.1` GitHub release, then run:
 
 ```sh
@@ -45,11 +46,11 @@ selection automatically. Package-manager upgrades use their own commands.
 
 ## Standalone installation
 
-Native builds contain the Python runtime and dependencies. The proposed release
+Native builds contain the Python runtime and dependencies. The qualified preview
 matrix is macOS and Linux, each on arm64 and x86_64. Native Windows is excluded;
 Linux tests do not establish Windows-hosted WSL2 qualification.
 
-After an approved release exists, acquire its `install.sh`, matching
+Acquire the approved release's `install.sh`, matching
 `mos-install-<platform>`, `release.json` and archive from the exact GitHub release.
 Review the bootstrap source and published checksums before executing it. The
 bootstrap itself relies on the selected HTTPS publisher; the application archive
@@ -141,45 +142,49 @@ Rollback verifies retained files and storage compatibility. Uninstall removes
 owned runtime files and launcher only, preserving user state. Source/developer
 installations are not silently taken over. npm/Homebrew installations receive
 their own package-manager commands; automatic manager upgrades and rollback are
-not implemented by this candidate.
+not implemented by this preview. Select discovery with `mos update preview`;
+the default stable feed cannot discover this prerelease.
 
 Root administrators may set `/etc/mos-eisley/update-policy.json` to
 `{"schema":1,"mode":"disabled"}` or `{"schema":1,"mode":"managed"}`. This must
 be a root-owned regular file, not writable by group or others. It overrides user
 policy. User-controlled policy never changes release origins or the trusted key.
 
-## Publisher preparation and remaining gates
+## Publisher operation and remaining stable gates
 
 The enrolled public key is in `app_release_key.py`. Its dedicated private key is
 outside Git in the owner's private configuration directory. It is not a provider
 credential. Do not paste keys into chat, PRs, logs or workflow files.
 
-1. Complete accountable security/release review of the exact candidate, then
-   pass repository checks and all native artifact jobs. Run the WSL2 journey on
-   an actual Windows host before claiming that support.
-2. Verify organization ownership of the selected `@mos-eisley` scope by the
-   supplied npm account `joshuamyers22`. The launcher package is
-   `@mos-eisley/mos-eisley`; organization ownership is verified.
-   The organization is already configured; preserve the personal account.
-   Authenticate through npm's browser
-   flow; configure trusted publication/provenance rather than putting a token in
-   source. Publish native packages before the launcher package at the identical
-   immutable version. Actual registry publication remains untested.
-3. The `joshuamyers22/homebrew-mos-eisley` tap is initialized. Review the generated
-   formula and commit that exact release's URLs/checksums. The formula preserves
-   frozen-library rpaths and excludes libexec from cleaning. Local tap tests are
-   not evidence that the public tap is available.
-4. The `application-release` environment now requires owner approval, disallows
-   administrator bypass and restricts deployment to version tags. The existing
-   enrolled key is provisioned as encrypted `MOS_RELEASE_SIGNING_KEY_BASE64`.
-   Maintain private backup/recovery custody and approve only the reviewed exact
-   candidate; see the publisher preparation record.
-5. Publish an approved immutable tag whose version matches the package. The
-   release workflow builds all four native bundles, signs their shared metadata,
-   generates packages/formula, and attaches the direct-download assets. Stable
-   and `-rc.N` preview releases use separate signed channels. Existing assets are
-   not overwritten. Never repair an executable at an existing version: issue a
-   new version and new metadata.
+1. Obtain accountable acceptance of the exact candidate and advertised support.
+   Keep GitHub release immutability enabled and check it before approving the
+   protected publication job. Its contents-only token cannot inspect the setting,
+   which requires Administration permission.
+2. Create a new mainline tag matching package metadata. The release workflow
+   retains the full quality, signing and four-platform signed-installation gates.
+   Publication automatically creates a draft, uploads qualified assets, verifies
+   every uploaded name/size/SHA256 and only then publishes it. GitHub must confirm
+   immutable publication. Upload or verification failure leaves the draft
+   unpublished. Matching partial drafts can resume; published releases and
+   mismatched assets stop the job. Manual draft preparation is no longer required.
+3. Stage the identical version using `npm-publication.yml` and stage-only OIDC.
+   Inspect stages and approve natives before launcher through owner 2FA. Preview
+   uses `preview`, preserving `latest`. Renew an expired unvalidated binding
+   through npm's browser flow; retain the stage-only publication boundary.
+4. Admit the exact generated formula through the protected tap PR and verify
+   public installation. Preserve its URLs/checksums, frozen-library rpaths and
+   `libexec` cleaning exclusion.
+
+The protected `application-release` environment requires owner approval, disallows
+administrator bypass and restricts deployment to version tags. The enrolled key
+remains in encrypted `MOS_RELEASE_SIGNING_KEY_BASE64` custody. Independently
+retained encrypted backup/restore remains owner work. Never repair an executable
+at an existing version: issue a new version and new signed metadata.
+
+Stable `0.1.0` still needs actual Windows-hosted WSL2 qualification. Historical
+upgrade/rollback compatibility remains unqualified: preview tests used a synthetic
+predecessor with the same code. Subscription billing, native retry exposure and
+general reliability remain unverified. Publication preserves these preview limits.
 
 Official publisher guidance: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
