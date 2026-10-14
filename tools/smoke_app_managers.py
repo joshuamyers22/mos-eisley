@@ -33,7 +33,7 @@ def main() -> int:
         payload = {
             "schema": 1,
             "version": version,
-            "channel": "stable",
+            "channel": "preview" if "-rc." in version else "stable",
             "source_commit": "a" * 40,
             "notes": "Synthetic local package-manager fixture; "
             "not publication evidence.",
@@ -126,7 +126,20 @@ def main() -> int:
             # Syntax and actual formula loading are checked without installing
             # into an existing user's Cellar or requiring unpublished endpoints.
             subprocess.run(
-                [brew, "ruby", "--", "-c", str(managers / "mos-eisley.rb")],
+                [
+                    brew,
+                    "ruby",
+                    "--",
+                    "-c",
+                    str(
+                        managers
+                        / (
+                            "mos-eisley-preview.rb"
+                            if "-rc." in version
+                            else "mos-eisley.rb"
+                        )
+                    ),
+                ],
                 env={
                     **environment,
                     "HOMEBREW_NO_AUTO_UPDATE": "1",

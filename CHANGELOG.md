@@ -4,6 +4,16 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.1
+
+- Prepare the first macOS/Linux preview distribution with explicit experimental
+  subscription chat/resume and bounded provider-diverse coding.
+- Qualify self-contained installation, saved conversation recovery, tamper refusal
+  and state-preserving removal on the four advertised native targets.
+- Windows-hosted WSL2 qualification is postponed; native Windows remains excluded.
+  This preview is not the stable 0.1.0 production launch.
+
+
 - Give formal review campaigns a separately hash-bound 600-second judge-approval
   grace while preserving their active execution budget. Terminal cleanup now
   revalidates the exact immutable sealed slot before settling an unused deferred

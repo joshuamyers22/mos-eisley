@@ -62,6 +62,9 @@ def main() -> int:
         else download(artifact.url, min(MAX_ARCHIVE, artifact.size))
     )
     install(args.root, args.bin_dir, release, archive)
+    from mos_eisley.app_update import change_policy
+
+    change_policy(args.root, args.channel)
     print(
         f"Installed Mos Eisley {release.version}. Add {args.bin_dir} "
         "to PATH, then run mos setup and mos in your project. "

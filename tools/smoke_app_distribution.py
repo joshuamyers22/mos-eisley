@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import base64
 import hashlib
 import io
@@ -11,21 +12,38 @@ import subprocess
 import tarfile
 import tempfile
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from mos_eisley import app_release
+from mos_eisley import app_install, app_release
 from mos_eisley.app_install import install, recover, rollback, uninstall
-from mos_eisley.app_release import canonical, parse_release, platform_id
+from mos_eisley.app_release import ReleaseError, canonical, parse_release, platform_id
+
+
+def snapshot(directory: Path) -> dict[str, str]:
+    return {
+        str(path.relative_to(directory)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in directory.rglob("*")
+        if path.is_file()
+    }
+
+
+def require_rejection(operation: Callable[[], object], message: str) -> None:
+    try:
+        operation()
+    except ReleaseError:
+        return
+    raise ValueError(message)
 
 
 def signed_fixture(version: str, raw: bytes, key: Ed25519PrivateKey) -> bytes:
     payload = {
         "schema": 1,
         "version": version,
-        "channel": "stable",
+        "channel": "preview" if "-" in version else "stable",
         "source_commit": "a" * 40,
         "notes": "Ephemeral synthetic publisher for local packaging evidence only.",
         "storage_epoch": 1,
@@ -61,9 +79,14 @@ def older_fixture(raw: bytes, version: str) -> bytes:
             if content is not None and member.name.endswith("/METADATA"):
                 data = content.read()
                 if b"Name: mos-eisley\n" in data:
-                    data = data.replace(
-                        f"Version: {version}\n".encode(), b"Version: 0.0.0\n"
-                    )
+                    # Wheel metadata normalizes SemVer rc tags to PEP 440.
+                    expected = version.replace("-rc.", "rc")
+                    version_line = f"Version: {expected}\n".encode()
+                    if data.count(version_line) != 1:
+                        raise ValueError(
+                            "frozen distribution version differs from candidate"
+                        )
+                    data = data.replace(version_line, b"Version: 0.0.0\n")
                     replaced = True
                 content.close()
                 content = io.BytesIO(data)
@@ -77,6 +100,14 @@ def older_fixture(raw: bytes, version: str) -> bytes:
 
 
 def main() -> int:
+    command = argparse.ArgumentParser(description=__doc__)
+    command.add_argument("--evidence", type=Path)
+    command.add_argument(
+        "--published-metadata",
+        type=Path,
+        help="also qualify the production-key bootstrap with signed candidate metadata",
+    )
+    args = command.parse_args()
     version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
     archive = Path(f"dist/standalone/mos-{version}-{platform_id()}.tar.gz")
     raw = archive.read_bytes()
@@ -96,6 +127,168 @@ def main() -> int:
         # An empty PATH proves the installed application needs neither Python nor
         # Node. Its existing runtime/tool admission must still reject missing Git.
         environment["PATH"] = "/nonexistent"
+        bootstrap = Path(f"dist/standalone/mos-install-{platform_id()}").resolve()
+        channel = "preview" if "-" in version else "stable"
+        metadata = base / "untrusted-release.json"
+        metadata.write_bytes(signed)
+        supplied_archive = base / archive.name
+        supplied_archive.write_bytes(raw)
+        rejected = subprocess.run(
+            [
+                str(bootstrap),
+                "--metadata",
+                str(metadata),
+                "--archive",
+                str(supplied_archive),
+                "--root",
+                str(root),
+                "--bin-dir",
+                str(bin_dir),
+                "--channel",
+                channel,
+            ],
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        if rejected.returncode == 0 or "signature" not in rejected.stderr:
+            raise ValueError("production bootstrap accepted an untrusted publisher")
+        if root.exists() or bin_dir.exists():
+            raise ValueError("rejected bootstrap created an installation")
+        trusted_bootstrap = "requires_actual_publisher_signed_candidate"
+        if args.published_metadata:
+            trusted_root, trusted_bin = base / "trusted app", base / "trusted bin"
+            subprocess.run(
+                [
+                    str(bootstrap),
+                    "--metadata",
+                    str(args.published_metadata.resolve()),
+                    "--archive",
+                    str(supplied_archive),
+                    "--root",
+                    str(trusted_root),
+                    "--bin-dir",
+                    str(trusted_bin),
+                    "--channel",
+                    channel,
+                    "--version",
+                    version,
+                ],
+                env=environment,
+                check=True,
+                timeout=60,
+            )
+            from mos_eisley.app_update import policy
+
+            if policy(trusted_root).channel != channel:
+                raise ValueError(
+                    "bootstrap did not preserve the selected update channel"
+                )
+            trusted_executable = str(trusted_bin / "mos")
+            subprocess.run(
+                [
+                    trusted_executable,
+                    "update",
+                    "disable",
+                    "--root",
+                    str(trusted_root),
+                    "--json",
+                ],
+                env=environment,
+                check=True,
+                timeout=60,
+            )
+            subprocess.run(
+                [trusted_executable, "setup", "--json"],
+                env=environment,
+                check=True,
+                timeout=60,
+            )
+            trusted_state, trusted_workspace = (
+                base / "trusted state",
+                base / "trusted workspace",
+            )
+            trusted_workspace.mkdir()
+            launch = [
+                "--plain",
+                "--no-memory",
+                "--storage",
+                str(trusted_state),
+                "-C",
+                str(trusted_workspace),
+            ]
+            for action, prompt, answer in (
+                (
+                    "chat",
+                    "Remember that the fixture boundary is ten.",
+                    "The fixture boundary is ten.",
+                ),
+                (
+                    "resume",
+                    "What boundary did I give you?",
+                    "You gave me a boundary of ten.",
+                ),
+            ):
+                conversation = subprocess.run(
+                    [
+                        trusted_executable,
+                        action,
+                        *(["--last"] if action == "resume" else []),
+                        *launch,
+                    ],
+                    input=prompt + "\n",
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=60,
+                )
+                if answer not in conversation.stdout:
+                    raise ValueError(
+                        "publisher-signed installed conversation lost context"
+                    )
+            trusted_retained = snapshot(trusted_state)
+            subprocess.run(
+                [
+                    trusted_executable,
+                    "update",
+                    "recover",
+                    "--yes",
+                    "--root",
+                    str(trusted_root),
+                    "--json",
+                ],
+                env=environment,
+                check=True,
+                timeout=60,
+            )
+            subprocess.run(
+                [
+                    trusted_executable,
+                    "update",
+                    "uninstall",
+                    "--yes",
+                    "--root",
+                    str(trusted_root),
+                    "--json",
+                ],
+                env=environment,
+                check=True,
+                timeout=60,
+            )
+            if (trusted_bin / "mos").is_symlink() or (
+                trusted_root / "releases"
+            ).exists():
+                raise ValueError(
+                    "trusted bootstrap uninstall left the runtime installed"
+                )
+            if not trusted_retained or trusted_retained != snapshot(trusted_state):
+                raise ValueError(
+                    "publisher-signed recovery/uninstall changed saved state"
+                )
+            trusted_bootstrap = "passed_actual_publisher_signed_candidate"
         with patch.object(
             app_release,
             "PUBLISHER_PUBLIC_KEY",
@@ -115,7 +308,24 @@ def main() -> int:
                 check=True,
                 stdout=subprocess.DEVNULL,
             )
-            subprocess.run([executable, "setup", "--json"], env=environment, check=True)
+            setup = json.loads(
+                subprocess.check_output(
+                    [executable, "setup", "--json"],
+                    env=environment,
+                    text=True,
+                )
+            )
+            if setup["credentials_required_to_install"] or any(
+                setup["providers"].values()
+            ):
+                raise ValueError("setup did not remain credential-free")
+            cassette = base / "recorded.json"
+            subprocess.run(
+                [executable, "conversation-demo", "--output", str(cassette)],
+                env=environment,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
             state = base / "state"
             workspace = base / "workspace"
             workspace.mkdir()
@@ -125,12 +335,14 @@ def main() -> int:
                     "chat",
                     "--plain",
                     "--no-memory",
+                    "--cassette",
+                    str(cassette),
                     "--storage",
                     str(state),
                     "-C",
                     str(workspace),
                 ],
-                input="/quit\n",
+                input="Remember that the fixture boundary is ten.\n",
                 text=True,
                 env=environment,
                 capture_output=True,
@@ -139,6 +351,8 @@ def main() -> int:
             )
             if conversation.returncode != 0:
                 raise ValueError(f"frozen chat failed: {conversation.stderr[-1000:]}")
+            if "The fixture boundary is ten." not in conversation.stdout:
+                raise ValueError("installed chat did not execute its recorded turn")
             before = {
                 str(path.relative_to(state)): hashlib.sha256(
                     path.read_bytes()
@@ -146,8 +360,36 @@ def main() -> int:
                 for path in state.rglob("*")
                 if path.is_file()
             }
-            install(root, bin_dir, release, raw)
+            require_rejection(
+                lambda: install(root, bin_dir, release, raw + b"tampered"),
+                "installer accepted an altered archive",
+            )
+            if snapshot(state) != before:
+                raise ValueError("rejected archive changed session state")
+            original_activate = app_install.activate_pointer
+
+            def interrupt_after_activation(path: Path, name: str, value: str) -> None:
+                original_activate(path, name, value)
+                if name == "current":
+                    raise OSError("synthetic interruption after activation commit")
+
+            with patch.object(
+                app_install, "activate_pointer", interrupt_after_activation
+            ):
+                try:
+                    install(root, bin_dir, release, raw)
+                except OSError as error:
+                    if str(error) != "synthetic interruption after activation commit":
+                        raise
+                else:
+                    raise ValueError("interrupted installation unexpectedly completed")
+            if not (root / "transaction.json").exists():
+                raise ValueError("interruption did not retain the pending transaction")
             recover(root)
+            if (root / "transaction.json").exists() or snapshot(state) != before:
+                raise ValueError(
+                    "recovery did not clear the transaction and preserve state"
+                )
             actual = subprocess.check_output(
                 [executable, "--version"], env=environment, text=True
             ).strip()
@@ -160,6 +402,13 @@ def main() -> int:
             if actual != "mos-eisley 0.0.0":
                 raise ValueError("rollback did not activate the synthetic predecessor")
             install(root, bin_dir, release, raw)
+            damaged = root / "current" / "qualification-tamper"
+            damaged.write_bytes(b"synthetic runtime tamper")
+            require_rejection(
+                lambda: recover(root), "recovery accepted a damaged runtime"
+            )
+            damaged.unlink()
+            recover(root)
             after = {
                 str(path.relative_to(state)): hashlib.sha256(
                     path.read_bytes()
@@ -181,7 +430,7 @@ def main() -> int:
                     "-C",
                     str(workspace),
                 ],
-                input="/quit\n",
+                input="What boundary did I give you?\n",
                 text=True,
                 env=environment,
                 capture_output=True,
@@ -190,25 +439,45 @@ def main() -> int:
             )
             if resumed.returncode != 0:
                 raise ValueError(f"frozen resume failed: {resumed.stderr[-1000:]}")
+            if "You gave me a boundary of ten." not in resumed.stdout:
+                raise ValueError(
+                    "installed resume did not retain recorded conversation context"
+                )
+            retained = snapshot(state)
             uninstall(root)
-            if not state.exists():
-                raise ValueError("uninstall removed session state")
-    print(
-        json.dumps(
-            {
-                "platform": platform_id(),
-                "archive_sha256": hashlib.sha256(raw).hexdigest(),
-                "self_contained": True,
-                "credential_free_setup": True,
-                "chat_resume": True,
-                "state_preserved": True,
-                "upgrade_rollback": "passed_synthetic_older_metadata_same_code",
-                "publisher": "ephemeral_test_only",
-                "paid_calls": 0,
-            },
-            sort_keys=True,
-        )
-    )
+            if (
+                retained != snapshot(state)
+                or (bin_dir / "mos").is_symlink()
+                or (root / "releases").exists()
+            ):
+                raise ValueError(
+                    "uninstall did not remove the runtime and preserve state"
+                )
+    evidence = {
+        "schema": 1,
+        "source_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip(),
+        "platform": platform_id(),
+        "archive_sha256": hashlib.sha256(raw).hexdigest(),
+        "self_contained": True,
+        "credential_free_setup": True,
+        "bootstrap_untrusted_signature_rejected": True,
+        "bootstrap_trusted_install": trusted_bootstrap,
+        "bootstrap_sha256": hashlib.sha256(bootstrap.read_bytes()).hexdigest(),
+        "interrupted_activation_recovery": True,
+        "archive_runtime_tamper_rejected": True,
+        "chat_resume": True,
+        "state_preserved": True,
+        "upgrade_rollback": "passed_synthetic_older_metadata_same_code",
+        "publisher": "ephemeral_test_only",
+        "paid_calls": 0,
+    }
+    serialized = json.dumps(evidence, sort_keys=True)
+    if args.evidence:
+        args.evidence.parent.mkdir(parents=True, exist_ok=True)
+        args.evidence.write_text(serialized + "\n")
+    print(serialized)
     return 0
 
 

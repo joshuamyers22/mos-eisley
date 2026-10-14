@@ -26,6 +26,14 @@ Generated from the `python-cli` archetype of
 [production-project-template](https://github.com/joshuamyers22/production-project-template)
 at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
+## Preview distribution
+
+The first distribution candidate is **0.1.0-rc.1**, for macOS and Linux on arm64
+and x86_64. It is an explicitly selected preview, separate from stable releases.
+Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
+See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
+for the publication gates, exact artifact evidence and remaining limitations.
+
 ## Quick start
 
 The [installation and update candidate](docs/APPLICATION_INSTALLATION.md) prepares
@@ -33,7 +41,10 @@ self-contained bundles, signed standalone installation and package-manager
 packaging. Official distribution remains gated on platform CI, package ownership,
 publisher custody and accountable release review. Browser account login delegates
 to native provider clients. An [experimental subscription transport](docs/SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
-is available for isolated text turns; subscription-backed coding remains pending.
+supports isolated text turns. [Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md)
+now support saved chat/resume and bounded provider-diverse coding after the reviewed
+subscription stack merged. Billing, native retries and general project reliability
+remain unverified.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
@@ -206,7 +217,7 @@ To install `mos` on your PATH from this checkout with the pinned runtime version
 
 ```sh
 make build
-uv tool install --python 3.12 --constraints requirements.runtime.txt dist/mos_eisley-0.1.0-py3-none-any.whl
+uv tool install --python 3.12 --constraints requirements.runtime.txt dist/mos_eisley-0.1.0rc1-py3-none-any.whl
 ```
 
 Then run `mos` from any project directory. The standalone installation must be
@@ -754,4 +765,7 @@ docker run --rm --network none --read-only --tmpfs /tmp \
 The second command intentionally exits 1; its temporary artifacts disappear when
 the container exits. Mount a private writable output directory to retain runs.
 
-[Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md) bind native-client usage authority through resume and coding roles; expanded review and live role qualification remain gated.
+[Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md) bind native-client
+usage authority through resume and coding roles. Their exact synthetic functional
+qualification and protected merges are complete; this does not establish general
+critic quality or public production readiness.

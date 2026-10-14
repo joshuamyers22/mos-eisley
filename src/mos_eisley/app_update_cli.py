@@ -55,7 +55,8 @@ def setup_result() -> dict[str, object]:
         "browser_sign_in": {
             "openai": "mos auth login openai (official Codex client)",
             "anthropic": "mos auth login anthropic (official Claude client)",
-            "subscription_inference": "adapter and qualification pending",
+            "subscription_inference": "experimental saved chat and bounded coding; "
+            "explicit authorization required; billing/native retries unverified",
         },
         "providers": {
             "openai": bool(os.environ.get("OPENAI_API_KEY")),

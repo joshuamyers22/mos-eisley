@@ -9,6 +9,40 @@ signing custody and native candidate verification are recorded in
 release approval and actual public-artifact verification remain gates. Python/uv
 development installation continues to work as documented in the README.
 
+## Preview selection
+
+The owner selected a macOS/Linux-only `0.1.0-rc.1` preview while postponing WSL2
+qualification. The stable `0.1.0` platform contract remains unqualified. The
+[preview qualification record](PREVIEW_DISTRIBUTION_QUALIFICATION.md) links the
+exact source, native jobs, publisher acceptance and public installation evidence.
+Until its publication gates pass, the commands below are prepared instructions.
+
+After the preview is published, download and inspect `install.sh` from the exact
+`v0.1.0-rc.1` GitHub release, then run:
+
+```sh
+sh install.sh --channel preview --version 0.1.0-rc.1
+```
+
+npm requires Node 22 or later. The explicit preview package command is:
+
+```sh
+npm install --global @mos-eisley/mos-eisley@preview
+```
+
+The Homebrew preview route is qualified initially for macOS:
+
+```sh
+brew install joshuamyers22/mos-eisley/mos-eisley-preview
+```
+
+Standalone and npm packages cover both macOS/Linux architectures. The preview
+formula and npm tag are distinct from stable; switching to a stable installation
+is an explicit later choice. `mos setup`, `mos --version`, and recorded chat work
+without provider credentials. Run `mos update preview` to explicitly select the
+preview feed for an existing installation. A new preview bootstrap preserves that
+selection automatically. Package-manager upgrades use their own commands.
+
 ## Standalone installation
 
 Native builds contain the Python runtime and dependencies. The proposed release
@@ -26,7 +60,7 @@ For offline installation, run the matching native bootstrap:
 
 ```sh
 ./mos-install-macos-aarch64 --metadata release.json \
-  --archive mos-0.1.0-macos-aarch64.tar.gz --version 0.1.0
+  --archive mos-0.1.0-rc.1-macos-aarch64.tar.gz --version 0.1.0-rc.1 --channel preview
 ```
 
 The default runtime root is `~/.local/share/mos-eisley-app`; the launcher is
@@ -60,8 +94,11 @@ shows explicit transfer/usage consent and fresh private-attempt requirements.
 Only `gpt-6-sol` with `medium` effort is currently compatible. Native transport
 retries may consume usage; local output/deadline limits are not billing caps.
 
-Subscription-backed Mos coding remains pending. Login and this isolated adapter
-supply no qualified creator/critic/judge route or saved-conversation integration.
+[Experimental subscription sessions](SUBSCRIPTION_SESSIONS.md) now bind explicit
+owner authorization through saved chat/resume and bounded creator/child/critic/judge
+coding. The exact synthetic OpenAI/Anthropic qualification passed and PRs #291/#292
+merged; native retry exposure, uncertain cancelled usage and billing remain
+unverified. Login alone supplies no inference or coding authority.
 Existing API routes retain their own authorization and spending controls.
 Recorded conversation remains available without credentials. Setup and login
 supply no inference prompt or paid Mos request.

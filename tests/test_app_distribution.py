@@ -22,6 +22,29 @@ from mos_eisley.app_release import Release, ReleaseError, canonical, parse_relea
 
 
 class DistributionTests(unittest.TestCase):
+    def test_synthetic_predecessor_normalizes_preview_wheel_metadata(self) -> None:
+        from tools.smoke_app_distribution import older_fixture
+
+        for candidate, packaged in (("0.1.0", "0.1.0"), ("0.1.0-rc.1", "0.1.0rc1")):
+            with self.subTest(candidate=candidate):
+                output = io.BytesIO()
+                data = f"Name: mos-eisley\nVersion: {packaged}\n".encode()
+                with tarfile.open(fileobj=output, mode="w:gz") as archive:
+                    member = tarfile.TarInfo("_internal/mos_eisley.dist-info/METADATA")
+                    member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+                predecessor = older_fixture(output.getvalue(), candidate)
+                with tarfile.open(
+                    fileobj=io.BytesIO(predecessor), mode="r:gz"
+                ) as archive:
+                    metadata = archive.extractfile(archive.getmembers()[0])
+                    assert metadata is not None
+                    self.assertEqual(
+                        metadata.read(), b"Name: mos-eisley\nVersion: 0.0.0\n"
+                    )
+                with self.assertRaisesRegex(ValueError, "version differs"):
+                    older_fixture(output.getvalue(), "0.2.0")
+
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory(prefix="mos-distribution-")
         self.addCleanup(self.directory.cleanup)
@@ -353,6 +376,21 @@ class DistributionTests(unittest.TestCase):
             self.assertRaisesRegex(ReleaseError, "changed"),
         ):
             app_update.update(self.root, confirmed=True, target="0.1.2")
+
+    def test_preview_manager_upgrade_keeps_preview_channel(self) -> None:
+        with patch.object(app_update, "installed_version", return_value="0.1.0-rc.1"):
+            self.assertIn("@preview", app_update.manual_instructions("npm", None))
+            self.assertIn(
+                "/mos-eisley-preview", app_update.manual_instructions("homebrew", None)
+            )
+            self.assertIn(
+                "@0.1.0-rc.2", app_update.manual_instructions("npm", "0.1.0-rc.2")
+            )
+        with patch.object(app_update, "installed_version", return_value="0.1.0"):
+            self.assertIn("@latest", app_update.manual_instructions("npm", None))
+            self.assertNotIn(
+                "-preview", app_update.manual_instructions("homebrew", None)
+            )
 
     def test_manager_origin_does_not_replace_other_environment(self) -> None:
         for origin in ("npm", "homebrew", "developer"):

@@ -4,7 +4,7 @@ on:
     tags: ["v*.*.*"]
 permissions:
   actions: read
-  contents: write
+  contents: read
 jobs:
   standalone:
     uses: ./.github/workflows/app-distribution.yml
@@ -22,7 +22,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  release:
+  prepare:
     environment: application-release
     needs: [gitleaks, standalone]
     runs-on: ubuntu-latest
@@ -64,6 +64,72 @@ jobs:
       - name: Checksum release artifacts
         working-directory: dist
         run: sha256sum *.whl *.tar.gz release-sbom.cdx.json SOURCE_COMMIT > SHA256SUMS
+      - name: Retain the signed publication candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: application-publication
+          if-no-files-found: error
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/release-sbom.cdx.json
+            dist/SOURCE_COMMIT
+            dist/SHA256SUMS
+            dist/standalone/mos-*.tar.gz
+            dist/standalone/mos-install-*
+            dist/standalone/release.json
+            dist/standalone/install.sh
+            dist/standalone/BOOTSTRAP_SHA256SUMS
+            dist/managers/*.rb
+  qualify-signed:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: application-publication
+          path: dist
+      - name: Restore native bootstrap executable permissions
+        run: chmod 700 dist/standalone/mos-install-*
+      - name: Qualify the exact signed installation candidate
+        run: uv run --frozen python tools/smoke_app_distribution.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-signed.json
+      - name: Qualify generated signed Homebrew preview formula
+        if: runner.os == 'macOS'
+        run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-qualification-${{ matrix.os }}
+          path: dist/standalone/qualification-*.json
+          if-no-files-found: error
+  publish:
+    needs: [prepare, qualify-signed]
+    environment: application-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: application-publication
+          path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: signed-qualification-*
+          path: dist/qualification
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           generate_release_notes: true
@@ -81,4 +147,5 @@ jobs:
             dist/standalone/release.json
             dist/standalone/install.sh
             dist/standalone/BOOTSTRAP_SHA256SUMS
-            dist/managers/mos-eisley.rb
+            dist/managers/*.rb
+            dist/qualification/*/*.json

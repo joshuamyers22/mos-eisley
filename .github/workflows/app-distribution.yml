@@ -28,11 +28,12 @@ jobs:
       - run: uv run --frozen python -m unittest discover -s tests -p test_app_distribution.py
       - run: uv run --frozen python tools/build_standalone.py
       - run: uv run --frozen python tools/build_app_bootstrap.py
-      - run: uv run --frozen python tools/smoke_app_distribution.py
+      - name: Qualify installed native runtime and fault recovery
+        run: uv run --frozen python tools/smoke_app_distribution.py --evidence dist/standalone/qualification-${{ matrix.os }}.json
       - run: uv run --frozen python tools/smoke_app_managers.py
       - name: Qualify actual Homebrew installation when available
         if: runner.os == 'macOS'
-        run: uv run --frozen python tools/smoke_app_homebrew.py
+        run: uv run --frozen python tools/smoke_app_homebrew.py --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json
       - name: Retain immutable platform assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -40,4 +41,5 @@ jobs:
           path: |
             dist/standalone/mos-*.tar.gz
             dist/standalone/mos-install-*
+            dist/standalone/qualification-*.json
           if-no-files-found: error
