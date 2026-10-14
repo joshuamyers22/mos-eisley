@@ -65,7 +65,7 @@ jobs:
         working-directory: dist
         run: sha256sum *.whl *.tar.gz release-sbom.cdx.json SOURCE_COMMIT > SHA256SUMS
       - name: Retain the signed publication candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: application-publication
           if-no-files-found: error
@@ -108,7 +108,7 @@ jobs:
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: signed-qualification-${{ matrix.os }}
           path: dist/standalone/qualification-*.json
