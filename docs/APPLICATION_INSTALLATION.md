@@ -164,9 +164,11 @@ credential. Do not paste keys into chat, PRs, logs or workflow files.
    retains the full quality, signing and four-platform signed-installation gates.
    Publication automatically creates a draft, uploads qualified assets, verifies
    every uploaded name/size/SHA256 and only then publishes it. GitHub must confirm
-   immutable publication. Upload or verification failure leaves the draft
-   unpublished. Matching partial drafts can resume; published releases and
-   mismatched assets stop the job. Manual draft preparation is no longer required.
+   immutable publication. Upload or pre-publication verification failure leaves
+   the draft unpublished. Matching partial drafts can resume; published releases
+   and mismatched assets stop the job. Manual draft preparation is no longer
+   required. A final response error may follow successful publication: inspect
+   GitHub state before retrying, and preserve a published release.
 3. Stage the identical version using `npm-publication.yml` and stage-only OIDC.
    Inspect stages and approve natives before launcher through owner 2FA. Preview
    uses `preview`, preserving `latest`. Renew an expired unvalidated binding

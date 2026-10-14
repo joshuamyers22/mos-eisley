@@ -44,7 +44,7 @@ publication/identity/asset mismatch. No paid requests or public test release.
   token. Existing protected owner review checks that setting; the helper uses only
   contents access and requires GitHub to confirm immutable publication. It does
   not add admin credentials or attempt to revert publication on an API error.
-- Upload/verification failure leaves the draft unpublished. A publication response
+- Upload/pre-publication verification failure leaves the draft unpublished. A publication response
   failure may occur after GitHub publishes; inspect release state instead of
   blindly retrying or deleting it. Published releases refuse replay.
 
