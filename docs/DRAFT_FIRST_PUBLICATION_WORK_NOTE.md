@@ -1,6 +1,6 @@
 # Work note: draft-first immutable publication
 
-- Status: active
+- Status: implementation prepared; exact-head QA and disposition maintained in PR
 - Owner: Joshua Myers; implementation: Codex
 - Started: 2026-10-14 UTC
 - Review by: next release acceptance
@@ -50,6 +50,7 @@ publication/identity/asset mismatch. No paid requests or public test release.
 
 ## Handoff
 
-Focused transaction checks, combined quality results and exact-head CI will be
-recorded before owner acceptance. New release behavior is tested offline with
-inert GitHub API fixtures; no claim of a newly published candidate is made.
+Fourteen focused transaction/wiring tests, Ruff and strict Pyright passed.
+The combined quality gate is running; its results and exact-head CI are recorded
+in the delivery PR before owner acceptance. New release behavior is tested offline
+with inert GitHub API fixtures; no newly published candidate is claimed.
