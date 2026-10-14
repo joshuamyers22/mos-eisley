@@ -25,7 +25,11 @@ class DistributionTests(unittest.TestCase):
     def test_synthetic_predecessor_normalizes_preview_wheel_metadata(self) -> None:
         from tools.smoke_app_distribution import older_fixture
 
-        for candidate, packaged in (("0.1.0", "0.1.0"), ("0.1.0-rc.1", "0.1.0rc1")):
+        for candidate, packaged in (
+            ("0.1.0", "0.1.0"),
+            ("0.1.0-rc.1", "0.1.0rc1"),
+            ("0.1.0-rc.1", "0.1.0-rc.1"),
+        ):
             with self.subTest(candidate=candidate):
                 output = io.BytesIO()
                 data = f"Name: mos-eisley\nVersion: {packaged}\n".encode()
@@ -44,6 +48,15 @@ class DistributionTests(unittest.TestCase):
                     )
                 with self.assertRaisesRegex(ValueError, "version differs"):
                     older_fixture(output.getvalue(), "0.2.0")
+
+        duplicate = io.BytesIO()
+        data = b"Name: mos-eisley\nVersion: 0.1.0-rc.1\nVersion: 0.1.0rc1\n"
+        with tarfile.open(fileobj=duplicate, mode="w:gz") as archive:
+            member = tarfile.TarInfo("_internal/mos_eisley.dist-info/METADATA")
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+        with self.assertRaisesRegex(ValueError, "version differs"):
+            older_fixture(duplicate.getvalue(), "0.1.0-rc.1")
 
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory(prefix="mos-distribution-")

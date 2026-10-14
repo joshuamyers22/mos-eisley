@@ -80,13 +80,19 @@ def older_fixture(raw: bytes, version: str) -> bytes:
                 data = content.read()
                 if b"Name: mos-eisley\n" in data:
                     # Wheel metadata normalizes SemVer rc tags to PEP 440.
-                    expected = version.replace("-rc.", "rc")
-                    version_line = f"Version: {expected}\n".encode()
-                    if data.count(version_line) != 1:
+                    accepted = {version, version.replace("-rc.", "rc")}
+                    version_lines = [
+                        line
+                        for line in data.splitlines(keepends=True)
+                        if line.startswith(b"Version:")
+                    ]
+                    if len(version_lines) != 1 or version_lines[0] not in {
+                        f"Version: {value}\n".encode() for value in accepted
+                    }:
                         raise ValueError(
                             "frozen distribution version differs from candidate"
                         )
-                    data = data.replace(version_line, b"Version: 0.0.0\n")
+                    data = data.replace(version_lines[0], b"Version: 0.0.0\n")
                     replaced = True
                 content.close()
                 content = io.BytesIO(data)
