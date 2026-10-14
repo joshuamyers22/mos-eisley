@@ -1,5 +1,13 @@
 # Publisher security and release preparation
 
+Historical preparation record from 2026-10-07. The macOS/Linux `0.1.0-rc.1`
+preview subsequently published on 2026-10-14; see the
+[completed qualification](PREVIEW_DISTRIBUTION_QUALIFICATION.md),
+[publisher acceptance #302](https://github.com/joshuamyers22/mos-eisley/pull/302)
+and [current publisher runbook](APPLICATION_INSTALLATION.md#publisher-operation-and-remaining-stable-gates).
+The `0.1.0` staging receipts below are historical candidates, not the published
+preview. Real predecessor, WSL2 and encrypted backup/restore gates remain open.
+
 The application publisher controls are prepared for the owner-operated macOS/Linux distribution. Public application release and production launch require the exact candidate and advertised journeys to pass their remaining gates. Joshua Myers owns release decisions; the agent technical review does not provide independent security approval.
 
 ## Objective and verification contract

@@ -1,5 +1,33 @@
 # macOS/Linux preview distribution qualification
 
+## Published closeout: 2026-10-14
+
+[Immutable preview `0.1.0-rc.1`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
+published at source `8cf38c83591e505a9c7b57f4d701b12cb80fc4c6`. The owner accepted
+reviewed head `d58468f6b9fc614f5633e1a836ec904d9afbc155`, whose tree matches the
+protected merge. [Delivery review #302](https://github.com/joshuamyers22/mos-eisley/pull/302)
+retains the acceptance, initial failures and preview limits.
+
+[Tagged run 38602522715](https://github.com/joshuamyers22/mos-eisley/actions/runs/38602522715)
+passed 3,702 source tests (17 skips), 2,725 installed-package tests (13 skips),
+85% coverage, audit/container checks, four enrolled-key frozen-bootstrap jobs and
+both macOS signed generated-formula jobs. All 23 public assets matched the
+qualified candidate; GitHub's immutable release attestation verified.
+
+[OIDC staging run 38629443613](https://github.com/joshuamyers22/mos-eisley/actions/runs/38629443613)
+passed after owner 2FA renewed the five stage-only bindings. All five packages
+were inspected and published at `0.1.0-rc.1` under `preview`, natives before
+launcher. Public tarballs matched the stages and 3,188 generated package members.
+Old `0.1.0` stages were excluded. [Tap PR #1](https://github.com/joshuamyers22/homebrew-mos-eisley/pull/1)
+admitted the unchanged formula through protection.
+
+Actual public standalone, npm and Homebrew install/setup/uninstall passed on
+macOS arm64. Standalone discovery/recovery passed; npm discovery reported current
+after explicit preview opt-in. Public archive identity checks cover all four
+targets. No paid calls or studies ran. WSL2, real predecessor compatibility,
+billing/native retries/general reliability and independent encrypted publisher
+backup/restore retain their disclosed limits.
+
 ## Objective, authority and scope
 
 Joshua Myers requested completion of distribution/installation qualification and
@@ -62,6 +90,6 @@ An expired login/trust relationship must be renewed through the native npm brows
 flow; no token-based fallback is introduced. The generated Homebrew formula is
 admitted only once its exact public archive URLs exist.
 
-Public release/download/registry/tap checks and final exact source/artifact/CI links
-will be recorded in the delivery PR and immutable GitHub prerelease. This preparation
-record does not claim a published installer or full v1 production readiness.
+The closeout above and linked delivery review record completed public checks.
+The original requirements retained here remain the acceptance rubric for the
+preview and do not establish stable v1 readiness.
