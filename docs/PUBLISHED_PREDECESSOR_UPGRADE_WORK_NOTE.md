@@ -58,3 +58,29 @@ code. This task replaces that historical-compatibility assumption with untouched
 published predecessor artifacts. Main changed documentation/publication tooling
 since rc.1; this pair does not prove compatibility with future runtime/schema changes.
 Exact results and source/artifact identities will be recorded in the delivery PR.
+
+The signed preparation head is `35cfe63accc209173d146da97899c1193bf4117b`.
+[Native build run 38655733779](https://github.com/joshuamyers22/mos-eisley/actions/runs/38655733779)
+passed all four targets. Its actual PR merge checkout is
+`d8b05adb6e2fa1d1cbe6aa73b2c2c453f35e6278`; both commits have tree
+`773fbb5c337229bb151a94b30e9f9ad789bb4b1d`. Native records bind that actual checkout,
+archive hashes and bootstrap hashes. The existing owner-operated signer prepared
+[public signature/hash metadata](qualification/rc2-upgrade-candidate.json) for those
+unchanged archives. No private key is retained. This is an unpublished preview
+candidate, not permission to publish `rc.2`.
+
+`tools/qualify_published_upgrade.py` executes both enrolled-key frozen installers,
+both frozen runtimes and the public recovery/rollback/uninstall commands. Only
+interruption timing is injected in the source installer. JSON and SQLite sessions
+are created by rc.1, loaded by rc.2 and read again by rc.1 after candidate writes.
+The separate read-only `published-upgrade.yml` matrix downloads the pinned candidate
+run and immutable public predecessor; its evidence records hashes and outcomes,
+never session contents or credentials. All 37 focused distribution checks passed,
+along with Ruff and strict Pyright. Final native/local/quality results and acceptance
+are maintained in [delivery PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
+
+This workflow qualifies the pinned rc.1/rc.2 pair. GitHub build-artifact retention
+limits future replays; a later candidate must supply fresh passing native artifacts,
+the recorded checkout identity and newly reviewed signed metadata. A changed
+runtime, dependency lock, storage schema or storage epoch needs a new qualification.
+Package-manager upgrade behavior remains a separate gate from this standalone journey.

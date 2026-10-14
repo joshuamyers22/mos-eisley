@@ -1,0 +1,78 @@
+name: Published predecessor upgrade
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/published-upgrade.yml
+      - tools/qualify_published_upgrade.py
+      - tests/test_app_distribution.py
+      - docs/qualification/rc2-upgrade-candidate.json
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/published-upgrade.yml
+      - tools/qualify_published_upgrade.py
+      - tests/test_app_distribution.py
+      - docs/qualification/rc2-upgrade-candidate.json
+permissions:
+  actions: read
+  contents: read
+env:
+  CANDIDATE_SOURCE: 35cfe63accc209173d146da97899c1193bf4117b
+  ARTIFACT_SOURCE: d8b05adb6e2fa1d1cbe6aa73b2c2c453f35e6278
+  CANDIDATE_RUN: '38655733779'
+jobs:
+  upgrade:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+          - os: macos-15
+            platform: macos-aarch64
+          - os: macos-15-intel
+            platform: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          version: '0.12.5'
+      - run: uv sync --frozen --dev
+      - name: Require the exact passing native candidate run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run view "$CANDIDATE_RUN" --repo "$GITHUB_REPOSITORY" --json headSha,conclusion --jq 'select(.conclusion == "success") | .headSha' > candidate-source.txt
+          test "$(cat candidate-source.txt)" = "$CANDIDATE_SOURCE"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.CANDIDATE_RUN }}
+          name: standalone-${{ matrix.os }}
+          path: .work/candidate
+      - name: Acquire the immutable published predecessor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.1" --jq 'select(.id == 413060239 and .immutable == true and .draft == false and .target_commitish == "8cf38c83591e505a9c7b57f4d701b12cb80fc4c6") | .id' > predecessor-id.txt
+          test "$(cat predecessor-id.txt)" = 413060239
+          gh release download v0.1.0-rc.1 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.1-$PLATFORM.tar.gz" --pattern "mos-install-$PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/predecessor
+          cp docs/qualification/rc2-upgrade-candidate.json .work/candidate/release.json
+          chmod 700 ".work/predecessor/mos-install-$PLATFORM" ".work/candidate/mos-install-$PLATFORM"
+      - name: Qualify real upgrade, cold resume, recovery, rollback and uninstall
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/predecessor --candidate .work/candidate --candidate-commit "$ARTIFACT_SOURCE" --evidence ".work/qualification-published-upgrade-$PLATFORM.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: published-upgrade-${{ matrix.os }}
+          path: .work/qualification-published-upgrade-*.json
+          if-no-files-found: error
