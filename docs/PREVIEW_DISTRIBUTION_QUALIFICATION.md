@@ -24,9 +24,10 @@ admitted the unchanged formula through protection.
 Actual public standalone, npm and Homebrew install/setup/uninstall passed on
 macOS arm64. Standalone discovery/recovery passed; npm discovery reported current
 after explicit preview opt-in. Public archive identity checks cover all four
-targets. No paid calls or studies ran. WSL2, real predecessor compatibility,
-billing/native retries/general reliability and independent encrypted publisher
-backup/restore retain their disclosed limits.
+targets. No paid calls or studies ran. WSL2, billing/native retries/general
+reliability and independent encrypted publisher backup/restore retain their
+disclosed limits. Subsequent standalone real-predecessor qualification is recorded
+separately below; the original rc.1 artifacts and receipts remain unchanged.
 
 ## Objective, authority and scope
 
@@ -69,11 +70,21 @@ reliability remain unverified; subscription commands retain explicit authorizati
 | Immutable publication | A mainline semantic tag matching metadata; no artifact overwrites; GitHub prerelease, npm `preview` tag, separate Homebrew preview formula. |
 | Accountable review | The prepared candidate, remaining risks and exact CI/artifact identities need owner disposition; the agent's technical review is not independent approval. |
 
-Upgrade/rollback uses the same code with explicitly synthetic `0.0.0` distribution
-metadata. It proves transaction mechanics, not compatibility with a real prior
-published release. The production-key bootstrap and untrusted-signature rejection
-are distinct from ephemeral local fixture signing. First-bootstrap trust remains
-GitHub HTTPS plus inspected checksums; checksums are not publisher signatures.
+The original tagged preview upgrade/rollback receipts used explicitly synthetic
+`0.0.0` metadata on the same frozen code; those receipts establish transaction
+mechanics. The later [published-predecessor qualification](PUBLISHED_PREDECESSOR_UPGRADE_WORK_NOTE.md)
+and [delivery review #305](https://github.com/joshuamyers22/mos-eisley/pull/305)
+bind the untouched published rc.1 archives and enrolled-key metadata to the
+unpublished rc.2 native candidate. They cover standalone JSON/SQLite save/resume,
+pre/post activation recovery, rollback after candidate-written state, tamper
+refusal and both versions' uninstall on the four advertised native targets.
+This evidence applies to that exact artifact pair; future runtime/dependency/schema
+changes and package-manager upgrades require fresh qualification. The tagged release
+workflow repeats the actual-predecessor journey against the exact signed tag
+artifacts before publication. First-bootstrap
+trust remains GitHub HTTPS plus inspected checksums; checksums are not publisher
+signatures. Neither this qualification nor signed preparation metadata authorizes
+publishing rc.2 or declaring stable v1 support.
 
 ## Publisher and public-service handoff
 

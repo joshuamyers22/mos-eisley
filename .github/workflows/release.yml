@@ -42,14 +42,14 @@ jobs:
       - run: uv sync --frozen --dev
       - run: make check audit
       - run: make container
-      - uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: ./dist
           artifact-name: release-sbom.cdx.json
           output-file: ./dist/release-sbom.cdx.json
           format: cyclonedx-json
           upload-artifact: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: standalone-*
           path: dist/standalone
@@ -65,7 +65,7 @@ jobs:
         working-directory: dist
         run: sha256sum *.whl *.tar.gz release-sbom.cdx.json SOURCE_COMMIT > SHA256SUMS
       - name: Retain the signed publication candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: application-publication
           if-no-files-found: error
@@ -88,7 +88,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -97,7 +97,7 @@ jobs:
         with:
           version: "0.12.5"
       - run: uv sync --frozen --dev
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: application-publication
           path: dist
@@ -105,10 +105,21 @@ jobs:
         run: chmod 700 dist/standalone/mos-install-*
       - name: Qualify the exact signed installation candidate
         run: uv run --frozen python tools/smoke_app_distribution.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-signed-${{ matrix.os }}.json
+      - name: Qualify upgrade from the actual published predecessor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.1" --jq 'select(.id == 413060239 and .immutable == true and .draft == false and .target_commitish == "8cf38c83591e505a9c7b57f4d701b12cb80fc4c6") | .id' > predecessor-id.txt
+          test "$(cat predecessor-id.txt)" = 413060239
+          gh release download v0.1.0-rc.1 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.1-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor
+          chmod 700 ".work/published-predecessor/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-$UPGRADE_PLATFORM.json"
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: signed-qualification-${{ matrix.os }}
           path: dist/standalone/qualification-*.json
@@ -125,11 +136,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: application-publication
           path: dist
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: signed-qualification-*
           path: dist/qualification

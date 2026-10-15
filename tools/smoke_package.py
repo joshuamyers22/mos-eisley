@@ -368,9 +368,8 @@ def main() -> int:
         # and copy it explicitly, just like the other retained test fixtures.
         helpers = root / "tools"
         helpers.mkdir()
-        (helpers / "smoke_app_distribution.py").write_text(
-            Path("tools/smoke_app_distribution.py").read_text()
-        )
+        for name in ("smoke_app_distribution.py", "qualify_published_upgrade.py"):
+            (helpers / name).write_text((Path("tools") / name).read_text())
         subprocess.run(
             [
                 str(python),

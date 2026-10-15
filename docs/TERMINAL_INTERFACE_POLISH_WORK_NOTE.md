@@ -312,3 +312,21 @@ all 31 corrected-fixture tests passed against the isolated installed wheel,
 including real tmux and diff PTYs. Runtime-export verification and source/wheel
 builds passed. Final-head CI remains required; the earlier expanded batch is not
 reported as passing.
+
+Candidate `2b404b336a142d0938aee585689696060f53f8eb` subsequently passed all 13
+GitHub checks: source suite 3,737 tests (17 skips), installed-wheel suite 2,725
+tests (13 skips), 85% source coverage, qualification preparation, dependency audit,
+secret scanning, container, platform contracts and four standalone targets.
+Evidence: [CI run 38672291175](https://github.com/joshuamyers22/mos-eisley/actions/runs/38672291175)
+and [distribution run 38672291166](https://github.com/joshuamyers22/mos-eisley/actions/runs/38672291166).
+
+During that validation, PR #305 advanced main to `ef6a66f`, introducing the prepared
+rc.2 metadata and published-predecessor qualification workflow. The resulting merge
+conflict was limited to adjacent project-memory rows. Integration retains both
+the accepted interface fact and main's complete upgrade-qualification fact,
+including its restriction that future candidate changes require fresh evidence.
+No application presentation code conflicted. The integrated candidate needs fresh
+CI; the earlier green checks do not certify the merged tree or rc.2 publication.
+The integrated tree passed 82 focused interface/approval/tmux/distribution/
+publication tests, plus lint, formatting, strict typing, runtime-export checks
+and rc.2 source/wheel builds before push. Full integrated CI remains pending.
