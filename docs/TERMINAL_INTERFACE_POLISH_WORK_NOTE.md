@@ -271,3 +271,24 @@ The standalone eight-screen gallery is also in Downloads. No application code
 changed. Joshua accepted the combined visual result on 2026-10-14, including the
 cosmetic footer wrap. Full delivery gates and other-platform visual qualification
 remain pending; this does not close the overall milestone.
+
+## PR #306 delivery validation
+
+Objective: complete the PR's source, package, security, container and platform
+checks after owner visual acceptance. Existing bounded verification guidance and
+loop template apply. Preserve runtime behavior, approval boundaries and test
+assertions for source attachment and saved-state identity. Risk: routine test
+maintenance within a material delivery batch. Bound: three evidence-changing
+correction passes, no paid requests, each CI attempt within its configured timeout.
+Stop when the final candidate's required checks pass; do not merge or release as
+part of validation.
+
+The initial local `make check` passed lint/formatting/typing but hit diff timeouts
+under the parent sandbox. That run was stopped and replaced by `make check`
+outside the parent sandbox so Mos's own Git isolation could run. The replacement
+found a separate obsolete PTY assertion in
+`test_conversation_diff_acceptance.DiffPTYTests`: it still waited for the removed
+`Message` frame title at startup. The test now waits for `Type a message`, retaining
+its existing attachment, snapshot, resize, removal and close checks. The corrected
+real-PTY reproducer passed. Application code and isolation policies are unchanged.
+Full local and final-head GitHub validation results remain pending at this entry.
