@@ -28,12 +28,13 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.2 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2)
+The published [**0.1.0-rc.3 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)
 covers macOS and Linux on arm64 and x86_64. The immutable release includes signed
 metadata and installation/upgrade qualification evidence. The earlier rc.1
 qualification also covers npm and the official macOS Homebrew preview formula.
-The [polished-interface rc.3 candidate](docs/POLISHED_PREVIEW_RELEASE_WORK_NOTE.md)
-is being prepared; rc.2 predates the interface changes from PR #306.
+This release includes the accepted interface polish from PR #306 and qualified
+upgrades from both rc.1 and rc.2. See the
+[publication record](docs/POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) for exact evidence.
 Stable `0.1.0` remains unqualified.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)

@@ -1,15 +1,26 @@
 # macOS/Linux preview distribution qualification
 
-## Current standalone release and interface candidate
+## Polished standalone preview published: 2026-10-15
+
+[Immutable rc.3](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)
+published at `b3f04b46fb2091e861bdf3fc5e900d933cf804b3` through
+[tagged run 38778971142](https://github.com/joshuamyers22/mos-eisley/actions/runs/38778971142).
+All four enrolled-key signed installation jobs, all eight upgrades from the real
+rc.1/rc.2 predecessors, and both macOS generated-formula jobs passed. All 31 public
+asset names, sizes and SHA256 digests match the qualified publication candidate.
+The protected owner approved publication; release ID `414195118` is immutable.
+See the [publication record](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) for source,
+UI, saved-session, recovery and rollback evidence. Public npm/tap journeys below
+remain rc.1 evidence; rc.3 standalone publication does not update those routes.
+
+## Previous standalone release
 
 [Immutable rc.2](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2)
 published on 2026-10-15 at `ef6a66fc8911902cef7a91828b4b26e7d329020c` through
 [tagged run 38676738368](https://github.com/joshuamyers22/mos-eisley/actions/runs/38676738368).
 That release precedes the interface merge `b79d970`; its assets remain unchanged.
-The [rc.3 preparation](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) targets the polished
-interface and requires fresh signed installation and rc.1/rc.2 upgrade journeys on
-all four native targets. The historical rc.1 closeout below remains attributed to
-its original artifacts and package-manager journeys.
+The historical rc.1 closeout below remains attributed to its original artifacts
+and package-manager journeys.
 
 ## Published closeout: 2026-10-14
 
