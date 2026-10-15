@@ -26,6 +26,7 @@ from prompt_toolkit.output import Output
 from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import RuntimeConversationController
+from mos_eisley.conversation_activity import ConversationActivity
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_context_preview import pressure_status
 from mos_eisley.conversation_diff_attachment import (
@@ -199,6 +200,7 @@ class ConversationTUI:
         )
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
         self.notice = ""
+        self.activity = ConversationActivity()
         self.sending = False
         self.details = False
         self.memory_visible = False
@@ -227,7 +229,12 @@ class ConversationTUI:
         self.review_scope_preview: str | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
-        self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
+        self.editor = EditorBuffer(
+            lambda text: self.set_error(
+                text, "Shorten the draft or use Ctrl-U to clear it."
+            ),
+            lambda: self.sending,
+        )
         self.transcript = TextArea(
             read_only=True, scrollbar=True, wrap_lines=True, lexer=ConversationLexer()
         )
@@ -462,6 +469,30 @@ class ConversationTUI:
         def status_details(event: KeyPressEvent) -> None:
             self.control("/status")
 
+        def toggle_activity(event: KeyPressEvent) -> None:
+            self.activity.expanded = not self.activity.expanded
+            self.app.invalidate()
+
+        def dismiss_error(event: KeyPressEvent) -> None:
+            self.activity.error = None
+            self.notice = ""
+            self.activity.sync_details()
+            self.app.invalidate()
+
+        def activity_up(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_up(count=3)
+
+        def activity_down(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_down(count=3)
+
+        keys.add("escape", "up", filter=Condition(lambda: self.activity.expanded))(
+            activity_up
+        )
+        keys.add("escape", "down", filter=Condition(lambda: self.activity.expanded))(
+            activity_down
+        )
+        keys.add("c-t")(toggle_activity)
+        keys.add("c-y")(dismiss_error)
         keys.add("f2")(status_details)
         keys.add("f3")(details)
         keys.add("f4")(continue_work)
@@ -542,6 +573,7 @@ class ConversationTUI:
                     ],
                     padding=1,
                 ),
+                self.activity.panel(lambda: self.app.output.get_size().columns),
                 composer(self.editor_control),
                 ConditionalContainer(
                     Window(
@@ -552,7 +584,9 @@ class ConversationTUI:
                     filter=Condition(lambda: bool(self.diff_attachments)),
                 ),
                 Window(
-                    FormattedTextControl(lambda: display_text(self.notice)),
+                    FormattedTextControl(
+                        lambda: self.activity.notice_text(display_text(self.notice))
+                    ),
                     height=Dimension(min=1, max=3),
                     dont_extend_height=True,
                     wrap_lines=True,
@@ -575,10 +609,16 @@ class ConversationTUI:
             style=conversation_style(theme),
             color_depth=conversation_color_depth(theme),
             min_redraw_interval=0.05,
+            refresh_interval=1.0,
             mouse_support=True,
         )
         self.render_diff()
         self.refresh()
+
+    def set_error(self, text: str, next_step: str) -> None:
+        self.activity.error = (display_text(text)[:1200], next_step)
+        self.activity.sync_details()
+        self.app.invalidate()
 
     def set_notice(self, text: str) -> None:
         self.notice = text[:400]
@@ -997,6 +1037,7 @@ class ConversationTUI:
 
     def refresh(self) -> None:
         state = self.controller.state
+        self.activity.observe(state)
         if self.history:
             self.history.check_revision()
             if self.history.visible:
@@ -1169,6 +1210,7 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        self.activity.receive(event)
         if event["type"] == "conversation.update":
             self.set_notice(str(event["text"]))
             return
@@ -1371,7 +1413,10 @@ class ConversationTUI:
                 self.editor.clear()
             return
         if self.queue.full():
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
             return
         attachments = tuple(self.diff_attachments)
         if attachments:
@@ -1472,7 +1517,10 @@ class ConversationTUI:
                     "Ctrl-C stops • Ctrl-D quits"
                 )
         except asyncio.QueueFull:
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
         except asyncio.CancelledError:
             accepted.cancel()
         finally:

@@ -665,8 +665,10 @@ and qualify resize, narrow terminals, light/dark backgrounds, non-color use,
 keyboard controls, draft/scroll preservation and packaged-app behavior. Begin with
 before/after previews and finish with owner visual acceptance; no delivery date is
 committed. The shared styling and conversation header/transcript/composer/status
-slice is implemented locally; tools, approvals, errors and auxiliary screens remain
-pending. See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
+slice and current-operation/error presentation are implemented locally. Activity
+has observed elapsed time and keyboard-expanded details; errors retain actionable
+guidance while updates preserve drafts/focus/browsing. Individual tool-call
+telemetry, the approval companion and auxiliary-screen consistency remain pending. See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
 and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the

@@ -80,3 +80,49 @@ checks and captures, with broader delivery checks deferred to publication.
 Next slices: activity/error presentation, approval companion view, then
 session/directory/diff consistency. Implementation acceptance of those slices
 remains separate from the approved overall visual direction.
+
+## Activity and error slice (2026-10-14)
+
+Objective: compact current-operation status, observed elapsed time, expandable
+bounded details and actionable errors in both renderers. Preserve drafts, focus,
+transcript browsing and execution/approval boundaries. Existing controller states
+are the source of truth; no individual tool-call telemetry is currently emitted,
+so the display must not invent calls or completed durations on cold resume.
+Selected guidance remains the Python and bounded-verification guides above.
+Risk: material presentation change; at most three evidence-changing passes and a
+60-minute review window. Acceptance: deterministic timer/lifecycle tests, keyboard
+and update preservation tests for both renderers, existing terminal regressions,
+lint/format/type checks and a built-wheel smoke. No paid calls or publication.
+
+Activity/error acceptance evidence:
+
+- The focused activity/presentation/TUI set passed 34 tests after the final notice
+  deduplication. Its keyboard tests exercise both renderers, timer redraws,
+  expansion and detail scrolling without focus transfer, persistent/dismissible
+  errors, unchanged drafts/cursors, and an unchanged transcript viewport when a
+  queued message arrives. Event-loop rendering exceptions are test failures.
+- The wider terminal/history/memory/composer/context set passed 106 tests. These
+  suites overlap the focused set. Six Git-panel and real-PTY regressions passed
+  outside the parent sandbox, permitting Mos's own Git isolation; two Git-reader
+  tests had timed out inside that parent sandbox.
+- Real macOS PTYs checked source dark/light/plain, the Git renderer and an isolated
+  installed wheel: recoverable error, detail expansion/scrolling, multiline draft,
+  112-to-64-column resize, dismissal, F2 inspection, passive quit, and restored
+  terminal modes. Synthetic captures use the `activity-` prefix in the existing
+  local implementation-preview directory. No provider calls or real sessions.
+- Lint, formatting, strict typing, sdist and wheel builds passed. The user-installed
+  CLI remains unchanged; the smoke environment is temporary and private.
+
+Corrections from evidence: use a toolkit filter for the details pane's bounded
+height; make asynchronous render exceptions fail the keyboard test; explicitly
+return the PTY contract test to the latest output after browsing; suppress a
+failure's duplicate routine notice. Retained error details are bounded to 1,200
+characters, operation prompt details to 800 terminal cells, and the details pane
+is scrollable. The strip reports operations and declared scope, not invented
+individual tool calls. Elapsed time freezes at terminal state and restarts for
+the next observed operation; cold resume has no fabricated prior timer.
+
+Stop this slice after these focused and packaged checks. Full `make check`,
+security/container gates and other-platform visual qualification remain unrun;
+no publication or overall milestone acceptance is claimed. Next: approval
+companion view, followed by session/directory/diff consistency.

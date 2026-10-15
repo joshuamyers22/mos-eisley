@@ -121,8 +121,18 @@ custom styles. The plain theme retains the full-screen UI; `--plain` selects the
 separate line-oriented interface. Appearance is per launch and does not change
 the saved session or its provider/spending policy.
 
-Auxiliary-screen polish and richer tool/error/approval presentation remain later
-slices of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+The activity strip reports the observed operation, its status, elapsed seconds and
+queued count. Ctrl-T expands or hides its scope, route and message details;
+Alt-Up/Down scrolls those details while the composer retains focus. Elapsed time
+covers only operations observed during this launch; cold resume does not invent
+prior timings. Individual tool calls are not currently streamed by the controller.
+Errors remain visible with a next step until Ctrl-Y dismisses them or a newer
+error replaces them. Ctrl-T exposes bounded error details and guidance. Routine
+updates do not clear an error, submit a draft, move focus or jump to the newest
+transcript output while you browse. Queue-full and oversized-draft errors retain
+the editable draft. None of these controls retry failed work automatically.
+
+Auxiliary-screen polish and the approval companion remain later slices of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
 
 ## Start a conversation
 

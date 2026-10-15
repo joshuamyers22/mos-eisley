@@ -2437,6 +2437,13 @@ errors and auxiliary screens. Visual approval does not certify implementation or
 complete this milestone. Track the first slice in the
 [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
+**Local progress, 2026-10-14:** the shared foundation and current-operation/error
+slices are implemented. The activity strip has observed elapsed time, queue status
+and keyboard-expanded scope/route details. Errors retain next-step guidance, and
+updates preserve drafts, focus and transcript browsing. Individual tool-call
+streaming, the approval companion and auxiliary-screen consistency remain pending;
+this is not overall milestone acceptance or release qualification.
+
 **Design requirements:**
 
 - Establish a consistent visual system: restrained accent colors, readable

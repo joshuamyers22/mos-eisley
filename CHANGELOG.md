@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Show current-operation status, observed elapsed time and queued work in both
+  conversation renderers. Ctrl-T expands details, Alt-Up/Down scrolls them, and
+  Ctrl-Y dismisses actionable errors. Updates preserve drafts, focus and browsing;
+  elapsed time is per launch and individual tool calls are not yet streamed.
+
 - Start the approved terminal polish with shared light/dark/plain styling,
   a compact header/footer, a borderless transcript and a ruled multiline composer.
   F2 and `/status` retain complete diagnostics; browsing position survives returning

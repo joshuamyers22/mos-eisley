@@ -53,6 +53,7 @@ def conversation_style(
             "muted": muted,
             "separator": line,
             "status": muted,
+            "error": "#a33b32" if theme == "light" else "#e6a097",
             "frame.border": line,
             "frame.label": muted,
         }
