@@ -1,5 +1,16 @@
 # macOS/Linux preview distribution qualification
 
+## Current standalone release and interface candidate
+
+[Immutable rc.2](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2)
+published on 2026-10-15 at `ef6a66fc8911902cef7a91828b4b26e7d329020c` through
+[tagged run 38676738368](https://github.com/joshuamyers22/mos-eisley/actions/runs/38676738368).
+That release precedes the interface merge `b79d970`; its assets remain unchanged.
+The [rc.3 preparation](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) targets the polished
+interface and requires fresh signed installation and rc.1/rc.2 upgrade journeys on
+all four native targets. The historical rc.1 closeout below remains attributed to
+its original artifacts and package-manager journeys.
+
 ## Published closeout: 2026-10-14
 
 [Immutable preview `0.1.0-rc.1`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)

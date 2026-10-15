@@ -28,10 +28,12 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.1 preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
+The published [**0.1.0-rc.2 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2)
 covers macOS and Linux on arm64 and x86_64. The immutable release includes signed
-metadata and platform qualification evidence. All five npm packages are available
-under `preview`; the official macOS tap supplies `mos-eisley-preview`.
+metadata and installation/upgrade qualification evidence. The earlier rc.1
+qualification also covers npm and the official macOS Homebrew preview formula.
+The [polished-interface rc.3 candidate](docs/POLISHED_PREVIEW_RELEASE_WORK_NOTE.md)
+is being prepared; rc.2 predates the interface changes from PR #306.
 Stable `0.1.0` remains unqualified.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
