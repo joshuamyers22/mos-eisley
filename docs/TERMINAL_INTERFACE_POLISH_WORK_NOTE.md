@@ -292,3 +292,12 @@ found a separate obsolete PTY assertion in
 its existing attachment, snapshot, resize, removal and close checks. The corrected
 real-PTY reproducer passed. Application code and isolation policies are unchanged.
 Full local and final-head GitHub validation results remain pending at this entry.
+
+The expanded run also identified two remaining fixture updates: tmux startup
+waited for the same removed frame title, and memory-selection inspection still
+asserted detailed preview text in the transcript. The tmux startup check now uses
+the composer prompt; all four private-tmux tests passed with tmux required.
+Memory-selection assertions now inspect the companion's complete details, adding
+an explicit exact-hash check while retaining full-source, sanitization and discard
+checks. All 17 memory-selection/companion tests passed. These are test-only
+corrections; final-head CI and the expanded local reports remain pending.

@@ -128,7 +128,7 @@ class TmuxCompatibilityTests(TestCase):
         )
         self.assertTrue(self.pane.startswith("%"), "tmux server did not create a pane")
         self.tmux("set-window-option", "-t", self.pane, "remain-on-exit", "on")
-        self.wait_for(lambda: "Message" in self.screen())
+        self.wait_for(lambda: "Type a message" in self.screen())
 
     def screen(self) -> str:
         return self.tmux("capture-pane", "-p", "-t", self.pane)
