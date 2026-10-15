@@ -116,6 +116,17 @@ jobs:
           gh release download v0.1.0-rc.1 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.1-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor
           chmod 700 ".work/published-predecessor/mos-install-$UPGRADE_PLATFORM"
           uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.2" --jq 'select(.id == 413979297 and .immutable == true and .draft == false and .target_commitish == "ef6a66fc8911902cef7a91828b4b26e7d329020c") | .id' > predecessor-rc2-id.txt
+          test "$(cat predecessor-rc2-id.txt)" = 413979297
+          gh release download v0.1.0-rc.2 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.2-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc2
+          chmod 700 ".work/published-predecessor-rc2/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc2 --predecessor-version 0.1.0-rc.2 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc2-$UPGRADE_PLATFORM.json"
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json

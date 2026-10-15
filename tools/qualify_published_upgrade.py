@@ -24,6 +24,10 @@ from mos_eisley.app_release import (
 
 PREDECESSOR_VERSION = "0.1.0-rc.1"
 PREDECESSOR_COMMIT = "8cf38c83591e505a9c7b57f4d701b12cb80fc4c6"
+PUBLISHED_PREDECESSORS = {
+    PREDECESSOR_VERSION: PREDECESSOR_COMMIT,
+    "0.1.0-rc.2": "ef6a66fc8911902cef7a91828b4b26e7d329020c",
+}
 
 
 def snapshot(directory: Path) -> dict[str, str]:
@@ -45,6 +49,16 @@ def artifact(directory: Path, expected_commit: str) -> tuple[Release, bytes, Pat
     if bootstrap.is_symlink() or not bootstrap.is_file():
         raise ValueError("unsafe or missing native bootstrap")
     return release, raw, bootstrap.resolve()
+
+
+def published_predecessor(directory: Path, version: str) -> tuple[Release, bytes, Path]:
+    commit = PUBLISHED_PREDECESSORS.get(version)
+    if commit is None:
+        raise ValueError("unsupported published predecessor")
+    result = artifact(directory, commit)
+    if result[0].version != version:
+        raise ValueError("signed predecessor version differs from published selection")
+    return result
 
 
 def interrupt_install(
@@ -73,16 +87,19 @@ def interrupt_install(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--predecessor", type=Path, required=True)
+    parser.add_argument(
+        "--predecessor-version",
+        choices=tuple(PUBLISHED_PREDECESSORS),
+        default=PREDECESSOR_VERSION,
+    )
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--candidate-commit", required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
-    previous, previous_raw, previous_bootstrap = artifact(
-        args.predecessor, PREDECESSOR_COMMIT
+    previous, previous_raw, previous_bootstrap = published_predecessor(
+        args.predecessor, args.predecessor_version
     )
     candidate, raw, bootstrap = artifact(args.candidate, args.candidate_commit)
-    if previous.version != PREDECESSOR_VERSION:
-        raise ValueError("predecessor is not the published rc.1")
     if version_key(candidate.version) <= version_key(previous.version):
         raise ValueError("candidate must be newer than the published predecessor")
     manifest = (args.predecessor / "BOOTSTRAP_SHA256SUMS").read_text().splitlines()

@@ -22,6 +22,41 @@ from mos_eisley.app_release import Release, ReleaseError, canonical, parse_relea
 
 
 class DistributionTests(unittest.TestCase):
+    def test_published_predecessor_pins_signed_version_and_source(self) -> None:
+        from tools.qualify_published_upgrade import (
+            PUBLISHED_PREDECESSORS,
+            published_predecessor,
+        )
+
+        for version, commit in PUBLISHED_PREDECESSORS.items():
+            with self.subTest(version=version):
+                for signed_version, signed_source, error in (
+                    (version, commit, None),
+                    (version, "f" * 40, "source commit"),
+                    ("0.1.0-rc.3", commit, "version differs"),
+                ):
+                    release, raw = self.release(
+                        signed_version,
+                        change={"channel": "preview", "source_commit": signed_source},
+                    )
+                    (self.base / "release.json").write_bytes(release.raw)
+                    (
+                        self.base / f"mos-{signed_version}-{self.target}.tar.gz"
+                    ).write_bytes(raw)
+                    (self.base / f"mos-install-{self.target}").write_bytes(
+                        b"inert bootstrap fixture"
+                    )
+                    if error is None:
+                        actual, actual_raw, _ = published_predecessor(
+                            self.base, version
+                        )
+                        self.assertEqual((actual, actual_raw), (release, raw))
+                    else:
+                        with self.assertRaisesRegex(ValueError, error):
+                            published_predecessor(self.base, version)
+        with self.assertRaisesRegex(ValueError, "unsupported published predecessor"):
+            published_predecessor(self.base, "0.1.0-rc.3")
+
     def test_qualification_requires_signed_source_and_archive_identity(self) -> None:
         from tools.qualify_published_upgrade import artifact
 

@@ -1,7 +1,14 @@
 # Application installation and updates
 
-The [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
-is published for macOS and Linux on arm64 and x86_64. Standalone installers and all
+The latest published standalone preview is
+[immutable `0.1.0-rc.2`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2),
+source `ef6a66fc8911902cef7a91828b4b26e7d329020c`, for macOS/Linux ARM/x86.
+It predates the polished interface. The
+[rc.3 preparation record](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) tracks that new
+candidate and upgrades from both published previews; rc.3 is not published yet.
+
+The initial [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
+was published for macOS and Linux on arm64 and x86_64. Its standalone installers and all
 five `@mos-eisley` npm packages are public; the
 [official Homebrew tap](https://github.com/joshuamyers22/homebrew-mos-eisley) supplies
 `mos-eisley-preview` for macOS. [Publisher acceptance and public verification](https://github.com/joshuamyers22/mos-eisley/pull/302)
@@ -19,10 +26,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.1` GitHub release, then run:
+`v0.1.0-rc.2` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.1
+sh install.sh --channel preview --version 0.1.0-rc.2
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -194,9 +201,12 @@ Its exact results and accountable acceptance are recorded in
 Tagged publication repeats this journey against the exact freshly signed tag
 artifacts on all four targets before publishing; preparation results do not
 substitute for that gate.
+The rc.3 release preparation also requires a separate journey from immutable rc.2,
+with distinct evidence and the same signature, state, recovery and rollback checks.
 New runtime/schema changes and package-manager upgrades require their own
 qualification. Subscription billing, native retry exposure, general reliability
-and publisher backup/restore remain unverified; rc.2 publication is separate.
+and publisher backup/restore remain unverified. rc.2 is published; rc.3 publication
+requires fresh exact-candidate qualification and owner disposition.
 
 Official publisher guidance: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
