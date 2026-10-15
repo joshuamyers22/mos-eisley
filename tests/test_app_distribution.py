@@ -22,6 +22,54 @@ from mos_eisley.app_release import Release, ReleaseError, canonical, parse_relea
 
 
 class DistributionTests(unittest.TestCase):
+    def test_qualification_requires_signed_source_and_archive_identity(self) -> None:
+        from tools.qualify_published_upgrade import artifact
+
+        release, raw = self.release()
+        (self.base / "release.json").write_bytes(release.raw)
+        archive = self.base / f"mos-{release.version}-{self.target}.tar.gz"
+        archive.write_bytes(raw)
+        bootstrap = self.base / f"mos-install-{self.target}"
+        bootstrap.write_bytes(b"inert bootstrap fixture")
+        actual, actual_raw, actual_bootstrap = artifact(self.base, "a" * 40)
+        self.assertEqual(
+            (actual, actual_raw, actual_bootstrap), (release, raw, bootstrap)
+        )
+        with self.assertRaisesRegex(ValueError, "source commit"):
+            artifact(self.base, "b" * 40)
+        archive.write_bytes(raw + b"tampered")
+        with self.assertRaises(ReleaseError):
+            artifact(self.base, "a" * 40)
+
+    def test_qualification_refuses_unsigned_metadata_and_linked_bootstrap(self) -> None:
+        from tools.qualify_published_upgrade import artifact
+
+        release, raw = self.release()
+        metadata = self.base / "release.json"
+        metadata.write_bytes(release.raw)
+        (self.base / f"mos-{release.version}-{self.target}.tar.gz").write_bytes(raw)
+        bootstrap = self.base / f"mos-install-{self.target}"
+        bootstrap.symlink_to(metadata)
+        with self.assertRaisesRegex(ValueError, "native bootstrap"):
+            artifact(self.base, "a" * 40)
+        metadata.write_bytes(release.raw.replace(b"Release notes", b"Altered notes"))
+        with self.assertRaises(ReleaseError):
+            artifact(self.base, "a" * 40)
+
+    def test_qualification_faults_preserve_real_activation_commit_point(self) -> None:
+        from tools.qualify_published_upgrade import interrupt_install
+
+        previous, previous_raw = self.release("0.1.0")
+        candidate, raw = self.release("0.1.1")
+        app_install.install(self.root, self.bin, previous, previous_raw)
+        for after in (False, True):
+            with self.subTest(after=after):
+                interrupt_install(self.root, self.bin, candidate, raw, after=after)
+                expected = "0.1.1" if after else "0.1.0"
+                self.assertTrue((self.root / "transaction.json").exists())
+                self.assertEqual(app_install.recover(self.root), expected)
+                self.assertFalse((self.root / "transaction.json").exists())
+
     def test_synthetic_predecessor_normalizes_preview_wheel_metadata(self) -> None:
         from tools.smoke_app_distribution import older_fixture
 
