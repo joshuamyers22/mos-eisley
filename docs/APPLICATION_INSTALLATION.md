@@ -183,10 +183,17 @@ remains in encrypted `MOS_RELEASE_SIGNING_KEY_BASE64` custody. Independently
 retained encrypted backup/restore remains owner work. Never repair an executable
 at an existing version: issue a new version and new signed metadata.
 
-Stable `0.1.0` still needs actual Windows-hosted WSL2 qualification. Historical
-upgrade/rollback compatibility remains unqualified: preview tests used a synthetic
-predecessor with the same code. Subscription billing, native retry exposure and
-general reliability remain unverified. Publication preserves these preview limits.
+Stable `0.1.0` still needs actual Windows-hosted WSL2 qualification. The original
+preview receipts used a synthetic predecessor. The separate
+[real-predecessor qualification](PUBLISHED_PREDECESSOR_UPGRADE_WORK_NOTE.md) pins
+the actual published `0.1.0-rc.1` and an unpublished `0.1.0-rc.2` candidate for
+standalone upgrade, JSON/SQLite cold resume, interrupted activation recovery,
+rollback after candidate writes and uninstall on all four macOS/Linux targets.
+Its exact results and accountable acceptance are recorded in
+[PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
+New runtime/schema changes and package-manager upgrades require their own
+qualification. Subscription billing, native retry exposure, general reliability
+and publisher backup/restore remain unverified; rc.2 publication is separate.
 
 Official publisher guidance: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)

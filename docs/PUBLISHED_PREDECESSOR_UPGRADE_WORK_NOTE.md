@@ -1,6 +1,7 @@
 # Published predecessor upgrade qualification
 
 - Status: active; qualification results and accountable disposition will be recorded in the delivery PR.
+- Review at delivery acceptance; do not reuse this qualification for a changed candidate.
 - Owner: Joshua Myers
 - Started: 2026-10-14 UTC
 - Starting main: `4df32f89ff6c864a7cc8b5d66c1406e69f2e66b7`; prepare unpublished `0.1.0-rc.2` native artifacts at the signed preparation commit recorded in the delivery PR.
@@ -84,3 +85,12 @@ limits future replays; a later candidate must supply fresh passing native artifa
 the recorded checkout identity and newly reviewed signed metadata. A changed
 runtime, dependency lock, storage schema or storage epoch needs a new qualification.
 Package-manager upgrade behavior remains a separate gate from this standalone journey.
+
+The local enrolled-key macOS ARM journey passed, including both storage backends,
+candidate-written-session rollback, both interruption points, tamper refusal and
+uninstall/reinstallation. Initial CI lifecycle steps passed but evidence upload
+failed because the pinned uploader excludes hidden `.work` paths. The corrected
+workflow writes only the compact qualification result into `dist/qualification`;
+the final all-platform run must pass and retain all four evidence files. That
+failed retention run remains attributed in the delivery PR, not counted as a
+passing workflow. No runtime or signature control changed to address it.

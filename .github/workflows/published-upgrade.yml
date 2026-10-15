@@ -70,9 +70,9 @@ jobs:
       - name: Qualify real upgrade, cold resume, recovery, rollback and uninstall
         env:
           PLATFORM: ${{ matrix.platform }}
-        run: uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/predecessor --candidate .work/candidate --candidate-commit "$ARTIFACT_SOURCE" --evidence ".work/qualification-published-upgrade-$PLATFORM.json"
+        run: uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/predecessor --candidate .work/candidate --candidate-commit "$ARTIFACT_SOURCE" --evidence "dist/qualification/published-upgrade-$PLATFORM.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: published-upgrade-${{ matrix.os }}
-          path: .work/qualification-published-upgrade-*.json
+          path: dist/qualification/published-upgrade-*.json
           if-no-files-found: error

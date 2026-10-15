@@ -6,7 +6,10 @@ preview subsequently published on 2026-10-14; see the
 [publisher acceptance #302](https://github.com/joshuamyers22/mos-eisley/pull/302)
 and [current publisher runbook](APPLICATION_INSTALLATION.md#publisher-operation-and-remaining-stable-gates).
 The `0.1.0` staging receipts below are historical candidates, not the published
-preview. Real predecessor, WSL2 and encrypted backup/restore gates remain open.
+preview. Subsequent standalone real-predecessor results are tracked in
+[the rc.1/rc.2 qualification](PUBLISHED_PREDECESSOR_UPGRADE_WORK_NOTE.md) and
+[PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
+WSL2 and encrypted backup/restore gates remain open.
 
 The application publisher controls are prepared for the owner-operated macOS/Linux distribution. Public application release and production launch require the exact candidate and advertised journeys to pass their remaining gates. Joshua Myers owns release decisions; the agent technical review does not provide independent security approval.
 
@@ -73,6 +76,6 @@ For key loss without compromise, restore only from the owner's approved private 
 3. Select an immutable tag matching package metadata. Verify mainline ancestry, the signed source commit and all platform hashes; approve the protected signing job only for that candidate.
 4. Before relying on npm OIDC, verify all five registry bindings and perform an owner-approved staged run. npm requires a first successful trusted publish within two days of configuration; reconfigure expired bindings rather than silently falling back to tokens.
 5. Inspect staged packages and approve native versions before the launcher; verify actual registry installation. Admit the exact generated Homebrew formula through a tap PR after GitHub assets exist and verify actual tap installation.
-6. Real predecessor compatibility, WSL2 and subscription inference remain separate qualification work. Public availability of a package is not a production-launch decision.
+6. Apply the exact-pair standalone predecessor evidence in `PUBLISHED_PREDECESSOR_UPGRADE_WORK_NOTE.md`; future candidate changes, package-manager upgrades, WSL2 and subscription inference need their own qualification. Public availability of a package is not a production-launch decision.
 
 Publisher references: [npm trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/), [staged publishing and placeholder behavior](https://docs.npmjs.com/staged-publishing/), [trusted-publisher lifetime and provenance](https://docs.npmjs.com/trusted-publishers/), and [GitHub environment protection](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
