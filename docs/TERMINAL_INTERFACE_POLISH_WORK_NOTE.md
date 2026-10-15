@@ -301,3 +301,14 @@ Memory-selection assertions now inspect the companion's complete details, adding
 an explicit exact-hash check while retaining full-source, sanitization and discard
 checks. All 17 memory-selection/companion tests passed. These are test-only
 corrections; final-head CI and the expanded local reports remain pending.
+
+The expanded installed-wheel batch completed 2,725 tests with six failures:
+the memory-selection assertion and four tmux startup assertions above, plus the
+forget-preview assertion still targeting the transcript. It also reported 13
+platform/optional skips. The forget-preview test now checks complete sanitized
+content, exact preview hash and discard in the companion, retaining the transcript
+discard notice assertion. The 26 source forget/selection/companion tests passed;
+all 31 corrected-fixture tests passed against the isolated installed wheel,
+including real tmux and diff PTYs. Runtime-export verification and source/wheel
+builds passed. Final-head CI remains required; the earlier expanded batch is not
+reported as passing.
