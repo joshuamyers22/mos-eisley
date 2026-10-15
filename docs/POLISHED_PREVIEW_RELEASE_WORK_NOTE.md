@@ -1,6 +1,6 @@
 # Polished interface preview preparation
 
-- Status: active
+- Status: published and verified
 - Owner: Joshua Myers
 - Started: 2026-10-15 UTC
 - Baseline: main `3d7f089`, including interface merge `b79d970` (PR #306)
@@ -59,10 +59,35 @@ required controls.
 
 - rc.2 is immutable and points to `ef6a66f`; its published assets do not contain
   interface merge `b79d970`. It is retained untouched.
-- Post-merge distribution and secret scanning passed on `b79d970`; source/package
-  CI was still running at task entry. Record the completed result before release.
+- Post-merge CI passed on interface merge `b79d970`
+  ([38761795926](https://github.com/joshuamyers22/mos-eisley/actions/runs/38761795926)),
+  dependency baseline `3d7f089` (38762874175), and final mainline `b3f04b4`
+  ([38776180432](https://github.com/joshuamyers22/mos-eisley/actions/runs/38776180432)).
 - Current-main OpenTelemetry update `3d7f089` is included in the new candidate;
   earlier candidate qualification does not certify these new runtime bytes.
-- Next: rc.3 metadata, mandatory rc.2 upgrade admission alongside rc.1, focused
-  refusal checks, full/native qualification, exact artifact review and owner
-  publication disposition.
+- [Preparation PR #307](https://github.com/joshuamyers22/mos-eisley/pull/307)
+  merged after all 17 checks passed. Its tree matches release source
+  `b3f04b46fb2091e861bdf3fc5e900d933cf804b3`. Focused publication/distribution
+  tests passed (52); local `make check audit` passed (3,741 source tests,
+  17 skips, 85% coverage; 2,729 installed-wheel tests, 13 skips; no known
+  vulnerabilities/adverse statuses in 54 runtime packages).
+- [Tagged release run 38778971142](https://github.com/joshuamyers22/mos-eisley/actions/runs/38778971142)
+  passed its full quality/audit/container checks, four actual signed native
+  installations, eight real predecessor upgrade journeys, and two signed macOS
+  generated-formula journeys. Qualification records bind exact source, archive,
+  metadata and bootstrap identities, JSON/SQLite cold resume, candidate-written
+  session rollback, pre/post-activation recovery, tamper refusal and uninstall.
+- Local installation of that exact signed macOS ARM candidate passed with no
+  external Python/Node on PATH. Its frozen UI passed recorded dark/light/plain,
+  welcome/conversation, activity/errors/approvals, session/directory/diff,
+  narrow-terminal, keyboard, draft/focus/scroll and terminal-restoration checks.
+  Disposable test installation was removed; no paid provider calls were made.
+- Protected `application-release` review history records `joshuamyers22` approval
+  of publication separately from agent-authorized signing preparation. The
+  [immutable public release](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)
+  (ID `414195118`) published at `2026-10-15T19:32:19Z`. All 31 public asset
+  names/sizes/SHA256 digests match the qualified inventory. Metadata SHA256 is
+  `fa4194de8a9ebc35c6c8f2b02810e636783e4e0d20fd3f8a5ff9ccdb6d4b581b`.
+- npm and public Homebrew tap updates are separate from this standalone release;
+  their existing rc.1 qualification is preserved. Stable/cask/WSL2 and other
+  exclusions above remain unchanged.

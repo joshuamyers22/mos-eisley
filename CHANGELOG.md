@@ -4,9 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
-- Prepare the polished `0.1.0-rc.3` macOS/Linux preview. Tagged publication must
-  qualify both immutable rc.1 and rc.2 predecessors against the exact new signed
-  artifacts, preserving JSON/SQLite sessions through recovery and rollback.
+## 0.1.0-rc.3 — 2026-10-15
+
+- Publish the polished macOS/Linux standalone preview with enrolled-key signed
+  installation and upgrades from both immutable rc.1 and rc.2 on all four native
+  targets, preserving JSON/SQLite sessions through recovery and rollback.
 
 - Unify session, directory and diff presentation with shared themes, compact
   headers, restrained selection and patch colors, and contextual controls.

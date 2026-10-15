@@ -1,11 +1,11 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.2`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.2),
-source `ef6a66fc8911902cef7a91828b4b26e7d329020c`, for macOS/Linux ARM/x86.
-It predates the polished interface. The
-[rc.3 preparation record](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) tracks that new
-candidate and upgrades from both published previews; rc.3 is not published yet.
+[immutable `0.1.0-rc.3`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3),
+source `b3f04b46fb2091e861bdf3fc5e900d933cf804b3`, for macOS/Linux ARM/x86.
+It includes the accepted interface polish. The
+[publication record](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) tracks exact signed
+installation and upgrades from both published predecessors on all four targets.
 
 The initial [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
 was published for macOS and Linux on arm64 and x86_64. Its standalone installers and all
@@ -26,10 +26,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.2` GitHub release, then run:
+`v0.1.0-rc.3` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.2
+sh install.sh --channel preview --version 0.1.0-rc.3
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -205,8 +205,10 @@ The rc.3 release preparation also requires a separate journey from immutable rc.
 with distinct evidence and the same signature, state, recovery and rollback checks.
 New runtime/schema changes and package-manager upgrades require their own
 qualification. Subscription billing, native retry exposure, general reliability
-and publisher backup/restore remain unverified. rc.2 is published; rc.3 publication
-requires fresh exact-candidate qualification and owner disposition.
+and publisher backup/restore remain unverified. rc.3 is published with fresh
+exact-candidate qualification and protected owner approval. npm and public-tap
+qualification above remains attributed to rc.1; those routes do not establish
+rc.3 package-manager availability.
 
 Official publisher guidance: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/),
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)
