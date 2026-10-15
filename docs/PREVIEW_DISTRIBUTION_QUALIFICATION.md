@@ -79,7 +79,9 @@ unpublished rc.2 native candidate. They cover standalone JSON/SQLite save/resume
 pre/post activation recovery, rollback after candidate-written state, tamper
 refusal and both versions' uninstall on the four advertised native targets.
 This evidence applies to that exact artifact pair; future runtime/dependency/schema
-changes and package-manager upgrades require fresh qualification. First-bootstrap
+changes and package-manager upgrades require fresh qualification. The tagged release
+workflow repeats the actual-predecessor journey against the exact signed tag
+artifacts before publication. First-bootstrap
 trust remains GitHub HTTPS plus inspected checksums; checksums are not publisher
 signatures. Neither this qualification nor signed preparation metadata authorizes
 publishing rc.2 or declaring stable v1 support.

@@ -1,22 +1,25 @@
 # Published predecessor upgrade qualification
 
-- Status: active; qualification results and accountable disposition will be recorded in the delivery PR.
-- Review at delivery acceptance; do not reuse this qualification for a changed candidate.
+- Status: prepared; exact results and accountable disposition are maintained in [delivery PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
 - Owner: Joshua Myers
-- Started: 2026-10-14 UTC
-- Starting main: `4df32f89ff6c864a7cc8b5d66c1406e69f2e66b7`; prepare unpublished `0.1.0-rc.2` native artifacts at the signed preparation commit recorded in the delivery PR.
+- Started: 2026-10-14 UTC; refreshed for concurrent SDK updates on 2026-10-15 UTC.
+- Frozen main baseline: `ab6024899d31cbf7f7463993e789838690dbac30`.
+- Signed preparation head: `c090592ccc08b8bee118e9ae40e93875b17c1e0f`.
+- Actual native checkout: `8ef4e6210dae6f455ac3dd7bc82097fd210aeb9e`.
+- Both preparation/native checkouts have tree `b7857149eed6ca359eefac7ba363cb735207217f`.
 - Predecessor: immutable published `0.1.0-rc.1`, source `8cf38c83591e505a9c7b57f4d701b12cb80fc4c6`.
+- Candidate: unpublished `0.1.0-rc.2`, Anthropic 1.13.0 and OpenAI 3.26.0 from the reconciled lock.
+- Review at delivery acceptance; do not reuse this qualification for changed artifacts.
 
 ## Objective and authority
 
-The owner requested real-predecessor upgrade qualification: preserve saved sessions,
-recover interrupted activation, explicitly roll back and uninstall using the actual
-published version. The next candidate is an unpublished development artifact;
-qualification does not authorize a version tag, application release, npm publication
-or tap update. WSL2 remains postponed.
+The owner requested upgrades from the actual published predecessor, preserving
+sessions through recovery, rollback and uninstall. This task prepares and qualifies
+an unpublished candidate; it authorizes no version tag, application release, npm
+publication, tap update, paid provider call or study. WSL2 remains postponed.
+All original user worktrees and stored sessions are preserved.
 
-The isolated worktree starts clean at the candidate commit. Selected guidance is
-`AGENTS.md`, `docs/PYTHON_ENGINEERING_GUIDE.md`,
+Selected guidance: `AGENTS.md`, `docs/PYTHON_ENGINEERING_GUIDE.md`,
 `docs/AGENTIC_VERIFICATION_GUIDE.md`, `templates/WORK_NOTE.md`,
 `templates/AGENTIC_VERIFICATION_LOOP.md` and `templates/THREAT_MODEL.md`.
 
@@ -24,85 +27,90 @@ The isolated worktree starts clean at the candidate commit. Selected guidance is
 
 | Dimension | Required evidence |
 |---|---|
-| Real predecessor identity | Untouched published archive, enrolled-key metadata and native bootstrap; immutable release identity and digest checks. |
-| Candidate identity | Existing four native build artifacts at the exact source commit, enrolled-key signed inventory, exact version and hashes. |
-| Session compatibility | Published runtime creates recorded JSON and SQLite sessions; cold resume before/after replacement and after rollback; no paid calls. |
-| State integrity | Session, credential/config and spending sentinels remain byte-identical across installation, refusals, recovery, rollback and uninstall; only explicit recorded turns may change session data. |
-| Failure handling | Interrupt before and after the activation commit; recover the expected version, clear pending transaction, and retain sessions. Reject archive/runtime tampering. |
-| Native execution | Execute both actual frozen versions on macOS/Linux arm64/x86_64 without external Python or Node on PATH; frozen CLI recovery/rollback/uninstall on ordinary paths. |
-| Delivery | Focused checks, one combined `make check`, exact-head CI, four native qualification results and accountable owner acceptance. |
+| Real predecessor | Untouched public archive, enrolled-key signed metadata and native bootstrap; immutable release/source identity and checksum checks. |
+| Candidate | Passing four-platform native build, actual checkout identity, enrolled-key signed inventory, exact version/archive/bootstrap hashes. |
+| Session compatibility | rc.1 creates JSON and SQLite recorded sessions; both versions cold-resume them; rc.1 reads state explicitly advanced by rc.2 after rollback. |
+| State integrity | Session file hashes and inert credential/config/spending sentinels stay unchanged around lifecycle operations; only explicit recorded turns may change sessions. |
+| Recovery/refusal | Interrupt immediately before and after durable activation, recover the expected committed version and clear the transaction. Refuse altered archives and runtimes. |
+| Native behavior | Both frozen installers/runtimes run on macOS/Linux arm64/x86_64 without Python or Node on PATH; actual frozen recovery/rollback/uninstall commands execute. |
+| Delivery | Focused checks, one combined gate per changed SDK snapshot, final CI, retained four-platform evidence and accountable owner acceptance. |
 
 ## Trust boundaries and stopping rules
 
-Published predecessor and candidate use the already enrolled public root. The
-existing owner-operated signer reads the external private key directly; no private
-key, encoded key or credentials enter Git, logs or retained artifacts. Candidate
-metadata contains public hashes/signatures only. No publisher trust bypass is
-permitted. Fault injection changes only the interruption point in the source
-installer; parsing, archive verification, executable verification and recovery
-remain intact. Frozen CLI operations provide a separate unpatched execution path.
+Both versions use the existing enrolled publisher root without a signature bypass.
+The existing owner-operated signer reads the external private key directly. No
+private key, encoded key, real provider credential or user payload enters Git,
+logs or retained artifacts. The committed candidate inventory contains public
+signatures/hashes only and is preparation evidence, not publication permission.
 
-All journeys use fresh private disposable roots, synthetic recorded conversation
-content and inert credential/config/spending sentinels. Real user stores, provider
-credentials and sampling/evaluation stores are outside scope. Signed candidate
-metadata is preparation evidence, not stable acceptance or freshness evidence.
+Journeys use fresh private temporary roots, inert recorded conversation fixtures
+and synthetic credential/config/spending sentinels. Real user data and sampling or
+evaluation stores remain outside scope. Fault injection changes only the source
+installer's activation interruption point; signature/archive/runtime verification
+remains intact. Actual frozen CLI commands recover and roll back without patches.
 
-Budget: three initial evidence-changing passes, plus one bounded installed-wheel
-fixture correction identified during the combined gate; one combined local quality
-gate and final exact-head CI after that correction. No provider spend. Stop on wrong
-signature/source/platform/version, state loss, failed cold resume or a publication
-mismatch. New runtime/schema changes require new artifacts and qualification.
+Budget: three initial passes, one bounded installed-wheel fixture correction and
+one refresh after concurrent main SDK/action updates; one combined local gate per
+SDK snapshot, affected checks after later changes, and final CI. No provider spend.
+Stop on signature/source/platform/version mismatch, data loss, failed resume or a
+publication mismatch. A later changed candidate needs fresh qualification.
 
-## Observations and handoff
+## Implementation and artifact provenance
 
-The existing native smoke journey uses synthetic `0.0.0` metadata on the candidate
-code. This task replaces that historical-compatibility assumption with untouched
-published predecessor artifacts. Main changed documentation/publication tooling
-since rc.1; this pair does not prove compatibility with future runtime/schema changes.
-Exact results and source/artifact identities will be recorded in the delivery PR.
+[Native build 38664890848](https://github.com/joshuamyers22/mos-eisley/actions/runs/38664890848)
+binds the preparation and actual checkout identities above. Every downloaded
+archive/bootstrap is checked against its native qualification record before the
+owner-operated signer produces [candidate metadata](qualification/rc2-upgrade-candidate.json).
+The untouched predecessor metadata and platform archive are checked with the
+enrolled public root, and its bootstrap matches published `BOOTSTRAP_SHA256SUMS`.
 
-The signed preparation head is `35cfe63accc209173d146da97899c1193bf4117b`.
-[Native build run 38655733779](https://github.com/joshuamyers22/mos-eisley/actions/runs/38655733779)
-passed all four targets. Its actual PR merge checkout is
-`d8b05adb6e2fa1d1cbe6aa73b2c2c453f35e6278`; both commits have tree
-`773fbb5c337229bb151a94b30e9f9ad789bb4b1d`. Native records bind that actual checkout,
-archive hashes and bootstrap hashes. The existing owner-operated signer prepared
-[public signature/hash metadata](qualification/rc2-upgrade-candidate.json) for those
-unchanged archives. No private key is retained. This is an unpublished preview
-candidate, not permission to publish `rc.2`.
+`tools/qualify_published_upgrade.py` performs actual installation, recorded session
+creation and cold resume on both backends, upgrade, candidate writes, rollback,
+both interruption/recovery paths, tamper refusal, uninstall and predecessor
+reinstallation/resume. It emits compact identities/outcomes without session
+contents. `published-upgrade.yml` downloads the pinned candidate and immutable
+predecessor on all four actual platforms and retains those results.
 
-`tools/qualify_published_upgrade.py` executes both enrolled-key frozen installers,
-both frozen runtimes and the public recovery/rollback/uninstall commands. Only
-interruption timing is injected in the source installer. JSON and SQLite sessions
-are created by rc.1, loaded by rc.2 and read again by rc.1 after candidate writes.
-The separate read-only `published-upgrade.yml` matrix downloads the pinned candidate
-run and immutable public predecessor; its evidence records hashes and outcomes,
-never session contents or credentials. All 37 focused distribution checks passed,
-along with Ruff and strict Pyright. Final native/local/quality results and acceptance
-are maintained in [delivery PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
+The protected tagged release workflow also requires this real-predecessor journey
+against the exact newly signed tag artifacts before publishing. Its source argument
+is the tag checkout SHA, not the preparation fixture's source. New results join
+the retained signed qualification inventory. This prevents an eventual tagged
+rebuild from inheriting preparation evidence for different bytes. Existing owner
+environment approval, draft-first publication, signing and npm controls remain.
+The signed qualification job has a bounded 30-minute timeout for the added journey.
+No tagged release is executed as part of this task.
 
-This workflow qualifies the pinned rc.1/rc.2 pair. GitHub build-artifact retention
-limits future replays; a later candidate must supply fresh passing native artifacts,
-the recorded checkout identity and newly reviewed signed metadata. A changed
-runtime, dependency lock, storage schema or storage epoch needs a new qualification.
-Package-manager upgrade behavior remains a separate gate from this standalone journey.
+## Observations and corrections
 
-The local enrolled-key macOS ARM journey passed, including both storage backends,
-candidate-written-session rollback, both interruption points, tamper refusal and
-uninstall/reinstallation. Initial CI lifecycle steps passed but evidence upload
-failed because the pinned uploader excludes hidden `.work` paths. The corrected
-workflow writes only the compact qualification result into `dist/qualification`;
-the final all-platform run must pass and retain all four evidence files. That
-failed retention run remains attributed in the delivery PR, not counted as a
-passing workflow. No runtime or signature control changed to address it.
+The first candidate snapshot used the older SDK lock. It passed the actual local
+journey and all four native lifecycle steps. Its first matrix failed evidence
+upload because the uploader excluded hidden `.work` paths. The correction writes
+only compact results under `dist/qualification`; the corrected matrix retained
+all four records and their signed identities were verified.
 
-The corrected [matrix 38657580439](https://github.com/joshuamyers22/mos-eisley/actions/runs/38657580439)
-passed and retained all four results. Downloaded receipts matched both signed
-inventories, source/version identities and every required lifecycle outcome.
-An installed-wheel integration inspection then found that the retained distribution
-tests import the new qualification helper, while the wheel harness copied only the
-old smoke helper. The smallest correction copies both helpers outside site-packages;
-no tests are excluded. All 37 distribution checks passed against a freshly built
-and installed wheel outside the source tree. Final full installed-wheel and CI
-results remain in PR #305. The already running combined local gate had not reached
-the affected smoke step when this fixture-only correction was applied.
+Installed-wheel inspection found the new helper missing from the copied test
+fixtures. The correction copies both helpers outside site-packages; no tests are
+excluded. All 37 distribution checks passed against a fresh installed wheel
+outside the checkout. That SDK snapshot's full gate passed 3,719 source tests
+(17 skips), 85% coverage and 2,728 installed-wheel tests (13 skips).
+
+Main then advanced through already merged SDK/action updates. The branch was
+reconciled through GitHub's normal update API, preserving those changes. The
+older candidate evidence remains attributed but is superseded for current
+acceptance. The refreshed native build, signature inventory, actual journeys and
+combined SDK gate are required separately; final identities/results are recorded
+in PR #305. Focused publication checks also enforce that tagged publication cannot
+skip the actual-predecessor journey or substitute a preparation source SHA.
+
+## Limits and handoff
+
+This is exact-pair standalone evidence, not general task reliability or stable v1
+acceptance. No project storage schema changed; the SDK refresh is included in the
+candidate artifacts. Future runtime/dependency/schema changes need fresh evidence;
+package-manager upgrades, WSL2, billing/native retries/general reliability and
+independent encrypted publisher backup/restore remain separate work.
+
+GitHub native build-artifact retention bounds future fixture replay. A changed
+preparation candidate needs a fresh passing native run, verified checkout tree
+and signed inventory. The tagged publication gate instead uses that tag's own
+freshly signed artifacts. rc.1 remains immutable, and rc.2 remains unpublished.

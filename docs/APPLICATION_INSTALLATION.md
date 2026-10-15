@@ -191,6 +191,9 @@ standalone upgrade, JSON/SQLite cold resume, interrupted activation recovery,
 rollback after candidate writes and uninstall on all four macOS/Linux targets.
 Its exact results and accountable acceptance are recorded in
 [PR #305](https://github.com/joshuamyers22/mos-eisley/pull/305).
+Tagged publication repeats this journey against the exact freshly signed tag
+artifacts on all four targets before publishing; preparation results do not
+substitute for that gate.
 New runtime/schema changes and package-manager upgrades require their own
 qualification. Subscription billing, native retry exposure, general reliability
 and publisher backup/restore remain unverified; rc.2 publication is separate.

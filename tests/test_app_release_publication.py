@@ -267,6 +267,23 @@ class DraftPublicationTests(unittest.TestCase):
         )
         publish = mapping(mapping(workflow["jobs"])["publish"])
         self.assertEqual(publish["needs"], ["prepare", "qualify-signed"])
+        qualify = mapping(mapping(workflow["jobs"])["qualify-signed"])
+        qualification_steps = [mapping(s) for s in cast(list[object], qualify["steps"])]
+        predecessor = next(
+            s
+            for s in qualification_steps
+            if s.get("name") == "Qualify upgrade from the actual published predecessor"
+        )
+        self.assertEqual(
+            mapping(predecessor["env"])["SOURCE_COMMIT"], "${{ github.sha }}"
+        )
+        journey = str(predecessor["run"])
+        self.assertIn("gh release download v0.1.0-rc.1", journey)
+        self.assertIn("tools/qualify_published_upgrade.py", journey)
+        self.assertIn("--candidate dist/standalone", journey)
+        self.assertIn('--candidate-commit "$SOURCE_COMMIT"', journey)
+        self.assertNotIn("continue-on-error", predecessor)
+        self.assertNotIn("if", predecessor)
         self.assertEqual(publish["environment"], "application-release")
         steps = [mapping(s) for s in cast(list[object], publish["steps"])]
         upload = next(
