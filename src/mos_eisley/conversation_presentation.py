@@ -1,13 +1,17 @@
 """Shared terminal presentation; no controller or execution authority."""
 
+from __future__ import annotations
+
 import os
+import re
 from collections.abc import Callable, Mapping
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.layout import HSplit, VSplit, Window
+from prompt_toolkit.layout.containers import AnyContainer
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.processors import BeforeInput, ConditionalProcessor
@@ -16,10 +20,11 @@ from prompt_toolkit.output import ColorDepth
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import get_cwidth
 
-from mos_eisley.conversation_project import ProjectLocation
-from mos_eisley.conversation_state import RuntimeConversationState
-from mos_eisley.conversation_subscription import SubscriptionChatIdentity
 from mos_eisley.terminal_text import safe_label
+
+if TYPE_CHECKING:
+    from mos_eisley.conversation_project import ProjectLocation
+    from mos_eisley.conversation_state import RuntimeConversationState
 
 TerminalTheme = Literal["auto", "dark", "light", "plain"]
 
@@ -36,7 +41,9 @@ def conversation_style(
 ) -> Style:
     env = os.environ if environment is None else environment
     if "NO_COLOR" in env or theme == "plain":
-        return Style.from_dict({"user": "bold", "header": "bold"})
+        return Style.from_dict(
+            {"user": "bold", "header": "bold", "list-selected": "bold"}
+        )
     if theme == "auto":
         background = env.get("COLORFGBG", "").rsplit(";", 1)[-1]
         theme = "light" if background in {"7", "15"} else "dark"
@@ -49,6 +56,11 @@ def conversation_style(
         {
             "header": f"{accent} bold",
             "user": f"{accent} bold",
+            "list-selected": f"{accent} bold",
+            "diff.added": "#176c5b" if theme == "light" else "#83cdbf",
+            "diff.removed": "#a33b32" if theme == "light" else "#e6a097",
+            "completion-menu.completion": muted,
+            "completion-menu.completion.current": f"{accent} bold",
             "assistant": muted,
             "muted": muted,
             "separator": line,
@@ -62,6 +74,8 @@ def conversation_style(
 
 def fit_label(text: str, width: int, *, tail: bool = False) -> str:
     """Bound a sanitized label in terminal cells, including wide characters."""
+    if width <= 0:
+        return ""
     text = safe_label(text)
     if get_cwidth(text) <= width:
         return text
@@ -119,6 +133,8 @@ def compact_header(
 
 
 def model_route(state: RuntimeConversationState) -> str:
+    from mos_eisley.conversation_subscription import SubscriptionChatIdentity
+
     live = state.live_chat
     if live is None:
         return "fixture/tool-reviewer-v1 • high"
@@ -230,3 +246,61 @@ def composer(control: BufferControl) -> HSplit:
             ),
         ]
     )
+
+
+def panel_section(title: Callable[[], str], content: AnyContainer) -> HSplit:
+    """A compact pane heading using the shared visual hierarchy."""
+    return HSplit(
+        [
+            Window(FormattedTextControl(title), height=1, style="class:header"),
+            content,
+        ]
+    )
+
+
+class SelectionLexer(Lexer):
+    def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
+        def line(index: int) -> StyleAndTextTuples:
+            if not 0 <= index < len(document.lines):
+                return []
+            text = document.lines[index]
+            style = (
+                "class:list-selected"
+                if text.startswith(("›", "▶", "→"))
+                else "class:header"
+                if text.endswith(":")
+                else ""
+            )
+            return [(style, text)]
+
+        return line
+
+
+class DiffLexer(Lexer):
+    """Style existing patch bytes/coordinate prefixes without changing text."""
+
+    def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
+        def line(index: int) -> StyleAndTextTuples:
+            if not 0 <= index < len(document.lines):
+                return []
+            text = document.lines[index]
+            coordinate = re.match(
+                r"^\s*\d+\s+\S+\s+(?:\d+|-)\s+(?:\d+|-)\s+\| (.*)$", text
+            )
+            source = coordinate[1] if coordinate is not None else text
+            style = (
+                "class:list-selected"
+                if text.startswith(("›", "▶", "→"))
+                else "class:error"
+                if text.startswith(("STALE", "Refresh failed"))
+                else "class:muted"
+                if source.startswith(("+++", "---", "@@", "diff --git"))
+                else "class:diff.added"
+                if source.startswith("+")
+                else "class:diff.removed"
+                if source.startswith("-")
+                else ""
+            )
+            return [(style, text)]
+
+        return line

@@ -43,7 +43,7 @@ def items(snapshot: GitSnapshot) -> tuple[DiffItem, ...]:
 def item_label(item: DiffItem) -> str:
     change = item.change
     if item.basis is None:
-        return f"untracked  ?/?  {change.path}"
+        return f"untracked  {change.path} • ?/?"
     if item.basis is DiffBasis.STAGED:
         added, removed, status = (
             change.staged_added,
@@ -58,7 +58,7 @@ def item_label(item: DiffItem) -> str:
         )
     counts = "binary" if added is None or removed is None else f"+{added}/-{removed}"
     rename = f" (from {change.old_path})" if change.old_path else ""
-    return f"{item.basis.value} {status or '?'} {counts} {change.path}{rename}"
+    return f"{item.basis.value} {status or '?'} {change.path}{rename} • {counts}"
 
 
 def inventory_text(
@@ -82,7 +82,7 @@ def inventory_text(
         )
     else:
         for index, item in enumerate(entries):
-            marker = "▶" if index == selected else " "
+            marker = "›" if index == selected else " "
             lines.append(f"{marker} {item_label(item)}")
     return "\n".join(lines)
 

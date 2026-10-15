@@ -31,16 +31,21 @@ the default; the picker does not combine backends or workspaces.
 | Control | Action |
 | --- | --- |
 | Up/Down | Move the selection. |
-| PageUp/PageDown | Move by 20 rows. |
+| PageUp/PageDown | Move by one visible page (up to 20 rows). |
 | Type | Filter by a substring of the name or session ID. |
 | Backspace / Ctrl-U | Edit / clear the filter. |
-| F5 | Refresh the catalog. |
+| F5 | Refresh the catalog, retaining the selected ID if it is still present. |
+| Alt-Up/Down | Scroll full selected-session details without moving the list selection. |
 | Enter | Select the highlighted available session. |
 | Escape / Ctrl-C / Ctrl-D | Cancel without opening a session. |
 
-Rows show a compact name, full ID, saved UTC time, message/queue counts and active
-status. The selected-session panel shows its full name and ID. Transcript text is
-not displayed in the picker. Active sessions cannot be selected; a failed refresh
+Rows lead with the session name and a `›` selection marker, with queued/active
+status alongside it. Wider terminals add message counts and saved UTC time.
+The scrollable selected-session panel retains the complete name, ID, saved time,
+counts, availability and workspace path. Narrow terminals reduce the page size;
+Unicode names are abbreviated in terminal cells. Transcript text is not displayed
+in the picker. `--theme auto|dark|light|plain` and `NO_COLOR` match the conversation
+interface. Active sessions cannot be selected; a failed refresh
 disables selection until a successful refresh. Missing storage is an error and
 does not create a directory. An empty existing catalog can be refreshed or closed.
 

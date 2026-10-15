@@ -19,10 +19,19 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.containers import Float, FloatContainer
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.output import Output
 from prompt_toolkit.widgets import TextArea
 
+from mos_eisley.conversation_presentation import (
+    SelectionLexer,
+    TerminalTheme,
+    conversation_color_depth,
+    conversation_style,
+    fit_label,
+    header_fragments,
+)
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.terminal_text import safe_label
 
@@ -183,6 +192,7 @@ class DirectoryPicker:
         input: Input | None = None,
         output: Output | None = None,
         base: Path | None = None,
+        theme: TerminalTheme = "auto",
         memory_project_root: Path | None = None,
         memory_project_mapping: Path | None = None,
         memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
@@ -198,7 +208,11 @@ class DirectoryPicker:
         self.memory_selection: DirectorySelection | None = None
         self.notice = "Enter previews the resolved path. Ctrl-S uses that directory."
         self.preview_area = TextArea(
-            text=self.details(), read_only=True, scrollbar=True, wrap_lines=True
+            text=self.details(),
+            read_only=True,
+            scrollbar=True,
+            wrap_lines=True,
+            lexer=SelectionLexer(),
         )
         self.editor = DirectoryBuffer(
             self.invalidate_selection,
@@ -268,25 +282,32 @@ class DirectoryPicker:
                     content=HSplit(
                         [
                             Window(
-                                FormattedTextControl("Choose a session directory"),
-                                height=2,
-                            ),
-                            Window(
                                 FormattedTextControl(
-                                    lambda: (
-                                        "Relative paths start at: "
-                                        + safe_label(str(self.base))
-                                    )
+                                    lambda: header_fragments(self.header())
                                 ),
                                 height=2,
+                            ),
+                            Window(height=1),
+                            Window(
+                                FormattedTextControl("Directory path"),
+                                height=1,
+                                style="class:muted",
+                            ),
+                            Window(height=1, char="─", style="class:separator"),
+                            Window(
+                                control,
+                                height=Dimension(min=1, max=3),
+                                dont_extend_height=True,
                                 wrap_lines=True,
                             ),
-                            Window(control, height=3, wrap_lines=True),
+                            Window(height=1, char="─", style="class:separator"),
                             self.preview_area,
                             Window(
                                 FormattedTextControl(lambda: safe_label(self.notice)),
-                                height=3,
+                                height=Dimension(min=1, max=3),
+                                dont_extend_height=True,
                                 wrap_lines=True,
+                                style="class:status",
                             ),
                             Window(
                                 FormattedTextControl(
@@ -295,6 +316,7 @@ class DirectoryPicker:
                                 ),
                                 height=2,
                                 wrap_lines=True,
+                                style="class:muted",
                             ),
                         ]
                     ),
@@ -311,8 +333,16 @@ class DirectoryPicker:
             key_bindings=keys,
             full_screen=True,
             mouse_support=False,
+            style=conversation_style(theme),
+            color_depth=conversation_color_depth(theme),
             input=input,
             output=output,
+        )
+
+    def header(self) -> str:
+        width = self.app.output.get_size().columns
+        return "Choose a session directory\nBase: " + fit_label(
+            str(self.base), width - 6, tail=True
         )
 
     def set_notice(self, message: str) -> None:
@@ -364,7 +394,11 @@ class DirectoryPicker:
 
     def details(self) -> str:
         if self.selection is None:
-            return "Resolved directory: preview required"
+            return (
+                "Resolved directory: preview required\n\n"
+                "Edit the path, then press Enter to inspect its resolved target.\n"
+                "Base directory:\n" + safe_label(str(self.base))
+            )
         assert self.project_location is not None
         return (
             "Resolved directory:\n"
@@ -393,6 +427,7 @@ class DirectoryPicker:
 def pick_directory(
     initial: Path,
     *,
+    theme: TerminalTheme = "auto",
     memory_project_root: Path | None = None,
     memory_project_mapping: Path | None = None,
     memory_resolver: Callable[[Path], DirectorySelection | None] | None = None,
@@ -402,6 +437,7 @@ def pick_directory(
     try:
         return DirectoryPicker(
             initial,
+            theme=theme,
             memory_project_root=memory_project_root,
             memory_project_mapping=memory_project_mapping,
             memory_resolver=memory_resolver,

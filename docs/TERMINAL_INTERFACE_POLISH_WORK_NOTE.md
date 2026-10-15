@@ -195,3 +195,67 @@ is a UI-only operation; explicit backend discard/cancel still has its existing
 meaning. Stop this slice after the stated evidence. Next: session picker,
 directory selector and diff-view consistency, then remaining platform/visual and
 publication gates before overall milestone acceptance.
+
+## Session, directory and diff consistency slice (2026-10-14)
+
+Objective: apply shared themes, compact headers, selection emphasis and deliberate
+spacing to both pickers and both diff renderers. Session names lead list rows;
+full identities remain inspectable. Directory editing remains preview-before-use.
+Preserve metadata-only listing, active-session exclusion, stale catalog/directory
+checks, literal drafts, focus, keyboard controls and exact diff/source coordinates.
+No acquisition, persistence, execution, approval or spending changes.
+
+Guidance: Python engineering and bounded verification guides and loop template
+selected above. Risk: material presentation and navigation change. Budget: three
+evidence-changing passes and a 60-minute review window; no paid calls. Acceptance:
+existing picker/directory/diff regression suites, focused Unicode/narrow/theme and
+selection tests, static checks, builds and real macOS source/installed-wheel PTYs.
+Stop when those checks pass; full publication and other-platform visual gates
+remain separate. Screenshot fixtures use synthetic sessions and local repositories.
+
+Auxiliary-screen verification and handoff:
+
+- Shared list selection uses a distinct accent/bold class and `›` marker, leaving
+  prompt-toolkit's text-selection treatment intact. The first PTY capture exposed
+  an inherited reverse-video row; the separate list style corrected it. Patch
+  lexing preserves every displayed character and coordinate prefix, including
+  source containing literal pipe separators. Selected paths stay in pane headings
+  while source scrolls; stale/historical headings retain their labels.
+- The auxiliary/presentation/picker/directory/companion set passed 36 tests, with
+  four new tests for Unicode cell bounds, adaptive paging, selection-preserving
+  catalog refresh, scrolling complete identity details, explicit theme forwarding,
+  narrow directory preview/edit/cancel, and byte-preserving patch styling.
+  The switch/TUI/activity set passed 35 tests after its picker factory accepted the
+  new theme keyword. Assertions formerly expecting IDs in list rows now inspect
+  the complete selected-session detail instead.
+- Existing Git/diff checks exercised source coordinates, frozen attachments,
+  freshness, draft/focus preservation and terminal resize. The final affected
+  diff-panel and real-PTY regression set passed all six tests after the selected
+  heading adjustment, outside the parent sandbox so Mos's own Git isolation could
+  run. No isolation policy or reader implementation was changed.
+- Names/project-memory/registry portions passed in the expanded run; the mapped
+  memory module passed all ten tests after its startup-picker mock accepted and
+  checked the theme keyword. Existing owner/workspace, stale selection, active
+  session, path revalidation and memory-identity guards remain in place.
+- Real macOS PTYs checked source dark/light/plain, the Git-review renderer, and
+  installed-wheel ordinary/Git-review renderers. Each exercised session filtering
+  and full details, directory preview/edit/cancel, a multiline draft beside a live
+  local diff, 112x36 to 64x24 resize, patch focus/scroll/close, paused queues and
+  terminal restoration. Saved seeded-session bytes remained unchanged; the new
+  diff session had no submitted entries. No paid calls or real user sessions.
+  The harness waits for the bounded patch to load before paging and for the final
+  footer hints before capture. `aux-` screenshots are retained in the existing
+  local implementation-preview directory, outside Git.
+- Final lint, formatting, strict typing, source/wheel builds and the private
+  installed-wheel checks passed. Suite counts overlap and must not be summed.
+  The existing user-installed CLI remains unchanged. Full `make check`, security/
+  container gates, other-platform visual qualification and final owner visual
+  acceptance remain pending before publication or overall milestone acceptance.
+
+The selected theme now reaches startup pickers and in-session directory switching;
+this is a per-launch preference, not saved-session authority. Type-only controller
+annotations keep shared presentation independent of the directory/Git import path.
+No session capacity, catalog acquisition, directory admission, source selection or
+approval boundary was expanded. Stop this slice after the stated checks. Next:
+review the combined visual result and complete the combined delivery/qualification
+checks; individual tool-call streaming remains separate work.

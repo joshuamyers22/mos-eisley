@@ -62,6 +62,7 @@ from mos_eisley.conversation_input import (
 )
 from mos_eisley.conversation_presentation import (
     ConversationLexer,
+    DiffLexer,
     TerminalTheme,
     compact_header,
     compact_status,
@@ -69,8 +70,10 @@ from mos_eisley.conversation_presentation import (
     composer,
     conversation_color_depth,
     conversation_style,
+    fit_label,
     header_fragments,
     model_route,
+    panel_section,
     tool_availability,
 )
 from mos_eisley.conversation_project import ProjectLocation
@@ -176,6 +179,7 @@ class ConversationTUI:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.theme: TerminalTheme = theme
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
@@ -240,8 +244,17 @@ class ConversationTUI:
         self.transcript = TextArea(
             read_only=True, scrollbar=True, wrap_lines=True, lexer=ConversationLexer()
         )
-        self.diff_files = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
-        self.diff_content = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.diff_files = TextArea(
+            read_only=True,
+            scrollbar=True,
+            wrap_lines=False,
+            lexer=DiffLexer(),
+            height=Dimension(min=2, max=6),
+        )
+        self.diff_files.window.dont_extend_height = Condition(lambda: True)
+        self.diff_content = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=False, lexer=DiffLexer()
+        )
         self.attachment_review = TextArea(
             read_only=True, scrollbar=True, wrap_lines=True
         )
@@ -573,13 +586,15 @@ class ConversationTUI:
                         ConditionalContainer(
                             HSplit(
                                 [
-                                    Frame(
+                                    panel_section(
+                                        lambda: (
+                                            "Changed files • ↑/↓ select • Tab focus"
+                                        ),
                                         self.diff_files,
-                                        title="Changed files • ↑/↓ select • Tab focus",
                                     ),
-                                    Frame(
+                                    panel_section(
+                                        self.patch_heading,
                                         self.diff_content,
-                                        title="Patch • F11 expand • F12 attach",
                                     ),
                                 ]
                             ),
@@ -812,6 +827,16 @@ class ConversationTUI:
         self.diff_wakeup.set()
         self.render_diff()
 
+    def patch_heading(self) -> str:
+        if not self.diff_items:
+            return "Patch • select a file"
+        item = self.diff_items[self.diff_selected]
+        basis = "untracked" if item.basis is None else item.basis.value
+        prefix = "Patch • " + ("stale • " if self.diff_error else "") + basis + " • "
+        columns = self.app.output.get_size().columns
+        width = columns // 2 - 1 if columns >= 110 else columns
+        return prefix + fit_label(item.change.path, width - len(prefix), tail=True)
+
     def render_diff(self) -> None:
         if self.diff_error:
             prefix = "Refresh failed; displayed inventory is stale. " + self.diff_error
@@ -979,6 +1004,11 @@ class ConversationTUI:
             and self.controller.pending_text_bytes >= limits.max_bytes,
             goal_status=None if goal is None else goal.status,
         )
+        if self.diff_visible:
+            return (
+                summary + "\nTab focus • F10 close • ↑/↓ files"
+                "\nF11 expand • F12 attach • Ctrl-X remove"
+            )
         return (
             summary
             + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
@@ -1603,6 +1633,7 @@ class ConversationTUI:
                         selected = await DirectoryPicker(
                             workspace,
                             base=workspace,
+                            theme=self.theme,
                             memory_resolver=self.memory_resolver,
                             input=self.app.input,
                             output=self.app.output,

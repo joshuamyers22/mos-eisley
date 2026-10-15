@@ -669,7 +669,10 @@ slice and current-operation/error presentation are implemented locally. Activity
 has observed elapsed time and keyboard-expanded details; errors retain actionable
 guidance while updates preserve drafts/focus/browsing. The review/approval
 companion is also implemented locally, with exact hash inspection, action/scope/reason labels and draft/focus-preserving dismissal.
-Individual tool-call telemetry and auxiliary-screen consistency remain pending.
+The session picker, directory selector and both diff renderers also share the
+visual system locally, with adaptive session pages, inspectable full identities,
+consistent file markers and contextual diff controls. Individual tool-call
+telemetry, final visual acceptance and platform/publication gates remain pending.
 See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
 and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 

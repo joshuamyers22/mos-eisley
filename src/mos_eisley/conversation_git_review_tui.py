@@ -22,7 +22,7 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.output import Output
 from prompt_toolkit.selection import SelectionState
-from prompt_toolkit.widgets import Frame, TextArea
+from prompt_toolkit.widgets import TextArea
 from pydantic import TypeAdapter
 
 from mos_eisley.conversation import RuntimeConversationController
@@ -57,6 +57,7 @@ from mos_eisley.conversation_input import (
 )
 from mos_eisley.conversation_presentation import (
     ConversationLexer,
+    DiffLexer,
     TerminalTheme,
     compact_header,
     compact_status,
@@ -65,8 +66,10 @@ from mos_eisley.conversation_presentation import (
     conversation_color_depth,
     conversation_mode,
     conversation_style,
+    fit_label,
     header_fragments,
     model_route,
+    panel_section,
     tool_availability,
 )
 from mos_eisley.conversation_project import ProjectLocation
@@ -171,6 +174,7 @@ class GitReviewTUI:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.theme: TerminalTheme = theme
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
@@ -228,7 +232,9 @@ class GitReviewTUI:
         self.diff_last_file_sha256: str | None = None
         self.diff_attachments: tuple[DiffAttachment, ...] = ()
         self.diff_attachment_freshness: dict[str, bool] = {}
-        self.diff_pane = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.diff_pane = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=False, lexer=DiffLexer()
+        )
         self.diff_refresh = DiffRefresh(
             self.render_diff, lambda: Path(self.controller.state.workspace)
         )
@@ -547,12 +553,9 @@ class GitReviewTUI:
         wide = Condition(lambda: self.app.output.get_size().columns >= 110)
         shown = Condition(lambda: self.diff_visible)
         conversation_frame = self.transcript
-        diff_frame = Frame(
+        diff_frame = panel_section(
+            self.diff_heading,
             self.diff_pane,
-            title=(
-                "Diff • Ctrl-N/P files • Ctrl-R refresh • Ctrl-E expand "
-                "• F11 attach • F12 findings"
-            ),
         )
         body = VSplit(
             [
@@ -660,6 +663,18 @@ class GitReviewTUI:
             )
         )
 
+    def diff_heading(self) -> str:
+        if self.diff_show_findings:
+            return "Review findings • Enter inspects evidence"
+        prefix = "Historical diff" if self.diff_evidence is not None else "Git diff"
+        if self.diff_refresh.error and self.diff_evidence is None:
+            prefix += " • stale"
+        prefix += " • "
+        path = self.diff_selected_path or "select a file"
+        columns = self.app.output.get_size().columns
+        width = columns // 2 - 1 if columns >= 110 else columns
+        return prefix + fit_label(path, width - len(prefix), tail=True)
+
     def render_diff(self, *, reset: bool = False) -> None:
         snapshot = self.diff_evidence or self.diff_refresh.snapshot
         before = self.diff_pane.buffer.document
@@ -725,7 +740,7 @@ class GitReviewTUI:
                     if yes
                 )
                 header.append(
-                    f"{'→' if i == self.diff_file else ' '} {i + 1}. "
+                    f"{'›' if i == self.diff_file else ' '} {i + 1}. "
                     f"{json.dumps(file.path)} [{states}] +{added} -{removed}"
                     + (f" • omitted {file.omission}" if file.omission else "")
                 )
@@ -873,6 +888,11 @@ class GitReviewTUI:
             and self.controller.pending_text_bytes >= limits.max_bytes,
             goal_status=None if goal is None else goal.status,
         )
+        if self.diff_visible:
+            return (
+                summary + "\nTab focus • F10 close • Ctrl-N/P files • Ctrl-R refresh"
+                "\nF11 attach • F12 findings • Ctrl-E expand"
+            )
         return (
             summary
             + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
@@ -1490,6 +1510,7 @@ class GitReviewTUI:
                         selected = await DirectoryPicker(
                             workspace,
                             base=workspace,
+                            theme=self.theme,
                             memory_resolver=self.memory_resolver,
                             input=self.app.input,
                             output=self.app.output,

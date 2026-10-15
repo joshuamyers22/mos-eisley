@@ -149,7 +149,13 @@ still uses `show`, `approve <exact hash>`, or `cancel` in its separate terminal
 ceremony, now with action/scope/reason labels and the complete approval hash.
 Returning from that ceremony preserves the conversation's draft and focus.
 
-Auxiliary-screen polish remains a later slice of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+The session picker, directory selector and both diff renderers now use the shared
+visual system under [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+Session rows lead with names and retain complete identities in scrollable details;
+pages adapt to terminal height. Directory preview/selection keeps its existing
+controls, and the selected theme follows startup and directory switches. Diff
+pane headings, file markers and source colors match, with contextual key hints.
+Final visual acceptance, other-platform checks and publication gates remain pending.
 
 ## Start a conversation
 

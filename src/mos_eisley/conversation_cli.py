@@ -2273,6 +2273,7 @@ def run_command(args: argparse.Namespace) -> int:
             args.saved_mapping_resolver = resolver
             selected = pick_directory(
                 args.workspace,
+                theme=getattr(args, "theme", "auto"),
                 memory_project_root=None
                 if memory_directory is None or mapping is not None
                 else memory_directory.path,
@@ -2459,7 +2460,7 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
                 "Session name is ambiguous; use mos sessions "
                 "and an explicit session ID."
             )
-    return pick_session(catalog, load, query=args.name or "")
+    return pick_session(catalog, load, query=args.name or "", theme=args.theme)
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:

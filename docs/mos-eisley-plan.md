@@ -2443,7 +2443,10 @@ and keyboard-expanded scope/route details. Errors retain next-step guidance, and
 updates preserve drafts, focus and transcript browsing. The local approval
 companion now separates action/scope/reason and retains complete inspectable
 hashes; the existing exact-hash ceremony remains authoritative. Individual
-tool-call streaming and auxiliary-screen consistency remain pending;
+tool-call streaming remains pending. Session/directory pickers and both diff
+renderers now share the theme, compact headings and selection language, with
+adaptive pages and complete inspectable identities. Final owner visual acceptance
+and remaining platform/publication checks are pending;
 this is not overall milestone acceptance or release qualification.
 
 **Design requirements:**

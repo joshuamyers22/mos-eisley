@@ -277,9 +277,11 @@ class MemoryMappingTests(TestCase):
         def choose(
             initial: Path,
             *,
+            theme: str = "auto",
             memory_project_root: Path | None = None,
             memory_project_mapping: Path | None = None,
         ) -> DirectorySelection:
+            self.assertEqual(theme, "auto")
             self.assertIsNone(memory_project_root)
             self.assertEqual(memory_project_mapping, self.project)
             alias.unlink()

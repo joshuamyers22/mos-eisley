@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Unify session, directory and diff presentation with shared themes, compact
+  headers, restrained selection and patch colors, and contextual controls.
+  Session pages adapt to terminal height, lead with names and retain complete
+  identities in scrollable details; refresh retains the selected ID when present.
+  Startup and directory switches carry the selected theme. Keyboard workflows,
+  directory revalidation and exact diff attachments remain intact.
+
 - Add a read-only review/approval companion to both conversation renderers:
   Ctrl-O inspects action, scope, reason, exact hashes and complete content;
   Alt-PageUp/Down scrolls details and Ctrl-G closes without clearing the draft or
