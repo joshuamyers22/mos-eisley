@@ -273,11 +273,11 @@ class RefreshTests(IsolatedAsyncioTestCase):
                 try:
                     input.send_text("/memory off\r")
                     await wait_for_revision(1)
-                    self.assertIn("memory off", ui.header())
+                    self.assertIn("memory off", ui.header_details())
                     env.store.change("user", "set", text="updated")
                     input.send_text("/memory refresh\r")
                     await wait_for_revision(2)
-                    self.assertIn("user r2", ui.header())
+                    self.assertIn("user r2", ui.header_details())
                     input.send_text("\x1b[200~/memory off\x1b[201~\r")
                     await wait_for_revision(3)
                     self.assertFalse(env.controller.state.memory_disabled)

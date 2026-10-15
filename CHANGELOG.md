@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Start the approved terminal polish with shared light/dark/plain styling,
+  a compact header/footer, a borderless transcript and a ruled multiline composer.
+  F2 and `/status` retain complete diagnostics; browsing position survives returning
+  to the composer and receiving output. Saved-state and execution policy are unchanged.
+
 ## 0.1.0-rc.1
 
 - Prepare the first macOS/Linux preview distribution with explicit experimental

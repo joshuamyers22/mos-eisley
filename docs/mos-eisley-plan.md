@@ -2430,6 +2430,13 @@ and Codex as visual and interaction references. Retain Mos Eisley's own identity
 and existing conversation/controller behavior. This is an explicit product
 milestone, with no committed delivery date.
 
+**Visual direction approved, 2026-10-14:** Joshua accepted the six-state
+before/after proposal. Begin with shared colors/spacing, the compact header and
+status, the transcript and multiline composer. Then refine tools, approvals,
+errors and auxiliary screens. Visual approval does not certify implementation or
+complete this milestone. Track the first slice in the
+[implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
+
 **Design requirements:**
 
 - Establish a consistent visual system: restrained accent colors, readable

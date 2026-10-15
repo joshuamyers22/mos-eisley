@@ -656,7 +656,7 @@ class TUIContractTests(TestCase):
                     # Startup details can exceed the live viewport. Scroll to the
                     # welcome notice instead of assuming it is initially visible.
                     os.write(master, b"\x1b[5~\x0c")
-                    read_until(b"live conversations are not connected yet")
+                    read_until(b"Recorded preview.")
                     os.write(master, b"\t")
                 if not initial:
                     os.write(master, (DEMO_PROMPTS[0] + "\r").encode())

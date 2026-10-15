@@ -100,6 +100,30 @@ Use [/fork and /side](CONVERSATION_BRANCHES.md) for explicitly selected author
 context. Forks save separate sessions; side answers remain transient until
 `/side attach ID`. `/side cancel` stops the side call while main work continues.
 
+## Appearance and status details
+
+The local interface-polish slice uses a compact workspace/session header, an
+unboxed transcript and a ruled multiline composer. Message indices remain visible
+for commands that select an exact prior message. Routine completion labels and
+repeated startup identity blocks are omitted. The footer keeps work/mode, queued
+messages and the declared tool scope visible; F2 or `/status` opens the complete
+session, route, usage, memory-revision and launch-limit details without sending a
+message. Press F2 again to hide an unchanged report. `/directory` still shows full
+workspace/root identity and `/memory` inspects active context.
+
+Select terminal colors with `mos --theme light`, `mos --theme dark`, or
+`mos --theme plain`; resume accepts the same flag. `auto` is the default: it uses
+the background reported by `COLORFGBG`, falling back to the dark palette when that
+variable does not identify a light background. Colors do not replace the terminal
+background. Use an explicit theme when auto does not match your terminal profile.
+`NO_COLOR` and the plain theme disable color for default widgets as well as the
+custom styles. The plain theme retains the full-screen UI; `--plain` selects the
+separate line-oriented interface. Appearance is per launch and does not change
+the saved session or its provider/spending policy.
+
+Auxiliary-screen polish and richer tool/error/approval presentation remain later
+slices of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+
 ## Start a conversation
 
 Open your project directory and run:
@@ -153,9 +177,10 @@ after opening the saved session. Recorded request failures and capacity pauses
 behave as they do for typed input; startup prompts do not enable live answers.
 
 `mos -C /path/to/project` selects another workspace without changing your shell's
-directory. The welcome screen shows the canonical workspace, session ID and the
-two supported preview messages. Session files use `~/.mos-eisley-sessions` by
-default, created privately on the first new session. `mos sessions` lists only
+directory. The welcome screen shows the canonical workspace and the two supported
+preview messages; F2 or `/status` shows the full session ID. Session files use
+`~/.mos-eisley-sessions` by default, created privately on the first new session.
+`mos sessions` lists only
 your current workspace's sessions. `mos resume SESSION_ID` selects one explicitly.
 The existing owner, permissions, locking and workspace checks apply to default
 storage too; an unsafe existing directory is rejected, never repaired silently.
@@ -196,8 +221,9 @@ checked 2026-09-09. Mos now matches the no-subcommand terminal entry point.
 Live OpenAI chat requires explicit local credentials and spending inputs; this is
 not complete Codex feature parity.
 
-The persistent header now shows the working directory and active user/project memory
-revisions. `/directory` shows the full path, and `/memory` toggles complete memory
+The persistent header shows the working directory and a distinct project root when
+applicable. F2 or `/status` shows active user/project memory revisions. `/directory`
+shows the full path, and `/memory` toggles complete memory
 details in the scrollable transcript. See [memory management](CONVERSATION_MEMORY.md)
 for explicit saves, scope selection, no-memory launches and changed-memory recovery.
 `/memory show user|project` displays a complete saved-document receipt in the
@@ -233,6 +259,7 @@ F4, `/continue`, or a newly submitted message continues it.
 
 | Control | Action |
 | --- | --- |
+| F2 | Toggle complete session/status/launch details without sending a message. |
 | Enter | Send the current message; a typed slash command invokes its control. |
 | Alt-Enter or Ctrl-J | Insert a newline without sending. |
 | Arrow keys, Home, End, Backspace | Edit the multiline draft, including earlier lines. |
