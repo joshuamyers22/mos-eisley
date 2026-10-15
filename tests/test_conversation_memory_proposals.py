@@ -501,7 +501,9 @@ class TerminalTests(IsolatedAsyncioTestCase):
             ui = ConversationTUI(env.controller, input=input, output=DummyOutput())
             receipt = env.command("/memory review-proposal project 0")
             ui.emit(receipt)
-            self.assertIn("x" * 1000, ui.transcript.text)
-            self.assertNotIn("\x1b", ui.transcript.text)
+            self.assertIn("x" * 1000, ui.review_companion.details.text)
+            self.assertNotIn("\x1b", ui.review_companion.details.text)
             ui.emit(env.command("/memory discard-proposal"))
-            self.assertNotIn(str(receipt["preview_sha256"]), ui.transcript.text)
+            self.assertNotIn(
+                str(receipt["preview_sha256"]), ui.review_companion.details.text
+            )

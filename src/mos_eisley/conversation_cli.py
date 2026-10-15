@@ -233,6 +233,7 @@ def startup_arguments(argv: list[str]) -> list[str]:
         "--expected-review-policy-sha256",
         "--review-guidance-storage",
         "--tui",
+        "--theme",
         "--plain",
         "--json",
         "--no-memory",
@@ -952,6 +953,12 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 "--review-guidance-storage",
                 type=Path,
                 default=Path.home() / ".mos-eisley-guidance",
+            )
+            command.add_argument(
+                "--theme",
+                choices=("auto", "dark", "light", "plain"),
+                default="auto",
+                help="Terminal colors (auto uses COLORFGBG; NO_COLOR disables color)",
             )
             display = command.add_mutually_exclusive_group()
             display.add_argument(
@@ -2266,6 +2273,7 @@ def run_command(args: argparse.Namespace) -> int:
             args.saved_mapping_resolver = resolver
             selected = pick_directory(
                 args.workspace,
+                theme=getattr(args, "theme", "auto"),
                 memory_project_root=None
                 if memory_directory is None or mapping is not None
                 else memory_directory.path,
@@ -2452,7 +2460,7 @@ def _choose_resume(args: argparse.Namespace) -> ResumeSelection | None:
                 "Session name is ambiguous; use mos sessions "
                 "and an explicit session ID."
             )
-    return pick_session(catalog, load, query=args.name or "")
+    return pick_session(catalog, load, query=args.name or "", theme=args.theme)
 
 
 def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
@@ -3683,6 +3691,7 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                         review_packet,
                         initial_prompt=initial_prompt,
                         welcome=welcome,
+                        theme=args.theme,
                         allow_directory_switch=True,
                         memory_resolver=switch_mappings.resolve,
                         project_location=project_location,

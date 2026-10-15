@@ -655,15 +655,29 @@ interface polish follows the working conversation under §16.0.6. This is planne
 work, not an availability claim, and preserves the existing provider, spending,
 quality, and containment gates.
 
-**Terminal interface polish, 2026-10-14 — planned:** make the conversation cleaner
-and more professional, with Claude Code and Codex as visual/interaction references.
+**Terminal interface polish, 2026-10-14 — direction approved; local slices implemented:**
+make the conversation cleaner and more professional, with Claude Code and Codex
+as visual/interaction references.
 Deliver a restrained shared visual system, compact header/status, readable
 transcript and tool details, a clear multiline composer, and consistent session,
 directory, diff and approval screens. Preserve visible capability/approval states
 and qualify resize, narrow terminals, light/dark backgrounds, non-color use,
 keyboard controls, draft/scroll preservation and packaged-app behavior. Begin with
 before/after previews and finish with owner visual acceptance; no delivery date is
-committed. See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+committed. The shared styling and conversation header/transcript/composer/status
+slice and current-operation/error presentation are implemented locally. Activity
+has observed elapsed time and keyboard-expanded details; errors retain actionable
+guidance while updates preserve drafts/focus/browsing. The review/approval
+companion is also implemented locally, with exact hash inspection, action/scope/reason labels and draft/focus-preserving dismissal.
+The session picker, directory selector and both diff renderers also share the
+visual system locally, with adaptive session pages, inspectable full identities,
+consistent file markers and contextual diff controls. The
+[combined local review](TERMINAL_INTERFACE_COMBINED_REVIEW.md) passed with no
+blocking findings across the eight screens and narrow-terminal interactions.
+Joshua accepted the combined visual result on 2026-10-14. Individual tool-call
+telemetry and platform/publication gates remain pending.
+See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
+and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)

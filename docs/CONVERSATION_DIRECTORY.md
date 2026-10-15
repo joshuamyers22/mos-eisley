@@ -22,6 +22,12 @@ or `--name NAME`. Repeat `--storage-backend sqlite` when using SQLite sessions.
 | Ctrl-U | Clear the path. |
 | Escape / Ctrl-C / Ctrl-D | Cancel startup. |
 
+The selector uses the conversation's theme, compact base-directory header and
+ruled path field. `--theme auto|dark|light|plain` and `NO_COLOR` also apply here,
+including during an F9 directory switch. The header abbreviates long base paths;
+the complete base path remains in the unselected preview, and the resolved target,
+Git-marker root and memory identity remain in the scrollable selected preview.
+
 The initial field contains the shell's working directory, or the value supplied by
 `-C PATH`. Relative paths are resolved from the shell's original working directory;
 `~` expands to the user's home. Symlinks resolve to the canonical target shown in

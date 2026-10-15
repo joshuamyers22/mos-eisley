@@ -186,7 +186,9 @@ class DiffTests(RepositoryFixture, TestCase):
                 os.write(master, b"PRESERVED DRAFT\x1b[21~\x0c")
                 read_until(b"Basis:")
                 read_until(b"PRESERVED DRAFT")
-                self.assertIn(b"Conversation", output)
+                # The borderless transcript has no frame title; retain the
+                # explicit session mode and verify its content after closing.
+                self.assertIn(b"recorded preview", output)
                 for columns in (80, 120):
                     output.clear()
                     fcntl.ioctl(
@@ -200,7 +202,7 @@ class DiffTests(RepositoryFixture, TestCase):
                     read_until(b"PRESERVED DRAFT")
                 output.clear()
                 os.write(master, b"\x1b[21~\x0c")
-                read_until(b"Conversation")
+                read_until(b"Recorded preview.")
                 read_until(b"PRESERVED DRAFT")
                 os.write(master, b"\x04")
                 read_until(b"conversation.saved")

@@ -75,7 +75,8 @@ class PickerTests(IsolatedAsyncioTestCase):
                 self.assertEqual(len(ui.render_rows()), 20)
                 input.send_text("\x1b[6~")
                 await until(lambda: ui.index == 20)
-                self.assertIn(rows[20].session_id, ui.render_rows()[0][1])
+                self.assertIn("Task 20", ui.render_rows()[0][1])
+                self.assertIn(rows[20].session_id, ui.selection_details())
                 input.send_text("\x1b[5~")
                 await until(lambda: ui.index == 0)
                 input.send_text("task 44")
@@ -163,7 +164,7 @@ class PickerTests(IsolatedAsyncioTestCase):
             ui = ResumePicker(
                 catalog, lambda: catalog, input=input, output=DummyOutput()
             )
-            rendered = ui.header() + repr(ui.render_rows())
+            rendered = ui.header() + repr(ui.render_rows()) + ui.selection_details()
             self.assertIn("Café task", rendered)
             self.assertIn(self.catalog.sessions[0].session_id, rendered)
             self.assertNotIn(DEMO_PROMPTS[0], rendered)

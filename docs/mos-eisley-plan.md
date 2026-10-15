@@ -2430,6 +2430,28 @@ and Codex as visual and interaction references. Retain Mos Eisley's own identity
 and existing conversation/controller behavior. This is an explicit product
 milestone, with no committed delivery date.
 
+**Visual direction approved, 2026-10-14:** Joshua accepted the six-state
+before/after proposal. Begin with shared colors/spacing, the compact header and
+status, the transcript and multiline composer. Then refine tools, approvals,
+errors and auxiliary screens. Visual approval does not certify implementation or
+complete this milestone. Track the first slice in the
+[implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
+
+**Local progress, 2026-10-14:** the shared foundation and current-operation/error
+slices are implemented. The activity strip has observed elapsed time, queue status
+and keyboard-expanded scope/route details. Errors retain next-step guidance, and
+updates preserve drafts, focus and transcript browsing. The local approval
+companion now separates action/scope/reason and retains complete inspectable
+hashes; the existing exact-hash ceremony remains authoritative. Individual
+tool-call streaming remains pending. Session/directory pickers and both diff
+renderers now share the theme, compact headings and selection language, with
+adaptive pages and complete inspectable identities. The
+[combined local visual review](TERMINAL_INTERFACE_COMBINED_REVIEW.md) is complete
+with no blocking findings across all eight screens, narrow layouts and interaction
+preservation. Joshua accepted the combined visual result on 2026-10-14.
+Remaining platform/publication checks are pending;
+this is not overall milestone acceptance or release qualification.
+
 **Design requirements:**
 
 - Establish a consistent visual system: restrained accent colors, readable

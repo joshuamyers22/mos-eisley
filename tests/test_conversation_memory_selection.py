@@ -245,9 +245,13 @@ class SelectionTerminalTests(IsolatedAsyncioTestCase):
             ui = ConversationTUI(env.controller, input=input, output=DummyOutput())
             receipt = env.command(select(text))
             ui.emit(receipt)
-            self.assertIn("x" * 1000, ui.transcript.text)
-            self.assertIn("y" * 1000, ui.transcript.text)
-            self.assertNotIn("\x1b", ui.transcript.text)
-            self.assertIn("Selected text to append", ui.transcript.text)
+            details = ui.review_companion.details.text
+            self.assertIn("x" * 1000, details)
+            self.assertIn("y" * 1000, details)
+            self.assertNotIn("\x1b", details)
+            self.assertIn("Selected text to append", details)
+            self.assertIn(str(receipt["preview_sha256"]), details)
             ui.emit(env.command("/memory discard-proposal"))
-            self.assertNotIn(str(receipt["preview_sha256"]), ui.transcript.text)
+            self.assertNotIn(
+                str(receipt["preview_sha256"]), ui.review_companion.details.text
+            )

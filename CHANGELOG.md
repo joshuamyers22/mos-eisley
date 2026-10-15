@@ -4,6 +4,29 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Unify session, directory and diff presentation with shared themes, compact
+  headers, restrained selection and patch colors, and contextual controls.
+  Session pages adapt to terminal height, lead with names and retain complete
+  identities in scrollable details; refresh retains the selected ID when present.
+  Startup and directory switches carry the selected theme. Keyboard workflows,
+  directory revalidation and exact diff attachments remain intact.
+
+- Add a read-only review/approval companion to both conversation renderers:
+  Ctrl-O inspects action, scope, reason, exact hashes and complete content;
+  Alt-PageUp/Down scrolls details and Ctrl-G closes without clearing the draft or
+  moving focus. Clarify unapplied memory previews and the existing critic/judge
+  exact-hash approval ceremony, retaining its dispatch and spending checks.
+
+- Show current-operation status, observed elapsed time and queued work in both
+  conversation renderers. Ctrl-T expands details, Alt-Up/Down scrolls them, and
+  Ctrl-Y dismisses actionable errors. Updates preserve drafts, focus and browsing;
+  elapsed time is per launch and individual tool calls are not yet streamed.
+
+- Start the approved terminal polish with shared light/dark/plain styling,
+  a compact header/footer, a borderless transcript and a ruled multiline composer.
+  F2 and `/status` retain complete diagnostics; browsing position survives returning
+  to the composer and receiving output. Saved-state and execution policy are unchanged.
+
 ## 0.1.0-rc.1
 
 - Prepare the first macOS/Linux preview distribution with explicit experimental

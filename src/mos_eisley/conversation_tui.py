@@ -23,10 +23,10 @@ from prompt_toolkit.layout.containers import ConditionalContainer, VSplit
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.output import Output
-from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import Frame, TextArea
 
 from mos_eisley.conversation import RuntimeConversationController
+from mos_eisley.conversation_activity import ConversationActivity
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_context_preview import pressure_status
 from mos_eisley.conversation_diff_attachment import (
@@ -60,9 +60,26 @@ from mos_eisley.conversation_input import (
     ConversationSubmission,
     submission_command,
 )
+from mos_eisley.conversation_presentation import (
+    ConversationLexer,
+    DiffLexer,
+    TerminalTheme,
+    compact_header,
+    compact_status,
+    compact_welcome,
+    composer,
+    conversation_color_depth,
+    conversation_style,
+    fit_label,
+    header_fragments,
+    model_route,
+    panel_section,
+    tool_availability,
+)
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_remember import memory_phrase_command
 from mos_eisley.conversation_review import ConversationLiveReviewPacket, ReviewPacket
+from mos_eisley.conversation_review_companion import ReviewCompanion
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
@@ -146,6 +163,7 @@ class ConversationTUI:
         review_packet: ReviewPacket | None = None,
         *,
         welcome: str = "",
+        theme: TerminalTheme = "auto",
         initial_prompt: str | None = None,
         allow_directory_switch: bool = False,
         project_location: ProjectLocation | None = None,
@@ -161,6 +179,7 @@ class ConversationTUI:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.theme: TerminalTheme = theme
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
@@ -185,9 +204,9 @@ class ConversationTUI:
             )
         )
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
-        self.notice = (
-            "Enter sends • Alt-Enter adds a line • Ctrl-C stops • Ctrl-D quits"
-        )
+        self.notice = ""
+        self.activity = ConversationActivity()
+        self.review_companion = ReviewCompanion(review_packet)
         self.sending = False
         self.details = False
         self.memory_visible = False
@@ -216,10 +235,26 @@ class ConversationTUI:
         self.review_scope_preview: str | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
-        self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
-        self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
-        self.diff_files = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
-        self.diff_content = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.editor = EditorBuffer(
+            lambda text: self.set_error(
+                text, "Shorten the draft or use Ctrl-U to clear it."
+            ),
+            lambda: self.sending,
+        )
+        self.transcript = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=True, lexer=ConversationLexer()
+        )
+        self.diff_files = TextArea(
+            read_only=True,
+            scrollbar=True,
+            wrap_lines=False,
+            lexer=DiffLexer(),
+            height=Dimension(min=2, max=6),
+        )
+        self.diff_files.window.dont_extend_height = Condition(lambda: True)
+        self.diff_content = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=False, lexer=DiffLexer()
+        )
         self.attachment_review = TextArea(
             read_only=True, scrollbar=True, wrap_lines=True
         )
@@ -445,6 +480,62 @@ class ConversationTUI:
         keys.add("tab")(focus)
         keys.add("pageup")(previous_page)
         keys.add("pagedown")(next_page)
+
+        def status_details(event: KeyPressEvent) -> None:
+            self.control("/status")
+
+        def toggle_activity(event: KeyPressEvent) -> None:
+            self.activity.expanded = not self.activity.expanded
+            self.app.invalidate()
+
+        def dismiss_error(event: KeyPressEvent) -> None:
+            self.activity.error = None
+            self.notice = ""
+            self.activity.sync_details()
+            self.app.invalidate()
+
+        def activity_up(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_up(count=3)
+
+        def activity_down(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_down(count=3)
+
+        keys.add("escape", "up", filter=Condition(lambda: self.activity.expanded))(
+            activity_up
+        )
+        keys.add("escape", "down", filter=Condition(lambda: self.activity.expanded))(
+            activity_down
+        )
+
+        def toggle_review(event: KeyPressEvent) -> None:
+            if self.attachment_send_review is not None:
+                self.set_notice("Finish the diff send review or use Ctrl-G to return.")
+                return
+            self.review_companion.toggle()
+            self.app.invalidate()
+
+        def close_review(event: KeyPressEvent) -> None:
+            self.review_companion.close()
+            self.app.invalidate()
+
+        def review_up(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_up(count=5)
+
+        def review_down(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_down(count=5)
+
+        review_visible = Condition(lambda: self.review_companion.visible)
+        keys.add("c-o")(toggle_review)
+        keys.add(
+            "c-g",
+            filter=review_visible
+            & Condition(lambda: self.attachment_send_review is None),
+        )(close_review)
+        keys.add("escape", "pageup", filter=review_visible)(review_up)
+        keys.add("escape", "pagedown", filter=review_visible)(review_down)
+        keys.add("c-t")(toggle_activity)
+        keys.add("c-y")(dismiss_error)
+        keys.add("f2")(status_details)
         keys.add("f3")(details)
         keys.add("f4")(continue_work)
         keys.add("f5")(history)
@@ -474,17 +565,14 @@ class ConversationTUI:
         layout = HSplit(
             [
                 Window(
-                    FormattedTextControl(self.header),
-                    height=3,
-                    style="class:title",
+                    FormattedTextControl(lambda: header_fragments(self.header())),
+                    height=lambda: len(self.header().splitlines()),
                 ),
+                Window(height=1),
                 VSplit(
                     [
                         ConditionalContainer(
-                            Frame(
-                                self.transcript,
-                                title="Conversation • Tab / PgUp / PgDn • F5 history",
-                            ),
+                            self.transcript,
                             filter=Condition(
                                 lambda: (
                                     self.attachment_send_review is None
@@ -498,13 +586,15 @@ class ConversationTUI:
                         ConditionalContainer(
                             HSplit(
                                 [
-                                    Frame(
+                                    panel_section(
+                                        lambda: (
+                                            "Changed files • ↑/↓ select • Tab focus"
+                                        ),
                                         self.diff_files,
-                                        title="Changed files • ↑/↓ select • Tab focus",
                                     ),
-                                    Frame(
+                                    panel_section(
+                                        self.patch_heading,
                                         self.diff_content,
-                                        title="Patch • F11 expand • F12 attach",
                                     ),
                                 ]
                             ),
@@ -527,17 +617,12 @@ class ConversationTUI:
                     ],
                     padding=1,
                 ),
-                Frame(
-                    Window(
-                        self.editor_control,
-                        height=Dimension(min=3, preferred=5, max=10),
-                        wrap_lines=True,
-                    ),
-                    title=(
-                        "Message • Enter send • Alt-Enter newline • "
-                        "Ctrl-S literal send • Ctrl-U clear"
-                    ),
+                self.review_companion.panel(lambda: self.app.output.get_size().columns),
+                self.activity.panel(
+                    lambda: self.app.output.get_size().columns,
+                    compact=lambda: self.review_companion.visible,
                 ),
+                composer(self.editor_control),
                 ConditionalContainer(
                     Window(
                         FormattedTextControl(self.attachment_preview),
@@ -547,13 +632,17 @@ class ConversationTUI:
                     filter=Condition(lambda: bool(self.diff_attachments)),
                 ),
                 Window(
-                    FormattedTextControl(lambda: display_text(self.notice)),
-                    height=2,
+                    FormattedTextControl(
+                        lambda: self.activity.notice_text(display_text(self.notice))
+                    ),
+                    height=Dimension(min=1, max=3),
+                    dont_extend_height=True,
                     wrap_lines=True,
                 ),
                 Window(
-                    FormattedTextControl(self.status),
-                    height=2,
+                    FormattedTextControl(self.footer),
+                    height=Dimension(min=2, max=4),
+                    dont_extend_height=True,
                     wrap_lines=True,
                     style="class:status",
                 ),
@@ -565,14 +654,19 @@ class ConversationTUI:
             full_screen=True,
             input=input,
             output=output,
-            style=Style.from_dict(
-                {"title": "bold", "status": "reverse", "frame.label": "bold"}
-            ),
+            style=conversation_style(theme),
+            color_depth=conversation_color_depth(theme),
             min_redraw_interval=0.05,
+            refresh_interval=1.0,
             mouse_support=True,
         )
         self.render_diff()
         self.refresh()
+
+    def set_error(self, text: str, next_step: str) -> None:
+        self.activity.error = (display_text(text)[:1200], next_step)
+        self.activity.sync_details()
+        self.app.invalidate()
 
     def set_notice(self, text: str) -> None:
         self.notice = text[:400]
@@ -605,7 +699,9 @@ class ConversationTUI:
         destination: str,
     ) -> str:
         lines = [
-            f"Destination: {destination}",
+            "Action: Queue one message with frozen diff excerpts",
+            f"Scope / destination: {destination}",
+            "Reason: Review the exact source bytes and recipient before sending.",
             "Queues one chat message. Diff text is untrusted source data.",
             "No Git edit, tool, review, provider choice, or new spend authority.",
             "Live dispatch still requires its separately selected policy and cap.",
@@ -624,6 +720,8 @@ class ConversationTUI:
                     + json.dumps(item.path, ensure_ascii=True)
                     + f" • {item.basis.value}",
                     f"   snapshot {item.snapshot_digest}",
+                    f"   patch {item.patch_digest}",
+                    f"   excerpt SHA-256 {item.excerpt_digest}",
                     "   excerpt (exact JSON string):",
                     "   " + json.dumps(item.excerpt, ensure_ascii=True),
                     "",
@@ -728,6 +826,16 @@ class ConversationTUI:
         self.diff_limit_index = 0
         self.diff_wakeup.set()
         self.render_diff()
+
+    def patch_heading(self) -> str:
+        if not self.diff_items:
+            return "Patch • select a file"
+        item = self.diff_items[self.diff_selected]
+        basis = "untracked" if item.basis is None else item.basis.value
+        prefix = "Patch • " + ("stale • " if self.diff_error else "") + basis + " • "
+        columns = self.app.output.get_size().columns
+        width = columns // 2 - 1 if columns >= 110 else columns
+        return prefix + fit_label(item.change.path, width - len(prefix), tail=True)
 
     def render_diff(self) -> None:
         if self.diff_error:
@@ -880,6 +988,33 @@ class ConversationTUI:
         )
 
     def header(self) -> str:
+        return compact_header(
+            self.controller.state,
+            self.project_location,
+            self.app.output.get_size().columns,
+            live_review=isinstance(self.review_packet, ConversationLiveReviewPacket),
+        )
+
+    def footer(self) -> str:
+        limits = self.controller.pending_limits
+        goal = self.controller.current_goal
+        summary = compact_status(
+            self.controller.state,
+            queue_full=limits is not None
+            and self.controller.pending_text_bytes >= limits.max_bytes,
+            goal_status=None if goal is None else goal.status,
+        )
+        if self.diff_visible:
+            return (
+                summary + "\nTab focus • F10 close • ↑/↓ files"
+                "\nF11 expand • F12 attach • Ctrl-X remove"
+            )
+        return (
+            summary
+            + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+        )
+
+    def header_details(self) -> str:
         state = self.controller.state
         memory = state.memory
         scopes = " / ".join(
@@ -894,9 +1029,9 @@ class ConversationTUI:
         workspace = state.workspace
         if state.memory_disabled:
             scopes = "off"
-        abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
+        abbreviated = workspace
         root = self.project_location.root_label()
-        root = root if len(root) <= 70 else "…" + root[-69:]
+
         mode = (
             "subscription chat"
             if state.mode == "subscription_conversation"
@@ -913,7 +1048,7 @@ class ConversationTUI:
         )
         return display_text(
             f"Mos Eisley • {mode} • {state.session_name or '(unnamed)'} • "
-            f"{state.session_id[:8]} • memory {scopes}\n"
+            f"{state.session_id} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full paths\n"
             f"Project root: {root}{inspection}"
         )
@@ -950,11 +1085,7 @@ class ConversationTUI:
             f"{pressure.latest_request.request_usage_basis_points / 100:.1f}%"
         )
         live = state.live_chat
-        model = (
-            f"openai/{live.model} • {live.effort}"
-            if live is not None
-            else "fixture/tool-reviewer-v1 • high"
-        )
+        model = model_route(state)
         attempts = (
             f"{state.exchanges_consumed} attempts"
             if live is not None
@@ -967,7 +1098,7 @@ class ConversationTUI:
         goal = self.controller.current_goal
         goal_text = "" if goal is None else f" • goal {goal.status}"
         return (
-            f" {model} • tools off • {phase} • "
+            f" {model} • {tool_availability(state)} • {phase} • "
             f"{state.interaction_mode} • {queued} queued • {attempts}{goal_text} • "
             f"{pending}{usage} {unit} • {pressure_text} • "
             f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
@@ -976,16 +1107,21 @@ class ConversationTUI:
 
     def refresh(self) -> None:
         state = self.controller.state
+        self.activity.observe(state)
         if self.history:
             self.history.check_revision()
             if self.history.visible:
                 self.refresh_history()
                 return
-        parts = [
-            f"Mos Eisley\nDirectory: {state.workspace}\nSession: {state.session_id}"
-        ]
+        parts: list[str] = []
         if self.welcome:
-            parts.append(self.welcome)
+            parts.append(
+                compact_welcome(
+                    self.welcome,
+                    recorded=state.mode == "recorded_conversation",
+                    memory_disabled=state.memory_disabled,
+                )
+            )
         start = max(0, len(state.entries) - 4) if self.history else 0
         if self.history:
             parts.append("Recent messages • F5 browses saved history")
@@ -997,7 +1133,8 @@ class ConversationTUI:
                 link += " • plan"
             if entry.repository_inspection:
                 link += " • repository inspection"
-            parts.append(f"You [{index}] • {entry.status}{link}\n{entry.text}")
+            status = "" if entry.status == "completed" else f" • {entry.status}"
+            parts.append(f"You [{index}]{status}{link}\n{entry.text}")
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")
         if self.details:
@@ -1059,9 +1196,12 @@ class ConversationTUI:
                 "F4 continues saved queued work."
             )
         )
+        browsing = self.transcript.buffer.cursor_position < len(self.transcript.text)
         position = (
             min(self.transcript.buffer.cursor_position, len(text))
-            if self.app.layout.has_focus(self.transcript) or self.diff_visible
+            if browsing
+            or self.app.layout.has_focus(self.transcript)
+            or self.diff_visible
             else len(text)
         )
         self.transcript.buffer.set_document(
@@ -1140,6 +1280,8 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        self.review_companion.receive(event)
+        self.activity.receive(event)
         if event["type"] == "conversation.update":
             self.set_notice(str(event["text"]))
             return
@@ -1169,7 +1311,12 @@ class ConversationTUI:
                 command = f"/context {position}"
             elif event["type"] == "conversation.status":
                 command = "/status"
-            selected = (revision, str(event["text"]))
+            text = str(event["text"])
+            if event["type"] == "conversation.status":
+                text += "\n\n" + self.header_details() + "\n" + self.status()
+                if self.welcome:
+                    text += "\n\nLaunch details\n" + self.welcome
+            selected = (revision, text)
             self.context_preview = (
                 None if self.context_preview == selected else selected
             )
@@ -1235,15 +1382,29 @@ class ConversationTUI:
             "conversation.memory.proposal.saved",
             "conversation.memory.proposal.discarded",
         }:
-            if self.history:
+            preview = str(event["type"]).endswith(".preview")
+            if self.history and not preview:
                 self.history.close()
-            self.memory_report = "Saved memory receipt (rerun to refresh)\n" + str(
-                event["text"]
+            title = (
+                "Memory change preview (not applied)"
+                if preview
+                else "Memory change discarded"
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt (rerun to refresh)"
+            )
+            self.memory_report = (
+                title + " • Ctrl-O inspects the exact target, hash and resulting text."
+                if preview
+                else title + "\n" + str(event["text"])
             )
             self.memory_visible = self.directory_visible = False
             self.context_preview = None
             self.set_notice(
-                "Saved memory receipt shown. /memory shows active session memory."
+                "Memory change preview shown. Ctrl-O inspects exact details."
+                if preview
+                else "Memory change discarded. /memory inspects active context."
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt shown. /memory shows active session memory."
             )
             self.refresh()
             return
@@ -1337,7 +1498,10 @@ class ConversationTUI:
                 self.editor.clear()
             return
         if self.queue.full():
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
             return
         attachments = tuple(self.diff_attachments)
         if attachments:
@@ -1438,7 +1602,10 @@ class ConversationTUI:
                     "Ctrl-C stops • Ctrl-D quits"
                 )
         except asyncio.QueueFull:
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
         except asyncio.CancelledError:
             accepted.cancel()
         finally:
@@ -1466,6 +1633,7 @@ class ConversationTUI:
                         selected = await DirectoryPicker(
                             workspace,
                             base=workspace,
+                            theme=self.theme,
                             memory_resolver=self.memory_resolver,
                             input=self.app.input,
                             output=self.app.output,

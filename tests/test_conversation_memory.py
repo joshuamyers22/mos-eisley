@@ -318,7 +318,7 @@ class MemoryConversationTests(IsolatedAsyncioTestCase):
                             await asyncio.sleep(0.01)
 
                 try:
-                    self.assertIn("user r1 / project none", ui.header())
+                    self.assertIn("user r1 / project none", ui.header_details())
                     self.assertIn("Directory:", ui.header())
                     input.send_text("/memory\r")
                     await until_visible(True)

@@ -22,11 +22,11 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.output import Output
 from prompt_toolkit.selection import SelectionState
-from prompt_toolkit.styles import Style
-from prompt_toolkit.widgets import Frame, TextArea
+from prompt_toolkit.widgets import TextArea
 from pydantic import TypeAdapter
 
 from mos_eisley.conversation import RuntimeConversationController
+from mos_eisley.conversation_activity import ConversationActivity
 from mos_eisley.conversation_cli import terminal
 from mos_eisley.conversation_context_preview import pressure_status
 from mos_eisley.conversation_diff import (
@@ -55,9 +55,27 @@ from mos_eisley.conversation_input import (
     ConversationSubmission,
     submission_command,
 )
+from mos_eisley.conversation_presentation import (
+    ConversationLexer,
+    DiffLexer,
+    TerminalTheme,
+    compact_header,
+    compact_status,
+    compact_welcome,
+    composer,
+    conversation_color_depth,
+    conversation_mode,
+    conversation_style,
+    fit_label,
+    header_fragments,
+    model_route,
+    panel_section,
+    tool_availability,
+)
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_remember import memory_phrase_command
-from mos_eisley.conversation_review import ReviewPacket
+from mos_eisley.conversation_review import ConversationLiveReviewPacket, ReviewPacket
+from mos_eisley.conversation_review_companion import ReviewCompanion
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
@@ -141,6 +159,7 @@ class GitReviewTUI:
         review_packet: ReviewPacket | None = None,
         *,
         welcome: str = "",
+        theme: TerminalTheme = "auto",
         initial_prompt: str | None = None,
         allow_directory_switch: bool = False,
         project_location: ProjectLocation | None = None,
@@ -155,6 +174,7 @@ class GitReviewTUI:
         self.controller = controller
         self.review_packet = review_packet
         self.welcome = welcome
+        self.theme: TerminalTheme = theme
         self.initial_prompt = initial_prompt
         self.allow_directory_switch = allow_directory_switch
         self.directory_target: DirectorySelection | None = None
@@ -179,9 +199,9 @@ class GitReviewTUI:
             )
         )
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
-        self.notice = (
-            "Enter sends • Alt-Enter adds a line • Ctrl-C stops • Ctrl-D quits"
-        )
+        self.notice = ""
+        self.activity = ConversationActivity()
+        self.review_companion = ReviewCompanion(review_packet)
         self.sending = False
         self.details = False
         self.memory_visible = False
@@ -191,8 +211,15 @@ class GitReviewTUI:
         self.review_scope_preview: str | None = None
         self.context_command = "/context"
         self.submission: asyncio.Task[None] | None = None
-        self.editor = EditorBuffer(self.set_notice, lambda: self.sending)
-        self.transcript = TextArea(read_only=True, scrollbar=True, wrap_lines=True)
+        self.editor = EditorBuffer(
+            lambda text: self.set_error(
+                text, "Shorten the draft or use Ctrl-U to clear it."
+            ),
+            lambda: self.sending,
+        )
+        self.transcript = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=True, lexer=ConversationLexer()
+        )
         self.diff_visible = False
         self.diff_file = 0
         self.diff_selected_path: str | None = None
@@ -205,7 +232,9 @@ class GitReviewTUI:
         self.diff_last_file_sha256: str | None = None
         self.diff_attachments: tuple[DiffAttachment, ...] = ()
         self.diff_attachment_freshness: dict[str, bool] = {}
-        self.diff_pane = TextArea(read_only=True, scrollbar=True, wrap_lines=False)
+        self.diff_pane = TextArea(
+            read_only=True, scrollbar=True, wrap_lines=False, lexer=DiffLexer()
+        )
         self.diff_refresh = DiffRefresh(
             self.render_diff, lambda: Path(self.controller.state.workspace)
         )
@@ -447,6 +476,55 @@ class GitReviewTUI:
         keys.add("tab")(focus)
         keys.add("pageup")(previous_page)
         keys.add("pagedown")(next_page)
+
+        def status_details(event: KeyPressEvent) -> None:
+            self.control("/status")
+
+        def toggle_activity(event: KeyPressEvent) -> None:
+            self.activity.expanded = not self.activity.expanded
+            self.app.invalidate()
+
+        def dismiss_error(event: KeyPressEvent) -> None:
+            self.activity.error = None
+            self.notice = ""
+            self.activity.sync_details()
+            self.app.invalidate()
+
+        def activity_up(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_up(count=3)
+
+        def activity_down(event: KeyPressEvent) -> None:
+            self.activity.detail_view.buffer.cursor_down(count=3)
+
+        keys.add("escape", "up", filter=Condition(lambda: self.activity.expanded))(
+            activity_up
+        )
+        keys.add("escape", "down", filter=Condition(lambda: self.activity.expanded))(
+            activity_down
+        )
+
+        def toggle_review(event: KeyPressEvent) -> None:
+            self.review_companion.toggle()
+            self.app.invalidate()
+
+        def close_review(event: KeyPressEvent) -> None:
+            self.review_companion.close()
+            self.app.invalidate()
+
+        def review_up(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_up(count=5)
+
+        def review_down(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_down(count=5)
+
+        review_visible = Condition(lambda: self.review_companion.visible)
+        keys.add("c-o")(toggle_review)
+        keys.add("c-g", filter=review_visible)(close_review)
+        keys.add("escape", "pageup", filter=review_visible)(review_up)
+        keys.add("escape", "pagedown", filter=review_visible)(review_down)
+        keys.add("c-t")(toggle_activity)
+        keys.add("c-y")(dismiss_error)
+        keys.add("f2")(status_details)
         keys.add("f3")(details)
         keys.add("f4")(continue_work)
         keys.add("f5")(history)
@@ -474,16 +552,10 @@ class GitReviewTUI:
 
         wide = Condition(lambda: self.app.output.get_size().columns >= 110)
         shown = Condition(lambda: self.diff_visible)
-        conversation_frame = Frame(
-            self.transcript,
-            title="Conversation • Tab / PgUp / PgDn • F3 review • F5 history",
-        )
-        diff_frame = Frame(
+        conversation_frame = self.transcript
+        diff_frame = panel_section(
+            self.diff_heading,
             self.diff_pane,
-            title=(
-                "Diff • Ctrl-N/P files • Ctrl-R refresh • Ctrl-E expand "
-                "• F11 attach • F12 findings"
-            ),
         )
         body = VSplit(
             [
@@ -507,10 +579,10 @@ class GitReviewTUI:
         layout = HSplit(
             [
                 Window(
-                    FormattedTextControl(self.header),
-                    height=3,
-                    style="class:title",
+                    FormattedTextControl(lambda: header_fragments(self.header())),
+                    height=lambda: len(self.header().splitlines()),
                 ),
+                Window(height=1),
                 body,
                 ConditionalContainer(
                     Window(
@@ -520,25 +592,24 @@ class GitReviewTUI:
                     ),
                     filter=Condition(lambda: bool(self.diff_attachments)),
                 ),
-                Frame(
-                    Window(
-                        self.editor_control,
-                        height=Dimension(min=3, preferred=5, max=10),
-                        wrap_lines=True,
-                    ),
-                    title=(
-                        "Message • Enter send • Alt-Enter newline • "
-                        "Ctrl-S literal send • Ctrl-U clear"
-                    ),
+                self.review_companion.panel(lambda: self.app.output.get_size().columns),
+                self.activity.panel(
+                    lambda: self.app.output.get_size().columns,
+                    compact=lambda: self.review_companion.visible,
                 ),
+                composer(self.editor_control),
                 Window(
-                    FormattedTextControl(lambda: display_text(self.notice)),
-                    height=2,
+                    FormattedTextControl(
+                        lambda: self.activity.notice_text(display_text(self.notice))
+                    ),
+                    height=Dimension(min=1, max=3),
+                    dont_extend_height=True,
                     wrap_lines=True,
                 ),
                 Window(
-                    FormattedTextControl(self.status),
-                    height=2,
+                    FormattedTextControl(self.footer),
+                    height=Dimension(min=2, max=4),
+                    dont_extend_height=True,
                     wrap_lines=True,
                     style="class:status",
                 ),
@@ -550,10 +621,10 @@ class GitReviewTUI:
             full_screen=True,
             input=input,
             output=output,
-            style=Style.from_dict(
-                {"title": "bold", "status": "reverse", "frame.label": "bold"}
-            ),
+            style=conversation_style(theme),
+            color_depth=conversation_color_depth(theme),
             min_redraw_interval=0.05,
+            refresh_interval=1.0,
             mouse_support=True,
         )
         self.refresh()
@@ -591,6 +662,18 @@ class GitReviewTUI:
                 for i, a in enumerate(self.diff_attachments)
             )
         )
+
+    def diff_heading(self) -> str:
+        if self.diff_show_findings:
+            return "Review findings • Enter inspects evidence"
+        prefix = "Historical diff" if self.diff_evidence is not None else "Git diff"
+        if self.diff_refresh.error and self.diff_evidence is None:
+            prefix += " • stale"
+        prefix += " • "
+        path = self.diff_selected_path or "select a file"
+        columns = self.app.output.get_size().columns
+        width = columns // 2 - 1 if columns >= 110 else columns
+        return prefix + fit_label(path, width - len(prefix), tail=True)
 
     def render_diff(self, *, reset: bool = False) -> None:
         snapshot = self.diff_evidence or self.diff_refresh.snapshot
@@ -657,7 +740,7 @@ class GitReviewTUI:
                     if yes
                 )
                 header.append(
-                    f"{'→' if i == self.diff_file else ' '} {i + 1}. "
+                    f"{'›' if i == self.diff_file else ' '} {i + 1}. "
                     f"{json.dumps(file.path)} [{states}] +{added} -{removed}"
                     + (f" • omitted {file.omission}" if file.omission else "")
                 )
@@ -779,11 +862,43 @@ class GitReviewTUI:
                         )
                         self.render_diff()
 
+    def set_error(self, text: str, next_step: str) -> None:
+        self.activity.error = (display_text(text)[:1200], next_step)
+        self.activity.sync_details()
+        self.app.invalidate()
+
     def set_notice(self, text: str) -> None:
         self.notice = text[:400]
         self.app.invalidate()
 
     def header(self) -> str:
+        return compact_header(
+            self.controller.state,
+            self.project_location,
+            self.app.output.get_size().columns,
+            live_review=isinstance(self.review_packet, ConversationLiveReviewPacket),
+        )
+
+    def footer(self) -> str:
+        limits = self.controller.pending_limits
+        goal = self.controller.current_goal
+        summary = compact_status(
+            self.controller.state,
+            queue_full=limits is not None
+            and self.controller.pending_text_bytes >= limits.max_bytes,
+            goal_status=None if goal is None else goal.status,
+        )
+        if self.diff_visible:
+            return (
+                summary + "\nTab focus • F10 close • Ctrl-N/P files • Ctrl-R refresh"
+                "\nF11 attach • F12 findings • Ctrl-E expand"
+            )
+        return (
+            summary
+            + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+        )
+
+    def header_details(self) -> str:
         state = self.controller.state
         memory = state.memory
         scopes = " / ".join(
@@ -798,12 +913,17 @@ class GitReviewTUI:
         workspace = state.workspace
         if state.memory_disabled:
             scopes = "off"
-        abbreviated = workspace if len(workspace) <= 70 else "…" + workspace[-69:]
+        abbreviated = workspace
         root = self.project_location.root_label()
-        root = root if len(root) <= 70 else "…" + root[-69:]
+
+        mode = conversation_mode(
+            state,
+            live_review=isinstance(self.review_packet, ConversationLiveReviewPacket),
+        )
         return display_text(
-            f"Mos Eisley • recorded • {state.session_name or '(unnamed)'} • "
-            f"{state.session_id[:8]} • memory {scopes}\n"
+            f"Mos Eisley • {mode} • "
+            f"{state.session_name or '(unnamed)'} • "
+            f"{state.session_id} • memory {scopes}\n"
             f"Directory: {abbreviated} • /directory shows full paths\n"
             f"Project root: {root}"
         )
@@ -848,28 +968,42 @@ class GitReviewTUI:
                 f"{goal.definition.ceiling.attempts} goal attempts"
             )
         )
+        live = state.live_chat
+        attempts = (
+            f"{state.exchanges_consumed} attempts"
+            if live is not None
+            else (
+                f"{state.exchanges_consumed}/"
+                f"{len(self.controller.cassette.exchanges)} attempts"
+            )
+        )
+        unit = "tokens" if live is not None else "recorded bytes"
         return (
-            f" fixture/tool-reviewer-v1 • high • tools off • "
+            f" {model_route(state)} • {tool_availability(state)} • "
             f"{state.interaction_mode} • {phase} • "
-            f"{queued} queued • {state.exchanges_consumed}/"
-            f"{len(self.controller.cassette.exchanges)} attempts • "
-            f"{pending}{usage} recorded bytes • {pressure_text} • "
+            f"{queued} queued • {attempts} • "
+            f"{pending}{usage} {unit} • {pressure_text} • "
             f"{pressure.substantial_tool_calls_since_boundary} substantial tools • "
             f"{pressure.repeated_reads_since_boundary} repeated reads {goal_text}"
         )
 
     def refresh(self) -> None:
         state = self.controller.state
+        self.activity.observe(state)
         if self.history:
             self.history.check_revision()
             if self.history.visible:
                 self.refresh_history()
                 return
-        parts = [
-            f"Mos Eisley\nDirectory: {state.workspace}\nSession: {state.session_id}"
-        ]
+        parts: list[str] = []
         if self.welcome:
-            parts.append(self.welcome)
+            parts.append(
+                compact_welcome(
+                    self.welcome,
+                    recorded=state.mode == "recorded_conversation",
+                    memory_disabled=state.memory_disabled,
+                )
+            )
         start = max(0, len(state.entries) - 4) if self.history else 0
         if self.history:
             parts.append("Recent messages • F5 browses saved history")
@@ -878,7 +1012,8 @@ class GitReviewTUI:
                 "" if entry.steering_for is None else f" • refines {entry.steering_for}"
             )
             mode = " • plan" if entry.interaction_mode == "plan" else ""
-            parts.append(f"You [{index}] • {entry.status}{mode}{link}\n{entry.text}")
+            status = "" if entry.status == "completed" else f" • {entry.status}"
+            parts.append(f"You [{index}]{status}{mode}{link}\n{entry.text}")
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")
         if self.details:
@@ -943,9 +1078,12 @@ class GitReviewTUI:
                 "F4 continues saved queued work."
             )
         )
+        browsing = self.transcript.buffer.cursor_position < len(self.transcript.text)
         position = (
             min(self.transcript.buffer.cursor_position, len(text))
-            if self.diff_visible or self.app.layout.has_focus(self.transcript)
+            if browsing
+            or self.diff_visible
+            or self.app.layout.has_focus(self.transcript)
             else len(text)
         )
         self.transcript.buffer.set_document(
@@ -1026,6 +1164,8 @@ class GitReviewTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        self.review_companion.receive(event)
+        self.activity.receive(event)
         if event["type"] == "conversation.diff":
             self.diff_evidence = self.diff_evidence_finding = None
             self.diff_refresh.snapshot = DiffSnapshot.model_validate_json(
@@ -1140,7 +1280,12 @@ class GitReviewTUI:
                 command = f"/context {position}"
             elif event["type"] == "conversation.status":
                 command = "/status"
-            selected = (revision, str(event["text"]))
+            text = str(event["text"])
+            if event["type"] == "conversation.status":
+                text += "\n\n" + self.header_details() + "\n" + self.status()
+                if self.welcome:
+                    text += "\n\nLaunch details\n" + self.welcome
+            selected = (revision, text)
             self.context_preview = (
                 None if self.context_preview == selected else selected
             )
@@ -1206,15 +1351,29 @@ class GitReviewTUI:
             "conversation.memory.proposal.saved",
             "conversation.memory.proposal.discarded",
         }:
-            if self.history:
+            preview = str(event["type"]).endswith(".preview")
+            if self.history and not preview:
                 self.history.close()
-            self.memory_report = "Saved memory receipt (rerun to refresh)\n" + str(
-                event["text"]
+            title = (
+                "Memory change preview (not applied)"
+                if preview
+                else "Memory change discarded"
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt (rerun to refresh)"
+            )
+            self.memory_report = (
+                title + " • Ctrl-O inspects the exact target, hash and resulting text."
+                if preview
+                else title + "\n" + str(event["text"])
             )
             self.memory_visible = self.directory_visible = False
             self.context_preview = None
             self.set_notice(
-                "Saved memory receipt shown. /memory shows active session memory."
+                "Memory change preview shown. Ctrl-O inspects exact details."
+                if preview
+                else "Memory change discarded. /memory inspects active context."
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt shown. /memory shows active session memory."
             )
             self.refresh()
             return
@@ -1292,7 +1451,10 @@ class GitReviewTUI:
                 self.editor.clear()
             return
         if self.queue.full():
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
             return
         self.sending = True
         self.submission = asyncio.create_task(self.submit(text, literal))
@@ -1317,7 +1479,10 @@ class GitReviewTUI:
                     "Ctrl-C stops • Ctrl-D quits"
                 )
         except asyncio.QueueFull:
-            self.set_notice("Input queue is full; draft retained.")
+            self.set_error(
+                "Input queue is full; draft retained.",
+                "Wait for pending input to be handled, then press Enter.",
+            )
         except asyncio.CancelledError:
             accepted.cancel()
         finally:
@@ -1345,6 +1510,7 @@ class GitReviewTUI:
                         selected = await DirectoryPicker(
                             workspace,
                             base=workspace,
+                            theme=self.theme,
                             memory_resolver=self.memory_resolver,
                             input=self.app.input,
                             output=self.app.output,

@@ -25,6 +25,7 @@ from mos_eisley.conversation_directory import (
     DirectorySelectionError,
 )
 from mos_eisley.conversation_memory import MemoryStore
+from mos_eisley.conversation_presentation import TerminalTheme
 from mos_eisley.conversation_review import ConversationReviewPacket
 from mos_eisley.conversation_switch import switch_target
 from mos_eisley.conversation_tui import ConversationTUI
@@ -87,6 +88,7 @@ class SwitchTests(IsolatedAsyncioTestCase):
                 initial: Path,
                 *,
                 base: Path,
+                theme: TerminalTheme,
                 input: Input,
                 output: Output,
                 memory_resolver: Callable[[Path], DirectorySelection | None]
@@ -95,6 +97,7 @@ class SwitchTests(IsolatedAsyncioTestCase):
                 picker = DirectoryPicker(
                     initial,
                     base=base,
+                    theme=theme,
                     input=input,
                     output=output,
                     memory_resolver=memory_resolver,

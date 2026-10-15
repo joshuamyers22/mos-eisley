@@ -455,7 +455,7 @@ class DiffPTYTests(TestCase):
                             os.write(master, b"\x1b[1;1R")
 
             try:
-                read_until(b"Message")
+                read_until(b"Type a message")
                 os.write(master, b"/diff\r")
                 read_until(b"+after")
                 output.clear()

@@ -19,6 +19,15 @@ versions without guessing a line mapping. Empty trees, deleted files and empty
 files have explicit views. Protected, binary, oversized and unavailable inputs
 have omission labels. Non-Git directories and linked worktrees are unavailable.
 
+Both renderers use the shared theme, compact borderless pane headings and a `›`
+marker for the selected file. Pane headings retain the selected path while you
+scroll the source; historical and stale comparisons stay labelled. Added/removed lines keep their literal signs and
+use restrained theme colors; plain mode and `NO_COLOR` retain the same source
+content and coordinates. Text selection keeps its separate selection treatment.
+The footer shows the active panel's controls. Long lines remain horizontally
+scrollable; narrow terminals keep the composer available and let you focus and
+scroll the patch rather than squeezing the entire diff into one screen.
+
 ## Navigate and refresh
 
 With focus in the diff pane:

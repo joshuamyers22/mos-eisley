@@ -228,7 +228,8 @@ class TUITests(IsolatedAsyncioTestCase):
             ui.editor.insert_text("/steer retained instruction")
             ui.send()
             self.assertEqual(ui.editor.text, "/steer retained instruction")
-            self.assertIn("queue is full", ui.notice)
+            self.assertIn("queue is full", ui.activity.error_text(100))
+            self.assertIn("press Enter", ui.activity.expanded_text())
             self.assertTrue(ui.control("/stop", priority=True))
             self.assertEqual(ui.queue.qsize(), 1)
             self.assertEqual(ui.queue.get_nowait(), "/stop")
@@ -656,14 +657,16 @@ class TUIContractTests(TestCase):
                     # Startup details can exceed the live viewport. Scroll to the
                     # welcome notice instead of assuming it is initially visible.
                     os.write(master, b"\x1b[5~\x0c")
-                    read_until(b"live conversations are not connected yet")
+                    read_until(b"Recorded preview.")
                     os.write(master, b"\t")
                 if not initial:
                     os.write(master, (DEMO_PROMPTS[0] + "\r").encode())
                 # A differential repaint can reuse old glyphs via cursor moves.
                 # Request a full repaint before matching contiguous answer bytes.
                 read_until(b"\x1b[?1049h", answer_saved)
-                os.write(master, b"\x0c")
+                # Explicitly return to the latest output after the startup
+                # browse above; incoming updates preserve the browsing position.
+                os.write(master, b"\x1b[6~\t\x0c")
                 read_until(b"The fixture boundary is ten.")
                 os.write(master, b"\x04")
                 read_until(b"conversation.saved")
