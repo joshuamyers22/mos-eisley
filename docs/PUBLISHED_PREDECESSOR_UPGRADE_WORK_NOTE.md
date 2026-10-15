@@ -47,8 +47,9 @@ content and inert credential/config/spending sentinels. Real user stores, provid
 credentials and sampling/evaluation stores are outside scope. Signed candidate
 metadata is preparation evidence, not stable acceptance or freshness evidence.
 
-Budget: at most three evidence-changing implementation/fix passes, one full local
-quality gate and one final exact-head CI matrix; no provider spend. Stop on wrong
+Budget: three initial evidence-changing passes, plus one bounded installed-wheel
+fixture correction identified during the combined gate; one combined local quality
+gate and final exact-head CI after that correction. No provider spend. Stop on wrong
 signature/source/platform/version, state loss, failed cold resume or a publication
 mismatch. New runtime/schema changes require new artifacts and qualification.
 
@@ -94,3 +95,14 @@ workflow writes only the compact qualification result into `dist/qualification`;
 the final all-platform run must pass and retain all four evidence files. That
 failed retention run remains attributed in the delivery PR, not counted as a
 passing workflow. No runtime or signature control changed to address it.
+
+The corrected [matrix 38657580439](https://github.com/joshuamyers22/mos-eisley/actions/runs/38657580439)
+passed and retained all four results. Downloaded receipts matched both signed
+inventories, source/version identities and every required lifecycle outcome.
+An installed-wheel integration inspection then found that the retained distribution
+tests import the new qualification helper, while the wheel harness copied only the
+old smoke helper. The smallest correction copies both helpers outside site-packages;
+no tests are excluded. All 37 distribution checks passed against a freshly built
+and installed wheel outside the source tree. Final full installed-wheel and CI
+results remain in PR #305. The already running combined local gate had not reached
+the affected smoke step when this fixture-only correction was applied.
