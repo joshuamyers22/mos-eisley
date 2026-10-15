@@ -259,3 +259,15 @@ No session capacity, catalog acquisition, directory admission, source selection 
 approval boundary was expanded. Stop this slice after the stated checks. Next:
 review the combined visual result and complete the combined delivery/qualification
 checks; individual tool-call streaming remains separate work.
+
+## Combined local review (2026-10-14)
+
+The [combined review record](TERMINAL_INTERFACE_COMBINED_REVIEW.md) closes the
+local review of revision `114a09e`: welcome, conversation, active operation,
+errors, approval, session picker, directory selector and both diff renderers.
+Focused regressions, source/installed-wheel PTYs and visual inspection found no
+blocking issues. A one-character footer wrap at 64 columns remains cosmetic.
+The standalone eight-screen gallery is also in Downloads. No application code
+changed. Joshua accepted the combined visual result on 2026-10-14, including the
+cosmetic footer wrap. Full delivery gates and other-platform visual qualification
+remain pending; this does not close the overall milestone.

@@ -2445,8 +2445,11 @@ companion now separates action/scope/reason and retains complete inspectable
 hashes; the existing exact-hash ceremony remains authoritative. Individual
 tool-call streaming remains pending. Session/directory pickers and both diff
 renderers now share the theme, compact headings and selection language, with
-adaptive pages and complete inspectable identities. Final owner visual acceptance
-and remaining platform/publication checks are pending;
+adaptive pages and complete inspectable identities. The
+[combined local visual review](TERMINAL_INTERFACE_COMBINED_REVIEW.md) is complete
+with no blocking findings across all eight screens, narrow layouts and interaction
+preservation. Joshua accepted the combined visual result on 2026-10-14.
+Remaining platform/publication checks are pending;
 this is not overall milestone acceptance or release qualification.
 
 **Design requirements:**

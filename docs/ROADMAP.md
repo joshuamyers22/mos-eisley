@@ -671,8 +671,11 @@ guidance while updates preserve drafts/focus/browsing. The review/approval
 companion is also implemented locally, with exact hash inspection, action/scope/reason labels and draft/focus-preserving dismissal.
 The session picker, directory selector and both diff renderers also share the
 visual system locally, with adaptive session pages, inspectable full identities,
-consistent file markers and contextual diff controls. Individual tool-call
-telemetry, final visual acceptance and platform/publication gates remain pending.
+consistent file markers and contextual diff controls. The
+[combined local review](TERMINAL_INTERFACE_COMBINED_REVIEW.md) passed with no
+blocking findings across the eight screens and narrow-terminal interactions.
+Joshua accepted the combined visual result on 2026-10-14. Individual tool-call
+telemetry and platform/publication gates remain pending.
 See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
 and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
