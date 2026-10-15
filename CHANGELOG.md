@@ -4,6 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add a read-only review/approval companion to both conversation renderers:
+  Ctrl-O inspects action, scope, reason, exact hashes and complete content;
+  Alt-PageUp/Down scrolls details and Ctrl-G closes without clearing the draft or
+  moving focus. Clarify unapplied memory previews and the existing critic/judge
+  exact-hash approval ceremony, retaining its dispatch and spending checks.
+
 - Show current-operation status, observed elapsed time and queued work in both
   conversation renderers. Ctrl-T expands details, Alt-Up/Down scrolls them, and
   Ctrl-Y dismisses actionable errors. Updates preserve drafts, focus and browsing;

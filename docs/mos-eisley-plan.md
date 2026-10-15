@@ -2440,8 +2440,10 @@ complete this milestone. Track the first slice in the
 **Local progress, 2026-10-14:** the shared foundation and current-operation/error
 slices are implemented. The activity strip has observed elapsed time, queue status
 and keyboard-expanded scope/route details. Errors retain next-step guidance, and
-updates preserve drafts, focus and transcript browsing. Individual tool-call
-streaming, the approval companion and auxiliary-screen consistency remain pending;
+updates preserve drafts, focus and transcript browsing. The local approval
+companion now separates action/scope/reason and retains complete inspectable
+hashes; the existing exact-hash ceremony remains authoritative. Individual
+tool-call streaming and auxiliary-screen consistency remain pending;
 this is not overall milestone acceptance or release qualification.
 
 **Design requirements:**

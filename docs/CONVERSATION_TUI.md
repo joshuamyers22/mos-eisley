@@ -132,7 +132,24 @@ updates do not clear an error, submit a draft, move focus or jump to the newest
 transcript output while you browse. Queue-full and oversized-draft errors retain
 the editable draft. None of these controls retry failed work automatically.
 
-Auxiliary-screen polish and the approval companion remain later slices of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
+Ctrl-O opens or closes the read-only review/approval companion in both renderers.
+It shows action, scope and reason separately, with complete hashes and content in
+scrollable details. Alt-PageUp/Down scrolls those details while keeping the current
+focus; Ctrl-G closes the view and retains the draft. While the companion is
+open it uses the activity-details area; errors stay visible, including at narrow
+terminal sizes. Selected review packets are inspectable before `/review`; frozen Git scope receipts and memory forget,
+replace and proposal previews also populate the companion. Preview receipts are
+labelled as unapplied, and errors or later memory events mark old previews for
+rechecking. Saved/discarded receipts remove obsolete apply instructions.
+
+The companion has no approval or apply shortcut. Closing it does not discard a
+pending memory preview or cancel work. Use the displayed discard command, such as
+`/memory discard-forget`, to discard that preview explicitly. Actual critic/judge approval
+still uses `show`, `approve <exact hash>`, or `cancel` in its separate terminal
+ceremony, now with action/scope/reason labels and the complete approval hash.
+Returning from that ceremony preserves the conversation's draft and focus.
+
+Auxiliary-screen polish remains a later slice of [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface).
 
 ## Start a conversation
 

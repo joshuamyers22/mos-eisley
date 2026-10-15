@@ -156,13 +156,18 @@ class ConversationActivity:
             text += "\nError: " + self.error[0] + "\nNext: " + self.error[1]
         return text
 
-    def panel(self, width: Callable[[], int]) -> HSplit:
+    def panel(
+        self, width: Callable[[], int], *, compact: Callable[[], bool] = lambda: False
+    ) -> HSplit:
         return HSplit(
             [
-                Window(
-                    FormattedTextControl(lambda: self.summary(width())),
-                    height=2,
-                    style="class:status",
+                ConditionalContainer(
+                    Window(
+                        FormattedTextControl(lambda: self.summary(width())),
+                        height=2,
+                        style="class:status",
+                    ),
+                    filter=Condition(lambda: not compact()),
                 ),
                 ConditionalContainer(
                     HSplit(
@@ -175,7 +180,7 @@ class ConversationActivity:
                             self.detail_view,
                         ]
                     ),
-                    filter=Condition(lambda: self.expanded),
+                    filter=Condition(lambda: self.expanded and not compact()),
                 ),
                 ConditionalContainer(
                     Window(

@@ -655,7 +655,7 @@ interface polish follows the working conversation under §16.0.6. This is planne
 work, not an availability claim, and preserves the existing provider, spending,
 quality, and containment gates.
 
-**Terminal interface polish, 2026-10-14 — direction approved; local first slice:**
+**Terminal interface polish, 2026-10-14 — direction approved; local slices implemented:**
 make the conversation cleaner and more professional, with Claude Code and Codex
 as visual/interaction references.
 Deliver a restrained shared visual system, compact header/status, readable
@@ -667,8 +667,10 @@ before/after previews and finish with owner visual acceptance; no delivery date 
 committed. The shared styling and conversation header/transcript/composer/status
 slice and current-operation/error presentation are implemented locally. Activity
 has observed elapsed time and keyboard-expanded details; errors retain actionable
-guidance while updates preserve drafts/focus/browsing. Individual tool-call
-telemetry, the approval companion and auxiliary-screen consistency remain pending. See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
+guidance while updates preserve drafts/focus/browsing. The review/approval
+companion is also implemented locally, with exact hash inspection, action/scope/reason labels and draft/focus-preserving dismissal.
+Individual tool-call telemetry and auxiliary-screen consistency remain pending.
+See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
 and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the

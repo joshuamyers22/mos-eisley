@@ -199,6 +199,10 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
         ui = TerminalReviewApproval(read_line, output)
         self.assertEqual(await ui.approve(preview), preview.sha256)
         rendered = output.getvalue()
+        self.assertIn("Action: Send the frozen review requests", rendered)
+        self.assertIn("Scope: 2 critic requests", rendered)
+        self.assertIn("Reason: Sending source content", rendered)
+        self.assertIn("complete match required", rendered)
         self.assertIn("$0.000975", rendered)
         self.assertIn("Required quorum: 2 critics; minimum providers: 1", rendered)
         self.assertIn(preview.sha256, rendered)
@@ -316,6 +320,8 @@ class ApprovalFlowTests(ControllerFixture, IsolatedAsyncioTestCase):
         assert result is not None
         self.assertEqual(result.result.verdict.decision, "infrastructure_error")
         self.assertIn("Review judge request", output.getvalue())
+        self.assertIn("Action: Send retained findings", output.getvalue())
+        self.assertIn("Reason: This separate approval", output.getvalue())
         self.assertIn("Review result: infrastructure_error", output.getvalue())
         self.assertNotIn("Review result: accept", output.getvalue())
 

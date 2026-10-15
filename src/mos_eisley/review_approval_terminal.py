@@ -25,7 +25,17 @@ class TerminalReviewApproval:
 
     async def approve(self, preview: ApprovalPreview) -> str | None:
         if isinstance(preview, ControllerCriticPreview):
-            self._write("Review critic requests")
+            self._write("Review critic requests • approval required")
+            self._write(
+                "Action: Send the frozen review requests to the selected critics."
+            )
+            self._write(
+                f"Scope: {len(preview.requests)} critic requests; read-only review."
+            )
+            self._write(
+                "Reason: Sending source content and reserving spending "
+                "require your exact approval."
+            )
             for request in preview.requests:
                 self._write(
                     f"  {safe_label(request.provider)} / {safe_label(request.model)}"
@@ -51,19 +61,32 @@ class TerminalReviewApproval:
                     f"{preview.authorization.judge_approval_seconds:g} seconds."
                 )
         else:
-            self._write("Review judge request")
+            self._write("Review judge request • approval required")
+            self._write("Action: Send retained findings to the selected review judge.")
+            findings = len(preview.evidence.judge_request.findings)
+            self._write(
+                f"Scope: {findings} retained findings; evidence-bound adjudication."
+            )
+            self._write(
+                "Reason: This separate approval binds the judge request "
+                "to the retained critic evidence."
+            )
             self._write(
                 f"  {safe_label(preview.model_request.provider)} / "
                 f"{safe_label(preview.model_request.model)}"
             )
-            findings = len(preview.evidence.judge_request.findings)
             self._write(f"Findings to adjudicate: {findings}.")
             self._write(
                 "Uses the judge allowance already reserved. Approval remains "
                 "bounded by the signed controller window; formal-campaign "
                 "approval time does not consume the remaining execution budget."
             )
+        self._write("Exact approval SHA-256 (complete match required)")
         self._write(f"Approval: {preview.sha256}")
+        self._write(
+            "show inspects the complete request and limits; "
+            "cancel declines this approval without sending this phase."
+        )
         while True:
             try:
                 answer = await self._read_line("Type show, approve <hash>, or cancel: ")

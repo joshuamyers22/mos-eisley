@@ -40,6 +40,19 @@ The command requires an interactive full-screen terminal because the signed
 owner ceremony reads from that terminal. The existing `mos review-live` command
 remains the separate non-conversation operating path.
 
+## Review and approval presentation
+
+Ctrl-O inspects the selected non-secret packet in the conversation, including its
+complete prepared/configuration/campaign/manifest hashes and frozen brief.
+Alt-PageUp/Down scrolls details; Ctrl-G closes the companion without changing the
+composer draft or focus. The companion does not sign or approve a launch.
+
+The separate critic and judge prompts show action, scope, approval reason,
+destination, spending/time limits and the exact approval SHA-256. `show` prints the
+complete request as escaped JSON; `approve <hash>` still requires the full exact
+hash. `cancel` declines that approval; it does not send that phase. The existing
+signed launch/phase decisions, one-use dispatch and expiry checks still apply.
+
 ## Qualification and release boundary
 
 The 2026-09-27 G2 campaign qualifies only its exact focused brief, models,

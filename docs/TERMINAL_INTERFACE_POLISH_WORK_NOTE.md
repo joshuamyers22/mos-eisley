@@ -126,3 +126,72 @@ Stop this slice after these focused and packaged checks. Full `make check`,
 security/container gates and other-platform visual qualification remain unrun;
 no publication or overall milestone acceptance is claimed. Next: approval
 companion view, followed by session/directory/diff consistency.
+
+## Review/approval companion slice (2026-10-14)
+
+Objective: a read-only companion in both conversation renderers showing action,
+scope, reason and exact inspectable identities for selected recorded/live review
+packets, Git scope receipts and memory approval previews. Polish the actual
+critic/judge terminal ceremony using the same hierarchy and unchanged exact
+`show`, `approve <hash>`, `cancel` input behavior. Closing an inspector is distinct
+from cancelling a pending mutation or controller run. Preserve the draft,
+cursor, focus and transcript browsing during inspection and dismissal.
+
+Guidance: Python engineering, bounded verification and its loop template above;
+`templates/THREAT_MODEL.md` for approval-display failure cases. Risk: material
+presentation at an existing approval boundary, with no new authorization path.
+Budget: three evidence-changing passes, 60-minute review window, no paid calls.
+Acceptance: exact-hash/no-write tests, both-renderer keyboard/draft/focus tests,
+existing approval/memory/live-review regression tests, static checks and built-wheel
+PTY smoke. Full publication gate remains deferred until publication.
+
+Failure cases and controls: source/model text must not forge UI labels or terminal
+controls (ASCII JSON detail and sanitized summaries); shortened hashes must not
+become authorizations (exact original hashes retained, inspector has no apply
+callback); stale views must not imply current approval (receipt identity/status
+labels, no one-key confirmation, existing backend revalidation); cancellation
+must not silently clear drafts or mutate pending approvals (close inspector only,
+explicit existing discard/cancel operations). No credentials or operating paths
+are fetched for inspection. Verification is offline and does not accept a new
+live-review, spend or release profile.
+
+Companion verification and handoff:
+
+- Exact-identity and interaction tests cover live packet hashes and complete brief,
+  escaped untrusted content, missing-hash refusal, stale and discarded receipts,
+  opening/scrolling/closing from composer and transcript focus, and preserved
+  drafts, cursors and pending memory bytes. A suspended conversation exercises
+  the real terminal approval renderer with `show` then `cancel`: no request is
+  dispatched, no reservation is created, and draft/focus return unchanged.
+- The approval/memory/live-review/presentation set passed 113 tests; the affected
+  Git-panel/diff/history/switch set passed 52 tests outside the parent sandbox so
+  Mos's own Git isolation could run. After preview deduplication, 94 affected
+  approval/memory/history/TUI tests passed. These suites overlap.
+- Real macOS PTYs checked source dark/light/plain, the Git renderer and the
+  isolated installed wheel: selected packet inspection, a genuine local memory
+  preview, complete hash detail, multiline draft, 112-to-64-column resize,
+  scroll/close, diagnostic inspection, passive quit and terminal restoration.
+  Synthetic `approval-` captures are in the existing implementation-preview
+  directory. No real session data, credential access or paid calls were used.
+- The combined error + companion + draft case initially exceeded a 64x24
+  terminal's height. The companion now substitutes for routine activity details
+  while errors remain visible, and its detail pane can shrink to one line.
+  A rendered-window regression checks the composer stays visible with both an
+  error and previously expanded activity. The final core set passed 40 tests;
+  the six companion tests also passed separately. Source, Git-renderer and
+  installed-wheel PTYs passed this combined error/resize/close/draft case.
+- Final lint, formatting, strict typing, sdist and wheel builds passed. The wheel
+  was reinstalled only into the private smoke environment. The existing user
+  installation was not changed. The full publication gate and other-platform
+  visual qualification remain unrun.
+
+The companion retains full detail rather than abbreviated approval tokens; its
+summary may abbreviate long scope/reason labels, which remain complete in the
+scrollable detail. Pending-memory details now appear in the companion instead of
+a duplicate transcript wall, and preview events preserve an open saved-history
+view. Existing exact-hash approval parsing, signed admission, expiry, spending,
+backend freshness checks and one-use dispatch are unchanged. Closing the inspector
+is a UI-only operation; explicit backend discard/cancel still has its existing
+meaning. Stop this slice after the stated evidence. Next: session picker,
+directory selector and diff-view consistency, then remaining platform/visual and
+publication gates before overall milestone acceptance.

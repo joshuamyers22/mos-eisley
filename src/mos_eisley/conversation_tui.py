@@ -76,6 +76,7 @@ from mos_eisley.conversation_presentation import (
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_remember import memory_phrase_command
 from mos_eisley.conversation_review import ConversationLiveReviewPacket, ReviewPacket
+from mos_eisley.conversation_review_companion import ReviewCompanion
 from mos_eisley.conversation_switch import SWITCH_COMMAND, switch_target
 from mos_eisley.run.conversation_artifacts import ArtifactContent
 from mos_eisley.run.conversation_transcript import TranscriptPage
@@ -201,6 +202,7 @@ class ConversationTUI:
         self.queue: asyncio.Queue[ConversationInput] = asyncio.Queue(maxsize=32)
         self.notice = ""
         self.activity = ConversationActivity()
+        self.review_companion = ReviewCompanion(review_packet)
         self.sending = False
         self.details = False
         self.memory_visible = False
@@ -491,6 +493,33 @@ class ConversationTUI:
         keys.add("escape", "down", filter=Condition(lambda: self.activity.expanded))(
             activity_down
         )
+
+        def toggle_review(event: KeyPressEvent) -> None:
+            if self.attachment_send_review is not None:
+                self.set_notice("Finish the diff send review or use Ctrl-G to return.")
+                return
+            self.review_companion.toggle()
+            self.app.invalidate()
+
+        def close_review(event: KeyPressEvent) -> None:
+            self.review_companion.close()
+            self.app.invalidate()
+
+        def review_up(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_up(count=5)
+
+        def review_down(event: KeyPressEvent) -> None:
+            self.review_companion.details.buffer.cursor_down(count=5)
+
+        review_visible = Condition(lambda: self.review_companion.visible)
+        keys.add("c-o")(toggle_review)
+        keys.add(
+            "c-g",
+            filter=review_visible
+            & Condition(lambda: self.attachment_send_review is None),
+        )(close_review)
+        keys.add("escape", "pageup", filter=review_visible)(review_up)
+        keys.add("escape", "pagedown", filter=review_visible)(review_down)
         keys.add("c-t")(toggle_activity)
         keys.add("c-y")(dismiss_error)
         keys.add("f2")(status_details)
@@ -573,7 +602,11 @@ class ConversationTUI:
                     ],
                     padding=1,
                 ),
-                self.activity.panel(lambda: self.app.output.get_size().columns),
+                self.review_companion.panel(lambda: self.app.output.get_size().columns),
+                self.activity.panel(
+                    lambda: self.app.output.get_size().columns,
+                    compact=lambda: self.review_companion.visible,
+                ),
                 composer(self.editor_control),
                 ConditionalContainer(
                     Window(
@@ -651,7 +684,9 @@ class ConversationTUI:
         destination: str,
     ) -> str:
         lines = [
-            f"Destination: {destination}",
+            "Action: Queue one message with frozen diff excerpts",
+            f"Scope / destination: {destination}",
+            "Reason: Review the exact source bytes and recipient before sending.",
             "Queues one chat message. Diff text is untrusted source data.",
             "No Git edit, tool, review, provider choice, or new spend authority.",
             "Live dispatch still requires its separately selected policy and cap.",
@@ -670,6 +705,8 @@ class ConversationTUI:
                     + json.dumps(item.path, ensure_ascii=True)
                     + f" • {item.basis.value}",
                     f"   snapshot {item.snapshot_digest}",
+                    f"   patch {item.patch_digest}",
+                    f"   excerpt SHA-256 {item.excerpt_digest}",
                     "   excerpt (exact JSON string):",
                     "   " + json.dumps(item.excerpt, ensure_ascii=True),
                     "",
@@ -942,7 +979,10 @@ class ConversationTUI:
             and self.controller.pending_text_bytes >= limits.max_bytes,
             goal_status=None if goal is None else goal.status,
         )
-        return summary + "\nF2 details • Tab focus • F3 review • F5 history"
+        return (
+            summary
+            + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+        )
 
     def header_details(self) -> str:
         state = self.controller.state
@@ -1210,6 +1250,7 @@ class ConversationTUI:
         self.app.invalidate()
 
     def emit(self, event: dict[str, object]) -> None:
+        self.review_companion.receive(event)
         self.activity.receive(event)
         if event["type"] == "conversation.update":
             self.set_notice(str(event["text"]))
@@ -1311,15 +1352,29 @@ class ConversationTUI:
             "conversation.memory.proposal.saved",
             "conversation.memory.proposal.discarded",
         }:
-            if self.history:
+            preview = str(event["type"]).endswith(".preview")
+            if self.history and not preview:
                 self.history.close()
-            self.memory_report = "Saved memory receipt (rerun to refresh)\n" + str(
-                event["text"]
+            title = (
+                "Memory change preview (not applied)"
+                if preview
+                else "Memory change discarded"
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt (rerun to refresh)"
+            )
+            self.memory_report = (
+                title + " • Ctrl-O inspects the exact target, hash and resulting text."
+                if preview
+                else title + "\n" + str(event["text"])
             )
             self.memory_visible = self.directory_visible = False
             self.context_preview = None
             self.set_notice(
-                "Saved memory receipt shown. /memory shows active session memory."
+                "Memory change preview shown. Ctrl-O inspects exact details."
+                if preview
+                else "Memory change discarded. /memory inspects active context."
+                if str(event["type"]).endswith(".discarded")
+                else "Saved memory receipt shown. /memory shows active session memory."
             )
             self.refresh()
             return
