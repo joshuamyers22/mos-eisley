@@ -171,13 +171,15 @@ class CaskTests(unittest.TestCase):
     def test_foreign_team_cannot_self_enroll_through_receipts(self) -> None:
         for target in ("macos-aarch64", "macos-x86_64"):
             self.package(target, development=False, team="FGHIJ67890")
-        with patch("tools.package_macos_cask.verify_image") as verify:
-            with self.assertRaisesRegex(ValueError, "trusted publisher selection"):
-                generate(
-                    self.base,
-                    development=False,
-                    identity=Identity("0.1.0-rc.4", "a" * 40, "ABCDE12345"),
-                )
+        with (
+            patch("tools.package_macos_cask.verify_image") as verify,
+            self.assertRaisesRegex(ValueError, "trusted publisher selection"),
+        ):
+            generate(
+                self.base,
+                development=False,
+                identity=Identity("0.1.0-rc.4", "a" * 40, "ABCDE12345"),
+            )
         verify.assert_not_called()
 
     def test_source_claim_cannot_replace_selected_release(self) -> None:
