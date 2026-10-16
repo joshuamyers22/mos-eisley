@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tools.build_macos_cask import validate_bundle, verify_signature
-from tools.package_macos_cask import generate, load_package
+from tools.package_macos_cask import Identity, generate, load_package
 
 
 class CaskTests(unittest.TestCase):
@@ -81,7 +81,7 @@ class CaskTests(unittest.TestCase):
     def test_development_artifacts_cannot_be_promoted(self) -> None:
         receipt = self.package("macos-aarch64")
         with self.assertRaisesRegex(ValueError, "development mode mismatch"):
-            load_package(receipt, development=False)
+            load_package(receipt, development=False, expected_team="ABCDE12345")
 
     def test_one_architecture_is_insufficient(self) -> None:
         self.package("macos-aarch64")
@@ -128,7 +128,7 @@ class CaskTests(unittest.TestCase):
             patch("tools.package_macos_cask.verify_image") as verify,
             self.assertRaisesRegex(ValueError, "accepted notarization"),
         ):
-            load_package(receipt, development=False)
+            load_package(receipt, development=False, expected_team="ABCDE12345")
         verify.assert_not_called()
 
     def test_forged_json_cannot_replace_actual_apple_assessment(self) -> None:
@@ -138,14 +138,18 @@ class CaskTests(unittest.TestCase):
             patch("tools.package_macos_cask.verify_image", side_effect=error) as verify,
             self.assertRaises(subprocess.CalledProcessError),
         ):
-            load_package(receipt, development=False)
+            load_package(receipt, development=False, expected_team="ABCDE12345")
         verify.assert_called_once_with(receipt.with_suffix(".dmg"), "ABCDE12345")
 
     def test_production_generation_reassesses_both_actual_images(self) -> None:
         for target in ("macos-aarch64", "macos-x86_64"):
             self.package(target, development=False)
         with patch("tools.package_macos_cask.verify_image") as verify:
-            content = generate(self.base, development=False)
+            content = generate(
+                self.base,
+                development=False,
+                identity=Identity("0.1.0-rc.4", "a" * 40, "ABCDE12345"),
+            )
         self.assertEqual(verify.call_count, 2)
         self.assertIn("releases/download/v0.1.0-rc.4/", content)
         self.assertNotIn("disable!", content)
@@ -156,9 +160,38 @@ class CaskTests(unittest.TestCase):
         self.package("macos-x86_64", development=False, team="FGHIJ67890")
         with (
             patch("tools.package_macos_cask.verify_image"),
-            self.assertRaisesRegex(ValueError, "mixed cask"),
+            self.assertRaisesRegex(ValueError, "trusted publisher selection"),
         ):
-            generate(self.base, development=False)
+            generate(
+                self.base,
+                development=False,
+                identity=Identity("0.1.0-rc.4", "a" * 40, "ABCDE12345"),
+            )
+
+    def test_foreign_team_cannot_self_enroll_through_receipts(self) -> None:
+        for target in ("macos-aarch64", "macos-x86_64"):
+            self.package(target, development=False, team="FGHIJ67890")
+        with patch("tools.package_macos_cask.verify_image") as verify:
+            with self.assertRaisesRegex(ValueError, "trusted publisher selection"):
+                generate(
+                    self.base,
+                    development=False,
+                    identity=Identity("0.1.0-rc.4", "a" * 40, "ABCDE12345"),
+                )
+        verify.assert_not_called()
+
+    def test_source_claim_cannot_replace_selected_release(self) -> None:
+        for target in ("macos-aarch64", "macos-x86_64"):
+            self.package(target, development=False)
+        with (
+            patch("tools.package_macos_cask.verify_image"),
+            self.assertRaisesRegex(ValueError, "selected version, source"),
+        ):
+            generate(
+                self.base,
+                development=False,
+                identity=Identity("0.1.0-rc.4", "b" * 40, "ABCDE12345"),
+            )
 
     def test_external_payload_link_is_refused(self) -> None:
         bundle = self.base / "bundle"

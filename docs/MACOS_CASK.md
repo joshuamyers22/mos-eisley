@@ -57,11 +57,14 @@ be gathered without changing bytes, then the cask generator checks source,
 version, architecture, team, size and hash and reassesses both real images:
 
 ```sh
-uv run --frozen python -m tools.package_macos_cask --artifacts dist/cask
+uv run --frozen python -m tools.package_macos_cask --artifacts dist/cask \
+  --team-id "$MOS_APPLE_TEAM_ID"
 ```
 
 Receipts are coordination evidence, not authorization or a replacement for actual
-Apple checks. Before public release, include both DMGs and qualification records
+Apple checks. Production generation pins version/source to its clean mainline tag
+and pins the expected Apple team from owner configuration, not artifact claims.
+Before public release, include both DMGs and qualification records
 in the new version's complete protected immutable publication inventory. The
 current standalone publisher does not yet admit these additional asset types;
 that integration remains an explicit release gate, not an implied side effect

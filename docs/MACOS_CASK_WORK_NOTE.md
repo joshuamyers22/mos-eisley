@@ -72,9 +72,13 @@ Checksums/JSON receipts alone do not authenticate Apple notarization. Protected
 publisher review must verify native execution evidence and exact signed packages.
 
 Bound: one combined full quality gate, focused boundary tests immediately, two
-native development builds, at most three evidence-changing corrections, zero
+native development builds, four evidence-changing correction passes, zero
 provider spend. Stop publication on any identity/trust/state mismatch or missing
 Apple custody. Do not replace missing external trust evidence with a simulation.
+
+The fourth bounded pass pins the independently selected publisher team and
+version/source at generation, with foreign-team/self-enrollment and source
+substitution refusal checks; receipt agreement alone is insufficient.
 
 ## Handoff
 

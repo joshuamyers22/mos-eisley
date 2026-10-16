@@ -17,8 +17,11 @@ def main() -> int:
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--development", action="store_true")
+    parser.add_argument("--team-id", help="Expected publisher Apple Team ID")
     args = parser.parse_args()
-    package = load_package(args.receipt, development=args.development)
+    package = load_package(
+        args.receipt, development=args.development, expected_team=args.team_id
+    )
     with tempfile.TemporaryDirectory(prefix="mos-cask-smoke-") as temporary:
         base = Path(temporary).resolve()
         mount = base / "mount"

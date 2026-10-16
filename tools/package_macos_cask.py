@@ -6,6 +6,8 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -26,13 +28,22 @@ class Package:
     team: str | None
 
 
+@dataclass(frozen=True)
+class Identity:
+    version: str
+    source: str
+    team: str
+
+
 def mapping(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ValueError("invalid cask receipt object")
     return cast(dict[str, object], value)
 
 
-def load_package(receipt: Path, *, development: bool) -> Package:
+def load_package(
+    receipt: Path, *, development: bool, expected_team: str | None = None
+) -> Package:
     if receipt.is_symlink() or not receipt.is_file():
         raise ValueError("unsafe or missing cask receipt")
     raw = mapping(json.loads(receipt.read_text()))
@@ -72,6 +83,8 @@ def load_package(receipt: Path, *, development: bool) -> Package:
     if not isinstance(checksum, str):
         raise ValueError("invalid cask checksum")
     if not development:
+        if not expected_team or team != expected_team:
+            raise ValueError("Apple team differs from trusted publisher selection")
         notarization = mapping(raw.get("notarization"))
         if (
             raw.get("apple_trust_verified") is not True
@@ -87,14 +100,31 @@ def load_package(receipt: Path, *, development: bool) -> Package:
     return Package(version, source, target, image, checksum, team)
 
 
-def generate(artifacts: Path, *, development: bool) -> str:
+def generate(
+    artifacts: Path, *, development: bool, identity: Identity | None = None
+) -> str:
+    if not development and identity is None:
+        raise ValueError(
+            "production requires an independently selected release identity"
+        )
     packages = [
-        load_package(path, development=development) for path in artifacts.glob("*.json")
+        load_package(
+            path,
+            development=development,
+            expected_team=identity.team if identity else None,
+        )
+        for path in artifacts.glob("*.json")
     ]
     if len(packages) != 2 or {p.platform for p in packages} != PLATFORMS:
         raise ValueError("both unique native macOS architectures are required")
     if len({(p.version, p.source, p.team) for p in packages}) != 1:
         raise ValueError("mixed cask versions, source commits or Apple teams")
+    if identity is not None and any(
+        (p.version, p.source, p.team)
+        != (identity.version, identity.source, identity.team)
+        for p in packages
+    ):
+        raise ValueError("cask differs from selected version, source or Apple team")
     by_platform = {p.platform: p for p in packages}
     arm, intel = by_platform["macos-aarch64"], by_platform["macos-x86_64"]
     suffix = "-development" if development else ""
@@ -155,8 +185,34 @@ def main() -> int:
         "--output", type=Path, default=Path("dist/cask/Casks/mos-eisley.rb")
     )
     parser.add_argument("--development", action="store_true")
+    parser.add_argument("--team-id", help="Expected publisher Apple Team ID")
     args = parser.parse_args()
-    content = generate(args.artifacts, development=args.development)
+    identity = None
+    if not args.development:
+        if not re.fullmatch(r"[A-Z0-9]{10}", args.team_id or ""):
+            parser.error("production requires the expected publisher --team-id")
+        version = tomllib.loads(Path("pyproject.toml").read_text())["project"][
+            "version"
+        ]
+        source = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
+        tagged = subprocess.check_output(
+            ["git", "rev-parse", f"refs/tags/v{version}^{{commit}}"], text=True
+        ).strip()
+        if (
+            source != tagged
+            or subprocess.check_output(
+                ["git", "status", "--porcelain"], text=True
+            ).strip()
+        ):
+            parser.error("production requires the clean exact version-tag checkout")
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", source, "refs/remotes/origin/main"],
+            check=True,
+        )
+        identity = Identity(version, source, args.team_id)
+    content = generate(args.artifacts, development=args.development, identity=identity)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(content)
     print(args.output)
