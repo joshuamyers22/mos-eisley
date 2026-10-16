@@ -14,51 +14,54 @@ from pathlib import Path
 def main() -> int:
     command = argparse.ArgumentParser(description=__doc__)
     command.add_argument("--output", type=Path, default=Path("dist/standalone"))
+    command.add_argument("--codesign-identity", help="macOS Developer ID identity")
     args = command.parse_args()
     from mos_eisley.app_release import platform_id
 
     version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        [
-            "uv",
-            "run",
-            "--frozen",
-            "--python",
-            "3.12.14",
-            "--managed-python",
-            "--group",
-            "distribution",
-            "python",
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--clean",
-            "--onedir",
-            "--name",
-            "mos",
-            "--noupx",
-            "--distpath",
-            str(output / "bundle"),
-            "--workpath",
-            str(output / "build"),
-            "--specpath",
-            str(output / "build"),
-            "--collect-all",
-            "mos_eisley",
-            "--collect-all",
-            "keyring",
-            "--collect-all",
-            "cryptography",
-            "--copy-metadata",
-            "mos-eisley",
-            "--recursive-copy-metadata",
-            "mcp",
-            "tools/app_entry.py",
-        ],
-        check=True,
-    )
+    build_command = [
+        "uv",
+        "run",
+        "--frozen",
+        "--python",
+        "3.12.14",
+        "--managed-python",
+        "--group",
+        "distribution",
+        "python",
+        "-m",
+        "PyInstaller",
+        "--noconfirm",
+        "--clean",
+        "--onedir",
+        "--name",
+        "mos",
+        "--noupx",
+        "--distpath",
+        str(output / "bundle"),
+        "--workpath",
+        str(output / "build"),
+        "--specpath",
+        str(output / "build"),
+        "--collect-all",
+        "mos_eisley",
+        "--collect-all",
+        "keyring",
+        "--collect-all",
+        "cryptography",
+        "--copy-metadata",
+        "mos-eisley",
+        "--recursive-copy-metadata",
+        "mcp",
+        "tools/app_entry.py",
+    ]
+    if args.codesign_identity:
+        if not platform_id().startswith("macos-"):
+            command.error("Developer ID signing requires macOS")
+        build_command.extend(["--codesign-identity", args.codesign_identity])
+    subprocess.run(build_command, check=True)
     bundle = output / "bundle/mos"
     subprocess.run([str(bundle / "mos"), "--version"], check=True)
     subprocess.run([str(bundle / "mos"), "setup", "--json"], check=True)

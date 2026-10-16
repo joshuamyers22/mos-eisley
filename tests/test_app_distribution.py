@@ -489,7 +489,7 @@ class DistributionTests(unittest.TestCase):
             )
 
     def test_manager_origin_does_not_replace_other_environment(self) -> None:
-        for origin in ("npm", "homebrew", "developer"):
+        for origin in ("npm", "homebrew", "homebrew-cask", "developer"):
             with (
                 patch.object(app_update, "installation_origin", return_value=origin),
                 patch.object(app_update, "release_metadata") as fetch,
@@ -497,6 +497,29 @@ class DistributionTests(unittest.TestCase):
                 with self.assertRaises(ReleaseError):
                     app_update.update(self.root, confirmed=True)
                 fetch.assert_not_called()
+
+    def test_cask_receipt_owns_update_guidance_even_with_standalone_present(
+        self,
+    ) -> None:
+        self.install()
+        executable = self.base / "cask" / "mos"
+        executable.parent.mkdir()
+        (executable.parent / "installation-origin.json").write_text(
+            json.dumps({"origin": "homebrew-cask"})
+        )
+        with (
+            patch.object(app_update.sys, "frozen", True, create=True),
+            patch.object(app_update.sys, "executable", str(executable)),
+        ):
+            self.assertEqual(app_update.installation_origin(self.root), "homebrew-cask")
+            with self.assertRaisesRegex(ReleaseError, "brew upgrade --cask"):
+                app_update.update(self.root, confirmed=True)
+        for version in ("0.1.0-rc.4", "0.1.0"):
+            with patch.object(app_update, "installed_version", return_value=version):
+                self.assertIn(
+                    "brew upgrade --cask joshuamyers22/mos-eisley/mos-eisley",
+                    app_update.manual_instructions("homebrew-cask", None),
+                )
 
     def test_developer_origin_not_inferred_from_standalone_root(self) -> None:
         self.install()

@@ -1,0 +1,82 @@
+name: macOS cask preparation
+on:
+  pull_request:
+    paths:
+      - .github/workflows/macos-cask.yml
+      - tools/build_standalone.py
+      - tools/build_macos_cask.py
+      - tools/package_macos_cask.py
+      - tools/smoke_macos_cask.py
+      - tests/test_macos_cask.py
+      - src/mos_eisley/app_update.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/macos-cask.yml
+      - tools/*macos_cask.py
+      - tools/build_standalone.py
+      - src/mos_eisley/app_update.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-layout:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev --group distribution --python 3.12.14 --managed-python
+      - run: uv run --frozen python -m unittest discover -s tests -p test_macos_cask.py -v
+      - run: uv run --frozen python tools/build_standalone.py --output dist/cask-native
+      - name: Build explicitly unpublished development image
+        run: uv run --frozen python -m tools.build_macos_cask --bundle dist/cask-native/bundle/mos --development
+      - name: Verify native read-only layout, setup, recorded chat and cold resume
+        shell: bash
+        run: |
+          CASK_RECEIPT=$(find dist/cask -maxdepth 1 -name '*.json' -print)
+          uv run --frozen python -m tools.smoke_macos_cask --receipt "$CASK_RECEIPT" --development --evidence "dist/cask-evidence/layout-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cask-native-${{ matrix.os }}
+          path: |
+            dist/cask/*.dmg
+            dist/cask/*.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cask-layout-${{ matrix.os }}
+          path: dist/cask-evidence/*.json
+          if-no-files-found: error
+  assemble-review:
+    needs: native-layout
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --dev
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: cask-native-*
+          path: dist/cask
+          merge-multiple: true
+      - run: uv run --frozen python -m tools.package_macos_cask --artifacts dist/cask --development
+      - run: brew style dist/cask/Casks/mos-eisley.rb
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: cask-review-disabled
+          path: dist/cask/Casks/mos-eisley.rb
+          if-no-files-found: error
