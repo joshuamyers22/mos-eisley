@@ -624,6 +624,14 @@ the project-tap route available and do not claim the shorter command until publi
 installation passes. No delivery date is committed. See
 [plan §29.4](mos-eisley-plan.md#294-homebrew-cask-installation-milestone).
 
+The [macOS cask preparation](MACOS_CASK.md) defines the native DMG layout,
+Developer ID/notarization requirements, cask update ownership, native development
+builds and exact lifecycle/publication gates. The owner has no Developer ID;
+ad-hoc preview artifacts fail Gatekeeper and quarantined execution. Development
+images and disabled cask candidates are not installation or publication
+qualification. Public cask availability remains blocked on Apple custody and
+fresh signed native lifecycle evidence; existing rc.3 is retained unchanged.
+
 **Embedded terminal emulator, 2026-09-20 — planned after Windows and updates:**
 after native Windows parity, guided updates and supported installation journeys are
 qualified, add named workspace/worktree-bound terminal panes that continue running

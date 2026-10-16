@@ -139,7 +139,7 @@ def installation_origin(root: Path) -> str:
     receipt = Path(sys.executable).parent / "installation-origin.json"
     if getattr(sys, "frozen", False) and receipt.is_file():
         value = json.loads(receipt.read_text())
-        if value.get("origin") in {"npm", "homebrew"}:
+        if value.get("origin") in {"npm", "homebrew", "homebrew-cask"}:
             return cast(str, value["origin"])
     if getattr(sys, "frozen", False) and (root / "install.json").is_file():
         value = json.loads((root / "install.json").read_text())
@@ -289,6 +289,11 @@ def update(root: Path, *, confirmed: bool, target: str | None = None) -> str:
 
 def manual_instructions(origin: str, target: str | None) -> str:
     preview = "-rc." in installed_version()
+    if origin == "homebrew-cask":
+        return (
+            "Close Mos sessions, then run: brew upgrade --cask "
+            "joshuamyers22/mos-eisley/mos-eisley"
+        )
     if origin == "npm":
         selected = target or ("preview" if preview else "latest")
         return (
