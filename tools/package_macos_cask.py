@@ -132,7 +132,7 @@ def generate(artifacts: Path, *, development: bool) -> str:
     lines.extend(
         [
             "",
-            '  depends_on macos: :sequoia',
+            "  depends_on macos: :sequoia",
             "",
             '  binary "Mos Eisley/mos"',
         ]
