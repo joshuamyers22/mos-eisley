@@ -31,9 +31,14 @@ MACHO = {
 
 
 def run(*arguments: str, timeout: int = 120) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        arguments, check=True, capture_output=True, text=True, timeout=timeout
+    result = subprocess.run(
+        arguments, check=False, capture_output=True, text=True, timeout=timeout
     )
+    if result.returncode:
+        raise RuntimeError(
+            f"{arguments[0]} failed ({result.returncode}): {result.stderr[-2000:]}"
+        )
+    return result
 
 
 def verify_signature(path: Path, team: str, *, runtime: bool) -> None:
@@ -165,6 +170,8 @@ def main() -> int:
             str(payload),
             "-format",
             "UDZO",
+            "-fs",
+            "HFS+",
             str(image),
             timeout=300,
         )

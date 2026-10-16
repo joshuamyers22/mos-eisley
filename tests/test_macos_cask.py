@@ -6,6 +6,7 @@ import hashlib
 import json
 import plistlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,19 @@ class CaskTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name).resolve()
+
+    def test_workflow_module_entry_points_are_executable(self) -> None:
+        repository = Path(__file__).resolve().parent.parent
+        for module in ("build_macos_cask", "package_macos_cask", "smoke_macos_cask"):
+            result = subprocess.run(
+                [sys.executable, "-m", f"tools.{module}", "--help"],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("usage:", result.stdout)
 
     def package(
         self,

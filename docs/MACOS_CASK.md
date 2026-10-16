@@ -42,7 +42,7 @@ Build on each native architecture from the same clean, tagged mainline version:
 ```sh
 uv run --frozen python tools/build_standalone.py --output dist/cask-native \
   --codesign-identity "$MOS_APPLE_SIGNING_IDENTITY"
-uv run --frozen python tools/build_macos_cask.py \
+uv run --frozen python -m tools.build_macos_cask \
   --bundle dist/cask-native/bundle/mos \
   --identity "$MOS_APPLE_SIGNING_IDENTITY" --team-id "$MOS_APPLE_TEAM_ID" \
   --notary-profile "$MOS_APPLE_NOTARY_PROFILE"
@@ -57,7 +57,7 @@ be gathered without changing bytes, then the cask generator checks source,
 version, architecture, team, size and hash and reassesses both real images:
 
 ```sh
-uv run --frozen python tools/package_macos_cask.py --artifacts dist/cask
+uv run --frozen python -m tools.package_macos_cask --artifacts dist/cask
 ```
 
 Receipts are coordination evidence, not authorization or a replacement for actual

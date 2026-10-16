@@ -38,12 +38,12 @@ jobs:
       - run: uv run --frozen python -m unittest discover -s tests -p test_macos_cask.py -v
       - run: uv run --frozen python tools/build_standalone.py --output dist/cask-native
       - name: Build explicitly unpublished development image
-        run: uv run --frozen python tools/build_macos_cask.py --bundle dist/cask-native/bundle/mos --development
+        run: uv run --frozen python -m tools.build_macos_cask --bundle dist/cask-native/bundle/mos --development
       - name: Verify native read-only layout, setup, recorded chat and cold resume
         shell: bash
         run: |
           CASK_RECEIPT=$(find dist/cask -maxdepth 1 -name '*.json' -print)
-          uv run --frozen python tools/smoke_macos_cask.py --receipt "$CASK_RECEIPT" --development --evidence "dist/cask-evidence/layout-${{ matrix.os }}.json"
+          uv run --frozen python -m tools.smoke_macos_cask --receipt "$CASK_RECEIPT" --development --evidence "dist/cask-evidence/layout-${{ matrix.os }}.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: cask-native-${{ matrix.os }}
@@ -73,7 +73,7 @@ jobs:
           pattern: cask-native-*
           path: dist/cask
           merge-multiple: true
-      - run: uv run --frozen python tools/package_macos_cask.py --artifacts dist/cask --development
+      - run: uv run --frozen python -m tools.package_macos_cask --artifacts dist/cask --development
       - run: brew style dist/cask/Casks/mos-eisley.rb
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
