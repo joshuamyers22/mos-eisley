@@ -71,7 +71,9 @@ from mos_eisley.conversation_presentation import (
     conversation_color_depth,
     conversation_style,
     fit_label,
+    footer_text,
     header_fragments,
+    keyboard_help,
     model_route,
     panel_section,
     tool_availability,
@@ -249,7 +251,9 @@ class ConversationTUI:
             scrollbar=True,
             wrap_lines=False,
             lexer=DiffLexer(),
-            height=Dimension(min=2, max=6),
+            height=lambda: Dimension(
+                min=1 if self.app.output.get_size().rows < 24 else 2, max=6
+            ),
         )
         self.diff_files.window.dont_extend_height = Condition(lambda: True)
         self.diff_content = TextArea(
@@ -568,7 +572,7 @@ class ConversationTUI:
                     FormattedTextControl(lambda: header_fragments(self.header())),
                     height=lambda: len(self.header().splitlines()),
                 ),
-                Window(height=1),
+                Window(height=lambda: 0 if self.app.output.get_size().rows < 24 else 1),
                 VSplit(
                     [
                         ConditionalContainer(
@@ -620,9 +624,14 @@ class ConversationTUI:
                 self.review_companion.panel(lambda: self.app.output.get_size().columns),
                 self.activity.panel(
                     lambda: self.app.output.get_size().columns,
-                    compact=lambda: self.review_companion.visible,
+                    compact=lambda: (
+                        self.review_companion.visible
+                        or self.app.output.get_size().rows < 24
+                    ),
                 ),
-                composer(self.editor_control),
+                composer(
+                    self.editor_control, lambda: self.app.output.get_size().columns
+                ),
                 ConditionalContainer(
                     Window(
                         FormattedTextControl(self.attachment_preview),
@@ -641,9 +650,9 @@ class ConversationTUI:
                 ),
                 Window(
                     FormattedTextControl(self.footer),
-                    height=Dimension(min=2, max=4),
+                    height=lambda: 3 if self.diff_visible else 2,
                     dont_extend_height=True,
-                    wrap_lines=True,
+                    wrap_lines=False,
                     style="class:status",
                 ),
             ]
@@ -802,7 +811,7 @@ class ConversationTUI:
         if self.diff_visible:
             self.diff_loading = True
             self.diff_error = None
-            self.set_notice("Diff panel open. F10 closes; Tab moves between panes.")
+            self.set_notice("Diff panel open.")
         else:
             if self.app.layout.has_focus(self.diff_files) or self.app.layout.has_focus(
                 self.diff_content
@@ -1004,14 +1013,10 @@ class ConversationTUI:
             and self.controller.pending_text_bytes >= limits.max_bytes,
             goal_status=None if goal is None else goal.status,
         )
-        if self.diff_visible:
-            return (
-                summary + "\nTab focus • F10 close • ↑/↓ files"
-                "\nF11 expand • F12 attach • Ctrl-X remove"
-            )
-        return (
-            summary
-            + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+        return footer_text(
+            summary,
+            self.app.output.get_size().columns,
+            diff="files" if self.diff_visible else None,
         )
 
     def header_details(self) -> str:
@@ -1314,6 +1319,7 @@ class ConversationTUI:
             text = str(event["text"])
             if event["type"] == "conversation.status":
                 text += "\n\n" + self.header_details() + "\n" + self.status()
+                text += "\n\n" + keyboard_help("files")
                 if self.welcome:
                     text += "\n\nLaunch details\n" + self.welcome
             selected = (revision, text)
@@ -1597,10 +1603,7 @@ class ConversationTUI:
                     self.restart_diff_poll()
                 if not literal and memory_phrase_command(text) is not None:
                     return
-                self.set_notice(
-                    "Message queued. Enter sends • Alt-Enter adds a line • "
-                    "Ctrl-C stops • Ctrl-D quits"
-                )
+                self.set_notice("Message queued.")
         except asyncio.QueueFull:
             self.set_error(
                 "Input queue is full; draft retained.",

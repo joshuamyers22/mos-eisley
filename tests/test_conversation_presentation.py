@@ -14,6 +14,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase, TestCase
 
 from prompt_toolkit.application.current import set_app
+from prompt_toolkit.data_structures import Size
 from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
@@ -23,10 +24,14 @@ from test_conversation_tui import controller, until
 from mos_eisley.conversation_cli import DEMO_PROMPTS, add_commands, startup_arguments
 from mos_eisley.conversation_git_review_tui import GitReviewTUI
 from mos_eisley.conversation_presentation import (
+    COMPOSER_KEYS,
     TerminalTheme,
     compact_header,
     conversation_style,
     fit_label,
+    footer_text,
+    hint_line,
+    keyboard_help,
 )
 from mos_eisley.conversation_project import ProjectLocation
 from mos_eisley.conversation_state import ConversationEntry
@@ -35,6 +40,30 @@ from mos_eisley.core.models import canonical_bytes
 
 
 class PresentationTests(TestCase):
+    def test_narrow_footer_and_composer_hints_fit_without_extra_rows(self) -> None:
+        for width in (112, 80, 64, 48, 40, 32, 24, 16):
+            for diff in (None, "files", "git"):
+                with self.subTest(width=width, diff=diff):
+                    text = footer_text("responding • 项目 " * 30, width, diff=diff)
+                    self.assertEqual(len(text.splitlines()), 2 if diff is None else 3)
+                    for line in text.splitlines():
+                        self.assertLess(get_cwidth(line), width)
+                    self.assertIn("responding", text)
+                    if diff is not None:
+                        self.assertIn("F10 close", text)
+            self.assertLess(
+                get_cwidth(hint_line(width, (COMPOSER_KEYS, "Enter send"))), width
+            )
+        narrow = footer_text("idle", 64)
+        self.assertIn("Ctrl-O approval", narrow)
+        self.assertNotIn("…", narrow)
+
+    def test_omitted_keys_remain_inspectable(self) -> None:
+        for diff in ("files", "git"):
+            full = keyboard_help(diff)
+            for key in ("Ctrl-C stop", "Ctrl-D quit", "F3 review", "F5 history", "F12"):
+                self.assertIn(key, full)
+
     def test_color_selection_and_no_color_do_not_force_terminal_background(
         self,
     ) -> None:
@@ -87,6 +116,97 @@ class PresentationTests(TestCase):
 
 
 class PresentationKeyboardTests(IsolatedAsyncioTestCase):
+    async def test_resize_and_output_keep_draft_focus_and_transcript_anchor(
+        self,
+    ) -> None:
+        class ResizableOutput(DummyOutput):
+            columns = 64
+            rows = 24
+
+            def get_size(self) -> Size:
+                return Size(rows=self.rows, columns=self.columns)
+
+        for kind in (ConversationTUI, GitReviewTUI):
+            for theme in ("dark", "light", "plain"):
+                with (
+                    self.subTest(renderer=kind.__name__, theme=theme),
+                    create_pipe_input() as input,
+                ):
+                    chat = controller()
+                    chat.submit(DEMO_PROMPTS[0])
+                    await chat.step()
+                    chat.state = chat.state.model_copy(
+                        update={
+                            "entries": (
+                                chat.state.entries[0].model_copy(
+                                    update={"answer": "line\n" * 80}
+                                ),
+                            )
+                        }
+                    )
+                    output = ResizableOutput()
+                    ui = kind(chat, input=input, output=output, theme=theme)
+                    ui.editor.set_document(Document("Keep this\nDraft two", 5))
+                    ui.transcript.buffer.set_document(
+                        Document(ui.transcript.text, 12), bypass_readonly=True
+                    )
+                    task = asyncio.create_task(ui.run())
+                    try:
+                        await until(lambda ui=ui: ui.app.is_running)
+                        for width, height in (
+                            (64, 24),
+                            (48, 20),
+                            (40, 18),
+                            (32, 16),
+                            (80, 28),
+                        ):
+                            output.columns, output.rows = width, height
+                            ui.app.invalidate()
+                            await asyncio.sleep(0.05)
+                            chat.state = chat.state.model_copy(
+                                update={
+                                    "entries": chat.state.entries
+                                    + (
+                                        ConversationEntry(
+                                            text="New output", status="queued"
+                                        ),
+                                    )
+                                }
+                            )
+                            ui.refresh()
+                            self.assertEqual(
+                                ui.editor.document, Document("Keep this\nDraft two", 5)
+                            )
+                            self.assertTrue(ui.app.layout.has_focus(ui.editor_control))
+                            self.assertEqual(ui.transcript.buffer.cursor_position, 12)
+                            self.assertEqual(len(ui.footer().splitlines()), 2)
+                            for line in ui.footer().splitlines():
+                                self.assertLess(get_cwidth(line), width)
+                            footer = next(
+                                window
+                                for window in ui.app.layout.find_all_windows()
+                                if getattr(window.content, "text", None) == ui.footer
+                            )
+                            for visible in (False, True):
+                                ui.diff_visible = visible
+                                with set_app(ui.app):
+                                    dimension = footer.preferred_height(width, height)
+                                self.assertEqual(dimension.min, 3 if visible else 2)
+                            ui.diff_visible = False
+                        input.send_text("\x1bOQ")
+                        await until(
+                            lambda ui=ui: "Keyboard controls" in ui.transcript.text
+                        )
+                        self.assertIn("F3 review", ui.transcript.text)
+                        self.assertEqual(
+                            ui.editor.document, Document("Keep this\nDraft two", 5)
+                        )
+                    finally:
+                        input.send_text("\x04")
+                        await asyncio.wait_for(task, 3)
+                        if isinstance(ui, ConversationTUI):
+                            ui.diff_executor.shutdown(wait=False)
+
     async def test_composer_stays_compact_and_grows_with_multiline_drafts(self) -> None:
         for kind in (ConversationTUI, GitReviewTUI):
             with self.subTest(renderer=kind.__name__), create_pipe_input() as input:
