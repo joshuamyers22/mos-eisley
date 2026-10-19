@@ -214,7 +214,88 @@ class ConversationLexer(Lexer):
         return line
 
 
-def composer(control: BufferControl) -> HSplit:
+COMPOSER_KEYS = "Enter send • Alt-Enter newline • Ctrl-C stop • Ctrl-D quit"
+CONVERSATION_KEYS = "F2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+DiffFooter = Literal["files", "git"]
+DIFF_KEYS: dict[DiffFooter, tuple[str, str]] = {
+    "files": (
+        "Tab focus • F10 close • ↑/↓ files",
+        "F11 expand • F12 attach • Ctrl-X remove",
+    ),
+    "git": (
+        "Tab focus • F10 close • Ctrl-N/P files • Ctrl-R refresh",
+        "F11 attach • F12 findings • Ctrl-E expand",
+    ),
+}
+
+
+def hint_line(width: int, choices: tuple[str, ...]) -> str:
+    """Choose a complete hint, leaving the terminal's last column unused."""
+    budget = max(0, width - 1)
+    return next(
+        (text for text in choices if get_cwidth(text) <= budget),
+        fit_label(choices[-1], budget),
+    )
+
+
+def footer_text(summary: str, width: int, *, diff: DiffFooter | None = None) -> str:
+    lines = [fit_label(summary, max(0, width - 1))]
+    if diff is None:
+        lines.append(
+            hint_line(
+                width,
+                (
+                    CONVERSATION_KEYS,
+                    "F2 details • Ctrl-O approval • Tab focus • F5 history",
+                    "F2 details • Ctrl-O approval • F5 history",
+                    "F2 details • Ctrl-O approval",
+                    "F2 keys • Ctrl-O review",
+                    "F2 keys",
+                ),
+            )
+        )
+    else:
+        first, second = DIFF_KEYS[diff]
+        lines.append(
+            hint_line(
+                width,
+                (
+                    first,
+                    "F10 close • ↑/↓ files"
+                    if diff == "files"
+                    else "F10 close • Ctrl-N/P files",
+                    "F10 close • F2 keys",
+                    "F10 close",
+                ),
+            )
+        )
+        lines.append(
+            hint_line(
+                width,
+                (
+                    second,
+                    "F11 expand • F12 attach"
+                    if diff == "files"
+                    else "F11 attach • Ctrl-E expand",
+                    "F11 expand" if diff == "files" else "F11 attach",
+                    "F2 keys",
+                ),
+            )
+        )
+    return "\n".join(lines)
+
+
+def keyboard_help(diff: DiffFooter) -> str:
+    return "Keyboard controls\n" + "\n".join(
+        (
+            COMPOSER_KEYS,
+            CONVERSATION_KEYS,
+            *DIFF_KEYS[diff],
+        )
+    )
+
+
+def composer(control: BufferControl, width: Callable[[], int]) -> HSplit:
     control.input_processors = [
         *(control.input_processors or []),
         ConditionalProcessor(
@@ -239,9 +320,18 @@ def composer(control: BufferControl) -> HSplit:
             Window(height=1, char="─", style="class:separator"),
             Window(
                 FormattedTextControl(
-                    "Enter send • Alt-Enter newline • Ctrl-C stop • Ctrl-D quit"
+                    lambda: hint_line(
+                        width(),
+                        (
+                            COMPOSER_KEYS,
+                            "Enter send • Alt-Enter newline",
+                            "Enter send • Alt-Enter ↵",
+                            "Enter send",
+                        ),
+                    )
                 ),
                 height=1,
+                wrap_lines=False,
                 style="class:muted",
             ),
         ]

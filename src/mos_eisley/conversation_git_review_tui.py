@@ -67,7 +67,9 @@ from mos_eisley.conversation_presentation import (
     conversation_mode,
     conversation_style,
     fit_label,
+    footer_text,
     header_fragments,
+    keyboard_help,
     model_route,
     panel_section,
     tool_availability,
@@ -582,7 +584,7 @@ class GitReviewTUI:
                     FormattedTextControl(lambda: header_fragments(self.header())),
                     height=lambda: len(self.header().splitlines()),
                 ),
-                Window(height=1),
+                Window(height=lambda: 0 if self.app.output.get_size().rows < 24 else 1),
                 body,
                 ConditionalContainer(
                     Window(
@@ -595,9 +597,14 @@ class GitReviewTUI:
                 self.review_companion.panel(lambda: self.app.output.get_size().columns),
                 self.activity.panel(
                     lambda: self.app.output.get_size().columns,
-                    compact=lambda: self.review_companion.visible,
+                    compact=lambda: (
+                        self.review_companion.visible
+                        or self.app.output.get_size().rows < 24
+                    ),
                 ),
-                composer(self.editor_control),
+                composer(
+                    self.editor_control, lambda: self.app.output.get_size().columns
+                ),
                 Window(
                     FormattedTextControl(
                         lambda: self.activity.notice_text(display_text(self.notice))
@@ -608,9 +615,9 @@ class GitReviewTUI:
                 ),
                 Window(
                     FormattedTextControl(self.footer),
-                    height=Dimension(min=2, max=4),
+                    height=lambda: 3 if self.diff_visible else 2,
                     dont_extend_height=True,
-                    wrap_lines=True,
+                    wrap_lines=False,
                     style="class:status",
                 ),
             ]
@@ -888,14 +895,10 @@ class GitReviewTUI:
             and self.controller.pending_text_bytes >= limits.max_bytes,
             goal_status=None if goal is None else goal.status,
         )
-        if self.diff_visible:
-            return (
-                summary + "\nTab focus • F10 close • Ctrl-N/P files • Ctrl-R refresh"
-                "\nF11 attach • F12 findings • Ctrl-E expand"
-            )
-        return (
-            summary
-            + "\nF2 details • Ctrl-O approval • Tab focus • F3 review • F5 history"
+        return footer_text(
+            summary,
+            self.app.output.get_size().columns,
+            diff="git" if self.diff_visible else None,
         )
 
     def header_details(self) -> str:
@@ -1283,6 +1286,7 @@ class GitReviewTUI:
             text = str(event["text"])
             if event["type"] == "conversation.status":
                 text += "\n\n" + self.header_details() + "\n" + self.status()
+                text += "\n\n" + keyboard_help("git")
                 if self.welcome:
                     text += "\n\nLaunch details\n" + self.welcome
             selected = (revision, text)
@@ -1474,10 +1478,7 @@ class GitReviewTUI:
                     self.diff_attachments = ()
                 if not literal and memory_phrase_command(text) is not None:
                     return
-                self.set_notice(
-                    "Message queued. Enter sends • Alt-Enter adds a line • "
-                    "Ctrl-C stops • Ctrl-D quits"
-                )
+                self.set_notice("Message queued.")
         except asyncio.QueueFull:
             self.set_error(
                 "Input queue is full; draft retained.",
