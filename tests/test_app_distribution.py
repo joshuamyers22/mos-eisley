@@ -33,7 +33,7 @@ class DistributionTests(unittest.TestCase):
                 for signed_version, signed_source, error in (
                     (version, commit, None),
                     (version, "f" * 40, "source commit"),
-                    ("0.1.0-rc.3", commit, "version differs"),
+                    ("0.1.0-rc.999", commit, "version differs"),
                 ):
                     release, raw = self.release(
                         signed_version,
@@ -55,7 +55,7 @@ class DistributionTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, error):
                             published_predecessor(self.base, version)
         with self.assertRaisesRegex(ValueError, "unsupported published predecessor"):
-            published_predecessor(self.base, "0.1.0-rc.3")
+            published_predecessor(self.base, "0.1.0-rc.999")
 
     def test_qualification_requires_signed_source_and_archive_identity(self) -> None:
         from tools.qualify_published_upgrade import artifact
