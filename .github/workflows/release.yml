@@ -127,6 +127,17 @@ jobs:
           gh release download v0.1.0-rc.2 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.2-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc2
           chmod 700 ".work/published-predecessor-rc2/mos-install-$UPGRADE_PLATFORM"
           uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc2 --predecessor-version 0.1.0-rc.2 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc2-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.3" --jq 'select(.id == 414195118 and .immutable == true and .draft == false and .target_commitish == "b3f04b46fb2091e861bdf3fc5e900d933cf804b3") | .id' > predecessor-rc3-id.txt
+          test "$(cat predecessor-rc3-id.txt)" = 414195118
+          gh release download v0.1.0-rc.3 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.3-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc3
+          chmod 700 ".work/published-predecessor-rc3/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc3 --predecessor-version 0.1.0-rc.3 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc3-$UPGRADE_PLATFORM.json"
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json

@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.4 — candidate
+
+- Adapt conversation and diff keyboard hints to terminal width, preserving composer
+  space, drafts, focus and transcript anchors at 64×24 and smaller sizes. Keep
+  complete controls available through F2 and `/status` in dark, light and plain modes.
+- Prepare standalone macOS/Linux preview qualification, including upgrades from
+  the immutable rc.3 in addition to rc.1 and rc.2. Publication remains gated on
+  exact-candidate native checks and protected owner approval.
+
 ## 0.1.0-rc.3 — 2026-10-15
 
 - Publish the polished macOS/Linux standalone preview with enrolled-key signed
