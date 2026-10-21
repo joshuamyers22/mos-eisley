@@ -1,7 +1,7 @@
 # Narrow-terminal preview preparation
 
 - Owner: Joshua Myers
-- Status: preparing; narrow-terminal PR #316 must merge first
+- Status: unpublished; dependency audit blocked signing, superseded by rc.5
 - Candidate version: `0.1.0-rc.4`
 - Baseline: narrow-terminal fix `2860322`, based on main `1b5267d`
 - Published predecessor: immutable rc.3, source `b3f04b46fb2091e861bdf3fc5e900d933cf804b3`
@@ -32,3 +32,11 @@ source commit. Existing enrolled-signature, archive hash/size, bootstrap checksu
 and fail-closed unknown-version checks remain mandatory. No credentials or key
 bytes enter source or artifacts. Technical agent review is not independent
 security approval; protected publication requires the accountable owner.
+
+Closeout: PR #316 merged as `406bae3`; preparation PR #317 merged as `0f434ea`
+and tag `v0.1.0-rc.4` points to that commit. All four tagged native jobs passed,
+and the tagged Apple Silicon build passed 60 terminal layouts. Prepare passed
+source and installed-wheel tests, then stopped on certifi GHSA-6q48-6c7w-9gw2
+before signing. Preserve the failed immutable tag and use
+`docs/RC5_PREVIEW_WORK_NOTE.md` for the repaired candidate. No rc.4 publication
+or update of the owner's installation occurred.
