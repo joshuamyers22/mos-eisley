@@ -4,7 +4,12 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
-## 0.1.0-rc.4 — candidate
+## 0.1.0-rc.5 — candidate
+
+- Update the certifi trust bundle for GHSA-6q48-6c7w-9gw2. Supersede the
+  unpublished rc.4 candidate, whose dependency audit stopped signing.
+- Update CI/build uv to 0.13.4 and bootstrap the patched container-build pip
+  through a verified wheel hash for the related bundled-CA security incident.
 
 - Adapt conversation and diff keyboard hints to terminal width, preserving composer
   space, drafts, focus and transcript anchors at 64×24 and smaller sizes. Keep
@@ -12,6 +17,12 @@ Notable changes are recorded here using semantic versioning.
 - Prepare standalone macOS/Linux preview qualification, including upgrades from
   the immutable rc.3 in addition to rc.1 and rc.2. Publication remains gated on
   exact-candidate native checks and protected owner approval.
+
+## 0.1.0-rc.4 — unpublished
+
+- Preserve this immutable candidate tag. Its preparation stopped at the certifi
+  vulnerability audit before signing or publication; rc.5 carries its interface
+  and upgrade-qualification changes forward with the dependency repair.
 
 ## 0.1.0-rc.3 — 2026-10-15
 
