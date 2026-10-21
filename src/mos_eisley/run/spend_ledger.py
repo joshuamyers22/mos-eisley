@@ -21,6 +21,10 @@ _CONNECTION_SETUP_TIMEOUT_SECONDS = 5.0
 _OPERATION_BUSY_TIMEOUT_MILLISECONDS = 250
 
 
+class SpendBudgetError(ValueError):
+    """An aggregate reservation would exceed the existing spending ceiling."""
+
+
 class LedgerPolicy(Contract):
     schema_version: Literal[1] = 1
     ledger_id: Digest
@@ -452,7 +456,7 @@ class SpendLedger:
                 sum(entry.reserved_microusd for entry in entries)
                 > snapshot.available_microusd
             ):
-                raise ValueError("aggregate spending limit exceeded")
+                raise SpendBudgetError("aggregate spending limit exceeded")
             # Duplicate IDs, including one later in the group, abort the entire
             # SQLite transaction. A settled ID never authorizes another send.
             connection.executemany(

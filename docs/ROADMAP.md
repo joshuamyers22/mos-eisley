@@ -687,6 +687,14 @@ telemetry and platform/publication gates remain pending.
 See [plan §16.0.6](mos-eisley-plan.md#1606-clean-professional-terminal-interface)
 and the [implementation note](TERMINAL_INTERFACE_POLISH_WORK_NOTE.md).
 
+**Scriptable execution, 2026-10-21 — implemented; source and wheel checks passed:**
+[The one-shot contract](SCRIPTABLE_EXEC.md) adds bounded strict UTF-8 stdin or
+positional input, versioned NDJSON with one terminal result, stable exit codes
+and explicit review verdicts through the existing conversation composition.
+Source and installed-wheel journeys cover both stores and failure/cancellation
+boundaries. Live operation still requires existing consent, exact authority and
+spending admission; this adds no automatic launch or publication authority.
+
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
 adds a bounded paid-review launch preview, exact file/range attachments, and a

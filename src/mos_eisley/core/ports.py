@@ -50,6 +50,10 @@ class ProviderError(Exception):
         self.failure_stage = failure_stage
 
 
+class ProviderBudgetError(ProviderError):
+    """A local provider admission exceeded a declared resource ceiling."""
+
+
 class Reviewer(Protocol):
     async def critique(
         self, critic: CriticSpec, request: CriticRequest

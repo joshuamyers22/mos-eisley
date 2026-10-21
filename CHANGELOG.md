@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add one-shot `mos exec` with bounded strict UTF-8 input, versioned JSON
+  lifecycle/terminal output, explicit review verdicts and stable exit codes, using
+  the existing conversation controller and spending/cancellation boundaries.
+
 ## 0.1.0-rc.5 — candidate
 
 - Update the certifi trust bundle for GHSA-6q48-6c7w-9gw2. Supersede the
