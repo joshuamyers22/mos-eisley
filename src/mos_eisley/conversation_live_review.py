@@ -159,6 +159,8 @@ async def run_selected_live_review(
     packet: ConversationLiveReviewPacket,
     selection_path: Path,
     workspace: Path,
+    *,
+    diagnostics_to_stderr: bool = False,
 ) -> ReviewResult:
     selection, manifest_sha256 = read_selection(selection_path, workspace)
     if (
@@ -178,7 +180,14 @@ async def run_selected_live_review(
         if output.exists() or output.is_symlink():
             raise ValueError("live review output path was already used")
 
-    process = await asyncio.create_subprocess_exec(*selection.command(manifest_sha256))
+    if diagnostics_to_stderr:
+        process = await asyncio.create_subprocess_exec(
+            *selection.command(manifest_sha256), stdout=sys.stderr
+        )
+    else:
+        process = await asyncio.create_subprocess_exec(
+            *selection.command(manifest_sha256)
+        )
     try:
         status = await process.wait()
     except asyncio.CancelledError:

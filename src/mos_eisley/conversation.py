@@ -74,6 +74,12 @@ from mos_eisley.conversation_pressure import (
     make_pressure_boundary,
     measure_pressure_activity,
 )
+from mos_eisley.conversation_recovery import (
+    fingerprint,
+    transition_journal,
+    validate_journal,
+    workspace_identity,
+)
 from mos_eisley.conversation_request_admission import (
     AuthorCompactionAdmission,
     record_admission,
@@ -141,6 +147,7 @@ from mos_eisley.core.agent import (
     run_agent,
 )
 from mos_eisley.core.budget import Budget, BudgetPolicy, resolve_budget
+from mos_eisley.core.dispatch_guard import dispatch_guard
 from mos_eisley.core.models import (
     ReviewResult,
     canonical_bytes,
@@ -595,6 +602,8 @@ class ConversationController(ConversationCodingController[StateT]):
         updated = type(self.state).model_validate(
             dict(
                 schedules=schedules,
+                local_children=self.state.local_children,
+                recovery_journal=self.state.recovery_journal,
                 interaction_mode=self.state.interaction_mode
                 if interaction_mode is None
                 else interaction_mode,
@@ -639,11 +648,44 @@ class ConversationController(ConversationCodingController[StateT]):
         if self.input_limits is not None:
             self.input_limits.admit(updated.memory, self.cassette)
         try:
+            journal = transition_journal(
+                self.state, updated, lambda index: self._recovery_target(updated, index)
+            )
+            updated = updated.model_copy(update={"recovery_journal": journal})
+            validate_journal(journal, updated.session_id, updated.revision)
             saved = self.save(updated)
         except BaseException:
             self._broken = True
             raise
         self.state = updated if saved is None else saved
+
+    def _recovery_target(self, state: RuntimeConversationState, index: int) -> str:
+        entry = state.entries[index]
+        # Text-only turns have no repository target; bind the owned workspace
+        # identity. Tool-bearing turns additionally bind its exact source view.
+        admission = entry.request_admission
+        tools = entry.repository_inspection or (
+            admission is not None and admission.task_profile is not None
+        )
+        return (
+            self.observe_branch_workspace(state.workspace)
+            if tools
+            else workspace_identity(state.workspace)
+        )
+
+    def _revalidate_recovery_target(self, index: int) -> None:
+        journal = self.state.recovery_journal
+        assert journal is not None
+        event = next(
+            e
+            for e in reversed(journal.events)
+            if e.key == f"turn-{index}" and e.phase == "dispatch"
+        )
+        assert event.decision is not None
+        if self._recovery_target(self.state, index) != event.decision.target_sha256:
+            raise ValueError(
+                "Recovery target changed before dispatch; operation is not replayable."
+            )
 
     def refresh_memory(
         self,
@@ -691,6 +733,8 @@ class ConversationController(ConversationCodingController[StateT]):
         try:
             updated = type(self.state).model_validate(
                 dict(
+                    local_children=self.state.local_children,
+                    recovery_journal=self.state.recovery_journal,
                     session_id=self.state.session_id,
                     session_name=self.state.session_name,
                     owner_uid=self.state.owner_uid,
@@ -1556,6 +1600,13 @@ class ConversationController(ConversationCodingController[StateT]):
             )
         self._busy = True
 
+        tool_schema_sha256 = fingerprint(*request_dispatcher.definitions)
+
+        def revalidate_dispatch() -> None:
+            self._revalidate_recovery_target(index)
+            if fingerprint(*request_dispatcher.definitions) != tool_schema_sha256:
+                raise ValueError("Admitted tool capabilities changed before dispatch.")
+
         def replace(entry: ConversationEntry, *, started: bool = False) -> None:
             entries = list(self.state.entries)
             entries[index] = entry
@@ -1570,104 +1621,109 @@ class ConversationController(ConversationCodingController[StateT]):
             if on_started is not None:
                 on_started()
             try:
+                self._revalidate_recovery_target(index)
                 if not self.revalidate_schedule_dispatch(index):
                     raise ValueError(
                         "Scheduled work was stopped before provider dispatch."
                     )
-                if entry.review_packet is not None:
-                    packet = entry.review_packet
-                    if isinstance(packet, ConversationLiveReviewPacket):
-                        assert self.run_live_review is not None
-                        review_result = await self.run_live_review(packet)
-                        if review_result.verdict.brief_id != packet.brief.brief_id:
-                            raise ValueError(
-                                "live review result differs from frozen brief"
-                            )
-                        self._check_review_guidance(packet)
-                    else:
-                        review_result = (
-                            await run_conversation_review(
-                                packet,
-                                validate_guidance=lambda: self._check_review_guidance(
-                                    packet
-                                ),
-                            )
-                            if packet.guidance_review is not None
-                            else await run_conversation_review(packet)
-                        )
-                    if len(canonical_bytes(review_result)) > MAX_REVIEW_RESULT_BYTES:
-                        raise ValueError(
-                            "conversation review result exceeds byte limit"
-                        )
-                    completed = ConversationEntry(
-                        text=entry.text,
-                        repository_inspection=entry.repository_inspection,
-                        status="failed"
-                        if review_result.verdict.decision == "infrastructure_error"
-                        else "completed",
-                        answer=review_summary(
-                            review_result,
-                            live=isinstance(packet, ConversationLiveReviewPacket),
-                        ),
-                        review_packet=entry.review_packet,
-                        review_result=review_result,
-                    )
-                else:
-                    assert config is not None
-                    if self.state.mode != "recorded_conversation":
-                        assert self.run_live_chat is not None
-                        if (
-                            entry.implementation_request
-                            and self.run_live_coding is not None
-                        ):
-                            result = await self.run_live_coding(config, consumed)
+                with dispatch_guard(revalidate_dispatch):
+                    if entry.review_packet is not None:
+                        packet = entry.review_packet
+                        if isinstance(packet, ConversationLiveReviewPacket):
+                            assert self.run_live_review is not None
+                            review_result = await self.run_live_review(packet)
+                            if review_result.verdict.brief_id != packet.brief.brief_id:
+                                raise ValueError(
+                                    "live review result differs from frozen brief"
+                                )
+                            self._check_review_guidance(packet)
                         else:
-                            result = await self.run_live_chat(config, consumed)
-                    else:
-                        recorded = RecordedAgentClient(
-                            AgentCassette(
-                                exchanges=(self.cassette.exchanges[consumed],)
+                            review_result = (
+                                await run_conversation_review(
+                                    packet,
+                                    validate_guidance=lambda: (
+                                        self._check_review_guidance(packet)
+                                    ),
+                                )
+                                if packet.guidance_review is not None
+                                else await run_conversation_review(packet)
                             )
+                        if (
+                            len(canonical_bytes(review_result))
+                            > MAX_REVIEW_RESULT_BYTES
+                        ):
+                            raise ValueError(
+                                "conversation review result exceeds byte limit"
+                            )
+                        completed = ConversationEntry(
+                            text=entry.text,
+                            repository_inspection=entry.repository_inspection,
+                            status="failed"
+                            if review_result.verdict.decision == "infrastructure_error"
+                            else "completed",
+                            answer=review_summary(
+                                review_result,
+                                live=isinstance(packet, ConversationLiveReviewPacket),
+                            ),
+                            review_packet=entry.review_packet,
+                            review_result=review_result,
                         )
-                        result = await run_agent(
-                            config,
-                            fixture_registry(),
-                            recorded if client is None else client,
-                            request_dispatcher,
+                    else:
+                        assert config is not None
+                        if self.state.mode != "recorded_conversation":
+                            assert self.run_live_chat is not None
+                            if (
+                                entry.implementation_request
+                                and self.run_live_coding is not None
+                            ):
+                                result = await self.run_live_coding(config, consumed)
+                            else:
+                                result = await self.run_live_chat(config, consumed)
+                        else:
+                            recorded = RecordedAgentClient(
+                                AgentCassette(
+                                    exchanges=(self.cassette.exchanges[consumed],)
+                                )
+                            )
+                            result = await run_agent(
+                                config,
+                                fixture_registry(),
+                                recorded if client is None else client,
+                                request_dispatcher,
+                            )
+                        if any(
+                            not isinstance(
+                                block,
+                                (TextBlock, ReasoningBlock)
+                                if self.state.mode != "recorded_conversation"
+                                else TextBlock,
+                            )
+                            for block in result.turns[-1].blocks
+                        ):
+                            raise AgentFailure("conversation requires text responses")
+                        pressure_activity = measure_pressure_activity(
+                            result.turns, self.context_pressure_policy
                         )
-                    if any(
-                        not isinstance(
-                            block,
-                            (TextBlock, ReasoningBlock)
-                            if self.state.mode != "recorded_conversation"
-                            else TextBlock,
+                        completed = ConversationEntry(
+                            text=entry.text,
+                            repository_inspection=entry.repository_inspection,
+                            goal_id=entry.goal_id,
+                            goal_definition_sha256=entry.goal_definition_sha256,
+                            steering_for=entry.steering_for,
+                            diff_attachments=entry.diff_attachments,
+                            interaction_mode=entry.interaction_mode,
+                            implementation_request=entry.implementation_request,
+                            memory_context=entry.memory_context,
+                            request_admission=entry.request_admission,
+                            status="completed",
+                            answer=result.final_text,
+                            usage=result.usage,
+                            pressure_activity=(
+                                None
+                                if pressure_activity.tool_calls == 0
+                                else pressure_activity
+                            ),
                         )
-                        for block in result.turns[-1].blocks
-                    ):
-                        raise AgentFailure("conversation requires text responses")
-                    pressure_activity = measure_pressure_activity(
-                        result.turns, self.context_pressure_policy
-                    )
-                    completed = ConversationEntry(
-                        text=entry.text,
-                        repository_inspection=entry.repository_inspection,
-                        goal_id=entry.goal_id,
-                        goal_definition_sha256=entry.goal_definition_sha256,
-                        steering_for=entry.steering_for,
-                        diff_attachments=entry.diff_attachments,
-                        interaction_mode=entry.interaction_mode,
-                        implementation_request=entry.implementation_request,
-                        memory_context=entry.memory_context,
-                        request_admission=entry.request_admission,
-                        status="completed",
-                        answer=result.final_text,
-                        usage=result.usage,
-                        pressure_activity=(
-                            None
-                            if pressure_activity.tool_calls == 0
-                            else pressure_activity
-                        ),
-                    )
             except asyncio.CancelledError:
                 replace(entry.model_copy(update={"status": "cancelled"}))
                 raise

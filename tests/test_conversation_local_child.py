@@ -235,6 +235,41 @@ class LocalChildTests(IsolatedAsyncioTestCase):
         assert again.current_goal is not None
         self.assertEqual(again.current_goal.ledger.uncertain_effects, 1)
 
+    async def test_ordinary_queue_transition_preserves_child_and_recovery_records(
+        self,
+    ) -> None:
+        await self.run_child()
+        children = self.chat.state.local_children
+        journal = self.chat.state.recovery_journal
+        self.chat.submit("Retain the child report for the next turn.")
+        self.assertEqual(self.chat.state.local_children, children)
+        self.assertEqual(self.chat.state.recovery_journal, journal)
+        assert journal is not None
+        self.assertEqual(
+            [event.phase for event in journal.events], ["dispatch", "completed"]
+        )
+
+    async def test_recipe_change_during_commit_stops_before_child_execution(
+        self,
+    ) -> None:
+        class PinnedExecutor(FixtureExecutor):
+            recipe_sha256 = "1" * 64
+
+        executor = PinnedExecutor()
+        self.chat.local_child_executor = executor
+
+        def save(state: ConversationState) -> None:
+            if state.local_children and state.local_children[0].state == "running":
+                executor.recipe_sha256 = "2" * 64
+
+        self.chat.save = save
+        with self.assertRaisesRegex(ValueError, "sandbox recipe changed"):
+            await self.run_child()
+        child = self.chat.state.local_children[0]
+        self.assertEqual(child.recipe_sha256, "1" * 64)
+        self.assertEqual(child.state, "uncertain")
+        self.assertEqual(executor.calls, [])
+
     async def test_lost_acknowledgement_blocks_new_dispatch_and_inspection_content(
         self,
     ) -> None:

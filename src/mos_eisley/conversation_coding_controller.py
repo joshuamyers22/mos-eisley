@@ -25,6 +25,8 @@ from mos_eisley.conversation_local_child import (
     LocalChildAuthorization,
     LocalChildExecution,
     LocalChildRecord,
+    execution_recipe,
+    require_execution_recipe,
 )
 from mos_eisley.conversation_local_child_controller import (
     ConversationLocalChildController,
@@ -275,6 +277,7 @@ class ConversationCodingController(ConversationLocalChildController[StateT]):
             request_sha256=digest(canonical_bytes(request)),
             cassette_sha256=digest(canonical_bytes(cassette)),
             image_id=executor.image_id,
+            recipe_sha256=execution_recipe(executor),
             reserved=reserved,
             coding=CodingRetention(brief=brief, plan_review=review),
         )
@@ -400,6 +403,7 @@ class ConversationCodingController(ConversationLocalChildController[StateT]):
     def _require_current(
         self, record: LocalChildRecord, *, allow_waiting: bool = False
     ) -> None:
+        require_execution_recipe(record, self.coding_executor)
         goal = self.current_goal
         if (
             self.record_authorization(record) != record.authorization

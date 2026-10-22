@@ -4,6 +4,14 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add session-owned operation recovery with atomic decision/result records, stable
+  IDs, explicit uncertain effects, retained steering/budgets and pinned replacement
+  container recipes across the shared terminal and scriptable controller.
+
+- Add fail-closed `mos exec` automation with credential-free manifest preflight, JSONL
+  lifecycle/terminal output, explicit review verdicts and stable exit codes, using
+  the existing conversation controller and spending/cancellation boundaries.
+
 ## 0.1.0-rc.7 — candidate
 
 - Allow 45 minutes for signed native qualification, retaining all four targets

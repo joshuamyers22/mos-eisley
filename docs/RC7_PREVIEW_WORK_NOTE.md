@@ -18,8 +18,8 @@ reported. Preserve the immutable rc.6 tag and its retained signed artifacts.
 Raise the signed native job ceiling to 45 minutes and issue rc.7. Keep the
 qualified runtime frozen at the rc.6 source: current main has since added
 scriptable execution and session recovery, which remain a later preview scope.
-Integrate this corrective branch with a merge commit so its exact head becomes
-reachable from protected main, then tag that reviewed head. The existing release
+Integrate this corrective branch with a merge commit so its frozen release commit
+becomes reachable from protected main, then tag that reviewed commit. The existing release
 verifier requires exact tag/checkout identity and main ancestry; keep that guard.
 Do not roll back concurrent main changes or retarget the prior immutable tag.
 
@@ -66,3 +66,11 @@ after frozen dependency installation the complete focused set passed. Runtime,
 tests and runtime dependency export remain byte-identical to the frozen baseline;
 the lockfile changes only the project's own version. Exact-head CI and the tagged
 prepare gate remain required before publication.
+
+The frozen release commit is `78bc17ce561df7e641a4dd0fc5aef56aa9deee58`.
+PR #324 initially conflicted with main's new changelog entries. Merge main into
+the integration branch, preserving both unreleased features and their files;
+this integration head is not the release target. Tag only the frozen commit
+after its ancestry on protected main is verified. CI on the integration head
+checks current main compatibility; tagged standalone and prepare gates check
+the exact frozen release source before signing/publication.

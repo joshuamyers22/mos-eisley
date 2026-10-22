@@ -801,9 +801,9 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         add_memory_options(generator)
         add_memory_project_options(generator)
         generator.add_argument("-C", "--workspace", type=Path, default=Path.cwd())
-    for name in ("chat", "resume", "sessions", "session-delete"):
+    for name in ("chat", "exec", "resume", "sessions", "session-delete"):
         command = add_parser(name, help="Recorded conversation terminal preview")
-        if name in {"chat", "resume"}:
+        if name in {"chat", "exec", "resume"}:
             command.add_argument(
                 "--live-coding-selection",
                 type=Path,
@@ -822,7 +822,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
                 action="store_true",
                 help="Use the Git review and findings panel",
             )
-        if name == "chat":
+        if name in {"chat", "exec"}:
             add_memory_project_options(command)
             command.add_argument(
                 "--name",
@@ -832,8 +832,19 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
             command.add_argument(
                 "prompt",
                 nargs="?",
-                type=launch_prompt,
+                type=str if name == "exec" else launch_prompt,
                 help="Initial literal message; quote multiline or multiword text",
+            )
+        if name == "exec":
+            command.add_argument(
+                "--stdin",
+                action="store_true",
+                help="Read one bounded UTF-8 input attachment from stdin",
+            )
+            command.add_argument(
+                "--review",
+                action="store_true",
+                help="Run the explicitly selected frozen review packet",
             )
         if name == "resume":
             selection = command.add_mutually_exclusive_group()
@@ -862,7 +873,7 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         if name == "session-delete":
             command.add_argument("session_id")
             command.add_argument("--expected-sha256", required=True)
-        if name in {"chat", "resume"}:
+        if name in {"chat", "exec", "resume"}:
             command.add_argument(
                 "--subscription-authorization",
                 type=Path,
@@ -1461,6 +1472,32 @@ async def terminal(
                     event["review_brief_id"] = entry.review_brief_id
                 if entry.review_result is not None:
                     event["review_result"] = entry.review_result.model_dump(mode="json")
+                from mos_eisley.conversation_recovery import uncertain_notice
+
+                notice = uncertain_notice(
+                    controller.state.recovery_journal, f"turn-{index}"
+                )
+                if notice is not None or entry.status == "interrupted":
+                    event["effect_status"] = "uncertain"
+                    event["recovery_notice"] = (
+                        notice
+                        or "Effect uncertain; this interrupted operation "
+                        "will not be replayed."
+                    )
+                    emit(
+                        {
+                            "type": "operation.uncertain",
+                            "index": index,
+                            "text": event["recovery_notice"],
+                        }
+                    )
+                if controller.state.recovery_journal is not None:
+                    from mos_eisley.conversation_recovery import operation_id
+
+                    event["operation_id"] = operation_id(
+                        controller.state.session_id, f"turn-{index}"
+                    )
+                    event["recovery_cursor"] = controller.state.recovery_journal.cursor
                 emit(event)
             admission = entry.request_admission
             if (
@@ -2309,6 +2346,8 @@ def run_command(args: argparse.Namespace) -> int:
         SessionSelectionError,
         DirectorySelectionError,
     ) as error:
+        if getattr(args, "exec_output", None) is not None:
+            raise
         # Only byte counts and fixed guidance, never rejected payloads or paths.
         print(f"mos-eisley: {error}", file=sys.stderr)
         return 2
@@ -2991,7 +3030,11 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         return 0
 
     def emit(event: dict[str, object]) -> None:
-        if args.json:
+        from mos_eisley.exec_cli import ExecOutput
+
+        if isinstance(getattr(args, "exec_output", None), ExecOutput):
+            args.exec_output.event(event)
+        elif args.json:
             print(json.dumps(event, ensure_ascii=True), flush=True)
         else:
             # Escape control sequences in all untrusted terminal text.
@@ -3202,7 +3245,9 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
     live_selection = None
     live_selection_sha256 = None
     if args.live_review_selection is not None:
-        if args.plain or args.json or not sys.stdin.isatty() or not sys.stdout.isatty():
+        if not getattr(args, "exec_output", None) and (
+            args.plain or args.json or not sys.stdin.isatty() or not sys.stdout.isatty()
+        ):
             raise ValueError(
                 "live conversation review requires the interactive terminal"
             )
@@ -3537,6 +3582,13 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             async def launch_live_review(
                 packet: ConversationLiveReviewPacket,
             ) -> ReviewResult:
+                if getattr(args, "exec_output", None):
+                    return await run_selected_live_review(
+                        packet,
+                        args.live_review_selection,
+                        args.workspace,
+                        diagnostics_to_stderr=True,
+                    )
                 async with in_terminal():
                     return await run_selected_live_review(
                         packet, args.live_review_selection, args.workspace
@@ -3562,6 +3614,17 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
             controller.resize_storage(args.session_max_bytes)
         if args.command == "resume" and args.context_max_bytes is not None:
             controller.resize_context(args.context_max_bytes)
+        from mos_eisley.exec_cli import ExecOutput, execute
+
+        if isinstance(getattr(args, "exec_output", None), ExecOutput):
+            return asyncio.run(
+                execute(
+                    controller,
+                    args.exec_output,
+                    initial_prompt,
+                    review_packet if args.review else None,
+                )
+            )
         project_location = ProjectLocation.inspect(Path(controller.state.workspace))
         subscription_label = (
             "Claude"

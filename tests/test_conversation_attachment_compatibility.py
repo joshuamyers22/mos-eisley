@@ -127,6 +127,9 @@ class AttachmentCompatibilityTests(IsolatedAsyncioTestCase):
                     self.assertEqual(record["excerpt"], attachment.excerpt)
 
             legacy = restored.model_dump(mode="json")
+            # Downgrade the complete fixture, rather than contradicting a new
+            # journal's immutable admitted-request/result hashes.
+            legacy.pop("recovery_journal")
             admission = legacy["entries"][1]["request_admission"]
             admission["schema_version"] = 5
             admission.pop("diff_attachment_sha256")

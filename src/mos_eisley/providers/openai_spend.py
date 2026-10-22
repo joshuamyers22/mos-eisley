@@ -11,7 +11,7 @@ from typing import Annotated, Literal, Protocol, Self, cast
 from pydantic import Field, JsonValue, model_validator
 
 from mos_eisley.core.models import Contract, Digest, Identifier, canonical_bytes, digest
-from mos_eisley.core.ports import ProviderError
+from mos_eisley.core.ports import ProviderBudgetError, ProviderError
 from mos_eisley.providers.openai_responses import tool_payload
 from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement, SpendLedger
 from mos_eisley.run.store import private_write
@@ -223,7 +223,7 @@ def _normalized_text_request(
             raise ProviderError("repository inspection tool history changed")
     output_cap = request.get("max_output_tokens")
     if type(output_cap) is not int or not 1 <= output_cap <= policy.max_output_tokens:
-        raise ProviderError("output limit exceeds spending policy")
+        raise ProviderBudgetError("output limit exceeds spending policy")
     request["store"] = False
     request["truncation"] = "disabled"
     request["service_tier"] = "default"
@@ -340,12 +340,14 @@ class BudgetedOpenAITransport:
         tokens = await self.transport.count_input_tokens(
             copy.deepcopy(count_payload(request))
         )
-        if type(tokens) is not int or not 0 <= tokens <= self.policy.max_input_tokens:
+        if type(tokens) is not int or tokens < 0:
             raise ProviderError("input count exceeds spending policy")
+        if tokens > self.policy.max_input_tokens:
+            raise ProviderBudgetError("input count exceeds spending policy")
         self.policy.check_current()
         reserved = self.policy.reservation_cost(tokens, output_cap)
         if reserved > self.policy.max_cost_microusd:
-            raise ProviderError("response reservation exceeds spending limit")
+            raise ProviderBudgetError("response reservation exceeds spending limit")
         reservation = SpendReservation(
             policy_sha256=self.policy.policy_sha256,
             request_sha256=spending_request_sha256(request),

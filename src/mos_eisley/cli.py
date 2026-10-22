@@ -8726,6 +8726,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     from mos_eisley.app_update_session import active_client
 
     selected = list(sys.argv[1:] if argv is None else argv)
+    if selected and selected[0] == "exec":
+        from mos_eisley.exec_cli import main as exec_main
+
+        return exec_main(selected[1:])
     if selected and selected[0] == "subscription":
         from mos_eisley.subscription_cli import run_command as run_subscription
 

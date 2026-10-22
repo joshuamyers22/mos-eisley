@@ -1,6 +1,7 @@
 """The conversation must keep live review authority outside saved state."""
 
 import asyncio
+import sys
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -19,6 +20,7 @@ from mos_eisley.conversation_live_review import (
     LiveReviewSelection,
     load_live_result,
     read_selection,
+    run_selected_live_review,
     select_live_review,
     stop_and_reap_live_review,
 )
@@ -31,7 +33,13 @@ from mos_eisley.conversation_state import (
     WorkingConversationState,
 )
 from mos_eisley.conversation_tui import ConversationTUI
-from mos_eisley.core.models import ReviewPolicy, ReviewResult, canonical_bytes, digest
+from mos_eisley.core.models import (
+    ReviewPolicy,
+    ReviewResult,
+    Verdict,
+    canonical_bytes,
+    digest,
+)
 from mos_eisley.providers.recorded import RecordedReviewer
 from mos_eisley.review.pipeline import review
 from mos_eisley.review_live_cli import ReviewLiveCompletion
@@ -327,6 +335,43 @@ class LiveSelectionTests(TestCase):
             selection.config.write_bytes(selection.config.read_bytes() + b" ")
             with self.assertRaisesRegex(ValueError, "inputs changed"):
                 read_selection(manifest, self.guided.fixture.workspace)
+
+    def test_exec_live_child_diagnostics_do_not_enter_stdout(self) -> None:
+        _, manifest = self.selection()
+        diagnostic = self.base.root / "child-stderr.txt"
+        with patch("mos_eisley.conversation_live_review.read_campaign_seal"):
+            packet = select_live_review(manifest, self.guided.fixture.workspace)
+            result = ReviewResult(
+                critics=(),
+                verdict=Verdict(
+                    brief_id=packet.brief.brief_id,
+                    decision="accept",
+                    rationale="Fixture only.",
+                ),
+            )
+            with (
+                diagnostic.open("w") as stderr,
+                patch("sys.stderr", stderr),
+                patch.object(
+                    LiveReviewSelection,
+                    "command",
+                    return_value=(sys.executable, "-c", "print('fixture diagnostic')"),
+                ),
+                patch(
+                    "mos_eisley.conversation_live_review.load_live_result",
+                    return_value=result,
+                ),
+            ):
+                actual = asyncio.run(
+                    run_selected_live_review(
+                        packet,
+                        manifest,
+                        self.guided.fixture.workspace,
+                        diagnostics_to_stderr=True,
+                    )
+                )
+        self.assertEqual(actual, result)
+        self.assertEqual(diagnostic.read_text(), "fixture diagnostic\n")
 
     def test_live_child_command_uses_exact_argument_files(self) -> None:
         selection, _ = self.selection()

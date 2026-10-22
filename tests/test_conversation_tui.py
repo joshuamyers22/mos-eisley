@@ -31,7 +31,7 @@ from mos_eisley.conversation_review import (
 )
 from mos_eisley.conversation_tui import ConversationTUI, EditorBuffer, display_text
 from mos_eisley.core.models import canonical_bytes
-from mos_eisley.core.protocol import ModelRequest, ModelResponse
+from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Turn, Usage
 from mos_eisley.demo import demo_inputs
 
 
@@ -39,6 +39,21 @@ async def until(predicate: Callable[[], bool]) -> None:
     async with asyncio.timeout(3):
         while not predicate():
             await asyncio.sleep(0.01)
+
+
+class TextAnswerClient:
+    def __init__(self, answer: str) -> None:
+        self.answer = answer
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        turn = Turn(role="assistant", blocks=(TextBlock(text=self.answer),))
+        return ModelResponse(
+            turn=turn,
+            stop_reason="end_turn",
+            usage=Usage(
+                input=len(canonical_bytes(request)), output=len(canonical_bytes(turn))
+            ),
+        )
 
 
 def controller(*, multiline: bool = False) -> ConversationController:

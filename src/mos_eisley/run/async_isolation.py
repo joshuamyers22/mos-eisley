@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from pydantic import JsonValue, TypeAdapter
 
+from mos_eisley.core.dispatch_guard import revalidate_dispatch
 from mos_eisley.run.duplex import (
     CLAIM_LIMIT,
     MAX_EXCHANGE_SECONDS,
@@ -111,7 +112,7 @@ async def exchange_in_container(
     try:
         created = await owned.thread(
             lambda: bounded_process(
-                container.create_command(name, arguments), limit=65536
+                container.verified_create_command(name, arguments), limit=65536
             )
         )
         candidate_id = created.decode("ascii").strip()
@@ -126,6 +127,7 @@ async def exchange_in_container(
         )
         container.lifecycle_path = watchdog.directory
         owned.check_cancelled()
+        revalidate_dispatch()
         output = await owned.exchange(
             asyncio.create_task(
                 bounded_exchange(

@@ -17,6 +17,7 @@ from mos_eisley.conversation_pressure import (
     ContextPressureBoundary,
     ContextPressurePolicy,
 )
+from mos_eisley.conversation_recovery import RecoveryJournal
 from mos_eisley.conversation_state import LiveChatIdentity, SubscriptionChatIdentity
 from mos_eisley.core.models import Contract, Digest, digest
 from mos_eisley.run.conversation_checkpoint import ResumeCheckpoint
@@ -34,6 +35,7 @@ MAX_RESUME_INSPECTION_BYTES = 512_000
 
 
 class ResumeHeader(Contract):
+    recovery_journal: RecoveryJournal | None = None
     schema_version: Literal[1] = 1
     mode: Literal[
         "recorded_conversation", "openai_live_conversation", "subscription_conversation"

@@ -31,6 +31,11 @@ from mos_eisley.conversation_pressure import (
     ContextPressurePolicy,
     ConversationPressureActivity,
 )
+from mos_eisley.conversation_recovery import (
+    RecoveryJournal,
+    turn_result,
+    validate_journal,
+)
 from mos_eisley.conversation_request_admission import (
     AuthorCompactionAdmission,
     RequestAdmission,
@@ -391,6 +396,9 @@ class LiveChatIdentity(Contract):
 
 
 class ConversationState(Contract, Generic[EntryT]):
+    recovery_journal: RecoveryJournal | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     local_children: Annotated[tuple[LocalChildRecord, ...], Field(max_length=4)] = (
         Field(default=(), exclude_if=lambda v: not v)
     )
@@ -862,6 +870,28 @@ class ConversationState(Contract, Generic[EntryT]):
             raise ValueError("invalid conversation exchange count")
         if sum(entry.status == "running" for entry in self.entries) > 1:
             raise ValueError("only one message may be running")
+        validate_journal(self.recovery_journal, self.session_id, self.revision)
+        if self.recovery_journal is not None:
+            for event in self.recovery_journal.events:
+                if not event.key.startswith("turn-"):
+                    continue
+                position = int(event.key.removeprefix("turn-"))
+                if position >= len(self.entries):
+                    raise ValueError("Recovery event references an absent turn.")
+                entry = self.entries[position]
+                if (
+                    event.decision is not None
+                    and entry.request_admission is not None
+                    and event.decision.request_sha256
+                    != entry.request_admission.request.sha256
+                ):
+                    raise ValueError("Recovery decision differs from admitted request.")
+                if (
+                    event.phase == "completed"
+                    and isinstance(entry, ConversationEntry)
+                    and event.result_sha256 != turn_result(entry)
+                ):
+                    raise ValueError("Recovery result differs from committed turn.")
         return self
 
 
