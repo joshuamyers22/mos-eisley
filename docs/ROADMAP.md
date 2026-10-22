@@ -704,6 +704,18 @@ real-ledger exposure and owner isolation. The [verification record](SESSION_RECO
 records 3,793 source and 2,760 installed-wheel tests, with existing platform skips.
 Existing live/platform/release gates remain.
 
+**Credential attachment, 2026-10-22 — additive host transport implemented and verified:**
+[The broker credential boundary](CREDENTIAL_BOUNDARY.md) adds typed owner-scoped
+native references and exact approved JSON POST operations. Credentials attach at
+socket writes after pinned DNS/TCP/TLS, with live rotation/revocation, isolated
+wire diagnostics and no retries. Synthetic socket tests cover egress, hostile
+routing, owner/scope checks and consumed-grant recovery. The final standard gate
+passed 3,814 source and 2,781 installed-wheel tests with 85% coverage and existing
+platform skips; the final 21 focused cases also passed from source and wheel. Existing CLI routes remain
+default until exact credentialed provider/tool conformance and accountable review;
+no paid provider or publisher activation is claimed. See the
+[verification record](CREDENTIAL_BOUNDARY_VERIFICATION.md) for gate results.
+
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
 adds a bounded paid-review launch preview, exact file/range attachments, and a
@@ -711,8 +723,8 @@ complete stdin/final-status contract for `mos exec` to the post-v1 product phase
 [plan §31](mos-eisley-plan.md#31-version-2-conversation-and-automation-requirements).
 The 2026-09-27 Managed Agents survey also adds durable recovery across session,
 controller and sandbox failures, plus brokered credential attachment at approved
-network destinations, to that v2 phase. Injected-failure and credential-egress
-tests are required before either is advertised.
+network destinations, to that v2 phase. The implemented recovery and additive
+credential slices above record their evidence and remaining activation limits.
 The 2026-09-28 `resume` survey adds ranked name/ID discovery to the existing
 metadata-only resume picker, with deterministic ordering, existing scope and
 catalog limits, and stale-selection rechecks; see plan §31.6.

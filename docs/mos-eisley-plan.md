@@ -5498,6 +5498,10 @@ revocation before dispatch. Network capture proves the credential reaches only t
 approved destination. Existing credential paths remain supported until this
 brokered path passes the same provider and tool conformance gates.
 
+The additive host implementation and qualification limits are documented in
+[the credential boundary contract](CREDENTIAL_BOUNDARY.md); current status is in
+[the roadmap](ROADMAP.md).
+
 ### 31.6 Ranked discovery in the existing resume picker
 
 Improve the §16.0.3 picker using only the bounded session metadata already

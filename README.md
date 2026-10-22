@@ -51,6 +51,10 @@ results, exit codes and verdict-aware CI checks.
 results and uncertain effects in the existing JSON/SQLite stores. Resume preserves
 steering and budgets and never automatically repeats an uncertain write or paid call.
 
+[Broker-side credential attachment](docs/CREDENTIAL_BOUNDARY.md) adds owner-scoped
+native references and pinned networking for separately admitted host transports.
+Existing credential paths remain default pending provider/tool qualification.
+
 ## Quick start
 
 The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes

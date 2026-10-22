@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add an optional trusted-host credential attachment transport with owner-scoped
+  native references, pinned DNS/TLS/operations, live rotation/revocation, isolated
+  diagnostics and no authentication retries. Existing credential paths remain
+  default pending exact conformance and accountable activation.
+
 - Add session-owned operation recovery with atomic decision/result records, stable
   IDs, explicit uncertain effects, retained steering/budgets and pinned replacement
   container recipes across the shared terminal and scriptable controller.
