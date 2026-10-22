@@ -25,6 +25,8 @@ from mos_eisley.conversation_local_child import (
     LocalChildJob,
     LocalChildRecord,
     child_system,
+    execution_recipe,
+    require_execution_recipe,
 )
 from mos_eisley.conversation_schedule import LocalWakeupEvent
 from mos_eisley.conversation_schedule_controller import ConversationScheduleController
@@ -210,6 +212,7 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
             request_sha256=digest(canonical_bytes(request)),
             cassette_sha256=digest(canonical_bytes(job.cassette)),
             image_id=executor.image_id,
+            recipe_sha256=execution_recipe(executor),
             reserved=reserved,
         )
         updated_goal = goal.model_copy(
@@ -240,6 +243,7 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
         self._cancel_local_child = task.cancel
         self._local_child_task = task
         try:
+            require_execution_recipe(record, executor)
             # Approval/workspace can change during the durable running commit.
             if (
                 self.child_authorization(assignment) != approval
@@ -249,6 +253,7 @@ class ConversationLocalChildController(ConversationScheduleController[StateT]):
                 raise ValueError("Child approval changed before execution.")
             async with asyncio.timeout(10):
                 execution = await executor.execute(job)
+            require_execution_recipe(record, executor)
             execution = LocalChildExecution.model_validate_json(
                 execution.model_dump_json()
             )

@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 from pydantic import JsonValue
 from test_openai_spend import FakeTransport, policy, request
 
+from mos_eisley.core.dispatch_guard import dispatch_guard
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.providers.openai_spend import BudgetedOpenAITransport, SpendReceipt
@@ -127,6 +128,24 @@ class AsyncBrokerTests(IsolatedAsyncioTestCase):
         return await run_isolated_broker_async(
             self.broker, self.container, timeout=timeout
         )
+
+    async def test_recovery_revalidation_after_create_cleans_without_starting(
+        self,
+    ) -> None:
+        checks = 0
+
+        def revalidate() -> None:
+            nonlocal checks
+            checks += 1
+            if checks == 2:
+                raise ValueError("workspace or capabilities changed")
+
+        with dispatch_guard(revalidate), self.assertRaisesRegex(ValueError, "changed"):
+            await self.run_broker()
+        self.assertEqual(self.events, ["metadata", "create", "arm", "remove", "finish"])
+        self.assertEqual(self.transport.calls, [])
+        self.exchange.assert_not_called()
+        self.remove.assert_called_once_with("/usr/bin/docker", CONTAINER_ID)
 
     async def test_real_worker_roundtrip_uses_exact_host_response_and_cleanup(
         self,

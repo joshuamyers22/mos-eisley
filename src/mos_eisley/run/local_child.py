@@ -43,6 +43,10 @@ class DockerLocalChild:
     def image_id(self) -> str:
         return self.container.image_id
 
+    @property
+    def recipe_sha256(self) -> str:
+        return self.container.recipe_sha256
+
     async def execute(self, job: LocalChildJob) -> LocalChildExecution:
         job = LocalChildJob.model_validate_json(job.model_dump_json())
         wire = canonical_bytes(job)

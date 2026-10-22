@@ -117,7 +117,10 @@ class AdmissionInspectionTests(TestCase):
             inspect_admission(chat.state, 0)
         asyncio.run(chat.step())
         old = chat.state.entries[0].model_copy(update={"request_admission": None})
-        chat.state = chat.state.model_copy(update={"entries": (old,)})
+        # A pre-admission legacy session also predates the operation journal.
+        chat.state = chat.state.model_copy(
+            update={"entries": (old,), "recovery_journal": None}
+        )
         with self.assertRaisesRegex(
             AdmissionInspectionUnavailable, "cannot be reconstructed"
         ):

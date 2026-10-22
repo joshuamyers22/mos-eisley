@@ -47,6 +47,10 @@ for one noninteractive conversation turn. Explicit frozen reviews use `--review`
 The [execution contract](docs/SCRIPTABLE_EXEC.md) documents input limits, terminal
 results, exit codes and verdict-aware CI checks.
 
+[Session recovery](docs/SESSION_RECOVERY.md) retains ordered operation decisions,
+results and uncertain effects in the existing JSON/SQLite stores. Resume preserves
+steering and budgets and never automatically repeats an uncertain write or paid call.
+
 ## Quick start
 
 The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes

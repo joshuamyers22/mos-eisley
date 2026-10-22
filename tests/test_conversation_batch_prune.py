@@ -53,13 +53,19 @@ class BatchPruneTests(TestCase):
         self.newest = "f" * 32
         cassette = demo_cassette()
         self.fresh = ConversationController.fresh(self.root, cassette)
-        chat = ConversationController(self.fresh, cassette, lambda state: None)
-        chat.refresh_memory(None, cassette)
-        chat.submit(DEMO_PROMPTS[0])
-        asyncio.run(chat.step())
-        self.states = tuple(
-            chat.state.model_copy(update={"session_id": sid}) for sid in self.ids
-        )
+        states: list[ConversationState] = []
+        for sid in self.ids:
+            # Each independent fixture owns its history and operation IDs.
+            chat = ConversationController(
+                self.fresh.model_copy(update={"session_id": sid}),
+                cassette,
+                lambda state: None,
+            )
+            chat.refresh_memory(None, cassette)
+            chat.submit(DEMO_PROMPTS[0])
+            asyncio.run(chat.step())
+            states.append(chat.state)
+        self.states = tuple(states)
         for state in self.states:
             self.seed(state, CUTOFF - 10)
         self.seed(self.fresh.model_copy(update={"session_id": self.newest}), CUTOFF + 1)
