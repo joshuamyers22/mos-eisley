@@ -69,6 +69,14 @@ completion. Keep broader platform and exact live-target release gates separate.
   cloning or testing. Cancel the superseded Linux candidate and retain both setup
   attempts; neither is qualification success.
 
+- Attempt 3: [run 39867759899](https://github.com/joshuamyers22/mos-eisley/actions/runs/39867759899)
+  passed the literal argv round trip and reached cloning. Git correctly rejected
+  Linux access to Windows-owned checkout metadata. Transfer a Windows-created,
+  hash-checked Git bundle into ext4 and clone from the Linux-owned bundle. Preserve
+  the ownership guard; do not set `safe.directory=*` or exempt the Windows source.
+  A portable regression deletes the source repository before cloning its copied
+  bundle and verifies exact commit, clean checkout and no object alternates.
+
 ## Completion evidence
 
 Pending native runs and evidence review.

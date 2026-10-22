@@ -5,6 +5,9 @@ $env:WSL_UTF8 = '1'
 $distro = 'Ubuntu-24.04'
 $evidence = Join-Path $env:GITHUB_WORKSPACE 'dist/qualification'
 New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+$bundleWindows = Join-Path $env:RUNNER_TEMP 'mos-review-source.bundle'
+git bundle create $bundleWindows HEAD
+$bundleDigest = (Get-FileHash -Algorithm SHA256 $bundleWindows).Hash.ToLowerInvariant()
 
 function Invoke-WslBounded([string[]] $Arguments, [int] $Seconds = 600) {
     $start = [System.Diagnostics.ProcessStartInfo]::new()
@@ -47,6 +50,7 @@ $hostOs = Get-CimInstance Win32_OperatingSystem
     distribution = $distro
     distribution_version = 2
     candidate_commit = $env:GITHUB_SHA
+    source_bundle_sha256 = $bundleDigest
     workflow_run = $env:GITHUB_RUN_ID
     runner_image = $env:ImageVersion
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 (Join-Path $evidence 'windows-host.json')
@@ -68,12 +72,15 @@ $transportProbe = 'a\path with spaces"quote'
 $transportResult = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', 'printf "%s" "$1"', '--', $transportProbe) -Seconds 60
 if ($transportResult -cne $transportProbe) { throw 'WSL argument transport changed literal bytes' }
 $source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
+$bundleLinux = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'wslpath', '-u', $bundleWindows) -Seconds 60
 $run = @'
 set -eu
 export PATH=/usr/local/bin:/usr/bin:/bin
 umask 077
 cd ~
-git clone --no-local "$1" candidate
+cp "$3" source.bundle
+printf '%s  source.bundle\n' "$4" | sha256sum --check
+git clone source.bundle candidate
 cd candidate
 git checkout --detach "$2"
 uv sync --frozen --dev
@@ -85,7 +92,7 @@ $run = $run.Replace("`r", '')
 # Use the same explicit argv transport checked above for the long quality run.
 $qualificationFailure = $null
 try {
-    Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', $run, '--', $source, $env:GITHUB_SHA) -Seconds 7200 | Write-Host
+    Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', $run, '--', $source, $env:GITHUB_SHA, $bundleLinux, $bundleDigest) -Seconds 7200 | Write-Host
 } catch {
     $qualificationFailure = $_
 }

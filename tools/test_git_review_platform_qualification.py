@@ -1,6 +1,10 @@
 """Faults in native qualification evidence fail closed without running providers."""
 
+import hashlib
 import json
+import os
+import shutil
+import subprocess
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -91,3 +95,57 @@ class QualificationEvidenceTests(TestCase):
                 else:
                     with self.assertRaisesRegex(ValueError, "exact_source"):
                         verify_wheel(repo, wheel)
+
+    def test_bundle_transfer_retains_exact_commit_without_foreign_repository_access(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / "host"
+            source.mkdir()
+            environment = {
+                "PATH": os.defpath,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": os.devnull,
+            }
+
+            def git(cwd: Path, *args: str) -> str:
+                return subprocess.check_output(
+                    ["/usr/bin/git", "-c", "core.hooksPath=/dev/null", *args],
+                    cwd=cwd,
+                    env=environment,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=20,
+                ).strip()
+
+            git(source, "init", "-b", "main")
+            (source / "source.py").write_text("before\n")
+            git(source, "add", ".")
+            git(
+                source,
+                "-c",
+                "user.name=Synthetic",
+                "-c",
+                "user.email=synthetic@example.invalid",
+                "commit",
+                "-m",
+                "fixture",
+            )
+            commit = git(source, "rev-parse", "HEAD")
+            bundle = root / "host.bundle"
+            git(source, "bundle", "create", str(bundle), "HEAD")
+            transferred = root / "linux.bundle"
+            shutil.copyfile(bundle, transferred)
+            self.assertEqual(
+                hashlib.sha256(bundle.read_bytes()).digest(),
+                hashlib.sha256(transferred.read_bytes()).digest(),
+            )
+            # The receiver needs only the bundle, not access to the host repository.
+            shutil.rmtree(source)
+            git(root, "clone", str(transferred), "candidate")
+            candidate = root / "candidate"
+            git(candidate, "checkout", "--detach", commit)
+            self.assertEqual(git(candidate, "rev-parse", "HEAD"), commit)
+            self.assertEqual(git(candidate, "status", "--porcelain"), "")
+            self.assertFalse((candidate / ".git/objects/info/alternates").exists())
