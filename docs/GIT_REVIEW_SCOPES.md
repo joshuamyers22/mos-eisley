@@ -5,6 +5,11 @@ recorded `/review` workflow. This initial implementation supports an explicitly
 selected POSIX repository root with its own `.git` directory. Linux and actual
 Windows-hosted WSL2 qualification remain pending.
 
+An explicitly configured [live selection](CONVERSATION_LIVE_REVIEW.md#connect-an-exact-git-scope)
+can now bind the same scope to its exact prepared brief, shared inert launch
+preview and existing signed critic/judge workflow. This connection does not
+qualify arbitrary new briefs or change platform/managed-worktree limits.
+
 ```sh
 mos review-scope --workspace /path/to/repository --uncommitted
 mos review-scope --workspace /path/to/repository --base main
@@ -118,8 +123,9 @@ changes fail closed rather than yielding a partial successful review.
 This is a local prerequisite, not kernel containment or full managed-worktree
 qualification. Git metadata is trusted to remain under the owner's control during
 acquisition; this does not defend against malicious concurrent rewrites by the
-same owner. Linked worktrees, repository discovery from subdirectories, paid live
-dispatch and external posting remain future work.
+same owner. Linked worktrees, repository discovery from subdirectories and
+external posting remain future work. Scoped paid dispatch is available only
+through the separately admitted live-selection path above.
 
 Tests use synthetic repositories and recordings to cover scope semantics,
 helper suppression, unsafe reads, stale inputs, isolated dispatch and persistence.

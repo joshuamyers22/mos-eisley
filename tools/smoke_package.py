@@ -190,6 +190,8 @@ def main() -> int:
             "test_credential_boundary.py",
             "test_live_repository_read.py",
             "test_conversation_live_chat.py",
+            "test_conversation_live_review.py",
+            "test_scoped_live_review.py",
             "test_conversation_live_coding.py",
             "test_conversation_navigation.py",
             "test_conversation_review.py",

@@ -716,6 +716,16 @@ default until exact credentialed provider/tool conformance and accountable revie
 no paid provider or publisher activation is claimed. See the
 [verification record](CREDENTIAL_BOUNDARY_VERIFICATION.md) for gate results.
 
+**Scoped live-review connection, 2026-10-22 — implemented:**
+[Explicit live selections](CONVERSATION_LIVE_REVIEW.md#connect-an-exact-git-scope)
+bind complete Git scopes to their exact prepared brief and shared inert launch
+preview. Fresh checks at phase approval, credential/provider use and result
+publication retain signed admission, quorum, task spending, cancellation and
+read-only/no-posting authority. Legacy prepared packets remain compatible.
+The [verification record](SCOPED_LIVE_REVIEW_WORK_NOTE.md) covers the connection;
+managed-worktree, supported-platform and exact new-target/live release
+qualification remain separate.
+
 **Ranked resume discovery, 2026-10-22 — implemented:** the existing picker ranks
 exact IDs/names, prefixes, all-word matches and bounded fuzzy names with stable
 saved-time/ID ties and visible match reasons. Search processes only scoped admitted

@@ -198,7 +198,7 @@ class GitReviewScope(Contract):
             "estimated_cost": None,
         }
 
-    def preview_text(self) -> str:
+    def preview_text(self, *, live: bool = False) -> str:
         lines = [
             f"Frozen {self.selection.kind} scope: {self.scope_id}",
             f"Workspace: {self.workspace}",
@@ -237,8 +237,16 @@ class GitReviewScope(Contract):
                 f"{file.index_sha256} / {file.after_sha256}"
             )
         lines.append(
-            "Recorded review requires a matching packet. "
-            "Live review, cost estimation and posting are unavailable."
+            (
+                "Live review requires the exact prepared selection and signed "
+                "launch/phase admission. Cost estimate unknown; "
+                "posting is not authorized."
+            )
+            if live
+            else (
+                "Recorded review requires a matching packet. "
+                "Live review, cost estimation and posting are unavailable."
+            )
         )
         return "\n".join(lines)
 

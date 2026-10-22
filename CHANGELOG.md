@@ -4,6 +4,11 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Connect exact Git scopes to separately admitted live reviews, with shared inert
+  launch previews and source/configuration rechecks through approval, credential
+  use and result publication. Preserve signed admission, quorum, spending,
+  cancellation and read-only review authority.
+
 - Add bounded ranked discovery to the existing resume picker, with deterministic
   exact/prefix/word/fuzzy ordering, match reasons and scoped metadata-only search.
   Exact `--name` ambiguity handling and locked stale-selection checks remain.

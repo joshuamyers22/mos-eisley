@@ -1257,7 +1257,7 @@ class GitReviewTUI:
                     self.diff_show_findings = False
                     self.render_diff(reset=True)
             return
-        if event["type"] == "conversation.review_scope":
+        if event["type"] in {"conversation.review_scope", "conversation.review_launch"}:
             self.review_scope_preview = str(event["text"])
             self.context_preview = None
             self.memory_visible = self.directory_visible = False

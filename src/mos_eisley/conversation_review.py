@@ -47,7 +47,13 @@ class ConversationReviewPacket(Contract):
                 "Git-scoped terminal reviews require packet schema 3 or 4."
             )
         if self.git_scope is not None and (
-            not self.git_scope.complete or self.git_scope.brief() != self.brief
+            not self.git_scope.complete
+            or self.git_scope.brief()
+            != (
+                self.guidance_review.source_brief
+                if self.guidance_review is not None
+                else self.brief
+            )
         ):
             raise ValueError(
                 "Review requires a complete Git scope matching its exact brief."
@@ -74,7 +80,7 @@ class ConversationLiveReviewPacket(Contract):
     Saving this packet never grants authority to dispatch a provider call.
     """
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     mode: Literal["live_conversation_review"] = "live_conversation_review"
     brief: Brief
     prepared_sha256: Digest
@@ -83,14 +89,19 @@ class ConversationLiveReviewPacket(Contract):
     campaign_evidence_sha256: Digest
     manifest_sha256: Digest
     guidance_review: PreparedGuidanceReview
-
-    @property
-    def git_scope(self) -> None:
-        """Live reviews retain their separately approved prepared brief."""
-        return None
+    git_scope: GitReviewScope | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
+        if (self.schema_version == 2) != (self.git_scope is not None):
+            raise ValueError("Git-scoped live reviews require packet schema 2.")
+        if self.git_scope is not None and (
+            not self.git_scope.complete
+            or self.git_scope.brief() != self.guidance_review.source_brief
+        ):
+            raise ValueError("Live review requires its exact complete Git brief.")
         if (
             self.guidance_review.brief != self.brief
             or self.guidance_review.sha256 != self.prepared_sha256

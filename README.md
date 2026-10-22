@@ -11,8 +11,10 @@ qualified Terra/Sonnet/Opus two-provider profile, with a signed campaign and an
 admitted launch. The `review-live` command requires exact approvals and separate
 provider credentials; neither profile authorizes public or automatic activation.
 An [explicit conversational live-review selection](docs/CONVERSATION_LIVE_REVIEW.md)
-can route `/review` through the same one-attempt approval path. New briefs and
-release artifacts require their own qualification; ordinary chat remains recorded.
+can route `/review` through the same one-attempt approval path. Scoped live reviews
+share an inert launch preview and retain exact source checks through signed
+dispatch and result publication. New briefs and release artifacts require their
+own qualification; ordinary chat remains recorded.
 Offline model/effort evaluation planning and
 scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
