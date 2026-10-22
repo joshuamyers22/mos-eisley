@@ -307,6 +307,7 @@ class RequestAdmissionStorageTests(TestCase):
         controller.submit(DEMO_PROMPTS[0])
         asyncio.run(controller.step())
         data = controller.state.model_dump(mode="json")
+        data.pop("recovery_journal")
         data["entries"][0].pop("request_admission")
         encoded = json.dumps(
             data, ensure_ascii=False, sort_keys=True, separators=(",", ":")

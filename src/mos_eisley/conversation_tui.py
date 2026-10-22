@@ -1140,6 +1140,15 @@ class ConversationTUI:
                 link += " • repository inspection"
             status = "" if entry.status == "completed" else f" • {entry.status}"
             parts.append(f"You [{index}]{status}{link}\n{entry.text}")
+            from mos_eisley.conversation_recovery import uncertain_notice
+
+            notice = uncertain_notice(state.recovery_journal, f"turn-{index}")
+            if notice is not None or entry.status == "interrupted":
+                parts.append(
+                    notice
+                    or "Effect uncertain; this interrupted operation "
+                    "will not be replayed."
+                )
             if entry.answer is not None:
                 parts.append(f"Mos\n{entry.answer}")
         if self.details:

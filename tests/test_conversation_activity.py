@@ -6,7 +6,7 @@ from unittest import IsolatedAsyncioTestCase, TestCase
 from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
-from test_conversation_tui import controller, until
+from test_conversation_tui import TextAnswerClient, controller, until
 
 from mos_eisley.conversation_activity import ConversationActivity
 from mos_eisley.conversation_git_review_tui import GitReviewTUI
@@ -115,16 +115,7 @@ class ActivityKeyboardTests(IsolatedAsyncioTestCase):
             with self.subTest(renderer=kind.__name__), create_pipe_input() as input:
                 chat = controller()
                 chat.submit("Remember that the fixture boundary is ten.")
-                await chat.step()
-                chat.state = chat.state.model_copy(
-                    update={
-                        "entries": (
-                            chat.state.entries[0].model_copy(
-                                update={"answer": "line\n" * 80}
-                            ),
-                        )
-                    }
-                )
+                await chat.step(TextAnswerClient("line\n" * 80))
                 ui = kind(chat, input=input, output=DummyOutput())
                 ui.editor.set_document(Document("Unsent\nmultiline draft", 6))
                 ui.transcript.buffer.set_document(

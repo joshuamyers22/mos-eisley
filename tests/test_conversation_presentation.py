@@ -19,7 +19,7 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.utils import get_cwidth
-from test_conversation_tui import controller, until
+from test_conversation_tui import TextAnswerClient, controller, until
 
 from mos_eisley.conversation_cli import DEMO_PROMPTS, add_commands, startup_arguments
 from mos_eisley.conversation_git_review_tui import GitReviewTUI
@@ -134,16 +134,7 @@ class PresentationKeyboardTests(IsolatedAsyncioTestCase):
                 ):
                     chat = controller()
                     chat.submit(DEMO_PROMPTS[0])
-                    await chat.step()
-                    chat.state = chat.state.model_copy(
-                        update={
-                            "entries": (
-                                chat.state.entries[0].model_copy(
-                                    update={"answer": "line\n" * 80}
-                                ),
-                            )
-                        }
-                    )
+                    await chat.step(TextAnswerClient("line\n" * 80))
                     output = ResizableOutput()
                     ui = kind(chat, input=input, output=output, theme=theme)
                     ui.editor.set_document(Document("Keep this\nDraft two", 5))
@@ -267,16 +258,7 @@ class PresentationKeyboardTests(IsolatedAsyncioTestCase):
             with self.subTest(renderer=kind.__name__), create_pipe_input() as input:
                 chat = controller()
                 chat.submit(DEMO_PROMPTS[0])
-                await chat.step()
-                chat.state = chat.state.model_copy(
-                    update={
-                        "entries": (
-                            chat.state.entries[0].model_copy(
-                                update={"answer": "line\n" * 50}
-                            ),
-                        )
-                    }
-                )
+                await chat.step(TextAnswerClient("line\n" * 50))
                 ui = kind(chat, input=input, output=DummyOutput())
                 ui.transcript.buffer.set_document(
                     Document(ui.transcript.text, 12), bypass_readonly=True

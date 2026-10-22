@@ -5449,6 +5449,13 @@ the existing `mos exec --json` command or the historical M10 milestone table.
 
 ### 31.4 Recoverable session, controller and execution boundaries
 
+**Implementation status, 2026-10-22:** the [session recovery contract](SESSION_RECOVERY.md)
+now uses a bounded metadata journal in existing JSON/SQLite sessions, with stable
+operation IDs, atomic dispatch/results, uncertain recovery, retained resource
+exposure and guarded workspace/capability/container recipes. Source and installed-wheel
+[verification passed](SESSION_RECOVERY_VERIFICATION.md); live operation and release
+retain their existing gates.
+
 Make the retained, owner-scoped session event log the durable source for controller
 recovery, separate from the disposable execution sandbox. Assign monotonic event
 sequence numbers and stable operation IDs. Persist a decision and its applicable

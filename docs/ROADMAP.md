@@ -695,6 +695,15 @@ Source and installed-wheel journeys cover both stores and failure/cancellation
 boundaries. Live operation still requires existing consent, exact authority and
 spending admission; this adds no automatic launch or publication authority.
 
+**Session recovery, 2026-10-22 — implemented; source and wheel checks passed:**
+[The recovery contract](SESSION_RECOVERY.md) adds a bounded operation journal to
+the existing snapshot/SQLite sessions, atomic decisions/results and cursor,
+explicit uncertain effects, and workspace/capability/recipe revalidation. Fault
+tests cover transaction/acknowledgement loss, abrupt process exit, retained steering,
+real-ledger exposure and owner isolation. The [verification record](SESSION_RECOVERY_VERIFICATION.md)
+records 3,793 source and 2,760 installed-wheel tests, with existing platform skips.
+Existing live/platform/release gates remain.
+
 **Version 2 feature-survey additions, 2026-09-25 — planned:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
 adds a bounded paid-review launch preview, exact file/range attachments, and a

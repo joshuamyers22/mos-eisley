@@ -187,6 +187,7 @@ def main() -> int:
             "test_wsl2_preflight.py",
             "test_conversation.py",
             "test_exec.py",
+            "test_conversation_recovery.py",
             "test_live_repository_read.py",
             "test_conversation_live_chat.py",
             "test_conversation_live_coding.py",

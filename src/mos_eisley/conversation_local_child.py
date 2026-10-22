@@ -1,6 +1,6 @@
 """Owner-scoped, unpaid, text-only child contracts; no execution authority."""
 
-from typing import Annotated, Literal, Protocol, Self
+from typing import Annotated, Literal, Protocol, Self, runtime_checkable
 
 from pydantic import Field, model_validator
 
@@ -108,7 +108,25 @@ class LocalChildExecutor(Protocol):
     async def execute(self, job: LocalChildJob) -> LocalChildExecution: ...
 
 
+@runtime_checkable
+class SandboxedExecutor(Protocol):
+    @property
+    def recipe_sha256(self) -> str: ...
+
+
+def execution_recipe(executor: object) -> str | None:
+    return executor.recipe_sha256 if isinstance(executor, SandboxedExecutor) else None
+
+
+def require_execution_recipe(record: "LocalChildRecord", executor: object) -> None:
+    if execution_recipe(executor) != record.recipe_sha256:
+        raise ValueError(
+            "Retained sandbox recipe changed; fresh admission is required."
+        )
+
+
 class LocalChildRecord(Contract):
+    recipe_sha256: Digest | None = Field(default=None, exclude_if=lambda v: v is None)
     coding: CodingRetention | None = Field(default=None, exclude_if=lambda v: v is None)
     child_id: Identifier
     authorization: LocalChildAuthorization

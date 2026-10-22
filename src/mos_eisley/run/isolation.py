@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from pathlib import Path
 from uuid import uuid4
 
 from pydantic import JsonValue, TypeAdapter
 
-from mos_eisley.core.models import Contract, canonical_bytes
+from mos_eisley.core.dispatch_guard import revalidate_dispatch
+from mos_eisley.core.models import Contract, canonical_bytes, digest
 from mos_eisley.evaluation.execution import (
     EvaluationCassette,
     ExecutionBatch,
@@ -47,6 +49,29 @@ class OfflineContainer:
         self.lifecycle_root = lifecycle_root
         self.lifecycle_path: Path | None = None
         self._async_active = False
+        # Freeze the trusted subclass's recipe once. Replacements use a fresh
+        # instance and the same immutable image, never a recovered worker or
+        # model-supplied mounts/capabilities.
+        self._recovery_recipe = tuple(self.create_command("mos-recipe", ()))
+
+    @property
+    def recipe_sha256(self) -> str:
+        return digest(json.dumps(self._recovery_recipe, separators=(",", ":")).encode())
+
+    def verified_create_command(
+        self, name: str, arguments: tuple[str, ...]
+    ) -> list[str]:
+        revalidate_dispatch()
+        if tuple(self.create_command("mos-recipe", ())) != self._recovery_recipe:
+            raise ValueError(
+                "Sandbox recipe changed; replacement requires fresh admission."
+            )
+        command = self.create_command(name, arguments)
+        expected = list(self._recovery_recipe)
+        expected[expected.index("--name") + 1] = name
+        if command != [*expected, *arguments]:
+            raise ValueError("Sandbox command expanded the pinned recipe.")
+        return command
 
     async def exchange_async(
         self,
@@ -136,7 +161,7 @@ class OfflineContainer:
         self.lifecycle_path = None
         try:
             created = bounded_process(
-                self.create_command(name, arguments),
+                self.verified_create_command(name, arguments),
                 limit=65536,
             )
             candidate_id = created.decode("ascii").strip()
@@ -150,6 +175,7 @@ class OfflineContainer:
                 timeout + 5,
             )
             self.lifecycle_path = watchdog.directory
+            revalidate_dispatch()
             command = [self.docker, "start", "--attach", "--interactive", container_id]
             if exchange_handler is None:
                 output = bounded_process(command, payload, timeout)
