@@ -18,6 +18,9 @@ from mos_eisley.subscription_cli import add_command, run_command
 
 class LaunchTests(unittest.TestCase):
     def setUp(self) -> None:
+        from mos_eisley.cli import main
+
+        self.real_chat = main
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
@@ -226,3 +229,42 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.run_cli(self.arguments()), 2)
         self.chat.assert_called_once()
         self.assertTrue(self.authorization().exists())
+
+    def test_real_plain_start_and_resume_keep_provider_and_usage_labels(self) -> None:
+        home = self.root / "home"
+        home.mkdir(mode=0o700)
+        for provider, label in (
+            ("openai_subscription", "ChatGPT"),
+            ("anthropic_subscription", "Claude"),
+        ):
+            self.state = self.root / provider
+            arguments = [*self.arguments(provider), "--plain"]
+            for resume in (False, True):
+                with self.subTest(provider=provider, resume=resume):
+                    if resume:
+                        scope = read_authorization(self.authorization())
+                        selected = [*arguments, "--resume", scope.session_id]
+                    else:
+                        selected = arguments
+                    read_fd, write_fd = os.pipe()
+                    os.write(write_fd, b"/quit\n")
+                    os.close(write_fd)
+                    with (
+                        os.fdopen(read_fd) as stream,
+                        patch("sys.stdin", stream),
+                        patch.dict(os.environ, {"HOME": str(home)}),
+                        patch("mos_eisley.cli.main", self.real_chat),
+                        patch(
+                            "mos_eisley.conversation_subscription."
+                            "AuthorizedSubscriptionClient.complete",
+                            side_effect=AssertionError("No inference permitted"),
+                        ),
+                        contextlib.redirect_stdout(io.StringIO()) as output,
+                    ):
+                        self.assertEqual(self.run_cli(selected), 0)
+                    text = output.getvalue()
+                    self.assertIn(f"{label} subscription chat.", text)
+                    self.assertIn(f"{label} subscription conversation", text)
+                    self.assertIn("original usage authorization", text)
+                    self.assertNotIn("selected spending policy", text)
+                    self.assertNotIn("Live OpenAI chat.", text)

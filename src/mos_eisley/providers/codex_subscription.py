@@ -24,8 +24,8 @@ from mos_eisley.platform.posix_storage_native import NativeRootQueries
 from mos_eisley.platform.storage import StorageAdmissionError
 from mos_eisley.tools.mcp_schema import compile_schema, valid_instance
 
-CLIENT_VERSION = "0.162.1"
-SUPPORTED_CLIENT_VERSIONS = ("0.161.0", CLIENT_VERSION)
+CLIENT_VERSION = "0.163.0"
+SUPPORTED_CLIENT_VERSIONS = ("0.161.0", "0.162.1", CLIENT_VERSION)
 PROVIDER = "openai_subscription"
 MAX_INPUT = 128_000
 MAX_EVENTS = 1_000_000

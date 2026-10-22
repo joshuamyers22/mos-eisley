@@ -4,6 +4,13 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.6 — candidate
+
+- Support Codex 0.162.1/0.163.0 alongside 0.161.0 and provide bounded ChatGPT/Claude
+  subscription chat setup with explicit consent and immutable resume limits.
+- Label plain-mode subscription conversations with the selected provider and
+  usage authorization, keeping API spending-policy descriptions on API routes.
+
 ## 0.1.0-rc.5 — candidate
 
 - Update the certifi trust bundle for GHSA-6q48-6c7w-9gw2. Supersede the
