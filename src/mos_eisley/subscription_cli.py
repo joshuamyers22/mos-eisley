@@ -14,6 +14,7 @@ from mos_eisley.core.protocol import ModelRequest, TextBlock, Turn
 from mos_eisley.providers.codex_subscription import (
     CLIENT_VERSION,
     MAX_INPUT,
+    SUPPORTED_CLIENT_VERSIONS,
     CodexSubscriptionClient,
     select_client,
     status,
@@ -25,6 +26,31 @@ def add_command(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
         "subscription", help="Explicit local ChatGPT subscription route"
     )
     actions = command.add_subparsers(dest="subscription_action", required=True)
+    chat = actions.add_parser(
+        "chat", help="Start or resume a bounded subscription TUI session"
+    )
+    chat.add_argument(
+        "--provider",
+        choices=("openai_subscription", "anthropic_subscription"),
+        required=True,
+    )
+    chat.add_argument("--client", type=Path)
+    chat.add_argument("-C", "--workspace", type=Path, default=Path("."))
+    chat.add_argument(
+        "--state-dir", type=Path, default=Path.home() / ".mos-eisley-subscriptions"
+    )
+    chat.add_argument("--resume", metavar="SESSION_ID")
+    chat.add_argument("--model")
+    chat.add_argument("--effort", choices=("medium", "high"))
+    chat.add_argument("--max-invocations", type=int, default=4)
+    chat.add_argument("--valid-for-seconds", type=int, default=600)
+    chat.add_argument("--timeout", type=int, default=60)
+    chat.add_argument("--plain", action="store_true")
+    chat.add_argument("--allow-data-transfer", action="store_true")
+    chat.add_argument("--allow-subscription-usage", action="store_true")
+    chat.add_argument(
+        "--accept-unverified-billing-and-native-retries", action="store_true"
+    )
     authorize = actions.add_parser(
         "authorize", help="Create an immutable local subscription usage scope"
     )
@@ -105,6 +131,10 @@ def add_command(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
 
 def run_command(args: argparse.Namespace) -> int:
     try:
+        if args.subscription_action == "chat":
+            from mos_eisley.subscription_launch import start_chat
+
+            return start_chat(args)
         if args.subscription_action == "authorize":
             return create_authorization(args)
         if args.subscription_action == "ask" and (
@@ -133,11 +163,19 @@ def run_command(args: argparse.Namespace) -> int:
                         "required_client_version": CLAUDE_VERSION
                         if claude
                         else CLIENT_VERSION,
+                        "supported_client_versions": [CLAUDE_VERSION]
+                        if claude
+                        else list(SUPPORTED_CLIENT_VERSIONS),
                         **result,
                     }
                 )
             )
-            return 0 if all(result.values()) else 2
+            return (
+                0
+                if result["client_version_supported"] is True
+                and result["subscription_signed_in"] is True
+                else 2
+            )
         if not 1 <= args.max_output_bytes <= 64_000:
             raise ValueError("Output limit must be 1–64000 UTF-8 bytes")
         raw = sys.stdin.buffer.read(MAX_INPUT + 1)
@@ -191,7 +229,7 @@ def run_command(args: argparse.Namespace) -> int:
         return 2
 
 
-def create_authorization(args: argparse.Namespace) -> int:
+def create_authorization(args: argparse.Namespace, *, announce: bool = True) -> int:
     import os
     from datetime import UTC, datetime, timedelta
     from uuid import uuid4
@@ -260,15 +298,16 @@ def create_authorization(args: argparse.Namespace) -> int:
         write_receipt(parent, output.name, json.loads(canonical_bytes(authority)))
     finally:
         os.close(parent)
-    print(
-        json.dumps(
-            {
-                "authorization_sha256": authority.sha256,
-                "session_id": authority.session_id,
-                "output": str(output),
-                "billing_verified": False,
-                "inference_invocations": 0,
-            }
+    if announce:
+        print(
+            json.dumps(
+                {
+                    "authorization_sha256": authority.sha256,
+                    "session_id": authority.session_id,
+                    "output": str(output),
+                    "billing_verified": False,
+                    "inference_invocations": 0,
+                }
+            )
         )
-    )
     return 0

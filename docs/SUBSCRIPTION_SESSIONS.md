@@ -2,12 +2,48 @@
 
 A subscription session uses an explicit local usage authorization instead of an API spending policy. Native clients own sign-in and credential refresh. Usage reports are unverified; retries can consume quota or available credits. Invocation limits and returned-output limits do not cap provider billing.
 
-Use existing owner-installed Codex 0.161.0 or Claude Code 2.1.283. Status reads native metadata without inference:
+Use existing owner-installed Codex 0.161.0 or 0.162.1, or Claude Code 2.1.283.
+Other versions remain inadmissible. Status reads native metadata without inference:
 
 ```sh
 mos subscription status --provider openai_subscription --client /absolute/codex
 mos subscription status --provider anthropic_subscription --client /absolute/claude
 ```
+
+Start a subscription TUI directly from your project directory:
+
+```sh
+mos subscription chat --provider openai_subscription -C /absolute/project
+mos subscription chat --provider anthropic_subscription -C /absolute/project
+```
+
+The launcher checks native sign-in and asks for transfer, subscription-use and
+native-retry consent. It creates a fresh private authorization when you launch,
+with four invocations, a ten-minute expiry, a 60-second invocation deadline and
+the existing output limits. ChatGPT defaults to `gpt-6-sol` / `medium`; Claude
+defaults to `claude-sonnet-5` / `high`. No prompt is sent until you submit a message.
+`--client` selects an absolute trusted client; `--max-invocations`,
+`--valid-for-seconds`, `--timeout`, `--model` and `--effort` select explicit limits
+and an admitted profile. These limits do not cap native retries or provider billing.
+
+Scopes and sessions live in owner-private `~/.mos-eisley-subscriptions` by default;
+`--state-dir` selects a separate existing-parent location. The launcher displays
+the session ID. Resume with the same provider, workspace and state directory:
+
+```sh
+mos subscription chat --provider openai_subscription -C /absolute/project \
+  --resume SESSION_ID
+```
+
+Resume retains the original authorization, client digest, usage ledger and expiry;
+it never renews a scope or clears uncertain usage. An expired or changed scope
+refuses. Keep failure receipts for explicit recovery. Noninteractive callers must
+provide all three existing acknowledgement flags: `--allow-data-transfer`,
+`--allow-subscription-usage` and
+`--accept-unverified-billing-and-native-retries`.
+
+The following lower-level commands remain available for explicit role grants and
+coding integration.
 
 Create an existing owner-private directory for authorization and usage receipts. Choose a fresh 32-character hexadecimal session ID. The grant arguments are role, provider, exact model, effort, absolute native client and allowed invocation count:
 
