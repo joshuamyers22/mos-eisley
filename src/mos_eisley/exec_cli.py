@@ -112,6 +112,21 @@ class ExecOutput:
         ]
         if controller.persistence_broken:
             return
+        from mos_eisley.conversation_recovery import operation_id, uncertain_notice
+
+        key = f"turn-{len(state.entries) - 1}"
+        self.result["operation_id"] = operation_id(state.session_id, key)
+        self.result["recovery_cursor"] = (
+            0 if state.recovery_journal is None else state.recovery_journal.cursor
+        )
+        self.result["effect_status"] = (
+            "uncertain"
+            if uncertain_notice(state.recovery_journal, key)
+            or entry.status == "interrupted"
+            else "completed"
+            if entry.status == "completed"
+            else "unavailable"
+        )
         self.result["answer"] = entry.answer
         self.result["usage"] = (
             None if entry.usage is None else entry.usage.model_dump(mode="json")

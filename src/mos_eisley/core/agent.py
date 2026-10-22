@@ -8,6 +8,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from mos_eisley.core.budget import Budget, BudgetPolicy, resolve_budget
+from mos_eisley.core.dispatch_guard import revalidate_dispatch
 from mos_eisley.core.models import Contract, Identifier, canonical_bytes, digest
 from mos_eisley.core.ports import Journal, ModelClient, ProviderError, ToolDispatcher
 from mos_eisley.core.protocol import (
@@ -160,6 +161,7 @@ async def run_agent(
         largest_request = max(largest_request, request_size)
         request_id = f"model-{iteration:04d}"
         record("model.request.started", request_id, request)
+        revalidate_dispatch()
         try:
             async with asyncio.timeout(config.request_timeout_seconds):
                 response = await client.complete(request)
@@ -237,6 +239,7 @@ async def run_agent(
         results: list[ToolResultBlock] = []
         for call in calls:
             used_call_ids.add(call.id)
+            revalidate_dispatch()
             try:
                 async with asyncio.timeout(config.tool_timeout_seconds):
                     result = await dispatcher.dispatch(call)

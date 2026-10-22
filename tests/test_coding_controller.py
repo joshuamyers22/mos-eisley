@@ -462,6 +462,36 @@ class CodingControllerTests(IsolatedAsyncioTestCase):
                 )
         self.assertEqual(self.executor.calls, 1)
 
+    async def test_both_stores_pin_recipe_before_later_integration(self) -> None:
+        class PinnedExecutor(FixtureCodingExecutor):
+            recipe_sha256 = "1" * 64
+
+        executor = PinnedExecutor()
+        self.executor = executor
+        self.chat.coding_executor = executor
+        await self.run_child()
+        child = self.chat.state.local_children[0]
+        self.assertEqual(child.recipe_sha256, "1" * 64)
+        for backend in (ConversationStore, SQLiteConversationStore):
+            executor.recipe_sha256 = "1" * 64
+            with backend(
+                self.root / backend.__name__, self.chat.state.session_id, self.repo
+            ) as store:
+                for state in self.saved:
+                    store.save(state)
+                loaded = store.load()
+                self.assertEqual(loaded.local_children[0].recipe_sha256, "1" * 64)
+                resumed = self.new_chat(loaded, store.save)
+                executor.recipe_sha256 = "2" * 64
+                before = canonical_bytes(resumed.state)
+                with self.assertRaisesRegex(ValueError, "sandbox recipe changed"):
+                    await resumed.integrate_coding_child(
+                        child.child_id, expected_revision=loaded.revision
+                    )
+                self.assertEqual(canonical_bytes(resumed.state), before)
+                self.assertEqual(executor.verifications, 0)
+                self.assertEqual(executor.calls, 1)
+
     async def test_pending_or_failed_handoff_has_required_unpassed_integration_job(
         self,
     ) -> None:

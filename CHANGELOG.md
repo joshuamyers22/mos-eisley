@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add session-owned operation recovery with atomic decision/result records, stable
+  IDs, explicit uncertain effects, retained steering/budgets and pinned replacement
+  container recipes across the shared terminal and scriptable controller.
+
 - Add one-shot `mos exec` with bounded strict UTF-8 input, versioned JSON
   lifecycle/terminal output, explicit review verdicts and stable exit codes, using
   the existing conversation controller and spending/cancellation boundaries.

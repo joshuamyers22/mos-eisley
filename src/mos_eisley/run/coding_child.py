@@ -132,6 +132,10 @@ class DockerCodingChild:
     def image_id(self) -> str:
         return self.container.image_id
 
+    @property
+    def recipe_sha256(self) -> str:
+        return self.container.recipe_sha256
+
     async def _exchange(self, mode: str, payload: bytes, wall_seconds: int) -> bytes:
         if len(payload) > 256_000:
             raise ValueError("Coding wire exceeds its byte bound.")

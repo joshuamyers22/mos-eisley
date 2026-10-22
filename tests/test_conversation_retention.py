@@ -75,6 +75,9 @@ class RetentionPreviewTests(TestCase):
         selected = self.fresh if state is None else state
         selected = selected.model_copy(
             update={
+                # These synthetic legacy fixtures reuse text across independent
+                # IDs/workspaces; no new operation authority is copied.
+                "recovery_journal": None,
                 "session_id": f"{index:032x}",
                 "workspace": str((workspace or self.root).resolve()),
             }

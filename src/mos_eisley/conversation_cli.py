@@ -1472,6 +1472,32 @@ async def terminal(
                     event["review_brief_id"] = entry.review_brief_id
                 if entry.review_result is not None:
                     event["review_result"] = entry.review_result.model_dump(mode="json")
+                from mos_eisley.conversation_recovery import uncertain_notice
+
+                notice = uncertain_notice(
+                    controller.state.recovery_journal, f"turn-{index}"
+                )
+                if notice is not None or entry.status == "interrupted":
+                    event["effect_status"] = "uncertain"
+                    event["recovery_notice"] = (
+                        notice
+                        or "Effect uncertain; this interrupted operation "
+                        "will not be replayed."
+                    )
+                    emit(
+                        {
+                            "type": "operation.uncertain",
+                            "index": index,
+                            "text": event["recovery_notice"],
+                        }
+                    )
+                if controller.state.recovery_journal is not None:
+                    from mos_eisley.conversation_recovery import operation_id
+
+                    event["operation_id"] = operation_id(
+                        controller.state.session_id, f"turn-{index}"
+                    )
+                    event["recovery_cursor"] = controller.state.recovery_journal.cursor
                 emit(event)
             admission = entry.request_admission
             if (

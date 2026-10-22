@@ -43,12 +43,14 @@ class PruneTests(TestCase):
         self.storage = self.root / "sessions"
         self.sid = f"{1:032x}"
         self.cassette = demo_cassette()
-        self.fresh = ConversationController.fresh(self.root, self.cassette)
+        self.fresh = ConversationController.fresh(self.root, self.cassette).model_copy(
+            update={"session_id": self.sid}
+        )
         chat = ConversationController(self.fresh, self.cassette, lambda state: None)
         chat.refresh_memory(None, self.cassette)
         chat.submit(DEMO_PROMPTS[0])
         asyncio.run(chat.step())
-        self.state = chat.state.model_copy(update={"session_id": self.sid})
+        self.state = chat.state
         self.seed(self.state, CUTOFF - 100)
         self.seed(self.fresh.model_copy(update={"session_id": f"{2:032x}"}), CUTOFF + 1)
         self.seed(
