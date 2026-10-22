@@ -723,8 +723,10 @@ preview. Fresh checks at phase approval, credential/provider use and result
 publication retain signed admission, quorum, task spending, cancellation and
 read-only/no-posting authority. Legacy prepared packets remain compatible.
 The [verification record](SCOPED_LIVE_REVIEW_WORK_NOTE.md) covers the connection;
-managed-worktree, supported-platform and exact new-target/live release
-qualification remain separate.
+supported-platform and exact new-target/live release qualification remain
+separate. [Managed-worktree review](MANAGED_WORKTREE_REVIEW_WORK_NOTE.md) now admits
+standard owner-controlled reciprocal layouts, pins shared/local metadata and
+qualifies real CodingVCS staging roots without adding write authority.
 
 **Ranked resume discovery, 2026-10-22 — implemented:** the existing picker ranks
 exact IDs/names, prefixes, all-word matches and bounded fuzzy names with stable
@@ -750,9 +752,10 @@ do not change v1 scope, grant new authority or advance an implementation gate.
 [Bounded Git acquisition](GIT_REVIEW_SCOPES.md) and explicit `/review` presets
 support uncommitted, base-branch, commit and explicit file/range targets with frozen
 briefs and stale
-input rejection. Requires an explicit POSIX repository root; live review,
-full managed-worktree gates and Linux/Windows-hosted WSL2
-qualification remain pending.
+input rejection. Explicit POSIX roots include standard owner-controlled linked
+worktrees and real CodingVCS stages. Scoped live admission is connected above;
+native Linux/Windows-hosted WSL2 and exact new-target/live release qualification
+remain pending.
 
 **Live diff and findings, 2026-10-03 — local POSIX slice implemented:**
 [/diff and F10](CONVERSATION_DIFF.md) provide paged staged/unstaged/untracked views,

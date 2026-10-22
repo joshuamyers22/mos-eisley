@@ -5549,9 +5549,18 @@ now bind that exact source scope to the prepared guided brief, shared inert laun
 preview, and existing signed critic/judge workflow. Scope/configuration checks
 continue through phase approval, credential/provider use and result publication.
 Prepared-only packets remain compatible. See the [work and verification record](SCOPED_LIVE_REVIEW_WORK_NOTE.md).
-Managed-worktree qualification, Linux/Windows-hosted WSL2 evidence and exact new
-live-target/release qualification remain open; this connection does not satisfy
-those separate gates.
+That connection retains separate supported-platform and exact new live-target/
+release qualification gates.
+
+**Managed-worktree status, 2026-10-22:** the reader admits owner-controlled
+standard linked worktrees, including real CodingVCS staging roots, through bounded
+reciprocal `.git`/`commondir`/backlink validation before Git starts. Versioned scopes
+pin workspace, local admin, shared repository and pointer identities; per-process
+metadata/configuration checks and existing stale-source admission remain read-only.
+See the [qualification record](MANAGED_WORKTREE_REVIEW_WORK_NOTE.md) for source and
+installed-wheel evidence. This proves local managed-stage compatibility, not Mos
+issuance authority or a broader session-worktree lifecycle. Native Linux/Windows-
+hosted WSL2 evidence and exact new live-target/release qualification remain open.
 
 Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
 presets for uncommitted changes, comparison against a base branch, an exact commit,
