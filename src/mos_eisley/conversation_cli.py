@@ -3563,6 +3563,12 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         if args.command == "resume" and args.context_max_bytes is not None:
             controller.resize_context(args.context_max_bytes)
         project_location = ProjectLocation.inspect(Path(controller.state.workspace))
+        subscription_label = (
+            "Claude"
+            if isinstance(live_identity, SubscriptionChatIdentity)
+            and live_identity.provider == "anthropic_subscription"
+            else "ChatGPT"
+        )
         emit(
             {
                 "type": "conversation.opened",
@@ -3584,6 +3590,8 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     + (
                         "Recorded chat; live review selected. "
                         if live_selection is not None
+                        else f"{subscription_label} subscription chat. "
+                        if isinstance(live_identity, SubscriptionChatIdentity)
                         else "Live OpenAI chat. "
                         if live_identity is not None
                         else "Recorded preview. "
@@ -3602,6 +3610,9 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
         welcome = (
             "Recorded chat with an explicitly selected live review.\n"
             if live_selection is not None
+            else f"{subscription_label} subscription conversation with the "
+            "original usage authorization.\n"
+            if isinstance(live_identity, SubscriptionChatIdentity)
             else "Live OpenAI conversation with the selected spending policy.\n"
             if live_identity is not None
             else "Recorded preview: live conversations are not connected yet.\n"

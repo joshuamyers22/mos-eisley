@@ -2,7 +2,7 @@
 
 A subscription session uses an explicit local usage authorization instead of an API spending policy. Native clients own sign-in and credential refresh. Usage reports are unverified; retries can consume quota or available credits. Invocation limits and returned-output limits do not cap provider billing.
 
-Use existing owner-installed Codex 0.161.0 or 0.162.1, or Claude Code 2.1.283.
+Use existing owner-installed Codex 0.161.0, 0.162.1 or 0.163.0, or Claude Code 2.1.283.
 Other versions remain inadmissible. Status reads native metadata without inference:
 
 ```sh

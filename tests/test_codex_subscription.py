@@ -288,7 +288,13 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.log.exists())
 
     async def test_unknown_client_version_rejects_before_authentication(self) -> None:
-        for version in ("unreviewed-version", "0.162.0", "0.162.2", "0.163.0"):
+        for version in (
+            "unreviewed-version",
+            "0.162.0",
+            "0.162.2",
+            "0.163.1",
+            "0.164.0",
+        ):
             with self.subTest(version=version):
                 self.configure(version=version)
                 from mos_eisley.providers import codex_subscription as adapter

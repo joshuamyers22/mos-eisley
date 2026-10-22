@@ -96,7 +96,7 @@ excluded; owners still need to install and trust the selected client. Login runs
 from the home directory, with native-client configuration still applicable.
 
 An [experimental subscription text route](SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
-is available through owner-installed Codex 0.161.0 or 0.162.1. `mos subscription status`
+is available through owner-installed Codex 0.161.0, 0.162.1 or 0.163.0. `mos subscription status`
 reads native login metadata without sending a prompt. `mos subscription ask --help`
 shows explicit transfer/usage consent and fresh private-attempt requirements.
 Only `gpt-6-sol` with `medium` effort is currently compatible. Native transport
@@ -110,7 +110,7 @@ unverified. Login alone supplies no inference or coding authority.
 Existing API routes retain their own authorization and spending controls.
 The subscription session launcher in this source branch creates a bounded scope
 for either provider with `mos subscription chat --provider PROVIDER -C PROJECT`;
-see the session guide. This launcher and Codex 0.162.1 compatibility require a
+see the session guide. This launcher and Codex 0.162.1/0.163.0 compatibility require a
 build containing these changes; the immutable rc.5 public binary predates them.
 Recorded conversation remains available without credentials. Setup and login
 supply no inference prompt or paid Mos request.
