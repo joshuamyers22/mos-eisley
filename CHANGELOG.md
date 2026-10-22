@@ -8,7 +8,7 @@ Notable changes are recorded here using semantic versioning.
   IDs, explicit uncertain effects, retained steering/budgets and pinned replacement
   container recipes across the shared terminal and scriptable controller.
 
-- Add fail-closed `mos exec` automation with credential-free manifest preflight, JSONL
+- Add one-shot `mos exec` with bounded strict UTF-8 input, versioned JSON
   lifecycle/terminal output, explicit review verdicts and stable exit codes, using
   the existing conversation controller and spending/cancellation boundaries.
 
