@@ -12,12 +12,23 @@ Notable changes are recorded here using semantic versioning.
   lifecycle/terminal output, explicit review verdicts and stable exit codes, using
   the existing conversation controller and spending/cancellation boundaries.
 
-## 0.1.0-rc.6 — candidate
+## 0.1.0-rc.7 — candidate
+
+- Allow 45 minutes for signed native qualification, retaining all four targets
+  and rc.1/rc.2/rc.3/rc.5 upgrade journeys. Intel macOS reached rc.6's 30-minute
+  cap during the added rc.5 journey; preserve that unpublished immutable tag.
 
 - Support Codex 0.162.1/0.163.0 alongside 0.161.0 and provide bounded ChatGPT/Claude
   subscription chat setup with explicit consent and immutable resume limits.
 - Label plain-mode subscription conversations with the selected provider and
   usage authorization, keeping API spending-policy descriptions on API routes.
+
+## 0.1.0-rc.6 — unpublished
+
+- Signing and three platform qualifications passed. Intel macOS exhausted the
+  job time limit during rc.5 upgrade qualification; publication stayed blocked.
+  rc.7 carries the same subscription/interface runtime with a larger bounded
+  qualification window.
 
 ## 0.1.0-rc.5 — candidate
 
