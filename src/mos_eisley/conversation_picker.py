@@ -20,7 +20,6 @@ from prompt_toolkit.output import Output
 from prompt_toolkit.utils import get_cwidth
 from prompt_toolkit.widgets import TextArea
 
-from mos_eisley.conversation_name import name_key
 from mos_eisley.conversation_presentation import (
     SelectionLexer,
     TerminalTheme,
@@ -28,6 +27,11 @@ from mos_eisley.conversation_presentation import (
     conversation_style,
     fit_label,
     header_fragments,
+)
+from mos_eisley.conversation_resume_rank import (
+    MAX_QUERY_CHARS,
+    ResumeMatch,
+    rank_sessions,
 )
 from mos_eisley.run.conversation_names import ResumeCatalog
 from mos_eisley.run.conversation_store import ConversationSummary
@@ -70,6 +74,7 @@ class ResumePicker:
         self.index = 0
         self.valid = True
         self.rows: tuple[ConversationSummary, ...] = ()
+        self.matches: tuple[ResumeMatch, ...] = ()
         self.notice = "Enter selects. Queued work stays paused after resume."
         self.detail_area = TextArea(
             read_only=True,
@@ -117,7 +122,10 @@ class ResumePicker:
             self.filter_rows()
 
         def _text(event: KeyPressEvent) -> None:
-            if event.data.isprintable() and len(self.query + event.data) <= 120:
+            if (
+                event.data.isprintable()
+                and len(self.query + event.data) <= MAX_QUERY_CHARS
+            ):
                 self.query += event.data
                 self.filter_rows()
 
@@ -202,13 +210,10 @@ class ResumePicker:
             )
 
     def filter_rows(self) -> None:
-        query = name_key(self.query)
-        self.rows = tuple(
-            s
-            for s in self.catalog.sessions
-            if self.valid
-            and (query in name_key(s.session_name or "") or query in s.session_id)
+        self.matches = (
+            rank_sessions(self.catalog.sessions, self.query) if self.valid else ()
         )
+        self.rows = tuple(match.summary for match in self.matches)
         self.index = 0
         self.sync_details()
 
@@ -240,6 +245,8 @@ class ResumePicker:
             name = summary.session_name or "(unnamed)"
             state = "ACTIVE" if summary.active else "ready"
             meta = f"{summary.pending} queued • {state}"
+            if self.query.strip():
+                meta += " • " + self.matches[index].label
             if width >= 52:
                 meta = f"{summary.messages} msg • " + meta
             if width >= 95:
@@ -265,7 +272,8 @@ class ResumePicker:
             f"Session ID: {selected.session_id}\n"
             f"Name: {safe_label(selected.session_name or '(unnamed)')}\n"
             f"{selected.messages} messages • {selected.pending} queued • "
-            f"{'active' if selected.active else 'available'}\n"
+            f"{'active' if selected.active else 'available'} • "
+            f"Match: {self.matches[self.index].label}\n"
             f"Saved: {saved_time(selected)}\n"
             f"Workspace: {safe_label(self.catalog.workspace)}"
         )

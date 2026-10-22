@@ -228,6 +228,7 @@ def main() -> int:
             "test_conversation_launch_prompt.py",
             "test_conversation_names.py",
             "test_conversation_picker.py",
+            "test_resume_ranking.py",
             "test_conversation_directory.py",
             "test_conversation_switch.py",
             "test_conversation_project.py",

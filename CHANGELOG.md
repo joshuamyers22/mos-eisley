@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add bounded ranked discovery to the existing resume picker, with deterministic
+  exact/prefix/word/fuzzy ordering, match reasons and scoped metadata-only search.
+  Exact `--name` ambiguity handling and locked stale-selection checks remain.
+
 - Add an optional trusted-host credential attachment transport with owner-scoped
   native references, pinned DNS/TLS/operations, live rotation/revocation, isolated
   diagnostics and no authentication retries. Existing credential paths remain

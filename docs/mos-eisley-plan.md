@@ -5504,6 +5504,11 @@ The additive host implementation and qualification limits are documented in
 
 ### 31.6 Ranked discovery in the existing resume picker
 
+**Implementation status, 2026-10-22:** the existing picker now ranks bounded
+admitted metadata and displays match reasons. See the [user contract](CONVERSATION_NAMES.md)
+and [implementation and verification record](RANKED_RESUME_WORK_NOTE.md).
+Exact name lookup, catalog admission and locked resume validation remain authoritative.
+
 Improve the §16.0.3 picker using only the bounded session metadata already
 admitted for the selected owner, canonical workspace, storage location and
 backend. Rank exact session-ID and normalized-name matches first, followed by

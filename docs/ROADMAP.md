@@ -716,7 +716,13 @@ default until exact credentialed provider/tool conformance and accountable revie
 no paid provider or publisher activation is claimed. See the
 [verification record](CREDENTIAL_BOUNDARY_VERIFICATION.md) for gate results.
 
-**Version 2 feature-survey additions, 2026-09-25 — planned:** the
+**Ranked resume discovery, 2026-10-22 — implemented:** the existing picker ranks
+exact IDs/names, prefixes, all-word matches and bounded fuzzy names with stable
+saved-time/ID ties and visible match reasons. Search processes only scoped admitted
+metadata; exact `--name` ambiguity and locked stale-selection checks remain.
+See the [contract](CONVERSATION_NAMES.md) and [verification record](RANKED_RESUME_WORK_NOTE.md).
+
+**Version 2 feature-survey additions, 2026-09-25 — planned and implemented slices:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
 adds a bounded paid-review launch preview, exact file/range attachments, and a
 complete stdin/final-status contract for `mos exec` to the post-v1 product phase in
@@ -725,9 +731,8 @@ The 2026-09-27 Managed Agents survey also adds durable recovery across session,
 controller and sandbox failures, plus brokered credential attachment at approved
 network destinations, to that v2 phase. The implemented recovery and additive
 credential slices above record their evidence and remaining activation limits.
-The 2026-09-28 `resume` survey adds ranked name/ID discovery to the existing
-metadata-only resume picker, with deterministic ordering, existing scope and
-catalog limits, and stale-selection rechecks; see plan §31.6.
+The 2026-09-28 `resume` survey's ranked metadata discovery is implemented above;
+see plan §31.6 for its unchanged scope and acceptance boundaries.
 They depend on the applicable v1 conversation, review, read and policy gates. They
 do not change v1 scope, grant new authority or advance an implementation gate.
 

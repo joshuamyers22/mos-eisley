@@ -121,7 +121,7 @@ launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 
 [Named sessions](docs/CONVERSATION_NAMES.md) support `mos chat --name "Parser cleanup"`,
 `/rename NAME`, and `mos resume --name "Parser cleanup"`. Bare `mos resume` opens
-a keyboard picker with name/ID filtering; duplicate names require explicit
+a keyboard picker with bounded ranked name/ID discovery and match reasons; duplicate names require explicit
 selection. Resumed queued work stays paused until you continue it.
 
 Use `mos --choose-directory` or `mos resume --choose-directory` to open the

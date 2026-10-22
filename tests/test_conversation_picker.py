@@ -10,6 +10,7 @@ import sys
 import termios
 import time
 from collections.abc import Callable
+from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -80,10 +81,19 @@ class PickerTests(IsolatedAsyncioTestCase):
                 input.send_text("\x1b[5~")
                 await until(lambda: ui.index == 0)
                 input.send_text("task 44")
-                await until(lambda: len(ui.rows) == 1)
+                await until(lambda: ui.query == "task 44")
                 self.assertEqual(ui.rows[0].session_id, rows[44].session_id)
+                self.assertFalse(task.done())
+                self.assertIn("Match: Exact name", ui.selection_details())
+                self.assertIn(
+                    "Exact name", "".join(fragment[1] for fragment in ui.render_rows())
+                )
                 input.send_text("\x7f")
-                await until(lambda: len(ui.rows) == 5)
+                await until(lambda: ui.query == "task 4")
+                self.assertEqual(
+                    tuple(s.session_id for s in ui.rows[:5]),
+                    tuple(s.session_id for s in rows[40:45]),
+                )
                 input.send_text("\x15")
                 await until(lambda: len(ui.rows) == 45)
                 input.send_text("\x1b[B\x1b[B\x1b[A\r")
@@ -175,10 +185,11 @@ class PickerTests(IsolatedAsyncioTestCase):
 class PickerGuardTests(TestCase):
     def test_changed_selection_or_replaced_root_never_opens_controller(self) -> None:
         for sqlite in (False, True):
-            for replace_root in (False, True):
+            for change in ("rename", "root", "delete", "replace", "active"):
                 with (
-                    self.subTest(sqlite=sqlite, replace_root=replace_root),
+                    self.subTest(sqlite=sqlite, change=change),
                     TemporaryDirectory() as directory,
+                    ExitStack() as resources,
                 ):
                     root = Path(directory)
                     storage = root / "sessions"
@@ -190,11 +201,26 @@ class PickerGuardTests(TestCase):
                     picked = ResumeSelection(
                         catalog.location, catalog.workspace, catalog.sessions[0]
                     )
-                    if replace_root:
+                    if change == "root":
                         storage.rename(root / "previous")
                         storage.mkdir(mode=0o700)
                         with backend(storage, state.session_id, root) as store:
                             store.save(state)
+                    elif change == "active":
+                        resources.enter_context(
+                            backend(storage, state.session_id, root, create=False)
+                        )
+                    elif change in ("delete", "replace"):
+                        with backend(
+                            storage, state.session_id, root, create=False
+                        ) as store:
+                            store.delete(picked.summary.snapshot_sha256)
+                        if change == "replace":
+                            replacement = state.model_copy(
+                                update={"session_name": "Replacement state"}
+                            )
+                            with backend(storage, state.session_id, root) as store:
+                                store.save(replacement)
                     else:
                         with backend(
                             storage, state.session_id, root, create=False
@@ -228,8 +254,15 @@ class PickerGuardTests(TestCase):
                             side_effect=AssertionError("opened controller"),
                         ),
                     ):
-                        if replace_root:
+                        if change == "root":
                             with self.assertRaises(ValueError):
+                                run_command(args)
+                        elif change in ("delete", "active"):
+                            with self.assertRaises(
+                                FileNotFoundError
+                                if change == "delete"
+                                else BlockingIOError
+                            ):
                                 run_command(args)
                         else:
                             self.assertEqual(run_command(args), 2)
