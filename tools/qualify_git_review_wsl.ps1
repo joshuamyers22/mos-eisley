@@ -29,7 +29,7 @@ function Invoke-WslBounded([string[]] $Arguments, [int] $Seconds = 600) {
 $version = Invoke-WslBounded -Arguments @('--version') -Seconds 60
 Invoke-WslBounded -Arguments @('--set-default-version', '2') -Seconds 60 | Write-Host
 Invoke-WslBounded -Arguments @('--install', '--web-download', '--distribution', $distro, '--no-launch') | Write-Host
-Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--', 'true') | Write-Host
+Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'true') | Write-Host
 $listing = Invoke-WslBounded -Arguments @('--list', '--verbose') -Seconds 60
 if ($listing -notmatch '(?m)^\s*\*?\s*Ubuntu-24\.04\s+\S+\s+2\s*$') {
     throw 'The actual selected Windows-hosted distribution must report version 2'
@@ -63,8 +63,11 @@ tar -xzf /tmp/mos-uv.tar.gz -C /tmp
 install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
 '@
 $bootstrap = $bootstrap.Replace("`r", '')
-Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--', 'bash', '-c', $bootstrap) -Seconds 900 | Write-Host
-$source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
+Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'bash', '-c', $bootstrap) -Seconds 900 | Write-Host
+$transportProbe = 'a\path with spaces"quote'
+$transportResult = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', 'printf "%s" "$1"', '--', $transportProbe) -Seconds 60
+if ($transportResult -cne $transportProbe) { throw 'WSL argument transport changed literal bytes' }
+$source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
 $run = @'
 set -eu
 export PATH=/usr/local/bin:/usr/bin:/bin
@@ -79,10 +82,13 @@ cp "$1/dist/qualification/windows-host.json" dist/qualification/windows-host.jso
 MOS_REQUIRE_TMUX=1 uv run --frozen python tools/qualify_git_review_platform.py qualify --target wsl2 --commit "$2" --host-evidence dist/qualification/windows-host.json --output dist/qualification/wsl2.json
 '@
 $run = $run.Replace("`r", '')
-# Long quality work runs after the bounded real-WSL boot/admission above.
-$PSNativeCommandUseErrorActionPreference = $false
-& wsl.exe --distribution $distro --user mosqual -- bash -c $run -- $source $env:GITHUB_SHA
-$code = $LASTEXITCODE
-# Only bounded structured evidence crosses back to the Windows artifact directory.
-& wsl.exe --distribution $distro --user mosqual -- bash -c 'cp ~/candidate/dist/qualification/wsl2.json "$1/dist/qualification/wsl2.json"' -- $source
-if ($code -ne 0) { throw "WSL2 qualification failed with exit code $code" }
+# Use the same explicit argv transport checked above for the long quality run.
+$qualificationFailure = $null
+try {
+    Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', $run, '--', $source, $env:GITHUB_SHA) -Seconds 7200 | Write-Host
+} catch {
+    $qualificationFailure = $_
+}
+# Only structured evidence crosses back; preserve a failed run's report as well.
+Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', 'if [ -f ~/candidate/dist/qualification/wsl2.json ]; then cp ~/candidate/dist/qualification/wsl2.json "$1/dist/qualification/wsl2.json"; fi', '--', $source) -Seconds 60 | Write-Host
+if ($qualificationFailure) { throw $qualificationFailure }

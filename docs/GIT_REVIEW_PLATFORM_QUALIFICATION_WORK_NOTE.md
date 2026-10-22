@@ -61,6 +61,14 @@ completion. Keep broader platform and exact live-target release gates separate.
   Normalize embedded Bash text to LF; cancel the obsolete Linux run and rerun both
   targets on the corrected exact candidate. No runtime gate was weakened.
 
+- Attempt 2: [run 39866622928](https://github.com/joshuamyers22/mos-eisley/actions/runs/39866622928)
+  completed WSL2 boot, package installation and pinned uv checksum verification.
+  Windows path backslashes were consumed by WSL's default shell transport before
+  `wslpath`; no tests ran on that target. Use explicit `--exec` argv transport for
+  every Linux command and require a literal backslash/space/quote round trip before
+  cloning or testing. Cancel the superseded Linux candidate and retain both setup
+  attempts; neither is qualification success.
+
 ## Completion evidence
 
 Pending native runs and evidence review.
