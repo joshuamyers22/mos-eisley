@@ -55,6 +55,12 @@ completion. Keep broader platform and exact live-target release gates separate.
   candidate is not a release or completion claim. Each target runs `make check -j1`
   plus the same skip-free source/isolated-wheel review cases.
 
+- Attempt 1: [run 39865165385](https://github.com/joshuamyers22/mos-eisley/actions/runs/39865165385)
+  installed and booted actual Windows-hosted WSL2 and retained host observations,
+  but rejected the CRLF Bash bootstrap from the Windows checkout before tests.
+  Normalize embedded Bash text to LF; cancel the obsolete Linux run and rerun both
+  targets on the corrected exact candidate. No runtime gate was weakened.
+
 ## Completion evidence
 
 Pending native runs and evidence review.

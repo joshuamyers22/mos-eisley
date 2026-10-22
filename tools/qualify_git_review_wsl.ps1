@@ -62,6 +62,7 @@ echo '2b428396f12572d4429cf210ca234dd599a33b3af0958a4d5ed569d63e3f344f  /tmp/mos
 tar -xzf /tmp/mos-uv.tar.gz -C /tmp
 install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
 '@
+$bootstrap = $bootstrap.Replace("`r", '')
 Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--', 'bash', '-c', $bootstrap) -Seconds 900 | Write-Host
 $source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
 $run = @'
@@ -77,6 +78,7 @@ mkdir -p dist/qualification
 cp "$1/dist/qualification/windows-host.json" dist/qualification/windows-host.json
 MOS_REQUIRE_TMUX=1 uv run --frozen python tools/qualify_git_review_platform.py qualify --target wsl2 --commit "$2" --host-evidence dist/qualification/windows-host.json --output dist/qualification/wsl2.json
 '@
+$run = $run.Replace("`r", '')
 # Long quality work runs after the bounded real-WSL boot/admission above.
 $PSNativeCommandUseErrorActionPreference = $false
 & wsl.exe --distribution $distro --user mosqual -- bash -c $run -- $source $env:GITHUB_SHA
