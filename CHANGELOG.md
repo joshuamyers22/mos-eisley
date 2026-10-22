@@ -4,6 +4,10 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+- Add one-shot `mos exec` with bounded strict UTF-8 input, versioned JSON
+  lifecycle/terminal output, explicit review verdicts and stable exit codes, using
+  the existing conversation controller and spending/cancellation boundaries.
+
 ## 0.1.0-rc.6 — candidate
 
 - Support Codex 0.162.1/0.163.0 alongside 0.161.0 and provide bounded ChatGPT/Claude
