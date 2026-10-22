@@ -51,6 +51,10 @@ supports isolated text turns. [Experimental subscription sessions](docs/SUBSCRIP
 now support saved chat/resume and bounded provider-diverse coding after the reviewed
 subscription stack merged. Billing, native retries and general project reliability
 remain unverified.
+Source builds also provide `mos subscription chat --provider openai_subscription`
+and `mos subscription chat --provider anthropic_subscription` from a project
+directory, with interactive consent and bounded saved-session authorization.
+This launcher and Codex 0.162.1 support are newer than the public rc.5 binary.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.

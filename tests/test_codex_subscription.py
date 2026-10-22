@@ -22,6 +22,7 @@ from mos_eisley.platform.storage import StorageAdmissionError
 from mos_eisley.providers.codex_subscription import (
     CLIENT_VERSION,
     PROVIDER,
+    SUPPORTED_CLIENT_VERSIONS,
     CodexSubscriptionClient,
     NativeProcessError,
     invoke,
@@ -281,15 +282,34 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             {
                 "client_version_supported": True,
                 "subscription_signed_in": True,
+                "client_version": CLIENT_VERSION,
             },
         )
         self.assertFalse(self.log.exists())
 
     async def test_unknown_client_version_rejects_before_authentication(self) -> None:
-        self.configure(version="unreviewed-version")
-        result = await status(self.client)
-        self.assertFalse(result["client_version_supported"])
-        self.assertFalse(self.log.exists())
+        for version in ("unreviewed-version", "0.162.0", "0.162.2", "0.163.0"):
+            with self.subTest(version=version):
+                self.configure(version=version)
+                from mos_eisley.providers import codex_subscription as adapter
+
+                with patch.object(adapter, "invoke", wraps=invoke) as selected:
+                    result = await status(self.client)
+                self.assertFalse(result["client_version_supported"])
+                self.assertIsNone(result["client_version"])
+                self.assertEqual(selected.await_count, 1)
+                self.assertFalse(self.log.exists())
+
+    async def test_admitted_versions_keep_actual_dispatch_identity(self) -> None:
+        for version in SUPPORTED_CLIENT_VERSIONS:
+            with self.subTest(version=version):
+                self.configure(version=version)
+                self.assertEqual((await status(self.client))["client_version"], version)
+                await self.adapter("version-" + version).complete(request())
+                receipt = json.loads(
+                    (self.root / ("version-" + version) / "dispatch.json").read_text()
+                )
+                self.assertEqual(receipt["client_version"], version)
 
     async def test_api_key_sign_in_never_dispatches(self) -> None:
         self.configure(auth="API key")
@@ -439,6 +459,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                     return_value={
                         "client_version_supported": True,
                         "subscription_signed_in": True,
+                        "client_version": CLIENT_VERSION,
                     }
                 ),
             ),

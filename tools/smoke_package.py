@@ -172,6 +172,7 @@ def main() -> int:
             "test_codex_subscription.py",
             "test_claude_subscription.py",
             "test_subscription_authorization.py",
+            "test_subscription_launch.py",
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_conversation_git.py",
