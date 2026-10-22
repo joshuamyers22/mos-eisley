@@ -40,6 +40,13 @@ Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
 for the publication gates, exact artifact evidence and remaining limitations.
 
+## Scriptable execution
+
+Use `mos exec --json "PROMPT"` or pipe UTF-8 text to `mos exec --json --stdin`
+for one noninteractive conversation turn. Explicit frozen reviews use `--review`.
+The [execution contract](docs/SCRIPTABLE_EXEC.md) documents input limits, terminal
+results, exit codes and verdict-aware CI checks.
+
 ## Quick start
 
 The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes
