@@ -115,4 +115,24 @@ qualification were not rerun: no runtime or dependency changed and no publicatio
 is being attempted. They remain required before publishing this branch.
 
 The published binary, owner shortcuts, credentials and existing sessions remain
-unchanged. No release, push or publication is part of this task.
+unchanged. No release or publication is part of this task.
+
+## Merge preparation
+
+The owner subsequently requested commit/push and preparation for merging. Initial
+investigation commit: `eff25a5`. Main remains `f31b4dd`; the branch has no missing
+main commits or existing PR. Scope: inspect the complete diff, run one combined
+`make check` including installed-wheel smoke, create a PR with precise limits,
+and inspect required checks/review readiness. Zero provider inference remains
+mandatory; do not replay native qualification or change release artifacts.
+Keep raw gate logs private in `.work/merge-check.log`. Bound remediation to two
+evidence-backed corrections; investigate actual failures rather than retrying
+unchanged checks. The seven protected checks (quality, container, gitleaks and
+four native targets) and resolved review conversations are required for merge.
+
+Review found that the clean-wheel smoke runner explicitly selects tests and
+helpers: the two new startup test modules were absent from its list. Add both
+modules and the capture helper so the same cold-process matrix also exercises
+the installed wheel without the source package. No application/runtime change.
+The combined gate is running; final counts, skipped checks and required GitHub
+check results will be recorded in the PR's evidence section before merge.
