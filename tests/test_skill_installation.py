@@ -336,6 +336,7 @@ class SkillInstallationTests(TestCase):
             )
         public_parent = self.root / "public"
         public_parent.mkdir(mode=0o755)
+        public_parent.chmod(0o755)  # Deliberately unsafe, even under umask 077.
         with self.assertRaisesRegex(ValueError, "parent must be private"):
             SkillInstallationClaimStore.create(
                 public_parent / "claims.sqlite",

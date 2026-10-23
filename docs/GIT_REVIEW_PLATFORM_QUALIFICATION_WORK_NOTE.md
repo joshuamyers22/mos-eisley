@@ -31,8 +31,8 @@ does not establish either requested native target.
 ## Budget and stopping rules
 
 Three passes: platform/runner admission; exact source/wheel qualification; evidence
-review and publication. Four hours active implementation, two hours per native
-quality job, and at most three bounded setup/failure repairs. No paid providers or
+review and publication. Four hours active implementation, four hours per native
+combined quality gate (five-hour job ceiling), and three bounded bootstrap repairs, followed by one evidence-driven fixture-portability repair. No paid providers or
 premium runner labels. Fail closed on missing host provenance, WSL1, root user,
 non-Linux storage or skipped required review cases. If actual WSL2 cannot start,
 retain the failed attempt and request a reachable Windows host instead of claiming
@@ -76,6 +76,39 @@ completion. Keep broader platform and exact live-target release gates separate.
   the ownership guard; do not set `safe.directory=*` or exempt the Windows source.
   A portable regression deletes the source repository before cloning its copied
   bundle and verifies exact commit, clean checkout and no object alternates.
+
+- Active attempt 4: [run 39869875447](https://github.com/joshuamyers22/mos-eisley/actions/runs/39869875447),
+  exact candidate `93f264d25b9680f31d9c5a52756428dd9578f9ed`.
+  Native Linux job `120141331874` and actual Windows/WSL2 job `120141332305`
+  were in progress when first recorded. The portable tool suite has five passing cases; no
+  runtime/source code changed during the setup repairs. Native completion and
+  artifact validation are still required.
+
+- The isolated-wheel evidence runner also passed all 116 focused cases locally,
+  with zero skips in 122.700 seconds, from a separate virtual environment and
+  copied fixtures outside the checkout. This verifies the runner/fixture layout;
+  native qualification still depends on the two active target jobs.
+
+- Attempt 4 WSL2 completed 3,853 source tests in 5,862.883 seconds and failed
+  five private-directory negative fixtures (six reported failures/errors because
+  one test runs through two classes). The bootstrap's umask 077 masked their
+  `mkdir(mode=0755)` to 0700. The application correctly admitted private directories;
+  fixtures must explicitly chmod their deliberately unsafe directory. No privacy
+  check or application authority is relaxed.
+- Observed source duration is about 98 minutes on this runner. Revise the combined
+  source/wheel gate ceiling from two to four hours, with a five-hour job ceiling
+  and 15-minute focused-case commands. This is a CI runtime allowance, not a change
+  to product acquisition, cancellation, spend or authorization limits. Retain the
+  failed native attempt; rerun focused permission cases under umask 077, then the
+  complete exact-candidate native gates.
+
+- All five repaired negative permission tests pass under umask 077 locally in
+  2.815 seconds, including the native loopback OAuth fixture. The first local
+  OAuth run was blocked by the sandbox's socket policy; its permitted native
+  rerun passed. Ruff/format and strict tool typing pass. Application code is
+  unchanged; the deliberately unsafe fixture modes are now explicit on every OS.
+- Attempt 4 is superseded by the corrected fixture/budget candidate. Run both
+  full native gates again; do not treat the failed WSL source run as acceptance.
 
 ## Completion evidence
 

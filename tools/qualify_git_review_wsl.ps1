@@ -92,7 +92,7 @@ $run = $run.Replace("`r", '')
 # Use the same explicit argv transport checked above for the long quality run.
 $qualificationFailure = $null
 try {
-    Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', $run, '--', $source, $env:GITHUB_SHA, $bundleLinux, $bundleDigest) -Seconds 7200 | Write-Host
+    Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', $run, '--', $source, $env:GITHUB_SHA, $bundleLinux, $bundleDigest) -Seconds 17400 | Write-Host
 } catch {
     $qualificationFailure = $_
 }

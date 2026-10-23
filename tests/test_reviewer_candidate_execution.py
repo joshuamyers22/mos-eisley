@@ -340,6 +340,7 @@ class CandidateExecutionTests(unittest.TestCase):
             admission = self._admit(approval, request, kwargs)
             store = root / "dispatch-store"
             store.mkdir(mode=0o755)
+            store.chmod(0o755)  # Deliberately unsafe, even under umask 077.
             container = OfflineContainer(
                 Path("/usr/bin/docker"), IMAGE, root / "lifecycle"
             )

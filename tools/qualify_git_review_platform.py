@@ -102,7 +102,7 @@ def verify_wheel(repository: Path, wheel: Path) -> int:
     return len(sources)
 
 
-def command(args: list[str], *, cwd: Path, log: Path, timeout: int = 7200) -> None:
+def command(args: list[str], *, cwd: Path, log: Path, timeout: int = 900) -> None:
     print(json.dumps({"command": args, "status": "running"}), flush=True)
     with log.open("w") as stream:
         try:
@@ -227,7 +227,9 @@ def qualify(target: str, commit: str, output: Path, host_path: Path | None) -> i
         with tempfile.TemporaryDirectory(prefix="mos-native-review-") as directory:
             root = Path(directory)
             quality_log = root / "quality.log"
-            command(["make", "check", "-j1"], cwd=repository, log=quality_log)
+            command(
+                ["make", "check", "-j1"], cwd=repository, log=quality_log, timeout=14400
+            )
             report["quality"] = quality_counts(quality_log.read_text(errors="replace"))
             wheels = tuple((repository / "dist").glob("*.whl"))
             wheel = max(wheels, key=lambda p: p.stat().st_mtime_ns)

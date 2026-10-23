@@ -302,6 +302,7 @@ class OAuthTests(IsolatedAsyncioTestCase):
     async def test_private_lock_directory_and_symlink_denied(self) -> None:
         directory = self.controller.store.directory
         directory.mkdir(mode=0o755)
+        directory.chmod(0o755)  # Deliberately unsafe, even under umask 077.
         with self.assertRaises(OAuthFailure):
             await self.controller.access_token()
         directory.chmod(0o700)

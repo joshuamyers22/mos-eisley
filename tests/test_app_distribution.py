@@ -315,6 +315,7 @@ class DistributionTests(unittest.TestCase):
 
     def test_shared_root_and_symlink_root_refused(self) -> None:
         self.root.mkdir(mode=0o755)
+        self.root.chmod(0o755)  # Deliberately unsafe, even under umask 077.
         release, raw = self.release()
         with self.assertRaisesRegex(ReleaseError, "private"):
             app_install.install(self.root, self.bin, release, raw)
