@@ -28,6 +28,8 @@ class EphemeralAnthropicTransport:
             api_key=self._api_key,
             timeout=self._timeout_seconds,
             max_retries=0,
+            # Ambient SDK tracing must not export prompts or propagate context.
+            open_telemetry={"traces": False, "propagation": False},
             base_url="https://api.anthropic.com",
             http_client=BoundedAnthropicHttpClient(
                 trust_env=False, follow_redirects=False

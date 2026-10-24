@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -685,7 +685,7 @@ distribution = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.75,<3" },
+    { name = "anthropic", specifier = ">=2,<3" },
     { name = "anyio", specifier = ">=4.15,<5" },
     { name = "certifi", specifier = ">=2026.10.19" },
     { name = "cryptography", specifier = ">=50,<51" },
