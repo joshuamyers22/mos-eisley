@@ -169,10 +169,13 @@ def main() -> int:
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
         for name in (
             "test_app_distribution.py",
+            "test_anthropic_provider.py",
             "test_codex_subscription.py",
             "test_claude_subscription.py",
             "test_subscription_authorization.py",
             "test_subscription_launch.py",
+            "test_startup_capture.py",
+            "test_subscription_startup_process.py",
             "test_platform_files.py",
             "test_platform_identity.py",
             "test_conversation_git.py",
@@ -371,7 +374,11 @@ def main() -> int:
         # and copy it explicitly, just like the other retained test fixtures.
         helpers = root / "tools"
         helpers.mkdir()
-        for name in ("smoke_app_distribution.py", "qualify_published_upgrade.py"):
+        for name in (
+            "smoke_app_distribution.py",
+            "qualify_published_upgrade.py",
+            "capture_startup.py",
+        ):
             (helpers / name).write_text((Path("tools") / name).read_text())
         subprocess.run(
             [
