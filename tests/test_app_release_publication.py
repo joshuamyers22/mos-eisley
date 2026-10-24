@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -255,6 +256,50 @@ class DraftPublicationTests(unittest.TestCase):
         run.assert_called_once()
         self.assertEqual(run.call_args.kwargs["timeout"], 60)
         self.assertTrue(run.call_args.kwargs["check"])
+
+    def test_historical_harness_retains_the_reviewed_artifact_metadata(self) -> None:
+        workflow = cast(
+            dict[object, object],
+            yaml.safe_load(
+                (ROOT / ".github/workflows/published-upgrade.yml").read_text()
+            ),
+        )
+        environment = mapping(workflow["env"])
+        signed = json.loads(
+            (ROOT / "docs/qualification/rc2-upgrade-candidate.json").read_bytes()
+        )
+        self.assertEqual(
+            signed["payload"]["source_commit"], environment["ARTIFACT_SOURCE"]
+        )
+        steps = [
+            mapping(step)
+            for step in cast(
+                list[object], mapping(mapping(workflow["jobs"])["upgrade"])["steps"]
+            )
+        ]
+        checkouts = [
+            index
+            for index, step in enumerate(steps)
+            if str(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        self.assertEqual(len(checkouts), 2)
+        self.assertNotIn("ref", mapping(steps[checkouts[0]]["with"]))
+        self.assertEqual(
+            mapping(steps[checkouts[1]]["with"])["ref"],
+            "${{ env.CANDIDATE_SOURCE }}",
+        )
+        retained = "$RUNNER_TEMP/mos-rc2-upgrade-candidate.json"
+        copies = [
+            (index, str(step.get("run", "")))
+            for index, step in enumerate(steps)
+            if retained in str(step.get("run", ""))
+        ]
+        self.assertEqual(len(copies), 2)
+        self.assertLess(checkouts[0], copies[0][0])
+        self.assertLess(copies[0][0], checkouts[1])
+        self.assertIn("docs/qualification/rc2-upgrade-candidate.json", copies[0][1])
+        self.assertGreater(copies[1][0], checkouts[1])
+        self.assertIn('"' + retained + '" .work/candidate/release.json', copies[1][1])
 
     def test_workflow_upload_is_draft_and_finalization_follows_qualified_gates(
         self,

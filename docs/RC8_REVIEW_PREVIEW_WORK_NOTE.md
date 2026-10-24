@@ -131,3 +131,16 @@ The fixed-lock tested wheel is `mos_eisley-0.1.0rc8-py3-none-any.whl`, SHA-256
 All 414 packaged Python files match current source bytes. This is local package
 qualification; committed native and signed-release artifacts remain separate.
 The delivery PR validation section is the current record of final-commit CI.
+
+## CI follow-up: historical metadata custody
+
+The first PR run `40134756097` failed the historical rc.1/rc.2 jobs at their
+unchanged source-identity guard. Selecting old harness `c090592` also selected
+its older signed metadata (`d8b05ad`), while the reviewed current metadata binds
+artifact source `8ef4e62`. Preserve the current signed bytes in runner temporary
+storage before checking out the epoch-1 harness, then copy those same bytes into
+the candidate directory. Do not alter signatures, archives or expected source pins.
+A regression checks actual metadata/source agreement and copy/checkout ordering.
+All 65 affected package/publication tests and static checks pass. Application
+source and the tested wheel's 414 Python files are unchanged; new exact-commit CI
+repeats the affected native evidence.
