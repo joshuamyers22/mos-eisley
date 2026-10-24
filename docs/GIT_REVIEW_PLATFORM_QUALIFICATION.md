@@ -67,6 +67,12 @@ exclude unrestricted test logs, credentials and model/conversation payloads.
 
 ## Exact native results
 
-Pending completion and review of the native workflow artifacts. Failed setup
-attempts and corrections are retained in the
-[work note](GIT_REVIEW_PLATFORM_QUALIFICATION_WORK_NOTE.md).
+[Run 39881254556](https://github.com/joshuamyers22/mos-eisley/actions/runs/39881254556)
+passed for candidate `8cef1b42d7b739772c5362b9206d9466e0a43199` on native
+Linux and actual Windows-hosted WSL2. Each target passed 116 focused source
+and 116 independent installed-wheel cases without skips, plus the full
+3,853-test source and 2,831-test wheel gates (17/13 platform skips).
+Candidate, Windows host provenance and identical wheel identities were checked
+against the structured artifacts on 2026-10-23. The
+[work note](GIT_REVIEW_PLATFORM_QUALIFICATION_WORK_NOTE.md) retains exact identities,
+failed attempts and scope limits. Broader platform/release support remains gated.

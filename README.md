@@ -30,13 +30,19 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.3 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)
-covers macOS and Linux on arm64 and x86_64. The immutable release includes signed
-metadata and installation/upgrade qualification evidence. The earlier rc.1
-qualification also covers npm and the official macOS Homebrew preview formula.
-This release includes the accepted interface polish from PR #306 and qualified
-upgrades from both rc.1 and rc.2. See the
-[publication record](docs/POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) for exact evidence.
+The published [**0.1.0-rc.7 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
+covers macOS and Linux on arm64 and x86_64. It includes the polished interface
+and experimental subscription chat/resume. Its signed installation and sixteen
+real-predecessor upgrade checks passed. npm and the public Homebrew preview
+formula retain their separately qualified versions.
+
+The [rc.8 qualification candidate](docs/RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds
+scriptable execution, session recovery, ranked resume discovery, scoped live
+review, managed-worktree read admission and startup diagnostics. It is not yet
+published. Its recovery journal requires storage epoch 2; cross-epoch rollback
+is refused, with separate pre-upgrade backups and a compatible reader required.
+Optional credential attachment stays inactive by default; new live
+targets still require their existing authorization and qualification.
 Stable `0.1.0` remains unqualified.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
@@ -68,6 +74,10 @@ supports isolated text turns. [Experimental subscription sessions](docs/SUBSCRIP
 now support saved chat/resume and bounded provider-diverse coding after the reviewed
 subscription stack merged. Billing, native retries and general project reliability
 remain unverified.
+Source builds also provide `mos subscription chat --provider openai_subscription`
+and `mos subscription chat --provider anthropic_subscription` from a project
+directory, with interactive consent and bounded saved-session authorization.
+The published rc.7 includes this launcher and Codex 0.162.1/0.163.0 support.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.

@@ -1,5 +1,20 @@
 # macOS/Linux preview distribution qualification
 
+## Current published preview and next candidate
+
+[rc.7](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
+published on 2026-10-22 at `78bc17ce561df7e641a4dd0fc5aef56aa9deee58` through
+[run 39849685337](https://github.com/joshuamyers22/mos-eisley/actions/runs/39849685337).
+Its immutable inventory has 39 verified assets, four signed installations,
+sixteen actual-predecessor upgrades and both generated macOS formula checks.
+It retains its frozen subscription/interface runtime. npm/tap routes remain
+separately versioned; this is not stable launch or general Windows/WSL2 support.
+
+[rc.8 preparation](RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds reviewed source changes
+and the recovery storage-epoch fence. It remains unpublished; exact current
+qualification and accountable disposition are required. The records below retain
+their original artifact-specific scope.
+
 ## Polished standalone preview published: 2026-10-15
 
 [Immutable rc.3](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)

@@ -1497,6 +1497,18 @@ loading and telemetry adapters remain planned.
     bounded output attachments. User terminal input grants no model authority;
     model-mediated input remains a separate capability gate.
 
+## Review integration and rc.8 preview qualification, 2026-10-23
+
+Native Linux and actual Windows-hosted WSL2 passed exact §31.7 review candidate
+`8cef1b4` in [run 39881254556](https://github.com/joshuamyers22/mos-eisley/actions/runs/39881254556).
+Both structured reports have matching wheel/source identities and 116 focused
+cases per mode without skips. This closes that candidate's native review gate,
+not broader WSL2 support. The [rc.8 integration record](RC8_REVIEW_PREVIEW_WORK_NOTE.md)
+tracks current-main integration, scoped live review, ranked resume, optional
+credential attachment, scriptable execution, recovery and startup diagnostics.
+The candidate is unpublished; exact combined checks and native/signed upgrade
+qualification remain required. Published rc.7 retains its frozen earlier runtime.
+
 ## Remote MCP connections
 
 User-directed addition, 2026-09-09: extend the implemented explicit local stdio

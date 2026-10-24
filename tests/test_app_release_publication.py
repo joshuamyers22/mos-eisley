@@ -300,6 +300,26 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertIn("qualification-upgrade-rc2-", rc2_journey)
         self.assertNotIn("continue-on-error", rc2)
         self.assertNotIn("if", rc2)
+        rc7 = next(
+            s
+            for s in qualification_steps
+            if s.get("name") == "Qualify upgrade from published rc.7"
+        )
+        self.assertEqual(mapping(rc7["env"])["SOURCE_COMMIT"], "${{ github.sha }}")
+        rc7_journey = str(rc7["run"])
+        for required in (
+            "gh release download v0.1.0-rc.7",
+            "421278021",
+            "78bc17ce561df7e641a4dd0fc5aef56aa9deee58",
+            ".immutable == true",
+            ".draft == false",
+            "--predecessor-version 0.1.0-rc.7",
+            '--candidate-commit "$SOURCE_COMMIT"',
+            "qualification-upgrade-rc7-",
+        ):
+            self.assertIn(required, rc7_journey)
+        self.assertNotIn("continue-on-error", rc7)
+        self.assertNotIn("if", rc7)
         self.assertEqual(publish["environment"], "application-release")
         steps = [mapping(s) for s in cast(list[object], publish["steps"])]
         upload = next(

@@ -164,6 +164,8 @@ async def qualify(
             patch.dict(
                 os.environ,
                 {
+                    "HOME": directory,
+                    "CODEX_HOME": str(Path(directory) / "codex-home"),
                     "SUBSCRIPTION_FIXTURE_API_KEY": "fixture-only",
                     "OPENAI_API_KEY": "fixture-only",
                 },
@@ -176,6 +178,7 @@ async def qualify(
             ),
             patch.object(adapter, "invoke", fixture_invoke),
         ):
+            (Path(directory) / "codex-home").mkdir(mode=0o700)
             selected = adapter.CodexSubscriptionClient(
                 client,
                 Path(directory) / "attempt",

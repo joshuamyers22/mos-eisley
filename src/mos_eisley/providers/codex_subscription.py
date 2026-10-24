@@ -24,7 +24,8 @@ from mos_eisley.platform.posix_storage_native import NativeRootQueries
 from mos_eisley.platform.storage import StorageAdmissionError
 from mos_eisley.tools.mcp_schema import compile_schema, valid_instance
 
-CLIENT_VERSION = "0.161.0"
+CLIENT_VERSION = "0.163.0"
+SUPPORTED_CLIENT_VERSIONS = ("0.161.0", "0.162.1", CLIENT_VERSION)
 PROVIDER = "openai_subscription"
 MAX_INPUT = 128_000
 MAX_EVENTS = 1_000_000
@@ -274,9 +275,25 @@ async def status(executable: Path) -> dict[str, JsonValue]:
     with tempfile.TemporaryDirectory(prefix="mos-subscription-status-") as directory:
         cwd = Path(directory)
         code, raw, _ = await invoke(executable, ("--version",), cwd, output_limit=4096)
-        compatible = code == 0 and raw.strip() == f"codex-cli {CLIENT_VERSION}".encode()
+        version = (
+            next(
+                (
+                    v
+                    for v in SUPPORTED_CLIENT_VERSIONS
+                    if raw.strip() == f"codex-cli {v}".encode()
+                ),
+                None,
+            )
+            if code == 0
+            else None
+        )
+        compatible = version is not None
         if not compatible:
-            return {"client_version_supported": False, "subscription_signed_in": False}
+            return {
+                "client_version_supported": False,
+                "subscription_signed_in": False,
+                "client_version": None,
+            }
         code, raw, diagnostic = await invoke(
             executable,
             ("login", "status"),
@@ -285,7 +302,11 @@ async def status(executable: Path) -> dict[str, JsonValue]:
         )
         message = raw + diagnostic
         signed_in = code == 0 and b"Logged in using ChatGPT" in message
-        return {"client_version_supported": True, "subscription_signed_in": signed_in}
+        return {
+            "client_version_supported": True,
+            "subscription_signed_in": signed_in,
+            "client_version": version,
+        }
 
 
 def parse_result(raw: bytes, max_text: int) -> ModelResponse:
@@ -478,14 +499,17 @@ class CodexSubscriptionClient:
                     "provider": PROVIDER,
                     "model": request.model,
                     "effort": request.effort,
-                    "client_version": CLIENT_VERSION,
+                    "supported_client_versions": list(SUPPORTED_CLIENT_VERSIONS),
                     "request_sha256": hashlib.sha256(payload).hexdigest(),
                     "billing": "subscription_usage_unverified",
                     "state": "reserved",
                 },
             )
             readiness = await status(self.executable)
-            if not all(readiness.values()):
+            if readiness.get("client_version") not in SUPPORTED_CLIENT_VERSIONS or not (
+                readiness["client_version_supported"] is True
+                and readiness["subscription_signed_in"] is True
+            ):
                 raise ProviderError(
                     "A supported client signed in with ChatGPT is required"
                 )
@@ -531,7 +555,13 @@ class CodexSubscriptionClient:
                 if self.dispatch_guard is not None:
                     self.dispatch_guard()
                 write_receipt(
-                    attempt, "dispatch.json", {"schema": 1, "state": "dispatch_started"}
+                    attempt,
+                    "dispatch.json",
+                    {
+                        "schema": 1,
+                        "state": "dispatch_started",
+                        "client_version": readiness["client_version"],
+                    },
                 )
                 code, raw, _ = await invoke(
                     self.executable,

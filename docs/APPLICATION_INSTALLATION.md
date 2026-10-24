@@ -1,11 +1,26 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.3`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3),
-source `b3f04b46fb2091e861bdf3fc5e900d933cf804b3`, for macOS/Linux ARM/x86.
-It includes the accepted interface polish. The
-[publication record](POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) tracks exact signed
-installation and upgrades from both published predecessors on all four targets.
+[immutable `0.1.0-rc.7`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7),
+source `78bc17ce561df7e641a4dd0fc5aef56aa9deee58`, for macOS/Linux ARM/x86.
+It includes the polished interface and experimental subscription setup/chat/resume.
+The release records four signed installations, sixteen actual-predecessor upgrades,
+and both generated macOS formula checks. npm and the public tap are separately
+versioned. [rc.8](RC8_REVIEW_PREVIEW_WORK_NOTE.md) is an unpublished qualification
+candidate; do not advertise it as an available download.
+
+rc.8 introduces storage epoch 2 for the recovery journal. Use its exact new
+installer for an upgrade; older installers reject the new signed metadata.
+Close all session controllers and back up private session stores before using the
+new version. Current readers can
+open legacy sessions, but old binaries reject sessions after new journal writes.
+The new runtime refuses rollback across epochs without changing the runtime
+pointer or retained state. Keep an epoch-2 reader for new sessions and use a
+forward fix if needed. Separate pre-upgrade backups remain readable by the old
+version and contain only the work saved before upgrade. Do not overwrite current
+sessions with those copies or restore/reset usage ledgers, grants or spending
+history. Backup readability qualification uses recorded sessions only. See
+[ADR 0019](adr/0019-recovery-release-storage-epoch.md).
 
 The initial [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
 was published for macOS and Linux on arm64 and x86_64. Its standalone installers and all
@@ -26,10 +41,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.3` GitHub release, then run:
+`v0.1.0-rc.7` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.3
+sh install.sh --channel preview --version 0.1.0-rc.7
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -96,7 +111,7 @@ excluded; owners still need to install and trust the selected client. Login runs
 from the home directory, with native-client configuration still applicable.
 
 An [experimental subscription text route](SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
-is available through owner-installed Codex 0.161.0. `mos subscription status`
+is available through owner-installed Codex 0.161.0, 0.162.1 or 0.163.0. `mos subscription status`
 reads native login metadata without sending a prompt. `mos subscription ask --help`
 shows explicit transfer/usage consent and fresh private-attempt requirements.
 Only `gpt-6-sol` with `medium` effort is currently compatible. Native transport
@@ -108,6 +123,10 @@ coding. The exact synthetic OpenAI/Anthropic qualification passed and PRs #291/#
 merged; native retry exposure, uncertain cancelled usage and billing remain
 unverified. Login alone supplies no inference or coding authority.
 Existing API routes retain their own authorization and spending controls.
+The subscription session launcher in this source branch creates a bounded scope
+for either provider with `mos subscription chat --provider PROVIDER -C PROJECT`;
+see the session guide. This launcher and Codex 0.162.1/0.163.0 compatibility require a
+build containing these changes; the immutable rc.5 public binary predates them.
 Recorded conversation remains available without credentials. Setup and login
 supply no inference prompt or paid Mos request.
 

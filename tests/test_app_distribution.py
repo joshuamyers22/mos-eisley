@@ -187,7 +187,7 @@ class DistributionTests(unittest.TestCase):
             "channel": "stable",
             "source_commit": "a" * 40,
             "notes": "Release notes; no executable instructions.",
-            "storage_epoch": 1,
+            "storage_epoch": app_release.STORAGE_EPOCH,
             "withdrawn": False,
             "artifacts": [
                 {
@@ -211,7 +211,7 @@ class DistributionTests(unittest.TestCase):
                 ).decode(),
             }
         )
-        return parse_release(signed), archive
+        return app_release.parse_retained_release(signed), archive
 
     def current_version(self) -> str:
         current = app_install.installed_release(self.root)
@@ -244,6 +244,39 @@ class DistributionTests(unittest.TestCase):
         self.assertFalse((self.bin / "mos").exists())
         self.assertEqual(sibling.read_bytes(), b"synthetic sentinel")
 
+    def test_recovery_epoch_upgrade_refuses_rollback_without_changing_state(
+        self,
+    ) -> None:
+        legacy, raw = self.release(change={"storage_epoch": 1})
+        self.assertEqual(legacy.storage_epoch, 1)
+        with self.assertRaisesRegex(ReleaseError, "incompatible"):
+            parse_release(legacy.raw)
+        with patch.object(app_install, "STORAGE_EPOCH", 1):
+            app_install.install(self.root, self.bin, legacy, raw)
+        state = self.base / "candidate-recovery-state"
+        state.write_bytes(b"committed operation and uncertain exposure")
+        self.install("0.1.1")
+        self.assertEqual(self.current_version(), "0.1.1")
+        pointer = os.readlink(self.root / "current")
+        metadata = (self.root / "install.json").read_bytes()
+        with self.assertRaisesRegex(ReleaseError, "storage compatibility"):
+            app_install.rollback(self.root)
+        self.assertEqual(os.readlink(self.root / "current"), pointer)
+        self.assertEqual((self.root / "install.json").read_bytes(), metadata)
+        self.assertEqual(
+            state.read_bytes(), b"committed operation and uncertain exposure"
+        )
+        self.assertEqual(self.current_version(), "0.1.1")
+
+    def test_legacy_metadata_authentication_does_not_allow_legacy_install(self) -> None:
+        self.install()
+        legacy, raw = self.release("0.1.1", change={"storage_epoch": 1})
+        self.assertEqual(legacy.storage_epoch, 1)
+        pointer = os.readlink(self.root / "current")
+        with self.assertRaisesRegex(ReleaseError, "bootstrap's storage epoch"):
+            app_install.install(self.root, self.bin, legacy, raw)
+        self.assertEqual(os.readlink(self.root / "current"), pointer)
+
     def test_tampered_archive_keeps_current(self) -> None:
         self.install()
         release, raw = self.release("0.1.1")
@@ -268,7 +301,7 @@ class DistributionTests(unittest.TestCase):
     def test_release_compatibility_boundaries(self) -> None:
         changes: tuple[dict[str, object], ...] = (
             {"withdrawn": True},
-            {"storage_epoch": 2},
+            {"storage_epoch": app_release.STORAGE_EPOCH + 1},
             {"version": "../bad"},
             {"source_commit": "xyz"},
             {"artifacts": []},
@@ -413,6 +446,18 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(result["notify"])
         app_update.change_policy(self.root, "later")
         self.assertGreater(app_update.policy(self.root).deferred_until, 0)
+
+    def test_authenticated_legacy_epoch_is_not_offered_as_compatible_update(
+        self,
+    ) -> None:
+        legacy, _ = self.release("0.1.1", change={"storage_epoch": 1})
+        with patch.object(app_update, "release_metadata", return_value=legacy.raw):
+            for force in (True, False):
+                result = app_update.check(self.root, force=force)
+                self.assertEqual(result["status"], "unable_to_check")
+                self.assertIsNone(result["latest"])
+                self.assertFalse(result["available"])
+                self.assertFalse(result.get("notify", False))
 
     def test_disabled_managed_checks_never_fetch(self) -> None:
         for action in ("disabled", "managed"):

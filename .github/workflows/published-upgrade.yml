@@ -40,8 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          # This retained rc.1/rc.2 experiment must use its epoch-1 harness,
+          # not the current application's incompatible storage-epoch policy.
+          ref: ${{ env.CANDIDATE_SOURCE }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
         with:
           version: '0.13.4'
       - run: uv sync --frozen --dev

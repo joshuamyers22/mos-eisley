@@ -1,6 +1,6 @@
 # Work note: native review platform qualification
 
-- Status: active
+- Status: closed for exact candidate; integration qualification tracked separately
 - Owner: repository maintainer, assisted by Codex
 - Started: 2026-10-22
 - Review by: next release qualification
@@ -112,4 +112,20 @@ completion. Keep broader platform and exact live-target release gates separate.
 
 ## Completion evidence
 
-Pending native runs and evidence review.
+[Run 39881254556](https://github.com/joshuamyers22/mos-eisley/actions/runs/39881254556)
+completed successfully on native Linux and actual Windows Server 2025-hosted
+Ubuntu 24.04 WSL2 at exact candidate
+`8cef1b42d7b739772c5362b9206d9466e0a43199`. Both structured reports were downloaded
+and inspected on 2026-10-23; host/candidate identities and module inventories match.
+Each target passed 3,853 source tests (17 platform skips), 2,831 installed-wheel
+tests (13 platform skips), and 116 focused source plus 116 focused installed tests
+with zero skips, failures or errors. Both wheels contain the same 413 Python files;
+SHA-256 `25ccb0d0aede1e7dae35f7158dcefe80984017bf7fe49a306f7c91aa594ea193`.
+The Windows host report records WSL distribution version 2 and the matching run,
+commit and transferred bundle. Required focused cases were not skipped.
+
+This closes the exact §31.7 native review qualification. It does not qualify
+broader WSL2 installation, containment, credentials, terminals or a new release.
+Earlier failed attempts remain historical failures. Main integration and the
+rc.8 candidate require their own current checks; see
+[the integration record](RC8_REVIEW_PREVIEW_WORK_NOTE.md).
