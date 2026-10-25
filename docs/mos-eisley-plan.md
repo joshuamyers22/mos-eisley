@@ -5498,7 +5498,16 @@ revocation before dispatch. Network capture proves the credential reaches only t
 approved destination. Existing credential paths remain supported until this
 brokered path passes the same provider and tool conformance gates.
 
+The additive host implementation and qualification limits are documented in
+[the credential boundary contract](CREDENTIAL_BOUNDARY.md); current status is in
+[the roadmap](ROADMAP.md).
+
 ### 31.6 Ranked discovery in the existing resume picker
+
+**Implementation status, 2026-10-22:** the existing picker now ranks bounded
+admitted metadata and displays match reasons. See the [user contract](CONVERSATION_NAMES.md)
+and [implementation and verification record](RANKED_RESUME_WORK_NOTE.md).
+Exact name lookup, catalog admission and locked resume validation remain authoritative.
 
 Improve the §16.0.3 picker using only the bounded session metadata already
 admitted for the selected owner, canonical workspace, storage location and
@@ -5533,9 +5542,25 @@ same numeric coordinates independently in each version and retain original line
 numbers, staged/unstaged separation and selection-limited acceptance. Selected
 files are fully hashed for stale detection; unselected content is excluded from
 the brief. TUI, plain and JSON share selectors and persisted target contracts.
-Explicit POSIX repository roots only. Live-review preview,
-managed-worktree qualification and Linux/Windows-hosted WSL2 evidence remain open;
-this slice does not satisfy those gates.
+Explicit POSIX repository roots only.
+
+**Connection status, 2026-10-22:** [scoped live selections](CONVERSATION_LIVE_REVIEW.md#connect-an-exact-git-scope)
+now bind that exact source scope to the prepared guided brief, shared inert launch
+preview, and existing signed critic/judge workflow. Scope/configuration checks
+continue through phase approval, credential/provider use and result publication.
+Prepared-only packets remain compatible. See the [work and verification record](SCOPED_LIVE_REVIEW_WORK_NOTE.md).
+That connection retains separate supported-platform and exact new live-target/
+release qualification gates.
+
+**Managed-worktree status, 2026-10-22:** the reader admits owner-controlled
+standard linked worktrees, including real CodingVCS staging roots, through bounded
+reciprocal `.git`/`commondir`/backlink validation before Git starts. Versioned scopes
+pin workspace, local admin, shared repository and pointer identities; per-process
+metadata/configuration checks and existing stale-source admission remain read-only.
+See the [qualification record](MANAGED_WORKTREE_REVIEW_WORK_NOTE.md) for source and
+installed-wheel evidence. This proves local managed-stage compatibility, not Mos
+issuance authority or a broader session-worktree lifecycle. Native Linux/Windows-
+hosted WSL2 evidence and exact new live-target/release qualification remain open.
 
 Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
 presets for uncommitted changes, comparison against a base branch, an exact commit,

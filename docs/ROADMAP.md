@@ -704,18 +704,47 @@ real-ledger exposure and owner isolation. The [verification record](SESSION_RECO
 records 3,793 source and 2,760 installed-wheel tests, with existing platform skips.
 Existing live/platform/release gates remain.
 
-**Version 2 feature-survey additions, 2026-09-25 — planned:** the
+**Credential attachment, 2026-10-22 — additive host transport implemented and verified:**
+[The broker credential boundary](CREDENTIAL_BOUNDARY.md) adds typed owner-scoped
+native references and exact approved JSON POST operations. Credentials attach at
+socket writes after pinned DNS/TCP/TLS, with live rotation/revocation, isolated
+wire diagnostics and no retries. Synthetic socket tests cover egress, hostile
+routing, owner/scope checks and consumed-grant recovery. The final standard gate
+passed 3,814 source and 2,781 installed-wheel tests with 85% coverage and existing
+platform skips; the final 21 focused cases also passed from source and wheel. Existing CLI routes remain
+default until exact credentialed provider/tool conformance and accountable review;
+no paid provider or publisher activation is claimed. See the
+[verification record](CREDENTIAL_BOUNDARY_VERIFICATION.md) for gate results.
+
+**Scoped live-review connection, 2026-10-22 — implemented:**
+[Explicit live selections](CONVERSATION_LIVE_REVIEW.md#connect-an-exact-git-scope)
+bind complete Git scopes to their exact prepared brief and shared inert launch
+preview. Fresh checks at phase approval, credential/provider use and result
+publication retain signed admission, quorum, task spending, cancellation and
+read-only/no-posting authority. Legacy prepared packets remain compatible.
+The [verification record](SCOPED_LIVE_REVIEW_WORK_NOTE.md) covers the connection;
+supported-platform and exact new-target/live release qualification remain
+separate. [Managed-worktree review](MANAGED_WORKTREE_REVIEW_WORK_NOTE.md) now admits
+standard owner-controlled reciprocal layouts, pins shared/local metadata and
+qualifies real CodingVCS staging roots without adding write authority.
+
+**Ranked resume discovery, 2026-10-22 — implemented:** the existing picker ranks
+exact IDs/names, prefixes, all-word matches and bounded fuzzy names with stable
+saved-time/ID ties and visible match reasons. Search processes only scoped admitted
+metadata; exact `--name` ambiguity and locked stale-selection checks remain.
+See the [contract](CONVERSATION_NAMES.md) and [verification record](RANKED_RESUME_WORK_NOTE.md).
+
+**Version 2 feature-survey additions, 2026-09-25 — planned and implemented slices:** the
 [Claude Code survey review](CLAUDE_CODE_FEATURE_SURVEY_REVIEW_2026-09-25.md)
 adds a bounded paid-review launch preview, exact file/range attachments, and a
 complete stdin/final-status contract for `mos exec` to the post-v1 product phase in
 [plan §31](mos-eisley-plan.md#31-version-2-conversation-and-automation-requirements).
 The 2026-09-27 Managed Agents survey also adds durable recovery across session,
 controller and sandbox failures, plus brokered credential attachment at approved
-network destinations, to that v2 phase. Injected-failure and credential-egress
-tests are required before either is advertised.
-The 2026-09-28 `resume` survey adds ranked name/ID discovery to the existing
-metadata-only resume picker, with deterministic ordering, existing scope and
-catalog limits, and stale-selection rechecks; see plan §31.6.
+network destinations, to that v2 phase. The implemented recovery and additive
+credential slices above record their evidence and remaining activation limits.
+The 2026-09-28 `resume` survey's ranked metadata discovery is implemented above;
+see plan §31.6 for its unchanged scope and acceptance boundaries.
 They depend on the applicable v1 conversation, review, read and policy gates. They
 do not change v1 scope, grant new authority or advance an implementation gate.
 
@@ -723,9 +752,10 @@ do not change v1 scope, grant new authority or advance an implementation gate.
 [Bounded Git acquisition](GIT_REVIEW_SCOPES.md) and explicit `/review` presets
 support uncommitted, base-branch, commit and explicit file/range targets with frozen
 briefs and stale
-input rejection. Requires an explicit POSIX repository root; live review,
-full managed-worktree gates and Linux/Windows-hosted WSL2
-qualification remain pending.
+input rejection. Explicit POSIX roots include standard owner-controlled linked
+worktrees and real CodingVCS stages. Scoped live admission is connected above;
+native Linux/Windows-hosted WSL2 and exact new-target/live release qualification
+remain pending.
 
 **Live diff and findings, 2026-10-03 — local POSIX slice implemented:**
 [/diff and F10](CONVERSATION_DIFF.md) provide paged staged/unstaged/untracked views,
@@ -1466,6 +1496,18 @@ loading and telemetry adapters remain planned.
     process supervision, hidden-pane/session switching, safe reattachment and
     bounded output attachments. User terminal input grants no model authority;
     model-mediated input remains a separate capability gate.
+
+## Review integration and rc.8 preview qualification, 2026-10-23
+
+Native Linux and actual Windows-hosted WSL2 passed exact §31.7 review candidate
+`8cef1b4` in [run 39881254556](https://github.com/joshuamyers22/mos-eisley/actions/runs/39881254556).
+Both structured reports have matching wheel/source identities and 116 focused
+cases per mode without skips. This closes that candidate's native review gate,
+not broader WSL2 support. The [rc.8 integration record](RC8_REVIEW_PREVIEW_WORK_NOTE.md)
+tracks current-main integration, scoped live review, ranked resume, optional
+credential attachment, scriptable execution, recovery and startup diagnostics.
+The candidate is unpublished; exact combined checks and native/signed upgrade
+qualification remain required. Published rc.7 retains its frozen earlier runtime.
 
 ## Remote MCP connections
 

@@ -12,7 +12,12 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from mos_eisley.app_release import RELEASE_ORIGIN, canonical, parse_release
+from mos_eisley.app_release import (
+    RELEASE_ORIGIN,
+    STORAGE_EPOCH,
+    canonical,
+    parse_release,
+)
 from mos_eisley.app_release_key import PUBLISHER_PUBLIC_KEY
 
 
@@ -56,7 +61,7 @@ def main() -> int:
         "source_commit": args.commit,
         "notes": args.notes,
         "artifacts": inventory,
-        "storage_epoch": 1,
+        "storage_epoch": STORAGE_EPOCH,
         "withdrawn": False,
     }
     raw = canonical(

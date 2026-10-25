@@ -41,6 +41,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Retain reviewed signed metadata before selecting the legacy harness
+        run: cp docs/qualification/rc2-upgrade-candidate.json "$RUNNER_TEMP/mos-rc2-upgrade-candidate.json"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # This retained rc.1/rc.2 experiment must use its epoch-1 harness,
+          # not the current application's incompatible storage-epoch policy.
+          ref: ${{ env.CANDIDATE_SOURCE }}
+          persist-credentials: false
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa
         with:
           version: '0.13.4'
@@ -65,7 +73,7 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.1" --jq 'select(.id == 413060239 and .immutable == true and .draft == false and .target_commitish == "8cf38c83591e505a9c7b57f4d701b12cb80fc4c6") | .id' > predecessor-id.txt
           test "$(cat predecessor-id.txt)" = 413060239
           gh release download v0.1.0-rc.1 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.1-$PLATFORM.tar.gz" --pattern "mos-install-$PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/predecessor
-          cp docs/qualification/rc2-upgrade-candidate.json .work/candidate/release.json
+          cp "$RUNNER_TEMP/mos-rc2-upgrade-candidate.json" .work/candidate/release.json
           chmod 700 ".work/predecessor/mos-install-$PLATFORM" ".work/candidate/mos-install-$PLATFORM"
       - name: Qualify real upgrade, cold resume, recovery, rollback and uninstall
         env:

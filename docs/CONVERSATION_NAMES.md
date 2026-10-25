@@ -32,7 +32,7 @@ the default; the picker does not combine backends or workspaces.
 | --- | --- |
 | Up/Down | Move the selection. |
 | PageUp/PageDown | Move by one visible page (up to 20 rows). |
-| Type | Filter by a substring of the name or session ID. |
+| Type | Rank matching names and session IDs. |
 | Backspace / Ctrl-U | Edit / clear the filter. |
 | F5 | Refresh the catalog, retaining the selected ID if it is still present. |
 | Alt-Up/Down | Scroll full selected-session details without moving the list selection. |
@@ -42,12 +42,31 @@ the default; the picker does not combine backends or workspaces.
 Rows lead with the session name and a `›` selection marker, with queued/active
 status alongside it. Wider terminals add message counts and saved UTC time.
 The scrollable selected-session panel retains the complete name, ID, saved time,
-counts, availability and workspace path. Narrow terminals reduce the page size;
+match basis, counts, availability and workspace path. Narrow terminals reduce the page size;
 Unicode names are abbreviated in terminal cells. Transcript text is not displayed
 in the picker. `--theme auto|dark|light|plain` and `NO_COLOR` match the conversation
 interface. Active sessions cannot be selected; a failed refresh
 disables selection until a successful refresh. Missing storage is an error and
 does not create a directory. An empty existing catalog can be refreshed or closed.
+
+An empty search shows recent sessions. Typed searches rank exact IDs, exact
+normalized names, name prefixes, all-query-word name matches, then similar names.
+Query words can occur anywhere in the name, in any order. Literal ID fragments
+remain searchable alongside all-word matches; IDs never receive fuzzy matching.
+Within a tier, fewer fuzzy edits come first, then newer saved time and ascending
+immutable ID. Duplicate names retain separate rows. Every search requires an
+explicit Enter selection; typing a unique or highest-ranked match does not resume.
+Rows and selected details show why a result matched.
+
+Search accepts up to 120 printable Unicode characters and uses the same NFC and
+case folding as exact lookup. Fuzzy matching requires at least four normalized
+characters: four through seven allow one insertion, deletion or substitution;
+eight or more allow two. It compares the query with the full name and each word.
+Short queries use literal matches only. The edit-distance algorithm visits at most
+five cells per normalized character, using a constant-width band rather than a
+full matrix. Names and queries normalize to at most 360 characters. Ranking uses
+only the admitted catalog's metadata and adds no file reads, transcript search,
+content index or model context.
 
 `mos resume --name NAME` uses an exact normalized name match. A unique match opens
 directly. Duplicate names are allowed: terminal users choose explicitly in the

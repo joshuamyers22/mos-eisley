@@ -14,9 +14,14 @@ class TerminalReviewApproval:
     """Inject cancellable terminal input; never read stdin in a detached thread."""
 
     def __init__(
-        self, read_line: Callable[[str], Awaitable[str]], output: TextIO
+        self,
+        read_line: Callable[[str], Awaitable[str]],
+        output: TextIO,
+        *,
+        check_source: Callable[[], None] | None = None,
     ) -> None:
         self._read_line = read_line
+        self._check_source = check_source
         self._output = output
 
     def _write(self, value: str) -> None:
@@ -24,6 +29,8 @@ class TerminalReviewApproval:
         self._output.flush()
 
     async def approve(self, preview: ApprovalPreview) -> str | None:
+        if self._check_source is not None:
+            self._check_source()
         if isinstance(preview, ControllerCriticPreview):
             self._write("Review critic requests • approval required")
             self._write(
@@ -102,10 +109,14 @@ class TerminalReviewApproval:
                 )
                 continue
             if answer == "approve " + preview.sha256:
+                if self._check_source is not None:
+                    self._check_source()
                 return preview.sha256
             return None
 
     async def show_result(self, result: RetainedReviewResult) -> None:
+        if self._check_source is not None:
+            self._check_source()
         verdict = result.result.verdict
         self._write(f"Review result: {verdict.decision}")
         self._write(safe_label(verdict.rationale))

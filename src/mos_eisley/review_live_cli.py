@@ -39,6 +39,7 @@ from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
     decode_launch_configuration,
     prepare_review_launch_components,
+    prepare_review_launch_preview,
 )
 from mos_eisley.run.review_launch_admission import (
     ReviewLaunchAdmissionInputs,
@@ -49,6 +50,7 @@ from mos_eisley.run.review_launch_authorization import (
     ReviewLaunchAuthorityPolicy,
     SignedReviewLaunchDecision,
 )
+from mos_eisley.run.review_source import read_review_source
 from mos_eisley.run.spend_ledger import SpendLedger
 from mos_eisley.run.store import private_write
 
@@ -90,6 +92,8 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--phase-scope-dir", type=Path)
     command.add_argument("--completion-output", type=Path)
     command.add_argument("--selection-sha256")
+    command.add_argument("--git-scope", type=Path)
+    command.add_argument("--expected-scope-sha256")
 
 
 def _campaign_charge(args: argparse.Namespace) -> int:
@@ -139,8 +143,51 @@ async def _run(args: argparse.Namespace) -> int:
     identity = OperatorReviewIdentity.model_validate_json(
         read_bounded(cast(Path, args.identity), 4096)
     )
+
+    def check_source() -> None:
+        if (
+            digest(read_bounded(cast(Path, args.config), CONFIGURATION_BYTES))
+            != args.expected_config_sha256
+            or digest(read_bounded(cast(Path, args.prepared), REVIEW_GUIDANCE_BYTES))
+            != args.expected_prepared_sha256
+        ):
+            raise ValueError("Live review configuration or prepared brief changed")
+        read_review_source(
+            getattr(args, "git_scope", None),
+            getattr(args, "expected_scope_sha256", None),
+            cast(Path, args.workspace),
+            prepared.source_brief,
+        )
+
+    check_source()
     ledger = SpendLedger(cast(Path, args.spend_ledger))
     review_dir = cast(Path, args.review_dir)
+    preview = prepare_review_launch_preview(
+        configuration,
+        prepared=prepared,
+        expected_prepared_sha256=cast(str, args.expected_prepared_sha256),
+        workspace=cast(Path, args.workspace),
+        guidance_store=RoleContextAdmissionStore(cast(Path, args.guidance_storage)),
+        guidance_policy_path=cast(Path, args.guidance_policy),
+        expected_guidance_policy_sha256=cast(str, args.expected_guidance_policy_sha256),
+        ledger=ledger,
+        review_directory=review_dir,
+        git_scope=read_review_source(
+            getattr(args, "git_scope", None),
+            getattr(args, "expected_scope_sha256", None),
+            cast(Path, args.workspace),
+            prepared.source_brief,
+        ),
+        owner_remaining_microusd=identity.max_total_microusd - _campaign_charge(args),
+    )
+    assert preview.intent is not None
+    print(
+        json.dumps(
+            {"type": "review.launch.preview", **preview.intent.model_dump(mode="json")},
+            ensure_ascii=True,
+        ),
+        flush=True,
+    )
     envelope, reviewer, _ = prepare_review_launch_components(
         configuration,
         prepared=prepared,
@@ -178,12 +225,14 @@ async def _run(args: argparse.Namespace) -> int:
     )
 
     def phase_policy() -> ReviewConformanceAuthorityPolicy:
+        check_source()
         check_total_cap()
         return ReviewConformanceAuthorityPolicy.model_validate_json(
             read_bounded(cast(Path, args.authority_policy), 65_536)
         )
 
     def launch_policy() -> ReviewLaunchAuthorityPolicy:
+        check_source()
         return ReviewLaunchAuthorityPolicy.model_validate_json(
             read_bounded(cast(Path, args.launch_authority_policy), 65_536)
         )
@@ -233,7 +282,7 @@ async def _run(args: argparse.Namespace) -> int:
         envelope,
         reviewer,
         configuration.policy,
-        TerminalReviewApproval(read_line, sys.stdout),
+        TerminalReviewApproval(read_line, sys.stdout, check_source=check_source),
         critic_containers=containers,
         judge_container=judge_container,
         authority_policy=phase_policy,
@@ -285,6 +334,7 @@ async def _run(args: argparse.Namespace) -> int:
         raise ValueError("signed launch decision requires an absolute file path")
     decision_path = Path(answer)
     result = await probe.run()
+    check_source()
     snapshot = ledger.snapshot()
     if result is not None and completion_output is not None:
         if probe.launch_decision is None:

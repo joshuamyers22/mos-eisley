@@ -88,7 +88,6 @@ from mos_eisley.conversation_review import (
     MAX_REVIEW_RESULT_BYTES,
     REVIEW_PROMPT,
     ConversationLiveReviewPacket,
-    ConversationReviewPacket,
     ReviewPacket,
     review_summary,
     run_conversation_review,
@@ -157,6 +156,7 @@ from mos_eisley.core.models import (
 from mos_eisley.core.ports import ModelClient, ToolDispatcher
 from mos_eisley.core.protocol import ModelRequest, ReasoningBlock, TextBlock, Turn
 from mos_eisley.core.registry import fixture_registry, openai_registry
+from mos_eisley.git_review import revalidate_git_scope
 from mos_eisley.providers.agent_recorded import AgentCassette, RecordedAgentClient
 from mos_eisley.run.coding_child import CodingExecutor
 from mos_eisley.run.task_checkpoint_store import (
@@ -352,6 +352,8 @@ class ConversationController(ConversationCodingController[StateT]):
         run_live_review: (
             Callable[[ConversationLiveReviewPacket], Awaitable[ReviewResult]] | None
         ) = None,
+        preview_live_review: Callable[[ConversationLiveReviewPacket], dict[str, object]]
+        | None = None,
         run_live_chat: Callable[[AgentConfig, int], Awaitable[AgentResult]]
         | None = None,
         run_live_coding: Callable[[AgentConfig, int], Awaitable[AgentResult]]
@@ -489,6 +491,7 @@ class ConversationController(ConversationCodingController[StateT]):
         self.validate_memory = validate_memory
         self.validate_review = validate_review
         self.run_live_review = run_live_review
+        self.preview_live_review = preview_live_review
         self.run_live_chat = run_live_chat
         self.run_live_coding = run_live_coding
         self.load_entry = load_entry
@@ -1184,13 +1187,9 @@ class ConversationController(ConversationCodingController[StateT]):
         self._append(ConversationEntry(text=REVIEW_PROMPT, review_packet=packet))
 
     def _check_review_guidance(self, packet: ReviewPacket) -> None:
-        if (
-            isinstance(packet, ConversationReviewPacket)
-            and packet.git_scope is not None
-            and (
-                packet.git_scope.workspace != self.state.workspace
-                or packet.git_scope.owner_uid != self.state.owner_uid
-            )
+        if packet.git_scope is not None and (
+            packet.git_scope.workspace != self.state.workspace
+            or packet.git_scope.owner_uid != self.state.owner_uid
         ):
             raise ValueError("Git review requires this session owner/workspace.")
         guidance = packet.guidance_review
@@ -1254,12 +1253,7 @@ class ConversationController(ConversationCodingController[StateT]):
                 and self.run_live_review is None
             ):
                 raise ValueError("queued live review requires current launch inputs")
-            if (
-                isinstance(entry.review_packet, ConversationReviewPacket)
-                and entry.review_packet.git_scope is not None
-            ):
-                from mos_eisley.git_review import revalidate_git_scope
-
+            if entry.review_packet.git_scope is not None:
                 self._busy = True
                 try:
                     await asyncio.to_thread(
@@ -1637,6 +1631,10 @@ class ConversationController(ConversationCodingController[StateT]):
                                     "live review result differs from frozen brief"
                                 )
                             self._check_review_guidance(packet)
+                            if packet.git_scope is not None:
+                                await asyncio.to_thread(
+                                    revalidate_git_scope, packet.git_scope
+                                )
                         else:
                             review_result = (
                                 await run_conversation_review(

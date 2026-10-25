@@ -313,6 +313,7 @@ class CodingVCSTests(TestCase):
             CodingVCS(Path("/usr/bin/git"), self.repo, alias)
         public = self.root / "public"
         public.mkdir(mode=0o755)
+        public.chmod(0o755)  # Deliberately unsafe, even under umask 077.
         with self.assertRaises(ValueError):
             CodingVCS(Path("/usr/bin/git"), self.repo, public)
 

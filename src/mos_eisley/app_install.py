@@ -124,7 +124,7 @@ def activate_pointer(root: Path, name: str, value: str) -> None:
 
 
 def installed_release(root: Path) -> Release | None:
-    from mos_eisley.app_release import parse_release
+    from mos_eisley.app_release import parse_retained_release
 
     current = _link(root, "current")
     if current is None:
@@ -132,7 +132,7 @@ def installed_release(root: Path) -> Release | None:
     directory = root / current
     if directory.is_symlink() or not directory.is_dir():
         raise ReleaseError("installed release directory is unsafe")
-    return parse_release((directory / "release.json").read_bytes())
+    return parse_retained_release((directory / "release.json").read_bytes())
 
 
 def extract_archive(raw: bytes, destination: Path) -> None:
@@ -247,6 +247,8 @@ def install(
     *,
     origin: str = "standalone",
 ) -> None:
+    if release.storage_epoch != STORAGE_EPOCH:
+        raise ReleaseError("installation requires this bootstrap's storage epoch")
     root = root.absolute()
     bin_dir = bin_dir.absolute()
     with lock(root):
@@ -336,14 +338,16 @@ def recover(root: Path) -> str:
 
 
 def rollback(root: Path) -> str:
-    from mos_eisley.app_release import parse_release
+    from mos_eisley.app_release import parse_retained_release
 
     with lock(root):
         previous = _link(root, "previous")
         current = installed_release(root)
         if previous is None or current is None:
             raise ReleaseError("no compatible previous installation")
-        release = parse_release((root / previous / "release.json").read_bytes())
+        release = parse_retained_release(
+            (root / previous / "release.json").read_bytes()
+        )
         if release.storage_epoch != current.storage_epoch:
             raise ReleaseError("rollback storage compatibility is unproven")
         verify_runtime(root / previous)

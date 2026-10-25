@@ -21,6 +21,7 @@ from mos_eisley.app_install import (
 from mos_eisley.app_release import (
     MAX_ARCHIVE,
     MAX_METADATA,
+    STORAGE_EPOCH,
     Channel,
     Release,
     ReleaseError,
@@ -212,8 +213,10 @@ def check(root: Path, *, force: bool = False) -> dict[str, object]:
         "cached": reuse or failed,
     }
     if release is not None:
-        compatible = release.channel == selection.channel and any(
-            a.platform == platform_id() for a in release.artifacts
+        compatible = (
+            release.storage_epoch == STORAGE_EPOCH
+            and release.channel == selection.channel
+            and any(a.platform == platform_id() for a in release.artifacts)
         )
         newer = version_key(release.version) > version_key(installed_version())
         available = compatible and newer

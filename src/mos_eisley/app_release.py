@@ -28,7 +28,9 @@ FEEDS = {
 MAX_METADATA = 128 * 1024
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_EXPANDED = 2 * 1024 * 1024 * 1024
-STORAGE_EPOCH = 1
+STORAGE_EPOCH = 2
+# Authenticate retained epoch-1 releases without asserting backward readability.
+READABLE_RELEASE_EPOCHS = (1, STORAGE_EPOCH)
 VersionTuple = tuple[int, int, int, int, int]
 Channel = Literal["stable", "preview"]
 
@@ -116,6 +118,17 @@ def _text(value: object, limit: int) -> str:
 
 
 def parse_release(raw: bytes, *, public_key: str | None = None) -> Release:
+    return _parse_release(raw, public_key, (STORAGE_EPOCH,))
+
+
+def parse_retained_release(raw: bytes) -> Release:
+    """Authenticate historical metadata; never use this for new publication."""
+    return _parse_release(raw, None, READABLE_RELEASE_EPOCHS)
+
+
+def _parse_release(
+    raw: bytes, public_key: str | None, allowed_epochs: tuple[int, ...]
+) -> Release:
     if len(raw) > MAX_METADATA:
         raise ReleaseError("release metadata too large")
     try:
@@ -148,7 +161,7 @@ def parse_release(raw: bytes, *, public_key: str | None = None) -> Release:
         or payload["schema"] != 1
         or payload["withdrawn"] is not False
         or type(payload["storage_epoch"]) is not int
-        or payload["storage_epoch"] != STORAGE_EPOCH
+        or payload["storage_epoch"] not in allowed_epochs
     ):
         raise ReleaseError("withdrawn or incompatible release")
     version = _text(payload["version"], 50)
@@ -192,7 +205,7 @@ def parse_release(raw: bytes, *, public_key: str | None = None) -> Release:
         commit,
         notes,
         tuple(artifacts),
-        STORAGE_EPOCH,
+        payload["storage_epoch"],
         raw,
     )
 

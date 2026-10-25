@@ -19,6 +19,7 @@ from mos_eisley.run.review_launch import (
     decode_launch_configuration,
     prepare_review_launch_preview,
 )
+from mos_eisley.run.review_source import read_review_source
 from mos_eisley.run.spend_ledger import SpendLedger
 
 
@@ -33,6 +34,8 @@ def add_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--spend-ledger", type=Path, required=True)
     command.add_argument("--review-dir", type=Path, required=True)
     command.add_argument("--json", action="store_true")
+    command.add_argument("--git-scope", type=Path)
+    command.add_argument("--expected-scope-sha256")
 
 
 def run_command(args: argparse.Namespace) -> int:
@@ -56,6 +59,12 @@ def prepare_from_arguments(
     prepared = decode_prepared_review(
         read_bounded(cast(Path, args.prepared), REVIEW_GUIDANCE_BYTES)
     )
+    scope = read_review_source(
+        getattr(args, "git_scope", None),
+        getattr(args, "expected_scope_sha256", None),
+        cast(Path, args.workspace),
+        prepared.source_brief,
+    )
     try:
         preview = prepare_review_launch_preview(
             configuration,
@@ -69,6 +78,7 @@ def prepare_from_arguments(
             ),
             ledger=SpendLedger(cast(Path, args.spend_ledger)),
             review_directory=cast(Path, args.review_dir),
+            git_scope=scope,
         )
     except sqlite3.Error:
         raise ValueError("selected spending ledger is unavailable") from None

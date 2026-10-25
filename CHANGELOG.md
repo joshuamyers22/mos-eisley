@@ -4,6 +4,32 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.8 — qualification candidate
+
+- Qualify read-only managed-worktree review on native Linux and actual WSL2;
+  retain exact source scope through live-review preview, admission and publication.
+- Capture startup child exit status and exercise zero-message cold resume for
+  both subscription providers without inferring historical failure causes.
+- Add signed upgrade qualification from the actual published rc.7 predecessor.
+- Use recovery storage epoch 2 and explicitly refuse incompatible rollback,
+  preserving new sessions and separate legacy backups instead of stripping journals.
+- Update transitive setuptools to 84.1.0 for GHSA-xmj3-9gf7-h52w.
+
+
+- Connect exact Git scopes to separately admitted live reviews, with shared inert
+  launch previews and source/configuration rechecks through approval, credential
+  use and result publication. Preserve signed admission, quorum, spending,
+  cancellation and read-only review authority.
+
+- Add bounded ranked discovery to the existing resume picker, with deterministic
+  exact/prefix/word/fuzzy ordering, match reasons and scoped metadata-only search.
+  Exact `--name` ambiguity handling and locked stale-selection checks remain.
+
+- Add an optional trusted-host credential attachment transport with owner-scoped
+  native references, pinned DNS/TLS/operations, live rotation/revocation, isolated
+  diagnostics and no authentication retries. Existing credential paths remain
+  default pending exact conformance and accountable activation.
+
 - Add session-owned operation recovery with atomic decision/result records, stable
   IDs, explicit uncertain effects, retained steering/budgets and pinned replacement
   container recipes across the shared terminal and scriptable controller.
@@ -12,7 +38,7 @@ Notable changes are recorded here using semantic versioning.
   lifecycle/terminal output, explicit review verdicts and stable exit codes, using
   the existing conversation controller and spending/cancellation boundaries.
 
-## 0.1.0-rc.7 — candidate
+## 0.1.0-rc.7 — published 2026-10-22
 
 - Allow 45 minutes for signed native qualification, retaining all four targets
   and rc.1/rc.2/rc.3/rc.5 upgrade journeys. Intel macOS reached rc.6's 30-minute
