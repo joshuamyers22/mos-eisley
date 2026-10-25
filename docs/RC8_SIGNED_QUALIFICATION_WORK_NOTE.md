@@ -1,6 +1,6 @@
 # rc.8 signed candidate and installed qualification
 
-- Status: active
+- Status: closed; prepublication review blocks the four-target preview
 - Owner: Joshua Myers; qualification and technical review by Codex
 - Started: 2026-10-25 UTC
 - Review point: exact candidate evidence before any publication decision
@@ -74,12 +74,50 @@ or retarget an immutable tag to make a check pass.
 
 ## Verification results
 
-Pending signed artifact preparation and native evidence. Development publisher
-fixtures do not count as enrolled-key qualification. Supplemental source/helper
-development runs are recorded separately from final installed artifact evidence.
+- Protected prepare passed: 3,875 source tests run (17 skips), 86% coverage,
+  2,851 installed-wheel tests run (13 skips), clean locked audit of 54 packages,
+  container checks, SBOM and enrolled-key signing. Exact counts came from the
+  completed prepare-job log, retained privately after sanitization for display.
+- Four signed native jobs passed. All 26 receipts were cross-checked against the
+  signed source/metadata/archive identities: four native installations, twenty
+  actual predecessor journeys (five per target), two macOS generated-formula
+  checks. All actual pairs are epoch 1 to 2 and prove refusal rather than seamless
+  downgrade, separate old-backup readability and retained user state.
+- Initial supplemental run 40229624329 passed both macOS targets and failed both
+  Linux targets at Git isolation. It remains failed evidence. The follow-up
+  [40230486519](https://github.com/joshuamyers22/mos-eisley/actions/runs/40230486519)
+  preserves failed status while collecting both independent backends and a direct
+  frozen-launcher diagnostic. Both macOS jobs pass; both Linux jobs fail.
+- On all four targets/both stores, signed native exec/stdin, passive cold reopen,
+  exact attempt/journal preservation, admitted follow-up, abrupt idle process-loss
+  recovery and invalid-input refusal pass. Linux cannot acquire the required diff
+  isolation; dependent terminal assertions remain unproven. Both macOS targets
+  pass real PTY diff/attachment/stale-source, Unicode/paste/resize/draft and normal
+  terminal restoration checks.
+- Final helper identity/result tests, Ruff/format and strict Pyright pass.
+  Documentation links, whitespace and evidence-manifest consistency were checked.
+  Frozen product source, lock, tag, root metadata and native archives were unchanged.
+- Final [prepublication review](RC8_PREPUBLICATION_REVIEW.md): **block** for
+  RC8-Q01, the unsupported Python-module launcher invocation from frozen Linux.
+  No bypass, source patch, tag rewrite, publication or provider call occurred.
+
+Three transient log-read conditions were resolved without rerunning the release:
+`gh run view --log` waits for the overall run to finish, the job-log endpoint
+requires explicit escape-sequence acceptance when capturing terminal test logs,
+and one HTTP 502 was retried as a read. Full logs remain private; no raw control
+sequences or transcripts were copied into tracked documentation.
 
 ## Handoff and review
 
-Private disposable artifacts remain in ignored `.work/`. No provider payloads,
-credentials, private keys or sampling data enter this record. Fill exact hashes,
-job results, observed limitations and final review before publication disposition.
+Private candidate artifacts, logs, receipts and three review manifests remain in
+ignored `.work/rc8-qualification/`. No provider payloads, credentials, private keys
+or sampling data enter this record. Exact source/artifact/report hashes and the
+publication block are recorded in the final review. The run is waiting at the
+separate publication approval; it was not granted. The rc.8 release is absent.
+
+Stop rule reached: signed gates completed, independent unpaid cells completed,
+and an evidence-backed product blocker identified and reviewed. Next: a new
+reviewed candidate with a fixed frozen Linux launcher and fresh affected native
+qualification. Do not retarget rc.8 or weaken isolation. Accountable release
+approval remains Joshua's responsibility; this is the implementing agent's
+technical review, not an independent approval.
