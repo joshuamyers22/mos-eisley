@@ -306,6 +306,8 @@ def qualify(artifacts: Path, evidence: Path) -> None:
         GIT_CONFIG_GLOBAL="/dev/null",
     )
     results: dict[str, object] = {}
+    failures: list[str] = []
+    launcher_probe: dict[str, object] | None = None
     with tempfile.TemporaryDirectory(prefix="mos-signed-v1-") as temporary:
         base = Path(temporary).resolve()
         run(
@@ -338,6 +340,28 @@ def qualify(artifacts: Path, evidence: Path) -> None:
             env,
             base,
         )
+        if platform.system() == "Linux":
+            probe = subprocess.run(
+                [
+                    str(executable),
+                    "-I",
+                    "-m",
+                    "mos_eisley._git_read_linux",
+                    "/usr/bin/git",
+                    "--version",
+                ],
+                stdin=subprocess.DEVNULL,
+                env=env,
+                cwd=base,
+                capture_output=True,
+                timeout=30,
+            )
+            launcher_probe = {
+                "exit_code": probe.returncode,
+                "stderr_sha256": hashlib.sha256(probe.stderr).hexdigest(),
+                "cli_rejected_python_arguments": probe.returncode == 2
+                and b"-I" in probe.stderr,
+            }
         for backend in ("snapshot", "sqlite"):
             workspace = base / f"exec-{backend}"
             workspace.mkdir()
@@ -450,17 +474,30 @@ def qualify(artifacts: Path, evidence: Path) -> None:
                     )
             tty = base / f"tty-{backend}"
             tty.mkdir()
-            terminal(executable, tty, backend, env)
+            terminal_passed = False
+            failure_category: str | None = None
+            try:
+                terminal(executable, tty, backend, env)
+                terminal_passed = True
+            except ValueError as error:
+                failure_category = (
+                    "os_git_isolation_unavailable"
+                    if "OS Git isolation is unavailable" in str(error)
+                    else "terminal_assertion_failed"
+                )
+                failures.append(f"{backend}:{failure_category}")
+                print(f"FAIL {target} {backend}: {failure_category}", flush=True)
             results[backend] = {
                 "positional_stdin": True,
                 "committed_recovery": True,
                 "cold_resume": True,
                 "passive_reopen_no_replay": True,
                 "abrupt_idle_loss_committed_history": True,
-                "pty_diff_attach_stale_refusal": True,
-                "unicode_multiline_paste_resize_draft": True,
-                "terminal_modes_restored": True,
+                "pty_diff_attach_stale_refusal": terminal_passed,
+                "unicode_multiline_paste_resize_draft": terminal_passed,
+                "terminal_modes_restored": terminal_passed,
                 "invalid_input_no_session": True,
+                "failure_category": failure_category,
             }
         run(
             [
@@ -490,12 +527,17 @@ def qualify(artifacts: Path, evidence: Path) -> None:
                 "publisher": "enrolled_production_root_unpatched",
                 "paid_calls": 0,
                 "cases": results,
+                "linux_launcher_probe": launcher_probe,
+                "status": "failed" if failures else "passed",
+                "failures": failures,
                 "publication_authorized": False,
             },
             sort_keys=True,
         )
         + "\n"
     )
+    if failures:
+        raise SystemExit(1)
     print(
         f"PASS {target}: both-store installed exec, cold resume and real terminal/diff"
     )
