@@ -1,6 +1,6 @@
 # rc.8 review integration and preview qualification
 
-- Status: local qualification passed; protected integration and exact native/signed CI pending
+- Status: integrated; exact frozen native gates passed; signed qualification tracked in release run
 - Owner: Joshua Myers; implementation and technical verification by Codex
 - Started: 2026-10-23 UTC; updated: 2026-10-24 UTC
 - Branch: `release/review-platform-preview`
@@ -168,3 +168,31 @@ fixture-invocation presence in that assertion. Do not weaken runtime timeouts,
 assertions or permissions. Both affected suites pass all 43 cases under umask
 077; repeat exact native CI on the correction. Failed WSL2 evidence remains a
 failure until a new complete gate passes. Application/lock bytes are unchanged.
+
+## Integrated and tagged qualification, 2026-10-25
+
+[PR #334](https://github.com/joshuamyers22/mos-eisley/pull/334) merged the retained
+review/platform ancestry into protected main as `b5d2c76` after 22 final-head
+checks passed. Main keeps #332's dependencies. Joshua's selected preview remains
+`eadb415d31afd89b142e3229a8ccca72aca835ee`, with unchanged application/lock bytes
+from `dac047c`. Tag `v0.1.0-rc.8` matches the manifest and is reachable from main.
+
+Exact frozen [run 40153393500](https://github.com/joshuamyers22/mos-eisley/actions/runs/40153393500)
+passed complete Linux and actual Windows-hosted WSL2 gates: 3,875 source and
+2,851 wheel tests per target (17/13 platform skips); 116 source and 116 installed
+focused cases per target, without failures/errors/skips. The 414-file wheel hash
+reproduces `9161df55226638717de1a9b96ea8819f8158df1ff263b4cea3d3c827db7609e7`.
+Host/distro/candidate/run/bundle identities were checked. The earlier unknown
+subscription return did not reproduce; this is no claim of a diagnosed runtime fix.
+
+[Tagged release run 40217716964](https://github.com/joshuamyers22/mos-eisley/actions/runs/40217716964)
+passed all four macOS/Linux development builds, both generated Homebrew checks
+and secret scanning. All native reports bind exact `eadb415`, reproduce their
+archive/bootstrap hashes, record exec/recovery for both stores and zero paid
+calls. These initial artifacts use an ephemeral publisher, not enrolled-key
+qualification. Joshua explicitly approved the existing protected environment for
+**signing preparation only**, after reviewing source, dependency choice and
+epoch-2 rollback limits. That run's prepare and four qualify-signed job results
+are the current signed-artifact record; five actual published predecessors per
+platform and both signed Homebrew checks must pass. Publication remains held
+for separate owner disposition. Immutable rc.7 remains the published preview.
