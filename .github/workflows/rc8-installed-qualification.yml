@@ -1,0 +1,40 @@
+name: rc.8 signed installed acceptance
+on:
+  push:
+    branches: [test/rc8-installed-qualification]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  installed:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Require the exact protected signed preparation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/40217716964" --jq 'select(.head_sha == "eadb415d31afd89b142e3229a8ccca72aca835ee" and .head_branch == "v0.1.0-rc.8" and .event == "push") | .id' > exact-run.txt
+          test "$(cat exact-run.txt)" = 40217716964
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/40217716964/jobs?per_page=100" --jq '[.jobs[] | select(.name == "prepare" and .conclusion == "success")] | length' > prepared-count.txt
+          test "$(cat prepared-count.txt)" = 1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40217716964
+          name: application-publication
+          path: dist/signed
+      - name: Exercise the installed signed runtime on both stores
+        run: python3 tools/qualify_installed_rc8.py --artifacts dist/signed/standalone --evidence dist/acceptance/installed-${{ matrix.os }}.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rc8-installed-${{ matrix.os }}
+          path: dist/acceptance/*.json
+          if-no-files-found: error
