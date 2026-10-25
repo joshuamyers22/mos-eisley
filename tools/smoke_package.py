@@ -179,6 +179,7 @@ def main() -> int:
             "test_platform_identity.py",
             "test_conversation_git.py",
             "test_conversation_git_isolation.py",
+            "test_frozen_entry.py",
             "test_platform_storage.py",
             "test_platform_namespace_read.py",
             "test_platform_identity_wire.py",

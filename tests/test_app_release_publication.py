@@ -314,6 +314,33 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertEqual(publish["needs"], ["prepare", "qualify-signed"])
         qualify = mapping(mapping(workflow["jobs"])["qualify-signed"])
         qualification_steps = [mapping(s) for s in cast(list[object], qualify["steps"])]
+        installed = next(
+            s
+            for s in qualification_steps
+            if s.get("name")
+            == "Qualify installed terminal, diff and recovery on both stores"
+        )
+        self.assertEqual(
+            mapping(installed["env"])["SOURCE_COMMIT"], "${{ github.sha }}"
+        )
+        for required in (
+            "tools/qualify_installed_candidate.py",
+            "--artifacts dist/standalone",
+            '--expected-source "$SOURCE_COMMIT"',
+            '--expected-version "${RELEASE_TAG#v}"',
+            "qualification-installed-",
+        ):
+            self.assertIn(required, str(installed["run"]))
+        self.assertNotIn("continue-on-error", installed)
+        self.assertNotIn("if", installed)
+        reports = next(
+            s
+            for s in qualification_steps
+            if mapping(s.get("with", {})).get("name")
+            == "signed-qualification-${{ matrix.os }}"
+        )
+        self.assertEqual(reports["if"], "${{ always() }}")
+        self.assertNotIn("continue-on-error", qualify)
         predecessor = next(
             s
             for s in qualification_steps
