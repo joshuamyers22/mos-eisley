@@ -220,6 +220,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.run_cli(self.arguments()), 2)
         self.state.unlink()
         self.state.mkdir(mode=0o755)
+        self.state.chmod(0o755)  # Deliberately unsafe, even under umask 077.
         self.assertEqual(self.run_cli(self.arguments()), 2)
         self.native.assert_not_called()
         self.chat.assert_not_called()

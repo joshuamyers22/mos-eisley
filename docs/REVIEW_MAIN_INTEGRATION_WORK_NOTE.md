@@ -4,14 +4,14 @@
 - Owner: Joshua Myers; implementation/technical verification by Codex
 - Started: 2026-10-24 UTC; review by: rc.8 qualification disposition
 - Main input: `6fe0769` (merged dependency integration #332)
-- Review input: `dac047c` (#333)
+- Review input: `dac047c`, followed by fixture correction `eadb415` (#333)
 - Worktree/branch: `integrate/review-platform-main`
 
 ## Objective and source distinction
 
 Joshua requested integrating the review/platform work and qualifying a preview.
 He subsequently selected #333's tested dependency set for that preview. Freeze
-the rc.8 release candidate at `dac047ce5d44dfa61a772a53a5cc103ce1e28c14` (or a
+the rc.8 release candidate at `eadb415d31afd89b142e3229a8ccca72aca835ee` (or a
 necessary reviewed correction retaining its lock). Keep its qualification runs.
 Its native-tested merge tree `de0cfb3` equals candidate tree
 `a862c7c28f1dbcfb846c0de7e425240624b73377`.
@@ -71,3 +71,10 @@ no known vulnerabilities/adverse project statuses in 54 packages.
 Exact protected integration CI and frozen-preview native/signed qualification
 remain required. This successful gate uses current-main dependencies and does
 not substitute for the owner's selected older-dependency preview.
+
+The follow-up merge retains `eadb415` ancestry and its two test-only changes:
+explicit unsafe-fixture permissions under umask 077 and failure assertion context.
+The frozen preview lock/application bytes remain unchanged. Current-main affected
+subscription suites pass all 43 cases under umask 077; current-head static checks
+pass. The earlier WSL2 failure and unknown early-return cause remain recorded
+in the preview work note; complete corrected native CI is required.

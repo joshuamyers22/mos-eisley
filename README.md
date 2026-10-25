@@ -39,7 +39,7 @@ formula retain their separately qualified versions.
 The [rc.8 qualification candidate](docs/RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds
 scriptable execution, session recovery, ranked resume discovery, scoped live
 review, managed-worktree read admission and startup diagnostics. It is not yet
-published. Its frozen release source is `dac047c`, using #333's tested dependency
+published. Its frozen release source is `eadb415`, using #333's tested dependency
 set. [Current main integration](docs/REVIEW_MAIN_INTEGRATION_WORK_NOTE.md) retains
 the separately merged dependency updates. Its recovery journal requires storage epoch 2; cross-epoch rollback
 is refused, with separate pre-upgrade backups and a compatible reader required.
