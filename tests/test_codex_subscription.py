@@ -255,8 +255,17 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_cli_single_turn_reports_subscription_usage_without_billing_claim(
         self,
     ) -> None:
-        code, output, _ = await asyncio.to_thread(self.run_cli, self.ask_arguments())
-        self.assertEqual(code, 0)
+        code, output, diagnostic = await asyncio.to_thread(
+            self.run_cli, self.ask_arguments()
+        )
+        receipts = sorted(
+            path.name for path in (self.root / "cli-attempt").glob("*.json")
+        )
+        self.assertEqual(
+            code,
+            0,
+            f"{diagnostic}; fixture_invoked={self.log.exists()}; receipts={receipts}",
+        )
         result: dict[str, JsonValue] = TypeAdapter(dict[str, JsonValue]).validate_json(
             output
         )

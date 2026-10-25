@@ -144,3 +144,27 @@ A regression checks actual metadata/source agreement and copy/checkout ordering.
 All 65 affected package/publication tests and static checks pass. Application
 source and the tested wheel's 414 Python files are unchanged; new exact-commit CI
 repeats the affected native evidence.
+
+## WSL2 follow-up and owner dependency selection
+
+Joshua selected #333's tested dependency set for rc.8; #332's already merged
+SDK/HTTP changes are integrated separately on current main. This candidate
+retains its lock (including the setuptools audit fix).
+
+At `dac047c`, all 21 other GitHub checks passed, including Linux review, full
+source/package quality, four development distributions, both development
+Homebrew checks and four historical-upgrade jobs. The four native reports bind
+PR merge `de0cfb3`, whose tree equals `dac047c` tree `a862c7c`; all record exec
+recovery for both stores, zero paid calls and an ephemeral test publisher. They
+are not enrolled-key signed qualification.
+
+WSL2 run [40135543137](https://github.com/joshuamyers22/mos-eisley/actions/runs/40135543137)
+failed after 3,875 source tests (two failures, 17 skips). One unsafe-directory
+fixture reproducibly became mode 0700 under the harness's umask 077; explicitly
+chmod its deliberately unsafe directory to 0755, matching existing fixtures.
+The other single-turn subscription fixture returned 2 with no retained diagnostic
+in the assertion; its root cause is unknown. Preserve receipt filenames and
+fixture-invocation presence in that assertion. Do not weaken runtime timeouts,
+assertions or permissions. Both affected suites pass all 43 cases under umask
+077; repeat exact native CI on the correction. Failed WSL2 evidence remains a
+failure until a new complete gate passes. Application/lock bytes are unchanged.
