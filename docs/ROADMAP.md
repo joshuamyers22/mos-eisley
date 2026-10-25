@@ -1497,17 +1497,24 @@ loading and telemetry adapters remain planned.
     bounded output attachments. User terminal input grants no model authority;
     model-mediated input remains a separate capability gate.
 
-## Review integration and rc.8 preview qualification, 2026-10-23
+## Review integration and rc.8 preview qualification, 2026-10-25
 
-Native Linux and actual Windows-hosted WSL2 passed exact §31.7 review candidate
-`8cef1b4` in [run 39881254556](https://github.com/joshuamyers22/mos-eisley/actions/runs/39881254556).
-Both structured reports have matching wheel/source identities and 116 focused
-cases per mode without skips. This closes that candidate's native review gate,
-not broader WSL2 support. The [rc.8 integration record](RC8_REVIEW_PREVIEW_WORK_NOTE.md)
-tracks current-main integration, scoped live review, ranked resume, optional
-credential attachment, scriptable execution, recovery and startup diagnostics.
-The candidate is unpublished; exact combined checks and native/signed upgrade
-qualification remain required. Published rc.7 retains its frozen earlier runtime.
+The review/platform stack merged through [PR #334](https://github.com/joshuamyers22/mos-eisley/pull/334)
+with all 22 final-head checks passing. Both current-main and owner-selected
+dependency-frozen rc.8 sources passed complete Linux and actual Windows-hosted
+WSL2 gates, with 116 source and 116 installed focused review cases per platform
+and zero focused skips. This closes §31.7's integrated native read-review gate;
+general WSL2 support retains its separate requirements.
+
+The [integration closeout](REVIEW_MAIN_INTEGRATION_WORK_NOTE.md) records preserved
+histories and distinct dependency sets. Tag `v0.1.0-rc.8` pins `eadb415`, reachable
+from protected main; its four tagged native builds and both generated Homebrew
+checks passed. The [preview record](RC8_REVIEW_PREVIEW_WORK_NOTE.md) and
+[release run](https://github.com/joshuamyers22/mos-eisley/actions/runs/40217716964)
+retain exact signed installation and five-predecessor qualification results.
+Epoch 2 refuses rollback to rc.7; preserve separate old backups and an epoch-2
+reader. Joshua approved signing preparation only. Publication remains a separate
+decision; immutable rc.7 remains published.
 
 ## Remote MCP connections
 

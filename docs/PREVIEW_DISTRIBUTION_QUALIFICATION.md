@@ -11,9 +11,15 @@ It retains its frozen subscription/interface runtime. npm/tap routes remain
 separately versioned; this is not stable launch or general Windows/WSL2 support.
 
 [rc.8 preparation](RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds reviewed source changes
-and the recovery storage-epoch fence. It remains unpublished; exact current
-qualification and accountable disposition are required. The records below retain
-their original artifact-specific scope.
+and the recovery storage-epoch fence. Its dependency-frozen source `eadb415` is
+reachable from protected main and tagged `v0.1.0-rc.8`. Linux/actual WSL2 review
+gates, all four tagged development distributions and both generated Homebrew
+checks passed. Joshua approved signing preparation only in
+[run 40217716964](https://github.com/joshuamyers22/mos-eisley/actions/runs/40217716964);
+that run retains current enrolled-key and five-predecessor results. The candidate
+remains unpublished and publication requires separate owner disposition. Epoch 2
+refuses downgrade to rc.7; retain pre-upgrade private backups and an epoch-2 reader.
+The records below retain their original artifact-specific scope.
 
 ## Polished standalone preview published: 2026-10-15
 

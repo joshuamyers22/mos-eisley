@@ -76,3 +76,26 @@ Candidate, Windows host provenance and identical wheel identities were checked
 against the structured artifacts on 2026-10-23. The
 [work note](GIT_REVIEW_PLATFORM_QUALIFICATION_WORK_NOTE.md) retains exact identities,
 failed attempts and scope limits. Broader platform/release support remains gated.
+
+## Integrated candidates, 2026-10-25
+
+The frozen rc.8 source `eadb415d31afd89b142e3229a8ccca72aca835ee` passed
+[run 40153393500](https://github.com/joshuamyers22/mos-eisley/actions/runs/40153393500)
+on Linux and actual Windows-hosted WSL2. Each target passed 3,875 source and
+2,851 installed-wheel tests (17/13 platform skips), followed by 116 source and
+116 installed focused cases with zero failures/errors/skips. Both 414-file wheels
+match SHA-256 `9161df55226638717de1a9b96ea8819f8158df1ff263b4cea3d3c827db7609e7`.
+Windows host, distro version 2, candidate, run and bundle identities were checked.
+
+Current-main integration passed separately at tested merge `a5dab66` in
+[run 40153431249](https://github.com/joshuamyers22/mos-eisley/actions/runs/40153431249).
+Its 3,876 source / 2,863 wheel tests and 116+116 focused cases passed on both
+targets, with 17/13 broader-suite skips and zero focused skips. Its 414-file wheel
+hash is `d401f74ec226699769b6539946cbf52ea786145b2a4171369999f34ac6c66009`;
+the tested merge tree equals final PR #334 head. These candidates use different
+dependency sets; their artifacts and results are kept distinct.
+
+The failed earlier rc.8 WSL2 run and permission-fixture correction remain in the
+[preview record](RC8_REVIEW_PREVIEW_WORK_NOTE.md). The earlier subscription return
+did not recur; its cause remains unknown. This closes exact integrated §31.7
+qualification while retaining the broader platform and release limits above.

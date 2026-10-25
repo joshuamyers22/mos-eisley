@@ -5559,8 +5559,15 @@ pin workspace, local admin, shared repository and pointer identities; per-proces
 metadata/configuration checks and existing stale-source admission remain read-only.
 See the [qualification record](MANAGED_WORKTREE_REVIEW_WORK_NOTE.md) for source and
 installed-wheel evidence. This proves local managed-stage compatibility, not Mos
-issuance authority or a broader session-worktree lifecycle. Native Linux/Windows-
-hosted WSL2 evidence and exact new live-target/release qualification remain open.
+issuance authority or a broader session-worktree lifecycle.
+
+**Integrated native status, 2026-10-25:** [PR #334](https://github.com/joshuamyers22/mos-eisley/pull/334)
+merged the stack after 22 passing checks. Both current-main and dependency-frozen
+rc.8 sources passed Linux and actual Windows-hosted WSL2 source/wheel gates,
+including 116+116 focused cases per target without skips. See the
+[exact native evidence](GIT_REVIEW_PLATFORM_QUALIFICATION.md#integrated-candidates-2026-10-25).
+This closes the native read-review gate. General WSL2 support, exact new live
+provider targets and release publication retain their separate gates.
 
 Extend `/review` and the equivalent plain-language/CLI/JSON request with explicit
 presets for uncommitted changes, comparison against a base branch, an exact commit,
