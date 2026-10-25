@@ -1,7 +1,8 @@
 """Small Linux launcher that confines one Git process before replacing itself.
 
-It is invoked with Python isolated mode from the installed package. No untrusted
-workspace module or environment path participates in loading this launcher.
+It is invoked with Python isolated mode from the installed package or the fixed
+private mode of the frozen executable. No untrusted workspace module or
+environment path participates in loading this launcher.
 """
 
 import ctypes
@@ -9,6 +10,7 @@ import errno
 import os
 import platform
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 
@@ -128,15 +130,16 @@ def _confine() -> None:
         raise OSError(ctypes.get_errno(), "seccomp filter failed")
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments:
         return 2
-    executable = Path(sys.argv[1])
+    executable = Path(arguments[0])
     if not executable.is_absolute():
         return 2
     try:
         _confine()
-        os.execv(executable, [str(executable), *sys.argv[2:]])
+        os.execv(executable, [str(executable), *arguments[1:]])
     except OSError:
         return 1
     return 1

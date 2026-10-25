@@ -36,7 +36,8 @@ and experimental subscription chat/resume. Its signed installation and sixteen
 real-predecessor upgrade checks passed. npm and the public Homebrew preview
 formula retain their separately qualified versions.
 
-The [rc.8 qualification candidate](docs/RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds
+The [rc.9 qualification candidate](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md) repairs
+rc.8's frozen Linux Git launcher and retains its dependency set. It includes
 scriptable execution, session recovery, ranked resume discovery, scoped live
 review, managed-worktree read admission and startup diagnostics. It is not yet
 published. Its frozen release source is `eadb415`, using #333's tested dependency

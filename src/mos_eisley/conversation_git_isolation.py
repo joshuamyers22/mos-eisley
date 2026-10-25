@@ -5,6 +5,7 @@ import re
 import sys
 from pathlib import Path
 
+from mos_eisley._frozen_entry import LINUX_GIT_READ
 from mos_eisley.run.process import bounded_process
 
 SANDBOX_EXEC = Path("/usr/bin/sandbox-exec")
@@ -60,6 +61,8 @@ def isolated_command(executable: Path, arguments: list[str]) -> list[str]:
     if sys.platform == "linux":
         if not sys.executable or not Path(sys.executable).is_absolute():
             raise GitIsolationUnavailable("Linux Git isolation is unavailable.")
+        if getattr(sys, "frozen", False):
+            return [sys.executable, LINUX_GIT_READ, str(executable), *arguments]
         return [
             sys.executable,
             "-I",
