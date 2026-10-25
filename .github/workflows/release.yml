@@ -88,7 +88,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -149,6 +149,17 @@ jobs:
           gh release download v0.1.0-rc.5 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.5-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc5
           chmod 700 ".work/published-predecessor-rc5/mos-install-$UPGRADE_PLATFORM"
           uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc5 --predecessor-version 0.1.0-rc.5 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc5-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.7
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.7" --jq 'select(.id == 421278021 and .immutable == true and .draft == false and .target_commitish == "78bc17ce561df7e641a4dd0fc5aef56aa9deee58") | .id' > predecessor-rc7-id.txt
+          test "$(cat predecessor-rc7-id.txt)" = 421278021
+          gh release download v0.1.0-rc.7 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.7-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc7
+          chmod 700 ".work/published-predecessor-rc7/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc7 --predecessor-version 0.1.0-rc.7 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc7-$UPGRADE_PLATFORM.json"
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json

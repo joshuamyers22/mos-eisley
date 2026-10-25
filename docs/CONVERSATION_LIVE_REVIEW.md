@@ -19,6 +19,43 @@ must be absolute. Use a new review directory, ledger and completion file for eac
 attempt. Keep the selection and credential files private; the selection contains
 paths, not key material.
 
+## Connect an exact Git scope
+
+Create the canonical scope artifact with `mos review-scope ... --output PATH`.
+Use that scope's exact source brief when preparing project guidance with
+`mos guidance-review prepare`; the prepared critic brief also includes the admitted
+guidance. Select `git_scope` (the absolute artifact path) and
+`expected_scope_sha256` (its exact byte hash) together in the live selection.
+The existing exact campaign/profile and signed launch requirements still apply
+to the prepared brief. Selecting a different diff never rebinds old authority.
+
+With that selection, `/review --uncommitted`, `--base`, `--commit`, or explicit
+`--file`/`--range` presets acquire the current scope and require it to match the
+selected artifact and original source brief exactly. Bare `/review` uses the
+same retained scope. Ambiguous, incomplete, stale, foreign-owner or different
+workspace scopes fail before dispatch. Scoped live packets use schema 2; older
+prepared-only schema-1 packets retain their canonical bytes and operating path.
+
+`mos review-launch-preview` accepts the same `--git-scope PATH` and
+`--expected-scope-sha256 HASH` pair. Its plain/JSON output and the conversation's
+`conversation.review_launch` event share a version-1 projection: frozen
+target/revisions, included files/ranges and omissions, critics and judge, effective
+review/guidance policy identities, remaining task ceiling and conservative
+reservation upper bound. Estimated cost remains explicitly unknown. The remaining
+ceiling is bounded by configuration, available ledger funds and, for a selected
+live launch, the owner's cap after campaign charges. Preview never reads keys,
+reserves funds, creates a run, starts a container or contacts a provider.
+
+The live child emits the same projection before its existing signed admission
+flow. Source, configuration and prepared inputs are checked again at phase
+approval and credential/provider use, and before displaying or publishing a
+result. A changed input stops the attempt; it cannot produce accepted conversation
+evidence or an automatic retry. Critics still receive only the frozen prepared
+brief and persona, with the existing quorum, spending and isolation policy.
+Review intent authorizes no edits, correction dispatch or outward posting.
+The preview adds no confirmation prompt; separately required launch/phase
+signatures and exact local approvals remain unchanged.
+
 On `/review`, the conversation saves a frozen prepared brief and its non-secret
 hashes. It rechecks the selected manifest, config, prepared review and campaign
 bytes before starting `review-live`. The full-screen terminal temporarily yields
@@ -36,9 +73,11 @@ path, or permission to run the next call. An interrupted or cancelled attempt is
 consumed and is never restarted by `resume`. A queued review needs the same
 selection and current policy when resumed. A failed launch leaves its dedicated
 run and ledger for inspection; no result is presented as a successful review.
-The command requires an interactive full-screen terminal because the signed
+Paid conversational dispatch requires an interactive full-screen terminal because the signed
 owner ceremony reads from that terminal. The existing `mos review-live` command
-remains the separate non-conversation operating path.
+remains the separate non-conversation operating path; plain/JSON launch previews
+remain inert. `mos exec --json` emits its preview through the versioned event
+stream and keeps child diagnostics on stderr, preserving its terminal result.
 
 ## Review and approval presentation
 

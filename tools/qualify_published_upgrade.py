@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from mos_eisley.app_release import (
     Release,
     ReleaseError,
     parse_release,
+    parse_retained_release,
     platform_id,
     verify_archive,
     version_key,
@@ -29,6 +31,7 @@ PUBLISHED_PREDECESSORS = {
     "0.1.0-rc.2": "ef6a66fc8911902cef7a91828b4b26e7d329020c",
     "0.1.0-rc.3": "b3f04b46fb2091e861bdf3fc5e900d933cf804b3",
     "0.1.0-rc.5": "b04906553f2622210adc82c43893777a6b98aa44",
+    "0.1.0-rc.7": "78bc17ce561df7e641a4dd0fc5aef56aa9deee58",
 }
 
 
@@ -42,6 +45,12 @@ def snapshot(directory: Path) -> dict[str, str]:
 
 def artifact(directory: Path, expected_commit: str) -> tuple[Release, bytes, Path]:
     release = parse_release((directory / "release.json").read_bytes())
+    return verified_artifact(directory, expected_commit, release)
+
+
+def verified_artifact(
+    directory: Path, expected_commit: str, release: Release
+) -> tuple[Release, bytes, Path]:
     if release.source_commit != expected_commit:
         raise ValueError("signed artifact has a different source commit")
     archive = directory / f"mos-{release.version}-{platform_id()}.tar.gz"
@@ -57,7 +66,11 @@ def published_predecessor(directory: Path, version: str) -> tuple[Release, bytes
     commit = PUBLISHED_PREDECESSORS.get(version)
     if commit is None:
         raise ValueError("unsupported published predecessor")
-    result = artifact(directory, commit)
+    result = verified_artifact(
+        directory,
+        commit,
+        parse_retained_release((directory / "release.json").read_bytes()),
+    )
     if result[0].version != version:
         raise ValueError("signed predecessor version differs from published selection")
     return result
@@ -102,6 +115,7 @@ def main() -> int:
         args.predecessor, args.predecessor_version
     )
     candidate, raw, bootstrap = artifact(args.candidate, args.candidate_commit)
+    same_epoch = previous.storage_epoch == candidate.storage_epoch
     if version_key(candidate.version) <= version_key(previous.version):
         raise ValueError("candidate must be newer than the published predecessor")
     manifest = (args.predecessor / "BOOTSTRAP_SHA256SUMS").read_text().splitlines()
@@ -176,15 +190,16 @@ def main() -> int:
         stores = {
             backend: base / f"sessions-{backend}" for backend in ("snapshot", "sqlite")
         }
+        backups = {backend: base / f"legacy-backup-{backend}" for backend in stores}
 
-        def session_arguments(backend: str) -> list[str]:
+        def session_arguments(backend: str, *, backup: bool = False) -> list[str]:
             return [
                 "--plain",
                 "--no-memory",
                 "--storage-backend",
                 backend,
                 "--storage",
-                str(stores[backend]),
+                str(backups[backend] if backup else stores[backend]),
                 "-C",
                 str(workspace),
             ]
@@ -212,27 +227,84 @@ def main() -> int:
             if saved() != before or snapshot(protected) != protected_before:
                 raise ValueError("lifecycle operation changed retained user state")
 
-        def resume() -> None:
+        def resume(*, backup: bool = False) -> None:
             for backend in stores:
                 answer = run(
-                    executable, "resume", "--last", *session_arguments(backend)
+                    executable,
+                    "resume",
+                    "--last",
+                    *session_arguments(backend, backup=backup),
                 )
                 if "The fixture boundary is ten." not in answer:
                     raise ValueError("cold resume lost the predecessor's saved context")
 
         resume()
+        if not same_epoch:
+            for backend, store in stores.items():
+                shutil.copytree(store, backups[backend])
+            # Exercise real epoch-transition interruption before candidate writes.
+            for after in (False, True):
+                before = saved()
+                interrupt_install(root, bin_dir, candidate, raw, after=after)
+                expected = candidate.version if after else previous.version
+                version(expected)
+                result = json.loads(
+                    run(
+                        executable,
+                        "update",
+                        "recover",
+                        "--yes",
+                        "--root",
+                        str(root),
+                        "--json",
+                    )
+                )
+                if (
+                    result.get("installed") != expected
+                    or (root / "transaction.json").exists()
+                ):
+                    raise ValueError("cross-epoch activation recovery changed commit")
+                preserved(before)
+                if after:
+                    # No candidate operation has occurred. Rebuild only the test
+                    # installation; never rewrite or downgrade a session.
+                    run(executable, "update", "uninstall", "--yes", "--root", str(root))
+                    install_native(args.predecessor, previous, previous_bootstrap)
+                    preserved(before)
+
+        def rollback_or_refuse() -> None:
+            if same_epoch:
+                run(executable, "update", "rollback", "--yes", "--root", str(root))
+                version(previous.version)
+                return
+            retained = saved()
+            pointer = os.readlink(root / "current")
+            result = subprocess.run(
+                [str(executable), "update", "rollback", "--yes", "--root", str(root)],
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+            if result.returncode == 0 or "storage compatibility" not in result.stderr:
+                raise ValueError("cross-epoch rollback was not explicitly refused")
+            if os.readlink(root / "current") != pointer:
+                raise ValueError("refused rollback changed the active runtime")
+            version(candidate.version)
+            preserved(retained)
+
         before = saved()
         install_native(args.candidate, candidate, bootstrap)
         version(candidate.version)
         preserved(before)
         resume()
         before = saved()
-        run(executable, "update", "rollback", "--yes", "--root", str(root))
-        version(previous.version)
+        rollback_or_refuse()
         preserved(before)
         resume()
 
-        # The predecessor must also read a session explicitly advanced by the candidate.
+        # Same-epoch rollback must read candidate-written state. An epoch
+        # transition must refuse rollback while preserving current data/readers.
         install_native(args.candidate, candidate, bootstrap)
         for backend in stores:
             answer = run(
@@ -245,14 +317,16 @@ def main() -> int:
             if "You gave me a boundary of ten." not in answer:
                 raise ValueError("candidate did not retain predecessor request context")
         before = saved()
-        run(executable, "update", "rollback", "--yes", "--root", str(root))
+        rollback_or_refuse()
         preserved(before)
         resume()
 
         for after in (False, True):
             before = saved()
             interrupt_install(root, bin_dir, candidate, raw, after=after)
-            expected = candidate.version if after else previous.version
+            expected = (
+                candidate.version if after or not same_epoch else previous.version
+            )
             version(expected)
             result = json.loads(
                 run(
@@ -274,7 +348,7 @@ def main() -> int:
                 )
             preserved(before)
             resume()
-            if after:
+            if after and same_epoch:
                 run(executable, "update", "rollback", "--yes", "--root", str(root))
                 version(previous.version)
 
@@ -285,7 +359,7 @@ def main() -> int:
             pass
         else:
             raise ValueError("altered candidate archive was accepted")
-        version(previous.version)
+        version(previous.version if same_epoch else candidate.version)
         preserved(before)
         install_native(args.candidate, candidate, bootstrap)
         before = saved()
@@ -313,7 +387,28 @@ def main() -> int:
         install_native(args.predecessor, previous, previous_bootstrap)
         preserved(before)
         version(previous.version)
-        resume()
+        if same_epoch:
+            resume()
+        else:
+            # Old readers must reject new journals without modifying them. The
+            # retained pre-upgrade copies are separately readable; no automatic
+            # downgrade or merge of histories is performed.
+            for backend in stores:
+                result = subprocess.run(
+                    [str(executable), "resume", "--last", *session_arguments(backend)],
+                    env=environment,
+                    input="",
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                )
+                if (
+                    result.returncode != 2
+                    or "invalid input schema" not in result.stderr
+                ):
+                    raise ValueError("legacy reader did not reject new journal schema")
+                preserved(before)
+            resume(backup=True)
         before = saved()
         run(executable, "update", "uninstall", "--yes", "--root", str(root))
         preserved(before)
@@ -338,7 +433,12 @@ def main() -> int:
         "publisher": "enrolled_production_root_unpatched",
         "session_backends": ["snapshot", "sqlite"],
         "cold_resume_both_versions": True,
-        "candidate_written_session_rollback": True,
+        "candidate_written_session_rollback": same_epoch,
+        "predecessor_storage_epoch": previous.storage_epoch,
+        "candidate_storage_epoch": candidate.storage_epoch,
+        "cross_epoch_rollback_refused": not same_epoch,
+        "legacy_backup_resume": not same_epoch,
+        "legacy_reader_rejected_candidate_state": not same_epoch,
         "pre_and_post_activation_recovery": True,
         "archive_runtime_tamper_refused": True,
         "state_preserved": True,

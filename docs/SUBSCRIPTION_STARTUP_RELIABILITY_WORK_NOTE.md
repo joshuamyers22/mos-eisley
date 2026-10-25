@@ -134,5 +134,9 @@ Review found that the clean-wheel smoke runner explicitly selects tests and
 helpers: the two new startup test modules were absent from its list. Add both
 modules and the capture helper so the same cold-process matrix also exercises
 the installed wheel without the source package. No application/runtime change.
-The combined gate is running; final counts, skipped checks and required GitHub
-check results will be recorded in the PR's evidence section before merge.
+That startup-branch local gate passed 3,810 source tests but its installed-wheel
+run failed four review-fixture setups with `verified critic quorum was not met`.
+It is not counted as passing. Its GitHub checks passed independently. The
+[rc.8 integration](RC8_REVIEW_PREVIEW_WORK_NOTE.md) includes these commits and
+tracks the fresh combined gate and final CI. Its focused 134-case batch includes
+all four prior failures and passed; this does not establish their historical cause.

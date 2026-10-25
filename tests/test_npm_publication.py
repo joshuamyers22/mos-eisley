@@ -35,7 +35,12 @@ class NpmPublicationTests(unittest.TestCase):
         self.trust.start()
         self.addCleanup(self.trust.stop)
 
-    def manifest(self, platforms: set[str] | None = None) -> None:
+    def manifest(
+        self,
+        platforms: set[str] | None = None,
+        *,
+        storage_epoch: int = app_release.STORAGE_EPOCH,
+    ) -> None:
         artifacts: list[dict[str, object]] = []
         for target in sorted(PLATFORMS if platforms is None else platforms):
             raw = target.encode()
@@ -55,7 +60,7 @@ class NpmPublicationTests(unittest.TestCase):
             "channel": "stable",
             "source_commit": self.commit,
             "notes": "Synthetic test inventory",
-            "storage_epoch": 1,
+            "storage_epoch": storage_epoch,
             "withdrawn": False,
             "artifacts": artifacts,
         }
@@ -69,6 +74,17 @@ class NpmPublicationTests(unittest.TestCase):
         self.manifest()
         release = verify_publication(self.assets, "v0.1.0", self.commit)
         self.assertEqual(len(release.artifacts), 4)
+
+    def test_valid_legacy_signature_does_not_authorize_current_publication(
+        self,
+    ) -> None:
+        self.manifest(storage_epoch=1)
+        retained = app_release.parse_retained_release(
+            (self.assets / "release.json").read_bytes()
+        )
+        self.assertEqual(retained.storage_epoch, 1)
+        with self.assertRaisesRegex(ReleaseError, "incompatible"):
+            verify_publication(self.assets, "v0.1.0", self.commit)
 
     def test_mismatched_tag_or_commit(self) -> None:
         self.manifest()

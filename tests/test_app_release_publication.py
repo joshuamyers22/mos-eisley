@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -256,6 +257,50 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["timeout"], 60)
         self.assertTrue(run.call_args.kwargs["check"])
 
+    def test_historical_harness_retains_the_reviewed_artifact_metadata(self) -> None:
+        workflow = cast(
+            dict[object, object],
+            yaml.safe_load(
+                (ROOT / ".github/workflows/published-upgrade.yml").read_text()
+            ),
+        )
+        environment = mapping(workflow["env"])
+        signed = json.loads(
+            (ROOT / "docs/qualification/rc2-upgrade-candidate.json").read_bytes()
+        )
+        self.assertEqual(
+            signed["payload"]["source_commit"], environment["ARTIFACT_SOURCE"]
+        )
+        steps = [
+            mapping(step)
+            for step in cast(
+                list[object], mapping(mapping(workflow["jobs"])["upgrade"])["steps"]
+            )
+        ]
+        checkouts = [
+            index
+            for index, step in enumerate(steps)
+            if str(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        self.assertEqual(len(checkouts), 2)
+        self.assertNotIn("ref", mapping(steps[checkouts[0]]["with"]))
+        self.assertEqual(
+            mapping(steps[checkouts[1]]["with"])["ref"],
+            "${{ env.CANDIDATE_SOURCE }}",
+        )
+        retained = "$RUNNER_TEMP/mos-rc2-upgrade-candidate.json"
+        copies = [
+            (index, str(step.get("run", "")))
+            for index, step in enumerate(steps)
+            if retained in str(step.get("run", ""))
+        ]
+        self.assertEqual(len(copies), 2)
+        self.assertLess(checkouts[0], copies[0][0])
+        self.assertLess(copies[0][0], checkouts[1])
+        self.assertIn("docs/qualification/rc2-upgrade-candidate.json", copies[0][1])
+        self.assertGreater(copies[1][0], checkouts[1])
+        self.assertIn('"' + retained + '" .work/candidate/release.json', copies[1][1])
+
     def test_workflow_upload_is_draft_and_finalization_follows_qualified_gates(
         self,
     ) -> None:
@@ -300,6 +345,26 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertIn("qualification-upgrade-rc2-", rc2_journey)
         self.assertNotIn("continue-on-error", rc2)
         self.assertNotIn("if", rc2)
+        rc7 = next(
+            s
+            for s in qualification_steps
+            if s.get("name") == "Qualify upgrade from published rc.7"
+        )
+        self.assertEqual(mapping(rc7["env"])["SOURCE_COMMIT"], "${{ github.sha }}")
+        rc7_journey = str(rc7["run"])
+        for required in (
+            "gh release download v0.1.0-rc.7",
+            "421278021",
+            "78bc17ce561df7e641a4dd0fc5aef56aa9deee58",
+            ".immutable == true",
+            ".draft == false",
+            "--predecessor-version 0.1.0-rc.7",
+            '--candidate-commit "$SOURCE_COMMIT"',
+            "qualification-upgrade-rc7-",
+        ):
+            self.assertIn(required, rc7_journey)
+        self.assertNotIn("continue-on-error", rc7)
+        self.assertNotIn("if", rc7)
         self.assertEqual(publish["environment"], "application-release")
         steps = [mapping(s) for s in cast(list[object], publish["steps"])]
         upload = next(

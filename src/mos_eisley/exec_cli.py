@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from mos_eisley.conversation import RuntimeConversationController
 from mos_eisley.conversation_context import ContextBudgetError
 from mos_eisley.conversation_pending import PendingTextBudgetError
-from mos_eisley.conversation_review import ReviewPacket
+from mos_eisley.conversation_review import ConversationLiveReviewPacket, ReviewPacket
 from mos_eisley.core.agent import AgentFailure, RequestBudgetError
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.core.ports import ProviderBudgetError
@@ -186,6 +186,14 @@ async def execute(
     try:
         output.result["review_mode"] = None if packet is None else packet.mode
         if packet is not None:
+            if (
+                isinstance(packet, ConversationLiveReviewPacket)
+                and controller.preview_live_review is not None
+            ):
+                preview = await asyncio.to_thread(
+                    controller.preview_live_review, packet
+                )
+                output.event({"type": "conversation.review_launch", **preview})
             controller.submit_review(packet)
         else:
             assert prompt is not None

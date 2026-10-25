@@ -71,6 +71,7 @@ from mos_eisley.conversation_limits import (
 from mos_eisley.conversation_live_chat import LiveChatRuntime, private_artifacts_root
 from mos_eisley.conversation_live_review import (
     packet_for_selection,
+    preview_selected_live_review,
     read_selection,
     run_selected_live_review,
 )
@@ -1144,17 +1145,6 @@ async def terminal(
     async def submit_review(command: str = "/review") -> bool:
         packet = review_packet
         if command.startswith("/review "):
-            if isinstance(packet, ConversationLiveReviewPacket):
-                emit(
-                    {
-                        "type": "conversation.unavailable",
-                        "text": (
-                            "Git scope presets require a matching recording; "
-                            "select live review separately."
-                        ),
-                    }
-                )
-                return False
             from mos_eisley.git_review import freeze_git_scope
             from mos_eisley.git_review_cli import parse_review_selection
 
@@ -1169,17 +1159,21 @@ async def terminal(
                         recording.critic.model_dump(mode="json")
                         for recording in packet.cassette.critics
                     ]
-                    if packet is not None
+                    if isinstance(packet, ConversationReviewPacket)
                     else []
                 )
                 preview["policy"] = (
-                    None if packet is None else packet.policy.model_dump(mode="json")
+                    None
+                    if not isinstance(packet, ConversationReviewPacket)
+                    else packet.policy.model_dump(mode="json")
                 )
                 emit(
                     {
                         "type": "conversation.review_scope",
                         **preview,
-                        "text": scope.preview_text()
+                        "text": scope.preview_text(
+                            live=isinstance(packet, ConversationLiveReviewPacket)
+                        )
                         + (
                             "\nRecorded roles: "
                             + ", ".join(
@@ -1188,13 +1182,30 @@ async def terminal(
                                 for r in packet.cassette.critics
                             )
                             + f"\nPolicy: {packet.policy.model_dump_json()}"
-                            if packet is not None
-                            else "\nRecorded roles: none configured."
+                            if isinstance(packet, ConversationReviewPacket)
+                            else (
+                                "\nLive roles and policy follow in the launch preview."
+                                if isinstance(packet, ConversationLiveReviewPacket)
+                                else "\nRecorded roles: none configured."
+                            )
                         ),
                     }
                 )
-                if packet is not None:
-                    if packet.brief != scope.brief() or not scope.complete:
+                if isinstance(packet, ConversationLiveReviewPacket):
+                    if (
+                        packet.git_scope != scope
+                        or packet.guidance_review.source_brief != scope.brief()
+                    ):
+                        raise ValueError(
+                            "Live review selection must bind this exact "
+                            "Git scope and brief."
+                        )
+                elif packet is not None:
+                    if (
+                        packet.guidance_review.source_brief
+                        if packet.guidance_review is not None
+                        else packet.brief
+                    ) != scope.brief() or not scope.complete:
                         raise ValueError(
                             "The recording does not match this complete "
                             "frozen Git brief."
@@ -1226,11 +1237,19 @@ async def terminal(
             return False
         try:
             assert packet is not None
+            if (
+                isinstance(packet, ConversationLiveReviewPacket)
+                and controller.preview_live_review is not None
+            ):
+                preview = await asyncio.to_thread(
+                    controller.preview_live_review, packet
+                )
+                emit({"type": "conversation.review_launch", **preview})
             controller.submit_review(packet)
         except PendingTextBudgetError as error:
             reject_pending(error)
             return False
-        except ValueError:
+        except (OSError, ValueError):
             emit(
                 {
                     "type": "conversation.unavailable",
@@ -3595,6 +3614,16 @@ def _run_command(args: argparse.Namespace) -> int | DirectoryHandoff:
                     )
 
             controller.run_live_review = launch_live_review
+
+            def preview_live_review(
+                packet: ConversationLiveReviewPacket,
+            ) -> dict[str, object]:
+                preview = preview_selected_live_review(
+                    packet, args.live_review_selection, args.workspace
+                )
+                return {**preview.model_dump(mode="json"), "text": preview.describe()}
+
+            controller.preview_live_review = preview_live_review
         if selected_refresh:
             replacement = (
                 None

@@ -11,8 +11,10 @@ qualified Terra/Sonnet/Opus two-provider profile, with a signed campaign and an
 admitted launch. The `review-live` command requires exact approvals and separate
 provider credentials; neither profile authorizes public or automatic activation.
 An [explicit conversational live-review selection](docs/CONVERSATION_LIVE_REVIEW.md)
-can route `/review` through the same one-attempt approval path. New briefs and
-release artifacts require their own qualification; ordinary chat remains recorded.
+can route `/review` through the same one-attempt approval path. Scoped live reviews
+share an inert launch preview and retain exact source checks through signed
+dispatch and result publication. New briefs and release artifacts require their
+own qualification; ordinary chat remains recorded.
 Offline model/effort evaluation planning and
 scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
@@ -28,13 +30,21 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.3 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.3)
-covers macOS and Linux on arm64 and x86_64. The immutable release includes signed
-metadata and installation/upgrade qualification evidence. The earlier rc.1
-qualification also covers npm and the official macOS Homebrew preview formula.
-This release includes the accepted interface polish from PR #306 and qualified
-upgrades from both rc.1 and rc.2. See the
-[publication record](docs/POLISHED_PREVIEW_RELEASE_WORK_NOTE.md) for exact evidence.
+The published [**0.1.0-rc.7 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
+covers macOS and Linux on arm64 and x86_64. It includes the polished interface
+and experimental subscription chat/resume. Its signed installation and sixteen
+real-predecessor upgrade checks passed. npm and the public Homebrew preview
+formula retain their separately qualified versions.
+
+The [rc.8 qualification candidate](docs/RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds
+scriptable execution, session recovery, ranked resume discovery, scoped live
+review, managed-worktree read admission and startup diagnostics. It is not yet
+published. Its frozen release source is `eadb415`, using #333's tested dependency
+set. [Current main integration](docs/REVIEW_MAIN_INTEGRATION_WORK_NOTE.md) retains
+the separately merged dependency updates. Its recovery journal requires storage epoch 2; cross-epoch rollback
+is refused, with separate pre-upgrade backups and a compatible reader required.
+Optional credential attachment stays inactive by default; new live
+targets still require their existing authorization and qualification.
 Stable `0.1.0` remains unqualified.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
@@ -51,6 +61,10 @@ results, exit codes and verdict-aware CI checks.
 results and uncertain effects in the existing JSON/SQLite stores. Resume preserves
 steering and budgets and never automatically repeats an uncertain write or paid call.
 
+[Broker-side credential attachment](docs/CREDENTIAL_BOUNDARY.md) adds owner-scoped
+native references and pinned networking for separately admitted host transports.
+Existing credential paths remain default pending provider/tool qualification.
+
 ## Quick start
 
 The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes
@@ -65,7 +79,7 @@ remain unverified.
 Source builds also provide `mos subscription chat --provider openai_subscription`
 and `mos subscription chat --provider anthropic_subscription` from a project
 directory, with interactive consent and bounded saved-session authorization.
-This launcher and Codex 0.162.1/0.163.0 support are newer than the public rc.5 binary.
+The published rc.7 includes this launcher and Codex 0.162.1/0.163.0 support.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.
@@ -121,7 +135,7 @@ launch options may precede it, as in `mos -C /path/to/project "PROMPT"`.
 
 [Named sessions](docs/CONVERSATION_NAMES.md) support `mos chat --name "Parser cleanup"`,
 `/rename NAME`, and `mos resume --name "Parser cleanup"`. Bare `mos resume` opens
-a keyboard picker with name/ID filtering; duplicate names require explicit
+a keyboard picker with bounded ranked name/ID discovery and match reasons; duplicate names require explicit
 selection. Resumed queued work stays paused until you continue it.
 
 Use `mos --choose-directory` or `mos resume --choose-directory` to open the

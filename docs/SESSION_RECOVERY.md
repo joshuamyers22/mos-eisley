@@ -5,6 +5,11 @@ snapshot or SQLite session. The execution container is disposable. Resume verifi
 the session's identity, hashes, typed records and bounded context before continuing;
 it does not read a sandbox transcript or create a second transcript database.
 
+The rc.8 application release uses storage epoch 2. Older binaries cannot read the
+new journal and cross-epoch runtime rollback is explicitly refused. Preserve
+pre-upgrade private backups separately; keep a compatible reader and use forward
+fixes for new sessions. See [ADR 0019](adr/0019-recovery-release-storage-epoch.md).
+
 ## Durable operations
 
 Each newly dispatched author/review turn, side question, fork publication, local

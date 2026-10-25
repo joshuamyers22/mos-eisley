@@ -19,6 +19,7 @@ from mos_eisley.core.models import (
 )
 from mos_eisley.core.protocol import Effort, ModelRequest, ModelResponse
 from mos_eisley.core.registry import ModelRegistry
+from mos_eisley.git_review import GitReviewScope
 from mos_eisley.project_guidance_review import PreparedGuidanceReview
 from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.providers.model_reviewer import ModelReviewer
@@ -34,6 +35,7 @@ from mos_eisley.run.review_controller import (
     ControllerCriticPreview,
 )
 from mos_eisley.run.review_guidance import ReviewGuidanceAdmission
+from mos_eisley.run.review_source import check_review_source
 from mos_eisley.run.spend_ledger import SpendLedger
 
 CONFIGURATION_BYTES = 256_000
@@ -77,6 +79,49 @@ class ReviewLaunchConfiguration(Contract):
     )
 
 
+class ReviewIntentPreview(Contract):
+    """Bounded user-facing projection; never a dispatch or posting capability."""
+
+    schema_version: Literal[1] = 1
+    brief_id: Digest
+    prepared_sha256: Digest
+    configuration_sha256: Digest
+    guidance_policy_sha256: Digest
+    target: dict[str, object]
+    critics: Annotated[tuple[CriticSpec, ...], Field(min_length=1, max_length=8)]
+    judge_provider: Literal["openai", "anthropic"]
+    judge_model: Identifier
+    policy: ReviewPolicy
+    remaining_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)]
+    reserved_upper_bound_microusd: Annotated[int, Field(ge=0, le=1_000_000_000_000)]
+    total_seconds: Annotated[float, Field(gt=0, le=600)]
+    estimated_cost_microusd: None = None
+    read_only: Literal[True] = True
+    posting_authorized: Literal[False] = False
+    provider_dispatch_authorized: Literal[False] = False
+
+    @model_validator(mode="after")
+    def bounded(self) -> Self:
+        if len(canonical_bytes(self)) > CONFIGURATION_BYTES:
+            raise ValueError("Review intent preview exceeds its byte limit")
+        return self
+
+    def describe(self) -> str:
+        return (
+            f"Live review preview • brief {self.brief_id}\n"
+            f"Target: {json.dumps(self.target, ensure_ascii=True, sort_keys=True)}\n"
+            "Critics: "
+            + ", ".join(f"{c.provider}/{c.model}: {c.persona}" for c in self.critics)
+            + f"\nJudge: {self.judge_provider}/{self.judge_model}\n"
+            f"Policy: {self.policy.model_dump_json()}\n"
+            f"Remaining ceiling: {self.remaining_microusd} microusd; "
+            f"reserved upper bound: {self.reserved_upper_bound_microusd} microusd; "
+            f"estimate: unknown; execution limit: {self.total_seconds:g}s.\n"
+            "Read-only review; edits and outward posting are not authorized. "
+            "Existing signed launch and phase admission remain required."
+        )
+
+
 class ReviewLaunchPreview(Contract):
     schema_version: Literal[1] = 1
     configuration_sha256: Digest
@@ -90,6 +135,9 @@ class ReviewLaunchPreview(Contract):
     credential_access_authorized: Literal[False] = False
     provider_dispatch_authorized: Literal[False] = False
     reservation_created: Literal[False] = False
+    intent: ReviewIntentPreview | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class _ProjectionOnlyClient:
@@ -119,6 +167,8 @@ def prepare_review_launch_preview(
     expected_guidance_policy_sha256: str,
     ledger: SpendLedger,
     review_directory: Path,
+    git_scope: GitReviewScope | None = None,
+    owner_remaining_microusd: int | None = None,
 ) -> ReviewLaunchPreview:
     """No credentials, containers, reservations or authority from registry labels.
 
@@ -126,6 +176,8 @@ def prepare_review_launch_preview(
     not establish credentialed conformance for this review-controller path.
     """
     configuration = decode_launch_configuration(canonical_bytes(configuration))
+    if git_scope is not None:
+        check_review_source(git_scope, workspace, prepared.source_brief)
     envelope, reviewer, admission = prepare_review_launch_components(
         configuration,
         prepared=prepared,
@@ -145,11 +197,35 @@ def prepare_review_launch_preview(
     )
     preview = controller.preview
     admission.check()
+    if git_scope is not None:
+        check_review_source(git_scope, workspace, prepared.source_brief)
+    snapshot = ledger.snapshot()
+    remaining = min(configuration.max_total_microusd, snapshot.available_microusd)
+    if owner_remaining_microusd is not None:
+        remaining = min(remaining, owner_remaining_microusd)
+    if snapshot.blocked or preview.envelope.total_reserved_microusd > remaining:
+        raise ValueError("Review exceeds the remaining task spending ceiling.")
     return ReviewLaunchPreview(
         configuration_sha256=digest(canonical_bytes(configuration)),
         registry_sha256=digest(canonical_bytes(configuration.registry)),
         guidance_sha256=prepared.sha256,
         preview=preview,
+        intent=ReviewIntentPreview(
+            brief_id=prepared.brief.brief_id,
+            prepared_sha256=prepared.sha256,
+            configuration_sha256=digest(canonical_bytes(configuration)),
+            guidance_policy_sha256=expected_guidance_policy_sha256,
+            target=git_scope.preview()
+            if git_scope is not None
+            else {"basis": "prepared brief"},
+            critics=tuple(c.critic for c in configuration.critics),
+            judge_provider=configuration.judge_provider,
+            judge_model=configuration.judge_model,
+            policy=configuration.policy,
+            remaining_microusd=remaining,
+            reserved_upper_bound_microusd=preview.envelope.total_reserved_microusd,
+            total_seconds=configuration.total_seconds,
+        ),
     )
 
 

@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import sqlite3
 import sys
 from contextlib import suppress
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from mos_eisley.conversation_memory_replace import unique_object
 from mos_eisley.conversation_review import ConversationLiveReviewPacket
@@ -25,6 +26,7 @@ from mos_eisley.project_guidance_review import (
     REVIEW_GUIDANCE_BYTES,
     decode_prepared_review,
 )
+from mos_eisley.project_guidance_role_admission import RoleContextAdmissionStore
 from mos_eisley.review_live_cli import ReviewLiveCompletion
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.operator_review_probe import OperatorReviewIdentity
@@ -35,14 +37,19 @@ from mos_eisley.run.review_conformance_authorization import (
 )
 from mos_eisley.run.review_launch import (
     CONFIGURATION_BYTES,
+    ReviewIntentPreview,
     decode_launch_configuration,
+    prepare_review_launch_preview,
 )
+from mos_eisley.run.review_launch_admission import campaign_charged_microusd
 from mos_eisley.run.review_launch_authorization import (
     ReviewLaunchAuthorityPolicy,
     SignedReviewLaunchDecision,
     verify_review_launch_decision,
 )
+from mos_eisley.run.review_source import check_review_source, read_review_source
 from mos_eisley.run.review_verdict import RetainedReviewResult
+from mos_eisley.run.spend_ledger import SpendLedger
 
 MAX_LIVE_SELECTION_BYTES = 32_000
 
@@ -76,9 +83,15 @@ class LiveReviewSelection(Contract):
     authority_policy: Path
     launch_authority_policy: Path
     completion_output: Path
+    git_scope: Path | None = Field(default=None, exclude_if=lambda value: value is None)
+    expected_scope_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def absolute_paths(self) -> Self:
+        if (self.git_scope is None) != (self.expected_scope_sha256 is None):
+            raise ValueError("Live review scope and hash must be selected together")
         for name, value in self.model_dump().items():
             if isinstance(value, Path) and not value.is_absolute():
                 raise ValueError(f"live review {name} requires an absolute path")
@@ -130,6 +143,12 @@ def read_selection(path: Path, workspace: Path) -> tuple[LiveReviewSelection, Di
     if prepared.sha256 != selection.expected_prepared_sha256:
         raise ValueError("selected guidance review differs from its hash")
     read_campaign_seal(selection.campaign_dir, selection.expected_seal_sha256)
+    read_review_source(
+        selection.git_scope,
+        selection.expected_scope_sha256,
+        workspace,
+        prepared.source_brief,
+    )
     return selection, digest(raw)
 
 
@@ -144,7 +163,14 @@ def packet_for_selection(
     prepared = decode_prepared_review(
         read_bounded(selection.prepared, REVIEW_GUIDANCE_BYTES)
     )
+    scope = read_review_source(
+        selection.git_scope,
+        selection.expected_scope_sha256,
+        selection.workspace,
+        prepared.source_brief,
+    )
     return ConversationLiveReviewPacket(
+        schema_version=1 if scope is None else 2,
         brief=prepared.brief,
         prepared_sha256=selection.expected_prepared_sha256,
         configuration_sha256=selection.expected_config_sha256,
@@ -152,7 +178,45 @@ def packet_for_selection(
         campaign_evidence_sha256=selection.expected_evidence_sha256,
         manifest_sha256=manifest_sha256,
         guidance_review=prepared,
+        git_scope=scope,
     )
+
+
+def preview_selected_live_review(
+    packet: ConversationLiveReviewPacket, selection_path: Path, workspace: Path
+) -> ReviewIntentPreview:
+    """Shared inert preflight; never resolve keys, approve, reserve or launch."""
+    selection, manifest_sha256 = read_selection(selection_path, workspace)
+    if packet_for_selection(selection, manifest_sha256) != packet:
+        raise ValueError("Queued live review selection or source changed")
+    configuration = decode_launch_configuration(
+        read_bounded(selection.config, CONFIGURATION_BYTES)
+    )
+    identity = OperatorReviewIdentity.model_validate_json(
+        read_bounded(selection.identity, 4096)
+    )
+    bundle, _ = read_campaign_seal(
+        selection.campaign_dir, selection.expected_seal_sha256
+    )
+    try:
+        preview = prepare_review_launch_preview(
+            configuration,
+            prepared=packet.guidance_review,
+            expected_prepared_sha256=packet.prepared_sha256,
+            workspace=workspace,
+            guidance_store=RoleContextAdmissionStore(selection.guidance_storage),
+            guidance_policy_path=selection.guidance_policy,
+            expected_guidance_policy_sha256=selection.expected_guidance_policy_sha256,
+            ledger=SpendLedger(selection.spend_ledger),
+            review_directory=selection.review_dir,
+            git_scope=packet.git_scope,
+            owner_remaining_microusd=identity.max_total_microusd
+            - campaign_charged_microusd(bundle),
+        )
+    except sqlite3.Error:
+        raise ValueError("Selected review spending ledger is unavailable") from None
+    assert preview.intent is not None
+    return preview.intent
 
 
 async def run_selected_live_review(
@@ -162,7 +226,9 @@ async def run_selected_live_review(
     *,
     diagnostics_to_stderr: bool = False,
 ) -> ReviewResult:
-    selection, manifest_sha256 = read_selection(selection_path, workspace)
+    selection, manifest_sha256 = await asyncio.to_thread(
+        read_selection, selection_path, workspace
+    )
     if (
         manifest_sha256 != packet.manifest_sha256
         or selection.expected_prepared_sha256 != packet.prepared_sha256
@@ -176,6 +242,17 @@ async def run_selected_live_review(
     )
     if prepared.brief != packet.brief:
         raise ValueError("queued live review brief changed")
+    if (
+        await asyncio.to_thread(packet_for_selection, selection, manifest_sha256)
+        != packet
+    ):
+        raise ValueError("queued live review source changed")
+    # Legacy prepared-only launches keep their existing independently admitted
+    # child path. Scoped launches additionally share the inert CLI preflight.
+    if packet.git_scope is not None:
+        await asyncio.to_thread(
+            preview_selected_live_review, packet, selection_path, workspace
+        )
     for output in (selection.review_dir, selection.completion_output):
         if output.exists() or output.is_symlink():
             raise ValueError("live review output path was already used")
@@ -195,7 +272,14 @@ async def run_selected_live_review(
         raise
     if status != 0:
         raise ValueError("operator-approved live review did not complete")
-    return load_live_result(selection, packet)
+    if packet.git_scope is not None:
+        await asyncio.to_thread(
+            check_review_source,
+            packet.git_scope,
+            workspace,
+            packet.guidance_review.source_brief,
+        )
+    return await asyncio.to_thread(load_live_result, selection, packet)
 
 
 async def stop_and_reap_live_review(process: asyncio.subprocess.Process) -> None:
@@ -232,6 +316,15 @@ def load_live_result(
     packet: ConversationLiveReviewPacket,
 ) -> ReviewResult:
     """Read only the exact successful child receipt and its retained result."""
+    if packet.git_scope is not None:
+        current = read_review_source(
+            selection.git_scope,
+            selection.expected_scope_sha256,
+            selection.workspace,
+            packet.guidance_review.source_brief,
+        )
+        if current != packet.git_scope:
+            raise ValueError("Live review source differs from frozen packet")
     completion_raw = read_bounded(selection.completion_output, 4096)
     completion = ReviewLiveCompletion.model_validate_json(completion_raw)
     raw = read_bounded(selection.review_dir / "review-result.json", MAX_WIRE_BYTES)

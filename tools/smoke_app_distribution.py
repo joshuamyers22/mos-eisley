@@ -31,6 +31,64 @@ def snapshot(directory: Path) -> dict[str, str]:
     }
 
 
+def qualify_exec_recovery(
+    executable: str, environment: dict[str, str], directory: Path
+) -> None:
+    """Exercise the frozen exec entry point and cold recovery without inference."""
+    directory.mkdir()
+    for backend in ("snapshot", "sqlite"):
+        storage = directory / backend
+        arguments = [
+            "--no-memory",
+            "--storage-backend",
+            backend,
+            "--storage",
+            str(storage),
+            "-C",
+            str(directory),
+        ]
+        completed = subprocess.run(
+            [
+                executable,
+                "exec",
+                "--json",
+                *arguments,
+                "Remember that the fixture boundary is ten.",
+            ],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=90,
+        )
+        events = [json.loads(line) for line in completed.stdout.splitlines()]
+        results = [event for event in events if event.get("type") == "exec.result"]
+        if len(results) != 1 or events[-1] != results[0]:
+            raise ValueError("frozen exec did not emit exactly one final result")
+        result = results[0]
+        if (
+            result.get("status") != "completed"
+            or result.get("answer") != "The fixture boundary is ten."
+            or result.get("persistence_status") != "committed"
+            or result.get("effect_status") != "completed"
+            or not result.get("operation_id")
+            or not isinstance(result.get("recovery_cursor"), int)
+            or result["recovery_cursor"] < 2
+        ):
+            raise ValueError("frozen exec lacks committed operation/recovery evidence")
+        resumed = subprocess.run(
+            [executable, "resume", "--last", "--plain", *arguments],
+            input="What boundary did I give you?\n",
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=90,
+        )
+        if "You gave me a boundary of ten." not in resumed.stdout:
+            raise ValueError("frozen exec cold resume lost its saved context")
+
+
 def require_rejection(operation: Callable[[], object], message: str) -> None:
     try:
         operation()
@@ -46,7 +104,7 @@ def signed_fixture(version: str, raw: bytes, key: Ed25519PrivateKey) -> bytes:
         "channel": "preview" if "-" in version else "stable",
         "source_commit": "a" * 40,
         "notes": "Ephemeral synthetic publisher for local packaging evidence only.",
-        "storage_epoch": 1,
+        "storage_epoch": app_release.STORAGE_EPOCH,
         "withdrawn": False,
         "artifacts": [
             {
@@ -206,6 +264,9 @@ def main() -> int:
                 check=True,
                 timeout=60,
             )
+            qualify_exec_recovery(
+                trusted_executable, environment, base / "signed exec recovery"
+            )
             subprocess.run(
                 [trusted_executable, "setup", "--json"],
                 env=environment,
@@ -307,6 +368,7 @@ def main() -> int:
 
             change_policy(root, "disabled")
             executable = str(bin_dir / "mos")
+            qualify_exec_recovery(executable, environment, base / "exec recovery")
             subprocess.run([executable, "--version"], env=environment, check=True)
             subprocess.run(
                 [executable, "--help"],
@@ -474,6 +536,7 @@ def main() -> int:
         "interrupted_activation_recovery": True,
         "archive_runtime_tamper_rejected": True,
         "chat_resume": True,
+        "exec_recovery_snapshot_sqlite": True,
         "state_preserved": True,
         "upgrade_rollback": "passed_synthetic_older_metadata_same_code",
         "publisher": "ephemeral_test_only",

@@ -18,6 +18,11 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from mos_eisley.core.models import Brief, Contract, Digest, canonical_bytes, digest
+from mos_eisley.git_review_metadata import (
+    GitWorktreeBinding,
+    inspect_layout,
+    open_directory,
+)
 
 MAX_FILES = 64
 MAX_FILE_BYTES = 16_000
@@ -111,7 +116,10 @@ class GitReviewFile(Contract):
 
 
 class GitReviewScope(Contract):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
+    worktree: GitWorktreeBinding | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     workspace: str
     owner_uid: int
     workspace_device: int
@@ -127,6 +135,10 @@ class GitReviewScope(Contract):
 
     @model_validator(mode="after")
     def bounded_scope(self) -> Self:
+        if (self.schema_version == 2) != (self.worktree is not None):
+            raise ValueError(
+                "Linked worktree scopes require schema version 2 and a binding."
+            )
         paths = tuple(file.path for file in self.files)
         if paths != tuple(sorted(set(paths))):
             raise ValueError("Scope file paths must be unique and sorted.")
@@ -198,7 +210,7 @@ class GitReviewScope(Contract):
             "estimated_cost": None,
         }
 
-    def preview_text(self) -> str:
+    def preview_text(self, *, live: bool = False) -> str:
         lines = [
             f"Frozen {self.selection.kind} scope: {self.scope_id}",
             f"Workspace: {self.workspace}",
@@ -237,8 +249,16 @@ class GitReviewScope(Contract):
                 f"{file.index_sha256} / {file.after_sha256}"
             )
         lines.append(
-            "Recorded review requires a matching packet. "
-            "Live review, cost estimation and posting are unavailable."
+            (
+                "Live review requires the exact prepared selection and signed "
+                "launch/phase admission. Cost estimate unknown; "
+                "posting is not authorized."
+            )
+            if live
+            else (
+                "Recorded review requires a matching packet. "
+                "Live review, cost estimation and posting are unavailable."
+            )
         )
         return "\n".join(lines)
 
@@ -291,7 +311,7 @@ def _read_file(
 class GitReadBroker:
     """Fixed read operations for an explicit repository root, never a shell API.
 
-    This local prerequisite is not the kernel containment or managed-worktree gate.
+    This owner-controlled local reader is not a kernel containment boundary.
     Git metadata must be owner-controlled and free of external indirection.
     """
 
@@ -303,19 +323,22 @@ class GitReadBroker:
             self.workspace, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         )
         self.git_fd = -1
+        self.common_fd = -1
         self.deadline = time.monotonic() + 20
         try:
-            self.git_fd = os.open(
-                ".git",
-                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                dir_fd=self.root_fd,
-            )
+            self.layout = inspect_layout(self.workspace, self.root_fd)
+            self.git_fd = open_directory(self.layout.admin)
+            self.common_fd = open_directory(self.layout.common)
+            root = os.fstat(self.root_fd)
+            metadata = os.fstat(self.git_fd)
+            self.identity = (root.st_dev, root.st_ino, metadata.st_dev, metadata.st_ino)
             self._inspect_metadata()
             # Git reads configuration before config --no-includes takes effect.
             # Reject indirect sections and escaped syntax before Git starts.
-            raw_config = _read_file(self.git_fd, "config", MAX_GIT_BYTES)
+            raw_config = _read_file(self.common_fd, "config", MAX_GIT_BYTES)
             if b"\\" in raw_config or re.search(rb"\[\s*include", raw_config, re.I):
                 raise ValueError("Git configuration indirection is unsupported.")
+            self.raw_configuration_sha256 = digest(raw_config)
             executable = shutil.which("git", path=os.defpath)
             if executable is None:
                 raise ValueError("A Git executable on the system path is required.")
@@ -331,10 +354,12 @@ class GitReadBroker:
                 "GIT_NO_LAZY_FETCH": "1",
                 "GIT_TERMINAL_PROMPT": "0",
             }
+            if self.layout.binding is not None:
+                self.env["GIT_COMMON_DIR"] = str(self.layout.common)
             self.prefix = [
                 self.git,
                 "--no-pager",
-                f"--git-dir={self.workspace / '.git'}",
+                f"--git-dir={self.layout.admin}",
                 f"--work-tree={self.workspace}",
             ]
             for key, value in (
@@ -363,6 +388,9 @@ class GitReadBroker:
             raise
 
     def close(self) -> None:
+        if self.common_fd >= 0:
+            os.close(self.common_fd)
+            self.common_fd = -1
         if self.git_fd >= 0:
             os.close(self.git_fd)
             self.git_fd = -1
@@ -381,7 +409,7 @@ class GitReadBroker:
             raise ValueError("Review workspace and metadata must belong to the caller.")
         count = 0
         for _, dirs, files, fd in os.fwalk(
-            ".", dir_fd=self.git_fd, follow_symlinks=False
+            ".", dir_fd=self.common_fd, follow_symlinks=False
         ):
             for name in (*dirs, *files):
                 if time.monotonic() >= self.deadline:
@@ -404,12 +432,32 @@ class GitReadBroker:
                     raise ValueError("Git configuration indirection is unsupported.")
         for name in ("objects/info/alternates", "objects/info/http-alternates"):
             try:
-                _read_file(self.git_fd, name, 4096)
+                _read_file(self.common_fd, name, 4096)
             except FileNotFoundError:
                 continue
             raise ValueError("External Git object stores are unsupported.")
 
+    def revalidate_metadata(self) -> None:
+        root = self.workspace.stat(follow_symlinks=False)
+        if inspect_layout(self.workspace, self.root_fd) != self.layout:
+            raise ValueError("Git worktree metadata changed during acquisition.")
+        metadata = self.layout.admin.stat(follow_symlinks=False)
+        if (
+            root.st_dev,
+            root.st_ino,
+            metadata.st_dev,
+            metadata.st_ino,
+        ) != self.identity:
+            raise ValueError("Git review workspace changed during acquisition.")
+        current = _read_file(self.common_fd, "config", 512_000)
+        if digest(current) != self.raw_configuration_sha256:
+            raise ValueError("Git configuration changed during acquisition.")
+        for path in {self.layout.admin, self.layout.common}:
+            if (path / "config.worktree").exists():
+                raise ValueError("Git configuration indirection is unsupported.")
+
     def _git(self, *args: str, missing: bool = False) -> bytes:
+        self.revalidate_metadata()
         # Call sites supply fixed plumbing commands; user input is only a checked ref.
         process = subprocess.Popen(
             [*self.prefix, *args],
@@ -769,6 +817,8 @@ class GitReadBroker:
         root, metadata = os.fstat(self.root_fd), os.fstat(self.git_fd)
         return GitReviewScope(
             workspace=str(self.workspace),
+            schema_version=2 if self.layout.binding is not None else 1,
+            worktree=self.layout.binding,
             owner_uid=os.getuid(),
             workspace_device=root.st_dev,
             workspace_inode=root.st_ino,
@@ -811,8 +861,9 @@ def freeze_git_scope(workspace: Path, selection: GitReviewSelection) -> GitRevie
         second = broker.capture(selection)
         if first != second:
             raise ValueError("Git review source changed during acquisition; retry.")
+        broker.revalidate_metadata()
         root = workspace.resolve(strict=True).stat()
-        metadata = (workspace / ".git").stat(follow_symlinks=False)
+        metadata = broker.layout.admin.stat(follow_symlinks=False)
         if (root.st_dev, root.st_ino, metadata.st_dev, metadata.st_ino) != (
             first.workspace_device,
             first.workspace_inode,

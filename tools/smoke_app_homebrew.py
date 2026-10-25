@@ -60,7 +60,7 @@ def main() -> int:
                 "channel": "preview" if "-rc." in version else "stable",
                 "source_commit": "a" * 40,
                 "notes": "Synthetic local generated-formula qualification only.",
-                "storage_epoch": 1,
+                "storage_epoch": app_release.STORAGE_EPOCH,
                 "withdrawn": False,
                 "artifacts": [
                     {
