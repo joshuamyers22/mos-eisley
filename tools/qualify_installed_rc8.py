@@ -67,6 +67,68 @@ def checkpoint(storage: Path, backend: str, session_id: str) -> tuple[int, objec
     return state["exchanges_consumed"], state["recovery_journal"]
 
 
+def abrupt_reopen(
+    executable: Path,
+    workspace: Path,
+    storage: Path,
+    backend: str,
+    session_id: str,
+    env: dict[str, str],
+) -> None:
+    """Kill an owned idle terminal, then prove committed history was not replayed."""
+    before = checkpoint(storage, backend, session_id)
+    common = [
+        "--no-memory",
+        "--storage-backend",
+        backend,
+        "--storage",
+        str(storage),
+        "-C",
+        str(workspace),
+    ]
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+    process = subprocess.Popen(
+        [str(executable), "resume", session_id, *common],
+        stdin=slave,
+        stdout=slave,
+        stderr=slave,
+        cwd=workspace,
+        env=env,
+        start_new_session=True,
+    )
+    output = bytearray()
+    try:
+        deadline = time.monotonic() + 30
+        while b"Directory:" not in output:
+            if time.monotonic() >= deadline or len(output) > 4_000_000:
+                raise ValueError("cold terminal did not load before process-loss probe")
+            readable, _, _ = select.select([master], [], [], 0.1)
+            if readable:
+                data = os.read(master, 16384)
+                if not data:
+                    raise ValueError("cold terminal closed unexpectedly")
+                output.extend(data)
+                if b"\x1b[6n" in data:
+                    os.write(master, b"\x1b[1;1R")
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=15)
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=15)
+        os.close(master)
+        os.close(slave)
+    run(
+        [str(executable), "resume", session_id, "--plain", *common],
+        env,
+        workspace,
+        "/quit\n",
+    )
+    if checkpoint(storage, backend, session_id) != before:
+        raise ValueError("abrupt idle process loss changed committed attempts/history")
+
+
 def terminal(executable: Path, base: Path, backend: str, env: dict[str, str]) -> None:
     workspace = base / "workspace"
     workspace.mkdir()
@@ -354,6 +416,10 @@ def qualify(artifacts: Path, evidence: Path) -> None:
                     raise ValueError(
                         "follow-up did not consume exactly one new attempt"
                     )
+                if mode == "positional":
+                    abrupt_reopen(
+                        executable, workspace, storage, backend, session_id, env
+                    )
             for index, invalid in enumerate((b"", b"\xff", b"x" * 8001)):
                 denied_storage = base / f"invalid-{backend}-{index}"
                 denied = subprocess.run(
@@ -390,6 +456,7 @@ def qualify(artifacts: Path, evidence: Path) -> None:
                 "committed_recovery": True,
                 "cold_resume": True,
                 "passive_reopen_no_replay": True,
+                "abrupt_idle_loss_committed_history": True,
                 "pty_diff_attach_stale_refusal": True,
                 "unicode_multiline_paste_resize_draft": True,
                 "terminal_modes_restored": True,
