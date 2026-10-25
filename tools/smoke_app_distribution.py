@@ -9,6 +9,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import tempfile
 import tomllib
@@ -19,6 +20,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mos_eisley import app_install, app_release
+from mos_eisley._frozen_entry import LINUX_GIT_READ
 from mos_eisley.app_install import install, recover, rollback, uninstall
 from mos_eisley.app_release import ReleaseError, canonical, parse_release, platform_id
 
@@ -28,6 +30,75 @@ def snapshot(directory: Path) -> dict[str, str]:
         str(path.relative_to(directory)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in directory.rglob("*")
         if path.is_file()
+    }
+
+
+def qualify_frozen_git(
+    executable: str, environment: dict[str, str]
+) -> dict[str, object]:
+    """Actual native entry/OS checks; host Python is a negative syscall probe only."""
+    if sys.platform != "linux":
+        refused = subprocess.run(
+            [executable, LINUX_GIT_READ, "/usr/bin/git", "--version"],
+            env=environment,
+            capture_output=True,
+            timeout=30,
+        )
+        if refused.returncode != 2:
+            raise ValueError("private Linux helper was not refused on another platform")
+        return {"status": "not_applicable", "private_mode_refused": True}
+    version = subprocess.run(
+        [executable, LINUX_GIT_READ, "/usr/bin/git", "--version"],
+        env=environment,
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+    if not version.stdout.startswith(b"git version "):
+        raise ValueError("frozen Linux launcher did not execute Git")
+    script = """
+import errno, socket, subprocess
+for operation in (
+    lambda: subprocess.run(['/bin/sh', '-c', 'exit 0'], check=True),
+    lambda: socket.create_connection(('127.0.0.1', 9), timeout=1),
+):
+    try:
+        operation()
+    except OSError as error:
+        assert error.errno in (errno.EPERM, errno.EACCES), error
+    else:
+        raise AssertionError('frozen isolation allowed process/network activity')
+print('isolated')
+"""
+    denied = subprocess.run(
+        [
+            executable,
+            LINUX_GIT_READ,
+            str(Path(sys.executable).resolve()),
+            "-I",
+            "-c",
+            script,
+        ],
+        env=environment,
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+    if denied.stdout != b"isolated\n":
+        raise ValueError("native frozen denial probe did not complete")
+    relative = subprocess.run(
+        [executable, LINUX_GIT_READ, "relative-git", "--version"],
+        env=environment,
+        capture_output=True,
+        timeout=30,
+    )
+    if relative.returncode != 2:
+        raise ValueError("frozen launcher accepted a relative executable")
+    return {
+        "status": "passed",
+        "git_version": True,
+        "process_network_denied": True,
+        "relative_target_refused": True,
     }
 
 
@@ -222,6 +293,9 @@ def main() -> int:
         if root.exists() or bin_dir.exists():
             raise ValueError("rejected bootstrap created an installation")
         trusted_bootstrap = "requires_actual_publisher_signed_candidate"
+        trusted_git_boundary: dict[str, object] = {
+            "status": "requires_actual_publisher_signed_candidate"
+        }
         if args.published_metadata:
             trusted_root, trusted_bin = base / "trusted app", base / "trusted bin"
             subprocess.run(
@@ -251,6 +325,7 @@ def main() -> int:
                     "bootstrap did not preserve the selected update channel"
                 )
             trusted_executable = str(trusted_bin / "mos")
+            trusted_git_boundary = qualify_frozen_git(trusted_executable, environment)
             subprocess.run(
                 [
                     trusted_executable,
@@ -368,6 +443,7 @@ def main() -> int:
 
             change_policy(root, "disabled")
             executable = str(bin_dir / "mos")
+            git_boundary = qualify_frozen_git(executable, environment)
             qualify_exec_recovery(executable, environment, base / "exec recovery")
             subprocess.run([executable, "--version"], env=environment, check=True)
             subprocess.run(
@@ -537,6 +613,8 @@ def main() -> int:
         "archive_runtime_tamper_rejected": True,
         "chat_resume": True,
         "exec_recovery_snapshot_sqlite": True,
+        "frozen_git_boundary": git_boundary,
+        "publisher_frozen_git_boundary": trusted_git_boundary,
         "state_preserved": True,
         "upgrade_rollback": "passed_synthetic_older_metadata_same_code",
         "publisher": "ephemeral_test_only",

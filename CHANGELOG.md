@@ -4,6 +4,15 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.9 — qualification candidate
+
+- Repair the frozen Linux Git launcher with a fixed internal helper entry point,
+  preserving the existing seccomp and process/network denial boundary.
+- Require actual native helper/denial probes and signed installed terminal/diff,
+  both-store cold resume and recovery qualification before publication.
+- Retain rc.8's selected dependency set and storage epoch 2. The unpublished rc.8
+  tag and its failed Linux installed qualification remain unchanged.
+
 ## 0.1.0-rc.8 — qualification candidate
 
 - Qualify read-only managed-worktree review on native Linux and actual WSL2;
