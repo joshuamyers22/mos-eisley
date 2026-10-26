@@ -16,10 +16,27 @@ reachable from protected main and tagged `v0.1.0-rc.8`. Linux/actual WSL2 review
 gates, all four tagged development distributions and both generated Homebrew
 checks passed. Joshua approved signing preparation only in
 [run 40217716964](https://github.com/joshuamyers22/mos-eisley/actions/runs/40217716964);
-that run retains current enrolled-key and five-predecessor results. The candidate
-remains unpublished and publication requires separate owner disposition. Epoch 2
+that run retains current enrolled-key and five-predecessor results. rc.8 remains
+unpublished and blocked by RC8-Q01: its installed diff journey fails on both Linux
+targets. The new rc.9 candidate repairs that defect; rc.8 artifacts and failed
+receipts remain preserved. Epoch 2
 refuses downgrade to rc.7; retain pre-upgrade private backups and an epoch-2 reader.
 The records below retain their original artifact-specific scope.
+
+## rc.9 prepublication qualification: 2026-10-26
+
+Frozen source `f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23`, tag `v0.1.0-rc.9`,
+retains rc.8 dependencies and fixes its Linux frozen Git helper. PR #336 preserves
+that source in main while retaining main's separate SDK/HTTP migration.
+[Protected run 40246538826](https://github.com/joshuamyers22/mos-eisley/actions/runs/40246538826)
+passed exact-source full/wheel/audit/container checks, all four native and signed
+jobs, the unpaid installed terminal/diff/recovery matrix on both stores, twenty
+actual-predecessor journeys and both generated macOS formula journeys. Review
+verified all 30 receipts and the complete 47-asset candidate inventory, including
+rc.7's cross-epoch downgrade refusal on all four targets. No paid calls or studies
+ran. The [prepublication review](RC9_PREPUBLICATION_REVIEW.md) records exact
+signatures/hashes, limits and disposition. Publication remains withheld for the
+owner's separate review/approval; rc.7 remains the published standalone preview.
 
 ## Polished standalone preview published: 2026-10-15
 
