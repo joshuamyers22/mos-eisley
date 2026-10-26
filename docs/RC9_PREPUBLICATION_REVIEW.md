@@ -1,5 +1,10 @@
 # rc.9 Linux launcher repair: prepublication review
 
+Historical prepublication review. The owner subsequently authorized publication
+of this exact candidate. [The publication closeout](RC9_PUBLICATION_WORK_NOTE.md)
+records immutable release `424828190` and public verification. The review below
+retains the state and authority boundary before that later decision.
+
 **Technical qualification passes; publication remains withheld for owner review.**
 RC8-Q01 is closed in this new candidate. Both Linux architectures now execute
 confined Git and pass actual signed terminal/diff acceptance on snapshot and

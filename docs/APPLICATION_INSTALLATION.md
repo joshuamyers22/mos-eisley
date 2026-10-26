@@ -1,15 +1,18 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.7`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7),
-source `78bc17ce561df7e641a4dd0fc5aef56aa9deee58`, for macOS/Linux ARM/x86.
-It includes the polished interface and experimental subscription setup/chat/resume.
-The release records four signed installations, sixteen actual-predecessor upgrades,
-and both generated macOS formula checks. npm and the public tap are separately
-versioned. [rc.8](RC8_REVIEW_PREVIEW_WORK_NOTE.md) is an unpublished qualification
-candidate; do not advertise it as an available download.
+[immutable `0.1.0-rc.9`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9),
+source `f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23`, for macOS/Linux arm64 and x86_64.
+It repairs rc.8's Linux frozen Git launcher and includes scriptable execution,
+session recovery and the reviewed interface. Its four signed installations,
+both-store installed matrix, twenty actual-predecessor journeys and both generated
+macOS formula journeys passed. All 47 public assets match the qualified candidate;
+public bootstrap, both-store terminal/diff/resume/recovery and uninstall passed on
+macOS arm64. See [owner acceptance and public verification](RC9_PUBLICATION_WORK_NOTE.md).
+npm and the public tap remain separately versioned. rc.8 remains unpublished and
+blocked on its original Linux artifacts.
 
-rc.8 introduces storage epoch 2 for the recovery journal. Use its exact new
+rc.9 uses storage epoch 2 for the recovery journal. Use its exact new
 installer for an upgrade; older installers reject the new signed metadata.
 Close all session controllers and back up private session stores before using the
 new version. Current readers can
@@ -41,10 +44,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.7` GitHub release, then run:
+`v0.1.0-rc.9` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.7
+sh install.sh --channel preview --version 0.1.0-rc.9
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -83,7 +86,7 @@ For offline installation, run the matching native bootstrap:
 
 ```sh
 ./mos-install-macos-aarch64 --metadata release.json \
-  --archive mos-0.1.0-rc.1-macos-aarch64.tar.gz --version 0.1.0-rc.1 --channel preview
+  --archive mos-0.1.0-rc.9-macos-aarch64.tar.gz --version 0.1.0-rc.9 --channel preview
 ```
 
 The default runtime root is `~/.local/share/mos-eisley-app`; the launcher is
