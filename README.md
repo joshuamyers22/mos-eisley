@@ -40,9 +40,12 @@ The [rc.9 qualification candidate](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md) repairs
 rc.8's frozen Linux Git launcher and retains its dependency set. It includes
 scriptable execution, session recovery, ranked resume discovery, scoped live
 review, managed-worktree read admission and startup diagnostics. It is not yet
-published. Its frozen release source is `eadb415`, using #333's tested dependency
-set. [Current main integration](docs/REVIEW_MAIN_INTEGRATION_WORK_NOTE.md) retains
-the separately merged dependency updates. Its recovery journal requires storage epoch 2; cross-epoch rollback
+published. Its frozen release source is `f94842a`, retaining rc.8's dependency
+set. [Signed qualification](docs/RC9_PREPUBLICATION_REVIEW.md) passes all four
+targets; publication requires owner disposition.
+[Current main integration](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md#main-integration)
+retains the separately merged dependency updates. Its recovery journal requires
+storage epoch 2; cross-epoch rollback
 is refused, with separate pre-upgrade backups and a compatible reader required.
 Optional credential attachment stays inactive by default; new live
 targets still require their existing authorization and qualification.
