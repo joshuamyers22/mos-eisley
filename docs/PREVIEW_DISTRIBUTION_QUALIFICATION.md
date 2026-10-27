@@ -1,14 +1,21 @@
 # macOS/Linux preview distribution qualification
 
-## Current published preview and next candidate
+## Current published preview
 
-[rc.7](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
-published on 2026-10-22 at `78bc17ce561df7e641a4dd0fc5aef56aa9deee58` through
-[run 39849685337](https://github.com/joshuamyers22/mos-eisley/actions/runs/39849685337).
-Its immutable inventory has 39 verified assets, four signed installations,
-sixteen actual-predecessor upgrades and both generated macOS formula checks.
-It retains its frozen subscription/interface runtime. npm/tap routes remain
-separately versioned; this is not stable launch or general Windows/WSL2 support.
+[Immutable rc.9](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9)
+published on 2026-10-26 at `f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23` through
+[run 40246538826](https://github.com/joshuamyers22/mos-eisley/actions/runs/40246538826).
+Owner-authorized release `424828190` has 47 verified immutable assets. All four
+signed native installs, the both-store installed matrix, twenty actual-predecessor
+journeys and two generated macOS formula journeys passed. All public bytes match;
+a fresh online public bootstrap and both-store consumer replay passed on macOS
+arm64. See [the publication record](RC9_PUBLICATION_WORK_NOTE.md). npm/tap routes
+remain separately versioned; stable launch and general Windows/WSL2 remain gated.
+
+Previously, [rc.7](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
+published on 2026-10-22 at `78bc17ce561df7e641a4dd0fc5aef56aa9deee58`, with
+39 verified assets, four signed installs and sixteen actual-predecessor journeys.
+Its frozen runtime and evidence remain unchanged.
 
 [rc.8 preparation](RC8_REVIEW_PREVIEW_WORK_NOTE.md) adds reviewed source changes
 and the recovery storage-epoch fence. Its dependency-frozen source `eadb415` is
@@ -18,7 +25,7 @@ checks passed. Joshua approved signing preparation only in
 [run 40217716964](https://github.com/joshuamyers22/mos-eisley/actions/runs/40217716964);
 that run retains current enrolled-key and five-predecessor results. rc.8 remains
 unpublished and blocked by RC8-Q01: its installed diff journey fails on both Linux
-targets. The new rc.9 candidate repairs that defect; rc.8 artifacts and failed
+targets. The new rc.9 release repairs that defect; rc.8 artifacts and failed
 receipts remain preserved. Epoch 2
 refuses downgrade to rc.7; retain pre-upgrade private backups and an epoch-2 reader.
 The records below retain their original artifact-specific scope.
@@ -35,8 +42,9 @@ actual-predecessor journeys and both generated macOS formula journeys. Review
 verified all 30 receipts and the complete 47-asset candidate inventory, including
 rc.7's cross-epoch downgrade refusal on all four targets. No paid calls or studies
 ran. The [prepublication review](RC9_PREPUBLICATION_REVIEW.md) records exact
-signatures/hashes, limits and disposition. Publication remains withheld for the
-owner's separate review/approval; rc.7 remains the published standalone preview.
+signatures/hashes, limits and prepublication disposition. The owner subsequently
+authorized publication; [the closeout](RC9_PUBLICATION_WORK_NOTE.md) records the
+immutable release and public verification.
 
 ## Polished standalone preview published: 2026-10-15
 

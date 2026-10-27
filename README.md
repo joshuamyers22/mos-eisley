@@ -30,23 +30,23 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.7 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.7)
-covers macOS and Linux on arm64 and x86_64. It includes the polished interface
-and experimental subscription chat/resume. Its signed installation and sixteen
-real-predecessor upgrade checks passed. npm and the public Homebrew preview
-formula retain their separately qualified versions.
+The published [**0.1.0-rc.9 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9)
+covers macOS and Linux on arm64 and x86_64 at frozen source `f94842a`.
+It fixes rc.8's Linux frozen Git launcher and includes scriptable execution,
+session recovery, ranked resume discovery, scoped live review, managed-worktree
+read admission and startup diagnostics. It retains rc.8's dependency set;
+[current main integration](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md#main-integration)
+preserves the separate SDK/HTTP migration.
 
-The [rc.9 qualification candidate](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md) repairs
-rc.8's frozen Linux Git launcher and retains its dependency set. It includes
-scriptable execution, session recovery, ranked resume discovery, scoped live
-review, managed-worktree read admission and startup diagnostics. It is not yet
-published. Its frozen release source is `f94842a`, retaining rc.8's dependency
-set. [Signed qualification](docs/RC9_PREPUBLICATION_REVIEW.md) passes all four
-targets; publication requires owner disposition.
-[Current main integration](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md#main-integration)
-retains the separately merged dependency updates. Its recovery journal requires
-storage epoch 2; cross-epoch rollback
-is refused, with separate pre-upgrade backups and a compatible reader required.
+[Owner acceptance and public verification](docs/RC9_PUBLICATION_WORK_NOTE.md)
+record four signed installations, the installed matrix on both stores, twenty
+actual-predecessor upgrade/refusal journeys and all 47 public asset identities.
+The public bootstrap and both-store terminal/diff/resume/recovery checks passed
+on macOS arm64. npm and the public Homebrew preview formula remain separately
+versioned. rc.8 stays unpublished with its failed Linux evidence preserved.
+
+The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
+keep pre-upgrade private backups and an epoch-2 reader for new sessions.
 Optional credential attachment stays inactive by default; new live
 targets still require their existing authorization and qualification.
 Stable `0.1.0` remains unqualified.

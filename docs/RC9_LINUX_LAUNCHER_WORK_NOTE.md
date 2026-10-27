@@ -1,6 +1,6 @@
 # rc.9 frozen Linux launcher repair and qualification
 
-- Status: technical qualification complete; owner publication disposition pending
+- Status: closed; technical qualification and later owner-authorized publication complete
 - Owner: Joshua Myers; implementation and technical verification by Codex
 - Started: 2026-10-25 UTC
 - Base: immutable rc.8 source `eadb415d31afd89b142e3229a8ccca72aca835ee`
@@ -148,3 +148,12 @@ Stop reason: requested technical qualification achieved. No unresolved failure
 remains in that scope. Accountable owner review/publication, broader v1 and
 operational/provider gates remain separate; this task grants no publication or
 inference authority. The original rc.8 failed evidence remains preserved.
+
+## Subsequent publication disposition
+
+The owner later explicitly authorized review and publication of exact rc.9
+`f94842a`. [The publication closeout](RC9_PUBLICATION_WORK_NOTE.md) records release
+`424828190`, all 47 verified public asset identities and a fresh macOS arm64
+public-bootstrap/both-store consumer replay. The initial qualification's withheld
+approval and original rc.8 failures remain historical evidence. This later
+standalone publication grants no provider or study authority.
