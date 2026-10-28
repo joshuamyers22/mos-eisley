@@ -297,6 +297,8 @@ def main() -> int:
             "test_review_conformance_observation.py",
             "test_review_runtime_evidence.py",
             "test_review_conformance_acceptance.py",
+            "review_fixture_clock.py",
+            "test_review_fixture_clock.py",
             "test_review_campaign.py",
             "test_review_campaign_dispatch.py",
             "test_review_campaign_runner.py",

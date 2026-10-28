@@ -646,11 +646,12 @@ class SourceTests(IsolatedAsyncioTestCase):
     ) -> None:
         for kind in BACKENDS:
             with self.session(kind) as (chat, source, _retained, store):
-                chat.schedule_reads = ScheduleReads(0.1)
                 event = source.events(0).events[0]
                 chat.admit_schedule(
                     "schedule", event=event, expected_revision=chat.state.revision
                 )
+                # This case times out dispatch, not the preceding valid admission.
+                chat.schedule_reads = ScheduleReads(0.1)
                 charge = chat.state.schedules[0].state.ledger
                 release = Event()
                 chat.schedule_observer = lambda s, release=release: (

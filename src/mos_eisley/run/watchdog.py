@@ -9,7 +9,7 @@ import selectors
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Literal
@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from pydantic import Field
 
+from mos_eisley._frozen_entry import CONTAINER_WATCHDOG
 from mos_eisley.core.models import Contract, Digest, canonical_bytes, digest
 from mos_eisley.run.files import read_bounded
 from mos_eisley.run.process import bounded_process, docker_environment
@@ -165,8 +166,11 @@ def arm_watchdog(
         process = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "mos_eisley.run.watchdog",
+                *(
+                    [CONTAINER_WATCHDOG]
+                    if getattr(sys, "frozen", False)
+                    else ["-m", "mos_eisley.run.watchdog"]
+                ),
                 "--docker",
                 docker,
                 "--directory",
@@ -203,12 +207,12 @@ def arm_watchdog(
         raise
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--docker", required=True)
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--lease-fd", type=int, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     def ready() -> None:
         sys.stdout.buffer.write(b"R")

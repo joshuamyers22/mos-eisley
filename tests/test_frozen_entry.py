@@ -7,9 +7,38 @@ from unittest.mock import patch
 
 from mos_eisley import _frozen_entry, _git_read_linux
 from mos_eisley.conversation_git_isolation import isolated_command
+from mos_eisley.run import watchdog
 
 
 class FrozenEntryTests(TestCase):
+    def test_watchdog_requires_frozen_posix_and_dispatches_exact_arguments(
+        self,
+    ) -> None:
+        arguments = ["--docker", "/usr/bin/true", "--lease-fd", "7"]
+        for system, frozen, admitted in (
+            ("darwin", True, True),
+            ("linux", True, True),
+            ("win32", True, False),
+            ("darwin", False, False),
+            ("linux", False, False),
+        ):
+            with (
+                self.subTest(system=system, frozen=frozen),
+                patch.object(sys, "platform", system),
+                patch.object(sys, "frozen", frozen, create=True),
+                patch.object(watchdog, "main", return_value=1) as helper,
+                patch("mos_eisley.cli.main") as cli,
+            ):
+                self.assertEqual(
+                    _frozen_entry.main([_frozen_entry.CONTAINER_WATCHDOG, *arguments]),
+                    1 if admitted else 2,
+                )
+                if admitted:
+                    helper.assert_called_once_with(arguments)
+                else:
+                    helper.assert_not_called()
+                cli.assert_not_called()
+
     def test_linux_frozen_command_uses_fixed_helper_not_python_module_flags(
         self,
     ) -> None:
