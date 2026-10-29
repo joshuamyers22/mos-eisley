@@ -2,9 +2,10 @@
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import patch
 
+from review_fixture_clock import install_review_fixture_clock
 from test_review_runtime_evidence import RuntimeEvidenceFixture
 
 from mos_eisley.core.models import JudgeRequest, canonical_bytes, digest
@@ -29,27 +30,33 @@ from mos_eisley.run.review_runtime_evidence import collect_review_runtime_exchan
 from mos_eisley.run.spend_ledger import LedgerEntry, LedgerSettlement
 
 
+def create_runtime_fixture(owner: TestCase) -> RuntimeEvidenceFixture:
+    fixture = RuntimeEvidenceFixture()
+    fixture.setUp()
+    owner.addCleanup(fixture.doCleanups)
+
+    async def load(scope: ReviewConformanceScope):
+        # Issue each synthetic grant at its actual admission boundary.
+        fixture.timestamp = datetime.now(UTC)
+        return fixture.certificate(
+            scope, lifetime_seconds=fixture.policy.max_authorization_seconds
+        )
+
+    owner.enterContext(patch.object(fixture, "load_certificate", side_effect=load))
+    return fixture
+
+
 class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.fixture_clock = install_review_fixture_clock(self)
+
     async def asyncSetUp(self) -> None:
         self.prepare_attempts()
         await self.execute_attempts()
 
     def create_fixture(self) -> RuntimeEvidenceFixture:
-        fixture = RuntimeEvidenceFixture()
-        fixture.setUp()
-        self.addCleanup(fixture.doCleanups)
-
-        async def load(scope: ReviewConformanceScope):
-            # Issue each synthetic phase grant at its actual admission boundary.
-            # Keep the policy's bounded allowance; expiry-specific fixtures retain
-            # their short default, and the production controller keeps its limits.
-            fixture.timestamp = datetime.now(UTC)
-            return fixture.certificate(
-                scope, lifetime_seconds=fixture.policy.max_authorization_seconds
-            )
-
-        self.enterContext(patch.object(fixture, "load_certificate", side_effect=load))
-        return fixture
+        return create_runtime_fixture(self)
 
     def prepare_attempts(self) -> None:
         self.fixtures = [self.create_fixture() for _ in range(3)]
@@ -135,6 +142,11 @@ class ReviewAcceptanceFixture(IsolatedAsyncioTestCase):
                 result is not None
                 and probe.judge_preview is not None
                 and probe.controller.start is not None
+            )
+            self.assertNotEqual(
+                result.result.verdict.decision,
+                "infrastructure_error",
+                f"Synthetic acceptance attempt {index} has an infrastructure error",
             )
             critic_signed, judge_signed = probe.approval_ui.authorizations
             signatures = (critic_signed, judge_signed)

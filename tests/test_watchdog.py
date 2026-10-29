@@ -3,12 +3,14 @@
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
+from mos_eisley._frozen_entry import CONTAINER_WATCHDOG
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.run.watchdog import (
     CleanupLease,
@@ -23,6 +25,38 @@ CID = "c" * 64
 
 
 class WatchdogTests(TestCase):
+    def test_guardian_launch_selects_fixed_frozen_entry_and_preserves_fd_custody(
+        self,
+    ) -> None:
+        for frozen in (False, True):
+            with (
+                self.subTest(frozen=frozen),
+                TemporaryDirectory() as directory,
+                patch.object(sys, "frozen", frozen, create=True),
+                patch.object(sys, "executable", "/private/runtime/mos"),
+                patch("mos_eisley.run.watchdog.subprocess.Popen") as spawn,
+                patch("mos_eisley.run.watchdog.selectors.DefaultSelector") as selector,
+                patch("mos_eisley.run.watchdog.os.read", return_value=b"R"),
+                patch.dict(os.environ, {"OPENAI_API_KEY": "excluded-secret"}),
+            ):
+                selector.return_value.__enter__.return_value.select.return_value = [1]
+                handle = arm_watchdog("/usr/bin/true", CID, Path(directory), 1)
+                try:
+                    expected = (
+                        ["/private/runtime/mos", CONTAINER_WATCHDOG]
+                        if frozen
+                        else ["/private/runtime/mos", "-m", "mos_eisley.run.watchdog"]
+                    )
+                    self.assertEqual(spawn.call_args.args[0][: len(expected)], expected)
+                    self.assertEqual(len(spawn.call_args.kwargs["pass_fds"]), 1)
+                    self.assertTrue(spawn.call_args.kwargs["start_new_session"])
+                    self.assertNotIn("OPENAI_API_KEY", spawn.call_args.kwargs["env"])
+                    assert handle.writer is not None
+                    self.assertFalse(os.get_inheritable(handle.writer))
+                finally:
+                    if handle.writer is not None:
+                        os.close(handle.writer)
+
     def test_cleanup_lease_has_a_finite_five_minute_ceiling(self) -> None:
         self.assertEqual(
             CleanupLease(container_id=CID, max_runtime_seconds=305).max_runtime_seconds,

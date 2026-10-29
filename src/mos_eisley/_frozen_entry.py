@@ -4,10 +4,17 @@ import sys
 from collections.abc import Sequence
 
 LINUX_GIT_READ = "--_mos-linux-git-read"
+CONTAINER_WATCHDOG = "--_mos-container-watchdog"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == CONTAINER_WATCHDOG:
+        if sys.platform not in {"darwin", "linux"} or not getattr(sys, "frozen", False):
+            return 2
+        from mos_eisley.run.watchdog import main as watchdog_main
+
+        return watchdog_main(arguments[1:])
     if arguments and arguments[0] == LINUX_GIT_READ:
         if sys.platform != "linux" or not getattr(sys, "frozen", False):
             return 2

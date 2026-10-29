@@ -1,0 +1,67 @@
+name: rc.10 actual rc.9 upgrade
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+env:
+  CANDIDATE_SOURCE: '9ffd540674cc322857c05f09bcaf8dc816b3ff64'
+  CANDIDATE_RUN: '40785649978'
+jobs:
+  upgrade:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - name: Record the qualification harness identity
+        env:
+          HARNESS_SOURCE: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$HARNESS_SOURCE"
+          mkdir -p dist/qualification
+          git rev-parse HEAD > dist/qualification/harness-source.txt
+          uv run --frozen python -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(Path("tools/qualify_published_upgrade.py").read_bytes()).hexdigest())' > dist/qualification/harness-sha256.txt
+      - name: Require the exact protected signed preparation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" --jq 'select(.head_sha == "9ffd540674cc322857c05f09bcaf8dc816b3ff64" and .head_branch == "v0.1.0-rc.10" and .event == "push" and .workflow_id == 350992511 and .run_attempt == 1) | .id' > exact-run.txt
+          test "$(cat exact-run.txt)" = "$CANDIDATE_RUN"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs?per_page=100" --jq '[.jobs[] | select(.name == "prepare" and .conclusion == "success")] | length' > prepared-count.txt
+          test "$(cat prepared-count.txt)" = 1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.CANDIDATE_RUN }}
+          name: application-publication
+          path: dist/signed
+      - name: Acquire the immutable published rc.9 predecessor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.9" --jq 'select(.id == 424828190 and .immutable == true and .draft == false and .target_commitish == "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23") | .id' > predecessor-id.txt
+          test "$(cat predecessor-id.txt)" = 424828190
+          gh release download v0.1.0-rc.9 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.9-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc9
+          chmod 700 ".work/published-predecessor-rc9/mos-install-$UPGRADE_PLATFORM" "dist/signed/standalone/mos-install-$UPGRADE_PLATFORM"
+      - name: Qualify actual rc.9 upgrade, rollback and recovery on both stores
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc9 --predecessor-version 0.1.0-rc.9 --candidate dist/signed/standalone --candidate-commit "$CANDIDATE_SOURCE" --evidence "dist/qualification/qualification-upgrade-rc9-$UPGRADE_PLATFORM.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: rc10-predecessor-${{ matrix.os }}
+          path: dist/qualification/*
+          if-no-files-found: error
