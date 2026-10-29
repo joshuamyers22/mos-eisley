@@ -333,7 +333,7 @@ class DraftPublicationTests(unittest.TestCase):
             str(environment["CANDIDATE_SOURCE"]),
             '"v0.1.0-rc.10"',
             ".workflow_id == 350992511",
-            ".run_attempt == 1",
+            ".run_attempt == 2",
             '.name == "prepare" and .conclusion == "success"',
             'test "$(cat prepared-count.txt)" = 1',
         ):
