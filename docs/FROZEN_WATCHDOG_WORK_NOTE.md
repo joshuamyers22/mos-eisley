@@ -12,7 +12,10 @@
 Signed rc.10 follow-through: [final qualification review](RC10_QUALIFICATION_REVIEW.md).
 All four signed guardian/installed checks passed; the fresh live campaign advanced
 past baseline cleanup but stopped at an Anthropic authentication diagnostic.
-Full live acceptance remains incomplete; immutable rc.10 is published.
+After native login repair, the [fresh run](RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md)
+completed both Anthropic critics and two real guardian cleanups, then stopped at
+a missing test-execution-evidence finding. Full live acceptance remains incomplete;
+immutable rc.10 is published.
 
 ## Objective and acceptance
 

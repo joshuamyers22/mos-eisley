@@ -8,8 +8,9 @@ published on 2026-10-29 at `9ffd540674cc322857c05f09bcaf8dc816b3ff64` through
 All four signed installations/guardian checks, both-store installed matrices,
 twenty historical upgrade/refusal journeys, four additional actual rc.9 journeys
 and all 47 public asset identities passed review. Installed live coding remains
-incomplete after the Anthropic critic's authentication diagnostic; SQLite live
-cases did not run. Publication preceded the extra/live review. See the
+incomplete: after native authentication repair, the fresh implementation review
+required concrete test execution evidence missing from its packet (RC10-SUB-02);
+SQLite live cases did not run. Publication preceded the extra/live review. See the
 [rc.10 qualification review](RC10_QUALIFICATION_REVIEW.md) for exact scope and
 chronology. npm/tap, stable launch, general Windows/WSL2 and conversational live
 review remain separate gates.

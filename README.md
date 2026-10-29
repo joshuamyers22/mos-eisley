@@ -39,8 +39,10 @@ The [qualification review](docs/RC10_QUALIFICATION_REVIEW.md) records four signe
 installations, both-store installed matrices, twenty historical upgrade/refusal
 journeys, four actual rc.9 upgrade/rollback journeys and all 47 public asset
 identities. Fresh installed subscription chat/steering/context and cold resume
-passed on macOS arm64; coding stopped at the Anthropic critic's authentication
-diagnostic. Full live-workflow qualification remains incomplete. npm/tap routes
+passed on macOS arm64. Native Claude authentication is restored, but the
+[fresh live run](docs/RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md) stopped because
+the implementation review required concrete test execution evidence missing from
+its packet. Full live-workflow qualification remains incomplete. npm/tap routes
 remain separately versioned; rc.8 stays unpublished with its failed evidence.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;

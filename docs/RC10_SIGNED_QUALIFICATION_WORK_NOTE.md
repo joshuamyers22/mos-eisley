@@ -1,7 +1,8 @@
 # rc.10 exact-source signed qualification
 
 - Status: assessment closed; signed distribution passed, live coding incomplete
-  (RC10-SUB-01). Immutable rc.10 is published; see the final review below.
+  (RC10-SUB-02 after native authentication repair). Immutable rc.10 is published;
+  see the final review below.
 - Accountable owner: Joshua Myers. Technical operator: Codex; no independent
   security-review claim. Started 2026-10-28.
 - Frozen release source: `9ffd540674cc322857c05f09bcaf8dc816b3ff64`.
@@ -173,3 +174,12 @@ diagnostic: six snapshot dispatches, five completions and one uncertain operatio
 SQLite zero. No retry/reset/replay. Live coding acceptance remains incomplete.
 See the [final review](RC10_QUALIFICATION_REVIEW.md) for evidence identities,
 cleanup, actual publication chronology and the next bounded action.
+
+## Fresh authentication follow-up
+
+The owner requested authentication repair and fresh qualification. Native Claude
+login completed and both fresh Anthropic critics succeeded. The run then stopped
+at RC10-SUB-02's missing concrete test execution evidence, before integration:
+12 calls/completions, two guardian cleanups, SQLite zero. No retry/reset/replay.
+See the [fresh follow-up](RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md); original
+failure evidence is preserved and full live acceptance remains incomplete.

@@ -1,7 +1,8 @@
 # rc.10 signed qualification review
 
 - Status: signed distribution qualification passed; installed live-workflow
-  qualification incomplete (RC10-SUB-01). Assessment closed on 2026-10-29 UTC.
+  qualification incomplete (RC10-SUB-02 after authentication repair). Assessment
+  updated on 2026-10-29 UTC.
 - Accountable owner: Joshua Myers; technical operator: Codex. Owner/operator
   overlap is disclosed; this is not independent security approval.
 - Frozen application source: `9ffd540674cc322857c05f09bcaf8dc816b3ff64`.
@@ -105,7 +106,7 @@ ordinary engineering records, not prospective evaluation artifacts. No raw
 provider responses, transcripts, authorization capabilities or credentials are
 included in this document or committed with it.
 
-## Installed live campaign: RC10-SUB-01
+## Original installed live campaign: RC10-SUB-01
 
 Fresh scopes were prepared on macOS arm64 after signed evidence review, using
 Codex 0.163.0 and Claude Code 2.1.283. Both native status checks reported supported
@@ -139,16 +140,23 @@ Docker independently reports that exact container absent.
 
 End-to-end coding integration, post-coding resume and deliberate cancellation
 were not reached. No SQLite live cases ran. A post-failure resume was not attempted
-and no uncertain-scope resume-refusal claim is made. RC10-SUB-01 remains open;
-full installed live-workflow qualification has not passed.
+and no uncertain-scope resume-refusal claim is made. This original failed run is
+preserved. The authentication cause was subsequently resolved; the fresh run
+below establishes the current blocker.
 
 ## Handoff and limits
 
-The next bounded action is native Claude authentication diagnosis without
-inference, then a separately declared fresh qualification after readiness is
-restored. Preserve the failed scope and usage; it must not be resumed or renewed
-as a replacement attempt. A demonstrated product correction would require a new
-candidate and affected qualification; immutable rc.10 stays unchanged.
+Native Claude authentication was restored through the owner's native browser
+login. The [fresh qualification follow-up](RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md)
+completed both Anthropic critic calls, but stopped at RC10-SUB-02: the OpenAI
+implementation critic and judge requested concrete test execution evidence absent
+from the review packet. All 12 fresh snapshot native calls completed; coding
+integration did not start, both workers cleaned up, and SQLite remained at zero.
+No retry/reset/replay occurred; both earlier failed campaigns remain unchanged.
+
+The next bounded correction is a source/test-bound execution receipt carried into
+the review packet, followed by a new signed candidate and affected qualification.
+Published rc.10 remains immutable; full live acceptance has not passed.
 
 This closes the assessment with a passing signed distribution scope and an
 explicit incomplete live scope. No broad v1 readiness, native Windows, general
