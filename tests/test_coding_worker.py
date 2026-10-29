@@ -1,5 +1,6 @@
 """Creator-test controls, worker resource bounds and exact handoff receipts."""
 
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase
@@ -7,7 +8,12 @@ from unittest import IsolatedAsyncioTestCase
 from test_coding_controller import IMAGE, cassette_for
 from test_coding_vcs import good_patch, make_brief
 
-from mos_eisley.coding_child import CodeFile, CodeSnapshot
+from mos_eisley.coding_child import (
+    CodeFile,
+    CodeSnapshot,
+    CodingHandoff,
+    CodingVerification,
+)
 from mos_eisley.core.models import canonical_bytes, digest
 from mos_eisley.run.coding_child import (
     CodingAck,
@@ -15,7 +21,11 @@ from mos_eisley.run.coding_child import (
     CodingJob,
     DockerCodingChild,
 )
-from mos_eisley.run.coding_child_worker import execute_wire, verify_snapshot
+from mos_eisley.run.coding_child_worker import (
+    execute_wire,
+    read_test_execution,
+    verify_snapshot,
+)
 from mos_eisley.run.duplex import ExchangeHandler
 
 
@@ -67,11 +77,122 @@ class CodingWorkerTests(IsolatedAsyncioTestCase):
     async def test_known_bad_baseline_fails_and_correct_patch_passes(self) -> None:
         baseline = await verify_snapshot(self.brief, self.brief.snapshot)
         self.assertFalse(baseline.passed)
+        self.assertIsNotNone(baseline.execution)
+        assert baseline.execution is not None
+        self.assertEqual(baseline.execution.failures, 1)
+        self.assertEqual(baseline.execution.tests, 1)
+        self.assertEqual(baseline.execution.exit_code, 1)
+        baseline.require_execution(self.brief, self.brief.snapshot)
         patch = good_patch(self.brief)
         result = await verify_snapshot(self.brief, patch.apply(self.brief))
         self.assertTrue(result.passed)
         self.assertEqual(result.tests_sha256, self.brief.assignment.tests_sha256)
         self.assertEqual(result.snapshot_sha256, patch.apply(self.brief).sha256)
+        assert result.execution is not None
+        self.assertEqual(result.execution.files, self.brief.test_paths)
+        self.assertEqual(result.execution.tests, 1)
+        self.assertEqual(result.execution.skipped, 0)
+        self.assertEqual(result.execution.errors, 0)
+        self.assertTrue(result.execution.files_unchanged)
+        self.assertGreater(result.execution.output_bytes, 0)
+        result.require_execution(self.brief, patch.apply(self.brief))
+
+    async def test_legacy_bytes_stay_readable_but_are_not_new_execution_evidence(
+        self,
+    ) -> None:
+        result = await verify_snapshot(
+            self.brief, good_patch(self.brief).apply(self.brief)
+        )
+        old = result.model_dump(mode="json", exclude={"execution"})
+        raw = json.dumps(
+            old, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        legacy = CodingVerification.model_validate_json(raw)
+        self.assertEqual(canonical_bytes(legacy), raw)
+        handoff = CodingHandoff(
+            patch=good_patch(self.brief), verification=result, diff="source diff"
+        )
+        self.assertEqual(handoff.verification, legacy)
+        self.assertEqual(json.loads(canonical_bytes(handoff))["verification"], old)
+        self.assertIsNotNone(result.execution)
+        with self.assertRaisesRegex(ValueError, "Concrete test execution"):
+            legacy.require_execution(
+                self.brief, good_patch(self.brief).apply(self.brief)
+            )
+
+    async def test_execution_identity_files_and_pass_contradictions_refuse(
+        self,
+    ) -> None:
+        snapshot = good_patch(self.brief).apply(self.brief)
+        result = await verify_snapshot(self.brief, snapshot)
+        assert result.execution is not None
+        for update in (
+            {"snapshot_sha256": "0" * 64},
+            {"tests_sha256": "0" * 64},
+            {"passed": False},
+            {
+                "execution": result.execution.model_copy(
+                    update={"files": ("tests/other.py",)}
+                )
+            },
+            {"execution": result.execution.model_copy(update={"tests": True})},
+            {
+                "execution": result.execution.model_copy(
+                    update={"successful": True, "tests": 0}
+                )
+            },
+            {"execution": result.execution.model_copy(update={"output_bytes": 32001})},
+        ):
+            with self.subTest(update=update), self.assertRaises(ValueError):
+                result.model_copy(update=update).require_execution(self.brief, snapshot)
+
+    async def test_combined_stdout_stderr_cap(self) -> None:
+        snapshot = good_patch(self.brief).apply(self.brief)
+        test = snapshot.files[1].model_copy(
+            update={
+                "content": (
+                    'import sys\nprint("x"*20000)\nprint("y"*20000,file=sys.stderr)\n'
+                )
+                + snapshot.files[1].content
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "output cap"):
+            await verify_snapshot(
+                self.brief,
+                snapshot.model_copy(update={"files": (snapshot.files[0], test)}),
+            )
+
+    async def test_runner_receipt_requires_one_strict_complete_record(self) -> None:
+        record = {
+            "tests": 1,
+            "skipped": 0,
+            "passed": True,
+            "files": ["tests/test_adder.py"],
+            "failures": 0,
+            "errors": 0,
+        }
+        output = json.dumps(record).encode() + b"\n"
+        self.assertIsNotNone(read_test_execution(output, 0, True))
+        for raw in (
+            b"",
+            output + output,
+            *(
+                json.dumps({**record, **change}).encode()
+                for change in (
+                    {"tests": True},
+                    {"tests": "1"},
+                    {"tests": -1},
+                    {"failures": 1},
+                    {"skipped": 1},
+                    {"files": ["../escape.py"]},
+                    {"files": ["tests/test_adder.py", "tests/test_adder.py"]},
+                    {"unexpected": True},
+                )
+            ),
+            output + b"x" * 32000,
+        ):
+            with self.subTest(raw=raw[:100]):
+                self.assertIsNone(read_test_execution(raw, 0, True))
 
     async def test_snapshot_mutation_or_extra_files_fails_verification(self) -> None:
         patch = good_patch(self.brief)
