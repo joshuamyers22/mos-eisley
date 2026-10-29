@@ -2,6 +2,20 @@
 
 ## Current published preview
 
+[Immutable rc.10](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.10)
+published on 2026-10-29 at `9ffd540674cc322857c05f09bcaf8dc816b3ff64` through
+[protected run 40785649978, attempt 2](https://github.com/joshuamyers22/mos-eisley/actions/runs/40785649978).
+All four signed installations/guardian checks, both-store installed matrices,
+twenty historical upgrade/refusal journeys, four additional actual rc.9 journeys
+and all 47 public asset identities passed review. Installed live coding remains
+incomplete after the Anthropic critic's authentication diagnostic; SQLite live
+cases did not run. Publication preceded the extra/live review. See the
+[rc.10 qualification review](RC10_QUALIFICATION_REVIEW.md) for exact scope and
+chronology. npm/tap, stable launch, general Windows/WSL2 and conversational live
+review remain separate gates.
+
+## Previous rc.9 publication
+
 [Immutable rc.9](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9)
 published on 2026-10-26 at `f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23` through
 [run 40246538826](https://github.com/joshuamyers22/mos-eisley/actions/runs/40246538826).

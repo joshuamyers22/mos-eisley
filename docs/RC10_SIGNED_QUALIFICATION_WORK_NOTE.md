@@ -1,7 +1,7 @@
 # rc.10 exact-source signed qualification
 
-- Status: active; signed and bounded subscription qualification authorized,
-  publication withheld.
+- Status: assessment closed; signed distribution passed, live coding incomplete
+  (RC10-SUB-01). Immutable rc.10 is published; see the final review below.
 - Accountable owner: Joshua Myers. Technical operator: Codex; no independent
   security-review claim. Started 2026-10-28.
 - Frozen release source: `9ffd540674cc322857c05f09bcaf8dc816b3ff64`.
@@ -9,6 +9,10 @@
 - Version/tag: `0.1.0-rc.10` / `v0.1.0-rc.10`; storage epoch 2.
 - Integration branch: `fix/watchdog-release-integration`. The frozen source and
   dependency set remain unchanged; main retains its separate SDK/HTTP migration.
+
+Final outcome: [rc.10 qualification review](RC10_QUALIFICATION_REVIEW.md).
+The sections below retain the declared plan and historical attempts; publication
+completed through the protected owner gate before the extra/live review.
 
 ## Objective, authority and boundaries
 
@@ -23,7 +27,7 @@ bindings before handing off a publication decision.
 The request refers to the outlined sequence, including necessary protected
 integration/signing and a fresh installed subscription coding campaign on both
 stores. The owner's earlier subscription selection remains applicable; expired
-rc.9 authorizations are not reused or renewed. Publication remains withheld.
+rc.9 authorizations are not reused or renewed. At planning time publication was to remain withheld pending review.
 Preserve immutable rc.9 and earlier releases,
 failed qualification evidence, publisher custody, user state and original usage
 ledgers. Qualification receipts grant no provider, sampling or release authority.
@@ -50,7 +54,7 @@ authority beyond agent self-review, not independent security approval.
 | Predecessors | Actual signed historical bytes; rc.9 same-epoch upgrade/rollback and rc.7 cross-epoch refusal with state preserved |
 | Installed subscription coding | Fresh scopes on both stores, exact admitted clients/model profile, real provider-diverse review, source-only integration, cold resume and owned cancellation without replay |
 | Evidence review | Signature, source, metadata/archive/bootstrap hashes, receipt scope and complete inventory verified |
-| Publication boundary | Separate publish approval withheld pending evidence/owner review |
+| Publication boundary | Planned separate owner review; actual protected publication chronology recorded in final review |
 
 ## Budget and stopping rules
 
@@ -158,8 +162,14 @@ resume evidence within the existing 28-invocation ceiling, not retry capacity.
 
 ## Handoff
 
-Local integration validation is complete; protected main PR/CI/merge are next.
-Exact-tag signing retries only after ancestry verifies. Signed qualification and
-the separately pinned rc.9 upgrade remain pending.
-Fresh subscription qualification follows successful signed native checks.
-No rc.10 publication or fresh subscription inference has occurred.
+Signed four-target installation/matrix, twenty historical epoch-refusal journeys,
+four actual rc.9 upgrades and all 47 public asset identities passed review.
+PRs #339/#340 merged with required CI green. Attempt 1's ancestry refusal remains
+preserved; attempt 2 succeeded on the unchanged source/tag. Immutable rc.10
+published at 2026-10-29T15:52:23Z through the protected owner gate.
+
+The fresh subscription campaign stopped at the Anthropic critic's authentication
+diagnostic: six snapshot dispatches, five completions and one uncertain operation;
+SQLite zero. No retry/reset/replay. Live coding acceptance remains incomplete.
+See the [final review](RC10_QUALIFICATION_REVIEW.md) for evidence identities,
+cleanup, actual publication chronology and the next bounded action.
