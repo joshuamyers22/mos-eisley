@@ -30,20 +30,20 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.9 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9)
-covers macOS and Linux on arm64 and x86_64 at frozen source `f94842a`.
-It fixes rc.8's Linux frozen Git launcher and includes scriptable execution,
-session recovery, ranked resume discovery, scoped live review, managed-worktree
-read admission and startup diagnostics. It retains rc.8's dependency set;
-[current main integration](docs/RC9_LINUX_LAUNCHER_WORK_NOTE.md#main-integration)
-preserves the separate SDK/HTTP migration.
+The published [**0.1.0-rc.10 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.10)
+covers macOS and Linux on arm64 and x86_64 at frozen source `9ffd540`.
+It fixes frozen container-watchdog dispatch while retaining rc.9's dependency set
+and storage epoch 2. Main preserves its separate SDK/HTTP migration.
 
-[Owner acceptance and public verification](docs/RC9_PUBLICATION_WORK_NOTE.md)
-record four signed installations, the installed matrix on both stores, twenty
-actual-predecessor upgrade/refusal journeys and all 47 public asset identities.
-The public bootstrap and both-store terminal/diff/resume/recovery checks passed
-on macOS arm64. npm and the public Homebrew preview formula remain separately
-versioned. rc.8 stays unpublished with its failed Linux evidence preserved.
+The [qualification review](docs/RC10_QUALIFICATION_REVIEW.md) records four signed
+installations, both-store installed matrices, twenty historical upgrade/refusal
+journeys, four actual rc.9 upgrade/rollback journeys and all 47 public asset
+identities. Fresh installed subscription chat/steering/context and cold resume
+passed on macOS arm64. Native Claude authentication is restored, but the
+[fresh live run](docs/RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md) stopped because
+the implementation review required concrete test execution evidence missing from
+its packet. Full live-workflow qualification remains incomplete. npm/tap routes
+remain separately versioned; rc.8 stays unpublished with its failed evidence.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.

@@ -1,10 +1,13 @@
 # rc.10 corrected-preparation predecessor control
 
-- Status: local control gate passed; PR CI and actual rc.9 journeys pending.
+- Status: closed; full gate, all 13 PR checks and all four actual rc.9 journeys passed.
   Owner: Joshua Myers; operator: Codex. Date: 2026-10-29.
 - Frozen application source/tag remain `9ffd540674cc322857c05f09bcaf8dc816b3ff64`
   / `v0.1.0-rc.10`. No application, dependency, signing-key or artifact change.
 - Parent integration: `b9bc4b20601a7c88af7ec6cdea57a92c11cabf88`, PR #339.
+
+Final outcome and actual publication/live limits: [qualification review](RC10_QUALIFICATION_REVIEW.md).
+The observations below retain their historical inspection state.
 
 ## Objective and concrete failure
 
@@ -31,7 +34,8 @@ The risk is evidence substitution between failed and corrected preparation;
 retain strict equality to the selected attempt and record both outcomes.
 This host-only qualification control grants no signing, provider or publication
 authority. Signing follows the owner's existing exact-candidate request and
-protected custody; publication remains withheld.
+protected custody. Publication was planned to remain withheld; the final review
+records actual completion through the protected owner gate.
 
 One full local gate for this two-literal control batch, focused publication
 contracts and required PR CI, within the existing four-hour per-gate bound.
@@ -61,3 +65,12 @@ The full-gate-tested control branch may run its read-only qualification while
 PR CI runs; required CI remains mandatory before merging this control. Review
 all actual receipts and signature/hash bindings before starting the fresh native
 subscription campaign or considering publication.
+
+## Closeout
+
+PR #340 merged as `3f1394fdeb41920f4bd67a529a82eee06db2ccb6` after all 13
+checks passed. Actual-predecessor run `40905969535`, host harness `49cc642`,
+passed on all four targets. All four reports and harness identities were reviewed
+against protected attempt 2 and immutable rc.9. They remain separate run artifacts;
+no published release asset was replaced. Full results and limits are in the
+[final review](RC10_QUALIFICATION_REVIEW.md).

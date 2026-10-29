@@ -9,6 +9,14 @@
   the separate rc.9 qualification worktree. No replay or new inference is part
   of this repair; no published artifact or rc.9 tag may change.
 
+Signed rc.10 follow-through: [final qualification review](RC10_QUALIFICATION_REVIEW.md).
+All four signed guardian/installed checks passed; the fresh live campaign advanced
+past baseline cleanup but stopped at an Anthropic authentication diagnostic.
+After native login repair, the [fresh run](RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md)
+completed both Anthropic critics and two real guardian cleanups, then stopped at
+a missing test-execution-evidence finding. Full live acceptance remains incomplete;
+immutable rc.10 is published.
+
 ## Objective and acceptance
 
 The standalone application must start its compiled-in detached container guardian
