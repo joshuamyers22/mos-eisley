@@ -5,7 +5,7 @@ import builtins
 import re
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from mos_eisley.conversation_agents import ImplementationAssignment
 from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
@@ -348,17 +348,78 @@ class CodingReview(Contract):
             )
 
 
+class CodingTestExecution(Contract):
+    """Bounded supervisor observations, without disclosing raw test output."""
+
+    schema_version: Literal[1] = 1
+    files: Annotated[tuple[str, ...], Field(min_length=1, max_length=64)]
+    tests: Annotated[int, Field(ge=0)]
+    skipped: Annotated[int, Field(ge=0)]
+    failures: Annotated[int, Field(ge=0)]
+    errors: Annotated[int, Field(ge=0)]
+    successful: bool
+    exit_code: int
+    files_unchanged: bool
+    output_bytes: Annotated[int, Field(ge=0, le=32_000)]
+
+    @model_validator(mode="after")
+    def coherent_counts(self) -> Self:
+        if len(set(self.files)) != len(self.files):
+            raise ValueError("Execution receipt repeats test files.")
+        for path in self.files:
+            safe_code_path(path)
+        if self.successful and (
+            not self.tests or self.skipped or self.failures or self.errors
+        ):
+            raise ValueError("Successful execution requires nonempty, unskipped tests.")
+        return self
+
+
 class CodingVerification(Contract):
     snapshot_sha256: Digest
     tests_sha256: Digest
     passed: bool
     output_sha256: Digest
+    execution: CodingTestExecution | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    def require_execution(self, brief: CodingBrief, snapshot: CodeSnapshot) -> None:
+        # Revalidate even injected/model_copy values at this trust boundary.
+        checked = CodingVerification.model_validate(self.model_dump())
+        receipt = checked.execution
+        if (
+            checked.snapshot_sha256 != snapshot.sha256
+            or checked.tests_sha256 != brief.tests_sha256
+            or receipt is None
+            or receipt.files != brief.test_paths
+            or not receipt.tests
+            or receipt.skipped
+            or checked.passed
+            != (
+                receipt.successful
+                and receipt.exit_code == 0
+                and receipt.files_unchanged
+            )
+        ):
+            raise ValueError(
+                "Concrete test execution receipt differs from the frozen package."
+            )
 
 
 class CodingHandoff(Contract):
     patch: CodingPatch
     verification: CodingVerification
     diff: Annotated[str, Field(min_length=1, max_length=128_000)]
+
+    @field_validator("verification")
+    @classmethod
+    def retained_verification(cls, value: CodingVerification) -> CodingVerification:
+        # Recorded handoffs retain the epoch-2 four-field wire format. Concrete
+        # execution evidence stays in the worker/live review artifacts instead.
+        return CodingVerification.model_validate(
+            value.model_dump(exclude={"execution"})
+        )
 
 
 class CodingRetention(Contract):

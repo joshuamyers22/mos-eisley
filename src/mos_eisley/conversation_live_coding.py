@@ -688,6 +688,11 @@ class LiveCodingWorkflow:
             "do not accept it as an implementation plan. At phase=implementation "
             "assess the candidate and real test receipt before integration; "
             "post-integration receipts are expected only after approval."
+            " verification.execution is the worker's versioned execution receipt: "
+            "selected test files, test/failure/error/skip counts, runner success "
+            "and exit code, post-run file integrity and combined output bytes. "
+            "verification binds it to the exact source/test package and output "
+            "hashes. Raw test output is not disclosed in the review packet."
         )
 
         async def review(subject: bytes) -> ModelReview:
@@ -776,6 +781,7 @@ class LiveCodingWorkflow:
             return answer, approval
 
         baseline = await self.executor.verify(brief, brief.verification_snapshot)
+        baseline.require_execution(brief, brief.verification_snapshot)
         if (
             baseline.snapshot_sha256 != brief.verification_snapshot.sha256
             or baseline.tests_sha256 != brief.tests_sha256
@@ -833,6 +839,7 @@ class LiveCodingWorkflow:
             patch = decode_model(CodingPatch, answer.final_text)
             target = patch.apply(brief)
             verification = await self.executor.verify(brief, target)
+            verification.require_execution(brief, target)
             if (
                 verification.snapshot_sha256 != target.sha256
                 or verification.tests_sha256 != brief.tests_sha256
@@ -887,6 +894,7 @@ class LiveCodingWorkflow:
         current()
         # Recheck the complete frozen test package immediately before integration.
         final = await self.executor.verify(brief, patch.apply(brief))
+        final.require_execution(brief, patch.apply(brief))
         if (
             not final.passed
             or final.snapshot_sha256 != verification.snapshot_sha256
@@ -908,6 +916,7 @@ class LiveCodingWorkflow:
             lambda: self.broker.integrated_snapshot(brief, patch, commit)
         )
         checked = await self.executor.verify(brief, actual)
+        checked.require_execution(brief, actual)
         if (
             not checked.passed
             or checked.snapshot_sha256 != actual.sha256

@@ -447,6 +447,14 @@ class CodingControllerTests(IsolatedAsyncioTestCase):
                 for state in self.saved:
                     store.save(state)
                 loaded = store.load()
+                child = loaded.local_children[0]
+                assert child.coding is not None and child.coding.handoff is not None
+                assert child.report is not None
+                self.assertIn(
+                    "Verification "
+                    + digest(canonical_bytes(child.coding.handoff.verification)),
+                    child.report.evidence,
+                )
                 resumed = ConversationController(
                     loaded, demo_cassette(), store.save, goal_clock=lambda: 100.0
                 )

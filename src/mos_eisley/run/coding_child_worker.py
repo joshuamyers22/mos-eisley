@@ -11,6 +11,7 @@ from mos_eisley.coding_child import (
     CodeSnapshot,
     CodingBrief,
     CodingPatch,
+    CodingTestExecution,
     CodingVerification,
     validate_pure_source,
 )
@@ -43,7 +44,7 @@ for index,path in enumerate(sys.argv[2:]):
     suite.addTests(selected)
 r=unittest.TextTestRunner(verbosity=1).run(suite)
 passed=valid and r.wasSuccessful() and r.testsRun>0 and not r.skipped
-print(json.dumps({"tests":r.testsRun,"skipped":len(r.skipped),"passed":passed,"files":sys.argv[2:]}))
+print(json.dumps({"tests":r.testsRun,"skipped":len(r.skipped),"passed":passed,"files":sys.argv[2:],"failures":len(r.failures),"errors":len(r.errors)}))
 sys.exit(0 if passed else 1)
 """
 
@@ -95,12 +96,16 @@ async def verify_snapshot(
                 extra_groups=() if isolate_tests else None,
             )
 
+            output_bytes = 0
+
             async def drain(stream: asyncio.StreamReader | None) -> bytes:
+                nonlocal output_bytes
                 assert stream is not None
                 output = bytearray()
                 while block := await stream.read(4096):
                     output.extend(block)
-                    if len(output) > 32_000:
+                    output_bytes += len(block)
+                    if output_bytes > 32_000:
                         raise ValueError("Creator tests exceeded their output cap.")
                 return bytes(output)
 
@@ -130,15 +135,25 @@ async def verify_snapshot(
             not p.is_symlink() and p.read_text() == f.content
             for p, f in zip(expected_paths, snapshot.files, strict=True)
         )
+        execution = read_test_execution(output, code, unchanged)
         return CodingVerification(
             snapshot_sha256=snapshot.sha256,
             tests_sha256=brief.assignment.tests_sha256,
-            passed=code == 0 and unchanged and completed_run(output, brief.test_paths),
+            passed=(
+                code == 0
+                and unchanged
+                and execution is not None
+                and execution.successful
+                and execution.files == brief.test_paths
+            ),
             output_sha256=digest(output),
+            execution=execution,
         )
 
 
-def completed_run(output: bytes, expected_files: tuple[str, ...]) -> bool:
+def read_test_execution(
+    output: bytes, exit_code: int, files_unchanged: bool
+) -> CodingTestExecution | None:
     try:
         # stdout precedes stderr, whose unittest summary may follow this receipt.
         records = [
@@ -146,17 +161,33 @@ def completed_run(output: bytes, expected_files: tuple[str, ...]) -> bool:
             for line in output.splitlines()
             if line.startswith(b'{"tests":')
         ]
-        return (
-            len(records) == 1
-            and set(records[0]) == {"tests", "skipped", "passed", "files"}
-            and records[0]["files"] == list(expected_files)
-            and type(records[0]["tests"]) is int
-            and records[0]["tests"] > 0
-            and records[0]["skipped"] == 0
-            and records[0]["passed"] is True
+        if len(records) != 1 or set(records[0]) != {
+            "tests",
+            "skipped",
+            "passed",
+            "files",
+            "failures",
+            "errors",
+        }:
+            return None
+        record = records[0]
+        return CodingTestExecution.model_validate_json(
+            json.dumps(
+                {
+                    "files": record["files"],
+                    "tests": record["tests"],
+                    "skipped": record["skipped"],
+                    "failures": record["failures"],
+                    "errors": record["errors"],
+                    "successful": record["passed"],
+                    "exit_code": exit_code,
+                    "files_unchanged": files_unchanged,
+                    "output_bytes": len(output),
+                }
+            )
         )
     except (ValueError, TypeError, KeyError):
-        return False
+        return None
 
 
 async def execute_wire(
