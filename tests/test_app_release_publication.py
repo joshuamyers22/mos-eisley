@@ -301,6 +301,71 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertGreater(copies[1][0], checkouts[1])
         self.assertIn('"' + retained + '" .work/candidate/release.json', copies[1][1])
 
+    def test_rc10_predecessor_evidence_is_bound_to_protected_source_and_real_rc9(
+        self,
+    ) -> None:
+        workflow = cast(
+            dict[object, object],
+            yaml.safe_load(
+                (
+                    ROOT / ".github/workflows/rc10-predecessor-qualification.yml"
+                ).read_text()
+            ),
+        )
+        self.assertEqual(
+            workflow["permissions"], {"actions": "read", "contents": "read"}
+        )
+        environment = mapping(workflow["env"])
+        self.assertEqual(
+            environment["CANDIDATE_SOURCE"], "9ffd540674cc322857c05f09bcaf8dc816b3ff64"
+        )
+        self.assertEqual(environment["CANDIDATE_RUN"], "40785649978")
+        job = mapping(mapping(workflow["jobs"])["upgrade"])
+        self.assertFalse(mapping(job["strategy"])["fail-fast"])
+        self.assertEqual(
+            mapping(mapping(job["strategy"])["matrix"])["os"],
+            ["ubuntu-22.04", "ubuntu-22.04-arm", "macos-15", "macos-15-intel"],
+        )
+        steps = [mapping(step) for step in cast(list[object], job["steps"])]
+        self.assertEqual(mapping(steps[0]["with"])["ref"], "${{ github.sha }}")
+        admission = next(s for s in steps if "Require the exact" in str(s.get("name")))
+        for required in (
+            str(environment["CANDIDATE_SOURCE"]),
+            '"v0.1.0-rc.10"',
+            ".workflow_id == 350992511",
+            ".run_attempt == 1",
+            '.name == "prepare" and .conclusion == "success"',
+            'test "$(cat prepared-count.txt)" = 1',
+        ):
+            self.assertIn(required, str(admission["run"]))
+        download = next(
+            s for s in steps if str(s.get("uses", "")).startswith("actions/download-")
+        )
+        self.assertEqual(
+            mapping(download["with"])["run-id"], "${{ env.CANDIDATE_RUN }}"
+        )
+        predecessor = next(
+            s for s in steps if "Acquire the immutable" in str(s.get("name"))
+        )
+        for required in (
+            "424828190",
+            "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23",
+            ".immutable == true",
+            ".draft == false",
+            "gh release download v0.1.0-rc.9",
+        ):
+            self.assertIn(required, str(predecessor["run"]))
+        journey = next(s for s in steps if "Qualify actual rc.9" in str(s.get("name")))
+        self.assertIn("--predecessor-version 0.1.0-rc.9", str(journey["run"]))
+        self.assertIn('--candidate-commit "$CANDIDATE_SOURCE"', str(journey["run"]))
+        self.assertIn("qualification-upgrade-rc9-", str(journey["run"]))
+        self.assertNotIn("continue-on-error", job)
+        for step in steps:
+            self.assertNotIn("continue-on-error", step)
+        for step in (admission, predecessor, journey):
+            self.assertNotIn("if", step)
+        self.assertEqual(steps[-1]["if"], "${{ always() }}")
+
     def test_workflow_upload_is_draft_and_finalization_follows_qualified_gates(
         self,
     ) -> None:

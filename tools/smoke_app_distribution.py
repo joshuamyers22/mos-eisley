@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import selectors
 import subprocess
 import sys
 import tarfile
@@ -20,9 +21,11 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mos_eisley import app_install, app_release
-from mos_eisley._frozen_entry import LINUX_GIT_READ
+from mos_eisley._frozen_entry import CONTAINER_WATCHDOG, LINUX_GIT_READ
 from mos_eisley.app_install import install, recover, rollback, uninstall
 from mos_eisley.app_release import ReleaseError, canonical, parse_release, platform_id
+from mos_eisley.core.models import canonical_bytes, digest
+from mos_eisley.run.watchdog import CleanupLease, CleanupRecord
 
 
 def snapshot(directory: Path) -> dict[str, str]:
@@ -30,6 +33,84 @@ def snapshot(directory: Path) -> dict[str, str]:
         str(path.relative_to(directory)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in directory.rglob("*")
         if path.is_file()
+    }
+
+
+def qualify_frozen_watchdog(
+    executable: str, environment: dict[str, str], root: Path
+) -> dict[str, object]:
+    """Run the actual frozen guardian; true stands in for Docker, without a daemon."""
+    for mode in ("eof", "deadline"):
+        directory = root / mode
+        directory.mkdir(parents=True, mode=0o700)
+        lease = CleanupLease(
+            container_id="c" * 64,
+            max_runtime_seconds=60 if mode == "eof" else 0.1,
+        )
+        (directory / "lease.json").write_bytes(canonical_bytes(lease))
+        (directory / "lease.json").chmod(0o600)
+        reader, writer = os.pipe()
+        try:
+            with subprocess.Popen(
+                [
+                    executable,
+                    CONTAINER_WATCHDOG,
+                    "--docker",
+                    "/usr/bin/true",
+                    "--directory",
+                    str(directory),
+                    "--lease-fd",
+                    str(reader),
+                ],
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                pass_fds=(reader,),
+                start_new_session=True,
+            ) as process:
+                assert process.stdout is not None
+                with selectors.DefaultSelector() as selector:
+                    selector.register(process.stdout, selectors.EVENT_READ)
+                    if (
+                        not selector.select(10)
+                        or os.read(process.stdout.fileno(), 1) != b"R"
+                    ):
+                        raise ValueError(
+                            "frozen watchdog did not acknowledge readiness"
+                        )
+                if mode == "eof":
+                    os.close(writer)
+                    writer = -1
+                if process.wait(timeout=10) != 0:
+                    raise ValueError("frozen watchdog cleanup failed")
+                armed = CleanupRecord.model_validate_json(
+                    (directory / "armed.json").read_bytes()
+                )
+                result = CleanupRecord.model_validate_json(
+                    (directory / "result.json").read_bytes()
+                )
+                if (
+                    armed.state != "armed"
+                    or result.state != "removed"
+                    or result.container_id != lease.container_id
+                    or result.lease_sha256 != digest(canonical_bytes(lease))
+                    or result.attempts != 1
+                    or (directory / "result.json").stat().st_mode & 0o777 != 0o600
+                ):
+                    raise ValueError(
+                        "frozen watchdog returned an unbound cleanup receipt"
+                    )
+        finally:
+            os.close(reader)
+            if writer >= 0:
+                os.close(writer)
+    return {
+        "status": "passed",
+        "eof_cleanup": True,
+        "finite_deadline_cleanup": True,
+        "docker_client": "inert_true_fixture",
+        "provider_calls": 0,
     }
 
 
@@ -296,6 +377,9 @@ def main() -> int:
         trusted_git_boundary: dict[str, object] = {
             "status": "requires_actual_publisher_signed_candidate"
         }
+        trusted_watchdog_boundary: dict[str, object] = {
+            "status": "requires_actual_publisher_signed_candidate"
+        }
         if args.published_metadata:
             trusted_root, trusted_bin = base / "trusted app", base / "trusted bin"
             subprocess.run(
@@ -326,6 +410,9 @@ def main() -> int:
                 )
             trusted_executable = str(trusted_bin / "mos")
             trusted_git_boundary = qualify_frozen_git(trusted_executable, environment)
+            trusted_watchdog_boundary = qualify_frozen_watchdog(
+                trusted_executable, environment, base / "signed watchdog"
+            )
             subprocess.run(
                 [
                     trusted_executable,
@@ -444,6 +531,9 @@ def main() -> int:
             change_policy(root, "disabled")
             executable = str(bin_dir / "mos")
             git_boundary = qualify_frozen_git(executable, environment)
+            watchdog_boundary = qualify_frozen_watchdog(
+                executable, environment, base / "watchdog"
+            )
             qualify_exec_recovery(executable, environment, base / "exec recovery")
             subprocess.run([executable, "--version"], env=environment, check=True)
             subprocess.run(
@@ -615,6 +705,8 @@ def main() -> int:
         "exec_recovery_snapshot_sqlite": True,
         "frozen_git_boundary": git_boundary,
         "publisher_frozen_git_boundary": trusted_git_boundary,
+        "frozen_watchdog_boundary": watchdog_boundary,
+        "publisher_frozen_watchdog_boundary": trusted_watchdog_boundary,
         "state_preserved": True,
         "upgrade_rollback": "passed_synthetic_older_metadata_same_code",
         "publisher": "ephemeral_test_only",
