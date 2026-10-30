@@ -105,6 +105,17 @@ class PlanningTests(IsolatedAsyncioTestCase):
         self.assertIn("creator-led workflow", client.requests[0].system)
         self.assertIn("exact revisions", client.requests[0].system)
         self.assertIn("Changed plans/tests invalidate", client.requests[0].system)
+        system = client.requests[0].system
+        stages = (
+            "before coding-child dispatch",
+            "verify the candidate with the frozen tests",
+            "implementation review and creator approval",
+            "BEFORE integration",
+            "integrate the approved candidate",
+            "rerun the frozen tests on the actual integrated tree",
+        )
+        positions = [system.index(stage) for stage in stages]
+        self.assertEqual(positions, sorted(positions))
         self.assertIn(
             "Do not request routine human confirmation", client.requests[0].system
         )
