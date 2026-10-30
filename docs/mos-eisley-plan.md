@@ -1691,15 +1691,20 @@ For the creator-led coding workflow, use this explicit sequence:
    of that exact plan and test suite before releasing coding work. A revise/reject
    disposition or unresolved blocker requires revised artifacts and renewed review. This is an agent
    workflow decision, not a new user-confirmation step or permission to bypass policy.
-5. **Subagents implement; creator integrates.** Dispatch at least one coding child
-   against the approved plan and tests. The creator checks patches, runs permitted tests,
-   resolves integration issues, and retains ownership of the result. A materially
-   changed plan or any changed approved test invalidates the affected approval and
-   dependent child authorization until renewed review and creator approval.
-6. **Review the result.** Submit the frozen implementation and verification evidence
-   to independent critic/judge review, then have the creator accept the final result
-   or coordinate bounded corrections. Plan acceptance alone does not prove the code
-   meets its requirements. All rounds share the task's aggregate budget.
+5. **Subagents implement a candidate.** Dispatch at least one coding child against
+   the approved plan and tests. The creator checks the staged patch and runs the
+   frozen tests. A materially changed plan or any changed approved test invalidates
+   the affected approval and dependent child authorization until renewed review
+   and creator approval.
+6. **Review and approve before integration.** Submit the exact passing candidate
+   and its bound test execution evidence to independent critic/judge review, then
+   obtain creator approval for that exact candidate and receipt or coordinate
+   bounded corrections. Plan acceptance alone does not approve implementation or
+   integration. All rounds share the task's aggregate budget.
+7. **Creator integrates and verifies.** Only after implementation approval,
+   integrate the approved candidate and rerun the frozen tests on the actual
+   integrated tree. The creator retains ownership of the result; failed verification
+   does not establish completion.
 
 Persist the plan and test-suite revisions, critic findings, judge disposition,
 creator approval, child assignments/patches, final verification, and per-role usage
