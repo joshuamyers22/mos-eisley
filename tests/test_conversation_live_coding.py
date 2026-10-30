@@ -9,13 +9,20 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from pydantic import JsonValue
 from test_coding_controller import FixtureCodingExecutor
 
-from mos_eisley.coding_child import CodeFile, CodingBrief, CodingPatch, FileChange
+from mos_eisley.coding_child import (
+    CodeFile,
+    CodeSnapshot,
+    CodingBrief,
+    CodingPatch,
+    CodingVerification,
+    FileChange,
+)
 from mos_eisley.conversation import ConversationController, conversation_config
 from mos_eisley.conversation_cli import demo_cassette
 from mos_eisley.conversation_live_coding import (
@@ -618,6 +625,41 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
                 self.assertEqual(
                     artifact["brief"]["assignment"]["allowance"]["attempts"], 1
                 )
+                verification = artifact[
+                    "baseline_verification"
+                    if artifact["phase"] == "plan"
+                    else "verification"
+                ]
+                execution = verification["execution"]
+                self.assertEqual(execution["schema_version"], 1)
+                self.assertEqual(execution["files"], artifact["brief"]["test_paths"])
+                self.assertEqual(execution["tests"], 2)
+                self.assertEqual(execution["skipped"], 0)
+                self.assertTrue(execution["files_unchanged"])
+                self.assertLessEqual(execution["output_bytes"], 32000)
+                self.assertEqual(
+                    verification["tests_sha256"],
+                    artifact["brief"]["assignment"]["tests_sha256"],
+                )
+
+    async def test_missing_execution_evidence_stops_before_review_or_integration(
+        self,
+    ) -> None:
+        verify = self.executor.verify
+
+        async def legacy(
+            brief: CodingBrief, snapshot: CodeSnapshot
+        ) -> CodingVerification:
+            result = await verify(brief, snapshot)
+            return result.model_copy(update={"execution": None})
+
+        with (
+            patch.object(self.executor, "verify", new=AsyncMock(side_effect=legacy)),
+            self.assertRaisesRegex(ValueError, "Concrete test execution"),
+        ):
+            await self.run_workflow()
+        self.assertEqual(self.models.roles, ["plan"])
+        self.assertEqual(self.git("rev-parse", "HEAD").strip(), self.base)
 
     async def test_large_review_packets_preserve_exact_artifact_through_integration(
         self,

@@ -457,6 +457,28 @@ class DraftPublicationTests(unittest.TestCase):
             self.assertIn(required, rc7_journey)
         self.assertNotIn("continue-on-error", rc7)
         self.assertNotIn("if", rc7)
+        for version, release_id, commit in (
+            ("9", "424828190", "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23"),
+            ("10", "428076837", "9ffd540674cc322857c05f09bcaf8dc816b3ff64"),
+        ):
+            step = next(
+                s
+                for s in qualification_steps
+                if s.get("name") == f"Qualify upgrade from published rc.{version}"
+            )
+            self.assertEqual(mapping(step["env"])["SOURCE_COMMIT"], "${{ github.sha }}")
+            for required in (
+                release_id,
+                commit,
+                ".immutable == true",
+                ".draft == false",
+                f"--predecessor-version 0.1.0-rc.{version}",
+                '--candidate-commit "$SOURCE_COMMIT"',
+                f"qualification-upgrade-rc{version}-",
+            ):
+                self.assertIn(required, str(step["run"]))
+            self.assertNotIn("continue-on-error", step)
+            self.assertNotIn("if", step)
         self.assertEqual(publish["environment"], "application-release")
         steps = [mapping(s) for s in cast(list[object], publish["steps"])]
         upload = next(

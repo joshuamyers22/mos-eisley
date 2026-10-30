@@ -356,7 +356,7 @@ class ConversationCodingController(ConversationLocalChildController[StateT]):
                 evidence=(
                     "Patch " + result.patch.sha256,
                     "Protected tests " + brief.assignment.tests_sha256,
-                    "Verification " + digest(canonical_bytes(result.verification)),
+                    "Verification " + digest(canonical_bytes(handoff.verification)),
                 ),
                 unresolved=()
                 if result.verification.passed
