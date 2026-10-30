@@ -1,8 +1,10 @@
 # Source-bound coding test execution receipts
 
-- Status: local source/integration gates passed; protected integration, signing and
-  fresh installed qualification pending. Owner Joshua Myers; operator Codex.
-  Started and last updated: 2026-10-29 UTC.
+- Status: source/integration and protected signed distribution qualification passed;
+  fresh installed live qualification stopped at plan review (RC11-SUB-01).
+  Owner Joshua Myers; operator Codex. Started 2026-10-29; updated 2026-10-30 UTC.
+  See the [final qualification review](RC11_QUALIFICATION_REVIEW.md) for the
+  immutable publication, exact evidence and next creator-ordering correction.
 - New candidate: rc.11, based on immutable rc.10 source 9ffd540; published rc.10
   and all failed campaign/usage records stay unchanged. Keep frozen dependencies
   and storage epoch 2; main's newer dependencies remain separate.
@@ -55,10 +57,13 @@ integration or cleanup failure; preserve failed evidence and unused capacity.
 
 ## Handoff
 
-Implementation, focused verification, actual rebuilt-worker proofs and both full
-local gates passed. Commit the unchanged frozen source, establish protected main
-ancestry through the normally reviewed integration, then build/sign and qualify
-the exact tag. No signed rc.11 or fresh live acceptance is claimed yet.
+Implementation, focused verification, rebuilt-worker/old-reader proofs and both
+full local gates passed. PR #342 merged normally and preserved frozen `4d927ce`
+in main. The exact tag passed protected signing and all four signed qualification
+jobs. The owner published immutable rc.11 before the fresh live campaign; all
+55 public asset identities match. Fresh live review received concrete receipts
+but stopped on creator plan ordering after seven calls, without integration.
+No full live acceptance is claimed; the stopped campaign remains unchanged.
 
 ## Verification observations
 
@@ -83,8 +88,8 @@ the exact tag. No signed rc.11 or fresh live acceptance is claimed yet.
   passive resume. Corrected unpaid helpers used separate evidence roots, with no
   source/test changes, paid retry, failed campaign replay or evidence replacement.
 - Full frozen candidate and main-integration gates run against hashed inputs.
-  Main retains its newer dependencies; exact merge provenance and input equality
-  will be verified after the frozen candidate gate permits committing its source.
+  Main retains its newer dependencies; exact normal merge provenance and input
+  equality were verified before its integration commit.
 - The first full candidate gate was launched inside the outer sandbox and failed
   native environment checks: 3,892 source tests, five failures/104 errors/17 skips,
   with explicit localhost-bind denials, unavailable nested OS Git isolation and
@@ -126,9 +131,9 @@ Final frozen log SHA256:
 Final integration log SHA256:
 `68b1d4c6f7aceb11238e63b568301bb6675f6907f725e40d0494bae26078a36f`.
 
-Before the integration commit, the actual normal merge must reproduce the tested
-non-Markdown inputs exactly while preserving main's newer dependencies and
-current documentation. Required PR CI and verified ancestry precede tag creation.
+The actual normal merge reproduced the tested non-Markdown inputs exactly while
+preserving main's newer dependencies and current documentation. Required PR CI
+and verified ancestry passed before tag creation.
 
 ## Main integration provenance
 
@@ -139,5 +144,6 @@ source as a parent. Main's newer dependency set remains intact. The predecessor
 allowlist overlap retains both rc.9 and rc.10; the memory index retains main's
 current rc.10 evidence and the new receipt row. All 857 non-Markdown file names
 and content hashes exactly match the passed integration gate before committing.
-No signing or new native inference has occurred yet. Required PR CI/merge and
-local ancestry verification precede tag creation.
+Required PR CI, normal merge and local ancestry verification passed before tag
+creation. The [final review](RC11_QUALIFICATION_REVIEW.md) records signed receipts,
+publication and the fresh stopped live campaign; no failed evidence was replaced.

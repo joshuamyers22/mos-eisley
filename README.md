@@ -30,20 +30,21 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.10 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.10)
-covers macOS and Linux on arm64 and x86_64 at frozen source `9ffd540`.
-It fixes frozen container-watchdog dispatch while retaining rc.9's dependency set
-and storage epoch 2. Main preserves its separate SDK/HTTP migration.
+The published [**0.1.0-rc.11 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.11)
+covers macOS and Linux on arm64 and x86_64 at frozen source `4d927ce`.
+It adds source/test-bound execution receipts to live coding review, retaining
+storage epoch 2 and the frozen dependency set. Main retains its newer dependencies.
 
-The [qualification review](docs/RC10_QUALIFICATION_REVIEW.md) records four signed
+The [qualification review](docs/RC11_QUALIFICATION_REVIEW.md) records four signed
 installations, both-store installed matrices, twenty historical upgrade/refusal
-journeys, four actual rc.9 upgrade/rollback journeys and all 47 public asset
-identities. Fresh installed subscription chat/steering/context and cold resume
-passed on macOS arm64. Native Claude authentication is restored, but the
-[fresh live run](docs/RC10_AUTH_REFRESH_QUALIFICATION_WORK_NOTE.md) stopped because
-the implementation review required concrete test execution evidence missing from
-its packet. Full live-workflow qualification remains incomplete. npm/tap routes
-remain separately versioned; rc.8 stays unpublished with its failed evidence.
+journeys, eight actual rc.9/rc.10 upgrade/rollback journeys and all 55 public asset
+identities. Fresh installed snapshot subscription chat, steering, context and
+cold resume passed on macOS arm64. The new receipts reached both critics and the
+judge, but plan review stopped because the creator placed implementation review
+after integration. Seven calls completed; no integration or SQLite live cases
+ran. Full live-workflow qualification remains incomplete. The next correction is
+creator workflow ordering before a new candidate and fresh qualification. npm/tap
+routes remain separately versioned; earlier failed campaigns remain preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.
