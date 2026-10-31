@@ -92,10 +92,12 @@ the earlier Claude call completed, and request sizes were admitted; those facts
 do not prove continued service health during the failed call. No evidence shows
 that raising the deadline alone would fix the problem.
 
-The next useful candidate change is bounded, redacted progress metadata on native
+The [progress-receipt implementation](NATIVE_PROGRESS_WORK_NOTE.md) now passes
+offline source/wheel verification; a new installed artifact and fresh diagnostic
+invocation remain pending. It adds bounded, redacted progress metadata on native
 failure: input-drained state, first/last output timing, byte counts, stream EOF,
-leader exit and cleanup state, and strictly validated event-type counters where
-safe. Preserve finite deadlines, output limits, uncertain usage and no-retry
+leader exit and cleanup state, without introducing an event parser. It preserves
+finite deadlines, output limits, uncertain usage and no-retry
 semantics. Do not retain native text, stderr excerpts, request content, auth data
 or arbitrary event values. Prove those privacy/failure boundaries offline before
 a separately bounded fresh diagnostic invocation. Do not replay slot 11 or
