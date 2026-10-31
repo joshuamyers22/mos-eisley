@@ -152,8 +152,10 @@ candidate's passing receipt do not establish completed implementation review.
 Exact signed distribution qualification, including actual rc.11 upgrade/rollback,
 is complete. Fresh full installed live acceptance remains incomplete. Creator
 ordering passed this campaign's plan review, but implementation review did not
-finish. The next bounded item is native Claude deadline diagnosis and disposition
-of RC12-SUB-01, followed by explicitly bounded fresh qualification if authorized;
+finish. The [bounded native timeout diagnosis](RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md)
+confirms the timer covers pipe EOF/process exit, but discarded partial buffers
+prevent attribution of the historical native cause. The next candidate needs
+redacted progress metadata before a separately bounded fresh diagnostic call;
 do not replay the uncertain scope or silently widen its deadline.
 
 The earlier [rc.11 qualification](RC11_QUALIFICATION_REVIEW.md) and all other

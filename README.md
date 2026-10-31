@@ -44,8 +44,9 @@ cold resume passed on macOS arm64. Both plan critics and the judge accepted;
 candidate tests and the OpenAI implementation critic passed. Claude's
 implementation critic exceeded its 60-second native deadline (RC12-SUB-01):
 eleven calls were dispatched and ten completed, with no integration or SQLite
-live cases. Full live-workflow qualification remains incomplete. The next item is
-native deadline diagnosis and disposition before fresh qualification. npm/tap
+live cases. Full live-workflow qualification remains incomplete. The
+[timeout diagnosis](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) identifies missing native
+progress evidence; bounded redacted diagnostics are needed before a fresh run. npm/tap
 routes remain separately versioned; earlier failed campaigns remain preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;

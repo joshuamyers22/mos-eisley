@@ -89,7 +89,8 @@ Global stop preserved the unused 17-call capacity. Read-only audit confirmed
 unchanged workspace/protected files, scripts and all prior campaigns, and exact
 removal of both live worker containers. No resume, retry or replacement scope
 was attempted. See the [qualification review](RC12_QUALIFICATION_REVIEW.md) for
-hashes, scope, finding and remaining work. Next: diagnose/dispose of the native
-deadline before a separately bounded fresh campaign. Full v1 acceptance remains
+hashes, scope, finding and remaining work. The [offline diagnosis](RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md)
+confirms native-exchange timeout ambiguity and missing progress receipts. Next:
+bounded redacted diagnostics before a separately bounded fresh campaign. Full v1 acceptance remains
 open. Closeout changes documentation only; applicable checks are relative links,
 artifact identities and `git diff --check`.
