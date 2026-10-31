@@ -391,6 +391,18 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
     async def run_workflow(self, attempt: int = 0) -> AgentResult:
         return await self.workflow.run(self.config, attempt, "1" * 32)
 
+    def live_identity(self) -> LiveChatIdentity:
+        assert self.routes[0].expected_policy_sha256 is not None
+        return LiveChatIdentity(
+            model=self.routes[0].model,
+            effort="high",
+            max_output_tokens=512,
+            spend_policy_sha256=self.routes[0].expected_policy_sha256,
+            spend_ledger_id=digest(b"ledger"),
+            artifacts_root=str(self.artifacts),
+            coding_selection_sha256=digest(b"selection"),
+        )
+
     def subscription_selection(self) -> LiveCodingSelection:
         client = self.root / "native-client"
         client.write_text("synthetic native client")
@@ -808,17 +820,43 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
             await self.run_workflow()
         self.assertEqual(self.models.roles, ["plan"])
 
-    async def test_completed_session_result_survives_both_stores(self) -> None:
-        assert self.routes[0].expected_policy_sha256 is not None
-        identity = LiveChatIdentity(
-            model=self.routes[0].model,
-            effort="high",
-            max_output_tokens=512,
-            spend_policy_sha256=self.routes[0].expected_policy_sha256,
-            spend_ledger_id=digest(b"ledger"),
-            artifacts_root=str(self.artifacts),
-            coding_selection_sha256=digest(b"selection"),
+    async def test_controller_creator_packet_requires_review_before_integration(
+        self,
+    ) -> None:
+        cassette = demo_cassette()
+        state = ConversationController.fresh(
+            self.repo, cassette, live_chat=self.live_identity()
         )
+
+        async def run(config: AgentConfig, attempt: int) -> AgentResult:
+            return await self.workflow.run(config, attempt, state.session_id)
+
+        controller = ConversationController(
+            state, cassette, lambda _: None, run_live_chat=run, run_live_coding=run
+        )
+        controller.submit("Fix addition", implementation_request=True)
+        await controller.step()
+        author_system = str(self.models.packets[0]["author_system"])
+        self.assertIn(
+            "exact passing candidate and its test execution receipt", author_system
+        )
+        self.assertLess(
+            author_system.index("implementation review and creator approval"),
+            author_system.index("BEFORE integration"),
+        )
+        self.assertLess(
+            author_system.index("BEFORE integration"),
+            author_system.index("integrate the approved candidate"),
+        )
+        self.assertIn("actual integrated tree", author_system)
+        self.assertEqual(self.models.roles[-1], "approve")
+        self.assertEqual(controller.state.entries[0].status, "completed")
+        self.assertEqual(
+            (self.repo / "adder.py").read_text(), "def add(a,b):\n    return a+b\n"
+        )
+
+    async def test_completed_session_result_survives_both_stores(self) -> None:
+        identity = self.live_identity()
         cassette = demo_cassette()
         for kind in (ConversationStore, SQLiteConversationStore):
             with self.subTest(kind=kind.__name__):
