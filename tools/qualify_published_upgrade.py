@@ -34,6 +34,7 @@ PUBLISHED_PREDECESSORS = {
     "0.1.0-rc.7": "78bc17ce561df7e641a4dd0fc5aef56aa9deee58",
     "0.1.0-rc.9": "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23",
     "0.1.0-rc.10": "9ffd540674cc322857c05f09bcaf8dc816b3ff64",
+    "0.1.0-rc.11": "4d927cea23ff18f6aa9d231f7c342ee8e2420c84",
 }
 
 

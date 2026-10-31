@@ -301,6 +301,54 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertGreater(copies[1][0], checkouts[1])
         self.assertIn('"' + retained + '" .work/candidate/release.json', copies[1][1])
 
+    def test_rc12_upgrade_requires_exact_signed_run_and_immutable_rc11(self) -> None:
+        workflow = cast(
+            dict[object, object],
+            yaml.safe_load(
+                (
+                    ROOT / ".github/workflows/rc12-predecessor-qualification.yml"
+                ).read_text()
+            ),
+        )
+        self.assertEqual(
+            workflow["permissions"], {"actions": "read", "contents": "read"}
+        )
+        self.assertEqual(
+            mapping(workflow["env"]),
+            {
+                "CANDIDATE_SOURCE": "2f75d429c87b3b48c946832ff9c73748abf94efe",
+                "CANDIDATE_RUN": "41149254988",
+            },
+        )
+        job = mapping(mapping(workflow["jobs"])["upgrade"])
+        self.assertEqual(
+            mapping(mapping(job["strategy"])["matrix"])["os"],
+            ["ubuntu-22.04", "ubuntu-22.04-arm", "macos-15", "macos-15-intel"],
+        )
+        steps = [mapping(s) for s in cast(list[object], job["steps"])]
+        commands = "\n".join(str(s.get("run", "")) for s in steps)
+        for required in (
+            '"v0.1.0-rc.12"',
+            ".run_attempt == 1",
+            ".workflow_id == 350992511",
+            'test "$(cat prepared-count.txt)" = 1',
+            'test "$(cat signed-count.txt)" = 4',
+            'all(.conclusion == "success")',
+            "429106203",
+            "4d927cea23ff18f6aa9d231f7c342ee8e2420c84",
+            ".immutable == true",
+            ".draft == false",
+            "--predecessor-version 0.1.0-rc.11",
+        ):
+            self.assertIn(required, commands)
+        download = next(
+            s for s in steps if str(s.get("uses", "")).startswith("actions/download-")
+        )
+        self.assertEqual(
+            mapping(download["with"])["run-id"], "${{ env.CANDIDATE_RUN }}"
+        )
+        self.assertEqual(mapping(steps[0]["with"])["ref"], "${{ github.sha }}")
+
     def test_rc10_predecessor_evidence_is_bound_to_protected_source_and_real_rc9(
         self,
     ) -> None:
