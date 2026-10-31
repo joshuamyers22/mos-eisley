@@ -30,20 +30,22 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.11 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.11)
-covers macOS and Linux on arm64 and x86_64 at frozen source `4d927ce`.
-It adds source/test-bound execution receipts to live coding review, retaining
-storage epoch 2 and the frozen dependency set. Main retains its newer dependencies.
+The published [**0.1.0-rc.12 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.12)
+covers macOS and Linux on arm64 and x86_64 at frozen source `2f75d42`.
+It corrects creator workflow instructions to require tested-candidate review and
+approval before integration, retaining concrete execution receipts, storage epoch
+2 and the frozen dependency set. Main retains its newer dependencies.
 
-The [qualification review](docs/RC11_QUALIFICATION_REVIEW.md) records four signed
+The [qualification review](docs/RC12_QUALIFICATION_REVIEW.md) records four signed
 installations, both-store installed matrices, twenty historical upgrade/refusal
-journeys, eight actual rc.9/rc.10 upgrade/rollback journeys and all 55 public asset
+journeys, twelve actual rc.9/rc.10/rc.11 upgrade/rollback journeys and all 55 public asset
 identities. Fresh installed snapshot subscription chat, steering, context and
-cold resume passed on macOS arm64. The new receipts reached both critics and the
-judge, but plan review stopped because the creator placed implementation review
-after integration. Seven calls completed; no integration or SQLite live cases
-ran. Full live-workflow qualification remains incomplete. The next correction is
-creator workflow ordering before a new candidate and fresh qualification. npm/tap
+cold resume passed on macOS arm64. Both plan critics and the judge accepted;
+candidate tests and the OpenAI implementation critic passed. Claude's
+implementation critic exceeded its 60-second native deadline (RC12-SUB-01):
+eleven calls were dispatched and ten completed, with no integration or SQLite
+live cases. Full live-workflow qualification remains incomplete. The next item is
+native deadline diagnosis and disposition before fresh qualification. npm/tap
 routes remain separately versioned; earlier failed campaigns remain preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
