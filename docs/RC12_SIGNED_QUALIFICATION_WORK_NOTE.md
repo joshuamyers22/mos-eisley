@@ -1,6 +1,8 @@
 # rc.12 signed qualification
 
-- Status: active. Owner Joshua Myers; operator Codex. Started 2026-10-31 UTC.
+- Status: closed at the declared stopping rule; signed distribution passed,
+  installed live qualification incomplete (RC12-SUB-01). Owner Joshua Myers;
+  operator Codex. Started and reviewed 2026-10-31 UTC.
 - Frozen application: `2f75d429c87b3b48c946832ff9c73748abf94efe`, rc.12,
   storage epoch 2. PR #344 merged normally after all 13 required checks passed.
 - Protected exact-tag release run: `41149254988`, attempt 1. Existing release
@@ -71,4 +73,24 @@ base review admits 38 reports and 55 official candidate assets. The actual
 signed macOS arm64 guardian/offline-worker probe also passed, including its
 bound receipt, invalid-lease refusals and exact container removal. Private rc.12
 installation and both pinned native readiness checks passed without inference.
-The actual rc.11 predecessor journeys and fresh live campaign remain pending.
+PR #345 passed all 17 required checks and merged normally as
+`a4b296203178fcecd733cc2118b3f994ded767b8`, preserving the exact tested tree.
+Additional run `41228212608`, attempt 1, passed all four actual rc.11 upgrade,
+rollback and recovery journeys. Combined independent review admits 42 reports.
+The owner published immutable release `430032833` at `2026-10-31T15:57:38Z`,
+before the additional/live review; all 55 public asset identities and immutable
+attestation match. No operator preparation/publication approval was submitted.
+
+The single fresh signed macOS arm64 subscription campaign passed snapshot chat,
+steering, cold resume, context, plan review and candidate tests. Claude's
+implementation critic exceeded the unchanged 60-second native deadline:
+11 dispatches, 10 completions, one uncertain call; SQLite zero, no integration.
+Global stop preserved the unused 17-call capacity. Read-only audit confirmed
+unchanged workspace/protected files, scripts and all prior campaigns, and exact
+removal of both live worker containers. No resume, retry or replacement scope
+was attempted. See the [qualification review](RC12_QUALIFICATION_REVIEW.md) for
+hashes, scope, finding and remaining work. The [offline diagnosis](RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md)
+confirms native-exchange timeout ambiguity and missing progress receipts. Next:
+bounded redacted diagnostics before a separately bounded fresh campaign. Full v1 acceptance remains
+open. Closeout changes documentation only; applicable checks are relative links,
+artifact identities and `git diff --check`.

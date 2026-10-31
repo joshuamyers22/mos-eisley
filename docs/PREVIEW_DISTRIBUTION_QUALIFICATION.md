@@ -2,6 +2,25 @@
 
 ## Current published preview
 
+[Immutable rc.12](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.12)
+published on 2026-10-31 at `2f75d429c87b3b48c946832ff9c73748abf94efe`
+through [protected run 41149254988, attempt 1](https://github.com/joshuamyers22/mos-eisley/actions/runs/41149254988).
+All four signed installations, both-store installed matrices, twenty historical
+upgrade/refusal journeys and twelve actual rc.9/rc.10/rc.11 upgrade/rollback
+journeys passed. The combined review admits 42 reports; all 55 immutable public
+assets match the signed inventory. The four rc.11 reports remain separate
+[run artifacts](https://github.com/joshuamyers22/mos-eisley/actions/runs/41228212608).
+Fresh snapshot chat/steering/context/cold resume and plan review passed, but
+Claude's implementation critic reached its 60-second native deadline
+(RC12-SUB-01). Eleven calls dispatched, ten completed; no integration or SQLite
+live cases ran. Signed distribution qualification is complete; full installed
+live-workflow qualification remains incomplete. The owner published before
+additional/live closeout. See the [rc.12 review](RC12_QUALIFICATION_REVIEW.md)
+for exact identities, retained failure and limitations. Earlier
+[rc.11 evidence](RC11_QUALIFICATION_REVIEW.md) remains unchanged.
+
+## Previous rc.10 publication
+
 [Immutable rc.10](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.10)
 published on 2026-10-29 at `9ffd540674cc322857c05f09bcaf8dc816b3ff64` through
 [protected run 40785649978, attempt 2](https://github.com/joshuamyers22/mos-eisley/actions/runs/40785649978).
