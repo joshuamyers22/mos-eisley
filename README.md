@@ -30,24 +30,25 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.12 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.12)
-covers macOS and Linux on arm64 and x86_64 at frozen source `2f75d42`.
-It corrects creator workflow instructions to require tested-candidate review and
-approval before integration, retaining concrete execution receipts, storage epoch
-2 and the frozen dependency set. Main retains its newer dependencies.
+The published [**0.1.0-rc.13 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.13)
+covers macOS and Linux on arm64 and x86_64 at frozen source `8c76907`.
+It adds bounded, redacted progress to native Claude process failures, retaining
+creator review ordering, concrete execution receipts, storage epoch 2 and the
+frozen dependency set. Main retains its newer dependencies.
 
-The [qualification review](docs/RC12_QUALIFICATION_REVIEW.md) records four signed
+The [qualification review](docs/RC13_QUALIFICATION_REVIEW.md) records four signed
 installations, both-store installed matrices, twenty historical upgrade/refusal
-journeys, twelve actual rc.9/rc.10/rc.11 upgrade/rollback journeys and all 55 public asset
-identities. Fresh installed snapshot subscription chat, steering, context and
-cold resume passed on macOS arm64. Both plan critics and the judge accepted;
-candidate tests and the OpenAI implementation critic passed. Claude's
-implementation critic exceeded its 60-second native deadline (RC12-SUB-01):
-eleven calls were dispatched and ten completed, with no integration or SQLite
-live cases. Full live-workflow qualification remains incomplete. The
-[timeout diagnosis](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) identifies missing native
-progress evidence; bounded redacted diagnostics are needed before a fresh run. npm/tap
-routes remain separately versioned; earlier failed campaigns remain preserved.
+journeys, sixteen actual rc.9/10/11/12 upgrade/rollback journeys, four offline
+progress matrices and all 67 public asset identities. One separately authorized
+Claude diagnostic completed in 55.84 seconds under the unchanged 60-second
+deadline, with one dispatch and no retry. Successful calls produce no failure
+progress receipt; offline checks qualify those receipts on all four targets.
+The [earlier rc.12 campaign](docs/RC12_QUALIFICATION_REVIEW.md) remains closed
+with one uncertain call, no integration and no SQLite live cases. The
+[historical timeout cause](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) remains unknown.
+Full installed live-workflow qualification remains incomplete and needs a fresh
+campaign; this diagnostic does not complete it. npm/tap routes remain separately
+versioned; earlier failed campaigns remain preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.
