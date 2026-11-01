@@ -78,3 +78,21 @@ Markdown; its tested 860 application inputs remain identical. No passed gate
 was repeated for that documentation update. A fresh
 installed candidate and a separately bounded native call remain subsequent work;
 this batch cannot resolve the historical Claude internal cause.
+
+
+## PR #353 qualification-tool correction (2026-11-01 UTC)
+
+Initial CI run `41249733827` passed the full source and package suites, but
+failed the separately typed subscription qualification tool: its patched init
+observer still used the stream reader's former two-argument signature. The
+application-only local typecheck did not include that tool. Correct the observer
+signature and forward its bounded stream observations; extract its unchanged
+init/cancellation logic for three offline regression cases. No application
+source, tests or dependency bytes changed from the completed full gate; the two
+revised tool files are explicitly excluded from that unchanged-input claim.
+
+Affected revalidation passes 19 tool cases, strict typing of all three
+qualification files, Ruff/format and a fresh distribution build. Retain the
+initial failed CI and all previous passing full-suite evidence. The updated
+head must pass fresh required CI, including the full source/package suites and
+this separate tool check, before normal merge. No provider call was used.

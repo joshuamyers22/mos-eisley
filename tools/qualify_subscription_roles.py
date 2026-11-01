@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import subprocess
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -65,6 +66,39 @@ def write(path: Path, value: dict[str, JsonValue]) -> None:
         codex_subscription.write_receipt(parent, path.name, value)
     finally:
         os.close(parent)
+
+
+native_read_stream = codex_subscription.read_stream
+
+
+async def read_native_init(
+    stream: asyncio.StreamReader,
+    limit: int,
+    progress: codex_subscription.NativeProgress,
+    observation: codex_subscription.StreamObservation,
+    on_init: Callable[[], None],
+) -> bytes:
+    """Observe init for cancellation while retaining the runner's safe metrics."""
+    if limit != codex_subscription.MAX_EVENTS:
+        return await native_read_stream(stream, limit, progress, observation)
+    chunks: list[bytes] = []
+    size = 0
+    pending: bytes = b""
+    while part := await stream.read(4096):
+        observation.observe(len(part), progress.elapsed_ms())
+        size += len(part)
+        if size > limit:
+            raise ValueError("Native cancellation event limit exceeded")
+        chunks.append(part)
+        pending += part
+        while b"\n" in pending:
+            parts: list[bytes] = pending.split(b"\n", 1)
+            line, pending = parts[0], parts[1]
+            value = json.loads(line)
+            if value.get("type") == "system" and value.get("subtype") == "init":
+                on_init()
+    observation.eof = True
+    return b"".join(chunks)
 
 
 def prepare(args: argparse.Namespace) -> None:
@@ -394,32 +428,21 @@ async def exercise(root: Path) -> dict[str, JsonValue]:
         original = claude_subscription.invoke
         cancelled_task: asyncio.Task[ModelResponse] | None = None
         native_started = asyncio.Event()
-        original_read = codex_subscription.read_stream
 
-        async def observe_read(stream: asyncio.StreamReader, limit: int) -> bytes:
-            if limit != codex_subscription.MAX_EVENTS:
-                return await original_read(stream, limit)
-            chunks: list[bytes] = []
-            size = 0
-            pending: bytes = b""
-            while part := await stream.read(4096):
-                size += len(part)
-                if size > limit:
-                    raise ValueError("Native cancellation event limit exceeded")
-                chunks.append(part)
-                pending += part
-                while b"\n" in pending:
-                    parts: list[bytes] = pending.split(b"\n", 1)
-                    line = parts[0]
-                    pending = parts[1]
-                    value = json.loads(line)
-                    if value.get("type") == "system" and value.get("subtype") == "init":
-                        assert cancelled_task is not None
-                        native_started.set()
-                        asyncio.get_running_loop().call_later(
-                            0.25, cancelled_task.cancel
-                        )
-            return b"".join(chunks)
+        def on_native_init() -> None:
+            assert cancelled_task is not None
+            native_started.set()
+            asyncio.get_running_loop().call_later(0.25, cancelled_task.cancel)
+
+        async def observe_read(
+            stream: asyncio.StreamReader,
+            limit: int,
+            progress: codex_subscription.NativeProgress,
+            observation: codex_subscription.StreamObservation,
+        ) -> bytes:
+            return await read_native_init(
+                stream, limit, progress, observation, on_native_init
+            )
 
         async def observe_invoke(
             executable: Path,
