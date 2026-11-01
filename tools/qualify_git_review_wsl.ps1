@@ -59,7 +59,7 @@ $bootstrap = @'
 set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y git make curl ca-certificates tmux build-essential
+apt-get install -y git make curl ca-certificates tmux build-essential nodejs
 useradd --create-home --shell /bin/bash mosqual
 curl --fail --location --retry 3 https://github.com/astral-sh/uv/releases/download/0.13.4/uv-x86_64-unknown-linux-gnu.tar.gz --output /tmp/mos-uv.tar.gz
 echo '2b428396f12572d4429cf210ca234dd599a33b3af0958a4d5ed569d63e3f344f  /tmp/mos-uv.tar.gz' | sha256sum --check
@@ -76,6 +76,7 @@ $bundleLinux = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user
 $run = @'
 set -eu
 export PATH=/usr/local/bin:/usr/bin:/bin
+node --version
 umask 077
 cd ~
 cp "$3" source.bundle

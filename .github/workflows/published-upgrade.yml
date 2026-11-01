@@ -49,7 +49,7 @@ jobs:
           # not the current application's incompatible storage-epoch policy.
           ref: ${{ env.CANDIDATE_SOURCE }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
         with:
           version: '0.13.4'
       - run: uv sync --frozen --dev
