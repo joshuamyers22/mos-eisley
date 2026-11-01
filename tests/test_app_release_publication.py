@@ -508,6 +508,8 @@ class DraftPublicationTests(unittest.TestCase):
         for version, release_id, commit in (
             ("9", "424828190", "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23"),
             ("10", "428076837", "9ffd540674cc322857c05f09bcaf8dc816b3ff64"),
+            ("11", "429106203", "4d927cea23ff18f6aa9d231f7c342ee8e2420c84"),
+            ("12", "430032833", "2f75d429c87b3b48c946832ff9c73748abf94efe"),
         ):
             step = next(
                 s
@@ -527,6 +529,18 @@ class DraftPublicationTests(unittest.TestCase):
                 self.assertIn(required, str(step["run"]))
             self.assertNotIn("continue-on-error", step)
             self.assertNotIn("if", step)
+        progress = next(
+            s
+            for s in qualification_steps
+            if s.get("name") == "Qualify signed offline native progress receipts"
+        )
+        self.assertIn("tools/qualify_native_progress.py", str(progress["run"]))
+        self.assertIn('--expected-source "$SOURCE_COMMIT"', str(progress["run"]))
+        self.assertIn(
+            "qualification-progress-${{ matrix.os }}.json", str(progress["run"])
+        )
+        self.assertNotIn("if", progress)
+        self.assertNotIn("continue-on-error", progress)
         self.assertEqual(publish["environment"], "application-release")
         steps = [mapping(s) for s in cast(list[object], publish["steps"])]
         upload = next(

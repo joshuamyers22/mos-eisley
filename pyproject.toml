@@ -1,6 +1,6 @@
 [project]
 name = "mos-eisley"
-version = "0.1.0-rc.12"
+version = "0.1.0-rc.13"
 description = "Foundations for reproducible adversarial code review"
 readme = "README.md"
 requires-python = ">=3.12"

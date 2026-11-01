@@ -29,6 +29,7 @@ jobs:
         run: |
           uv run --frozen python -m unittest discover -s tools -p test_installed_candidate_qualification.py -v
           uv run --frozen pyright tools/qualify_installed_candidate.py tools/test_installed_candidate_qualification.py
+          uv run --frozen pyright tools/qualify_native_progress.py tests/test_native_progress_qualification.py
   package:
     runs-on: ubuntu-latest
     timeout-minutes: 90

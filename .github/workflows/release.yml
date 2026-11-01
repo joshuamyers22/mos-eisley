@@ -187,6 +187,33 @@ jobs:
           gh release download v0.1.0-rc.10 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.10-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc10
           chmod 700 ".work/published-predecessor-rc10/mos-install-$UPGRADE_PLATFORM"
           uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc10 --predecessor-version 0.1.0-rc.10 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc10-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.11
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.11" --jq 'select(.id == 429106203 and .immutable == true and .draft == false and .target_commitish == "4d927cea23ff18f6aa9d231f7c342ee8e2420c84") | .id' > predecessor-rc11-id.txt
+          test "$(cat predecessor-rc11-id.txt)" = 429106203
+          gh release download v0.1.0-rc.11 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.11-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc11
+          chmod 700 ".work/published-predecessor-rc11/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc11 --predecessor-version 0.1.0-rc.11 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc11-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.12
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.12" --jq 'select(.id == 430032833 and .immutable == true and .draft == false and .target_commitish == "2f75d429c87b3b48c946832ff9c73748abf94efe") | .id' > predecessor-rc12-id.txt
+          test "$(cat predecessor-rc12-id.txt)" = 430032833
+          gh release download v0.1.0-rc.12 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.12-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc12
+          chmod 700 ".work/published-predecessor-rc12/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc12 --predecessor-version 0.1.0-rc.12 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc12-$UPGRADE_PLATFORM.json"
+      - name: Qualify signed offline native progress receipts
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: uv run --frozen python tools/qualify_native_progress.py --artifacts dist/standalone --expected-source "$SOURCE_COMMIT" --expected-version "${RELEASE_TAG#v}" --evidence dist/standalone/qualification-progress-${{ matrix.os }}.json
       - name: Qualify generated signed Homebrew preview formula
         if: runner.os == 'macOS'
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-${{ matrix.os }}.json
