@@ -173,6 +173,7 @@ def main() -> int:
             "test_codex_subscription.py",
             "test_claude_subscription.py",
             "test_native_progress.py",
+            "test_native_progress_qualification.py",
             "test_subscription_authorization.py",
             "test_subscription_launch.py",
             "test_startup_capture.py",
@@ -386,6 +387,7 @@ def main() -> int:
         for name in (
             "smoke_app_distribution.py",
             "qualify_published_upgrade.py",
+            "qualify_native_progress.py",
             "capture_startup.py",
         ):
             (helpers / name).write_text((Path("tools") / name).read_text())
