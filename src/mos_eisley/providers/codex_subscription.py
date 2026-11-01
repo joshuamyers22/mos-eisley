@@ -22,6 +22,11 @@ from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Tur
 from mos_eisley.platform.files import UnsupportedPlatformError
 from mos_eisley.platform.posix_storage_native import NativeRootQueries
 from mos_eisley.platform.storage import StorageAdmissionError
+from mos_eisley.providers.native_progress import (
+    NativeProgress,
+    NativeProgressReceipt,
+    StreamObservation,
+)
 from mos_eisley.tools.mcp_schema import compile_schema, valid_instance
 
 CLIENT_VERSION = "0.163.0"
@@ -50,6 +55,7 @@ class NativeProcessError(ProviderError):
             failure_stage="response" if reason == "deadline" else "exchange",
         )
         self.process_reason = reason
+        self.progress: NativeProgressReceipt | None = None
 
 
 CLIENT_ENVIRONMENT = {
@@ -180,16 +186,23 @@ def select_client(explicit: Path | None = None, *, name: str = "codex") -> Path:
     return resolved
 
 
-async def read_stream(stream: asyncio.StreamReader, limit: int) -> bytes:
+async def read_stream(
+    stream: asyncio.StreamReader,
+    limit: int,
+    progress: NativeProgress,
+    observation: StreamObservation,
+) -> bytes:
     chunks: list[bytes] = []
     size = 0
     while chunk := await stream.read(4096):
+        observation.observe(len(chunk), progress.elapsed_ms())
         size += len(chunk)
         if size > limit:
             raise NativeProcessError(
                 "output_limit", "Subscription client exceeded its output limit"
             )
         chunks.append(chunk)
+    observation.eof = True
     return b"".join(chunks)
 
 
@@ -237,37 +250,61 @@ async def invoke(
         ) from None
     assert process.stdin is not None and process.stdout is not None
     assert process.stderr is not None
+    progress = NativeProgress()
     readers = (
-        asyncio.create_task(read_stream(process.stdout, output_limit)),
-        asyncio.create_task(read_stream(process.stderr, MAX_STDERR)),
+        asyncio.create_task(
+            read_stream(process.stdout, output_limit, progress, progress.stdout)
+        ),
+        asyncio.create_task(
+            read_stream(process.stderr, MAX_STDERR, progress, progress.stderr)
+        ),
     )
+    failure: NativeProcessError | None = None
     try:
         async with asyncio.timeout(timeout):
             process.stdin.write(data)
             await process.stdin.drain()
+            progress.stdin_drained = True
             process.stdin.close()
+            progress.phase = "output"
             stdout, stderr = await asyncio.gather(*readers)
+            progress.phase = "exit"
             code = await process.wait()
         return code, stdout, stderr
     except TimeoutError:
-        raise NativeProcessError(
+        failure = NativeProcessError(
             "deadline",
             "Subscription request timed out; Mos will not repeat this invocation",
-        ) from None
+        )
+        raise failure from None
+    except NativeProcessError as error:
+        failure = error
+        raise
     except OSError:
-        raise NativeProcessError(
-            "exchange", "Subscription client exchange failed"
-        ) from None
+        failure = NativeProcessError("exchange", "Subscription client exchange failed")
+        raise failure from None
     finally:
         for reader in readers:
             reader.cancel()
         await asyncio.gather(*readers, return_exceptions=True)
+        elapsed_ms = progress.elapsed_ms()
+        leader_exited = process.returncode is not None
+        cleanup_completed = False
         try:
             await _stop(process)
+            cleanup_completed = True
         except (OSError, TimeoutError):
-            raise NativeProcessError(
+            failure = NativeProcessError(
                 "cleanup", "Subscription client cleanup failed"
-            ) from None
+            )
+            raise failure from None
+        finally:
+            if failure is not None:
+                failure.progress = progress.receipt(
+                    elapsed_ms=elapsed_ms,
+                    leader_exited=leader_exited,
+                    cleanup_completed=cleanup_completed,
+                )
 
 
 async def status(executable: Path) -> dict[str, JsonValue]:

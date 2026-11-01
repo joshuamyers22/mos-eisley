@@ -172,6 +172,7 @@ def main() -> int:
             "test_anthropic_provider.py",
             "test_codex_subscription.py",
             "test_claude_subscription.py",
+            "test_native_progress.py",
             "test_subscription_authorization.py",
             "test_subscription_launch.py",
             "test_startup_capture.py",
