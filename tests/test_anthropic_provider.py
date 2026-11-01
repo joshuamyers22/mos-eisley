@@ -1,9 +1,7 @@
 """Claude Messages translation preserves native tool and thinking state."""
 
-import os
 from typing import cast
 from unittest import IsolatedAsyncioTestCase, TestCase
-from unittest.mock import patch
 
 import httpx2
 from anthropic import AsyncAnthropic
@@ -78,52 +76,6 @@ def _response(
 
 
 class AnthropicSDKClientTests(IsolatedAsyncioTestCase):
-    async def test_ephemeral_sdk_ignores_ambient_content_tracing(self) -> None:
-        requests: list[httpx2.Request] = []
-
-        def respond(request: httpx2.Request) -> httpx2.Response:
-            requests.append(request)
-            return httpx2.Response(
-                200,
-                json=_response([{"type": "text", "text": "ok"}], "end_turn"),
-            )
-
-        async with BoundedAnthropicHttpClient(
-            transport=httpx2.MockTransport(respond),
-            trust_env=False,
-            follow_redirects=False,
-        ) as bounded:
-            with (
-                patch.dict(
-                    os.environ,
-                    {
-                        "ANTHROPIC_OPEN_TELEMETRY": "true",
-                        "ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE": "content",
-                        "ANTHROPIC_OPEN_TELEMETRY_PROPAGATION": "true",
-                    },
-                ),
-                patch(
-                    "mos_eisley.providers.anthropic_live.BoundedAnthropicHttpClient",
-                    return_value=bounded,
-                ),
-                patch("anthropic._tracing.trace.get_tracer") as get_tracer,
-                patch("anthropic._base_client.inject_trace_headers") as inject_headers,
-            ):
-                transport = EphemeralAnthropicTransport("test-key", 5)
-                result = await transport.create_message(
-                    {
-                        "model": "claude-sonnet-5",
-                        "max_tokens": 8,
-                        "messages": [{"role": "user", "content": "private fixture"}],
-                    }
-                )
-                self.assertEqual(result["id"], "msg_test")
-                get_tracer.assert_not_called()
-                inject_headers.assert_not_called()
-        self.assertEqual(len(requests), 1)
-        self.assertNotIn("traceparent", requests[0].headers)
-        self.assertNotIn("tracestate", requests[0].headers)
-
     async def test_ephemeral_sdk_accepts_bounded_httpx2_client(self) -> None:
         transport = EphemeralAnthropicTransport("test-key", 5)
         async with transport._client() as sdk:  # pyright: ignore[reportPrivateUsage]

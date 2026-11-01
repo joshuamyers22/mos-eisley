@@ -1,12 +1,12 @@
 [project]
 name = "mos-eisley"
-version = "0.1.0-rc.12"
+version = "0.1.0-rc.13"
 description = "Foundations for reproducible adversarial code review"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 dependencies = [
-    "anthropic>=2,<3",
+    "anthropic>=0.75,<2",
     "anyio>=4.15,<5",
     "certifi>=2026.10.19",
     "cryptography>=50,<51",
@@ -36,7 +36,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 distribution = ["pyinstaller==6.22.3"]
-dev = ["pyright==1.1.414", "ruff==0.17.1", "coverage>=7.10,<8", "hatchling==1.32.4"]
+dev = ["pyright==1.1.414", "ruff==0.16.9", "coverage>=7.10,<8", "hatchling==1.32.4"]
 
 [tool.ruff]
 target-version = "py312"
