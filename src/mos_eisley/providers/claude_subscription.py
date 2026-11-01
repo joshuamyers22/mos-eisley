@@ -517,6 +517,12 @@ class ClaudeSubscriptionClient:
                                     0, int((time.monotonic() - process_started) * 1000)
                                 ),
                             ),
+                            **(
+                                {"progress": error.progress.model_dump(mode="json")}
+                                if isinstance(error, NativeProcessError)
+                                and error.progress is not None
+                                else {}
+                            ),
                         },
                     )
                     raise
