@@ -7,7 +7,7 @@ import io
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, patch
 
 from qualify_claude_subscription import main as diagnostic_main
@@ -16,7 +16,7 @@ from qualify_claude_subscription import read_diagnostic_request
 from qualify_claude_subscription import read_scope as read_diagnostic_scope
 from qualify_claude_subscription import run as run_diagnostic
 from qualify_subscription_roles import main as qualification_main
-from qualify_subscription_roles import prepare, read_prepared_scope
+from qualify_subscription_roles import prepare, read_native_init, read_prepared_scope
 
 from mos_eisley.conversation_subscription import SubscriptionChatIdentity
 from mos_eisley.core.models import canonical_bytes, digest
@@ -325,3 +325,54 @@ class PreparedScopeTests(TestCase):
             with self.assertRaises(FileExistsError):
                 asyncio.run(run_diagnostic(root))
             self.assertEqual(native.await_count, 1)
+
+
+class NativeInitObservationTests(IsolatedAsyncioTestCase):
+    async def test_stdout_init_tracks_progress_and_calls_once(self) -> None:
+        from mos_eisley.providers.codex_subscription import MAX_EVENTS
+        from mos_eisley.providers.native_progress import NativeProgress
+
+        stream = asyncio.StreamReader()
+        payload = b'{"type":"system","subtype":"init"}\n'
+        stream.feed_data(payload)
+        stream.feed_eof()
+        progress = NativeProgress()
+        observed: list[bool] = []
+        raw = await read_native_init(
+            stream, MAX_EVENTS, progress, progress.stdout, lambda: observed.append(True)
+        )
+        self.assertEqual(raw, payload)
+        self.assertEqual(observed, [True])
+        self.assertEqual(progress.stdout.bytes_observed, len(payload))
+        self.assertTrue(progress.stdout.eof)
+
+    async def test_stderr_uses_original_bounded_reader_without_init_callback(
+        self,
+    ) -> None:
+        from mos_eisley.providers.native_progress import NativeProgress
+
+        stream = asyncio.StreamReader()
+        payload = b"private fixture diagnostic"
+        stream.feed_data(payload)
+        stream.feed_eof()
+        progress = NativeProgress()
+        observed: list[bool] = []
+        raw = await read_native_init(
+            stream, 32000, progress, progress.stderr, lambda: observed.append(True)
+        )
+        self.assertEqual(raw, payload)
+        self.assertEqual(observed, [])
+        self.assertEqual(progress.stderr.bytes_observed, len(payload))
+        self.assertTrue(progress.stderr.eof)
+
+    async def test_stderr_limit_still_refuses(self) -> None:
+        from mos_eisley.providers.codex_subscription import NativeProcessError
+        from mos_eisley.providers.native_progress import NativeProgress
+
+        stream = asyncio.StreamReader()
+        stream.feed_data(b"x" * 100)
+        stream.feed_eof()
+        progress = NativeProgress()
+        with self.assertRaises(NativeProcessError):
+            await read_native_init(stream, 20, progress, progress.stderr, lambda: None)
+        self.assertFalse(progress.stderr.eof)

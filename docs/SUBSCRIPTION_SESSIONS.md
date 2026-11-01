@@ -42,6 +42,12 @@ provide all three existing acknowledgement flags: `--allow-data-transfer`,
 `--allow-subscription-usage` and
 `--accept-unverified-billing-and-native-retries`.
 
+Claude native-process failure receipts can include [bounded progress
+metadata](NATIVE_PROGRESS_RECEIPTS.md): input-drain state, stream byte counts,
+timings/EOF, leader exit and cleanup completion. They retain no client text or
+credentials and do not authorize retry or change the admitted deadline. Earlier
+receipts may omit these observations.
+
 The following lower-level commands remain available for explicit role grants and
 coding integration.
 
