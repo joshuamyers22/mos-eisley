@@ -43,12 +43,15 @@ progress matrices and all 67 public asset identities. One separately authorized
 Claude diagnostic completed in 55.84 seconds under the unchanged 60-second
 deadline, with one dispatch and no retry. Successful calls produce no failure
 progress receipt; offline checks qualify those receipts on all four targets.
-The [earlier rc.12 campaign](docs/RC12_QUALIFICATION_REVIEW.md) remains closed
-with one uncertain call, no integration and no SQLite live cases. The
+The subsequent [fresh installed campaign](docs/RC13_INSTALLED_LIVE_QUALIFICATION_REVIEW.md)
+passed snapshot chat/cold resume, plan review and candidate tests, but Claude
+implementation review exceeded the same deadline (RC13-SUB-01): eleven dispatches,
+ten completions, no integration and no SQLite live calls. Its redacted receipt
+records stdout near the deadline, open streams, a running leader and completed
+cleanup. Full installed live-workflow qualification remains incomplete.
+The [earlier rc.12 campaign](docs/RC12_QUALIFICATION_REVIEW.md) stays closed and its
 [historical timeout cause](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) remains unknown.
-Full installed live-workflow qualification remains incomplete and needs a fresh
-campaign; this diagnostic does not complete it. npm/tap routes remain separately
-versioned; earlier failed campaigns remain preserved.
+npm/tap routes remain separately versioned; earlier failed campaigns are preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.
