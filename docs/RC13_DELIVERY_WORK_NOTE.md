@@ -1,6 +1,7 @@
 # rc.13 diagnostics delivery and one-call qualification
 
-- Status: active. Owner Joshua Myers; operator Codex. Started 2026-10-31 UTC.
+- Status: closed, authorized delivery complete. Owner Joshua Myers; operator
+  Codex. Started 2026-10-31 UTC; completed 2026-11-01 UTC.
 - Authority: finish/review/merge PR #353, freeze rc.13, protected signing,
   affected signed installation/upgrade/offline diagnostics, then one fresh bounded
   Claude diagnostic invocation. Keep rc.12's uncertain call and all prior evidence
@@ -156,3 +157,31 @@ passed again before commit. Full log SHA256:
 `8bf425dee4714a8d82f0d5f2cdbac34dd983c7f1b57fba4adff1a3933e30a1aa`.
 Required integration CI, main merge, exact-candidate tag/signing, signed
 qualification and the one fresh diagnostic call remain pending.
+
+
+## Closeout, 2026-11-01 UTC
+
+[The final qualification review](RC13_QUALIFICATION_REVIEW.md) records all four
+completed steps. Integration PR #354 passed all 17 checks and merged normally
+as `0603949`; the exact frozen `8c76907` tag remains an ancestor of main.
+Protected run 41342968889, attempt 1, passed signing and all four signed jobs.
+Strict review passed 50 reports and 67 assets, including four progress matrices
+and four actual rc.12 upgrades. The owner separately published immutable release
+430907808 at 22:43:52Z; its complete inventory and attestation verified. Operator
+approval covered preparation/signing only, never publication.
+
+The signed macOS arm64 installation matched its qualified native hash and disabled
+updates. Fresh installed Claude readiness preceded one new finite authorization.
+The exact-source host-orchestrated diagnostic completed in 55.84 seconds at
+22:46:33Z, one reservation/dispatch/completion, no retry or API fallback. Its
+synthetic critic decision was `accept`. Success produces no failure-progress
+receipt; offline signed tests qualify that path. All 121 old rc.12 campaign files
+outside nested Git internals and all candidate/harness inputs stayed unchanged.
+No historical cause, old uncertain completion, full coding/integration campaign,
+SQLite live acceptance or broader readiness is claimed. The one-call task stops
+here; any full installed live-workflow campaign requires fresh authority.
+
+Durable facts are indexed in `PROJECT_MEMORY.md`; the README identifies the
+published preview and remaining acceptance gap. This closeout changes documents
+only; documentation/link, evidence identity and diff checks apply. No provider
+call is rerun for documentation validation.
