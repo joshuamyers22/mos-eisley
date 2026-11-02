@@ -117,9 +117,12 @@ review. Prompts, native output, grants and credentials stay out of Git. These ar
 ordinary engineering receipts; no sampling registry, custodian mapping, label
 store or outcome store was read, and no evaluation eligibility is claimed.
 
-The authorized four-step delivery is complete. The next separate task is a fresh
-installed live-workflow campaign under a new explicit budget and grant, including
-both stores and complete coding/integration evidence. This one-call success
-does not close the earlier campaign's missing integration or SQLite cases.
+The authorized four-step delivery is complete. A subsequently authorized
+[fresh installed live-workflow campaign](RC13_INSTALLED_LIVE_QUALIFICATION_REVIEW.md)
+stopped at another Claude implementation-critic deadline (RC13-SUB-01), with
+11 dispatches, 10 completions, no integration and SQLite zero. Its new progress
+receipt records stdout data near the deadline, open streams, a running leader
+and completed cleanup. Both campaigns remain closed. The one-call success
+does not close either campaign's missing integration or SQLite cases.
 Conversational `/review`, npm/tap routes, WSL2/native Windows and stable/public
 launch retain their existing independent qualification gates.
