@@ -11,6 +11,7 @@ from pydantic import JsonValue
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import JsonSchemaOutput, ModelRequest, TextBlock, Turn
 from mos_eisley.providers.claude_subscription import (
+    ENVELOPE_SYSTEM,
     ClaudeProtocolError,
     ClaudeSubscriptionClient,
     parse_result,
@@ -542,6 +543,7 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
                 await client.complete(request())
                 arguments = native.call_args.args[1]
                 for flag in (
+                    "--system-prompt",
                     "--safe-mode",
                     "--restricted",
                     "--strict-mcp-config",
@@ -551,6 +553,16 @@ class ClaudeTests(unittest.IsolatedAsyncioTestCase):
                 ):
                     self.assertIn(flag, arguments)
                 self.assertEqual(arguments[arguments.index("--tools") + 1], "")
+                self.assertEqual(
+                    arguments[arguments.index("--system-prompt") + 1], ENVELOPE_SYSTEM
+                )
+                payload = json.loads(native.call_args.kwargs["data"])
+                self.assertEqual(
+                    payload["messages"],
+                    [turn.model_dump(mode="json") for turn in request().turns],
+                )
+                self.assertEqual(payload["instructions"], request().system)
+                self.assertEqual(arguments[arguments.index("--max-turns") + 1], "1")
                 self.assertNotIn("Synthetic fixture", str(arguments))
                 with self.assertRaises(FileExistsError):
                     await client.complete(request())

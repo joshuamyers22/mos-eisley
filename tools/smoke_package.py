@@ -174,6 +174,7 @@ def main() -> int:
             "test_claude_subscription.py",
             "test_native_progress.py",
             "test_claude_event_progress.py",
+            "test_model_review_diagnostics.py",
             "test_native_progress_qualification.py",
             "test_subscription_authorization.py",
             "test_subscription_launch.py",
