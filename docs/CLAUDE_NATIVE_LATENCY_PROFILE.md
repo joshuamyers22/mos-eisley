@@ -35,8 +35,12 @@ explicit preparation selections are `--inference-timeout-seconds 120` and
 Its existing offline tests verify exact 120-second selection while retaining
 the global invocation, input/output, coding-wall and correction ceilings.
 
-Full installed qualification remains open. Before another campaign, resolve and
-verify the probe's invalid `ModelReview` artifact boundary, review the exact
+Full installed qualification remains open. A
+[fresh validation diagnostic](MODEL_REVIEW_DIAGNOSTICS_WORK_NOTE.md) completed
+natively in 39.737 seconds but returned 159 non-JSON bytes. Source corrections
+make the native request envelope explicit and align the advertised review schema
+with runtime rules; their post-fix live behavior remains unverified. Before
+another campaign, verify those corrections in the exact signed candidate, review the exact
 candidate/profile, refresh native readiness and obtain fresh bounded campaign
 authority. Any newly authorized campaign must retain the first-unplanned-failure
 stop rule and every earlier ledger unchanged. This task authorizes no further

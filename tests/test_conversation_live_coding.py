@@ -505,6 +505,13 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
         )
         self.assertNotIn("reserved_microusd", receipt)
         self.assertEqual(receipt["reserved_invocations"], 10)
+        diagnostics = list(
+            (self.artifacts / ("1" * 32) / "coding-0000").glob("call-*/validation.json")
+        )
+        self.assertEqual(len(diagnostics), 6)
+        self.assertTrue(
+            all(json.loads(p.read_bytes())["status"] == "valid" for p in diagnostics)
+        )
         self.assertEqual(
             (self.repo / "adder.py").read_text(), "def add(a,b):\n    return a+b\n"
         )
@@ -780,6 +787,13 @@ class LiveCodingTests(IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "different frozen subject"):
             await self.run_workflow()
         self.assertNotIn("child", self.models.roles)
+        receipt = json.loads(
+            (
+                self.artifacts / ("1" * 32) / "coding-0000/call-02/validation.json"
+            ).read_bytes()
+        )
+        self.assertEqual(receipt["stage"], "binding")
+        self.assertFalse(receipt["subject_matches"])
 
     async def test_expired_selection_stops_without_any_provider_call(self) -> None:
         self.workflow.selection = self.selection.model_copy(

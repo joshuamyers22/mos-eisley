@@ -12,7 +12,7 @@ from pathlib import Path
 from threading import Event
 from typing import Annotated, Literal, Protocol, Self
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from mos_eisley.coding_child import (
     CodeSnapshot,
@@ -36,6 +36,10 @@ from mos_eisley.core.budget import BudgetPolicy, resolve_budget
 from mos_eisley.core.models import Contract, Digest, Text, canonical_bytes, digest
 from mos_eisley.core.protocol import Effort, ReasoningBlock, TextBlock, Turn
 from mos_eisley.core.registry import anthropic_registry, openai_registry
+from mos_eisley.model_review_diagnostics import (
+    ModelReviewArtifactError,
+    validate_model_review,
+)
 from mos_eisley.run.coding_child import CodingExecutor
 from mos_eisley.run.coding_vcs import CodingVCS
 from mos_eisley.run.files import read_bounded
@@ -68,6 +72,9 @@ def packet_bytes(value: dict[str, object]) -> bytes:
 
 
 def decode_model[T: Contract](model: type[T], text: str) -> T:
+    if model is ModelReview:
+        value, _ = validate_model_review(model, text)
+        return value
     try:
         json.loads(text, object_pairs_hook=unique_object)
         return model.model_validate_json(text)
@@ -295,6 +302,25 @@ class CreatorPlan(Contract):
 
 
 class ModelReview(Contract):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "oneOf": [
+                {
+                    "properties": {
+                        "decision": {"enum": ["accept"]},
+                        "findings": {"maxItems": 0},
+                    }
+                },
+                {
+                    "properties": {
+                        "decision": {"enum": ["revise"]},
+                        "findings": {"minItems": 1},
+                    },
+                    "required": ["findings"],
+                },
+            ]
+        }
+    )
     subject_sha256: Digest
     decision: Literal["accept", "revise"]
     findings: Annotated[tuple[Text, ...], Field(max_length=16)] = ()
@@ -695,6 +721,18 @@ class LiveCodingWorkflow:
             "hashes. Raw test output is not disclosed in the review packet."
         )
 
+        def decode_review(text: str, subject_sha: str) -> ModelReview:
+            path = directory / f"call-{call_count:02d}" / "validation.json"
+            try:
+                value, receipt = validate_model_review(
+                    ModelReview, text, expected_subject=subject_sha
+                )
+            except ModelReviewArtifactError as error:
+                private_write(path, canonical_bytes(error.receipt))
+                raise
+            private_write(path, canonical_bytes(receipt))
+            return value
+
         async def review(subject: bytes) -> ModelReview:
             findings: list[tuple[str, ...]] = []
             subject_sha = digest(subject)
@@ -715,9 +753,7 @@ class LiveCodingWorkflow:
                         {"subject_sha256": subject_sha, "artifact": subject.decode()}
                     ),
                 )
-                result = decode_model(ModelReview, answer.final_text)
-                if result.subject_sha256 != subject_sha:
-                    raise ValueError("Critic reviewed a different frozen subject.")
+                result = decode_review(answer.final_text, subject_sha)
                 findings.append(result.findings if result.decision == "revise" else ())
             # Anonymous findings only: no route labels, author history or reasoning.
             answer = await call(
@@ -740,9 +776,7 @@ class LiveCodingWorkflow:
                     }
                 ),
             )
-            judged = decode_model(ModelReview, answer.final_text)
-            if judged.subject_sha256 != subject_sha:
-                raise ValueError("Judge adjudicated a different frozen subject.")
+            judged = decode_review(answer.final_text, subject_sha)
             return judged
 
         async def approve(
