@@ -336,7 +336,10 @@ class NativeInitObservationTests(IsolatedAsyncioTestCase):
         payload = b'{"type":"system","subtype":"init"}\n'
         stream.feed_data(payload)
         stream.feed_eof()
-        progress = NativeProgress()
+        fragments: list[bytes] = []
+        progress = NativeProgress(
+            stdout_observer=lambda chunk, elapsed: fragments.append(chunk)
+        )
         observed: list[bool] = []
         raw = await read_native_init(
             stream, MAX_EVENTS, progress, progress.stdout, lambda: observed.append(True)
@@ -345,6 +348,7 @@ class NativeInitObservationTests(IsolatedAsyncioTestCase):
         self.assertEqual(observed, [True])
         self.assertEqual(progress.stdout.bytes_observed, len(payload))
         self.assertTrue(progress.stdout.eof)
+        self.assertEqual(fragments, [payload, b""])
 
     async def test_stderr_uses_original_bounded_reader_without_init_callback(
         self,

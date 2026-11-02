@@ -40,9 +40,12 @@ semantics; it does not acquire a completed provider result.
 
 No prompt, output, stderr excerpt, native event value, path, PID, argument,
 environment, credential or arbitrary exception text enters the progress object.
-No native-event parser, log discovery, telemetry sink or new transport is added.
-The shared runner observes both clients, but this batch persists the new object
-only through Claude's existing native-process failure receipt.
+The generic object contains no event details. A separate bounded
+[Claude event-state observer](CLAUDE_EVENT_DIAGNOSTICS.md) now records fixed
+milestones and terminal-prefix validation in `event-progress.json`; generic
+progress schema 1 and failure shapes remain compatible. No log discovery,
+telemetry sink or new transport is added. The shared runner observes both clients,
+but generic failure progress is persisted through Claude's existing receipt.
 
 Timeouts, stream/output ceilings, private no-overwrite receipt writes, process
 ownership and replay refusal remain authoritative. A progress receipt does not

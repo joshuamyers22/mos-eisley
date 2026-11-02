@@ -201,8 +201,12 @@ async def read_stream(
             raise NativeProcessError(
                 "output_limit", "Subscription client exceeded its output limit"
             )
+        if observation is progress.stdout:
+            progress.observe_stdout(chunk)
         chunks.append(chunk)
     observation.eof = True
+    if observation is progress.stdout:
+        progress.observe_stdout(b"")
     return b"".join(chunks)
 
 
@@ -225,6 +229,7 @@ async def invoke(
     data: bytes = b"",
     timeout: float = 15,
     output_limit: int = MAX_EVENTS,
+    stdout_observer: Callable[[bytes, int], None] | None = None,
 ) -> tuple[int, bytes, bytes]:
     if os.name != "posix":
         raise NativeProcessError(
@@ -250,7 +255,7 @@ async def invoke(
         ) from None
     assert process.stdin is not None and process.stdout is not None
     assert process.stderr is not None
-    progress = NativeProgress()
+    progress = NativeProgress(stdout_observer=stdout_observer)
     readers = (
         asyncio.create_task(
             read_stream(process.stdout, output_limit, progress, progress.stdout)

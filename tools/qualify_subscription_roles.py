@@ -89,6 +89,7 @@ async def read_native_init(
         size += len(part)
         if size > limit:
             raise ValueError("Native cancellation event limit exceeded")
+        progress.observe_stdout(part)
         chunks.append(part)
         pending += part
         while b"\n" in pending:
@@ -98,6 +99,7 @@ async def read_native_init(
             if value.get("type") == "system" and value.get("subtype") == "init":
                 on_init()
     observation.eof = True
+    progress.observe_stdout(b"")
     return b"".join(chunks)
 
 
@@ -452,6 +454,7 @@ async def exercise(root: Path) -> dict[str, JsonValue]:
             data: bytes = b"",
             timeout: float = 15,
             output_limit: int = codex_subscription.MAX_EVENTS,
+            stdout_observer: Callable[[bytes, int], None] | None = None,
         ) -> tuple[int, bytes, bytes]:
             if "--print" in arguments:
                 with patch.object(codex_subscription, "read_stream", observe_read):
@@ -462,6 +465,7 @@ async def exercise(root: Path) -> dict[str, JsonValue]:
                         data=data,
                         timeout=timeout,
                         output_limit=output_limit,
+                        stdout_observer=stdout_observer,
                     )
             return await original(
                 executable,
@@ -470,6 +474,7 @@ async def exercise(root: Path) -> dict[str, JsonValue]:
                 data=data,
                 timeout=timeout,
                 output_limit=output_limit,
+                stdout_observer=stdout_observer,
             )
 
         cancelled_request = request.model_copy(
