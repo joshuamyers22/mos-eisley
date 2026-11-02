@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
@@ -62,6 +63,13 @@ class NativeProgress:
     stdin_drained: bool = False
     stdout: StreamObservation = field(default_factory=StreamObservation)
     stderr: StreamObservation = field(default_factory=StreamObservation)
+    stdout_observer: Callable[[bytes, int], None] | None = field(
+        default=None, repr=False
+    )
+
+    def observe_stdout(self, chunk: bytes) -> None:
+        if self.stdout_observer is not None:
+            self.stdout_observer(chunk, self.elapsed_ms())
 
     def elapsed_ms(self) -> int:
         return min(

@@ -16,6 +16,7 @@ from pydantic import JsonValue, TypeAdapter
 from mos_eisley.core.models import canonical_bytes
 from mos_eisley.core.ports import ProviderError
 from mos_eisley.core.protocol import ModelRequest, ModelResponse, TextBlock, Turn, Usage
+from mos_eisley.providers.claude_event_progress import ClaudeEventObserver
 from mos_eisley.providers.codex_subscription import (
     MAX_EVENTS,
     MAX_INPUT,
@@ -490,6 +491,9 @@ class ClaudeSubscriptionClient:
                     self.dispatch_guard()
                 write_receipt(directory, "dispatch.json", {"state": "dispatch_started"})
                 process_started = time.monotonic()
+                event_progress = ClaudeEventObserver(
+                    lambda raw: parse_result(raw, request)
+                )
                 try:
                     code, raw, diagnostic = await invoke(
                         self.executable,
@@ -497,8 +501,14 @@ class ClaudeSubscriptionClient:
                         cwd,
                         data=payload,
                         timeout=self.timeout,
+                        stdout_observer=event_progress.observe,
                     )
                 except ProviderError as error:
+                    if (
+                        isinstance(error, NativeProcessError)
+                        and error.process_reason == "output_limit"
+                    ):
+                        event_progress.mark_limited()
                     write_receipt(
                         directory,
                         "failure.json",
@@ -526,6 +536,20 @@ class ClaudeSubscriptionClient:
                         },
                     )
                     raise
+                finally:
+                    event_progress.discard_content()
+                    write_receipt(
+                        directory,
+                        "event-progress.json",
+                        event_progress.receipt(
+                            adapter_elapsed_ms=min(
+                                1_000_000,
+                                max(
+                                    0, int((time.monotonic() - process_started) * 1000)
+                                ),
+                            )
+                        ).model_dump(mode="json"),
+                    )
                 if code != 0:
                     hint = "unclassified"
                     native_diagnostic = (raw + diagnostic).lower()
