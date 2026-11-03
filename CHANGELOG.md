@@ -4,6 +4,17 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.14 — qualification candidate
+
+- Add bounded, redacted Claude event and ModelReview validation diagnostics.
+- Define the native request envelope explicitly and align the advertised review
+  schema with strict decision/findings rules; retain frozen-subject validation.
+- Qualify the actual immutable rc.13 predecessor and signed offline event-state
+  receipts on all four native targets, including refusal of an open final-result
+  process. Source-level review-contract checks are disclosed separately.
+- Select 120-second deadlines only through fresh qualification grants. Post-fix
+  installed live acceptance remains subject to the new bounded campaign.
+
 ## 0.1.0-rc.9 — qualification candidate
 
 - Repair the frozen Linux Git launcher with a fixed internal helper entry point,
