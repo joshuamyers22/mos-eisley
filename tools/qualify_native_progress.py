@@ -12,10 +12,124 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from pydantic import JsonValue
+
 from mos_eisley.app_release import parse_release, platform_id, verify_archive
+from mos_eisley.conversation_live_coding import ModelReview
+from mos_eisley.model_review_diagnostics import (
+    ModelReviewArtifactError,
+    validate_model_review,
+)
+from mos_eisley.providers.claude_event_progress import ClaudeEventReceipt
+from mos_eisley.providers.claude_subscription import ENVELOPE_SYSTEM
 from mos_eisley.providers.native_progress import NativeProgressReceipt
 
 MARKER = "offline-private-native-text"
+
+
+def review_contract() -> dict[str, object]:
+    """Source-level contracts; the installed live campaign covers the binary path."""
+    subject = "a" * 64
+    cases = (
+        ("not JSON " + MARKER, "invalid_json"),
+        ('{"decision":"accept","decision":"revise"}', "duplicate_keys"),
+        (
+            json.dumps(
+                {"subject_sha256": subject, "decision": "accept", "findings": [MARKER]}
+            ),
+            "decision_findings_conflict",
+        ),
+        (
+            json.dumps({"subject_sha256": "b" * 64, "decision": "accept"}),
+            "subject_mismatch",
+        ),
+        (
+            json.dumps(
+                {
+                    "subject_sha256": subject,
+                    "decision": "accept",
+                    **{MARKER + str(i): MARKER for i in range(100)},
+                }
+            ),
+            "extra_field",
+        ),
+    )
+    reasons: list[str] = []
+    for text, expected in cases:
+        try:
+            validate_model_review(ModelReview, text, expected_subject=subject)
+        except ModelReviewArtifactError as error:
+            receipt = error.receipt
+        else:
+            raise ValueError("source review contract admitted a malformed fixture")
+        raw = receipt.model_dump_json()
+        if (
+            receipt.issues[0].code != expected
+            or MARKER in raw
+            or len(raw.encode()) >= 4096
+            or len(receipt.issues) > 16
+        ):
+            raise ValueError("source review diagnostic contract differs")
+        reasons.append(expected)
+    _, valid = validate_model_review(
+        ModelReview,
+        json.dumps({"subject_sha256": subject, "decision": "accept"}),
+        expected_subject=subject,
+    )
+    if valid.status != "valid" or valid.subject_matches is not True:
+        raise ValueError("source review contract refused a valid bound fixture")
+    return {
+        "scope": "exact_candidate_source_not_installed_model_review_path",
+        "rejected_reasons": reasons,
+        "valid_bound_review": True,
+        "redacted_bounded_receipts": True,
+    }
+
+
+def terminal_events() -> str:
+    events: list[dict[str, JsonValue]] = [
+        {
+            "type": "system",
+            "subtype": "init",
+            "tools": [],
+            "mcp_servers": [],
+            "model": "claude-sonnet-5",
+            "permissionMode": "dontAsk",
+            "session_id": "fixture-session",
+        },
+        {
+            "type": "system",
+            "subtype": "thinking_tokens",
+            "session_id": "fixture-session",
+            "uuid": "fixture-thinking",
+            "estimated_tokens": 1,
+            "estimated_tokens_delta": 1,
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "model": "claude-sonnet-5",
+                "content": [{"type": "text", "text": MARKER}],
+            },
+        },
+        {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "num_turns": 1,
+            "permission_denials": [],
+            "session_id": "fixture-session",
+            "result": MARKER,
+            "modelUsage": {"claude-sonnet-5": {}},
+            "usage": {
+                "input_tokens": 5,
+                "output_tokens": 3,
+                "cache_read_input_tokens": 0,
+                "cache_creation_input_tokens": 0,
+            },
+        },
+    ]
+    return "\n".join(json.dumps(e, separators=(",", ":")) for e in events) + "\n"
 
 
 def sha(path: Path) -> str:
@@ -37,6 +151,14 @@ def probe(
         ),
         "exit_wait": "exec 1>&- 2>&-\nexec /bin/sleep 30\n",
         "inherited_pipe": "/bin/sh -c 'trap \"\" TERM; exec /bin/sleep 30' &\nexit 0\n",
+        "valid_result_wait": (
+            "printf '%s' " + shlex.quote(terminal_events()) + "\nexec /bin/sleep 30\n"
+        ),
+        "invalid_result_wait": (
+            "printf '%s' "
+            + shlex.quote(terminal_events().replace('"num_turns":1', '"num_turns":2'))
+            + "\nexec /bin/sleep 30\n"
+        ),
     }
     results: dict[str, object] = {}
     for name, body in bodies.items():
@@ -49,6 +171,10 @@ def probe(
             "if [ \"$1\" = auth ]; then printf '%s\\n' "
             '\'{"loggedIn":true,"authMethod":"claude.ai",'
             '"apiProvider":"firstParty"}\'; exit 0; fi\n'
+            'found=0\nwhile [ "$#" -gt 0 ]; do\n'
+            'if [ "$1" = --system-prompt ]; then shift; '
+            f'[ "$1" = {shlex.quote(ENVELOPE_SYSTEM)} ] || exit 91; found=1; fi\n'
+            'shift\ndone\n[ "$found" = 1 ] || exit 92\n'
             f"printf x >> {shlex.quote(str(dispatch))}\n"
             "/bin/cat > /dev/null\n" + body
         )
@@ -110,6 +236,22 @@ def probe(
         ):
             raise ValueError("offline native failure reason differs")
         progress = NativeProgressReceipt.model_validate(failure["progress"])
+        event_raw = (attempt / "event-progress.json").read_bytes()
+        event = ClaudeEventReceipt.model_validate_json(event_raw)
+        if MARKER.encode() in event_raw or str(client).encode() in event_raw:
+            raise ValueError("event receipt exposed fixture content")
+        if len(event_raw) >= 4096 or event.inspection_limited:
+            raise ValueError("event receipt is unbounded or inspection incomplete")
+        if name.endswith("result_wait") and (
+            event.init.count != 1
+            or event.thinking.count != 1
+            or event.assistant.count != 1
+            or event.result.count != 1
+            or event.result_validation
+            != ("valid" if name == "valid_result_wait" else "invalid")
+            or event.stdout_eof
+        ):
+            raise ValueError("terminal result observation differs")
         if not progress.stdin_drained or not progress.cleanup_completed:
             raise ValueError("offline exchange or cleanup did not finish correctly")
         if name == "silent" and (
@@ -149,10 +291,13 @@ def probe(
             retry.returncode != 2
             or dispatch.read_bytes() != b"x"
             or (attempt / "failure.json").read_bytes() != raw
+            or (attempt / "event-progress.json").read_bytes() != event_raw
         ):
             raise ValueError("failed native attempt was replayed or repaired")
         results[name] = {
             "progress": progress.model_dump(mode="json"),
+            "event_progress": event.model_dump(mode="json"),
+            "static_envelope_verified": True,
             "replay_refused": True,
         }
     return results
@@ -261,7 +406,8 @@ def qualify(artifacts: Path, evidence: Path, source: str, version: str) -> None:
         "publisher": "enrolled_production_root_unpatched",
         "host_python_node_on_path": False,
         "paid_calls": 0,
-        "synthetic_dispatches": 4,
+        "synthetic_dispatches": 6,
+        "source_review_contract": review_contract(),
         "private_fixture_home": True,
         "cases": results,
         "publication_authorized": False,
