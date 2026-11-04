@@ -496,7 +496,13 @@ def build_sbom(
 def validate_sbom(root: Path, commit: str, version: str | None = None) -> None:
     path = root / "release-sbom.cdx.json"
     regular(path, MAX_BOM)
-    if _json(path.read_bytes()) != build_sbom(root, commit, version):
+    # Python mapping equality equates True with 1. Compare typed canonical JSON
+    # so malformed scalar substitutions cannot pass as a standards-valid BOM.
+    observed = json.dumps(_json(path.read_bytes()), sort_keys=True, allow_nan=False)
+    expected = json.dumps(
+        build_sbom(root, commit, version), sort_keys=True, allow_nan=False
+    )
+    if observed != expected:
         raise ValueError("SBOM completeness or artifact binding mismatch")
 
 

@@ -186,6 +186,13 @@ class SbomTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "platform set"):
             build_sbom(self.root, COMMIT)
 
+    def test_json_boolean_cannot_replace_integer_bom_version(self) -> None:
+        value = self.write()
+        value["version"] = True
+        (self.root / "release-sbom.cdx.json").write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "completeness"):
+            validate_sbom(self.root, COMMIT)
+
     def test_duplicate_json_and_unsafe_export_refuse(self) -> None:
         (self.root / "release-sbom.cdx.json").write_text('{"version":1,"version":1}')
         with self.assertRaisesRegex(ValueError, "duplicate"):

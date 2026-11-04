@@ -58,7 +58,7 @@ not reinterpret historical rc.14 qualification under the new publisher contract.
 
 ## Verification and handoff
 
-Focused boundary checks pass: 17 SBOM/archive/diagnostic tests, 18 publication
+Focused boundary checks pass: 18 SBOM/archive/diagnostic tests, 18 publication
 checks and 42 distribution checks; strict source and release-tool typing and
 format/lint pass. Official CycloneDX 1.6 schema validation is offline; the
 publisher remains stdlib-only. The all-target CI assembly inventories real native
@@ -98,7 +98,16 @@ the retained real four-platform software set (with unsigned auxiliary fixtures
 and locally rebuilt wheel/sdist metadata) yields 6,484 components. The original
 failure remains in [run 41928827372](https://github.com/joshuamyers22/mos-eisley/actions/runs/41928827372).
 
-Combined gate and final-head hosted checks are pending. PR #363 is the candidate
+A typed-JSON refusal control also reproduced Python mapping equality treating
+boolean `true` as integer BOM version `1`. Admission now compares typed canonical
+JSON and rejects non-finite scalars; it cannot accept that standards-invalid
+substitution. The regression fails before the correction and passes afterward.
+The corrected retained inventory passes official schema validation and independent
+bootstrap-reader size/hash agreement on every embedded member (receipt SHA-256
+`ae6fc1285956087c7b42f9de527e5ab8fafa71cd0c05f190e3a211d01bcab2ae`).
+
+Combined gate and final-head hosted checks are pending; this is the pre-CI freeze
+record. Subsequent exact-head results are recorded in PR #363's body/check rollup. PR #363 is the candidate
 review; no release tag has been created. Preserve the current dependency set; regenerate the lock only
 for the project version bump. Add actual rc.14 predecessor admission for the new
 candidate. Publication and separately authorized affected signed qualification
