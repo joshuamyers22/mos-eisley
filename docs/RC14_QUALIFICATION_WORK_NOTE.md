@@ -1,6 +1,8 @@
 # rc.14 signed and installed live qualification
 
-- Status: candidate code and offline verification complete; exact-head CI pending.
+- Status: signed/offline qualification complete; original live campaign stopped at
+  RC14-HARNESS-01 after successful snapshot coding. SQLite remains unpaid and
+  untested; its grant expired. See [evidence review](RC14_QUALIFICATION_REVIEW.md).
   Owner Joshua Myers; operator Codex.
 - Authority: the owner's explicit four-step request: freeze rc.14 incorporating
   merged source `11fe46514e7962731023538fc50789c8b9d7fd45`, protected build/sign,
@@ -61,7 +63,7 @@ retries remain unverified. A planned cancellation is distinct from an unplanned
 failure. Full v1/stable launch and unrelated distribution routes stay separately
 gated.
 
-## Evidence
+## Preparation evidence (recorded before freeze)
 
 Fresh remote main equals `11fe465`; rc.14 tag is unused. Actual rc.13 release is
 immutable, published and pinned to its expected source. Candidate, CI, protected
@@ -105,3 +107,24 @@ defect in the new copy only, and bound the intended 120-second/8192-token limits
 All nine historical evidence roots remain separate. Actual source/image/native
 bindings, signed installation, fresh readiness and grants remain pending. The
 pinned client versions and Docker are available; no new inference has run.
+
+## Final disposition of the original campaign
+
+Candidate `ec3211e` merged in PR #359 after all 17 checks; immutable rc.14 tag and
+protected run 41699667393 passed all four signed jobs. The actual review admitted
+54 reports and 71 prepared assets. Snapshot completed the installed workflow
+through exact creator approval, integration and fresh tests, including two valid
+Claude reviews under 120 seconds. Its planned cancellation correctly refused
+resume without replay, but a host assertion expected older error wording and
+stopped the original controller. That exit 1 and all original bytes are retained.
+The corrected assertion passes bounded offline positive/negative checks.
+
+Closeout independently rechecked source, installed files, signed report hashes,
+review/approval bindings, worker removal and all nine older roots without grants
+or provider calls. SQLite remains zero calls and its untouched grant expired.
+Full both-store qualification is incomplete. A fresh SQLite-only continuation is
+prepared with at most 14 calls, the same native profile, a one-hour grant and
+45-minute wall/monotonic ceilings; it requires explicit new owner authority. No
+snapshot repetition, scope reopening, renewal or retry is authorized by this
+record. Publication approval was not submitted; release-by-tag returned 404.
+See the evidence review for hashes, limitations and the final disposition.
