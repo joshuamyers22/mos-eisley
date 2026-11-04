@@ -1,8 +1,9 @@
 # rc.14 signed and installed live qualification
 
-- Status: signed/offline qualification complete; original live campaign stopped at
-  RC14-HARNESS-01 after successful snapshot coding. SQLite remains unpaid and
-  untested; its grant expired. See [evidence review](RC14_QUALIFICATION_REVIEW.md).
+- Status: signed/offline qualification passes on all four targets; combined
+  installed live evidence passes both stores on macOS arm64 after a separately
+  authorized SQLite-only run. Original stopped evidence remains unchanged.
+  Publication awaits owner review. See [evidence review](RC14_QUALIFICATION_REVIEW.md).
   Owner Joshua Myers; operator Codex.
 - Authority: the owner's explicit four-step request: freeze rc.14 incorporating
   merged source `11fe46514e7962731023538fc50789c8b9d7fd45`, protected build/sign,
@@ -128,3 +129,25 @@ prepared with at most 14 calls, the same native profile, a one-hour grant and
 snapshot repetition, scope reopening, renewal or retry is authorized by this
 record. Publication approval was not submitted; release-by-tag returned 404.
 See the evidence review for hashes, limitations and the final disposition.
+
+## Separately authorized SQLite completion
+
+The owner approved the prepared SQLite-only proposal. One fresh scope completed
+with controller exit 0 in 224.556 monotonic / 224.543 wall seconds, within both
+45-minute limits: 14 dispatches, 13 completions, one planned owned cancellation
+and fail-closed resume without replay. Chat, steering, contextual cold resume,
+plan and implementation reviews, exact creator approval before integration,
+source-only integration, fresh tests and post-coding cold resume passed. Each
+store's fresh integrated execution receipt has three tests, exit 0 and no
+failures/errors/skips. Both SQLite Claude reviews returned valid bound artifacts
+in 36.338s and 34.664s. All four new coding workers are independently absent.
+
+Read-only combined review verifies 28 task dispatches, 26 completions and two
+planned uncertain cancellations; all twelve ModelReview artifacts and exact
+approval subjects/order; eight removed workers; source/native/harness identity;
+54 signed reports; all nine older roots and the original rc.14 root unchanged.
+No original scope was resumed and snapshot was not repeated. Combined both-store
+installed live acceptance is complete for this exact macOS arm64 candidate.
+Original controller exit 1 remains historical evidence, disclosed separately
+from the successful SQLite controller. No further inference or runtime change is
+needed. Accountable owner publication review and the protected gate remain.

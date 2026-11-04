@@ -1,11 +1,13 @@
 # rc.14 qualification evidence review
 
-Disposition as of 2026-11-04: signed distribution and offline qualification pass;
-the snapshot installed live workflow is evidenced through integration and fresh
-tests. Full both-store live qualification remains incomplete. The original live
-controller stopped with exit 1 at a host assertion after planned cancellation;
-SQLite made zero calls. Publication approval has not been submitted. GitHub's
-release-by-tag endpoint returned 404 during this review.
+Disposition as of 2026-11-04: signed distribution/offline qualification passes on
+all four macOS/Linux targets. Combined installed live evidence on macOS arm64
+passes for snapshot and SQLite through review, creator approval, integration and
+fresh tests. The separately authorized SQLite-only controller exited 0 in 224.556
+monotonic seconds. The original controller's exit 1 at a host assertion remains
+preserved and disclosed; it is not retroactively labeled passing. Publication
+approval has not been submitted; the protected workflow is waiting. GitHub's
+release-by-tag endpoint returned 404 during the preceding review.
 
 ## Frozen identity and candidate gate
 
@@ -60,7 +62,7 @@ Actual rc.13 predecessor release `430907808` is pinned to source
 `8c7690733af1bbc4861911d2c0a2a516961985da`; all ten predecessors' enrolled
 metadata/checksum bindings were verified. The reports required zero provider calls.
 
-## Installed live evidence and stopped boundary
+## Installed snapshot evidence and original stopped boundary
 
 The actual signed macOS arm64 executable SHA256 is
 `9f2651de14244fd0d46bf620b35797118c83d1a9ab3315e8d3790e2b4c931405`.
@@ -109,11 +111,54 @@ offline controls reject unrelated missing artifacts, absent guard failure and
 wrong exit/opened-conversation cases. The original harness, stopped controller,
 ledgers and failed output remain unchanged; its exit 1 is not relabeled a pass.
 
-SQLite has zero reservations, dispatches and completions. Its untouched grant
-expired during the audit. No continuation, renewal, retry or further inference
-followed the global stop. Full both-store acceptance remains open.
+At the original stop, SQLite had zero reservations, dispatches and completions.
+Its untouched grant expired during the audit. No continuation or renewal of that
+scope followed; it remains unchanged. The owner subsequently authorized a fresh
+SQLite-only scope, as recorded below.
 
-## Evidence retention and next admissible work
+## Fresh SQLite-only qualification and combined review
+
+After the owner approved the concrete SQLite-only proposal, a separate new scope
+used at most 14 calls, the same 120-second/8,192-token profile, a one-hour grant,
+45-minute wall/monotonic ceilings, 600-second coding wall and zero corrections.
+Its native readiness was checked immediately before authorization. No snapshot
+scope was repeated and no original grant or uncertain slot was reopened.
+
+The SQLite controller exited 0 in 224.556 monotonic / 224.543 wall seconds. It
+completed chat, steering, cold resume, contextual follow-up, provider-diverse plan
+review, creator approval, child implementation, candidate tests, implementation
+review, exact creator approval before integration, source-only integration and
+fresh integrated tests. Both stores' fresh integrated execution receipts report
+three tests, exit 0, no failures/errors/skips and unchanged frozen test files.
+Post-coding cold resume passed without replay. Planned cancellation removed the
+owned native process group; subsequent resume refused before conversation opening
+and made zero additional calls. The corrected assertion verified the exact
+missing-completion guard without weakening the CLI's redaction.
+
+SQLite's six ModelReview artifacts are valid and subject-bound. Both phase judges
+accepted, and creator approvals match their exact subjects and judge hashes.
+Its four actual coding workers are independently absent. Claude plan review
+completed in 36.338s (valid result 36.123s, EOF 36.330s); implementation review
+completed in 34.664s (valid result 34.454s, EOF 34.655s). These are two additional
+observations under the qualified profile, not a general latency guarantee.
+
+The final read-only combined reconstruction passed: 28 total dispatches, 26 native
+completions and two deliberately cancelled uncertain slots, with 14/13 per store.
+It revalidated all twelve ModelReview artifacts, exact approval order, source-only
+integration, protected tests/sentinels, fresh integrated tests, eight absent coding
+workers, all 54 signed report hashes, installed/source identity and harness hashes.
+All nine historical roots and the entire original rc.14 campaign root remain
+unchanged, including its unused SQLite grant and failed controller. No further
+inference, renewal, repair, model substitution or automatic retry occurred.
+
+The combined evidence closes both-store installed live acceptance for this exact
+candidate on macOS arm64. Four-target signed/offline qualification remains a
+separate, passed scope. The original aggregate controller remains nonpassing;
+RC14-HARNESS-01 is closed by exact offline diagnosis and the successful fresh
+SQLite cancellation/refusal check. No runtime change or replacement candidate is
+indicated. Accountable owner release review and protected publication remain.
+
+## Evidence retention and publication gate
 
 Private evidence is under the frozen candidate's `.work/`; no raw native content,
 authorization grants or credentials are copied into this tracked review.
@@ -124,23 +169,21 @@ authorization grants or credentials are copied into this tracked review.
 | `rc14-stop-boundary-review.json` | `b1252ae4fb95e6254efd440d47ced52c95a75c39cf22adedff95a7e71389e832` |
 | `refusal-harness-correction-review.json` | `1090087545937ed77f20242c88c7fa6360297f8c949e972ffea759971ec695da` |
 | `rc14-sqlite-harness-review.json` | `0c25da4abbf73641145b08f3f5040ccc39704cbb6a223266c3b17338e05179b7` |
+| `rc14-sqlite-qualification/subscriptions/summary.json` | `12cd5b0fb7f3662a4bb5431f12a80f68f8727df2c10b2dd3aa10250692e7e88f` |
+| `rc14-combined-live-review.json` | `773eb9dd6eb1d29e40d209a7ae6ada8bcad130ba23724b131d891e2a068ac6a5` |
 
 The read-only closeout rechecked all 54 signed report hashes, frozen inputs,
 installed files, original harness bindings, review/approval artifacts, removed
 containers and all nine historical evidence roots. Original rc.14 scope bytes
 also remained unchanged. It made zero new grants and zero provider calls.
 
-A fresh SQLite-only controller is prepared and checked offline. It refuses absent
-explicit new authority, creates no snapshot scope, and leaves the stopped original
-scope untouched. Proposed limits: at most 14 native calls (28 task total including
-snapshot), the same 120-second/8,192-token profile, one-hour grant, 45-minute wall
-and monotonic ceilings, 600-second coding wall, zero corrections/retries/renewals,
-and global stop on the first unplanned failure. No fresh scope or grant exists.
-New owner authorization is required because the original grant expired and the
-[qualification contract](RC14_QUALIFICATION_WORK_NOTE.md#budget-and-stop-rules)
-forbids renewal and requires stopping globally. Do not repeat snapshot or reopen
-any historical uncertain slot. No candidate runtime change is indicated by the
-host assertion defect. Review combined evidence after SQLite before publication.
+The fresh SQLite-only harness refused absent explicit authority during offline
+preparation; the owner then authorized exactly that bounded run. The successful
+summary and combined reconstruction above supplement the original failed
+controller without replacing or modifying it. The [qualification contract](RC14_QUALIFICATION_WORK_NOTE.md#budget-and-stop-rules)
+continues to prohibit grant renewal and replay. No additional inference is
+needed for this campaign. Keep publication behind accountable owner review of
+this exact evidence and the protected release gate.
 
 This owner-directed operator review is not an independent human security or
 release attestation. Ordinary engineering receipts confer no evaluation
