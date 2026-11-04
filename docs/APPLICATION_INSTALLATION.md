@@ -1,29 +1,29 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.9`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.9),
-source `f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23`, for macOS/Linux arm64 and x86_64.
-It repairs rc.8's Linux frozen Git launcher and includes scriptable execution,
-session recovery and the reviewed interface. Its four signed installations,
-both-store installed matrix, twenty actual-predecessor journeys and both generated
-macOS formula journeys passed. All 47 public assets match the qualified candidate;
-public bootstrap, both-store terminal/diff/resume/recovery and uninstall passed on
-macOS arm64. See [owner acceptance and public verification](RC9_PUBLICATION_WORK_NOTE.md).
+[immutable `0.1.0-rc.14`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.14),
+source `ec3211e23c4a3e2b20837114e707bc8ebcbe625a`, for macOS/Linux arm64 and x86_64.
+All four signed installations, both-store offline acceptance matrices, forty
+actual-predecessor upgrade/refusal journeys and expanded offline diagnostics pass.
+Both storage backends completed the installed live workflow on macOS arm64 under
+the explicit 120-second subscription profile, through review, creator approval,
+integration and fresh tests. All 71 public assets and the immutable attestation
+match the qualified candidate; fresh public macOS arm64 bootstrap/version/setup
+and runtime source hashes pass. See [owner acceptance and public verification](RC14_PUBLICATION_WORK_NOTE.md).
 npm and the public tap remain separately versioned. rc.8 remains unpublished and
 blocked on its original Linux artifacts.
 
-rc.9 uses storage epoch 2 for the recovery journal. Use its exact new
-installer for an upgrade; older installers reject the new signed metadata.
-Close all session controllers and back up private session stores before using the
-new version. Current readers can
-open legacy sessions, but old binaries reject sessions after new journal writes.
-The new runtime refuses rollback across epochs without changing the runtime
-pointer or retained state. Keep an epoch-2 reader for new sessions and use a
-forward fix if needed. Separate pre-upgrade backups remain readable by the old
-version and contain only the work saved before upgrade. Do not overwrite current
-sessions with those copies or restore/reset usage ledgers, grants or spending
-history. Backup readability qualification uses recorded sessions only. See
-[ADR 0019](adr/0019-recovery-release-storage-epoch.md).
+rc.14 retains storage epoch 2, introduced by rc.9 for the recovery journal. Use
+the exact current installer for an upgrade; older installers reject the new
+signed metadata. Close all session controllers and back up private session stores
+before upgrading. Current readers can open legacy sessions, but old binaries
+reject sessions after new journal writes. The runtime refuses rollback across
+epochs without changing the runtime pointer or retained state. Keep an epoch-2
+reader for new sessions and use a forward fix if needed. Separate pre-upgrade
+backups remain readable by the old version and contain only work saved before
+upgrade. Do not overwrite current sessions with those copies or restore/reset
+usage ledgers, grants or spending history. Backup readability qualification uses
+recorded sessions only. See [ADR 0019](adr/0019-recovery-release-storage-epoch.md).
 
 The initial [immutable `0.1.0-rc.1` preview](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.1)
 was published for macOS and Linux on arm64 and x86_64. Its standalone installers and all
@@ -44,10 +44,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.9` GitHub release, then run:
+`v0.1.0-rc.14` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.9
+sh install.sh --channel preview --version 0.1.0-rc.14
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -86,7 +86,7 @@ For offline installation, run the matching native bootstrap:
 
 ```sh
 ./mos-install-macos-aarch64 --metadata release.json \
-  --archive mos-0.1.0-rc.9-macos-aarch64.tar.gz --version 0.1.0-rc.9 --channel preview
+  --archive mos-0.1.0-rc.14-macos-aarch64.tar.gz --version 0.1.0-rc.14 --channel preview
 ```
 
 The default runtime root is `~/.local/share/mos-eisley-app`; the launcher is
