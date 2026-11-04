@@ -7,6 +7,7 @@ never deserialized or executed. No archive is extracted onto the host.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import stat
@@ -101,13 +102,48 @@ def _record(name: str, size: int, stream: IO[bytes]) -> FileRecord:
     )
 
 
+class _TarInput(io.RawIOBase):
+    """Bound decompression and tar's hidden PAX/GNU header reads before allocation."""
+
+    def __init__(self, stream: gzip.GzipFile) -> None:
+        self.stream = stream
+        self.position = 0
+
+    def tell(self) -> int:
+        return self.position
+
+    def read(self, size: int = -1) -> bytes:
+        if size < 0 or size > MAX_METADATA:
+            raise ValueError("tar read size bound exceeded")
+        if self.position + size > MAX_EXPANDED + MAX_FILES * 1024:
+            raise ValueError("tar decompression bound exceeded")
+        data = self.stream.read(size)
+        self.position += len(data)
+        return data
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        target = offset if whence == 0 else self.position + offset
+        if whence not in (0, 1) or target < self.position:
+            raise ValueError("non-forward tar inventory seek")
+        while self.position < target:
+            if not self.read(min(256 * 1024, target - self.position)):
+                raise ValueError("truncated tar inventory")
+        return self.position
+
+
 def tar_inventory(path: Path) -> Archive:
     regular(path)
     files: list[FileRecord] = []
     names: set[str] = set()
     expanded = 0
     retained = 0
-    with tarfile.open(path, "r:gz") as archive:
+    with (
+        gzip.open(path, "rb") as compressed,
+        tarfile.open(
+            fileobj=_TarInput(compressed),
+            mode="r:",
+        ) as archive,
+    ):
         for member in archive:
             name = safe_name(member.name.rstrip("/") if member.isdir() else member.name)
             if name in names or len(names) >= MAX_FILES:

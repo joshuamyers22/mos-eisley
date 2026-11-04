@@ -56,3 +56,7 @@ f8544c90ae6dfc8c0459406b866bb6c4a9a09d05:src/mos_eisley/reviewer_correction.py:g
 # Frozen SHA-256 of synthetic public binding data in the inert-codec legacy fixture.
 # Exact introducing commit/file/rule/line only; no credential bytes are present.
 6079b3ff1599706d6926aa40ded00d79885da3b5:tests/test_identity_legacy_fixtures.py:generic-api-key:34
+
+# Public SPDX license-name enumeration in the unmodified CycloneDX schema.
+# Exact introducing commit/file/rule/line only; no credential value is present.
+45c769b5d810ba6beb647967e160dfcb90a8ff34:tests/fixtures/sbom/spdx.schema.json:generic-api-key:1

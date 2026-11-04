@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import struct
@@ -198,6 +199,17 @@ class ReaderTests(unittest.TestCase):
             path.write_bytes(raw[:-10])
             with self.assertRaises(ValueError):
                 carchive_inventory(path)
+
+    def test_tar_extended_header_is_bounded_before_payload_allocation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bomb.tar.gz"
+            header = tarfile.TarInfo("./PaxHeaders/value")
+            header.type = tarfile.XHDTYPE
+            header.size = 128 * 1024 * 1024
+            # No giant allocation is needed to construct or reject this input.
+            path.write_bytes(gzip.compress(header.tobuf()))
+            with self.assertRaisesRegex(ValueError, "tar read size bound"):
+                tar_inventory(path)
 
     def test_tar_links_traversal_and_duplicate_names_refuse(self) -> None:
         for kind in ("link", "traversal", "duplicate"):
