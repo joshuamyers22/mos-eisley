@@ -1,9 +1,10 @@
 # Claude critic qualification latency profile, revision 2
 
-Use an explicit 120-second native deadline for the next separately authorized
-Sonnet 5/high qualification attempt through Claude Code 2.1.283. This is a
-revised qualification selection, not a claim of general reliability or a change
-to existing/default 60-second grants. No stopped scope is reopened or widened.
+Signed rc.14 qualified an explicit 120-second native deadline for Sonnet 5/high
+through Claude Code 2.1.283 within the installed macOS arm64 profile below. This
+is finite qualification evidence, not a general reliability claim or a change to
+existing/default 60-second grants. Future calls require their own current
+authorization; no stopped scope is reopened or widened.
 
 The [event diagnostic](CLAUDE_EVENT_DIAGNOSTICS.md) observed a validated terminal
 result at 49.492 seconds and EOF 179 ms later, after thinking metadata through
@@ -35,13 +36,26 @@ explicit preparation selections are `--inference-timeout-seconds 120` and
 Its existing offline tests verify exact 120-second selection while retaining
 the global invocation, input/output, coding-wall and correction ceilings.
 
-Full installed qualification remains open. A
-[fresh validation diagnostic](MODEL_REVIEW_DIAGNOSTICS_WORK_NOTE.md) completed
-natively in 39.737 seconds but returned 159 non-JSON bytes. Source corrections
-make the native request envelope explicit and align the advertised review schema
-with runtime rules; their post-fix live behavior remains unverified. Before
-another campaign, verify those corrections in the exact signed candidate, review the exact
-candidate/profile, refresh native readiness and obtain fresh bounded campaign
-authority. Any newly authorized campaign must retain the first-unplanned-failure
-stop rule and every earlier ledger unchanged. This task authorizes no further
-provider call, replacement probe, new full campaign or stable/public launch.
+The profile was subsequently exercised by signed rc.14
+`ec3211e23c4a3e2b20837114e707bc8ebcbe625a`: both storage backends completed the
+installed macOS arm64 workflow through review, exact creator approval, integration
+and fresh tests. Four Claude critic calls returned valid bound artifacts and EOF
+in 38.285/40.511 seconds (snapshot) and 36.338/34.664 seconds (SQLite). See
+[qualification evidence](RC14_QUALIFICATION_REVIEW.md) and
+[publication](RC14_PUBLICATION_WORK_NOTE.md). The original snapshot controller's
+host assertion failure is retained; the owner separately authorized a fresh
+SQLite-only run, whose controller passed in 224.556 seconds under stricter
+45-minute outer bounds. Snapshot was not repeated.
+
+The earlier [validation diagnostic](MODEL_REVIEW_DIAGNOSTICS_WORK_NOTE.md)
+completed natively in 39.737 seconds but returned 159 non-JSON bytes. That closed
+scope and all other historical uncertainty remain unchanged. rc.14's static
+native envelope instructions and strict schema/runtime alignment now have direct
+post-fix installed live evidence. No response repair, automatic retry or old
+scope renewal supplied that evidence.
+
+This qualifies the stated finite profile; it does not establish percentiles,
+production-like load/reliability, default 60-second success or another platform's
+native-client behavior. Those remain in the
+[fresh v1 assessment](V1_PRODUCTION_READINESS_RC14.md). This document grants no
+additional provider call, new campaign or stable launch authority.

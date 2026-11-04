@@ -1,5 +1,9 @@
 # Full conversational v1 production-readiness record
 
+Historical assessment of the September candidate. The current published-candidate
+assessment is [v1 readiness against rc.14](V1_PRODUCTION_READINESS_RC14.md); retain
+this record and its failures as history, not current release status.
+
 - Status: **not ready for production launch**
 - Owner: Joshua Myers
 - Assessed: 2026-09-28 UTC

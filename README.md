@@ -1,7 +1,7 @@
 # Mos Eisley
 
 A foundation for independent, multi-provider adversarial review of code changes.
-**Current maturity: qualified private live-review library; public launch gated.**
+**Current maturity: published macOS/Linux preview; stable v1 launch gated.**
 Recorded review remains the default; an explicit one-prompt OpenAI command is
 available. Paid commands remain tool-free; an explicit MCP adapter supplies data
 tools to the canonical agent port. The private owning-library critic/judge path has
@@ -14,13 +14,13 @@ An [explicit conversational live-review selection](docs/CONVERSATION_LIVE_REVIEW
 can route `/review` through the same one-attempt approval path. Scoped live reviews
 share an inert launch preview and retain exact source checks through signed
 dispatch and result publication. New briefs and release artifacts require their
-own qualification; ordinary chat remains recorded.
+own qualification; recorded chat remains the default.
 Offline model/effort evaluation planning and
 scoring tools exist, while automatic routing remains disabled. Study execution
 is deferred until Mos Eisley is launched and operating in production on real
 owner-authorized tasks; see
 [ADR-0011](docs/adr/0011-defer-studies-until-production.md).
-The planned GitHub publisher remains disabled: the pinned stock-GHP candidate
+Model-mediated GitHub publication through GHP remains disabled: the pinned stock-GHP candidate
 failed qualification and was rejected in
 [ADR 0005](docs/adr/0005-ghp-github-publication-boundary.md).
 
@@ -30,28 +30,28 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.13 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.13)
-covers macOS and Linux on arm64 and x86_64 at frozen source `8c76907`.
-It adds bounded, redacted progress to native Claude process failures, retaining
-creator review ordering, concrete execution receipts, storage epoch 2 and the
-frozen dependency set. Main retains its newer dependencies.
+The published [**0.1.0-rc.14 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.14)
+covers macOS/Linux arm64 and x86_64 at frozen source `ec3211e`. Four-target signed
+installation, both-store offline terminal/diff/recovery and native diagnostics,
+40 actual predecessor upgrade/refusal journeys, and all 71 public assets passed
+qualification. The immutable attestation and a fresh public macOS arm64 bootstrap
+were verified; see [owner acceptance and publication](docs/RC14_PUBLICATION_WORK_NOTE.md).
 
-The [qualification review](docs/RC13_QUALIFICATION_REVIEW.md) records four signed
-installations, both-store installed matrices, twenty historical upgrade/refusal
-journeys, sixteen actual rc.9/10/11/12 upgrade/rollback journeys, four offline
-progress matrices and all 67 public asset identities. One separately authorized
-Claude diagnostic completed in 55.84 seconds under the unchanged 60-second
-deadline, with one dispatch and no retry. Successful calls produce no failure
-progress receipt; offline checks qualify those receipts on all four targets.
-The subsequent [fresh installed campaign](docs/RC13_INSTALLED_LIVE_QUALIFICATION_REVIEW.md)
-passed snapshot chat/cold resume, plan review and candidate tests, but Claude
-implementation review exceeded the same deadline (RC13-SUB-01): eleven dispatches,
-ten completions, no integration and no SQLite live calls. Its redacted receipt
-records stdout near the deadline, open streams, a running leader and completed
-cleanup. Full installed live-workflow qualification remains incomplete.
-The [earlier rc.12 campaign](docs/RC12_QUALIFICATION_REVIEW.md) stays closed and its
-[historical timeout cause](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) remains unknown.
-npm/tap routes remain separately versioned; earlier failed campaigns are preserved.
+The [installed live qualification](docs/RC14_QUALIFICATION_REVIEW.md) completed
+snapshot and SQLite chat/cold resume and coding through valid provider-diverse
+reviews, exact creator approval, integration and fresh tests on macOS arm64 under
+the explicit 120-second subscription profile. The original host assertion failure
+and all earlier uncertain campaigns remain preserved; separately authorized
+SQLite qualification completed without repeating snapshot or replaying old calls.
+This is bounded profile evidence, not general reliability or other-platform live
+qualification. npm preview remains rc.1 and the public formula is rc.2 at the
+2026-11-04 assessment; a production macOS cask remains unqualified.
+
+The [fresh v1 readiness assessment](docs/V1_PRODUCTION_READINESS_RC14.md) credits
+those successes and records remaining stable-release gates. Its next concrete
+engineering task is useful SBOM generation and coverage validation: rc.14's
+published BOM contains no dependency components. Broader platform/install-route,
+privacy, operational, recovery and governance acceptance also remain open.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.
@@ -91,7 +91,8 @@ remain unverified.
 Source builds also provide `mos subscription chat --provider openai_subscription`
 and `mos subscription chat --provider anthropic_subscription` from a project
 directory, with interactive consent and bounded saved-session authorization.
-The published rc.7 includes this launcher and Codex 0.162.1/0.163.0 support.
+Published rc.14 retains the subscription launcher; the exact installed
+qualification used Codex 0.163.0 and Claude Code 2.1.283.
 
 Requires Python 3.12+ and uv; supported development targets are macOS and Linux.
 The recorded commands require no credentials or external services.

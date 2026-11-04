@@ -1544,3 +1544,15 @@ deploys an outward MCP service.
 
 The saved `docs/mos-eisley-plan.md` is design history including its adversarial review.
 Current implemented behavior is defined by the project brief, ADR and tests.
+
+## Fresh v1 readiness against published rc.14, 2026-11-04
+
+[Immutable rc.14](RC14_PUBLICATION_WORK_NOTE.md) completed protected publication,
+four-target signed/offline acceptance and both-store installed live qualification
+on macOS arm64. The [fresh assessment](V1_PRODUCTION_READINESS_RC14.md) preserves
+that scoped success and the older failures; full stable v1 remains blocked.
+The next independent engineering slice is SBOM generation/admission: the published
+BOM has no dependency components. Further owned gates cover the advertised native
+platform/profile and WSL2 matrix, current manager/cask lifecycle, privacy/egress,
+operability/latency, publisher/private-state restore and current-template governance
+disposition. Studies and learned routing retain their existing separate gates.
