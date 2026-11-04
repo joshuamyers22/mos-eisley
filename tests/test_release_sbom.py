@@ -244,6 +244,24 @@ class ReaderTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsafe"):
                 carchive_inventory(path)
 
+    def test_wheel_directory_is_bounded_before_zipfile_parses_it(self) -> None:
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.whl"
+            with zipfile.ZipFile(path, "w") as wheel:
+                wheel.writestr("a", "x")
+                wheel.writestr("b", "x")
+            raw = bytearray(path.read_bytes())
+            struct.pack_into("<2H", raw, len(raw) - 22 + 8, 1, 1)
+            path.write_bytes(raw)
+            with (
+                patch("tools.sbom_archive.zipfile.ZipFile") as parser,
+                self.assertRaisesRegex(ValueError, "count differs"),
+            ):
+                wheel_inventory(path)
+            parser.assert_not_called()
+
     def test_zip_symlink_and_metadata_resource_bounds_refuse(self) -> None:
         import stat
         import zipfile

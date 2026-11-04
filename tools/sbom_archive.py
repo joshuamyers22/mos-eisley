@@ -168,8 +168,53 @@ def tar_inventory(path: Path) -> Archive:
     return Archive(tuple(sorted(files, key=lambda f: f.name)))
 
 
+def _wheel_directory(path: Path) -> None:
+    # ZipFile eagerly materializes its central directory. Bound it first, also
+    # counting real entries so a forged EOCD count cannot bypass MAX_FILES.
+    with path.open("rb") as stream:
+        total = path.stat().st_size
+        stream.seek(max(0, total - 65_557))
+        tail = stream.read(65_557)
+        at = tail.rfind(b"PK\x05\x06")
+        if at < 0 or len(tail) - at < 22:
+            raise ValueError("missing wheel central directory")
+        _, disk, directory_disk, local_count, count, size, offset, comment = (
+            struct.unpack_from("<4s4H2IH", tail, at)
+        )
+        end = total - len(tail) + at
+        if (
+            disk
+            or directory_disk
+            or local_count != count
+            or count > MAX_FILES
+            or count == 65_535
+            or size > MAX_TOC
+            or offset + size != end
+            or at + 22 + comment != len(tail)
+        ):
+            raise ValueError("unsafe wheel central directory bounds")
+        stream.seek(offset)
+        directory = stream.read(size)
+        position = 0
+        actual = 0
+        while position < size:
+            if (
+                directory[position : position + 4] != b"PK\x01\x02"
+                or position + 46 > size
+            ):
+                raise ValueError("invalid wheel central directory entry")
+            name, extra, note = struct.unpack_from("<3H", directory, position + 28)
+            position += 46 + name + extra + note
+            actual += 1
+            if position > size or actual > MAX_FILES:
+                raise ValueError("excessive wheel central directory entries")
+        if actual != count:
+            raise ValueError("wheel central directory count differs")
+
+
 def wheel_inventory(path: Path) -> Archive:
     regular(path)
+    _wheel_directory(path)
     files: list[FileRecord] = []
     names: set[str] = set()
     expanded = 0

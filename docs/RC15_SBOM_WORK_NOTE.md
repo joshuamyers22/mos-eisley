@@ -58,16 +58,39 @@ not reinterpret historical rc.14 qualification under the new publisher contract.
 
 ## Verification and handoff
 
-Focused boundary checks pass: 14 SBOM/archive/diagnostic tests, 18 publication
+Focused boundary checks pass: 16 SBOM/archive/diagnostic tests, 18 publication
 checks and 42 distribution checks; strict source and release-tool typing and
 format/lint pass. Official CycloneDX 1.6 schema validation is offline; the
 publisher remains stdlib-only. The all-target CI assembly inventories real native
 payloads using explicitly unsigned auxiliary fixtures; protected preparation
 recomputes the BOM over actual publication files. Archive ceilings include
-512 MiB input, 128 MiB member, 2 GiB total expansion, 20,000 entries, 512 KiB
+512 MiB input, 128 MiB member, 2 GiB total expansion, 20,000 entries, 8 MiB
+central directory, 512 KiB
 individual retained metadata and 16 MiB retained metadata per archive.
 
-Pending actual local native inventory, combined gate and final candidate freeze. Preserve the current dependency set; regenerate the lock only
+Actual local macOS arm64 builds at `45c769b5d810ba6beb647967e160dfcb90a8ff34`
+pass both frozen-runtime probes (CPython 3.12.14). Application: 904 files, 44
+observed metadata records, all 42 target-selected runtime dependencies. Bootstrap:
+163 files, four metadata records and all three bootstrap dependencies. Every
+declared native license file is present. These are local engineering builds,
+not signed qualification. Build log SHA-256:
+`0a7a0803d9fe6dff0a1fb27237ac5d13fc4dca9064a8a4114d9bd682ceb43f0a`;
+inventory receipt: `b7d6e49c843466805c0bafaf05624529adc06e6c17573888b11b797f4bb03408`.
+
+The adversarial pass identified eager tar extended-header and ZIP directory
+allocation before member checks. The corrected readers bound those operations
+before stdlib parsing. Refusal controls and actual local sdist/native tar parsing
+pass. This tooling-only correction was prepared in a separate checkout while the
+combined gate retained immutable inputs at `45c769b`; affected tests/types pass
+again, and the final PR head must pass hosted source and all-target coverage.
+
+The first secret scan flagged a public SPDX license-name enumeration in the
+unmodified official schema. The exception is restricted to introducing commit
+`45c769b`, fixture path, generic-api-key rule and line 1; no broader rule or path
+is disabled. No credential value is present.
+
+Combined gate and final-head hosted checks are pending. PR #363 is the candidate
+review; no release tag has been created. Preserve the current dependency set; regenerate the lock only
 for the project version bump. Add actual rc.14 predecessor admission for the new
 candidate. Publication and separately authorized affected signed qualification
 remain later steps; no native-inference campaign is granted by this work note.
