@@ -58,7 +58,7 @@ not reinterpret historical rc.14 qualification under the new publisher contract.
 
 ## Verification and handoff
 
-Focused boundary checks pass: 16 SBOM/archive/diagnostic tests, 18 publication
+Focused boundary checks pass: 17 SBOM/archive/diagnostic tests, 18 publication
 checks and 42 distribution checks; strict source and release-tool typing and
 format/lint pass. Official CycloneDX 1.6 schema validation is offline; the
 publisher remains stdlib-only. The all-target CI assembly inventories real native
@@ -88,6 +88,15 @@ The first secret scan flagged a public SPDX license-name enumeration in the
 unmodified official schema. The exception is restricted to introducing commit
 `45c769b`, fixture path, generic-api-key rule and line 1; no broader rule or path
 is disabled. No credential value is present.
+
+The first hosted assembly failed closed because Hatch preserves the raw
+`0.1.0-rc.15` package metadata version while uv normalizes it to `0.1.0rc15`.
+Source/export/interpreter/platform records all matched. Normalize the application's
+supported raw/PEP 440 prerelease forms before comparing metadata identities;
+retain exact tag and source bindings. A regression covers both forms. Recomputing
+the retained real four-platform software set (with unsigned auxiliary fixtures
+and locally rebuilt wheel/sdist metadata) yields 6,484 components. The original
+failure remains in [run 41928827372](https://github.com/joshuamyers22/mos-eisley/actions/runs/41928827372).
 
 Combined gate and final-head hosted checks are pending. PR #363 is the candidate
 review; no release tag has been created. Preserve the current dependency set; regenerate the lock only

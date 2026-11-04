@@ -70,10 +70,17 @@ def tar(path: Path, files: dict[str, bytes]) -> None:
             stream.addfile(entry, io.BytesIO(value))
 
 
-def publication(root: Path, version: str = "0.2.0-rc.1", commit: str = COMMIT) -> None:
+def publication(
+    root: Path,
+    version: str = "0.2.0-rc.1",
+    commit: str = COMMIT,
+    *,
+    raw_project_version: bool = False,
+) -> None:
     root.mkdir(parents=True, exist_ok=True)
     normalized = version.replace("-rc.", "rc")
-    project = metadata("mos-eisley", normalized, ("cryptography>=50",))
+    project_version = version if raw_project_version else normalized
+    project = metadata("mos-eisley", project_version, ("cryptography>=50",))
     wheel_meta = f"mos_eisley-{normalized}.dist-info"
     with zipfile.ZipFile(
         root / f"mos_eisley-{normalized}-py3-none-any.whl", "w"
@@ -102,7 +109,7 @@ def publication(root: Path, version: str = "0.2.0-rc.1", commit: str = COMMIT) -
             "_internal/python-runtime-LICENSE.txt": b"synthetic Python license",
         }
         for name, ver, requires in (
-            ("mos-eisley", normalized, ("cryptography>=50",)),
+            ("mos-eisley", project_version, ("cryptography>=50",)),
             (
                 "cryptography",
                 "50.0.2",

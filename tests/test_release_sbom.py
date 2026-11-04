@@ -76,6 +76,20 @@ class SbomTests(unittest.TestCase):
         )
         self.assertEqual(checked.returncode, 0, checked.stderr)
 
+    def test_hatch_raw_prerelease_metadata_equals_normalized_uv_metadata(self) -> None:
+        root = self.root / "raw-metadata"
+        publication(root, raw_project_version=True)
+        value = build_sbom(root, COMMIT, "0.2.0-rc.1")
+        (root / "release-sbom.cdx.json").write_text(json.dumps(value))
+        validate_sbom(root, COMMIT, "0.2.0-rc.1")
+        self.assertEqual(
+            cast(
+                dict[str, object],
+                cast(dict[str, object], value["metadata"])["component"],
+            )["version"],
+            "0.2.0rc1",
+        )
+
     def test_official_cyclonedx_schema_offline(self) -> None:
         fixtures = Path(__file__).parent / "fixtures/sbom"
         schema = json.loads((fixtures / "bom-1.6.schema.json").read_text())

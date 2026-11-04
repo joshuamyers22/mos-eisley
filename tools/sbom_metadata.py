@@ -29,7 +29,7 @@ def normalize(name: str) -> str:
 
 
 def project_version(version: str) -> str:
-    if re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.\d+)?", version) is None:
+    if re.fullmatch(r"\d+\.\d+\.\d+(?:(?:-rc\.|rc)\d+)?", version) is None:
         raise ValueError("unsupported application release version")
     return version.replace("-rc.", "rc")
 
@@ -178,6 +178,8 @@ def distribution(raw: bytes) -> Distribution:
             raise ValueError("missing or duplicate distribution identity")
     name = normalize(str(message["Name"]))
     version = str(message["Version"])
+    if name == "mos-eisley":
+        version = project_version(version)
     if re.fullmatch(_VERSION, version) is None:
         raise ValueError("invalid distribution version")
     declared = tuple(str(v) for v in message.get_all("Requires-Dist", []))
