@@ -3,7 +3,9 @@
 - Status: signed/offline qualification passes on all four targets; combined
   installed live evidence passes both stores on macOS arm64 after a separately
   authorized SQLite-only run. Original stopped evidence remains unchanged.
-  Publication awaits owner review. See [evidence review](RC14_QUALIFICATION_REVIEW.md).
+  Owner accepted and protected publication completed. See
+  [public verification](RC14_PUBLICATION_WORK_NOTE.md) and
+  [evidence review](RC14_QUALIFICATION_REVIEW.md).
   Owner Joshua Myers; operator Codex.
 - Authority: the owner's explicit four-step request: freeze rc.14 incorporating
   merged source `11fe46514e7962731023538fc50789c8b9d7fd45`, protected build/sign,
@@ -150,4 +152,13 @@ No original scope was resumed and snapshot was not repeated. Combined both-store
 installed live acceptance is complete for this exact macOS arm64 candidate.
 Original controller exit 1 remains historical evidence, disclosed separately
 from the successful SQLite controller. No further inference or runtime change is
-needed. Accountable owner publication review and the protected gate remain.
+needed. Owner acceptance and protected publication subsequently completed; see
+the publication closeout below.
+
+## Publication closeout
+
+Owner approval was applied to the exact qualified candidate after PR #360 passed
+its checks and merged normally. Protected publication completed; all 71 public
+assets, the immutable attestation and a fresh public macOS arm64 bootstrap were
+verified. No further inference or grant was created. See the publication work
+note for immutable release identity, source and evidence hashes.
