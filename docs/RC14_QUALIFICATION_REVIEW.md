@@ -1,13 +1,11 @@
 # rc.14 qualification evidence review
 
-Disposition as of 2026-11-04: signed distribution/offline qualification passes on
-all four macOS/Linux targets. Combined installed live evidence on macOS arm64
-passes for snapshot and SQLite through review, creator approval, integration and
-fresh tests. The separately authorized SQLite-only controller exited 0 in 224.556
-monotonic seconds. The original controller's exit 1 at a host assertion remains
-preserved and disclosed; it is not retroactively labeled passing. Publication
-approval has not been submitted; the protected workflow is waiting. GitHub's
-release-by-tag endpoint returned 404 during the preceding review.
+Disposition as of publication: the owner accepted the completed qualification;
+[immutable rc.14 is published](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.14)
+as release `434439039`. Signed/offline qualification passes all four
+macOS/Linux targets; combined installed live evidence passes both stores on
+macOS arm64. The original controller's exit 1 remains preserved and disclosed.
+See [owner acceptance and public verification](RC14_PUBLICATION_WORK_NOTE.md).
 
 ## Frozen identity and candidate gate
 
@@ -156,7 +154,8 @@ candidate on macOS arm64. Four-target signed/offline qualification remains a
 separate, passed scope. The original aggregate controller remains nonpassing;
 RC14-HARNESS-01 is closed by exact offline diagnosis and the successful fresh
 SQLite cancellation/refusal check. No runtime change or replacement candidate is
-indicated. Accountable owner release review and protected publication remain.
+indicated. Owner acceptance and protected publication subsequently completed;
+see the publication work note.
 
 ## Evidence retention and publication gate
 
@@ -182,8 +181,9 @@ preparation; the owner then authorized exactly that bounded run. The successful
 summary and combined reconstruction above supplement the original failed
 controller without replacing or modifying it. The [qualification contract](RC14_QUALIFICATION_WORK_NOTE.md#budget-and-stop-rules)
 continues to prohibit grant renewal and replay. No additional inference is
-needed for this campaign. Keep publication behind accountable owner review of
-this exact evidence and the protected release gate.
+needed for this campaign. The owner subsequently accepted
+this exact evidence and the protected gate published it, as recorded in the
+publication work note.
 
 This owner-directed operator review is not an independent human security or
 release attestation. Ordinary engineering receipts confer no evaluation
