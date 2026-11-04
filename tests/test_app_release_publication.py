@@ -11,6 +11,7 @@ from typing import cast
 from unittest.mock import patch
 
 import yaml
+from sbom_fixtures import publication
 
 from tools.publish_app_release import (
     finalize,
@@ -19,6 +20,7 @@ from tools.publish_app_release import (
     mapping,
     preflight,
 )
+from tools.release_sbom import build_sbom
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "owner/repo"
@@ -79,41 +81,27 @@ class DraftPublicationTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        names = [
-            "mos_eisley-0.2.0rc1-py3-none-any.whl",
-            "mos_eisley-0.2.0rc1.tar.gz",
-            "SOURCE_COMMIT",
-            "SHA256SUMS",
-            "release-sbom.cdx.json",
-            "standalone/release.json",
-            "standalone/install.sh",
-            "standalone/BOOTSTRAP_SHA256SUMS",
-            "managers/mos-eisley-preview.rb",
-        ]
-        for target in (
-            "linux-aarch64",
-            "linux-x86_64",
-            "macos-aarch64",
-            "macos-x86_64",
-        ):
-            names.extend(
-                [
-                    f"standalone/mos-0.2.0-rc.1-{target}.tar.gz",
-                    f"standalone/mos-install-{target}",
-                    f"qualification/{target}/qualification-{target}.json",
-                ]
-            )
-        for name in names:
-            path = self.root / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(
-                (COMMIT + "\n" if name == "SOURCE_COMMIT" else name).encode()
-            )
+        publication(self.root)
+        (self.root / "release-sbom.cdx.json").write_text(
+            json.dumps(build_sbom(self.root, COMMIT))
+        )
         self.expected = inventory(self.root, COMMIT)
         self.api = GithubFixture(self.expected)
 
     def finalize(self, tag: str = TAG) -> None:
         finalize(REPO, tag, COMMIT, self.root, 42, self.api)
+
+    def test_incomplete_sbom_refuses_both_publication_paths_before_api(self) -> None:
+        (self.root / "release-sbom.cdx.json").write_text(
+            '{"bomFormat":"CycloneDX","specVersion":"1.7","version":1}'
+        )
+        for action in (
+            lambda: preflight(REPO, TAG, COMMIT, self.root, self.api),
+            self.finalize,
+        ):
+            with self.assertRaisesRegex(ValueError, "completeness"):
+                action()
+        self.assertFalse(self.api.calls)
 
     def test_new_subject_preflight_is_read_only(self) -> None:
         self.api.exists = False
@@ -197,6 +185,12 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertFalse(self.api.patches)
 
     def test_annotated_tag_and_stable_classification(self) -> None:
+        self.root = self.root / "stable"
+        publication(self.root, version="0.2.0")
+        (self.root / "release-sbom.cdx.json").write_text(
+            json.dumps(build_sbom(self.root, COMMIT))
+        )
+        self.api = GithubFixture(inventory(self.root, COMMIT))
         self.api.annotated = True
         self.api.release.update(tag_name="v0.2.0", prerelease=False)
         self.finalize("v0.2.0")
@@ -423,6 +417,22 @@ class DraftPublicationTests(unittest.TestCase):
             dict[object, object],
             yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text()),
         )
+        prepare = mapping(mapping(workflow["jobs"])["prepare"])
+        preparation_steps = [mapping(s) for s in cast(list[object], prepare["steps"])]
+        sbom = next(
+            i
+            for i, step in enumerate(preparation_steps)
+            if "tools.release_sbom generate" in str(step.get("run", ""))
+        )
+        downloaded = next(
+            i
+            for i, step in enumerate(preparation_steps)
+            if str(step.get("uses", "")).startswith("actions/download-artifact@")
+        )
+        self.assertLess(downloaded, sbom)
+        self.assertNotIn("if", preparation_steps[sbom])
+        self.assertNotIn("continue-on-error", preparation_steps[sbom])
+        self.assertIn("requirements.runtime.txt", str(preparation_steps[sbom]["run"]))
         publish = mapping(mapping(workflow["jobs"])["publish"])
         self.assertEqual(publish["needs"], ["prepare", "qualify-signed"])
         qualify = mapping(mapping(workflow["jobs"])["qualify-signed"])
@@ -511,6 +521,7 @@ class DraftPublicationTests(unittest.TestCase):
             ("11", "429106203", "4d927cea23ff18f6aa9d231f7c342ee8e2420c84"),
             ("12", "430032833", "2f75d429c87b3b48c946832ff9c73748abf94efe"),
             ("13", "430907808", "8c7690733af1bbc4861911d2c0a2a516961985da"),
+            ("14", "434439039", "ec3211e23c4a3e2b20837114e707bc8ebcbe625a"),
         ):
             step = next(
                 s

@@ -43,3 +43,21 @@ jobs:
             dist/standalone/mos-install-*
             dist/standalone/qualification-*.json
           if-no-files-found: error
+  sbom-coverage:
+    needs: standalone
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: "0.13.4"
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m hatchling build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: standalone-*
+          path: dist/standalone
+          merge-multiple: true
+      - name: Verify all native software inventories with unsigned auxiliary fixtures
+        run: uv run --frozen python -m tools.smoke_release_sbom

@@ -42,13 +42,6 @@ jobs:
       - run: uv sync --frozen --dev
       - run: make check audit
       - run: make container
-      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-        with:
-          path: ./dist
-          artifact-name: release-sbom.cdx.json
-          output-file: ./dist/release-sbom.cdx.json
-          format: cyclonedx-json
-          upload-artifact: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: standalone-*
@@ -61,9 +54,15 @@ jobs:
         run: uv run --frozen python tools/prepare_app_publication.py --commit "$SOURCE_COMMIT"
       - name: Record release commit
         run: git rev-parse HEAD > dist/SOURCE_COMMIT
+      - name: Inventory the complete packaged release and verify coverage
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          cp requirements.runtime.txt dist/requirements.runtime.txt
+          uv run --frozen python -m tools.release_sbom generate --artifacts dist --commit "$SOURCE_COMMIT"
       - name: Checksum release artifacts
         working-directory: dist
-        run: sha256sum *.whl *.tar.gz release-sbom.cdx.json SOURCE_COMMIT > SHA256SUMS
+        run: sha256sum *.whl *.tar.gz release-sbom.cdx.json requirements.runtime.txt SOURCE_COMMIT > SHA256SUMS
       - name: Retain the signed publication candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -73,6 +72,7 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             dist/release-sbom.cdx.json
+            dist/requirements.runtime.txt
             dist/SOURCE_COMMIT
             dist/SHA256SUMS
             dist/standalone/mos-*.tar.gz
@@ -220,6 +220,17 @@ jobs:
           gh release download v0.1.0-rc.13 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.13-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc13
           chmod 700 ".work/published-predecessor-rc13/mos-install-$UPGRADE_PLATFORM"
           uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc13 --predecessor-version 0.1.0-rc.13 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc13-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.14
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.14" --jq 'select(.id == 434439039 and .immutable == true and .draft == false and .target_commitish == "ec3211e23c4a3e2b20837114e707bc8ebcbe625a") | .id' > predecessor-rc14-id.txt
+          test "$(cat predecessor-rc14-id.txt)" = 434439039
+          gh release download v0.1.0-rc.14 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.14-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc14
+          chmod 700 ".work/published-predecessor-rc14/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc14 --predecessor-version 0.1.0-rc.14 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc14-$UPGRADE_PLATFORM.json"
       - name: Qualify signed offline native progress receipts
         env:
           SOURCE_COMMIT: ${{ github.sha }}
@@ -259,7 +270,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
           SOURCE_COMMIT: ${{ github.sha }}
-        run: python3 tools/publish_app_release.py preflight --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT"
+        run: python3 -m tools.publish_app_release preflight --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT"
       - name: Upload all qualified assets to a draft
         id: draft
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
@@ -274,6 +285,7 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             dist/release-sbom.cdx.json
+            dist/requirements.runtime.txt
             dist/SOURCE_COMMIT
             dist/SHA256SUMS
             dist/standalone/mos-*.tar.gz
@@ -289,4 +301,4 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           SOURCE_COMMIT: ${{ github.sha }}
           DRAFT_RELEASE_ID: ${{ steps.draft.outputs.id }}
-        run: python3 tools/publish_app_release.py finalize --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT" --release-id "$DRAFT_RELEASE_ID"
+        run: python3 -m tools.publish_app_release finalize --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT" --release-id "$DRAFT_RELEASE_ID"

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
+import platform
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 
 from mos_eisley.app_install import default_root, install
@@ -40,7 +43,27 @@ def main() -> int:
     )
     command.add_argument("--version", help="require this exact release version")
     command.add_argument("--channel", choices=("stable", "preview"), default="stable")
+    command.add_argument(
+        "--runtime-info",
+        action="store_true",
+        help="show bundled interpreter diagnostics without installing or downloading",
+    )
     args = command.parse_args()
+    if args.runtime_info:
+        print(
+            json.dumps(
+                {
+                    "version": distribution_version("mos-eisley"),
+                    "platform": platform_id(),
+                    "python_runtime": {
+                        "implementation": platform.python_implementation(),
+                        "version": platform.python_version(),
+                    },
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     if (args.metadata is None) != (args.archive is None):
         command.error("offline installation requires both --metadata and --archive")
     raw = (

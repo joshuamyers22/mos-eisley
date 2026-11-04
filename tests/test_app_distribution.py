@@ -694,12 +694,23 @@ class DistributionTests(unittest.TestCase):
             auth_command("untrusted", "login")
 
     def test_setup_does_not_print_keys_or_call_provider(self) -> None:
+        from mos_eisley.app_release import platform_id
         from mos_eisley.app_update_cli import setup_result
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "synthetic-secret-sentinel"}):
             result = setup_result()
         self.assertNotIn("synthetic-secret-sentinel", json.dumps(result))
         self.assertFalse(result["credentials_required_to_install"])
+        import platform
+
+        self.assertEqual(result["platform"], platform_id())
+        self.assertEqual(
+            result["python_runtime"],
+            {
+                "implementation": platform.python_implementation(),
+                "version": platform.python_version(),
+            },
+        )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -47,10 +48,16 @@ def add_commands(add_parser: Callable[..., argparse.ArgumentParser]) -> None:
 def setup_result() -> dict[str, object]:
     import shutil
 
+    from mos_eisley.app_release import platform_id
     from mos_eisley.app_update import installed_version
 
     return {
         "version": installed_version(),
+        "platform": platform_id(),
+        "python_runtime": {
+            "implementation": platform.python_implementation(),
+            "version": platform.python_version(),
+        },
         "credentials_required_to_install": False,
         "browser_sign_in": {
             "openai": "mos auth login openai (official Codex client)",
