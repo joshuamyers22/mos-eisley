@@ -1,6 +1,6 @@
 # rc.15 SBOM generation and completeness
 
-- Status: active implementation; new candidate only, no publication approval.
+- Status: source fix merged; affected signed qualification passes; publication gated.
 - Owner: Joshua Myers; operator Codex. Started 2026-11-04 UTC.
 - Review by: 2026-11-11 or candidate change.
 - Baseline: main `1b3dd26bf59eb604ae7245e1223518cddbed3e7c`, runtime source
@@ -112,3 +112,14 @@ review; no release tag has been created. Preserve the current dependency set; re
 for the project version bump. Add actual rc.14 predecessor admission for the new
 candidate. Publication and separately authorized affected signed qualification
 remain later steps; no native-inference campaign is granted by this work note.
+
+## Qualification closeout
+
+The owner requested review/merge and protected signing/affected qualification.
+PR #363 merged normally; frozen source `21fc2b0` is preserved in main history.
+Protected run 41948231550, attempt 1, passed all four signed jobs. The actual
+review admits 58 reports and 76 assets, with a nonempty 6,485-component SBOM and
+successful read-only preflight. The pre-CI statements above remain the original
+freeze record; see the [completed evidence review](RC15_QUALIFICATION_REVIEW.md)
+and [qualification work note](RC15_QUALIFICATION_WORK_NOTE.md). Publication stays
+at its protected owner gate. Original failures and rc.14 receipts are unchanged.
