@@ -1,0 +1,103 @@
+name: rc.16 signed public discovery
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/rc16-signed-discovery.yml
+      - tools/qualify_rc16_discovery.py
+      - tools/test_rc16_discovery.py
+permissions:
+  actions: read
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m unittest discover -s tools -p test_rc16_discovery.py -v
+      - run: uv run --frozen pyright tools/qualify_rc16_discovery.py tools/test_rc16_discovery.py
+  discovery:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+          - os: macos-15
+            platform: macos-aarch64
+          - os: macos-15-intel
+            platform: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      CANDIDATE_RUN: '42102119299'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - name: Require exact protected preparation and four signed qualifications
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .work
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > .work/protected-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs?per_page=100" > .work/protected-jobs.json
+          uv run --frozen python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('.work/protected-run.json').read_text())
+          assert (r['id'], r['head_sha'], r['head_branch'], r['event'], r['workflow_id'], r['run_attempt']) == (42102119299, '14eb79d52950f340aba159815222e04e6ea864e3', 'v0.1.0-rc.16', 'push', 350992511, 1)
+          jobs = json.loads(Path('.work/protected-jobs.json').read_text())['jobs']
+          prepared = [j for j in jobs if j['name'] == 'prepare']
+          signed = [j for j in jobs if j['name'].startswith('qualify-signed')]
+          assert len(prepared) == 1 and prepared[0]['conclusion'] == 'success'
+          assert len(signed) == 4 and all(j['conclusion'] == 'success' for j in signed)
+          PY
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.CANDIDATE_RUN }}
+          name: application-publication
+          path: dist/signed
+      - name: Acquire actual immutable rc.15 predecessor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ matrix.platform }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.15" --jq 'select(.id == 435339429 and .immutable == true and .draft == false and .target_commitish == "21fc2b02db5611d806626ad8c70698b3c7181577") | .id' > .work/predecessor-id.txt
+          test "$(cat .work/predecessor-id.txt)" = 435339429
+          gh release download v0.1.0-rc.15 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.15-$TARGET.tar.gz" --pattern "mos-install-$TARGET" --pattern BOOTSTRAP_SHA256SUMS --dir .work/predecessor
+      - name: Verify untouched signed package inventory
+        working-directory: dist/signed
+        run: |
+          test "$(cat SOURCE_COMMIT)" = 14eb79d52950f340aba159815222e04e6ea864e3
+          shasum -a 256 -c SHA256SUMS
+      - name: Actual signed old-refusal, explicit upgrade and public discovery
+        env:
+          HARNESS_SOURCE: ${{ github.sha }}
+          TARGET: ${{ matrix.platform }}
+        run: |
+          chmod 700 "dist/signed/standalone/mos-install-$TARGET" ".work/predecessor/mos-install-$TARGET"
+          uv run --frozen python -m tools.qualify_rc16_discovery --candidate dist/signed/standalone --predecessor .work/predecessor --platform "$TARGET" --harness-source "$HARNESS_SOURCE" --evidence "dist/qualification/qualification-discovery-$TARGET.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: rc16-discovery-${{ matrix.platform }}
+          path: dist/qualification/*.json
+          if-no-files-found: error
