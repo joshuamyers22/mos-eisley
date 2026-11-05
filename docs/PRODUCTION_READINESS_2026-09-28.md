@@ -1,5 +1,9 @@
 # Full conversational v1 production-readiness record
 
+Historical assessment. The [current rc.15 reconciliation](V1_PRODUCTION_READINESS_RC15.md)
+and [installed evidence matrix](V1_INSTALLED_ACCEPTANCE_RC15.md) supersede its
+operative work list; the dated findings below remain preserved.
+
 - Status: **not ready for production launch**
 - Owner: Joshua Myers
 - Assessed: 2026-09-28 UTC
