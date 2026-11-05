@@ -83,6 +83,23 @@ class SignedDiscoveryTests(unittest.TestCase):
                 self.assertEqual(release.version, version)
                 self.assertTrue(bootstrap.is_file())
 
+    def test_bootstrap_human_confirmation_is_not_parsed_as_json(self) -> None:
+        directory = self.bundle()
+        release, bootstrap = subject.admitted(
+            directory, subject.SOURCE, subject.VERSION
+        )
+        with patch.object(
+            subject.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                [], 0, "Installed Mos Eisley 0.1.0-rc.16.\n", ""
+            ),
+        ) as execute:
+            subject.install(directory, release, bootstrap, self.root, self.root / "app")
+            self.assertEqual(execute.call_count, 1)
+            self.assertIn("--metadata", execute.call_args.args[0])
+            self.assertIn(subject.VERSION, execute.call_args.args[0])
+
     def test_wrong_signed_identity_and_archive_substitution_refuse(self) -> None:
         directory = self.bundle()
         for source, version in (

@@ -76,3 +76,17 @@ URL and nested fixture contexts; all were corrected before the combined gate.
 Workflow YAML and embedded Python compile; native matrix jobs are dispatch-only
 and are not credited as executed by PR checks. The combined repository gate for
 this separate harness is running with a frozen input snapshot.
+
+
+Static review before any signed native dispatch caught a harness contract error:
+the bootstrap emits a human confirmation, not JSON. The added seventh offline
+case reproduced JSONDecodeError. Bounded execution is now separate from the CLI
+JSON decoder; all seven harness tests and explicit pyright pass. The first
+combined harness gate was interrupted when its input snapshot became invalid,
+and its log/result/inputs remain under attempt-1 names; it is not claimed as a
+passing gate. A corrected combined gate and exact-head CI are required. Runtime
+source/tag and the protected signing run are unchanged; no native qualification
+attempt has yet executed through this supplementary workflow.
+
+Original bootstrap-contract regression SHA256: `2a33ec0d225d43727b26fc0471c6ee84747437f6526d3f001e0a4b1c5f1196c6`.
+Passing seven-case log SHA256: `582e846322891f296a63a40b9d15eab87592c5ed25fac4581280e05ea8e92873`.

@@ -57,7 +57,7 @@ def admitted(directory: Path, source: str, version: str) -> tuple[Release, Path]
     return release, bootstrap
 
 
-def command(binary: Path, args: list[str], home: Path) -> dict[str, object]:
+def execute(binary: Path, args: list[str], home: Path) -> str:
     result = subprocess.run(
         [str(binary), *args],
         cwd=home,
@@ -79,7 +79,11 @@ def command(binary: Path, args: list[str], home: Path) -> dict[str, object]:
         or len(result.stderr.encode()) > 128 * 1024
     ):
         raise QualificationError("native command failed or exceeded output bound")
-    value: object = json.loads(result.stdout)
+    return result.stdout
+
+
+def command(binary: Path, args: list[str], home: Path) -> dict[str, object]:
+    value: object = json.loads(execute(binary, args, home))
     if not isinstance(value, dict):
         raise QualificationError("native result is not an object")
     return cast(dict[str, object], value)
@@ -88,7 +92,7 @@ def command(binary: Path, args: list[str], home: Path) -> dict[str, object]:
 def install(
     directory: Path, release: Release, bootstrap: Path, home: Path, root: Path
 ) -> None:
-    command(
+    execute(
         bootstrap,
         [
             "--metadata",
