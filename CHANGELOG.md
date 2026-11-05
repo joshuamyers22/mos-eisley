@@ -4,6 +4,18 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.15 — qualification candidate
+
+- Generate the SBOM after all native payloads arrive, inventorying the wheel,
+  source distribution, four applications and four bootstraps with file hashes,
+  declared Python dependencies, bundled CPython and included license evidence.
+- Include recursive runtime metadata and credential-free frozen-interpreter
+  diagnostics; preserve unknown native-library versions without invented labels.
+- Recompute semantic completeness before draft admission and final publication;
+  reject missing components, dependency edges, platforms and stale byte bindings.
+- Preserve rc.14's immutable release and historical evidence. New signed
+  distribution and installed acceptance evidence remain required for rc.15.
+
 ## 0.1.0-rc.14 — qualification candidate
 
 - Add bounded, redacted Claude event and ModelReview validation diagnostics.

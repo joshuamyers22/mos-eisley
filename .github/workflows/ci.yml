@@ -25,6 +25,8 @@ jobs:
           uv run --frozen python -m unittest discover -s tools -p test_subscription_role_qualification.py -v
           uv run --frozen pyright tools/qualify_subscription_roles.py tools/qualify_claude_subscription.py tools/test_subscription_role_qualification.py
       - run: make audit
+      - name: Verify release inventory tooling types
+        run: uv run --frozen pyright tools/release_sbom.py tools/sbom_archive.py tools/sbom_metadata.py tools/build_standalone.py tools/build_app_bootstrap.py tools/publish_app_release.py tools/smoke_release_sbom.py
       - name: Verify installed-candidate qualification identity guards
         run: |
           uv run --frozen python -m unittest discover -s tools -p test_installed_candidate_qualification.py -v

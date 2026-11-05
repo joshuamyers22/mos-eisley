@@ -51,7 +51,7 @@ def main() -> int:
         "keyring",
         "--collect-all",
         "cryptography",
-        "--copy-metadata",
+        "--recursive-copy-metadata",
         "mos-eisley",
         "--recursive-copy-metadata",
         "mcp",
@@ -64,7 +64,49 @@ def main() -> int:
     subprocess.run(build_command, check=True)
     bundle = output / "bundle/mos"
     subprocess.run([str(bundle / "mos"), "--version"], check=True)
-    subprocess.run([str(bundle / "mos"), "setup", "--json"], check=True)
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    inventory_command = [
+        "uv",
+        "run",
+        "--frozen",
+        "--python",
+        "3.12.14",
+        "--managed-python",
+        "--group",
+        "distribution",
+        "python",
+        "-m",
+        "tools.release_sbom",
+    ]
+    destination = bundle / "_internal"
+    subprocess.run(
+        inventory_command
+        + [
+            "record-runtime",
+            "--destination",
+            str(destination),
+            "--kind",
+            "application",
+            "--version",
+            version,
+            "--commit",
+            commit,
+        ],
+        check=True,
+    )
+    subprocess.run(
+        inventory_command
+        + [
+            "verify-runtime",
+            "--destination",
+            str(destination),
+            "--kind",
+            "application",
+            "--executable",
+            str(bundle / "mos"),
+        ],
+        check=True,
+    )
     archive = output / f"mos-{version}-{platform_id()}.tar.gz"
     # Dereference PyInstaller's local library symlinks at publication so the
     # installer can reject every link in an archive without platform exceptions.

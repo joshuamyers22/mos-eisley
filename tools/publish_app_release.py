@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -15,6 +16,7 @@ ASSET_PATTERNS = (
     "*.whl",
     "*.tar.gz",
     "release-sbom.cdx.json",
+    "requirements.runtime.txt",
     "SOURCE_COMMIT",
     "SHA256SUMS",
     "standalone/mos-*.tar.gz",
@@ -66,7 +68,11 @@ def github_api(arguments: list[str]) -> object:
     return cast(object, json.loads(result.stdout))
 
 
-def inventory(root: Path, commit: str) -> dict[str, tuple[int, str]]:
+def inventory(
+    root: Path, commit: str, *, version: str | None = None
+) -> dict[str, tuple[int, str]]:
+    from tools.release_sbom import validate_sbom
+
     source = root / "SOURCE_COMMIT"
     if source.is_symlink() or not source.is_file():
         raise ValueError("unsafe or missing publication source record")
@@ -83,6 +89,7 @@ def inventory(root: Path, commit: str) -> dict[str, tuple[int, str]]:
             with path.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
             result[path.name] = (path.stat().st_size, f"sha256:{digest}")
+    validate_sbom(root, commit, version)
     return result
 
 
@@ -146,7 +153,7 @@ def verify_assets(
 
 
 def preflight(repo: str, tag: str, commit: str, root: Path, api: Api) -> None:
-    expected = inventory(root, commit)
+    expected = inventory(root, commit, version=tag.removeprefix("v"))
     verify_subject(repo, tag, commit, api)
     releases = pages(api([f"repos/{repo}/releases", "--paginate", "--slurp"]))
     matches = [release for release in releases if release.get("tag_name") == tag]
@@ -169,7 +176,7 @@ def finalize(
 ) -> None:
     if release_id <= 0:
         raise ValueError("invalid draft release ID")
-    expected = inventory(root, commit)
+    expected = inventory(root, commit, version=tag.removeprefix("v"))
     verify_subject(repo, tag, commit, api)
     endpoint = f"repos/{repo}/releases/{release_id}"
     release = mapping(api([endpoint]))
@@ -231,4 +238,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Preserve direct-script use as well as stdlib-only `python -m tools...`.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     raise SystemExit(main())
