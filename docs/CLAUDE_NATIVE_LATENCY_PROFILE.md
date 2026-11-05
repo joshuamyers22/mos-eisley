@@ -1,9 +1,11 @@
 # Claude critic qualification latency profile, revision 2
 
-Use an explicit 120-second native deadline for the next separately authorized
-Sonnet 5/high qualification attempt through Claude Code 2.1.283. This is a
-revised qualification selection, not a claim of general reliability or a change
-to existing/default 60-second grants. No stopped scope is reopened or widened.
+The explicit 120-second native profile passed the separately authorized signed
+rc.14 both-store installed qualification on macOS arm64 with Sonnet 5/high through
+Claude Code 2.1.283. See the [exact live evidence](RC14_QUALIFICATION_REVIEW.md).
+This is scoped historical success, not a general reliability claim or a change
+to defaults or old grants. rc.15 signed/offline qualification did not repeat live
+inference; see the [current evidence matrix](V1_INSTALLED_ACCEPTANCE_RC15.md).
 
 The [event diagnostic](CLAUDE_EVENT_DIAGNOSTICS.md) observed a validated terminal
 result at 49.492 seconds and EOF 179 ms later, after thinking metadata through
@@ -35,13 +37,17 @@ explicit preparation selections are `--inference-timeout-seconds 120` and
 Its existing offline tests verify exact 120-second selection while retaining
 the global invocation, input/output, coding-wall and correction ceilings.
 
-Full installed qualification remains open. A
-[fresh validation diagnostic](MODEL_REVIEW_DIAGNOSTICS_WORK_NOTE.md) completed
-natively in 39.737 seconds but returned 159 non-JSON bytes. Source corrections
-make the native request envelope explicit and align the advertised review schema
-with runtime rules; their post-fix live behavior remains unverified. Before
-another campaign, verify those corrections in the exact signed candidate, review the exact
-candidate/profile, refresh native readiness and obtain fresh bounded campaign
-authority. Any newly authorized campaign must retain the first-unplanned-failure
-stop rule and every earlier ledger unchanged. This task authorizes no further
-provider call, replacement probe, new full campaign or stable/public launch.
+The earlier [validation diagnostic](MODEL_REVIEW_DIAGNOSTICS_WORK_NOTE.md)
+completed natively in 39.737 seconds but returned 159 non-JSON bytes. Subsequent
+source corrections made the native request envelope explicit and aligned the
+advertised review schema with runtime rules. Signed rc.14 then produced valid
+bound Claude plan/implementation reviews on both stores. Four critic calls
+completed in 38.285/40.511 seconds (snapshot) and 36.338/34.664 seconds (SQLite),
+with EOF. The original stopped campaigns and controller assertion failure remain
+preserved in their records; a successful later case does not erase them.
+
+Those observations establish neither a percentile nor a success-rate/billing
+guarantee. Future invalidated or missing live scopes require reviewed exact
+candidate/profile, fresh native readiness and fresh bounded authority. Preserve
+the first-unplanned-failure stop rule and every earlier ledger. This guidance
+authorizes no call, replacement probe, campaign or stable/public launch.

@@ -38,6 +38,12 @@ five `@mos-eisley` npm packages are public; the
 bind the release to source `8cf38c83591e505a9c7b57f4d701b12cb80fc4c6`.
 Python/uv development installation continues to work as documented in the README.
 
+**Known preview-update limitation (2026-11-05):** public release discovery exceeds
+the client's 128 KiB inventory cap. Preview notices and guided preview updates
+cannot currently discover the release. Signed installation and supplied-metadata
+upgrade checks remain separately qualified. See
+[R15-01 and the required new-candidate fix](V1_PRODUCTION_READINESS_RC15.md).
+
 ## Preview selection
 
 The owner selected a macOS/Linux-only `0.1.0-rc.1` preview while postponing WSL2
