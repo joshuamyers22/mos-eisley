@@ -43,6 +43,9 @@ the client's 128 KiB inventory cap. Preview notices and guided preview updates
 cannot currently discover the release. Signed installation and supplied-metadata
 upgrade checks remain separately qualified. See
 [R15-01 and the required new-candidate fix](V1_PRODUCTION_READINESS_RC15.md).
+The [rc.16 source correction](RC16_PREVIEW_DISCOVERY.md) is prepared; it does not
+change existing binaries. Once qualified and published, use its exact verified
+installer to receive the corrected client.
 
 ## Preview selection
 

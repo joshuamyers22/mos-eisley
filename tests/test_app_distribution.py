@@ -499,6 +499,84 @@ class DistributionTests(unittest.TestCase):
                 app_update.check(self.root, force=True)["status"], "available"
             )
 
+    def test_asset_heavy_preview_discovery_drives_confirmed_upgrade(self) -> None:
+        previous, previous_raw = self.release(
+            "0.1.0-rc.15", change={"channel": "preview"}
+        )
+        release, archive = self.release("0.1.1-rc.1", change={"channel": "preview"})
+        app_install.install(self.root, self.bin, previous, previous_raw)
+        app_update.change_policy(self.root, "preview")
+        sentinel = self.root / "private-state-sentinel"
+        sentinel.write_bytes(b"synthetic retained uncertainty; never reset")
+        inventory = canonical(
+            [
+                {
+                    "tag_name": "v0.1.1-rc.1",
+                    "draft": False,
+                    "prerelease": True,
+                    "assets": [{"ignored": "x" * 914_579}],
+                }
+            ]
+        )
+        with (
+            patch.object(app_update, "installation_origin", return_value="standalone"),
+            patch.object(app_release, "build_opener") as build,
+        ):
+            build.return_value.open.side_effect = [
+                io.BytesIO(inventory),
+                io.BytesIO(release.raw),
+                io.BytesIO(inventory),
+                io.BytesIO(release.raw),
+                io.BytesIO(archive),
+            ]
+            result = app_update.check(self.root, force=True)
+            self.assertEqual(result["status"], "available")
+            self.assertTrue(result["notify"])
+            self.assertEqual(result["latest"], release.version)
+            self.assertEqual(self.current_version(), previous.version)
+            with self.assertRaisesRegex(ReleaseError, "confirmation"):
+                app_update.update(self.root, confirmed=False)
+            self.assertEqual(build.return_value.open.call_count, 2)
+            self.assertEqual(
+                app_update.update(self.root, confirmed=True, target=release.version),
+                release.version,
+            )
+            self.assertEqual(self.current_version(), release.version)
+            self.assertEqual(build.return_value.open.call_count, 5)
+        self.assertEqual(
+            sentinel.read_bytes(), b"synthetic retained uncertainty; never reset"
+        )
+
+    def test_discovered_preview_still_requires_enrolled_signature(self) -> None:
+        release, _ = self.release("0.1.1-rc.1", change={"channel": "preview"})
+        app_update.change_policy(self.root, "preview")
+        inventory = canonical(
+            [{"tag_name": "v0.1.1-rc.1", "draft": False, "prerelease": True}]
+        )
+        with patch.object(app_release, "build_opener") as build:
+            build.return_value.open.side_effect = [
+                io.BytesIO(inventory),
+                io.BytesIO(release.raw.replace(b"Release notes", b"Altered notes")),
+            ]
+            result = app_update.check(self.root, force=True)
+        self.assertEqual(result["status"], "unable_to_check")
+        self.assertFalse(result["available"])
+        self.assertFalse(result.get("notify", False))
+
+    def test_malformed_or_oversized_preview_is_unable_to_check(self) -> None:
+        app_update.change_policy(self.root, "preview")
+        for raw in (b"{", b"x" * (app_release.MAX_PREVIEW_INVENTORY + 1)):
+            with (
+                self.subTest(length=len(raw)),
+                patch.object(app_release, "build_opener") as build,
+            ):
+                build.return_value.open.return_value = io.BytesIO(raw)
+                result = app_update.check(self.root, force=True)
+                self.assertEqual(result["status"], "unable_to_check")
+                self.assertFalse(result["available"])
+                self.assertFalse(result.get("notify", False))
+                self.assertEqual(build.return_value.open.call_count, 1)
+
     def test_updates_require_confirmation_and_exact_target(self) -> None:
         with self.assertRaisesRegex(ReleaseError, "confirmation"):
             app_update.update(self.root, confirmed=False)

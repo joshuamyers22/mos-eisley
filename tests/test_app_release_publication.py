@@ -522,6 +522,7 @@ class DraftPublicationTests(unittest.TestCase):
             ("12", "430032833", "2f75d429c87b3b48c946832ff9c73748abf94efe"),
             ("13", "430907808", "8c7690733af1bbc4861911d2c0a2a516961985da"),
             ("14", "434439039", "ec3211e23c4a3e2b20837114e707bc8ebcbe625a"),
+            ("15", "435339429", "21fc2b02db5611d806626ad8c70698b3c7181577"),
         ):
             step = next(
                 s

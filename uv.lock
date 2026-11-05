@@ -666,7 +666,7 @@ wheels = [
 
 [[package]]
 name = "mos-eisley"
-version = "0.1.0rc15"
+version = "0.1.0rc16"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

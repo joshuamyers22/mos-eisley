@@ -58,6 +58,8 @@ The [current v1 readiness assessment](docs/V1_PRODUCTION_READINESS_RC15.md)
 and [installed acceptance matrix](docs/V1_INSTALLED_ACCEPTANCE_RC15.md) record
 remaining gates. Preview update discovery currently fails on the oversized public
 release feed; see R15-01 before relying on update notices or guided preview updates.
+The [rc.16 source candidate](docs/RC16_PREVIEW_DISCOVERY.md) corrects discovery;
+its signed qualification and publication are pending.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
 for the publication gates, exact artifact evidence and remaining limitations.
