@@ -4,6 +4,16 @@ Notable changes are recorded here using semantic versioning.
 
 ## Unreleased
 
+## 0.1.0-rc.16 — qualification candidate
+
+- Bound the asset-heavy ten-release preview inventory separately from signed
+  release metadata; retain signature, origin, deadline and installation controls.
+- Turn malformed preview inventories into controlled check failures and cover
+  real downloader/notice/confirmed-update behavior with offline regressions.
+- Add actual published rc.15 to protected predecessor qualification. Existing
+  clients need the new verified installer to receive this discovery correction;
+  signed/public rc.16 qualification and publication remain pending.
+
 ## 0.1.0-rc.15 — qualification candidate
 
 - Generate the SBOM after all native payloads arrive, inventorying the wheel,

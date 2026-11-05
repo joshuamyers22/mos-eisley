@@ -26,6 +26,9 @@ FEEDS = {
     "preview": f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=10",
 }
 MAX_METADATA = 128 * 1024
+# GitHub embeds asset records in the ten-release inventory, not in release.json.
+# Bound that larger unsigned document separately from signed release metadata.
+MAX_PREVIEW_INVENTORY = 2 * 1024 * 1024
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_EXPANDED = 2 * 1024 * 1024 * 1024
 STORAGE_EPOCH = 2
@@ -271,7 +274,11 @@ def verify_archive(raw: bytes, artifact: Artifact) -> None:
 def release_metadata(channel: Channel) -> bytes:
     if channel == "stable":
         return download(FEEDS["stable"], MAX_METADATA)
-    value: object = json.loads(download(FEEDS["preview"], MAX_METADATA))
+    raw = download(FEEDS["preview"], MAX_PREVIEW_INVENTORY)
+    try:
+        value: object = json.loads(raw)
+    except (ValueError, RecursionError) as error:
+        raise ReleaseError("invalid preview release inventory") from error
     if not isinstance(value, list) or len(cast(list[object], value)) > 10:
         raise ReleaseError("invalid preview release inventory")
     candidates: list[str] = []
