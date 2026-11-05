@@ -30,28 +30,24 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.13 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.13)
-covers macOS and Linux on arm64 and x86_64 at frozen source `8c76907`.
-It adds bounded, redacted progress to native Claude process failures, retaining
-creator review ordering, concrete execution receipts, storage epoch 2 and the
-frozen dependency set. Main retains its newer dependencies.
+The published [**0.1.0-rc.15 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.15)
+covers macOS and Linux on arm64 and x86_64 at frozen source `21fc2b0`.
+It fixes release SBOM generation and completeness checks, inventorying the actual
+packaged dependencies, interpreter and files before publication. Storage epoch 2,
+review/approval ordering and the selected runtime dependency set are preserved.
 
-The [qualification review](docs/RC13_QUALIFICATION_REVIEW.md) records four signed
-installations, both-store installed matrices, twenty historical upgrade/refusal
-journeys, sixteen actual rc.9/10/11/12 upgrade/rollback journeys, four offline
-progress matrices and all 67 public asset identities. One separately authorized
-Claude diagnostic completed in 55.84 seconds under the unchanged 60-second
-deadline, with one dispatch and no retry. Successful calls produce no failure
-progress receipt; offline checks qualify those receipts on all four targets.
-The subsequent [fresh installed campaign](docs/RC13_INSTALLED_LIVE_QUALIFICATION_REVIEW.md)
-passed snapshot chat/cold resume, plan review and candidate tests, but Claude
-implementation review exceeded the same deadline (RC13-SUB-01): eleven dispatches,
-ten completions, no integration and no SQLite live calls. Its redacted receipt
-records stdout near the deadline, open streams, a running leader and completed
-cleanup. Full installed live-workflow qualification remains incomplete.
-The [earlier rc.12 campaign](docs/RC12_QUALIFICATION_REVIEW.md) stays closed and its
-[historical timeout cause](docs/RC12_CLAUDE_TIMEOUT_DIAGNOSIS.md) remains unknown.
-npm/tap routes remain separately versioned; earlier failed campaigns are preserved.
+The [qualification review](docs/RC15_QUALIFICATION_REVIEW.md) records four signed
+installations, both-store offline acceptance, 44 actual predecessor upgrade/refusal
+journeys and offline native diagnostics. The [publication review](docs/RC15_PUBLICATION_WORK_NOTE.md)
+verifies all 76 public assets, the immutable attestation, the 6,485-component SBOM
+and a fresh public macOS arm64 installation with credential-free setup and
+418 matching runtime source files.
+
+Installed live-workflow evidence is recorded for [rc.14 on macOS arm64](docs/RC14_QUALIFICATION_REVIEW.md)
+on both stores under the explicit 120-second subscription profile. Fresh rc.15
+evidence covers signed/offline acceptance and public installation. Live requests
+retain their separate authorization and qualification requirements. npm/tap
+routes remain separately versioned; earlier stopped campaigns remain preserved.
 
 The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
 keep pre-upgrade private backups and an epoch-2 reader for new sessions.
@@ -81,7 +77,7 @@ Existing credential paths remain default pending provider/tool qualification.
 
 The [installation and update guide](docs/APPLICATION_INSTALLATION.md) describes
 the published self-contained preview and package-manager commands.
-[Publisher acceptance and public verification](https://github.com/joshuamyers22/mos-eisley/pull/302)
+[Publisher acceptance and public verification](docs/RC15_PUBLICATION_WORK_NOTE.md)
 record the exact released source and accepted limitations. Browser account login delegates
 to native provider clients. An [experimental subscription transport](docs/SUBSCRIPTION_INFERENCE_WORK_NOTE.md)
 supports isolated text turns. [Experimental subscription sessions](docs/SUBSCRIPTION_SESSIONS.md)

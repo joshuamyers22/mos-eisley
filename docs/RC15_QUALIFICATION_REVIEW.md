@@ -2,9 +2,10 @@
 
 Disposition: **affected signed qualification passes** for frozen source
 `21fc2b02db5611d806626ad8c70698b3c7181577` (`0.1.0-rc.15`, storage epoch 2).
-Publication remains at the protected owner gate. This closes preparation of a
-qualified replacement for rc.14's empty SBOM; it does not rewrite the published
-rc.14 asset or close unrelated stable-v1 gates.
+The owner subsequently accepted this evidence; immutable rc.15 is published as
+release `435339429`. See [owner acceptance and public verification](RC15_PUBLICATION_WORK_NOTE.md).
+This supplies the qualified replacement for rc.14's empty SBOM without rewriting
+that published asset or closing unrelated stable-v1 gates.
 
 ## Frozen source and accountable authority
 
@@ -115,7 +116,9 @@ Private records are retained under the frozen candidate's
 `.work/rc15-signed-qualification/`; no credentials, grants or raw provider content
 are copied here. Ordinary engineering receipts convey no evaluation eligibility.
 
-The workflow is waiting before `publish` in the protected environment. Owner
-publication disposition, actual immutable public-asset/attestation verification
-and public installation remain next. This review does not authorize publication,
-renew a native scope, retarget an old tag or qualify stable v1.
+At qualification closeout, the workflow remained before `publish` at its owner
+gate. The owner later explicitly authorized publication; the protected run
+completed successfully and all 76 public assets, attestation, canonical SBOM and
+fresh public installation were verified. See the [publication work note](RC15_PUBLICATION_WORK_NOTE.md).
+The original qualification review did not renew a native scope, retarget a tag or
+qualify stable v1.

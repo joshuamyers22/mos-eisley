@@ -1,6 +1,6 @@
 # rc.15 protected signing and affected qualification
 
-- Status: affected signed qualification complete; publication is separately gated.
+- Status: closed; rc.15 is published and publicly verified.
 - Owner: Joshua Myers; operator Codex. Started 2026-11-05 UTC.
 - Review by: 2026-11-12 or frozen-candidate change.
 - Frozen candidate: `21fc2b02db5611d806626ad8c70698b3c7181577`, version
@@ -93,3 +93,13 @@ Publication remains pending owner approval in `application-release`; this task
 does not approve that deployment. rc.14 live qualification remains historical
 evidence; no fresh rc.15 live subscription campaign or stable-v1 qualification
 is claimed. The evidence review is ready for publication disposition.
+
+## Publication disposition
+
+The owner subsequently requested completion of publication. Evidence PR #364
+merged normally after 14 checks; one protected approval published immutable
+rc.15 release 435339429. All 76 public assets, attestation, canonical SBOM and
+fresh public macOS arm64 install/setup/source hashes verify. The pending-gate
+statements above record the earlier qualification boundary; see the
+[publication closeout](RC15_PUBLICATION_WORK_NOTE.md). Historical receipts,
+original failures and all native authorization scopes remain unchanged.
