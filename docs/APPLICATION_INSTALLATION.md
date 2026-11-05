@@ -1,19 +1,24 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.14`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.14),
-source `ec3211e23c4a3e2b20837114e707bc8ebcbe625a`, for macOS/Linux arm64 and x86_64.
-All four signed installations, both-store offline acceptance matrices, forty
-actual-predecessor upgrade/refusal journeys and expanded offline diagnostics pass.
-Both storage backends completed the installed live workflow on macOS arm64 under
-the explicit 120-second subscription profile, through review, creator approval,
-integration and fresh tests. All 71 public assets and the immutable attestation
-match the qualified candidate; fresh public macOS arm64 bootstrap/version/setup
-and runtime source hashes pass. See [owner acceptance and public verification](RC14_PUBLICATION_WORK_NOTE.md).
+[immutable `0.1.0-rc.15`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.15),
+source `21fc2b02db5611d806626ad8c70698b3c7181577`, for macOS/Linux arm64 and x86_64.
+All four signed installations, both-store offline acceptance matrices, 44 actual
+predecessor upgrade/refusal journeys and offline diagnostics pass. Its complete
+packaged-software SBOM passes canonical and official-schema validation; all
+76 public assets and the immutable attestation match the qualified candidate.
+Fresh public macOS arm64 bootstrap/version/setup and 418 runtime source hashes
+pass, including actual CPython 3.12.14 diagnostics.
+
+The installed live-workflow evidence remains recorded against rc.14 on macOS
+arm64, both stores and the explicit 120-second subscription profile. rc.15's
+fresh affected qualification covers signed/offline acceptance and public
+installation. See [owner acceptance and public verification](RC15_PUBLICATION_WORK_NOTE.md)
+and the [signed qualification review](RC15_QUALIFICATION_REVIEW.md).
 npm and the public tap remain separately versioned. rc.8 remains unpublished and
 blocked on its original Linux artifacts.
 
-rc.14 retains storage epoch 2, introduced by rc.9 for the recovery journal. Use
+rc.15 retains storage epoch 2, introduced by rc.9 for the recovery journal. Use
 the exact current installer for an upgrade; older installers reject the new
 signed metadata. Close all session controllers and back up private session stores
 before upgrading. Current readers can open legacy sessions, but old binaries
@@ -44,10 +49,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.14` GitHub release, then run:
+`v0.1.0-rc.15` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.14
+sh install.sh --channel preview --version 0.1.0-rc.15
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -86,7 +91,7 @@ For offline installation, run the matching native bootstrap:
 
 ```sh
 ./mos-install-macos-aarch64 --metadata release.json \
-  --archive mos-0.1.0-rc.14-macos-aarch64.tar.gz --version 0.1.0-rc.14 --channel preview
+  --archive mos-0.1.0-rc.15-macos-aarch64.tar.gz --version 0.1.0-rc.15 --channel preview
 ```
 
 The default runtime root is `~/.local/share/mos-eisley-app`; the launcher is

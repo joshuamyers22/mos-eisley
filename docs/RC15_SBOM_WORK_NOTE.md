@@ -1,6 +1,6 @@
 # rc.15 SBOM generation and completeness
 
-- Status: source fix merged; affected signed qualification passes; publication gated.
+- Status: closed; source fix, affected qualification and verified rc.15 publication complete.
 - Owner: Joshua Myers; operator Codex. Started 2026-11-04 UTC.
 - Review by: 2026-11-11 or candidate change.
 - Baseline: main `1b3dd26bf59eb604ae7245e1223518cddbed3e7c`, runtime source
@@ -123,3 +123,11 @@ successful read-only preflight. The pre-CI statements above remain the original
 freeze record; see the [completed evidence review](RC15_QUALIFICATION_REVIEW.md)
 and [qualification work note](RC15_QUALIFICATION_WORK_NOTE.md). Publication stays
 at its protected owner gate. Original failures and rc.14 receipts are unchanged.
+
+## Public replacement
+
+The owner accepted publication; immutable rc.15 now contains the verified
+6,485-component SBOM. All 76 public assets and attestation match the qualified
+candidate, and a fresh public macOS arm64 installation passes. See the
+[publication work note](RC15_PUBLICATION_WORK_NOTE.md). rc.14's historical empty
+SBOM and all original failures remain unchanged.
