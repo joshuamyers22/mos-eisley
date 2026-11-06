@@ -1,6 +1,9 @@
 # rc.16 affected signed qualification review
 
-Disposition: **affected qualification blocked**, not publication approval. Frozen software is
+Historical disposition before fresh diagnosis: **affected qualification blocked**.
+Current [diagnosis and final qualification](RC16_STARTUP_QUALIFICATION_REVIEW.md)
+passes the reviewed bounded profile; this earlier blocked assessment is retained
+below as the record of the original failures, not the current qualification status. Frozen software is
 `14eb79d52950f340aba159815222e04e6ea864e3` (`0.1.0-rc.16`, storage epoch 2).
 Published rc.15 remains the current immutable preview. rc.14 live-workflow evidence
 remains historical; this task makes no fresh subscription or stable-v1 claim.

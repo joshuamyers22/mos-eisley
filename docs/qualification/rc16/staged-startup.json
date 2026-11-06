@@ -1,0 +1,95 @@
+{
+  "archive_sha256": "4044e2492f5a209f818f371e27e168977f386fc5487996ac5ca857fe7813b244",
+  "bootstrap_sha256": "558a3e78d80e40e69f492eb4b7436b2b0e389366addda5c2d3a3348ce56308fa",
+  "harness_source": "e2faad64005e125043c16759d5b50d9d0378edb7",
+  "metadata_sha256": "1882d3db109ebc3b6f0d5c84de8dec0eecde96a47da5f72ad444d133b30ea3bc",
+  "observation_count": 2,
+  "original_failure_preserved": true,
+  "platform": "macos-x86_64",
+  "provider_calls": 0,
+  "qualification_pass": false,
+  "records": [
+    {
+      "cleanup_completed": true,
+      "completion_observed_ms": 9699,
+      "contract_passed": true,
+      "deadline_ms": 30000,
+      "elapsed_ms": 9699,
+      "exit_code": 0,
+      "location": "stage",
+      "observation_limit_ms": 120000,
+      "ordinal": 1,
+      "original_deadline_exceeded": false,
+      "output_limit_exceeded": false,
+      "parent_exit_observed_ms": 9698,
+      "samples": [
+        {
+          "cpu_percent": 2.2,
+          "cpu_seconds": 0.01,
+          "elapsed_ms": 12,
+          "load_1m": 10.31,
+          "rss_kib": 592,
+          "state": "S"
+        },
+        {
+          "cpu_percent": 99.0,
+          "cpu_seconds": 4.98,
+          "elapsed_ms": 5032,
+          "load_1m": 9.64,
+          "rss_kib": 93404,
+          "state": "R"
+        }
+      ],
+      "schema": 1,
+      "stderr_bytes": 0,
+      "stderr_eof": true,
+      "stdout_bytes": 17,
+      "stdout_eof": true,
+      "version_kind": "synthetic_previous",
+      "version_matches": true
+    },
+    {
+      "cleanup_completed": true,
+      "completion_observed_ms": 12848,
+      "contract_passed": true,
+      "deadline_ms": 30000,
+      "elapsed_ms": 12848,
+      "exit_code": 0,
+      "location": "stage",
+      "observation_limit_ms": 120000,
+      "ordinal": 2,
+      "original_deadline_exceeded": false,
+      "output_limit_exceeded": false,
+      "parent_exit_observed_ms": 12847,
+      "samples": [
+        {
+          "cpu_percent": 25.2,
+          "cpu_seconds": 0.08,
+          "elapsed_ms": 52,
+          "load_1m": 8.71,
+          "rss_kib": 912,
+          "state": "R"
+        },
+        {
+          "cpu_percent": 100.0,
+          "cpu_seconds": 5.0,
+          "elapsed_ms": 5041,
+          "load_1m": 8.33,
+          "rss_kib": 69712,
+          "state": "R"
+        }
+      ],
+      "schema": 1,
+      "stderr_bytes": 0,
+      "stderr_eof": true,
+      "stdout_bytes": 23,
+      "stdout_eof": true,
+      "version_kind": "candidate",
+      "version_matches": true
+    }
+  ],
+  "schema": 1,
+  "source_commit": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "status": "diagnostic_target_completed_within_original_deadline",
+  "version": "0.1.0-rc.16"
+}
