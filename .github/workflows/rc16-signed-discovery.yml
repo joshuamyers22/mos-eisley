@@ -1,6 +1,14 @@
-name: rc.16 signed qualification recovery
+name: rc.16 bounded startup diagnosis and qualification
 on:
   workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        required: true
+        options: [diagnostic, qualify]
+      diagnostic_run:
+        type: string
+        default: ''
   pull_request:
     paths:
       - .github/workflows/rc16-signed-discovery.yml
@@ -8,6 +16,8 @@ on:
       - tools/test_rc16_discovery.py
       - tools/rc16_qualification_gate.py
       - tools/test_rc16_qualification_gate.py
+      - tools/diagnose_staged_startup.py
+      - tools/test_staged_startup_diagnostics.py
 permissions:
   actions: read
   contents: read
@@ -25,14 +35,54 @@ jobs:
       - run: uv sync --frozen --dev
       - run: uv run --frozen python -m unittest discover -s tools -p test_rc16_discovery.py -v
       - run: uv run --frozen python -m unittest discover -s tools -p test_rc16_qualification_gate.py -v
-      - run: uv run --frozen pyright tools/qualify_rc16_discovery.py tools/test_rc16_discovery.py tools/rc16_qualification_gate.py tools/test_rc16_qualification_gate.py
-  intel-recovery:
-    if: github.event_name == 'workflow_dispatch'
+      - run: uv run --frozen python -m unittest discover -s tools -p test_staged_startup_diagnostics.py -v
+      - run: uv run --frozen pyright tools/qualify_rc16_discovery.py tools/test_rc16_discovery.py tools/rc16_qualification_gate.py tools/test_rc16_qualification_gate.py tools/diagnose_staged_startup.py tools/test_staged_startup_diagnostics.py
+  diagnostic:
+    if: github.event_name == 'workflow_dispatch' && inputs.phase == 'diagnostic'
     needs: offline
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [0, 1, 2, 3]
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: "0.13.4"
+      - run: uv sync --frozen --dev
+      - name: Require frozen preparation, three successful platforms and Intel timeout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .work
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42102119299" > .work/protected-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42102119299/jobs?per_page=100" > .work/protected-jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/check-runs/127590446087/annotations" > .work/timeout-annotations.json
+          uv run --frozen python tools/rc16_qualification_gate.py
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42102119299
+          name: application-publication
+          path: dist
+      - name: Restore native bootstrap executable permissions
+        run: chmod 700 dist/standalone/mos-install-*
+      - name: Verify untouched signed source and software checksums
+        working-directory: dist
+        run: |
+          test "$(cat SOURCE_COMMIT)" = 14eb79d52950f340aba159815222e04e6ea864e3
+          shasum -a 256 -c SHA256SUMS
+      - name: Observe the exact failed staged-version fixture without raw output
+        run: uv run --frozen python -m tools.diagnose_staged_startup --evidence dist/diagnostics/staged-startup.json > /dev/null 2>&1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ always() }}
+        with:
+          name: rc16-staged-startup-diagnostic
+          path: dist/diagnostics/*.json
+          if-no-files-found: error
+  intel-qualification:
+    if: github.event_name == 'workflow_dispatch' && inputs.phase == 'qualify'
+    needs: offline
     runs-on: macos-15-intel
     timeout-minutes: 40
     steps:
@@ -60,177 +110,78 @@ jobs:
           path: dist
       - name: Restore native bootstrap executable permissions
         run: chmod 700 dist/standalone/mos-install-*
+      - name: Verify untouched signed source and software checksums
+        working-directory: dist
+        run: |
+          test "$(cat SOURCE_COMMIT)" = 14eb79d52950f340aba159815222e04e6ea864e3
+          shasum -a 256 -c SHA256SUMS
+      - name: Require reviewed exact-source diagnostic run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIAGNOSTIC_RUN: ${{ inputs.diagnostic_run }}
+        run: |
+          uv run --frozen python -c 'import os; assert os.environ["DIAGNOSTIC_RUN"].isdigit()'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DIAGNOSTIC_RUN" > .work/diagnostic-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42233939365" > .work/predecessor-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42233939365/jobs?per_page=100" > .work/predecessor-jobs.json
+          uv run --frozen python - <<'PYGUARD'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path('.work/diagnostic-run.json').read_text())
+          assert (r['id'], r['head_sha'], r['workflow_id'], r['event'], r['run_attempt'], r['conclusion']) == (int(os.environ['DIAGNOSTIC_RUN']), os.environ['GITHUB_SHA'], 408617556, 'workflow_dispatch', 1, 'success')
+          r = json.loads(Path('.work/predecessor-run.json').read_text())
+          assert (r['id'], r['head_sha'], r['workflow_id'], r['run_attempt'], r['conclusion']) == (42233939365, 'efba0d4781f0e5e4dd3c3cfa9e2b9efe31aa9d3c', 408617556, 1, 'failure')
+          jobs = json.loads(Path('.work/predecessor-jobs.json').read_text())['jobs']
+          for group in (1, 2, 3):
+              found = [j for j in jobs if j['name'] == f'intel-recovery ({group})']
+              assert len(found) == 1 and found[0]['conclusion'] == 'success'
+          PYGUARD
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.diagnostic_run }}
+          name: rc16-staged-startup-diagnostic
+          path: .work/diagnostic
+      - name: Require exact valid observations within the unchanged 30-second contract
+        run: |
+          uv run --frozen python - <<'PYGUARD'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path('.work/diagnostic/staged-startup.json').read_text())
+          assert r['status'] == 'diagnostic_target_completed_within_original_deadline'
+          assert (r['source_commit'], r['harness_source'], r['platform'], r['version']) == ('14eb79d52950f340aba159815222e04e6ea864e3', os.environ['GITHUB_SHA'], 'macos-x86_64', '0.1.0-rc.16')
+          assert r['metadata_sha256'] == '1882d3db109ebc3b6f0d5c84de8dec0eecde96a47da5f72ad444d133b30ea3bc'
+          assert r['observation_count'] == len(r['records']) == 2
+          assert r['qualification_pass'] is False and r['provider_calls'] == 0
+          for row in r['records']:
+              assert row['contract_passed'] and row['cleanup_completed'] and row['version_matches']
+              assert not row['original_deadline_exceeded'] and not row['output_limit_exceeded']
+              assert row['deadline_ms'] == 30000 and row['observation_limit_ms'] == 120000
+          assert r['records'][1]['location'] == 'stage' and r['records'][1]['version_kind'] == 'candidate'
+          PYGUARD
       - name: Qualify the exact signed installation candidate
-        if: matrix.group == 0
         run: uv run --frozen python tools/smoke_app_distribution.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-signed-macos-15-intel.json
       - name: Qualify installed terminal, diff and recovery on both stores
-        if: matrix.group == 0
         env:
           SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
           RELEASE_TAG: 'v0.1.0-rc.16'
         run: uv run --frozen python tools/qualify_installed_candidate.py --artifacts dist/standalone --expected-source "$SOURCE_COMMIT" --expected-version "${RELEASE_TAG#v}" --evidence dist/standalone/qualification-installed-macos-15-intel.json
-      - name: Qualify upgrade from the actual published predecessor
-        if: matrix.group == 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.1" --jq 'select(.id == 413060239 and .immutable == true and .draft == false and .target_commitish == "8cf38c83591e505a9c7b57f4d701b12cb80fc4c6") | .id' > predecessor-id.txt
-          test "$(cat predecessor-id.txt)" = 413060239
-          gh release download v0.1.0-rc.1 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.1-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor
-          chmod 700 ".work/published-predecessor/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.2
-        if: matrix.group == 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.2" --jq 'select(.id == 413979297 and .immutable == true and .draft == false and .target_commitish == "ef6a66fc8911902cef7a91828b4b26e7d329020c") | .id' > predecessor-rc2-id.txt
-          test "$(cat predecessor-rc2-id.txt)" = 413979297
-          gh release download v0.1.0-rc.2 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.2-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc2
-          chmod 700 ".work/published-predecessor-rc2/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc2 --predecessor-version 0.1.0-rc.2 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc2-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.3
-        if: matrix.group == 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.3" --jq 'select(.id == 414195118 and .immutable == true and .draft == false and .target_commitish == "b3f04b46fb2091e861bdf3fc5e900d933cf804b3") | .id' > predecessor-rc3-id.txt
-          test "$(cat predecessor-rc3-id.txt)" = 414195118
-          gh release download v0.1.0-rc.3 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.3-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc3
-          chmod 700 ".work/published-predecessor-rc3/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc3 --predecessor-version 0.1.0-rc.3 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc3-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.5
-        if: matrix.group == 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.5" --jq 'select(.id == 420137559 and .immutable == true and .draft == false and .target_commitish == "b04906553f2622210adc82c43893777a6b98aa44") | .id' > predecessor-rc5-id.txt
-          test "$(cat predecessor-rc5-id.txt)" = 420137559
-          gh release download v0.1.0-rc.5 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.5-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc5
-          chmod 700 ".work/published-predecessor-rc5/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc5 --predecessor-version 0.1.0-rc.5 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc5-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.7
-        if: matrix.group == 2
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.7" --jq 'select(.id == 421278021 and .immutable == true and .draft == false and .target_commitish == "78bc17ce561df7e641a4dd0fc5aef56aa9deee58") | .id' > predecessor-rc7-id.txt
-          test "$(cat predecessor-rc7-id.txt)" = 421278021
-          gh release download v0.1.0-rc.7 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.7-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc7
-          chmod 700 ".work/published-predecessor-rc7/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc7 --predecessor-version 0.1.0-rc.7 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc7-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.9
-        if: matrix.group == 2
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.9" --jq 'select(.id == 424828190 and .immutable == true and .draft == false and .target_commitish == "f94842a44b9fc5dcf42a7f5880a6683e4fdc0b23") | .id' > predecessor-rc9-id.txt
-          test "$(cat predecessor-rc9-id.txt)" = 424828190
-          gh release download v0.1.0-rc.9 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.9-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc9
-          chmod 700 ".work/published-predecessor-rc9/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc9 --predecessor-version 0.1.0-rc.9 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc9-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.10
-        if: matrix.group == 2
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.10" --jq 'select(.id == 428076837 and .immutable == true and .draft == false and .target_commitish == "9ffd540674cc322857c05f09bcaf8dc816b3ff64") | .id' > predecessor-rc10-id.txt
-          test "$(cat predecessor-rc10-id.txt)" = 428076837
-          gh release download v0.1.0-rc.10 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.10-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc10
-          chmod 700 ".work/published-predecessor-rc10/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc10 --predecessor-version 0.1.0-rc.10 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc10-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.11
-        if: matrix.group == 2
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.11" --jq 'select(.id == 429106203 and .immutable == true and .draft == false and .target_commitish == "4d927cea23ff18f6aa9d231f7c342ee8e2420c84") | .id' > predecessor-rc11-id.txt
-          test "$(cat predecessor-rc11-id.txt)" = 429106203
-          gh release download v0.1.0-rc.11 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.11-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc11
-          chmod 700 ".work/published-predecessor-rc11/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc11 --predecessor-version 0.1.0-rc.11 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc11-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.12
-        if: matrix.group == 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.12" --jq 'select(.id == 430032833 and .immutable == true and .draft == false and .target_commitish == "2f75d429c87b3b48c946832ff9c73748abf94efe") | .id' > predecessor-rc12-id.txt
-          test "$(cat predecessor-rc12-id.txt)" = 430032833
-          gh release download v0.1.0-rc.12 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.12-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc12
-          chmod 700 ".work/published-predecessor-rc12/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc12 --predecessor-version 0.1.0-rc.12 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc12-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.13
-        if: matrix.group == 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.13" --jq 'select(.id == 430907808 and .immutable == true and .draft == false and .target_commitish == "8c7690733af1bbc4861911d2c0a2a516961985da") | .id' > predecessor-rc13-id.txt
-          test "$(cat predecessor-rc13-id.txt)" = 430907808
-          gh release download v0.1.0-rc.13 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.13-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc13
-          chmod 700 ".work/published-predecessor-rc13/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc13 --predecessor-version 0.1.0-rc.13 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc13-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.14
-        if: matrix.group == 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.14" --jq 'select(.id == 434439039 and .immutable == true and .draft == false and .target_commitish == "ec3211e23c4a3e2b20837114e707bc8ebcbe625a") | .id' > predecessor-rc14-id.txt
-          test "$(cat predecessor-rc14-id.txt)" = 434439039
-          gh release download v0.1.0-rc.14 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.14-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc14
-          chmod 700 ".work/published-predecessor-rc14/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc14 --predecessor-version 0.1.0-rc.14 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc14-$UPGRADE_PLATFORM.json"
-      - name: Qualify upgrade from published rc.15
-        if: matrix.group == 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
-        run: |
-          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.15" --jq 'select(.id == 435339429 and .immutable == true and .draft == false and .target_commitish == "21fc2b02db5611d806626ad8c70698b3c7181577") | .id' > predecessor-rc15-id.txt
-          test "$(cat predecessor-rc15-id.txt)" = 435339429
-          gh release download v0.1.0-rc.15 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.15-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc15
-          chmod 700 ".work/published-predecessor-rc15/mos-install-$UPGRADE_PLATFORM"
-          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc15 --predecessor-version 0.1.0-rc.15 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc15-$UPGRADE_PLATFORM.json"
       - name: Qualify signed offline native progress receipts
-        if: matrix.group == 0
         env:
           SOURCE_COMMIT: '14eb79d52950f340aba159815222e04e6ea864e3'
           RELEASE_TAG: 'v0.1.0-rc.16'
         run: uv run --frozen python tools/qualify_native_progress.py --artifacts dist/standalone --expected-source "$SOURCE_COMMIT" --expected-version "${RELEASE_TAG#v}" --evidence dist/standalone/qualification-progress-macos-15-intel.json
       - name: Qualify generated signed Homebrew preview formula
-        if: matrix.group == 0
         run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-macos-15-intel.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: ${{ always() }}
         with:
-          name: rc16-intel-recovery-${{ matrix.group }}
+          name: rc16-intel-qualification
           path: dist/standalone/qualification-*.json
           if-no-files-found: error
   discovery:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [offline, intel-recovery]
+    if: github.event_name == 'workflow_dispatch' && inputs.phase == 'qualify'
+    needs: [offline, intel-qualification]
     strategy:
       fail-fast: false
       matrix:
