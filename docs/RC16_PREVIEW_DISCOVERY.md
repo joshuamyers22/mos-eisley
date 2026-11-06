@@ -1,10 +1,11 @@
 # rc.16 candidate: bounded preview update discovery
 
-Implementation prepared for [R15-01](V1_PRODUCTION_READINESS_RC15.md).
+Source correction and protected signing completed for [R15-01](V1_PRODUCTION_READINESS_RC15.md).
 Published rc.15 remains immutable and is still the current preview. rc.16 is a
-new source candidate, not a signed/published release or stable-v1 acceptance.
-Accountable review owner: Joshua Myers; review checkpoint 2026-11-12 or before
-signing. [Work note and verification](RC16_PREVIEW_DISCOVERY_WORK_NOTE.md).
+signed candidate; [affected qualification](RC16_QUALIFICATION_REVIEW.md) is blocked
+by RC16-Q02 on Intel macOS. It remains unpublished and has no stable-v1 acceptance.
+Accountable review owner: Joshua Myers; next review before any new qualification
+or publication. [Work note and verification](RC16_PREVIEW_DISCOVERY_WORK_NOTE.md).
 
 ## Failure and correction
 
@@ -44,9 +45,9 @@ reports `unable_to_check` instead of a false success. No dependencies change.
   and selects rc.15's genuine enrolled signed metadata. One fresh public source
   lookup also passes and verifies the same source/signature/hash. Neither is an
   installed signed-rc.16 result or a provider request.
-- The combined `make check` is running, with completed lint/format/type stages.
-  Its final exit/coverage/wheel results and required PR CI remain separate gates;
-  no completed full-gate pass is claimed here.
+- The frozen combined gate passed 3,960 source and 2,919 wheel tests, with 86%
+  coverage and unchanged inputs. Both source PRs merged after required CI;
+  protected preparation independently passed the full gate and audit.
 
 Captured public feed SHA256:
 `eb760c6de4f02df7783e7e37c3217a7e5e6b4a7644cd21b6a72961ea5bfa09bb`.
@@ -66,7 +67,7 @@ targets. Existing predecessor and rc.7 refusal gates remain required.
 
 | Gate | Required next evidence |
 |---|---|
-| Source and accountable review | Exact candidate CI, normal protected merge after readiness PR #366, owner review of discovery/resource policy; no signed tag is cut by this task. |
+| Source and accountable review | Exact candidate CI, normal protected merge after readiness PR #366, owner review of discovery/resource policy; completed in #366/#367; signed tag pins `14eb79d`. |
 | New signed artifacts | Protected build/sign and SBOM completeness; fresh signed installation/actual-predecessor upgrade, both-store offline and diagnostics on macOS/Linux arm64/x86_64. Preserve all existing qualification gates, including rc.7 cross-epoch refusal. |
 | Installed public discovery | Read-only `mos update check --json` on the actual new signed executable with explicit preview policy and isolated private root on each target. Verify public enrolled metadata, actual latest version and no runtime/state change; network/limit failure must remain visible. No provider credentials are needed. |
 | Initial rollout from rc.15 | Old immutable clients retain the old discovery bug. Use the exact new verified installer/explicit version to upgrade from actual rc.15 with sessions, configuration, grants/uncertain ledgers preserved. Replacing the client is required before its corrected discovery can run; do not claim the old binary repairs itself. |
@@ -75,5 +76,6 @@ targets. Existing predecessor and rc.7 refusal gates remain required.
 
 Preserve the dated rc.15 readiness assessment and all historical failures. This
 source fix addresses the reproducer; R15-01's signed/public installed gate stays
-open until the corresponding evidence and accountable review exist. Other stable
+open: signing succeeded, but fresh Intel startup failure blocks complete affected
+qualification and public discovery. The original failed run remains retained. Other stable
 readiness findings are unchanged.
