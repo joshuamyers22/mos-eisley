@@ -1,0 +1,83 @@
+{
+  "actual_assets_unchanged": true,
+  "asset_count": 80,
+  "bootstrap_oracle": [
+    {
+      "embedded_files": 164,
+      "pinned_reader_size_hash_agreement": true,
+      "platform": "linux-aarch64"
+    },
+    {
+      "embedded_files": 164,
+      "pinned_reader_size_hash_agreement": true,
+      "platform": "linux-x86_64"
+    },
+    {
+      "embedded_files": 163,
+      "pinned_reader_size_hash_agreement": true,
+      "platform": "macos-aarch64"
+    },
+    {
+      "embedded_files": 166,
+      "pinned_reader_size_hash_agreement": true,
+      "platform": "macos-x86_64"
+    }
+  ],
+  "canonical_recomputation": true,
+  "components": 6496,
+  "dependencies": 6497,
+  "native_execution": false,
+  "official_schema_offline": true,
+  "provider_calls": 0,
+  "publication_authorized": false,
+  "refusal_controls": [
+    {
+      "case": "empty_components",
+      "refused_before_api": true
+    },
+    {
+      "case": "missing_dependencies",
+      "refused_before_api": true
+    },
+    {
+      "case": "boolean_version",
+      "refused_before_api": true
+    },
+    {
+      "case": "missing_cpython",
+      "refused_before_api": true
+    },
+    {
+      "case": "stale_file_hash",
+      "refused_before_api": true
+    }
+  ],
+  "reviewed_at": "2026-11-06T20:00:42.014373+00:00",
+  "sbom_sha256": "fe6a63592576d0ed2a6786c725ca5bd0d22bf242df3ddee982d30b1016c9a65f",
+  "schema": 1,
+  "source": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "standard_marker_parser": [
+    {
+      "packages": 44,
+      "platform": "linux-aarch64",
+      "standard_marker_parser_agreement": true
+    },
+    {
+      "packages": 44,
+      "platform": "linux-x86_64",
+      "standard_marker_parser_agreement": true
+    },
+    {
+      "packages": 42,
+      "platform": "macos-aarch64",
+      "standard_marker_parser_agreement": true
+    },
+    {
+      "packages": 42,
+      "platform": "macos-x86_64",
+      "standard_marker_parser_agreement": true
+    }
+  ],
+  "status": "passed",
+  "version": "0.1.0-rc.16"
+}

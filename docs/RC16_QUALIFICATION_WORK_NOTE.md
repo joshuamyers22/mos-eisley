@@ -1,6 +1,8 @@
 # rc.16 owner review, signing and affected qualification
 
-Status: **blocked at RC16-Q02**. Owner: Joshua Myers; operator: Codex.
+Initial status: **blocked at RC16-Q02**. The subsequent
+[diagnosis and final qualification](RC16_STARTUP_QUALIFICATION_REVIEW.md) passes
+the reviewed profile; original failure and initial work below remain preserved. Owner: Joshua Myers; operator: Codex.
 Started 2026-11-05 UTC; continuation 2026-11-06. Review before a new qualification
 attempt or publication. [Technical disposition and bindings](RC16_QUALIFICATION_REVIEW.md).
 Frozen runtime remains `14eb79d52950f340aba159815222e04e6ea864e3`, version

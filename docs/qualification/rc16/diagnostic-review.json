@@ -1,0 +1,28 @@
+{
+  "diagnostic_run": 42246992124,
+  "harness": "e2faad64005e125043c16759d5b50d9d0378edb7",
+  "limitations": [
+    "two context observations, not a latency distribution or general reliability claim",
+    "diagnostic is not qualification",
+    "original failures remain unsuccessful"
+  ],
+  "provider_calls": 0,
+  "publication_authorized": false,
+  "receipt_sha256": "44b1e1dfa94c153d3b67ae7d454259b48cc2cc70d303b4ea0da4e8089eabb069",
+  "reviewed_at": "2026-11-06T16:35:57.534963+00:00",
+  "reviewed_profile": {
+    "affected_intel_jobs": 1,
+    "affected_job_minutes": 40,
+    "automatic_retry": false,
+    "changed_native_deadline": false,
+    "four_discovery_jobs_after_intel": true,
+    "native_startup_deadline_seconds": 30,
+    "reuse_exact_authenticated_predecessor_journeys": 48
+  },
+  "root_cause": "original timeout not reproduced; observed CPU-active startup, no loader or scheduler root cause proven",
+  "staged_version_ms": [
+    9699,
+    12848
+  ],
+  "status": "admitted_for_one_affected_qualification"
+}

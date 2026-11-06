@@ -37,3 +37,58 @@ stack dumps and raw output. Use private process groups, bounded reads, fixed OS
 queries and termination/reaping on deadlines. No unrestricted process inspection
 or credential/network use by diagnostic native children. Changed observation
 behavior is a diagnostic controller, not a qualified installer timeout override.
+
+## Results and profile review
+
+Eight offline process tests, explicit Ruff/pyright and workflow guard compilation
+pass. All four affected Intel commands exactly match the preserved original
+controller. PR #371's initial exact head `e2faad64005e125043c16759d5b50d9d0378edb7`
+passed all executed CI checks; diagnostic/qualification/discovery were deliberately
+skipped in the PR event, not called passing native checks.
+
+One diagnostic dispatch, run 42246992124, produced two valid observations: staged
+synthetic predecessor 9.699 seconds and candidate 12.848 seconds, exit 0, both EOFs,
+no stderr or overflow, cleanup complete. At five seconds each process was running
+with about 99–100% CPU and five seconds of CPU time. No 30-second overrun or stalled
+process reproduced. This does not prove the old failure's cause or a distribution.
+
+Operator review authenticated the exact signed bytes and content-free receipt,
+then admitted one qualification dispatch: one affected Intel job, aggregate
+40 minutes, unchanged installer deadline 30 seconds, no automatic retry, existing
+48 exact predecessor journeys reused. This revises campaign composition and bounds,
+not the native success condition; the original intermittent failure remains a
+retained limitation. No product fix or signing retry was inferred from a
+non-reproduction. The approval/tool wait delayed actual qualification creation to
+19:45:54Z; no additional native run was launched during that wait.
+
+Run 42282492215 passed signed Intel installation/recovery, both-store installed
+acceptance, six-case offline diagnostics and generated Homebrew formula checks,
+then all four actual signed public-discovery journeys. Reconstruction passes 62
+base reports/80 assets and 48 actual predecessor journeys, with four supplementary
+discovery receipts kept separate. Full independent SBOM/schema/marker/reader and
+five pre-API rejection controls pass; read-only publisher preflight passes. All
+18 software hashes remain unchanged. Complete evidence is reviewed in
+[the final qualification record](RC16_STARTUP_QUALIFICATION_REVIEW.md).
+
+The first full reconstruction refused the fresh smoke report's checkout identity;
+source inspection established that its `source_commit` is `git rev-parse HEAD`.
+The corrected auditor requires exact reviewed controller identity for that one
+field, byte-identical original smoke code and enrolled archive/bootstrap bindings;
+all runtime source checks remain 14eb79d. No receipt was edited. Original refusal
+is retained separately.
+
+The combined local `make check` source phase passed, but wheel dependency setup
+failed after PyPI connection timeouts; its exit 2/log/input snapshot remain retained.
+A network-enabled retry repeats only `make smoke`, not already successful source
+checks. Exact-head GitHub source/package gates independently passed. Main's merged
+#370 record was reconciled with the diagnostic branch; all 883 original non-Markdown
+controller inputs remained identical. New tracked JSON files are bounded ordinary
+release evidence, not runtime/controller inputs or evaluation artifacts.
+
+Current task launches: one diagnostic and one affected qualification, zero provider
+calls, signing operations or publication. Historical failures, sources, grants,
+ledgers and dated rc.15 assessments remain unchanged. Native work and independent
+qualification review finished inside the declared six-hour window. Normal PR CI
+and owner-directed technical review remain required before merging the evidence.
+The original publisher is skipped; no alternate publisher or owner publication
+approval is created by this work.

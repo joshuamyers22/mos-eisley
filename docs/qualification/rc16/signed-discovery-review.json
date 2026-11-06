@@ -1,0 +1,39 @@
+{
+  "future_version_notice_upgrade_restart_qualified": false,
+  "harness_source": "e2faad64005e125043c16759d5b50d9d0378edb7",
+  "provider_calls": 0,
+  "public_version": "0.1.0-rc.15",
+  "publication_authorized": false,
+  "report_count": 4,
+  "reports": [
+    {
+      "platform": "linux-aarch64",
+      "public_feed_bytes": 914579,
+      "public_feed_sha256": "64ec62acf4040cf36ff025404761752df2aafeec46febd85936affade526f04e",
+      "receipt_sha256": "dd84b1f5a57aa1b8e527f8a1a249bb40f1efca04913334ddde0ea88c55379329"
+    },
+    {
+      "platform": "linux-x86_64",
+      "public_feed_bytes": 914579,
+      "public_feed_sha256": "64ec62acf4040cf36ff025404761752df2aafeec46febd85936affade526f04e",
+      "receipt_sha256": "89883f056537877fc18a7aece50648ac2e5c34003dbe5224c95b0f9b19258486"
+    },
+    {
+      "platform": "macos-aarch64",
+      "public_feed_bytes": 914579,
+      "public_feed_sha256": "64ec62acf4040cf36ff025404761752df2aafeec46febd85936affade526f04e",
+      "receipt_sha256": "122f8ec5835360af94cc9c9711de27d7f852a89b9e07721e2c25936f54aa167d"
+    },
+    {
+      "platform": "macos-x86_64",
+      "public_feed_bytes": 914579,
+      "public_feed_sha256": "64ec62acf4040cf36ff025404761752df2aafeec46febd85936affade526f04e",
+      "receipt_sha256": "f7d476653000eed9169a859e14d086a70d2d25b93207a361dd5db3e2dbc7c50b"
+    }
+  ],
+  "reviewed_at": "2026-11-06T20:01:07.910522+00:00",
+  "source": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "status": "passed",
+  "version": "0.1.0-rc.16",
+  "workflow_run": 42282492215
+}
