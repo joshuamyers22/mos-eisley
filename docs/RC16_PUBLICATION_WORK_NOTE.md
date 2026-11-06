@@ -57,3 +57,8 @@ the exact immutable Git merge's parents/tree, and main ancestry instead. New
 negative merge-graph tests pass; the original refusal is retained, not relabeled
 success. [Git commit API](https://docs.github.com/en/rest/git/commits#get-a-commit)
 provides the parent/tree identities. No API version downgrade or artifact rewrite.
+
+Final workflow review made read-only pull-request metadata permission explicit in
+both admission and protected publication jobs. The in-progress local combined gate
+was interrupted and retained as attempt 1, not credited as passing; a final-input
+combined gate repeats. No runtime, digest map, signature or candidate change.

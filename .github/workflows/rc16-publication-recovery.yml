@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 concurrency:
   group: rc16-publication-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
@@ -111,6 +112,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
