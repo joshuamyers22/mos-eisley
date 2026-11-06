@@ -90,3 +90,25 @@ attempt has yet executed through this supplementary workflow.
 
 Original bootstrap-contract regression SHA256: `2a33ec0d225d43727b26fc0471c6ee84747437f6526d3f001e0a4b1c5f1196c6`.
 Passing seven-case log SHA256: `582e846322891f296a63a40b9d15eab87592c5ed25fac4581280e05ea8e92873`.
+
+## Intel timeout continuation, 2026-11-06
+
+GitHub ended original Intel job 127590446087 at 00:15:02Z, conclusion cancelled,
+with the explicit annotation “The job has exceeded the maximum execution time of
+1h15m0s”. Installation, both stores and predecessors through rc.13 passed; rc.14
+was interrupted, rc.15/progress/formula were skipped. Publication was skipped.
+The original run remains unsuccessful and is never relabeled passing.
+
+After the operator interruption, a separate three-hour continuation window starts
+at 14:20Z (deadline 17:20Z). One read-only workflow dispatch, four Intel groups at
+40 minutes each and four discovery jobs at 20 minutes each; zero provider calls,
+no signing retry, source/tag/artifact change or publication. Each original Intel
+assertion is repeated unchanged, split across four disjoint groups to address the
+measured aggregate runner limit. Exact original run/source/attempt, preparation,
+three successful platforms and the specific Intel timeout annotation are required.
+All four recovery groups must pass before public discovery. Guard refusal, any
+product assertion or cleanup failure stops dependent work; no automatic retry.
+
+This is a qualification-controller change, separately identified from frozen
+runtime 14eb79d. Normal PR review/CI will cover the controller; dispatching its
+reviewed branch executes read-only tests and grants no publication authority.
