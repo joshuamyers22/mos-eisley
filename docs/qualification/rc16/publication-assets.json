@@ -1,0 +1,402 @@
+[
+  {
+    "digest": "sha256:9f72ad60c798fcb1143752886888f0d05b0640b2ca196c5f2a1b9f5c4588a20c",
+    "name": "BOOTSTRAP_SHA256SUMS",
+    "size": 366
+  },
+  {
+    "digest": "sha256:488b3dc2523f154d54a56ce9256d4823a17403ebd2ce18dfa632a1b7b9106fbb",
+    "name": "SHA256SUMS",
+    "size": 457
+  },
+  {
+    "digest": "sha256:76c3671af6b46f06f4aeef2043a4bd879cf7cac27c8cda81668bf1cdc20657d4",
+    "name": "SOURCE_COMMIT",
+    "size": 41
+  },
+  {
+    "digest": "sha256:8fddf9c56768910836ec81638f62b22240950ec9db825a69ece1e418ae40d4f2",
+    "name": "install.sh",
+    "size": 2587
+  },
+  {
+    "digest": "sha256:aa5f7f85d73643a8b5b11cf41b1b944a407477b5ad4ca7c79d134e606dafe169",
+    "name": "mos-0.1.0-rc.16-linux-aarch64.tar.gz",
+    "size": 35588714
+  },
+  {
+    "digest": "sha256:ab722404fa813872a9f44237be0a5897bcd04a94df3572b54438c05c312bf337",
+    "name": "mos-0.1.0-rc.16-linux-x86_64.tar.gz",
+    "size": 37477577
+  },
+  {
+    "digest": "sha256:fcfd6f53407528ae1cf8977b4677dcd3b464ecd9eb3158b63af42cd4269ddb60",
+    "name": "mos-0.1.0-rc.16-macos-aarch64.tar.gz",
+    "size": 32930061
+  },
+  {
+    "digest": "sha256:4044e2492f5a209f818f371e27e168977f386fc5487996ac5ca857fe7813b244",
+    "name": "mos-0.1.0-rc.16-macos-x86_64.tar.gz",
+    "size": 33851520
+  },
+  {
+    "digest": "sha256:a195bac4c7162b564d569b367b7af3a2271c85f748afe1afb917d8c0e2c1a20e",
+    "name": "mos-eisley-preview.rb",
+    "size": 1575
+  },
+  {
+    "digest": "sha256:fe4285096c44a71f801da7b9032d3b0183aa61957bad0392bcc57d666c40f313",
+    "name": "mos-install-linux-aarch64",
+    "size": 16285160
+  },
+  {
+    "digest": "sha256:a6fa9f89468990a181c76acd18242930425be821bb64d7c299cb50be4f838c74",
+    "name": "mos-install-linux-x86_64",
+    "size": 18003912
+  },
+  {
+    "digest": "sha256:2bf213555f38c4cfd086b2fe53f33e1137c6d2b7ef0b1bdf27ecd371e5117d2e",
+    "name": "mos-install-macos-aarch64",
+    "size": 14371232
+  },
+  {
+    "digest": "sha256:558a3e78d80e40e69f492eb4b7436b2b0e389366addda5c2d3a3348ce56308fa",
+    "name": "mos-install-macos-x86_64",
+    "size": 15001824
+  },
+  {
+    "digest": "sha256:2fef66d8ca749243de89f76170830c7f054f1a15f86bb8d395575529d275a143",
+    "name": "mos_eisley-0.1.0rc16-py3-none-any.whl",
+    "size": 1342137
+  },
+  {
+    "digest": "sha256:0d8d52c5dd35807793fe73ac4c2e6e041e9d2cb9031da67a45080e2e3cdaec55",
+    "name": "mos_eisley-0.1.0rc16.tar.gz",
+    "size": 3925100
+  },
+  {
+    "digest": "sha256:0d528f411bd349a865b7c75bd599f886f2ca7b71f46e357c1ebe0d8e2d5f76a0",
+    "name": "qualification-homebrew-macos-15-intel.json",
+    "size": 453
+  },
+  {
+    "digest": "sha256:9e89479320b64eaf5c4dcf2d54dbb45628447ec1ad46d580ccc7e4d59e6ffe13",
+    "name": "qualification-homebrew-macos-15.json",
+    "size": 454
+  },
+  {
+    "digest": "sha256:5e1238ea774d09889b32f44b2b8c4fcf16d6a17a10e289d99e7e109367a64a07",
+    "name": "qualification-installed-macos-15-intel.json",
+    "size": 1384
+  },
+  {
+    "digest": "sha256:e1f626efa0ce1bbd6474840006e1a15aab5bb6a353668e850b587cd2d4ba8102",
+    "name": "qualification-installed-macos-15.json",
+    "size": 1383
+  },
+  {
+    "digest": "sha256:8ccfe4b101c0e329e51f77db2387de748f9c65a4ac3ef1fa6d6e7930ca023dd3",
+    "name": "qualification-installed-ubuntu-22.04-arm.json",
+    "size": 1518
+  },
+  {
+    "digest": "sha256:12d3fd03f7b7c93d6712ab5d7abe617d59d0c96fcc2b05c02d167f65dfac5c4b",
+    "name": "qualification-installed-ubuntu-22.04.json",
+    "size": 1516
+  },
+  {
+    "digest": "sha256:1570ab61cdc19364213973cf091c0d38baa2f44ae7abe29d48a93dfae29eccaf",
+    "name": "qualification-progress-macos-15-intel.json",
+    "size": 6864
+  },
+  {
+    "digest": "sha256:571ef1d17ea2c1350fabf4e1da5af87f632e4653719c8c6a24700ab46585ccdf",
+    "name": "qualification-progress-macos-15.json",
+    "size": 6840
+  },
+  {
+    "digest": "sha256:b24ba023aeb095878f6644dea8458eb6111a6e26b8b9b13d706babf6eb660b2e",
+    "name": "qualification-progress-ubuntu-22.04-arm.json",
+    "size": 6840
+  },
+  {
+    "digest": "sha256:72da088741589e9ce55405818489edea44a7483d52e8c00813345f4df250e16e",
+    "name": "qualification-progress-ubuntu-22.04.json",
+    "size": 6839
+  },
+  {
+    "digest": "sha256:f65e02fc635fe8a043c97c2b77f52fe72b67fc1c2c1a7e5f4bfa44cacaddfdc5",
+    "name": "qualification-signed-macos-15-intel.json",
+    "size": 1252
+  },
+  {
+    "digest": "sha256:82fa73e93d69e3bcdb247e58f7c2e601bfac2f685ffcde318a2d4ac5928393f0",
+    "name": "qualification-signed-macos-15.json",
+    "size": 1253
+  },
+  {
+    "digest": "sha256:581c86d3732a8f8a48596ce6d4bfd988b8209b567691255fd735efa502496f06",
+    "name": "qualification-signed-ubuntu-22.04-arm.json",
+    "size": 1349
+  },
+  {
+    "digest": "sha256:a50618e8cbb284c95dfb7a949aef8bee7762ee99c28e2ee016d9189d44fb823d",
+    "name": "qualification-signed-ubuntu-22.04.json",
+    "size": 1348
+  },
+  {
+    "digest": "sha256:712b4c20a832f8f47186973398a8ff12def0a49f3895edcfd19ed08682aadf1c",
+    "name": "qualification-upgrade-linux-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:09dcab05e08412629e4ba88ddefd14d78dc29239b0dfca217987ed8493317551",
+    "name": "qualification-upgrade-linux-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:e421e030210e82e63db87144f35b6e9c8a916aecd06c58c32eb71f8e2167bf76",
+    "name": "qualification-upgrade-macos-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:a9844a6884b803c43898d7f833b05ff192f6bc3ce2d8db041a5658c2fb0996e5",
+    "name": "qualification-upgrade-macos-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:1f83086d3a3cb5650d46e331cbf979c93944e50bebbc3e20744e8f0aa1744823",
+    "name": "qualification-upgrade-rc10-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:36cbd91c2222372e18896415f2e37f1f1064fceae001ed5840e3fb1f73be9c05",
+    "name": "qualification-upgrade-rc10-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:a57993b6caaad7df913726987ec5c07a84d714b8f1803ab424d3136e05558104",
+    "name": "qualification-upgrade-rc10-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:92e6d9e89e7b2957204b3649f3d5f4cd933f7e0989a0ed5066b4f4943ac58cb6",
+    "name": "qualification-upgrade-rc10-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:66005ce8d73fe1a0c3615d68266309d2ddc7f77e6666a7787547e5bfd580e963",
+    "name": "qualification-upgrade-rc11-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:82bdf0c8b2df367c953acba37df52f4596e645ad2e6bd07bc2b8b7dfc88bc040",
+    "name": "qualification-upgrade-rc11-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:2e3a06210c810dc6a955a77fdaf13f0af3f9135e5450c61f38a38a0041e7e0e4",
+    "name": "qualification-upgrade-rc11-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:4e1e25d82f224053108f99c0a5c9bff5a60089f9171166e057a6755325ecc71e",
+    "name": "qualification-upgrade-rc11-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:6269ed46f95ca7f6d44441fab2746a56f2571f92bd4b57aac50f597727b1206c",
+    "name": "qualification-upgrade-rc12-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:6a44f9aaff9c1b9fde9f4250ddeeb1faa9a45ac4e662fe02f0a0db9040924904",
+    "name": "qualification-upgrade-rc12-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:e03495becd88a6d30f56641cfbb822a077ca865adfbeb93ec8ec2cb4dcc664b0",
+    "name": "qualification-upgrade-rc12-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:ba1a5fef896673b93d873b1d61958f459c41796fd7b7ca80724f15ee05956321",
+    "name": "qualification-upgrade-rc12-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:6c76204f6e9f8b6544551d88a346983fdadf12c1fe939305b00615d3527f9ed7",
+    "name": "qualification-upgrade-rc13-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:2f591e52a2d08b967a3d4b9b5f954ebd2785358a87ff55339fc9dae7b8561e87",
+    "name": "qualification-upgrade-rc13-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:bfb6f3ae5c50a42e96dca4d118caf4b68a5e54d52e9b9bc5dc61c58e52bb9ef5",
+    "name": "qualification-upgrade-rc13-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:8b50d53e131701dfceec5cf6a65b5a5d463a4f5c23c004bc80feefece4bbbf4c",
+    "name": "qualification-upgrade-rc13-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:2b8f8624a930f09b3d4adebe99c454ca3c011986a7810eef3ebc74eaa31e0994",
+    "name": "qualification-upgrade-rc14-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:382ab987266c23d623bdd33700e14d6ac20605e27c354b296096cb52e23134ef",
+    "name": "qualification-upgrade-rc14-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:f4cbe99df4c638b7628ae094e9b7aa7373c8354ede884705100937473e00788e",
+    "name": "qualification-upgrade-rc14-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:7886594111be54300b7a39253e4f57dc6b525ea92708665a3a17394c20d799a2",
+    "name": "qualification-upgrade-rc14-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:d0e46a458706ca2dc2219b813608a0b38b8d05b818b1d826ed63c69184e8430e",
+    "name": "qualification-upgrade-rc15-linux-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:b5d7d35b6f57ab5ae58ec213e6945dca199bc3d4851862dc1ae5cae88cab4851",
+    "name": "qualification-upgrade-rc15-linux-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:5d617ba940b97fe2a8791dac31ad1e52ecdc52c6ce1222a558aa499065fff8c6",
+    "name": "qualification-upgrade-rc15-macos-aarch64.json",
+    "size": 1430
+  },
+  {
+    "digest": "sha256:9b80bfddef88bd3d23a3ff55d7624aa8f3a2abee5679d95cd62704a942d1fa33",
+    "name": "qualification-upgrade-rc15-macos-x86_64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:879a7df30a262dd631580bdab847b824d0beb695cf355f1d4e3d33dbb658661a",
+    "name": "qualification-upgrade-rc2-linux-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:9cf2579e03d2cab112e868cb55803507cc7c03953e3ad8780b5ca57a11da59fc",
+    "name": "qualification-upgrade-rc2-linux-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:68481a7e33d09c78add3bf83810a8bcdddc8510966ebeba53ceaa97729bf627d",
+    "name": "qualification-upgrade-rc2-macos-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:aff688c44be4fd4ac614584dceb9bf10aed08643bf74b0f9a0ce15a6ae5b646f",
+    "name": "qualification-upgrade-rc2-macos-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:1db47ad5af6efc00241deae582223e32399e28a415f7f0226d1e2db026c3c0a8",
+    "name": "qualification-upgrade-rc3-linux-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:857e5d8111ef006b232920768fe30db4b1d464aa9341418e2c96bb9ba012e30c",
+    "name": "qualification-upgrade-rc3-linux-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:a79b01c6f566d9cc545153911740dbd2a74c20c1cf5b1719c1921ebdd33f125f",
+    "name": "qualification-upgrade-rc3-macos-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:e2a8952b84a6e93e9f8bebd8d908c0253da6df70eea1edd5f8cf5d12be921b33",
+    "name": "qualification-upgrade-rc3-macos-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:56e2529a92f44796e2a34384ea34919791ccc31d1d582d4502bb58c224c3d8c7",
+    "name": "qualification-upgrade-rc5-linux-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:76ddb921d9fce1af7e5c3cdadd4213e5b80552d122b5d38518ca33861543db05",
+    "name": "qualification-upgrade-rc5-linux-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:b8c8ddb2fdd186a3bf5828a7c40b920ebf033f982fcf5b544b067e82268c4327",
+    "name": "qualification-upgrade-rc5-macos-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:813daea1596e24051d5e7f84c8935e8d4d6e87fd8de27357c4c4a65f5cf9d714",
+    "name": "qualification-upgrade-rc5-macos-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:9febe670b0f382a9f3ae4af76a9932732774d51cb7145efb82fcbd69d07ff1ed",
+    "name": "qualification-upgrade-rc7-linux-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:3b7ec84b4d85dbd7386d9e66be8dcd5aaa175f64cae99b128554410e30f18461",
+    "name": "qualification-upgrade-rc7-linux-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:b3726f1f1c800ec62ba43247e9eb91957cf5d7189012b4ce4decb296c05dddaf",
+    "name": "qualification-upgrade-rc7-macos-aarch64.json",
+    "size": 1427
+  },
+  {
+    "digest": "sha256:16328208f36971cfdcb67e3481c57d9c65989af1da748c12fdd392100c64e16e",
+    "name": "qualification-upgrade-rc7-macos-x86_64.json",
+    "size": 1426
+  },
+  {
+    "digest": "sha256:e6e45c439c101c7d009c02cb373f0f9b55ebf23f1a0e8dbfd76b2e6587b58411",
+    "name": "qualification-upgrade-rc9-linux-aarch64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:f49ad9c58c766a56056648ba2bde6eb6a8d1719592c6ab1f3ff0e101f1cfc43c",
+    "name": "qualification-upgrade-rc9-linux-x86_64.json",
+    "size": 1428
+  },
+  {
+    "digest": "sha256:f96eb9d69fa1db140df413747e757ce50cfb87ebb9d702aedff3f202bcac5397",
+    "name": "qualification-upgrade-rc9-macos-aarch64.json",
+    "size": 1429
+  },
+  {
+    "digest": "sha256:372ba6805dc7e01c1a0c05aa28d47520be8997697b2bf9458236299ff2f19897",
+    "name": "qualification-upgrade-rc9-macos-x86_64.json",
+    "size": 1428
+  },
+  {
+    "digest": "sha256:fe6a63592576d0ed2a6786c725ca5bd0d22bf242df3ddee982d30b1016c9a65f",
+    "name": "release-sbom.cdx.json",
+    "size": 5107302
+  },
+  {
+    "digest": "sha256:1882d3db109ebc3b6f0d5c84de8dec0eecde96a47da5f72ad444d133b30ea3bc",
+    "name": "release.json",
+    "size": 1324
+  },
+  {
+    "digest": "sha256:801ecab0fa288ae526cd0eec12e0838d75b5dc947010658862aa36586ff36a85",
+    "name": "requirements.runtime.txt",
+    "size": 48341
+  }
+]

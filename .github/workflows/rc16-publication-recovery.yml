@@ -1,0 +1,171 @@
+name: rc.16 protected recovery publication
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/rc16-publication-recovery.yml
+      - tools/admit_rc16_publication.py
+      - tools/test_rc16_publication.py
+      - docs/qualification/rc16/publication-assets.json
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: rc16-publication-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m unittest discover -s tools -p test_rc16_publication.py -v
+      - run: uv run --frozen pyright tools/admit_rc16_publication.py tools/test_rc16_publication.py
+  admit:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42102119299
+          name: application-publication
+          path: inputs/prepared
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42102119299
+          name: signed-qualification-ubuntu-22.04
+          path: inputs/original-ubuntu-22.04
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42102119299
+          name: signed-qualification-ubuntu-22.04-arm
+          path: inputs/original-ubuntu-22.04-arm
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42102119299
+          name: signed-qualification-macos-15
+          path: inputs/original-macos-15
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42233939365
+          pattern: rc16-intel-recovery-*
+          path: inputs/predecessors
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42282492215
+          name: rc16-intel-qualification
+          path: inputs/final-intel
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42282492215
+          pattern: rc16-discovery-*
+          path: inputs/discovery
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42246992124
+          name: rc16-staged-startup-diagnostic
+          path: inputs/diagnostic
+      - name: Admit exact signed software and complete reviewed qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m tools.admit_rc16_publication --inputs inputs --output dist/admitted
+      - name: Read-only publication preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m tools.publish_app_release preflight --repo "$GITHUB_REPOSITORY" --tag v0.1.0-rc.16 --commit 14eb79d52950f340aba159815222e04e6ea864e3 --artifacts dist/admitted
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rc16-publication-admitted
+          path: dist/admitted/
+          if-no-files-found: error
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: admit
+    environment: application-release-publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: rc16-publication-admitted
+          path: dist/admitted
+      - name: Recheck admitted bytes and upstream identities after owner approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m tools.admit_rc16_publication --verify-admitted --output dist/admitted
+      - name: Require absent release or matching unpublished draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --frozen python -m tools.publish_app_release preflight --repo "$GITHUB_REPOSITORY" --tag v0.1.0-rc.16 --commit 14eb79d52950f340aba159815222e04e6ea864e3 --artifacts dist/admitted
+      - name: Create draft and upload exact admitted assets
+        id: draft
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        with:
+          tag_name: v0.1.0-rc.16
+          target_commitish: 14eb79d52950f340aba159815222e04e6ea864e3
+          draft: true
+          prerelease: true
+          generate_release_notes: false
+          overwrite_files: false
+          fail_on_unmatched_files: true
+          body: |
+            Bounded preview update discovery for the macOS/Linux standalone preview.
+            Frozen signed source: 14eb79d52950f340aba159815222e04e6ea864e3; storage epoch 2.
+            Qualification: 62 base reports, 48 actual predecessor journeys, four signed public-discovery targets and canonical software SBOM admission.
+            Original Intel timeouts remain retained; the reviewed bounded profile passes with the unchanged 30-second native startup limit. No general reliability or stable-v1 approval.
+            Old rc.15 clients require this exact verified installer to receive the discovery correction. Historical rc.14 live-workflow evidence is not fresh rc.16 inference.
+            Review: https://github.com/joshuamyers22/mos-eisley/blob/4595957a822e4eaf7b7560c9c44820736c82cb8b/docs/RC16_STARTUP_QUALIFICATION_REVIEW.md
+          files: |
+            dist/admitted/*.whl
+            dist/admitted/*.tar.gz
+            dist/admitted/release-sbom.cdx.json
+            dist/admitted/requirements.runtime.txt
+            dist/admitted/SOURCE_COMMIT
+            dist/admitted/SHA256SUMS
+            dist/admitted/standalone/mos-*.tar.gz
+            dist/admitted/standalone/mos-install-*
+            dist/admitted/standalone/release.json
+            dist/admitted/standalone/install.sh
+            dist/admitted/standalone/BOOTSTRAP_SHA256SUMS
+            dist/admitted/managers/*.rb
+            dist/admitted/qualification/*/*.json
+      - name: Verify complete draft digest map and publish immutably
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_RELEASE_ID: ${{ steps.draft.outputs.id }}
+        run: uv run --frozen python -m tools.publish_app_release finalize --repo "$GITHUB_REPOSITORY" --tag v0.1.0-rc.16 --commit 14eb79d52950f340aba159815222e04e6ea864e3 --artifacts dist/admitted --release-id "$DRAFT_RELEASE_ID"
