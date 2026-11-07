@@ -1,24 +1,23 @@
 # Application installation and updates
 
 The latest published standalone preview is
-[immutable `0.1.0-rc.15`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.15),
-source `21fc2b02db5611d806626ad8c70698b3c7181577`, for macOS/Linux arm64 and x86_64.
-All four signed installations, both-store offline acceptance matrices, 44 actual
-predecessor upgrade/refusal journeys and offline diagnostics pass. Its complete
-packaged-software SBOM passes canonical and official-schema validation; all
-76 public assets and the immutable attestation match the qualified candidate.
-Fresh public macOS arm64 bootstrap/version/setup and 418 runtime source hashes
-pass, including actual CPython 3.12.14 diagnostics.
+[immutable `0.1.0-rc.16`](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.16),
+source `14eb79d52950f340aba159815222e04e6ea864e3`, for macOS/Linux arm64 and x86_64.
+All four signed installations, both-store offline matrices, 48 actual predecessor
+journeys and offline diagnostics pass. All 80 public assets, immutable attestation
+and canonical software SBOM match the qualified candidate. Fresh public macOS
+arm64 installation/setup/source hashes, explicit public rc.15 rollout and forced
+enrolled public update discovery pass. The original Intel startup incident remains
+retained; the reviewed profile passes with the unchanged 30-second startup limit.
 
-The installed live-workflow evidence remains recorded against rc.14 on macOS
-arm64, both stores and the explicit 120-second subscription profile. rc.15's
-fresh affected qualification covers signed/offline acceptance and public
-installation. See [owner acceptance and public verification](RC15_PUBLICATION_WORK_NOTE.md)
-and the [signed qualification review](RC15_QUALIFICATION_REVIEW.md).
+Live-workflow evidence remains historical rc.14 on macOS arm64, both stores and
+the explicit 120-second subscription profile. See
+[owner acceptance/public verification](RC16_PUBLICATION_WORK_NOTE.md) and the
+[affected qualification review](RC16_STARTUP_QUALIFICATION_REVIEW.md).
 npm and the public tap remain separately versioned. rc.8 remains unpublished and
 blocked on its original Linux artifacts.
 
-rc.15 retains storage epoch 2, introduced by rc.9 for the recovery journal. Use
+rc.16 retains storage epoch 2, introduced by rc.9 for the recovery journal. Use
 the exact current installer for an upgrade; older installers reject the new
 signed metadata. Close all session controllers and back up private session stores
 before upgrading. Current readers can open legacy sessions, but old binaries
@@ -38,14 +37,12 @@ five `@mos-eisley` npm packages are public; the
 bind the release to source `8cf38c83591e505a9c7b57f4d701b12cb80fc4c6`.
 Python/uv development installation continues to work as documented in the README.
 
-**Known preview-update limitation (2026-11-05):** public release discovery exceeds
-the client's 128 KiB inventory cap. Preview notices and guided preview updates
-cannot currently discover the release. Signed installation and supplied-metadata
-upgrade checks remain separately qualified. See
-[R15-01 and the required new-candidate fix](V1_PRODUCTION_READINESS_RC15.md).
-The [rc.16 source correction](RC16_PREVIEW_DISCOVERY.md) is prepared; it does not
-change existing binaries. Once qualified and published, use its exact verified
-installer to receive the corrected client.
+**Upgrade from older clients:** rc.16 corrects bounded public preview discovery.
+Immutable rc.15 and older binaries retain their inventory-limit bug. Use the exact
+verified rc.16 installer below to receive the new client; old clients cannot
+repair themselves through broken discovery. Current rc.16 public discovery passes;
+a same-version check does not qualify a future newer-version notice or guided
+upgrade/restart. See [current readiness limits](V1_PRODUCTION_READINESS_RC16.md).
 
 ## Preview selection
 
@@ -58,10 +55,10 @@ gates. Actual public standalone/npm/tap journeys passed on macOS arm64; all 23
 release assets and all five registry tarballs matched the qualified candidate.
 
 Download and inspect `install.sh` from the exact
-`v0.1.0-rc.15` GitHub release, then run:
+`v0.1.0-rc.16` GitHub release, then run:
 
 ```sh
-sh install.sh --channel preview --version 0.1.0-rc.15
+sh install.sh --channel preview --version 0.1.0-rc.16
 ```
 
 npm requires Node 22 or later. The explicit preview package command is:
@@ -100,7 +97,7 @@ For offline installation, run the matching native bootstrap:
 
 ```sh
 ./mos-install-macos-aarch64 --metadata release.json \
-  --archive mos-0.1.0-rc.15-macos-aarch64.tar.gz --version 0.1.0-rc.15 --channel preview
+  --archive mos-0.1.0-rc.16-macos-aarch64.tar.gz --version 0.1.0-rc.16 --channel preview
 ```
 
 The default runtime root is `~/.local/share/mos-eisley-app`; the launcher is
@@ -219,6 +216,12 @@ credential. Do not paste keys into chat, PRs, logs or workflow files.
 4. Admit the exact generated formula through the protected tap PR and verify
    public installation. Preserve its URLs/checksums, frozen-library rpaths and
    `libexec` cleaning exclusion.
+
+The rc.16 recovery publisher separately uses the secret-free
+`application-release-publication` environment: main-only, owner-reviewed and no
+administrator bypass. It admits exact retained signed bytes and complete evidence
+before creating a draft; it does not rebuild, re-sign or relax the original failed
+run. See [the completed recovery publication](RC16_PUBLICATION_WORK_NOTE.md).
 
 The protected `application-release` environment requires owner approval, disallows
 administrator bypass and restricts deployment to version tags. The enrolled key

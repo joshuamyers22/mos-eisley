@@ -1,0 +1,18 @@
+{
+  "actual_public_rc15_install_and_refusal": true,
+  "explicit_online_rc15_to_rc16_upgrade": true,
+  "future_version_guided_notice_upgrade_restart_qualified": false,
+  "monotonic_seconds": 18.92520124994917,
+  "new_native_sha256": "59251a50cfa57271355679ce5dc55054e2d71d6cdaee780a427654867ac595d3",
+  "new_public_enrolled_discovery": true,
+  "old_failed_cache_and_synthetic_state_preserved_during_upgrade": true,
+  "platform": "macos-aarch64",
+  "private_root_removed": true,
+  "provider_calls": 0,
+  "real_grant_ledger_requalification_claimed": false,
+  "reviewed_at": "2026-11-07T01:40:20.357065+00:00",
+  "runtime_pointer_and_synthetic_state_unchanged_by_discovery": true,
+  "source_commit": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "status": "passed",
+  "version": "0.1.0-rc.16"
+}

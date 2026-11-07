@@ -1,0 +1,26 @@
+{
+  "actual_public_bootstrap_download_and_install": true,
+  "credential_free_setup_passed": true,
+  "enrolled_metadata_verified": true,
+  "fresh_native_public_discovery": true,
+  "future_version_notice_upgrade_restart_qualified": false,
+  "monotonic_seconds": 13.439031666028313,
+  "no_host_python_or_node_on_child_path": true,
+  "no_native_provider_clients_on_child_path": true,
+  "platform": "macos-aarch64",
+  "private_root_removed": true,
+  "provider_calls": 0,
+  "public_latest_version": "0.1.0-rc.16",
+  "python_runtime": {
+    "implementation": "CPython",
+    "version": "3.12.14"
+  },
+  "reviewed_at": "2026-11-07T01:40:01.320563+00:00",
+  "runtime_pointer_and_synthetic_state_unchanged": true,
+  "runtime_python_files_matching_source": 418,
+  "signed_native_sha256": "59251a50cfa57271355679ce5dc55054e2d71d6cdaee780a427654867ac595d3",
+  "source_commit": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "status": "passed",
+  "version": "0.1.0-rc.16",
+  "wall_seconds": 13.438965082168579
+}

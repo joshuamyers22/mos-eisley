@@ -30,37 +30,23 @@ at commit `3d467040ba760efe9795f67f07d5a2ccf364282b`.
 
 ## Preview distribution
 
-The published [**0.1.0-rc.15 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.15)
-covers macOS and Linux on arm64 and x86_64 at frozen source `21fc2b0`.
-It fixes release SBOM generation and completeness checks, inventorying the actual
-packaged dependencies, interpreter and files before publication. Storage epoch 2,
-review/approval ordering and the selected runtime dependency set are preserved.
+The published [**0.1.0-rc.16 standalone preview**](https://github.com/joshuamyers22/mos-eisley/releases/tag/v0.1.0-rc.16)
+supports macOS/Linux arm64 and x86_64. Its signed distribution and both-store
+offline qualification pass: 62 reports, 48 actual predecessor journeys and a
+complete software SBOM. [Publication and public verification](docs/RC16_PUBLICATION_WORK_NOTE.md)
+confirm all 80 assets, immutable attestation, fresh public macOS arm64 installation,
+explicit rc.15 rollout and corrected enrolled public update discovery.
 
-The [qualification review](docs/RC15_QUALIFICATION_REVIEW.md) records four signed
-installations, both-store offline acceptance, 44 actual predecessor upgrade/refusal
-journeys and offline native diagnostics. The [publication review](docs/RC15_PUBLICATION_WORK_NOTE.md)
-verifies all 76 public assets, the immutable attestation, the 6,485-component SBOM
-and a fresh public macOS arm64 installation with credential-free setup and
-418 matching runtime source files.
+Installed live-workflow evidence remains historical rc.14 on macOS arm64, both
+stores and the explicit 120-second subscription profile. No fresh rc.16 inference,
+billing, general reliability or stable-v1 approval is implied. npm/tap publication
+and other target/profile qualification remain separate.
 
-Installed live-workflow evidence is recorded for [rc.14 on macOS arm64](docs/RC14_QUALIFICATION_REVIEW.md)
-on both stores under the explicit 120-second subscription profile. Fresh rc.15
-evidence covers signed/offline acceptance and public installation. Live requests
-retain their separate authorization and qualification requirements. npm/tap
-routes remain separately versioned; earlier stopped campaigns remain preserved.
-
-The recovery journal requires storage epoch 2. Cross-epoch downgrade is refused;
-keep pre-upgrade private backups and an epoch-2 reader for new sessions.
-Optional credential attachment stays inactive by default; new live
-targets still require their existing authorization and qualification.
-Stable `0.1.0` remains unqualified.
-The [current v1 readiness assessment](docs/V1_PRODUCTION_READINESS_RC15.md)
-and [installed acceptance matrix](docs/V1_INSTALLED_ACCEPTANCE_RC15.md) record
-remaining gates. Preview update discovery currently fails on the oversized public
-release feed; see R15-01 before relying on update notices or guided preview updates.
-The [rc.16 source candidate](docs/RC16_PREVIEW_DISCOVERY.md) corrects discovery;
-protected signing and [affected qualification](docs/RC16_STARTUP_QUALIFICATION_REVIEW.md)
-pass the reviewed bounded profile; publication remains pending.
+The [current v1 readiness assessment](docs/V1_PRODUCTION_READINESS_RC16.md) and
+[installed acceptance matrix](docs/V1_INSTALLED_ACCEPTANCE_RC16.md) close the
+preview inventory-limit defect while keeping remaining stable gates explicit.
+Old rc.15 clients need the exact new verified installer to receive the correction.
+The genuine future newer-version guided-update/restart case remains separately open.
 Windows-hosted WSL2 qualification is postponed; native Windows is unsupported.
 See [the preview qualification record](docs/PREVIEW_DISTRIBUTION_QUALIFICATION.md)
 for the publication gates, exact artifact evidence and remaining limitations.

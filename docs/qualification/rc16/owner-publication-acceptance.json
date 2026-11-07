@@ -1,0 +1,17 @@
+{
+  "account": "joshuamyers22",
+  "authority": "current explicit protected rc.16 publication request and independently recorded protected-environment approval",
+  "controller": "27021b43ac8a2f181d54bf74d1335168ea313725",
+  "duplicate_post_guard": "stopped because owner had already approved and job advanced; original assertion retained",
+  "environment": "application-release-publication",
+  "environment_id": 26526997114,
+  "independent_human_security_attestation": false,
+  "new_signing_operations": 0,
+  "operator_approval_posts": 0,
+  "owner": "Joshua Myers",
+  "owner_approvals": 1,
+  "provider_calls": 0,
+  "recorded_at": "2026-11-07T01:37:37.756131+00:00",
+  "source": "14eb79d52950f340aba159815222e04e6ea864e3",
+  "workflow_run": 42324795884
+}
