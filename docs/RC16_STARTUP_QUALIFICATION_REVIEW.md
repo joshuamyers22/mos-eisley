@@ -3,7 +3,9 @@
 Disposition: **affected signed qualification passes under the reviewed bounded
 profile**, for frozen `14eb79d52950f340aba159815222e04e6ea864e3`, version
 `0.1.0-rc.16`, epoch 2. Runtime, tag and signed software remain unchanged.
-Publication is not authorized or performed. The original Intel failures remain
+The owner subsequently authorized [protected publication and public
+verification](RC16_PUBLICATION_WORK_NOTE.md). This qualification record itself
+did not authorize publication. The original Intel failures remain
 unsuccessful; their root cause is not proven or described as fixed.
 
 ## Diagnostic evidence and profile decision

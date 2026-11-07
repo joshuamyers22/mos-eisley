@@ -1,9 +1,9 @@
 # rc.16 candidate: bounded preview update discovery
 
 Source correction and protected signing completed for [R15-01](V1_PRODUCTION_READINESS_RC15.md).
-Published rc.15 remains immutable and is still the current preview. rc.16 is a
-signed candidate; [affected qualification](RC16_STARTUP_QUALIFICATION_REVIEW.md)
-passes the reviewed bounded profile, retaining the non-reproduced Intel incident. It remains unpublished and has no stable-v1 acceptance.
+Published rc.15 remains immutable history. rc.16 is now the current immutable
+published preview; [affected qualification](RC16_STARTUP_QUALIFICATION_REVIEW.md)
+passes the reviewed bounded profile, retaining the non-reproduced Intel incident. [Public verification](RC16_PUBLICATION_WORK_NOTE.md) passes; stable v1 remains blocked.
 Accountable review owner: Joshua Myers; next review before any new qualification
 or publication. [Work note and verification](RC16_PREVIEW_DISCOVERY_WORK_NOTE.md).
 
@@ -70,12 +70,12 @@ targets. Existing predecessor and rc.7 refusal gates remain required.
 | Source and accountable review | Exact candidate CI, normal protected merge after readiness PR #366, owner review of discovery/resource policy; completed in #366/#367; signed tag pins `14eb79d`. |
 | New signed artifacts | Complete: protected build/sign; full SBOM admission; 62 reports/80 assets across all four targets, including actual rc.15 and rc.7 refusal. The original Intel failures remain preserved. |
 | Installed public discovery | Complete on all four signed native targets: old rc.15 refusal, explicit rc.16 installation and public enrolled rc.15 discovery, with unchanged pointer/synthetic state and private-root cleanup. No provider calls. |
-| Initial rollout from rc.15 | Old immutable clients retain the old discovery bug. Use the exact new verified installer/explicit version to upgrade from actual rc.15 with sessions, configuration, grants/uncertain ledgers preserved. Replacing the client is required before its corrected discovery can run; do not claim the old binary repairs itself. |
-| Public notice, guided update and restart | After publication verify real new-client discovery of the public release. A same-version lookup establishes availability/authentication, not an update notice or future-version upgrade. Use declared controlled signed fixtures for offline composition; genuine next-public-version notice/confirmed upgrade/restart needs an actual newer public release and remains separately open. |
+| Initial rollout from rc.15 | Actual public macOS arm64 rc.15 refusal → explicit online rc.16 installer → enrolled discovery passes, preserving synthetic state/cache. Historical session upgrade matrices remain separately bound. Real grant/uncertain-ledger and genuine future guided-restart coverage are not newly claimed. Older immutable clients need the exact verified new installer before corrected discovery can run. |
+| Public notice, guided update and restart | Published rc.16 native discovery authenticates its current public release. That same-version result establishes availability, not a newer-version notice or confirmed guided upgrade/restart. Controlled signed fixtures cover offline composition; a genuine future newer-public-version lifecycle remains R16-01. |
 | Live workflow reuse | This change does not modify chat/coding/auth/worker/ledger execution or authorize new calls. Keep rc.14 live evidence historically scoped; owner reviews equivalence and any independently missing profile/OS boundary. |
 
 Preserve the dated rc.15 readiness assessment and all historical failures. This
 source fix addresses the reproducer; R15-01's candidate signing, affected qualification and all four actual native
-public-read discovery journeys now pass under the reviewed profile. Publication
-and post-publication verification remain open; original failed runs are retained. Other stable
+public-read discovery journeys now pass under the reviewed profile. Publication and post-publication verification now pass as recorded in the
+[publication work note](RC16_PUBLICATION_WORK_NOTE.md); original failed runs remain retained. Other stable
 readiness findings are unchanged.
