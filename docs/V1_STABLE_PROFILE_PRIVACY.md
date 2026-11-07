@@ -88,6 +88,46 @@ refresh/credential rotation and full native outbound observation. An invalid CLI
 option is never counted as a security refusal. A passing initial controller does
 not close R16-02.
 
+The expanded controller adds actual same-owner transfer/migration/export with
+stale-selection refusals, foreign preview/apply refusal, memory change pause and
+explicit refresh/off, real owner-generated SQLite artifact/cursor challenges,
+raw filesystem access challenges and operation-local cache teardown. Deletion
+removes the selected logical session; synthetic migrated/exported copies remain
+until fixture teardown. No physical erasure or backup-retention claim follows.
+Neither an absent search API nor an invalid option is counted as a qualified
+refusal; separate replay/index/notification and private model-selection surfaces
+remain to be reconciled without opening any evaluation stores.
+
+Native recorded egress observations use positive loopback and quiet controls.
+Linux `strace` follows descendant socket/connect calls without payloads. Apple
+pktap captures only IP packet metadata attributed to the exec-stable direct PID
+or effective PID; this is not arbitrary child-tool or whole-machine observation.
+The selected recorded case has no tools or memory and explicitly disabled update
+checks. Missing live/native-client/tool traffic and the default updater profile
+remain separate; provider-free SDK serialization does not cover them.
+
+## Retained first campaign and client observation
+
+[Run 42333874296](https://github.com/joshuamyers22/mos-eisley/actions/runs/42333874296),
+controller `d10e39ae0cd21e4686983f8920a7f735370c3312`, passed the initial 30 receipts
+on each actual Mac: arm64 104.420 seconds, Intel 428.604 seconds; two actual UIDs
+610/611, both accounts and fixture trees removed. Linux x86_64/arm64 stopped
+before its first product case with a launcher `PermissionError`; actual UIDs
+1002/1003 were provisioned and removed. uv's interpreter was staged under the
+runner's temporary directory. The correction stages managed Python under the
+public synthetic harness root instead. WSL2 proved actual Windows Server 2025
+build 26100/distribution version 2, then failed setup because system Python was
+selected and an optional managed-interpreter directory did not exist at chmod.
+That directory is now created; the unused third setup account was removed from
+the controller. These failures are preserved, not counted as passes or provider
+failures. Expanded assertions require their own fresh provider-free run.
+
+Metadata-only local observation: installed Codex is **0.166.0**, outside rc.16's
+admitted versions through 0.163.0; Claude remains 2.1.283. No inference or auth
+cache read accompanied this observation. Use a separately installed admitted
+Codex binary with a new exact binding, or review compatibility in a new candidate
+before any fresh call. Do not relabel current-client compatibility as rc.14 reuse.
+
 ## Fresh authorization and stopping rule
 
 No new provider call is authorized by this document. After provider-free required

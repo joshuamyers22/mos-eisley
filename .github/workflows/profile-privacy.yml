@@ -28,6 +28,9 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
         with:
           version: '0.13.4'
+      - name: Install Linux process network observer
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y strace
       - name: Stage immutable public candidate and installed wheel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -36,10 +39,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/mos-profile/assets
+          export UV_PYTHON_INSTALL_DIR=/tmp/mos-profile/python
           gh release download v0.1.0-rc.16 --repo joshuamyers22/mos-eisley --dir /tmp/mos-profile/assets --pattern release.json --pattern BOOTSTRAP_SHA256SUMS --pattern requirements.runtime.txt --pattern mos_eisley-0.1.0rc16-py3-none-any.whl --pattern "mos-0.1.0-rc.16-$TARGET.tar.gz" --pattern "mos-install-$TARGET"
           uv venv --python 3.12 /tmp/mos-profile/venv
           uv pip install --python /tmp/mos-profile/venv/bin/python --requirements /tmp/mos-profile/assets/requirements.runtime.txt /tmp/mos-profile/assets/mos_eisley-0.1.0rc16-py3-none-any.whl
-          cp tools/privacy_actor.py tools/qualify_profile_privacy.py /tmp/mos-profile/
+          cp tools/privacy_actor.py tools/privacy_gate.py tools/qualify_profile_privacy.py /tmp/mos-profile/
           chmod -R a+rX /tmp/mos-profile
       - name: Verify controller failure guards and synthetic SDK request controls
         shell: bash

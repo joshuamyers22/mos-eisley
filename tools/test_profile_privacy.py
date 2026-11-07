@@ -94,6 +94,24 @@ class ControllerTests(unittest.TestCase):
                         check=True,
                     )
                     self.assertTrue(json.loads(result.stdout)["passed"])
+                sid = json.loads((root / (backend + "-session.json")).read_text())[
+                    "sid"
+                ]
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(actor),
+                        "lifecycle",
+                        str(root),
+                        backend,
+                        "--sid",
+                        sid,
+                    ],
+                    capture_output=True,
+                    timeout=120,
+                    check=True,
+                )
+                self.assertTrue(json.loads(result.stdout)["owner_lifecycle"])
             result = subprocess.run(
                 [sys.executable, str(actor), "outbound", str(root), "snapshot"],
                 capture_output=True,

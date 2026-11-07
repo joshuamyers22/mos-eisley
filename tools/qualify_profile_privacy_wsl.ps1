@@ -60,7 +60,6 @@ set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y git curl ca-certificates strace
-useradd --create-home --shell /bin/bash mosqual
 curl --fail --location --retry 3 https://github.com/astral-sh/uv/releases/download/0.13.4/uv-x86_64-unknown-linux-gnu.tar.gz --output /tmp/mos-uv.tar.gz
 echo '2b428396f12572d4429cf210ca234dd599a33b3af0958a4d5ed569d63e3f344f  /tmp/mos-uv.tar.gz' | sha256sum --check
 tar -xzf /tmp/mos-uv.tar.gz -C /tmp
@@ -69,16 +68,16 @@ install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
 $bootstrap = $bootstrap.Replace("`r", '')
 Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'bash', '-c', $bootstrap) -Seconds 900 | Write-Host
 $transportProbe = 'a\path with spaces"quote'
-$transportResult = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'bash', '-c', 'printf "%s" "$1"', '--', $transportProbe) -Seconds 60
+$transportResult = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'bash', '-c', 'printf "%s" "$1"', '--', $transportProbe) -Seconds 60
 if ($transportResult -cne $transportProbe) { throw 'WSL argument transport changed literal bytes' }
-$source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
-$bundleLinux = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'mosqual', '--exec', 'wslpath', '-u', $bundleWindows) -Seconds 60
+$source = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'wslpath', '-u', $env:GITHUB_WORKSPACE) -Seconds 60
+$bundleLinux = Invoke-WslBounded -Arguments @('--distribution', $distro, '--user', 'root', '--exec', 'wslpath', '-u', $bundleWindows) -Seconds 60
 $run = @'
 set -eu
 export PATH=/usr/local/bin:/usr/bin:/bin
 export UV_PYTHON_INSTALL_DIR=/opt/mos-privacy-python
 umask 022
-mkdir -p /tmp/mos-profile/assets /tmp/mos-profile/source
+mkdir -p /tmp/mos-profile/assets /tmp/mos-profile/source /opt/mos-privacy-python
 cp "$3" /tmp/mos-profile/source.bundle
 printf '%s  /tmp/mos-profile/source.bundle\n' "$4" | sha256sum --check
 git clone /tmp/mos-profile/source.bundle /tmp/mos-profile/source
@@ -90,7 +89,7 @@ for asset in release.json BOOTSTRAP_SHA256SUMS requirements.runtime.txt mos_eisl
 done
 uv venv --python 3.12 /tmp/mos-profile/venv
 uv pip install --python /tmp/mos-profile/venv/bin/python --requirements /tmp/mos-profile/assets/requirements.runtime.txt /tmp/mos-profile/assets/mos_eisley-0.1.0rc16-py3-none-any.whl
-cp tools/privacy_actor.py tools/qualify_profile_privacy.py /tmp/mos-profile/
+cp tools/privacy_actor.py tools/privacy_gate.py tools/qualify_profile_privacy.py /tmp/mos-profile/
 chmod -R a+rX /tmp/mos-profile /opt/mos-privacy-python
 cp "$1/dist/qualification/windows-host.json" /tmp/mos-profile/windows-host.json
 GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted GITHUB_RUN_ID="$5" /tmp/mos-profile/venv/bin/python /tmp/mos-profile/qualify_profile_privacy.py --assets /tmp/mos-profile/assets --actor /tmp/mos-profile/privacy_actor.py --python /tmp/mos-profile/venv/bin/python --commit "$2" --host-evidence /tmp/mos-profile/windows-host.json --output /tmp/mos-profile/wsl2.json

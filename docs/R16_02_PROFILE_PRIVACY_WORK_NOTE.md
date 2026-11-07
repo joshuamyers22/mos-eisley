@@ -53,3 +53,21 @@ owner checks receive separate challenges. Synthetic fixture bytes may be copied
 and re-owned only for explicit substitution probes. Persist content-free results,
 counts and hashes, not transcripts, environment dumps, passwords or raw packet
 payloads. Auth secrets and actual evaluation/selection stores are outside scope.
+
+First provider-free campaign: run 42333874296/controller d10e39a. Both Macs passed
+30 initial receipts with actual UIDs 610/611 and complete cleanup. Linux created
+and removed UIDs 1002/1003 but failed before the first case: managed interpreter
+launch permission. WSL2 established real Windows build 26100/distribution 2, then
+failed chmod of a nonexistent optional managed-Python directory. One combined
+evidence-driven controller correction stages shared Python and creates that
+optional directory; no runtime candidate changes. First artifacts/logs remain
+private under `.work/privacy-first-complete` and run artifacts. Expanded lifecycle,
+real reference, memory refresh, unique-owner canaries and bounded metadata-only
+native egress checks are a distinct added boundary, not repetition for a better
+outcome. SDK/negative controls and strict tool types pass locally; these local
+single-user development tests do not claim two-user qualification.
+
+Metadata-only versions: Codex 0.166.0 is not admitted by rc.16; Claude 2.1.283 is.
+No inference, grant or credential cache access. No SSH host inventory is configured
+locally. Requested owner-controlled missing-host connection context; hosted CI
+remains provider-free. Fresh exact-case authority is still pending.

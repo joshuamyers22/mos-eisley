@@ -13,9 +13,11 @@ import json
 import os
 import platform
 import pwd
+import re
 import selectors
 import shutil
 import signal
+import socket
 import subprocess
 import tempfile
 import time
@@ -154,7 +156,13 @@ def remove_user(name: str) -> None:
 
 class Principal:
     def __init__(
-        self, home: Path, uid: int, gid: int, python: Path, actor: Path
+        self,
+        home: Path,
+        uid: int,
+        gid: int,
+        python: Path,
+        actor: Path,
+        report: dict[str, object],
     ) -> None:
         self.home, self.uid, self.gid, self.python, self.actor = (
             home,
@@ -163,6 +171,7 @@ class Principal:
             python,
             actor,
         )
+        self.report = report
         self.env = {
             "HOME": str(home),
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
@@ -202,9 +211,24 @@ class Principal:
     def command(
         self, arguments: list[str], *, data: bytes = b"", success: bool = True
     ) -> bytes:
+        self.report["active_command"] = Path(arguments[0]).name
         code, output = finish(self.start(arguments), data)
+        self.report["last_exit_code"] = code
+        if code and success:
+            try:
+                actor_result = json.loads(output)
+                kind = actor_result.get("failure_kind")
+                if isinstance(kind, str) and re.fullmatch(r"[A-Za-z]{1,64}", kind):
+                    self.report["actor_failure_kind"] = kind
+            except (ValueError, AttributeError):
+                pass
         require((code == 0) == success, "unexpected product command status")
         if not success:
+            require(
+                b"unrecognized arguments:" not in output
+                and b"invalid choice:" not in output,
+                "parser rejection cannot qualify owner refusal",
+            )
             require(
                 b"SYNTHETIC-OWNER" not in output and b"fixture boundary" not in output,
                 "foreign command disclosed fixture content",
@@ -239,15 +263,167 @@ class Principal:
         backend: str,
         sid: str = "",
         workspace: Path | None = None,
+        extra: tuple[str, ...] = (),
     ) -> dict[str, object]:
+        self.report["active_case"] = {
+            "operation": operation,
+            "backend": backend,
+            "uid": self.uid,
+        }
         receipt = json.loads(
-            self.command(self.argv(operation, root, backend, sid, workspace))
+            self.command(
+                self.argv(operation, root, backend, sid, workspace) + list(extra)
+            )
         )
         require(
             receipt.get("passed") is True and receipt.get("uid") == self.uid,
             "actor identity or case failed",
         )
         return receipt
+
+
+def observe_network(actor: Principal, arguments: list[str]) -> tuple[bytes, int, str]:
+    """Observe bounded recorded commands; capture no application packet payloads.
+
+    Linux follows all descendants' socket/connect syscalls. Apple pktap filters
+    the exec-stable PID and effective PID, so its claim is scoped to that direct
+    process, not arbitrary child tools or all machine traffic.
+    """
+    if platform.system() == "Linux":
+        tracer = shutil.which("strace")
+        if tracer is None:
+            raise AssertionError("strace observer unavailable")
+        output = actor.command(
+            [
+                tracer,
+                "-f",
+                "-qq",
+                "-e",
+                "trace=socket,connect",
+                "-o",
+                "/dev/stderr",
+                *arguments,
+            ]
+        )
+        count = len(re.findall(rb"socket\(AF_INET6?[,)]", output))
+        return output, count, "strace descendant socket/connect metadata"
+    process = actor.start(
+        [
+            str(actor.python),
+            "-I",
+            str(actor.actor.with_name("privacy_gate.py")),
+            *arguments,
+        ]
+    )
+    observer = subprocess.Popen(
+        [
+            "/usr/sbin/tcpdump",
+            "-i",
+            "pktap,all",
+            "-Q",
+            f"pid={process.pid} or epid={process.pid}",
+            "-nn",
+            "-l",
+            "--immediate-mode",
+            "-q",
+            "-k",
+            "NP",
+            "ip or ip6",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        start_new_session=True,
+    )
+    try:
+        if observer.stderr is None:
+            raise AssertionError("pktap diagnostics unavailable")
+        with selectors.DefaultSelector() as ready:
+            ready.register(observer.stderr, selectors.EVENT_READ)
+            deadline = time.monotonic() + 15
+            startup = bytearray()
+            while b"listening on" not in startup:
+                require(time.monotonic() < deadline, "pktap startup deadline")
+                for key, _ in ready.select(timeout=0.1):
+                    block = os.read(key.fd, 4096)
+                    require(bool(block), "pktap exited before admission")
+                    startup.extend(block)
+                    require(len(startup) < 8192, "pktap startup output limit")
+        code, output = finish(process, b"go\n")
+        require(code == 0, "observed command failed")
+        if observer.stdout is None:
+            raise AssertionError("pktap packet metadata unavailable")
+        with selectors.DefaultSelector() as pending:
+            pending.register(observer.stdout, selectors.EVENT_READ)
+            pending.select(timeout=0.5)
+        # SIGINT asks tcpdump to flush its line-buffered packet metadata and
+        # report drops. No raw pcap or packet payload is ever written.
+        observer.send_signal(signal.SIGINT)
+        code, captured = finish(observer)
+        require(code == 0, "pktap observer failed")
+        require(
+            re.search(rb"\b0 packets dropped by kernel\b", captured) is not None,
+            "pktap drops or missing capture statistics",
+        )
+        matches = re.findall(rb"\b([0-9]+) packets? captured\b", captured)
+        require(len(matches) == 1, "pktap capture count missing")
+        return (
+            output,
+            int(matches[0]),
+            "Apple pktap direct PID/effective-PID IP packet metadata",
+        )
+    finally:
+        for child in (process, observer):
+            if child.poll() is None:
+                with suppress(ProcessLookupError):
+                    os.killpg(child.pid, signal.SIGKILL)
+                child.wait(timeout=10)
+
+
+def network_cases(actor: Principal, backend: str) -> dict[str, object]:
+    python = str(actor.python)
+    with socket.socket() as server:
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        port = server.getsockname()[1]
+        positive = [
+            python,
+            "-I",
+            "-c",
+            "import socket;"
+            f"s=socket.create_connection(('127.0.0.1',{port}),timeout=5);s.close()",
+        ]
+        _, present, observer = observe_network(actor, positive)
+        require(present > 0, "network observer missed positive control")
+    _, absent, _ = observe_network(actor, [python, "-I", "-c", "pass"])
+    require(absent == 0, "network observer negative control failed")
+    _, attempts, _ = observe_network(
+        actor,
+        [
+            str(actor.home / "bin" / "mos"),
+            "exec",
+            "--json",
+            "--no-memory",
+            "--storage-backend",
+            backend,
+            "--storage",
+            str(actor.home / ("observed-" + backend)),
+            "-C",
+            str(actor.home / "workspace"),
+            "Remember that the fixture boundary is ten.",
+        ],
+    )
+    require(attempts == 0, "recorded native execution attempted outbound IP networking")
+    return {
+        "uid": actor.uid,
+        "backend": backend,
+        "network_observer": observer,
+        "positive_control_detected": True,
+        "negative_control_clear": True,
+        "recorded_native_ip_observations": attempts,
+        "profile": "no memory, no tools, update explicitly disabled",
+    }
 
 
 def authenticate(assets: Path, target: str) -> tuple[Path, Path]:
@@ -341,6 +517,20 @@ def native_cases(
     )
     require(result["exit_code"] == 0, "native recorded execution failed")
     sid = result["session_id"]
+    own_catalog = principal.command(
+        [
+            str(executable),
+            "sessions",
+            "--json",
+            "--storage-backend",
+            backend,
+            "--storage",
+            str(home / ("native-" + backend)),
+            "-C",
+            str(home / "workspace"),
+        ]
+    )
+    require(sid.encode() in own_catalog, "native owner listing failed")
     resumed = principal.command(
         [str(executable), "resume", sid, "--plain", *common],
         data=b"What boundary did I give you?\n",
@@ -431,7 +621,7 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
         base = Path(temporary).resolve()
         base.chmod(0o755)
         try:
-            principals = []
+            principals: list[Principal] = []
             for label in ("a", "b"):
                 name = "mosprivacy" + label
                 # Register before provisioning so partial creation is cleaned.
@@ -446,7 +636,12 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                 uid, gid = add_user(name, home)
                 principals.append(
                     Principal(
-                        home, uid, gid, args.python.absolute(), args.actor.resolve()
+                        home,
+                        uid,
+                        gid,
+                        args.python.absolute(),
+                        args.actor.resolve(),
+                        report,
                     )
                 )
             a, b = principals
@@ -466,6 +661,13 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                         (foreign.home / (backend + "-session.json")).read_text()
                     )["sid"]
                     before = tree(foreign.home / backend)
+                    references: tuple[str, ...] = ()
+                    if backend == "sqlite":
+                        challenge = actor.home / "foreign-reference.json"
+                        shutil.copyfile(foreign.home / "references.json", challenge)
+                        challenge.chmod(0o600)
+                        os.chown(challenge, actor.uid, actor.gid)
+                        references = ("--references", str(challenge))
                     cases.append(
                         actor.act(
                             "foreign",
@@ -473,6 +675,7 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                             backend,
                             sid,
                             actor.home / "workspace",
+                            extra=references,
                         )
                     )
                     require(
@@ -490,7 +693,12 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                     copied_before = tree(copied)
                     cases.append(
                         actor.act(
-                            "foreign", copied, backend, sid, actor.home / "workspace"
+                            "foreign",
+                            copied,
+                            backend,
+                            sid,
+                            actor.home / "workspace",
+                            extra=("--application-only", *references),
                         )
                     )
                     require(
@@ -502,7 +710,8 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                     )["sid"]
                     holder = actor.start(actor.argv("hold", actor.home, backend, sid))
                     try:
-                        require(holder.stdout is not None, "lock handshake missing")
+                        if holder.stdout is None:
+                            raise AssertionError("lock handshake missing")
                         with selectors.DefaultSelector() as ready:
                             ready.register(holder.stdout, selectors.EVENT_READ)
                             require(
@@ -531,13 +740,22 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                             ),
                         }
                     )
+                    cases.append(network_cases(actor, backend))
                 for actor in principals:
                     sid = json.loads(
                         (actor.home / (backend + "-session.json")).read_text()
                     )["sid"]
+                    cases.append(actor.act("lifecycle", actor.home, backend, sid))
                     cases.append(actor.act("erase", actor.home, backend, sid))
-            for actor in principals:
-                cases.append(actor.act("outbound", actor.home, "snapshot"))
+            for actor, foreign in ((a, b), (b, a)):
+                cases.append(
+                    actor.act(
+                        "outbound",
+                        actor.home,
+                        "snapshot",
+                        extra=("--other-uid", str(foreign.uid)),
+                    )
+                )
             report["passed"] = True
             report["scope_limits"] = [
                 "SDK serialization checked; native-client traffic remains open",
@@ -546,7 +764,7 @@ def qualify(args: argparse.Namespace, report: dict[str, object]) -> None:
                 "cache/search/export/migration/auth-rotation checks remain required",
             ]
         finally:
-            cleanup = []
+            cleanup: list[bool] = []
             for name in reversed(users):
                 try:
                     remove_user(name)
