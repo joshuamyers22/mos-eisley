@@ -71,3 +71,23 @@ Metadata-only versions: Codex 0.166.0 is not admitted by rc.16; Claude 2.1.283 i
 No inference, grant or credential cache access. No SSH host inventory is configured
 locally. Requested owner-controlled missing-host connection context; hosted CI
 remains provider-free. Fresh exact-case authority is still pending.
+
+Expanded campaign: run 42335310882/controller 13b904c. Both Macs passed 38 receipts
+each, including actual pktap positive/negative controls and zero direct-process IP
+packets in four recorded native cases per Mac; lifecycle/refresh/reference checks
+pass. Actual WSL2 and both Linux targets passed the snapshot owner/privacy and
+signed native cases, then stopped at strace's first launch (exit 1), before the
+network observer's positive control. All test accounts were removed. Old reports
+remain unchanged. A distinct bounded observer diagnostic will first require
+reproduction of denied `/dev/stderr` reopening as the non-root user, then use
+strace's existing inherited descriptor. This extends the initial one-correction
+controller budget by one evidence-producing diagnostic/correction, within the same
+eight-hour ceiling, because it addresses a new observation boundary and does not
+repeat a provider call. Missing-cause reproduction stops this lane. Reuse passing
+Mac receipts; repeat only affected Linux/WSL2 checks. Product bytes stay rc.16.
+
+Combined `make check` started at controller 13b904c. The subsequent Linux observer
+and regression/workflow changes are controller-only: retain the original input
+manifest and run affected lint, strict tool types, controller tests and actual
+Linux/WSL2 checks after those changes. Do not claim its earlier whole-tree input
+manifest is unchanged or imply a new signed runtime candidate.

@@ -300,8 +300,6 @@ def observe_network(actor: Principal, arguments: list[str]) -> tuple[bytes, int,
                 "-qq",
                 "-e",
                 "trace=socket,connect",
-                "-o",
-                "/dev/stderr",
                 *arguments,
             ]
         )
@@ -383,6 +381,42 @@ def observe_network(actor: Principal, arguments: list[str]) -> tuple[bytes, int,
 
 def network_cases(actor: Principal, backend: str) -> dict[str, object]:
     python = str(actor.python)
+    if platform.system() == "Linux" and backend == "snapshot":
+        tracer = shutil.which("strace")
+        if tracer is None:
+            raise AssertionError("strace observer unavailable")
+        # Preserve and reproduce the observed launch boundary before changing
+        # observation: reopening a root-owned inherited pipe after setuid needs
+        # filesystem permission; writing the existing descriptor does not.
+        code, diagnostic = finish(
+            actor.start(
+                [
+                    tracer,
+                    "-f",
+                    "-qq",
+                    "-e",
+                    "trace=socket,connect",
+                    "-o",
+                    "/dev/stderr",
+                    python,
+                    "-I",
+                    "-c",
+                    "pass",
+                ]
+            )
+        )
+        require(
+            code != 0
+            and b"/dev/stderr" in diagnostic
+            and b"Permission denied" in diagnostic,
+            "retained strace failure was not reproduced; stop for diagnosis",
+        )
+        actor.report["observer_diagnosis"] = {
+            "root_owned_pipe_reopen_refused": True,
+            "original_exit_code": code,
+            "diagnostic_sha256": hashlib.sha256(diagnostic).hexdigest(),
+            "correction": "strace writes the inherited stderr descriptor directly",
+        }
     with socket.socket() as server:
         server.bind(("127.0.0.1", 0))
         server.listen(1)

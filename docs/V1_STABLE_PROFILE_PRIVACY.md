@@ -30,6 +30,21 @@ latency/reliability/billing guarantee. Sampling metadata grants no authority. No
 sampling registry, custodian map, labels, outcomes or private selection stores are
 read or repaired by this work.
 
+Client admission is exact: Codex 0.161.0, 0.162.1 or 0.163.0; Claude 2.1.283.
+The reused rc.14 profile specifically uses Codex 0.163.0/Claude 2.1.283, 120-second
+native calls and at most 8,192 reported output tokens, without operator correction
+or automatic harness retries. Grants still bind client bytes, auth context,
+role/model/effort, owner, workspace/session, invocation counts, expiry and output
+limits; native subscription billing/retry exposure is never represented as a
+precise USD cap. This does not change the CLI's lower default deadline.
+API generation remains its separate reviewed model registry and current spend
+policy/ledger; its transport admits at most 60 seconds. Tool-free means zero tool
+calls. Explicit API `/inspect` admits only `repo_list`, `repo_search`, `repo_read`
+in the selected workspace (five iterations/six calls maximum); subscription
+inspection stays unavailable. Curated memory is bounded by the existing combined
+32-KiB content ceiling plus active input budgets. No price, default, tool or
+admitted-client policy is changed by the qualification freeze.
+
 ## rc.14 evidence reuse review
 
 [The rc.14 review](RC14_QUALIFICATION_REVIEW.md) records actual macOS ARM native

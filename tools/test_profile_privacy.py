@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import qualify_profile_privacy as controller
 
@@ -76,6 +76,23 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn(b"ok", output)
         self.assertIn(b"failed", output)
+
+    def test_linux_observer_uses_inherited_stderr_without_reopening_root_pipe(
+        self,
+    ) -> None:
+        actor = Mock(spec=controller.Principal)
+        actor.command.return_value = b"socket(AF_INET, SOCK_STREAM, IPPROTO_IP) = 3\n"
+        with (
+            patch.object(controller.platform, "system", return_value="Linux"),
+            patch.object(controller.shutil, "which", return_value="/usr/bin/strace"),
+        ):
+            _, count, _ = controller.observe_network(
+                actor, ["/public/python", "-c", "pass"]
+            )
+        self.assertEqual(count, 1)
+        arguments = actor.command.call_args.args[0]
+        self.assertNotIn("/dev/stderr", arguments)
+        self.assertNotIn("-o", arguments)
 
     def test_actor_positive_cases_on_both_backends_and_sdk_canary_controls(
         self,
