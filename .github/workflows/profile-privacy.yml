@@ -1,0 +1,74 @@
+name: Stable profile real-user privacy
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/v1-profile-privacy]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x86_64
+          - os: ubuntu-22.04-arm
+            target: linux-aarch64
+          - os: macos-15
+            target: macos-aarch64
+          - os: macos-15-intel
+            target: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - name: Stage immutable public candidate and installed wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mos-profile/assets
+          gh release download v0.1.0-rc.16 --repo joshuamyers22/mos-eisley --dir /tmp/mos-profile/assets --pattern release.json --pattern BOOTSTRAP_SHA256SUMS --pattern requirements.runtime.txt --pattern mos_eisley-0.1.0rc16-py3-none-any.whl --pattern "mos-0.1.0-rc.16-$TARGET.tar.gz" --pattern "mos-install-$TARGET"
+          uv venv --python 3.12 /tmp/mos-profile/venv
+          uv pip install --python /tmp/mos-profile/venv/bin/python --requirements /tmp/mos-profile/assets/requirements.runtime.txt /tmp/mos-profile/assets/mos_eisley-0.1.0rc16-py3-none-any.whl
+          cp tools/privacy_actor.py tools/qualify_profile_privacy.py /tmp/mos-profile/
+          chmod -R a+rX /tmp/mos-profile
+      - name: Verify controller failure guards and synthetic SDK request controls
+        shell: bash
+        run: /tmp/mos-profile/venv/bin/python -m unittest discover -s tools -p test_profile_privacy.py -v
+      - name: Qualify as two actual non-root accounts; root only provisions and observes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo env GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted GITHUB_RUN_ID="$GITHUB_RUN_ID" /tmp/mos-profile/venv/bin/python /tmp/mos-profile/qualify_profile_privacy.py --assets /tmp/mos-profile/assets --actor /tmp/mos-profile/privacy_actor.py --python /tmp/mos-profile/venv/bin/python --commit "$GITHUB_SHA" --output "$GITHUB_WORKSPACE/dist/privacy/native.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: profile-privacy-${{ matrix.target }}
+          path: dist/privacy/*.json
+          if-no-files-found: error
+  wsl2:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Qualify Linux candidate inside actual Windows-hosted WSL2
+        shell: pwsh
+        run: ./tools/qualify_profile_privacy_wsl.ps1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: profile-privacy-windows-wsl2
+          path: dist/qualification/*.json
+          if-no-files-found: error

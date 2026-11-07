@@ -1,0 +1,55 @@
+# R16-02 stable-profile and real-principal qualification
+
+Status: active. Owner: Joshua Myers; operator: Codex. Started 2026-11-07 UTC.
+Review by 2026-11-12 or before stable approval. Current user authorizes profile
+freeze/reuse review, provider-free two-real-user tests, and preparation/execution
+of only missing external boundaries under fresh exact-case authorization.
+
+Selected guidance: AGENTS, Python engineering, agentic/adversarial verification,
+threat-model/work-note/verification-loop templates, current installed matrix and
+production-template release checklist. Plan §§16–17 and §27.1 govern scope; no
+silent reduction to the macOS-only historical live profile or Linux-only WSL label.
+
+Freeze: published rc.16 source 14eb79d, epoch 2, enrolled public metadata SHA256
+1882d3db109ebc3b6f0d5c84de8dec0eecde96a47da5f72ad444d133b30ea3bc. Separate
+controller revision will be recorded. macOS/Linux arm64/x86_64 and actual
+Windows-hosted WSL2 are v1 target boundaries; native Windows stays v0.1.1. Local
+snapshot and SQLite are the supported initial stores. Curated user/project memory
+on/off and explicit refresh/disable are required; old history is never ambient.
+Recorded/no-provider behavior, explicit API/subscription authentication, allowed
+read-only inspection and Docker-contained coding remain distinct profiles with
+their own admission; API keys/native credentials are never copied into CI.
+
+Historical rc.14 reuse covers exact macOS arm64 both-store no-memory/tool-free
+subscription chat/cold resume and coding/reviews/approval/integration/fresh tests.
+The two runtime changes through rc.16 are setup diagnostics and bounded update
+inventory. Reuse supports unchanged contracts, not a new host/auth/profile result.
+Actual memory/inspection/direct-review and other OS/auth/containment acceptance
+remain case-specific. Automatic routing/studies stay deferred; no evaluation
+registry/labels/outcomes, real private sessions or old grant/ledger roots accessed.
+
+Rubric, all blocking: authenticate exact signed candidate; two distinct non-root
+OS UIDs on actual hosts, synthetic-only roots; positive same-owner operations,
+concurrency/fresh-session isolation on both backends; foreign read/write/list/
+search/resume/replay/export/delete and reference/cache/forged-owner substitutions
+refuse without content disclosure or state mutation; outbound observation has
+positive/negative controls and states its capture limitations. No current-user
+account, signing environment, published bytes or historical evidence is modified.
+
+Bounds: eight active hours, one provider-free campaign on disposable targets,
+90 minutes/job, one evidence-driven controller correction if needed, command
+120-second/128-KiB output limits, finite capture and complete process/account/root
+teardown. Fresh live packets are prepared only after these privacy gates; each
+must pin models/clients/auth context, fixture, counts/deadlines/billing consent and
+receive current case-specific owner authorization. No automatic model retry,
+old-grant renewal, response repair or source/tag retarget. An unexplained required
+failure stops dependent live qualification. No provider call is authorized by this
+work note alone.
+
+Threat boundary: CI root is setup/teardown authority only. Product operations run
+under real separate users with isolated HOME/config/temp/state. Admin-readable
+fixtures are not mistaken for cross-owner admission; kernel permissions and app
+owner checks receive separate challenges. Synthetic fixture bytes may be copied
+and re-owned only for explicit substitution probes. Persist content-free results,
+counts and hashes, not transcripts, environment dumps, passwords or raw packet
+payloads. Auth secrets and actual evaluation/selection stores are outside scope.
