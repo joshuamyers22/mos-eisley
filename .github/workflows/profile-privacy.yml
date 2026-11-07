@@ -38,6 +38,7 @@ jobs:
           export UV_PYTHON_INSTALL_DIR=/tmp/mos-profile/python
           gh release download v0.1.0-rc.16 --repo joshuamyers22/mos-eisley --dir /tmp/mos-profile/assets --pattern release.json --pattern BOOTSTRAP_SHA256SUMS --pattern requirements.runtime.txt --pattern mos_eisley-0.1.0rc16-py3-none-any.whl --pattern "mos-0.1.0-rc.16-$TARGET.tar.gz" --pattern "mos-install-$TARGET"
           uv venv --python 3.12 /tmp/mos-profile/venv
+          /tmp/mos-profile/venv/bin/python -I tools/verify_profile_assets.py --assets /tmp/mos-profile/assets --controller tools/qualify_profile_privacy.py --target "$TARGET"
           uv pip install --python /tmp/mos-profile/venv/bin/python --requirements /tmp/mos-profile/assets/requirements.runtime.txt /tmp/mos-profile/assets/mos_eisley-0.1.0rc16-py3-none-any.whl
           cp tools/privacy_actor.py tools/privacy_gate.py tools/qualify_profile_privacy.py /tmp/mos-profile/
           chmod -R a+rX /tmp/mos-profile

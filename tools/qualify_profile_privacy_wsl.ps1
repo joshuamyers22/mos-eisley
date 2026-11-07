@@ -88,6 +88,7 @@ for asset in release.json BOOTSTRAP_SHA256SUMS requirements.runtime.txt mos_eisl
     curl --fail --location --max-time 180 "$base/$asset" --output "/tmp/mos-profile/assets/$asset"
 done
 uv venv --python 3.12 /tmp/mos-profile/venv
+/tmp/mos-profile/venv/bin/python -I tools/verify_profile_assets.py --assets /tmp/mos-profile/assets --controller tools/qualify_profile_privacy.py --target linux-x86_64
 uv pip install --python /tmp/mos-profile/venv/bin/python --requirements /tmp/mos-profile/assets/requirements.runtime.txt /tmp/mos-profile/assets/mos_eisley-0.1.0rc16-py3-none-any.whl
 cp tools/privacy_actor.py tools/privacy_gate.py tools/qualify_profile_privacy.py /tmp/mos-profile/
 chmod -R a+rX /tmp/mos-profile /opt/mos-privacy-python

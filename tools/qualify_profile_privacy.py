@@ -23,8 +23,10 @@ import tempfile
 import time
 from contextlib import suppress
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from mos_eisley.app_release import parse_release
+if TYPE_CHECKING:
+    from mos_eisley.app_release import Release
 
 VERSION = "0.1.0-rc.16"
 SOURCE = "14eb79d52950f340aba159815222e04e6ea864e3"
@@ -41,6 +43,13 @@ PINS = {
     ),
 }
 LIMIT = 131072
+
+
+def parse_release(raw: bytes) -> Release:
+    # Candidate imports occur only after the enrolled wheel/metadata hashes pass.
+    from mos_eisley.app_release import parse_release as admit
+
+    return admit(raw)
 
 
 def require(condition: bool, reason: str) -> None:

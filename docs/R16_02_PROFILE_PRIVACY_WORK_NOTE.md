@@ -91,3 +91,62 @@ and regression/workflow changes are controller-only: retain the original input
 manifest and run affected lint, strict tool types, controller tests and actual
 Linux/WSL2 checks after those changes. Do not claim its earlier whole-tree input
 manifest is unchanged or imply a new signed runtime candidate.
+
+All five actual host campaigns now pass their named scopes: 190 receipt groups,
+both stores and two real OS users per host, 20 recorded native network observations
+with positive/negative controls, zero provider calls, all accounts/fixture trees
+removed. See `R16_02_PRIVACY_QUALIFICATION.md` for exact controller/run/report hashes
+and the remaining profile boundaries. A final trust-bootstrap review adds a
+stdlib-only pin check before installation/import and defers the publisher-parser
+import until wheel pins pass; all four retained public archives pass. Nine focused
+controller/actor tests and strict types pass; an initial nonliteral AST test fixture
+was corrected without relaxing the guard. The final ordering guard is separately
+verified, not retrospectively attributed to the earlier remote executions.
+
+Local broad-check infrastructure: the restricted run exposed loopback/process
+inspection denial; direct loopback bind returns EPERM in the sandbox and succeeds
+outside it. Restricted diff acceptance: seven tests, five errors/one failure;
+permitted same-source module: seven pass in 13.343 seconds. The first broad run was
+stopped only after exact PID/cwd/process-group checks, at 1,563.197 seconds, exit
+-15; original log SHA256
+6d505f6ea03570b3c35503288c75f148c9603a3304cfa4ecd0a1144992bd197c.
+Its original input manifest/result/log remain in `.work/sandbox-*`; controller
+edits during that attempt are disclosed by its `inputs_unchanged=false`. They are
+not a passing frozen-tree gate. Run the combined gate with required permissions
+against the final staged non-Markdown inputs; no product/candidate change or live
+authority follows from a permission escalation.
+
+Local missing-memory preparation: retained Codex 0.163.0 is available and signed
+in; default 0.166.0 pointer unchanged. Claude 2.1.283 passes installed readiness
+with canonical CLIENT_ENVIRONMENT, after the reduced environment reported false.
+No login/credential copy or remote account-identity claim. Prepared exact six-call
+SQLite memory packet SHA256 78a136c9c7c0c1c88efbd317e74ed4f9237858da2aa02dcc3be6bfb9a1975e16;
+full private bindings under `.work/local-profile/memory-proposal.json`. Its installed
+fake-client rehearsal passes all six simulated turns and no-replay/change-refusal/
+refresh/off assertions. Retained first fixtures: project-local fake client refusal
+before grant; subsequent duplicate completion-count assertion after one fake
+turn. No old fixture/real authorization was renewed. Rehearsal uses only fake-client
+scopes. Requested fresh exact-case owner transfer/subscription/billing acceptance
+after required checks; still pending, zero actual inference/live grants. Other
+host access remains a separate pending question.
+
+Final combined gate: 908 non-Markdown inputs unchanged, source 3,960 pass/17 skip,
+86% coverage; wheel 2,919 tests/one setup error/13 skip, make exit 2. Full gate failed.
+Observation policy/roster setup refusal coincided with a large clock advance;
+exact original timestamps/clause not retained. Fresh installed module plus exact
+expiry refusal control: 20 pass; no runtime/test change or old failure relabeling.
+See qualification record for log hashes and limits. All 14 earlier CI checks at
+482c837 passed separately. Final-head CI and accountable owner review are pending.
+
+Separate replay diagnostic adds an uncovered boundary: exact rc.16 Linux arm64,
+existing real UIDs 10001/65534, network-disabled isolated carrier, no credentials.
+Owner replay succeeds; original private-root foreign replay refuses; filesystem
+owner-preserved readable copy is accepted by foreign UID, unchanged bytes. This
+blocks a full application-level private-replay owner guarantee, without proving a
+default filesystem confidentiality breach. Accountable review must resolve private
+admission versus explicit portable verification before a candidate fix and affected
+qualification. Initial demo-exit fixture error and chmod-after-chown capability
+failure retained; completed corrected fixture and all container cleanups retained.
+This extra bounded source-review-driven probe adds a distinct privacy boundary,
+not a rerun of provider evidence; no actual target or full-profile claim. No actual
+inference/live grant, old authority renewal, new runtime candidate or publication.

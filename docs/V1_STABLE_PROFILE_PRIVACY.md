@@ -45,6 +45,17 @@ inspection stays unavailable. Curated memory is bounded by the existing combined
 32-KiB content ceiling plus active input budgets. No price, default, tool or
 admitted-client policy is changed by the qualification freeze.
 
+OS evidence is version-bound: the native campaign uses macOS 15 images and
+Ubuntu 22.04 images; the WSL2 campaign uses Windows Server 2025 build 26100 with
+Ubuntu 24.04. Reports bind actual kernel/architecture. These are concrete
+qualification baselines, not a claim covering every distro, OS major version or
+future upgrade. Stable advertising must retain its exact reviewed version/build
+matrix; a different OS boundary needs case-specific evidence. WSL private Linux
+filesystem admission and general platform gates remain as specified in §27.1.
+API repository inspection is the explicit OpenAI route. Credential attachment
+and other unadmitted MCP/tool profiles stay behind their existing separate gates;
+this work does not activate them to satisfy an unrelated matrix row.
+
 ## rc.14 evidence reuse review
 
 [The rc.14 review](RC14_QUALIFICATION_REVIEW.md) records actual macOS ARM native
@@ -72,6 +83,13 @@ substitute for these missing live boundaries. Cross-architecture unchanged model
 semantics can be reviewed once; host sign-in, client launching, process ownership,
 filesystem and Docker isolation cannot be inferred from ARM macOS.
 
+Fresh static comparison also confirms that this worktree's 418 runtime Python
+files, project/lock/runtime export and Dockerfile are identical to frozen rc.16.
+The rc.14→rc.16 runtime diff is exactly `app_release.py` (bounded preview inventory)
+and `app_update_cli.py` (setup platform/Python diagnostics). This confirms the
+stated narrow reuse rationale; it does not relabel historical executions or
+establish new host/auth/latency results.
+
 ## Provider-free real-user campaign
 
 `profile-privacy.yml` stages the enrolled public rc.16 wheel and matching signed
@@ -82,7 +100,7 @@ private synthetic roots and no inherited provider credentials. The installed
 wheel exercises APIs; signed native commands independently exercise the public
 CLI. Local account provisioning is refused by the controller.
 
-The initial controller covers both stores, both access directions, fresh-process
+The qualified campaign covers both stores, both access directions, fresh-process
 resume, same-owner locks in separate processes, fresh-history isolation, memory
 on/off, forged owner save refusal, same-owner deletion and foreign list/load/
 delete/memory/reference refusal. A re-owned synthetic copy preserves the original
@@ -97,13 +115,7 @@ rejected. This is serialized-request observation with **zero external provider
 connections**, not whole-host packet capture, native subscription egress evidence
 or a default-enabled updater claim. Only bounded, content-free receipts persist.
 
-Remaining privacy surfaces must be added or explicitly dispositioned with owner
-review: cross-owner export/transfer/migration/replay/search/cache scopes, memory
-refresh/credential rotation and full native outbound observation. An invalid CLI
-option is never counted as a security refusal. A passing initial controller does
-not close R16-02.
-
-The expanded controller adds actual same-owner transfer/migration/export with
+It also covers actual same-owner transfer/migration/export with
 stale-selection refusals, foreign preview/apply refusal, memory change pause and
 explicit refresh/off, real owner-generated SQLite artifact/cursor challenges,
 raw filesystem access challenges and operation-local cache teardown. Deletion
@@ -112,6 +124,9 @@ until fixture teardown. No physical erasure or backup-retention claim follows.
 Neither an absent search API nor an invalid option is counted as a qualified
 refusal; separate replay/index/notification and private model-selection surfaces
 remain to be reconciled without opening any evaluation stores.
+Remaining privacy composition includes those surfaces, cache integrations,
+owner-scoped reset, credential rotation and full live/default outbound behavior.
+The named passing campaign does not close R16-02.
 
 Native recorded egress observations use positive loopback and quiet controls.
 Linux `strace` follows descendant socket/connect calls without payloads. Apple
@@ -121,7 +136,13 @@ The selected recorded case has no tools or memory and explicitly disabled update
 checks. Missing live/native-client/tool traffic and the default updater profile
 remain separate; provider-free SDK serialization does not cover them.
 
-## Retained first campaign and client observation
+## Evidence and client admission
+
+The [qualification record](R16_02_PRIVACY_QUALIFICATION.md) binds passing evidence
+on all four native targets plus actual Windows-hosted WSL2: two real OS users,
+both stores, 190 receipt groups, 20 native recorded observations with positive/
+negative controls, complete account/fixture cleanup and zero provider calls.
+It preserves exact controller/run/report hashes and the narrower capture limits.
 
 [Run 42333874296](https://github.com/joshuamyers22/mos-eisley/actions/runs/42333874296),
 controller `d10e39ae0cd21e4686983f8920a7f735370c3312`, passed the initial 30 receipts
@@ -135,13 +156,18 @@ build 26100/distribution version 2, then failed setup because system Python was
 selected and an optional managed-interpreter directory did not exist at chmod.
 That directory is now created; the unused third setup account was removed from
 the controller. These failures are preserved, not counted as passes or provider
-failures. Expanded assertions require their own fresh provider-free run.
+failures. Expanded Mac qualification and affected Linux/WSL2 observer diagnosis
+and qualification subsequently pass as recorded above; earlier failures remain.
 
 Metadata-only local observation: installed Codex is **0.166.0**, outside rc.16's
 admitted versions through 0.163.0; Claude remains 2.1.283. No inference or auth
-cache read accompanied this observation. Use a separately installed admitted
-Codex binary with a new exact binding, or review compatibility in a new candidate
-before any fresh call. Do not relabel current-client compatibility as rc.14 reuse.
+cache read accompanied this version observation. Later preparation finds the
+retained admitted Codex 0.163.0 binary and passes installed sign-in readiness for
+it and Claude with the application's canonical native environment. The default
+0.166.0 pointer remains unchanged. The exact six-call local memory proposal and
+fake-client rehearsal are recorded separately; fresh authorization remains
+pending. This makes no 0.166.0 compatibility claim and does not relabel readiness
+as a new live qualification or historical grant renewal.
 
 ## Fresh authorization and stopping rule
 
@@ -159,3 +185,15 @@ failure, correct the controller only when evidence identifies a harness defect,
 and cut a new signed candidate if a product fix is needed. Account teardown,
 fixture cleanup and accountable security review are required. Stable publication
 and the other R16 readiness rows remain separate decisions.
+
+
+Additional blocker: legacy `mos replay` accepts an owner-preserved readable foreign
+recorded run in a provider-free two-real-UID Linux carrier diagnostic, while the
+original private directory refuses access. This separate path is not covered by
+snapshot/SQLite conversation owner guards. Default private permissions were not
+breached; application owner admission is absent for this supplied-input path.
+Resolve private replay versus explicit portable verification in accountable review
+and qualify the resulting candidate before claiming the full privacy contract.
+The combined local gate also remains failed (one wheel fixture setup error); fresh
+focused module/expiry-control tests pass but do not erase it. See the
+[qualification record](R16_02_PRIVACY_QUALIFICATION.md#combined-gate-and-separate-replay-finding).

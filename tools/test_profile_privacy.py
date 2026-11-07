@@ -11,9 +11,32 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import qualify_profile_privacy as controller
+import verify_profile_assets as preinstall
 
 
 class ControllerTests(unittest.TestCase):
+    def test_preinstall_checks_pins_without_executing_controller(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            marker = root / "must-not-exist"
+            source = root / "controller.py"
+            source.write_text(
+                f"PINS = {controller.PINS!r}\n"
+                f"open({str(marker)!r}, 'w').write('executed')\n"
+            )
+            (root / "release.json").write_text("{}")
+            with self.assertRaisesRegex(ValueError, "enrolled asset mismatch"):
+                preinstall.verify(root, source, "linux-x86_64")
+            self.assertFalse(marker.exists())
+
+    def test_preinstall_rejects_unexpected_paths_before_reading_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "controller.py"
+            source.write_text(f"PINS = {dict.fromkeys(['../outside'], '0' * 64)!r}\n")
+            with self.assertRaisesRegex(ValueError, "unexpected enrolled asset set"):
+                preinstall.verify(root, source, "linux-x86_64")
+
     def test_local_execution_is_refused_before_account_provisioning(self) -> None:
         with (
             patch.object(controller.os, "geteuid", return_value=0),
