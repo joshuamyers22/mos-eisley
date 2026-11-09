@@ -169,6 +169,9 @@ def main() -> int:
             (fixtures / name).write_text((Path("tests/fixtures") / name).read_text())
         for name in (
             "test_app_distribution.py",
+            "test_private_replay.py",
+            "test_replay_guards.py",
+            "test_store_cli.py",
             "test_anthropic_provider.py",
             "test_codex_subscription.py",
             "test_claude_subscription.py",

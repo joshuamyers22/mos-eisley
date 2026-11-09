@@ -434,7 +434,24 @@ class DraftPublicationTests(unittest.TestCase):
         self.assertNotIn("continue-on-error", preparation_steps[sbom])
         self.assertIn("requirements.runtime.txt", str(preparation_steps[sbom]["run"]))
         publish = mapping(mapping(workflow["jobs"])["publish"])
-        self.assertEqual(publish["needs"], ["prepare", "qualify-signed"])
+        self.assertEqual(
+            publish["needs"], ["prepare", "qualify-signed", "qualify-replay"]
+        )
+        replay = mapping(mapping(workflow["jobs"])["qualify-replay"])
+        self.assertEqual(replay["needs"], "prepare")
+        self.assertNotIn("continue-on-error", replay)
+        replay_steps = [mapping(s) for s in cast(list[object], replay["steps"])]
+        replay_command = next(
+            s
+            for s in replay_steps
+            if "tools/qualify_replay_privacy.py" in str(s.get("run", ""))
+        )
+        self.assertNotIn("if", replay_command)
+        self.assertNotIn("continue-on-error", replay_command)
+        self.assertIn('--expected-source "$SOURCE_COMMIT"', str(replay_command["run"]))
+        self.assertIn(
+            '--expected-version "${RELEASE_TAG#v}"', str(replay_command["run"])
+        )
         qualify = mapping(mapping(workflow["jobs"])["qualify-signed"])
         qualification_steps = [mapping(s) for s in cast(list[object], qualify["steps"])]
         installed = next(

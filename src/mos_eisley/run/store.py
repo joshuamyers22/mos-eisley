@@ -24,7 +24,7 @@ from mos_eisley.project_guidance_review import (
     decode_prepared_review,
 )
 from mos_eisley.providers.recorded import Cassette
-from mos_eisley.run.files import read_bounded
+from mos_eisley.run.private_replay import private_replay
 from mos_eisley.run.skills import verify_skill_run_manifest
 
 ARTIFACTS = (
@@ -162,40 +162,43 @@ def index_run(root: Path, path: Path, result: ReviewResult) -> None:
 def _load_run_bundle(
     path: Path,
 ) -> tuple[tuple[Brief, Cassette, ReviewPolicy, ReviewResult], SkillRunManifest | None]:
-    manifest = Manifest.model_validate_json(read_bounded(path / "manifest.json"))
-    names = tuple(item.name for item in manifest.artifacts)
-    expected: set[str] = set(ARTIFACTS)
-    if manifest.schema_version in (2, 4):
-        expected.add(SKILL_ARTIFACT)
-    if manifest.schema_version in (3, 4):
-        expected.add(GUIDANCE_ARTIFACT)
-    if len(names) != len(expected) or set(names) != expected:
-        raise ValueError("manifest artifact set is invalid")
-    payloads: dict[str, bytes] = {}
-    for artifact in manifest.artifacts:
-        payload = read_bounded(path / artifact.name, MAX_ARTIFACT_BYTES)
-        if digest(payload) != artifact.sha256:
-            raise ValueError(f"artifact digest mismatch: {artifact.name}")
-        payloads[artifact.name] = payload
-    brief = Brief.model_validate_json(payloads["brief.json"])
-    cassette = Cassette.model_validate_json(payloads["cassette.json"])
-    policy = ReviewPolicy.model_validate_json(payloads["policy.json"])
-    result = ReviewResult.model_validate_json(payloads["result.json"])
-    skill_manifest = None
-    if SKILL_ARTIFACT in expected:
-        skill_manifest = SkillRunManifest.model_validate_json(payloads[SKILL_ARTIFACT])
-        verify_skill_run_manifest(cassette, skill_manifest)
-    if manifest.schema_version in (3, 4):
-        guidance_review = decode_prepared_review(payloads[GUIDANCE_ARTIFACT])
-        if guidance_review.brief != brief:
-            raise ValueError("Stored guidance does not match the run brief.")
-    if (
-        brief.brief_id != manifest.brief_id
-        or brief.brief_id != cassette.brief_id
-        or result.verdict.brief_id != brief.brief_id
-    ):
-        raise ValueError("run brief identity mismatch")
-    return (brief, cassette, policy, result), skill_manifest
+    with private_replay(path) as root:
+        manifest = Manifest.model_validate_json(root.read("manifest.json", 2_000_000))
+        names = tuple(item.name for item in manifest.artifacts)
+        expected: set[str] = set(ARTIFACTS)
+        if manifest.schema_version in (2, 4):
+            expected.add(SKILL_ARTIFACT)
+        if manifest.schema_version in (3, 4):
+            expected.add(GUIDANCE_ARTIFACT)
+        if len(names) != len(expected) or set(names) != expected:
+            raise ValueError("manifest artifact set is invalid")
+        payloads: dict[str, bytes] = {}
+        for artifact in manifest.artifacts:
+            payload = root.read(artifact.name, MAX_ARTIFACT_BYTES)
+            if digest(payload) != artifact.sha256:
+                raise ValueError(f"artifact digest mismatch: {artifact.name}")
+            payloads[artifact.name] = payload
+        brief = Brief.model_validate_json(payloads["brief.json"])
+        cassette = Cassette.model_validate_json(payloads["cassette.json"])
+        policy = ReviewPolicy.model_validate_json(payloads["policy.json"])
+        result = ReviewResult.model_validate_json(payloads["result.json"])
+        skill_manifest = None
+        if SKILL_ARTIFACT in expected:
+            skill_manifest = SkillRunManifest.model_validate_json(
+                payloads[SKILL_ARTIFACT]
+            )
+            verify_skill_run_manifest(cassette, skill_manifest)
+        if manifest.schema_version in (3, 4):
+            guidance_review = decode_prepared_review(payloads[GUIDANCE_ARTIFACT])
+            if guidance_review.brief != brief:
+                raise ValueError("Stored guidance does not match the run brief.")
+        if (
+            brief.brief_id != manifest.brief_id
+            or brief.brief_id != cassette.brief_id
+            or result.verdict.brief_id != brief.brief_id
+        ):
+            raise ValueError("run brief identity mismatch")
+        return (brief, cassette, policy, result), skill_manifest
 
 
 def load_run(path: Path) -> tuple[Brief, Cassette, ReviewPolicy, ReviewResult]:
