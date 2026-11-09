@@ -103,7 +103,7 @@ roots and mixed-owner artifacts refuse. Fixture bytes remain unchanged, no
 credentials are mounted and the network-disabled container is absent after
 cleanup. Report SHA256 `c55fab569727f6795ecc73345aadd8d4a246fe3b62d0f560868db2182c568716`; cleanup SHA256 `a09879e439358890bd1b3bd88c6ee323ee8d7c98aa6b860c5b746413cd6d799a`.
 This is development evidence, not signed/native-target qualification. Prior failed
-attempts remain separate. Four controller admission guards pass; sixteen release
+attempts remain separate. Four controller admission guards pass; eighteen release
 publication tests pass, including the mandatory replay-job dependency.
 
 The combined gate runs against the staged non-Markdown input manifest under
