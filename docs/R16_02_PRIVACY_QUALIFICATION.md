@@ -218,3 +218,16 @@ All three containers were removed. No product source or published bytes changed.
 The completed report and cleanup are retained privately under
 `.work/replay-owner-probe-permissions`; content-free report SHA256
 `4514f00852dc347602be2d1621184bd9f2291a29e2311d94eb4b50dc22d2c235`; cleanup SHA256 `24e68363892f1e8914103d2edb619d0b132b1e24ebc1fe01c7fefd35e30e7900`.
+
+
+## Private replay correction in preparation
+
+The owner requested private owner admission rather than a portable verification
+bypass. The [rc.17 replay work note](REPLAY_OWNER_ADMISSION_WORK_NOTE.md) records
+the runtime correction, source/installed regression plan, passing unsigned
+real-UID development check and required protected four-target signed replay gate.
+This does not close the published rc.16 finding or relabel historical evidence.
+New-candidate CI, owner review, protected signing and affected signed checks must
+complete before a new runtime qualification claim. The old rc.16 memory proposal
+is not authority for rc.17; fresh exact-case authorization and actual target access
+remain necessary for missing live boundaries.

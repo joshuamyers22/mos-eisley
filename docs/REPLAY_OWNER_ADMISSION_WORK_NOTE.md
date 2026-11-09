@@ -1,6 +1,6 @@
 # Private recorded replay owner admission
 
-Status: implementation in progress. Owner: Joshua Myers; operator: Codex.
+Status: implemented; combined/CI gates and accountable owner review pending. Owner: Joshua Myers; operator: Codex.
 Started 2026-11-07. User authorizes closing the legacy replay owner gap, PR #374
 review, a new protected signed candidate and affected privacy qualification, then
 only freshly authorized missing live boundaries. No earlier live packet is renewed.
@@ -93,3 +93,23 @@ new replay fix. Historical rc.16 live-memory proposal 78a136c9 remains an unappr
 proposal for source 14eb79d; it cannot authorize the new runtime. Prepare a fresh
 packet only after the applicable new candidate gates pass. User-provided date
 metadata is not authorization, host access or a renewed grant.
+
+
+Completed development carrier result: exact unsigned rc.17 wheel SHA256
+`8f00e030f614bba0d1a2140a598fe124bd873aa9c30a44b0494ae85246f3c869`,
+existing real UIDs 10001 and 65534. In both directions, owner replay and fresh
+process replay pass; original private roots, readable owner-preserved foreign
+roots and mixed-owner artifacts refuse. Fixture bytes remain unchanged, no
+credentials are mounted and the network-disabled container is absent after
+cleanup. Report SHA256 `c55fab569727f6795ecc73345aadd8d4a246fe3b62d0f560868db2182c568716`; cleanup SHA256 `a09879e439358890bd1b3bd88c6ee323ee8d7c98aa6b860c5b746413cd6d799a`.
+This is development evidence, not signed/native-target qualification. Prior failed
+attempts remain separate. Four controller admission guards pass; sixteen release
+publication tests pass, including the mandatory replay-job dependency.
+
+The combined gate runs against the staged non-Markdown input manifest under
+`.work/replay-owner-fix-gate`; earlier `.work/gate-result.json` and its failed log
+are not overwritten. Final outcomes and exact reviewed PR head are recorded in
+[PR #374](https://github.com/joshuamyers22/mos-eisley/pull/374) before any merge or
+tag. Protected release preparation/signing and four-target signed checks are
+unexecuted at this record. Runtime dependency/export bytes remain unchanged apart
+from the project version in its manifest/lock; no stable publication is requested.
