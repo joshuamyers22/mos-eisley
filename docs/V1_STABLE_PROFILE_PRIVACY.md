@@ -83,12 +83,19 @@ substitute for these missing live boundaries. Cross-architecture unchanged model
 semantics can be reviewed once; host sign-in, client launching, process ownership,
 filesystem and Docker isolation cannot be inferred from ARM macOS.
 
-Fresh static comparison also confirms that this worktree's 418 runtime Python
-files, project/lock/runtime export and Dockerfile are identical to frozen rc.16.
-The rc.14→rc.16 runtime diff is exactly `app_release.py` (bounded preview inventory)
-and `app_update_cli.py` (setup platform/Python diagnostics). This confirms the
-stated narrow reuse rationale; it does not relabel historical executions or
-establish new host/auth/latency results.
+At the initial rc.16 assessment, all 418 runtime Python files, project/lock,
+runtime export and Dockerfile matched frozen rc.16. The rc.14→rc.16 runtime diff
+is exactly `app_release.py` (bounded preview inventory) and `app_update_cli.py`
+(setup platform/Python diagnostics). That comparison supports only the historical
+reuse rationale, not a new host/auth/latency result.
+
+The subsequent [private replay correction](REPLAY_OWNER_ADMISSION_WORK_NOTE.md)
+prepares rc.17: `run/store.py` changes and `run/private_replay.py` is added (419
+runtime Python files); project/lock version identity changes, while runtime
+dependency pins/export and Dockerfile remain unchanged. Source tests and unsigned
+two-real-UID development checks pass within their named scopes. New-candidate CI,
+owner review, protected signing and affected signed qualification remain required.
+Published rc.16 evidence is not silently rebound to this changed runtime.
 
 ## Provider-free real-user campaign
 
