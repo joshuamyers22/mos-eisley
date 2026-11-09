@@ -678,7 +678,11 @@ an owner-controlled replay risk.
 Skill quality and persona changes remain evaluation-gated.
 
 Run files contain the supplied brief and recorded responses. Keep the output root
-private. File hashes detect accidental changes, not a malicious owner who can
+private. Recorded review replay and skill-provenance reads require the current OS
+user to own a private run directory and private, single-link regular artifacts.
+Replay refuses foreign-owned or group/world-accessible input, run-directory or
+artifact symlinks, and changes during reading. It verifies private retained state; it is not a portable foreign
+artifact importer. Hashes do not grant ownership or live authority. File hashes detect accidental changes, not a malicious owner who can
 replace the manifest. Recorded agent runs fsync boundary events as they happen, but
 the journal contains hashes and status—not a standalone full transcript. Incomplete
 runs lack a valid manifest and cannot be replayed. The original one-prompt live runs preserve full canonical
