@@ -5,6 +5,8 @@ on:
       - .github/workflows/rc17-signed-continuation.yml
       - tools/rc17_qualification_gate.py
       - tools/test_rc17_qualification_gate.py
+      - tools/rc17_continuation_custody.py
+      - tools/test_rc17_continuation_custody.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,8 +26,11 @@ jobs:
           version: '0.13.4'
       - run: uv sync --frozen --dev
       - run: uv run --frozen python -m unittest discover -s tools -p test_rc17_qualification_gate.py -v
-      - run: uv run --frozen pyright tools/rc17_qualification_gate.py tools/test_rc17_qualification_gate.py
+      - run: uv run --frozen python -m unittest discover -s tools -p test_rc17_continuation_custody.py -v
+      - run: uv run --frozen pyright tools/rc17_qualification_gate.py tools/test_rc17_qualification_gate.py tools/rc17_continuation_custody.py tools/test_rc17_continuation_custody.py
   intel-continuation:
+    # Successful c9fe9f5 native checks are retained; PR corrections verify custody only.
+    if: github.event_name == 'workflow_dispatch'
     needs: offline
     strategy:
       fail-fast: false
@@ -170,9 +175,43 @@ jobs:
         if: always()
         with:
           name: rc17-intel-continuation-${{ matrix.group }}
+          include-hidden-files: true
           path: |
             frozen/dist/standalone/qualification-*.json
             frozen/.work/continuation-provenance.json
             frozen/.work/protected-*.json
             frozen/.work/timeout-annotations.json
+          if-no-files-found: error
+  retained-custody:
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - name: Acquire original successful execution and immutable report ZIPs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .work/rc17-custody
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293" > .work/rc17-custody/run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293/jobs?per_page=100" > .work/rc17-custody/jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293/artifacts" > .work/rc17-custody/artifacts.json
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727856445/zip" > .work/rc17-custody/group-0.zip
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727601738/zip" > .work/rc17-custody/group-1.zip
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727491954/zip" > .work/rc17-custody/group-2.zip
+      - name: Issue downstream custody receipt without recreating missing provenance
+        run: uv run --frozen python tools/rc17_continuation_custody.py --root .work/rc17-custody
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: rc17-reviewed-continuation-custody
+          include-hidden-files: true
+          path: .work/rc17-custody/*
           if-no-files-found: error

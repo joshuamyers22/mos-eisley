@@ -60,3 +60,41 @@ separate. These engineering fixtures make no prospective evaluation claim.
 
 Initial offline evidence: six adversarial admission tests pass; focused strict
 Pyright passes. Complete CI and native continuation outcomes remain pending.
+
+## Retained provenance omission and correction
+
+The first completed shard exposed a controller-only custody failure: the upload
+action excluded the explicit hidden `.work/continuation-provenance.json` path.
+The native reports were retained and bind the original signed candidate. The
+missing controller receipt is not reconstructed or relabeled retained. A local
+review admission initially refused that omission; its failure remains preserved.
+
+All native assertions complete on original controller c9fe9f5; their immutable
+Actions ZIPs remain available. The correction enables hidden-file inclusion for
+the existing explicit metadata allowlist, and makes subsequent native execution
+manual-dispatch only so this custody correction does not repeat successful native
+checks. A separate provider-free job checks original successful run/job identities,
+the three fixed artifact IDs and ZIP digests, exact bounded ZIP member allowlists
+and report hashes. It issues a clearly downstream review receipt. This verifies
+GitHub execution/artifact custody, not a recovered original controller receipt
+or the reports' qualification assertions; the full 70-report review remains
+separate. No extracted ZIP path is trusted by the custody tool.
+
+Five offline ZIP-custody tests cover altered bytes, missing/extra/duplicate/traversal
+members, size ceilings and substituted/incomplete runs. Initial focused Pyright
+found test-input list invariance; using covariant `Sequence` fixes the annotation.
+This is the declared controller correction pass, with no native qualification
+retry, source/tag/runtime change, signing, provider inference or publication.
+
+## Affected qualification outcome
+
+Original continuation run 42735189293 passes all three native shards at c9fe9f5.
+The downstream custody tool passes against actual terminal Actions metadata and
+all three original ZIPs. The final content validator passes 70 reports and 52
+actual predecessor journeys across all four targets, including rc.7 downgrade
+refusal, both stores, signed installs, legacy replay/privacy, diagnostics and Mac
+formulas. Original timeout and missing hidden provenance remain preserved.
+See [the complete review](RC17_SIGNED_QUALIFICATION_REVIEW.md) for identity,
+receipt hashes, limits and next authorization boundary. Eleven focused tests,
+Ruff, Pyright and workflow/shell validation pass. The correction's CI and owner
+review remain pending; publication and live inference remain unauthorized.
