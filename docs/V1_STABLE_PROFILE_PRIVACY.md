@@ -93,8 +93,10 @@ The subsequent [private replay correction](REPLAY_OWNER_ADMISSION_WORK_NOTE.md)
 prepares rc.17: `run/store.py` changes and `run/private_replay.py` is added (419
 runtime Python files); project/lock version identity changes, while runtime
 dependency pins/export and Dockerfile remain unchanged. Source tests and unsigned
-two-real-UID development checks pass within their named scopes. New-candidate CI,
-owner review, protected signing and affected signed qualification remain required.
+two-real-UID development checks pass within their named scopes. New-candidate CI, owner-directed review, protected signing and affected signed
+qualification now pass for unpublished rc.17: 70 reports and 52 predecessor
+journeys, with original failures retained. See the
+[rc.17 review](RC17_SIGNED_QUALIFICATION_REVIEW.md).
 Published rc.16 evidence is not silently rebound to this changed runtime.
 
 ## Provider-free real-user campaign
@@ -194,13 +196,23 @@ fixture cleanup and accountable security review are required. Stable publication
 and the other R16 readiness rows remain separate decisions.
 
 
-Additional blocker: legacy `mos replay` accepts an owner-preserved readable foreign
-recorded run in a provider-free two-real-UID Linux carrier diagnostic, while the
-original private directory refuses access. This separate path is not covered by
-snapshot/SQLite conversation owner guards. Default private permissions were not
-breached; application owner admission is absent for this supplied-input path.
-Resolve private replay versus explicit portable verification in accountable review
-and qualify the resulting candidate before claiming the full privacy contract.
-The combined local gate also remains failed (one wheel fixture setup error); fresh
-focused module/expiry-control tests pass but do not erase it. See the
-[qualification record](R16_02_PRIVACY_QUALIFICATION.md#combined-gate-and-separate-replay-finding).
+Historical rc.16 blocker: legacy `mos replay` accepted an owner-preserved readable
+foreign recorded run in a provider-free two-real-UID carrier diagnostic. Private
+permissions were not breached, but application owner admission was absent. That
+published version remains immutable. The private-path semantics were subsequently
+reviewed and corrected in rc.17; affected four-target signed replay/privacy now
+passes as recorded in the [rc.17 review](RC17_SIGNED_QUALIFICATION_REVIEW.md).
+The original combined local gate remains failed (one wheel fixture setup error);
+a distinct fresh rc.17 combined gate later passes, without relabeling the failure.
+See the [historical qualification record](R16_02_PRIVACY_QUALIFICATION.md#combined-gate-and-separate-replay-finding).
+
+## rc.17 request handoff
+
+PR #380 at 07fb528 passes all 16 executed checks and is normally merged as
+a5ab37a after the current explicit owner-directed review. The original skipped
+publisher remains skipped. The [fresh request catalog](RC17_FRESH_LIVE_QUALIFICATION_REQUESTS.md)
+binds rc.17 rather than renewing rc.16 proposals. The published rc.16 replay
+finding and original failed combined gate remain historical failures; signed
+rc.17 affected replay/privacy qualification and its distinct later combined pass
+close those candidate gates. R16-02 as a whole remains open. No fresh provider
+call, real live grant, remote target access or publication is inferred.
