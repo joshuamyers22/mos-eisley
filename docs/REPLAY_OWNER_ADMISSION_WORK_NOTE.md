@@ -1,6 +1,9 @@
 # Private recorded replay owner admission
 
-Status: implemented; combined/CI gates and accountable owner review pending. Owner: Joshua Myers; operator: Codex.
+Status: implemented; fresh combined/CI gates, owner-directed review/merge and
+affected signed rc.17 qualification pass. Broader R16-02 remains open. Owner:
+Joshua Myers; operator: Codex. See the [signed review](RC17_SIGNED_QUALIFICATION_REVIEW.md)
+and [fresh requests](RC17_FRESH_LIVE_QUALIFICATION_REQUESTS.md).
 Started 2026-11-07. User authorizes closing the legacy replay owner gap, PR #374
 review, a new protected signed candidate and affected privacy qualification, then
 only freshly authorized missing live boundaries. No earlier live packet is renewed.

@@ -98,3 +98,13 @@ See [the complete review](RC17_SIGNED_QUALIFICATION_REVIEW.md) for identity,
 receipt hashes, limits and next authorization boundary. Eleven focused tests,
 Ruff, Pyright and workflow/shell validation pass. The correction's CI and owner
 review remain pending; publication and live inference remain unauthorized.
+
+## Owner-directed merge closeout
+
+All 16 executed exact-head checks at 07fb528 pass; the correction intentionally
+skips native continuation and verifies retained custody. Current explicit owner
+instruction directed the exact-head review and normal merge of PR #380 as
+a5ab37a (2026-11-11 01:00:32 UTC). No blocking review finding, admin bypass,
+self-authored GitHub approval or independent-human attestation is claimed.
+[Fresh rc.17 requests](RC17_FRESH_LIVE_QUALIFICATION_REQUESTS.md) are prepared;
+no provider call, real live grant or publication follows from that preparation.

@@ -76,7 +76,10 @@ report bytes in the final review projection match their retained sources. The
 correction explicitly includes the allowlisted hidden metadata and makes native
 execution manual-only; subsequent PR checks verify custody without repeating native
 qualification. Eleven offline admission/ZIP tests, Ruff, strict Pyright, actual
-custody verification, YAML and shell syntax pass locally; correction CI is pending.
+custody verification, YAML and shell syntax pass locally. All 16 executed checks
+pass at 07fb528; native qualification is intentionally skipped on that correction.
+Owner-directed review and normal PR #380 merge a5ab37a complete; this records
+the explicit owner mandate, not independent-human attestation.
 
 Retained local machine-receipt SHA-256 values:
 
@@ -96,5 +99,7 @@ authentication, containment, enabled memory, API inspection and private-state
 composition remain separate. This review does not close all v1 readiness rows,
 attest independent human review, or claim prospective evaluation eligibility.
 
-Accountable owner review of the controller correction and any publication remain
-separate. The original skipped publisher has not been enabled or bypassed.
+The controller correction has completed the owner-directed review and normal
+merge recorded above. Any publication remains separate; the original skipped
+publisher has not been enabled or bypassed. See the
+[fresh request catalog](RC17_FRESH_LIVE_QUALIFICATION_REQUESTS.md) for next cases.

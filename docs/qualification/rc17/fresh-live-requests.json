@@ -1,0 +1,204 @@
+{
+  "actual_provider_calls": 0,
+  "approval_window_guard_cases_passed": 6,
+  "controller_reviewed_head": "07fb528235ded409ba6dd0cd729545bae541fad2",
+  "evaluation_eligibility_claim": false,
+  "local_memory_requests": [
+    {
+      "accepted_text_bytes": 8000,
+      "api_fallback": false,
+      "automatic_retries": 0,
+      "backend": "snapshot",
+      "campaign_and_grants_capped_by_owner_expiry": true,
+      "campaign_wall_seconds": 1200,
+      "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
+      "grant_lifetime_ceiling_seconds": 3600,
+      "host": {
+        "architecture": "arm64",
+        "os": "macOS",
+        "uid": 501,
+        "version": "15.1"
+      },
+      "input_bytes": 16000,
+      "max_dispatches": 6,
+      "native_auth_readiness": "required_just_in_time",
+      "offline_rehearsal": "passed_fake_clients_only",
+      "owner_authorized": false,
+      "per_call_timeout_seconds": 120,
+      "per_provider_dispatches": 3,
+      "private_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
+      "rehearsal_receipt_sha256": "43b4b0373a4494b7444b5fb66194c6dad9df9e5fee65ae603753e3cb40870b62",
+      "reported_output_tokens": 8192,
+      "request_id": "R17-MEM-SNAPSHOT-8ab3d1ef88bf",
+      "response_repairs": 0,
+      "status": "prepared_not_authorized",
+      "tools": []
+    },
+    {
+      "accepted_text_bytes": 8000,
+      "api_fallback": false,
+      "automatic_retries": 0,
+      "backend": "sqlite",
+      "campaign_and_grants_capped_by_owner_expiry": true,
+      "campaign_wall_seconds": 1200,
+      "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
+      "grant_lifetime_ceiling_seconds": 3600,
+      "host": {
+        "architecture": "arm64",
+        "os": "macOS",
+        "uid": 501,
+        "version": "15.1"
+      },
+      "input_bytes": 16000,
+      "max_dispatches": 6,
+      "native_auth_readiness": "required_just_in_time",
+      "offline_rehearsal": "passed_fake_clients_only",
+      "owner_authorized": false,
+      "per_call_timeout_seconds": 120,
+      "per_provider_dispatches": 3,
+      "private_request_sha256": "8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39",
+      "rehearsal_receipt_sha256": "9c9093f644eb26b8384d63455617fee9fe615c09de65c6b41fe715b2791f65f1",
+      "reported_output_tokens": 8192,
+      "request_id": "R17-MEM-SQLITE-f55e7244af4d",
+      "response_repairs": 0,
+      "status": "prepared_not_authorized",
+      "tools": []
+    }
+  ],
+  "metadata_sha256": "3caccc95f4d4899a5aed114e504b552b90dd1c1316c445248777d7d42d0d324f",
+  "missing_approval_refusal_verified": true,
+  "missing_host_requests": [
+    {
+      "actual_os_kernel_uid": null,
+      "aggregate_batch_approval": false,
+      "backend_requests": [
+        "snapshot",
+        "sqlite"
+      ],
+      "client_owned_auth_readiness": null,
+      "client_paths_and_hashes": null,
+      "docker_image_digest": null,
+      "execution_controller_sha256": null,
+      "expected_os": "macOS 15",
+      "final_request_sha256": null,
+      "maximum_dispatches_per_separately_approved_backend": 14,
+      "owner_target_access": null,
+      "platform": "macos-x86_64",
+      "request_family": "R17-HOST-MAC-INTEL",
+      "status": "blocked_pending_target_binding_and_fresh_authorization"
+    },
+    {
+      "actual_os_kernel_uid": null,
+      "aggregate_batch_approval": false,
+      "backend_requests": [
+        "snapshot",
+        "sqlite"
+      ],
+      "client_owned_auth_readiness": null,
+      "client_paths_and_hashes": null,
+      "docker_image_digest": null,
+      "execution_controller_sha256": null,
+      "expected_os": "Ubuntu 22.04",
+      "final_request_sha256": null,
+      "maximum_dispatches_per_separately_approved_backend": 14,
+      "owner_target_access": null,
+      "platform": "linux-x86_64",
+      "request_family": "R17-HOST-LINUX-X64",
+      "status": "blocked_pending_target_binding_and_fresh_authorization"
+    },
+    {
+      "actual_os_kernel_uid": null,
+      "aggregate_batch_approval": false,
+      "backend_requests": [
+        "snapshot",
+        "sqlite"
+      ],
+      "client_owned_auth_readiness": null,
+      "client_paths_and_hashes": null,
+      "docker_image_digest": null,
+      "execution_controller_sha256": null,
+      "expected_os": "Ubuntu 22.04",
+      "final_request_sha256": null,
+      "maximum_dispatches_per_separately_approved_backend": 14,
+      "owner_target_access": null,
+      "platform": "linux-aarch64",
+      "request_family": "R17-HOST-LINUX-ARM64",
+      "status": "blocked_pending_target_binding_and_fresh_authorization"
+    },
+    {
+      "actual_os_kernel_uid": null,
+      "aggregate_batch_approval": false,
+      "backend_requests": [
+        "snapshot",
+        "sqlite"
+      ],
+      "client_owned_auth_readiness": null,
+      "client_paths_and_hashes": null,
+      "docker_image_digest": null,
+      "execution_controller_sha256": null,
+      "expected_os": "actual Windows-hosted WSL2; Windows/distro/kernel/filesystem proof required",
+      "final_request_sha256": null,
+      "maximum_dispatches_per_separately_approved_backend": 14,
+      "owner_target_access": null,
+      "platform": "linux-x86_64",
+      "request_family": "R17-HOST-WSL2",
+      "status": "blocked_pending_target_binding_and_fresh_authorization"
+    }
+  ],
+  "mode": "engineering_qualification_requests_not_authority",
+  "normal_merge": "a5ab37a38bf8b82fe4f6af8e1c18ef0a4e4b163c",
+  "other_boundaries": [
+    {
+      "final_request_sha256": null,
+      "maximum_dispatches_per_separate_backend": 14,
+      "request_family": "R17-MEMORY-WORKFLOW",
+      "status": "blocked_pending_actual_host_image_controller_memory_profile_and_approval"
+    },
+    {
+      "primary_client_logout_authorized": false,
+      "provider_dispatches_for_initial_metadata_cases": 0,
+      "request_family": "R17-AUTH-HOST",
+      "status": "blocked_pending_owner_client_owned_context_and_target"
+    },
+    {
+      "account": null,
+      "allowed_tools": [
+        "repo_list",
+        "repo_search",
+        "repo_read"
+      ],
+      "input_output_bounds": null,
+      "maximum_data_tool_calls": 6,
+      "maximum_model_iterations": 5,
+      "model_effort": null,
+      "per_call_timeout_seconds": 60,
+      "request_family": "R17-API-INSPECT",
+      "spend_policy_ledger_and_cap_micro_usd": null,
+      "status": "blocked_pending_exact_api_packet_and_owner_authorization"
+    },
+    {
+      "campaign_custody_launch_spend": null,
+      "enrolled_roster_models_efforts": null,
+      "maximum_provider_invocations": 3,
+      "request_family": "R17-DIRECT-REVIEW",
+      "status": "blocked_pending_exact_review_authorities_and_packet"
+    },
+    {
+      "capture_coverage_and_destinations": null,
+      "maximum_provider_invocations_per_separately_approved_profile": 2,
+      "request_family": "R17-MEMORY-OFF-EGRESS",
+      "status": "blocked_pending_fresh_session_capture_profile_and_approval"
+    },
+    {
+      "initial_provider_calls": 0,
+      "request_family": "R17-PRIVATE-COMPOSITION",
+      "sampling_stores_authorized": false,
+      "status": "provider_free_prerequisites_and_audited_workflow_exclusions_apply"
+    }
+  ],
+  "publication_authorized": false,
+  "real_live_grants_created": 0,
+  "schema_version": 1,
+  "source": "e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481",
+  "version": "0.1.0-rc.17"
+}
