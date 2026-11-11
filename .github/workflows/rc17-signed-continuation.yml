@@ -1,0 +1,217 @@
+name: rc.17 bounded signed Intel continuation
+on:
+  pull_request:
+    paths:
+      - .github/workflows/rc17-signed-continuation.yml
+      - tools/rc17_qualification_gate.py
+      - tools/test_rc17_qualification_gate.py
+      - tools/rc17_continuation_custody.py
+      - tools/test_rc17_continuation_custody.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  checks: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen python -m unittest discover -s tools -p test_rc17_qualification_gate.py -v
+      - run: uv run --frozen python -m unittest discover -s tools -p test_rc17_continuation_custody.py -v
+      - run: uv run --frozen pyright tools/rc17_qualification_gate.py tools/test_rc17_qualification_gate.py tools/rc17_continuation_custody.py tools/test_rc17_continuation_custody.py
+  intel-continuation:
+    # Successful c9fe9f5 native checks are retained; PR corrections verify custody only.
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2]
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: frozen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: controller
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+          path: frozen
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - name: Admit original preparation, seven passing targets and Intel timeout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .work
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42685881830" > .work/protected-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42685881830/jobs?per_page=100" > .work/protected-jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/check-runs/129463949538/annotations" > .work/timeout-annotations.json
+          uv run --frozen python ../controller/tools/rc17_qualification_gate.py
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42685881830
+          name: application-publication
+          path: frozen/dist
+      - name: Require exact retained software and enrolled signed metadata
+        run: |
+          test "$(cat dist/SOURCE_COMMIT)" = e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+          (cd dist && shasum -a 256 -c SHA256SUMS)
+          uv run --frozen python - <<'PYGUARD'
+          import hashlib
+          from pathlib import Path
+          from mos_eisley.app_release import parse_release
+          raw = Path('dist/standalone/release.json').read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == '3caccc95f4d4899a5aed114e504b552b90dd1c1316c445248777d7d42d0d324f'
+          parse_release(raw)
+          archive = Path('dist/standalone/mos-0.1.0-rc.17-macos-x86_64.tar.gz')
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == '2f1f0a0da4b74c93b229328362b0ae79eb842a6dc22f71ab1457f2ff7fbcd992'
+          PYGUARD
+          chmod 700 dist/standalone/mos-install-*
+      - name: Qualify upgrade from published rc.12
+        if: matrix.group == 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.12" --jq 'select(.id == 430032833 and .immutable == true and .draft == false and .target_commitish == "2f75d429c87b3b48c946832ff9c73748abf94efe") | .id' > predecessor-rc12-id.txt
+          test "$(cat predecessor-rc12-id.txt)" = 430032833
+          gh release download v0.1.0-rc.12 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.12-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc12
+          chmod 700 ".work/published-predecessor-rc12/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc12 --predecessor-version 0.1.0-rc.12 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc12-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.13
+        if: matrix.group == 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.13" --jq 'select(.id == 430907808 and .immutable == true and .draft == false and .target_commitish == "8c7690733af1bbc4861911d2c0a2a516961985da") | .id' > predecessor-rc13-id.txt
+          test "$(cat predecessor-rc13-id.txt)" = 430907808
+          gh release download v0.1.0-rc.13 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.13-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc13
+          chmod 700 ".work/published-predecessor-rc13/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc13 --predecessor-version 0.1.0-rc.13 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc13-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.14
+        if: matrix.group == 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.14" --jq 'select(.id == 434439039 and .immutable == true and .draft == false and .target_commitish == "ec3211e23c4a3e2b20837114e707bc8ebcbe625a") | .id' > predecessor-rc14-id.txt
+          test "$(cat predecessor-rc14-id.txt)" = 434439039
+          gh release download v0.1.0-rc.14 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.14-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc14
+          chmod 700 ".work/published-predecessor-rc14/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc14 --predecessor-version 0.1.0-rc.14 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc14-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from published rc.15
+        if: matrix.group == 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.15" --jq 'select(.id == 435339429 and .immutable == true and .draft == false and .target_commitish == "21fc2b02db5611d806626ad8c70698b3c7181577") | .id' > predecessor-rc15-id.txt
+          test "$(cat predecessor-rc15-id.txt)" = 435339429
+          gh release download v0.1.0-rc.15 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.15-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc15
+          chmod 700 ".work/published-predecessor-rc15/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc15 --predecessor-version 0.1.0-rc.15 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc15-$UPGRADE_PLATFORM.json"
+      - name: Qualify upgrade from actual published rc.16
+        if: matrix.group == 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+        run: |
+          UPGRADE_PLATFORM=$(uv run --frozen python -c 'from mos_eisley.app_release import platform_id; print(platform_id())')
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0-rc.16" --jq 'select(.id == 437243456 and .immutable == true and .draft == false and .target_commitish == "14eb79d52950f340aba159815222e04e6ea864e3") | .id' > predecessor-rc16-id.txt
+          test "$(cat predecessor-rc16-id.txt)" = 437243456
+          gh release download v0.1.0-rc.16 --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern "mos-0.1.0-rc.16-$UPGRADE_PLATFORM.tar.gz" --pattern "mos-install-$UPGRADE_PLATFORM" --pattern BOOTSTRAP_SHA256SUMS --dir .work/published-predecessor-rc16
+          chmod 700 ".work/published-predecessor-rc16/mos-install-$UPGRADE_PLATFORM"
+          uv run --frozen python tools/qualify_published_upgrade.py --predecessor .work/published-predecessor-rc16 --predecessor-version 0.1.0-rc.16 --candidate dist/standalone --candidate-commit "$SOURCE_COMMIT" --evidence "dist/standalone/qualification-upgrade-rc16-$UPGRADE_PLATFORM.json"
+      - name: Qualify signed offline native progress receipts
+        if: matrix.group == 2
+        env:
+          SOURCE_COMMIT: e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481
+          RELEASE_TAG: v0.1.0-rc.17
+        run: uv run --frozen python tools/qualify_native_progress.py --artifacts dist/standalone --expected-source "$SOURCE_COMMIT" --expected-version "${RELEASE_TAG#v}" --evidence dist/standalone/qualification-progress-macos-15-intel.json
+      - name: Qualify generated signed Homebrew preview formula
+        if: matrix.group == 2
+        run: uv run --frozen python tools/smoke_app_homebrew.py --published-metadata dist/standalone/release.json --evidence dist/standalone/qualification-homebrew-macos-15-intel.json
+      - name: Retain bounded continuation provenance
+        if: always()
+        env:
+          CONTROLLER_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+          GROUP: ${{ matrix.group }}
+        run: |
+          uv run --frozen python - <<'PYRECEIPT'
+          import hashlib, json, os
+          from pathlib import Path
+          paths = sorted(Path('dist/standalone').glob('qualification-*.json'))
+          report = dict(original_run=42685881830, original_attempt=1,
+              controller_source=os.environ['CONTROLLER_SOURCE'], group=int(os.environ['GROUP']),
+              candidate_source='e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481', provider_calls=0,
+              reports={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in paths})
+          Path('.work/continuation-provenance.json').write_text(json.dumps(report, sort_keys=True, indent=2)+'\n')
+          PYRECEIPT
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: rc17-intel-continuation-${{ matrix.group }}
+          include-hidden-files: true
+          path: |
+            frozen/dist/standalone/qualification-*.json
+            frozen/.work/continuation-provenance.json
+            frozen/.work/protected-*.json
+            frozen/.work/timeout-annotations.json
+          if-no-files-found: error
+  retained-custody:
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          version: '0.13.4'
+      - run: uv sync --frozen --dev
+      - name: Acquire original successful execution and immutable report ZIPs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .work/rc17-custody
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293" > .work/rc17-custody/run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293/jobs?per_page=100" > .work/rc17-custody/jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/42735189293/artifacts" > .work/rc17-custody/artifacts.json
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727856445/zip" > .work/rc17-custody/group-0.zip
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727601738/zip" > .work/rc17-custody/group-1.zip
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13727491954/zip" > .work/rc17-custody/group-2.zip
+      - name: Issue downstream custody receipt without recreating missing provenance
+        run: uv run --frozen python tools/rc17_continuation_custody.py --root .work/rc17-custody
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: rc17-reviewed-continuation-custody
+          include-hidden-files: true
+          path: .work/rc17-custody/*
+          if-no-files-found: error
