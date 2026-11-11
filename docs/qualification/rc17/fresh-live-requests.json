@@ -1,8 +1,9 @@
 {
-  "actual_provider_calls": 0,
+  "actual_provider_calls": 6,
   "approval_window_guard_cases_passed": 6,
   "controller_reviewed_head": "07fb528235ded409ba6dd0cd729545bae541fad2",
   "evaluation_eligibility_claim": false,
+  "live_usage_scopes_disposition": "both_exhausted_three_of_three_completed",
   "local_memory_requests": [
     {
       "accepted_text_bytes": 8000,
@@ -31,16 +32,18 @@
       "reported_output_tokens": 8192,
       "request_id": "R17-MEM-SNAPSHOT-8ab3d1ef88bf",
       "response_repairs": 0,
-      "status": "prepared_not_authorized",
+      "status": "prepared_not_executed_not_authorized_by_sqlite_selection",
       "tools": []
     },
     {
       "accepted_text_bytes": 8000,
       "api_fallback": false,
+      "authorization_basis": "current owner instruction permits operator selection of one prepared case; operator selected SQLite only",
       "automatic_retries": 0,
       "backend": "sqlite",
       "campaign_and_grants_capped_by_owner_expiry": true,
       "campaign_wall_seconds": 1200,
+      "completed_dispatches": 6,
       "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
       "grant_lifetime_ceiling_seconds": 3600,
       "host": {
@@ -50,10 +53,11 @@
         "version": "15.1"
       },
       "input_bytes": 16000,
+      "live_review": "sqlite-memory-live-review.json",
       "max_dispatches": 6,
       "native_auth_readiness": "required_just_in_time",
       "offline_rehearsal": "passed_fake_clients_only",
-      "owner_authorized": false,
+      "owner_authorized": true,
       "per_call_timeout_seconds": 120,
       "per_provider_dispatches": 3,
       "private_request_sha256": "8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39",
@@ -61,7 +65,7 @@
       "reported_output_tokens": 8192,
       "request_id": "R17-MEM-SQLITE-f55e7244af4d",
       "response_repairs": 0,
-      "status": "prepared_not_authorized",
+      "status": "completed_once_passed_scoped_live_qualification_no_replay",
       "tools": []
     }
   ],
@@ -197,7 +201,7 @@
     }
   ],
   "publication_authorized": false,
-  "real_live_grants_created": 0,
+  "real_live_grants_created": 2,
   "schema_version": 1,
   "source": "e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481",
   "version": "0.1.0-rc.17"

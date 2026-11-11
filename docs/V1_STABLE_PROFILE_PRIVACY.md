@@ -216,3 +216,21 @@ finding and original failed combined gate remain historical failures; signed
 rc.17 affected replay/privacy qualification and its distinct later combined pass
 close those candidate gates. R16-02 as a whole remains open. No fresh provider
 call, real live grant, remote target access or publication is inferred.
+
+## Scoped rc.17 SQLite live-memory result
+
+PR #381 at 88be193 passed all 14 checks and merged normally as 69bf5f0 under
+the current owner-directed review. The owner requested fresh authorization and
+execution of one prepared six-call case; the operator selected SQLite. After
+fresh installed-native sign-in checks, rc.17 on actual macOS 15.1 arm64/UID 501
+completed three calls per admitted provider, six total, with zero uncertain
+attempts, operator retries, repairs or API fallback. Selected memory, passive
+cold resume without replay, contextual follow-up, changed-memory refusal before
+dispatch, explicit refresh and zero-dispatch memory-off persistence pass. Both
+usage scopes are exhausted. See the [scoped review](RC17_SQLITE_MEMORY_QUALIFICATION_REVIEW.md).
+
+This is a new SQLite native-memory result; it does not renew historical rc.14
+grants or qualify snapshot live memory, a fresh memory-off outbound request,
+full memory-enabled coding, API inspection/direct review, default/descendant
+egress or missing remote native-auth/containment hosts. Remote owner target
+access remains absent. R16-02 remains open; publication remains separate.
