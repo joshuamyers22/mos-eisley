@@ -39,7 +39,7 @@ This installation is provider-free, and does not assert fresh native sign-in.
 
 | Request | Backend | Fresh request-file SHA-256 | Proposed maximum |
 | --- | --- | --- | --- |
-| `R17-MEM-SNAPSHOT-8ab3d1ef88bf` | snapshot | `78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365` | 6 dispatches |
+| `R17-MEM-SNAPSHOT-5cd0735813d9` | snapshot | `a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a` | 6 dispatches |
 | `R17-MEM-SQLITE-f55e7244af4d` | SQLite | `8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39` | 6 dispatches |
 
 Each request has two fresh cases, independent session IDs/workspaces/usage roots,
@@ -159,3 +159,17 @@ new signed candidate and affected qualification. Publication is not included.
 
 The [machine-readable request index](qualification/rc17/fresh-live-requests.json)
 records these scopes and explicitly unbound fields. It is not an authorization.
+
+## Snapshot request refresh after PR #382
+
+PR #382 at b6ce5e6 passes all 14 checks and merged normally as 6304e59.
+The completed SQLite case remains closed at six calls; this does not authorize
+a second case. Before separate snapshot authorization, its environment hash
+changed while candidate/controller/client/owner/OS bindings stayed unchanged.
+The prior unapproved snapshot request is preserved and superseded; it was never
+executed live. The refreshed request above captures and hashes only the allowed
+native environment in a private file; no credentials or raw environment values
+are published. Its fake-only rehearsal and new fixture identifiers/saved attempts
+verify, with no new real grants or provider calls. Fresh client-owned native
+readiness and exact-case owner data-transfer/subscription-billing consent remain
+required. See the [refresh and access review](RC17_SNAPSHOT_REQUEST_REFRESH.md).
