@@ -13,6 +13,8 @@
       "campaign_and_grants_capped_by_owner_expiry": true,
       "campaign_wall_seconds": 1200,
       "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
+      "explicit_native_environment": "private captured allowlist, values not published",
+      "fresh_native_auth_readiness": "required_before_any_real_grant",
       "grant_lifetime_ceiling_seconds": 3600,
       "host": {
         "architecture": "arm64",
@@ -23,16 +25,22 @@
       "input_bytes": 16000,
       "max_dispatches": 6,
       "native_auth_readiness": "required_just_in_time",
+      "native_environment_file_sha256": "5d273b8e33dbb8d8e5dec95d74c8aa93d2cb0b7d08a78d3aa24582316418f8ea",
+      "native_environment_sha256": "b68d2414d6dab1057595eb1b50287d0960e82c5f28b87a226007d9c2211c28af",
       "offline_rehearsal": "passed_fake_clients_only",
       "owner_authorized": false,
       "per_call_timeout_seconds": 120,
       "per_provider_dispatches": 3,
-      "private_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
+      "preparation_review_sha256": "b52585e9c0ff6c18aa3fef2867f557d0eb720096332afbe3ac032c69e1967e17",
+      "private_request_sha256": "a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a",
+      "provider_calls": 0,
+      "real_live_grants_created": 0,
       "rehearsal_receipt_sha256": "43b4b0373a4494b7444b5fb66194c6dad9df9e5fee65ae603753e3cb40870b62",
       "reported_output_tokens": 8192,
-      "request_id": "R17-MEM-SNAPSHOT-8ab3d1ef88bf",
+      "request_id": "R17-MEM-SNAPSHOT-5cd0735813d9",
       "response_repairs": 0,
-      "status": "prepared_not_executed_not_authorized_by_sqlite_selection",
+      "status": "refreshed_prepared_awaiting_separate_exact_owner_authorization",
+      "supersedes_unapproved_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
       "tools": []
     },
     {
@@ -69,6 +77,9 @@
       "tools": []
     }
   ],
+  "merged_sqlite_result_commit": "6304e598327a205377d1ba479c282740dbd8b3a3",
+  "merged_sqlite_result_head": "b6ce5e6a985b907862def86426740df0288c2874",
+  "merged_sqlite_result_pr": 382,
   "metadata_sha256": "3caccc95f4d4899a5aed114e504b552b90dd1c1316c445248777d7d42d0d324f",
   "missing_approval_refusal_verified": true,
   "missing_host_requests": [
@@ -204,5 +215,47 @@
   "real_live_grants_created": 2,
   "schema_version": 1,
   "source": "e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481",
+  "superseded_unapproved_requests": [
+    {
+      "accepted_text_bytes": 8000,
+      "api_fallback": false,
+      "automatic_retries": 0,
+      "backend": "snapshot",
+      "campaign_and_grants_capped_by_owner_expiry": true,
+      "campaign_wall_seconds": 1200,
+      "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
+      "grant_lifetime_ceiling_seconds": 3600,
+      "host": {
+        "architecture": "arm64",
+        "os": "macOS",
+        "uid": 501,
+        "version": "15.1"
+      },
+      "input_bytes": 16000,
+      "max_dispatches": 6,
+      "native_auth_readiness": "required_just_in_time",
+      "offline_rehearsal": "passed_fake_clients_only",
+      "owner_authorized": false,
+      "per_call_timeout_seconds": 120,
+      "per_provider_dispatches": 3,
+      "private_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
+      "provider_calls": 0,
+      "rehearsal_receipt_sha256": "43b4b0373a4494b7444b5fb66194c6dad9df9e5fee65ae603753e3cb40870b62",
+      "reported_output_tokens": 8192,
+      "request_id": "R17-MEM-SNAPSHOT-8ab3d1ef88bf",
+      "response_repairs": 0,
+      "status": "superseded_unapproved_native_environment_binding_changed",
+      "tools": []
+    }
+  ],
+  "target_access_inventory_summary": {
+    "local_parallels_registrations": 2,
+    "local_parallels_usable_registrations": 0,
+    "owner_overlay_mac_candidates": 1,
+    "owner_overlay_mac_ssh": "connection_timeout_no_guest_identity",
+    "self_hosted_repository_runners": 0,
+    "ssh_aliases": 0,
+    "verified_access_targets": 0
+  },
   "version": "0.1.0-rc.17"
 }

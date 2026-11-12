@@ -1,0 +1,52 @@
+{
+  "backend": "snapshot",
+  "candidate_source": "e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481",
+  "candidate_version": "0.1.0-rc.17",
+  "controller_sha256": "3d7ce25146f10ef0c8c4e03d93186a5fef86ffbd2390018d0b328bc0cf8f07ea",
+  "evaluation_eligibility_claim": false,
+  "fake_request_identifiers_and_saved_attempts_verified": true,
+  "host": "local macOS 15.1 arm64",
+  "limits": {
+    "api_fallback": false,
+    "automatic_retries": 0,
+    "campaign_wall_seconds": 1200,
+    "max_input_bytes": 16000,
+    "max_output_bytes": 8000,
+    "max_reported_output_tokens": 8192,
+    "max_total_invocations": 6,
+    "per_call_timeout_seconds": 120,
+    "per_case_grant_lifetime_seconds": 3600,
+    "response_repairs": 0
+  },
+  "mode": "engineering_qualification_request_not_authority",
+  "native_environment_file_sha256": "5d273b8e33dbb8d8e5dec95d74c8aa93d2cb0b7d08a78d3aa24582316418f8ea",
+  "native_environment_sha256": "b68d2414d6dab1057595eb1b50287d0960e82c5f28b87a226007d9c2211c28af",
+  "offline_rehearsal": "passed_six_fake_dispatches",
+  "owner_authorization_received": false,
+  "owner_uid": 501,
+  "preparation_review_sha256": "b52585e9c0ff6c18aa3fef2867f557d0eb720096332afbe3ac032c69e1967e17",
+  "provider_calls": 0,
+  "publication_authorized": false,
+  "real_live_grants_created": 0,
+  "refresh_reason": "native environment fingerprint drift; candidate/controller/client/owner/OS unchanged",
+  "request_id": "R17-MEM-SNAPSHOT-5cd0735813d9",
+  "request_sha256": "a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a",
+  "routes": [
+    {
+      "client_sha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+      "effort": "medium",
+      "max_invocations": 3,
+      "model": "gpt-6-sol",
+      "provider": "openai_subscription"
+    },
+    {
+      "client_sha256": "d8cb1e5c79684cc12a8bfc813e3a2073406921b6245744b3009be3ab5651d21e",
+      "effort": "high",
+      "max_invocations": 3,
+      "model": "claude-sonnet-5",
+      "provider": "anthropic_subscription"
+    }
+  ],
+  "superseded_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
+  "tools": []
+}
