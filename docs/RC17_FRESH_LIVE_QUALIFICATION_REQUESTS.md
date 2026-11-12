@@ -1,6 +1,8 @@
 # Fresh rc.17 qualification requests
 
-Status: requests prepared, **not authorized or executed**. Owner: Joshua Myers.
+Status: **SQLite memory case completed once and passed**; snapshot and remote
+cases remain separately gated. Owner: Joshua Myers. Original preparation was
+non-authorizing; see the [live result](RC17_SQLITE_MEMORY_QUALIFICATION_REVIEW.md).
 Prepared after the owner-directed review and normal merge of PR #380 at
 `07fb528235ded409ba6dd0cd729545bae541fad2`, merge
 `a5ab37a38bf8b82fe4f6af8e1c18ef0a4e4b163c` (2026-11-11 01:00:32 UTC).
@@ -75,7 +77,11 @@ earlier campaign/owner deadline and never more than one hour after approval. No 
 retry, response repair, fallback, profile change or uncertain-call replay. These
 are invocation/data/time limits, **not a precise subscription USD cap**: owner
 consent must explicitly accept unverified native-client billing/internal retries.
-The two backend requests require separate exact approval; neither starts the other.
+The current owner instruction authorized choosing and executing one of these
+prepared cases under its disclosed terms. The operator selected SQLite; its six
+calls completed and both usage scopes are exhausted. That authority is consumed.
+Snapshot did not run, and this selection supplies it no approval. Neither case
+automatically starts or replays the other.
 
 Before execution: verify unchanged packet/controller/candidate/client/environment,
 actual owner/OS/workspace, current client-owned subscription readiness, and a fresh
