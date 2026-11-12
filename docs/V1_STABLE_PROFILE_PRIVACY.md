@@ -234,3 +234,24 @@ grants or qualify snapshot live memory, a fresh memory-off outbound request,
 full memory-enabled coding, API inspection/direct review, default/descendant
 egress or missing remote native-auth/containment hosts. Remote owner target
 access remains absent. R16-02 remains open; publication remains separate.
+
+## Separately approved rc.17 snapshot live-memory result
+
+PR #383 at 7b4ca5b passes all 14 checks and merged normally as 965c7bc. The
+owner separately approved refreshed snapshot a07ee544… and explicitly requested
+native sign-in verification and its six-call execution. Both sign-ins pass under
+the exact captured environment; the signed-installed snapshot case completes
+six turns, three/admitted provider, with zero uncertain attempts or operator
+retry/repair/fallback. Selected memory, cold resume, stale-memory pre-dispatch
+refusal, refresh and zero-call off persistence pass. Both new usage scopes exhaust,
+all 419 runtime files still match e6b1d75, and prior SQLite receipts remain unchanged.
+
+The [both-store review](RC17_SNAPSHOT_MEMORY_QUALIFICATION_REVIEW.md) admits twelve
+completed native invocations across separate SQLite/snapshot cases on macOS 15.1
+arm64/UID 501. Each request has its own pinned environment and authority; no
+single-environment equivalence or independent-evaluation claim follows. Full
+memory-enabled coding, actual memory-off outbound requests/default/tool-descendant
+egress, remote OS/native-auth/containment, API/direct review and other privacy
+composition remain open. The owner Mac's console route is reachable but guest
+identity/access is not yet verified; Linux/WSL2 targets remain unavailable.
+R16-02 and publication remain separate.
