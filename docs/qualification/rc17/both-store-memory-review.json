@@ -1,0 +1,41 @@
+{
+  "api_fallback": false,
+  "application_dispatches": 12,
+  "candidate_source": "e6b1d75cc4140b7fb31c4a7a36fcdaf931c8f481",
+  "candidate_version": "0.1.0-rc.17",
+  "case_reviews": [
+    {
+      "backend": "sqlite",
+      "completed_dispatches": 6,
+      "file": "sqlite-memory-live-review.json",
+      "request_sha256": "8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39",
+      "review_sha256": "2c6355cd7f9107c2647de0df980a0bd1b9cad958e301a4a84ac4fe9fc2c66ca4"
+    },
+    {
+      "backend": "snapshot",
+      "completed_dispatches": 6,
+      "file": "snapshot-memory-live-review.json",
+      "request_sha256": "a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a",
+      "review_sha256": "c7954a2f5e699674256307280657d93028e52becf6c157cc9df4ddd2c5a3241e"
+    }
+  ],
+  "completed_dispatches": 12,
+  "environment_binding": "separately pinned per request; not represented as a single identical environment",
+  "evaluation_eligibility_claim": false,
+  "fresh_memory_off_request_or_default_egress_qualified": false,
+  "full_coding_workflow_qualified": false,
+  "host": "macOS 15.1 arm64",
+  "independent_evaluation_samples_claimed": false,
+  "native_billing_verified": false,
+  "native_internal_retries_verified": false,
+  "operator_retries": 0,
+  "owner_uid": 501,
+  "publication_authorized": false,
+  "remote_platforms_qualified": false,
+  "response_repairs": 0,
+  "schema_version": 1,
+  "status": "both_local_backends_pass_scoped_live_memory",
+  "uncertain_attempts": 0,
+  "usage_scopes_created": 4,
+  "usage_scopes_exhausted": 4
+}

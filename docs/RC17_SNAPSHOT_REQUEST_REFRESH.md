@@ -1,7 +1,9 @@
 # rc.17 snapshot request refresh and target-access review
 
-Status: **prepared, not authorized or executed**. Owner: Joshua Myers; operator:
-Codex. Date: 2026-11-11 owner local time. Publication remains separate.
+Current disposition: **separately approved and completed once**, as recorded in
+the [live review](RC17_SNAPSHOT_MEMORY_QUALIFICATION_REVIEW.md). The sections below
+retain the original non-authorizing preparation/refresh findings. Owner: Joshua
+Myers; operator: Codex. Publication remains separate.
 
 PR #382 at `b6ce5e6a985b907862def86426740df0288c2874` passes all 14 exact-head
 checks after its original source/package runs finish. Owner-directed review finds

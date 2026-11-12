@@ -18,16 +18,17 @@
     "per_case_grant_lifetime_seconds": 3600,
     "response_repairs": 0
   },
+  "live_review": "snapshot-memory-live-review.json",
   "mode": "engineering_qualification_request_not_authority",
   "native_environment_file_sha256": "5d273b8e33dbb8d8e5dec95d74c8aa93d2cb0b7d08a78d3aa24582316418f8ea",
   "native_environment_sha256": "b68d2414d6dab1057595eb1b50287d0960e82c5f28b87a226007d9c2211c28af",
   "offline_rehearsal": "passed_six_fake_dispatches",
-  "owner_authorization_received": false,
+  "owner_authorization_received": true,
   "owner_uid": 501,
   "preparation_review_sha256": "b52585e9c0ff6c18aa3fef2867f557d0eb720096332afbe3ac032c69e1967e17",
-  "provider_calls": 0,
+  "provider_calls": 6,
   "publication_authorized": false,
-  "real_live_grants_created": 0,
+  "real_live_grants_created": 2,
   "refresh_reason": "native environment fingerprint drift; candidate/controller/client/owner/OS unchanged",
   "request_id": "R17-MEM-SNAPSHOT-5cd0735813d9",
   "request_sha256": "a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a",
@@ -47,6 +48,7 @@
       "provider": "anthropic_subscription"
     }
   ],
+  "subsequent_disposition": "separately_approved_completed_once_no_replay",
   "superseded_request_sha256": "78f547c499e86c996ac9aa40b34988787615f969801b2e436c335294d6627365",
   "tools": []
 }

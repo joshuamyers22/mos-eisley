@@ -1,8 +1,9 @@
 # Fresh rc.17 qualification requests
 
-Status: **SQLite memory case completed once and passed**; snapshot and remote
-cases remain separately gated. Owner: Joshua Myers. Original preparation was
-non-authorizing; see the [live result](RC17_SQLITE_MEMORY_QUALIFICATION_REVIEW.md).
+Status: **SQLite and refreshed snapshot memory cases each completed once and
+passed**, under separate owner authorizations. Remote and other profiles remain
+separately gated. Owner: Joshua Myers. Original preparation was non-authorizing;
+see the [both-store live result](RC17_SNAPSHOT_MEMORY_QUALIFICATION_REVIEW.md).
 Prepared after the owner-directed review and normal merge of PR #380 at
 `07fb528235ded409ba6dd0cd729545bae541fad2`, merge
 `a5ab37a38bf8b82fe4f6af8e1c18ef0a4e4b163c` (2026-11-11 01:00:32 UTC).
@@ -27,7 +28,7 @@ privacy campaign remains historical and scoped; rc.17 adds affected signed legac
 replay qualification. General R16-02 and other v1 readiness rows remain open.
 The unapproved rc.16 six-call proposal is superseded for this task and never run.
 
-## First available owner host: bounded memory requests
+## Completed local memory cases
 
 Observed during this preparation: local macOS **15.1 arm64**, actual UID **501**.
 A private prefix installs the enrolled signed rc.17 candidate from retained assets;
@@ -37,10 +38,10 @@ native entrypoint SHA
 The install has update checks disabled; no owner default executable is replaced.
 This installation is provider-free, and does not assert fresh native sign-in.
 
-| Request | Backend | Fresh request-file SHA-256 | Proposed maximum |
+| Completed request | Backend | Immutable request-file SHA-256 | Disposition |
 | --- | --- | --- | --- |
-| `R17-MEM-SNAPSHOT-5cd0735813d9` | snapshot | `a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a` | 6 dispatches |
-| `R17-MEM-SQLITE-f55e7244af4d` | SQLite | `8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39` | 6 dispatches |
+| `R17-MEM-SNAPSHOT-5cd0735813d9` | snapshot | `a07ee544d60d6bec819df15f85981e590160ae7a0be15d6d5de36c2b0f9df40a` | 6/6 completed; scopes exhausted |
+| `R17-MEM-SQLITE-f55e7244af4d` | SQLite | `8bb663fde38ba51bce35ac4fef5b6bfa87844f49f69e046157c9d9a56687ab39` | 6/6 completed; scopes exhausted |
 
 Each request has two fresh cases, independent session IDs/workspaces/usage roots,
 three invocations per provider, and new synthetic user/project identifiers. The
@@ -77,11 +78,11 @@ earlier campaign/owner deadline and never more than one hour after approval. No 
 retry, response repair, fallback, profile change or uncertain-call replay. These
 are invocation/data/time limits, **not a precise subscription USD cap**: owner
 consent must explicitly accept unverified native-client billing/internal retries.
-The current owner instruction authorized choosing and executing one of these
-prepared cases under its disclosed terms. The operator selected SQLite; its six
-calls completed and both usage scopes are exhausted. That authority is consumed.
-Snapshot did not run, and this selection supplies it no approval. Neither case
-automatically starts or replays the other.
+At the earlier SQLite phase, the owner permitted choosing one prepared case;
+the operator selected SQLite and exhausted that authority. It did not authorize
+snapshot. The refreshed snapshot later completed under a new specific owner
+approval. Both cases are now closed; neither automatically starts or replays the
+other, and neither grants another live case.
 
 Before execution: verify unchanged packet/controller/candidate/client/environment,
 actual owner/OS/workspace, current client-owned subscription readiness, and a fresh
@@ -173,3 +174,21 @@ are published. Its fake-only rehearsal and new fixture identifiers/saved attempt
 verify, with no new real grants or provider calls. Fresh client-owned native
 readiness and exact-case owner data-transfer/subscription-billing consent remain
 required. See the [refresh and access review](RC17_SNAPSHOT_REQUEST_REFRESH.md).
+
+## Refreshed snapshot execution closeout
+
+PR #383 at 7b4ca5b passes all 14 checks and merged normally as 965c7bc. The
+current owner separately approved exact refreshed request a07ee544… and requested
+execution. Fresh installed-native sign-in checks pass under its captured pinned
+environment. Six snapshot turns complete, three/provider, with no uncertainty,
+operator retry, repair, API fallback or SQLite replay. All usage/native receipts
+and 419 frozen runtime files verify; both new scopes exhaust. Snapshot and SQLite
+therefore supply twelve completed native invocations for their narrowly scoped
+local memory cases, not a full workflow/privacy/platform or billing guarantee.
+See the [scoped snapshot/both-store review](RC17_SNAPSHOT_MEMORY_QUALIFICATION_REVIEW.md).
+
+A VNC/Screen Sharing console is now reachable for the owner-overlay Mac candidate
+and opened locally for owner authentication; SSH is refused. Architecture/user
+and guest readiness remain unverified. Local VM registrations remain invalid;
+no actual Linux/WSL2 owner login routes were supplied. Final remote packets stay
+unbound; no more live case or publication is authorized by these closed scopes.
