@@ -136,7 +136,7 @@ jobs:
         run: uv run --frozen python -m tools.publish_app_release preflight --repo "$GITHUB_REPOSITORY" --tag v0.1.0-rc.16 --commit 14eb79d52950f340aba159815222e04e6ea864e3 --artifacts dist/admitted
       - name: Create draft and upload exact admitted assets
         id: draft
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3
         with:
           tag_name: v0.1.0-rc.16
           target_commitish: 14eb79d52950f340aba159815222e04e6ea864e3
